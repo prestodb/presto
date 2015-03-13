@@ -22,7 +22,7 @@ import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
+import static com.facebook.presto.type.TypeUtils.readMapBlocks;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class MapUnnester
@@ -30,7 +30,8 @@ public class MapUnnester
 {
     private final Type keyType;
     private final Type valueType;
-    private final Block block;
+    private final Block keyBlock;
+    private final Block valueBlock;
     private final int channelCount;
 
     private int position;
@@ -44,12 +45,15 @@ public class MapUnnester
         this.valueType = mapType.getValueType();
 
         if (slice == null) {
-            block = null;
+            keyBlock = null;
+            valueBlock = null;
             positionCount = 0;
         }
         else {
-            block = readStructuralBlock(slice);
-            positionCount = block.getPositionCount();
+            Block[] blocks = readMapBlocks(mapType.getKeyType(), mapType.getValueType(), slice);
+            keyBlock = blocks[0];
+            valueBlock = blocks[1];
+            positionCount = keyBlock.getPositionCount();
         }
     }
 
@@ -57,8 +61,9 @@ public class MapUnnester
     {
         BlockBuilder keyBlockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset);
         BlockBuilder valueBlockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset + 1);
-        keyType.appendTo(block, position++, keyBlockBuilder);
-        valueType.appendTo(block, position++, valueBlockBuilder);
+        keyType.appendTo(keyBlock, position, keyBlockBuilder);
+        valueType.appendTo(valueBlock, position, valueBlockBuilder);
+        position++;
     }
 
     @Override

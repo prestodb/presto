@@ -24,9 +24,9 @@ import com.facebook.presto.orc.metadata.StripeStatistics;
 import com.facebook.presto.orc.reader.StreamReader;
 import com.facebook.presto.orc.reader.StreamReaders;
 import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import org.joda.time.DateTimeZone;
 
@@ -34,7 +34,6 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -47,7 +46,7 @@ public class OrcRecordReader
 
     private final long totalRowCount;
     private final long splitLength;
-    private final Set<Integer> presentColumns;
+    private final Map<Integer, Type> presentColumns;
     private long currentPosition;
 
     private final List<StripeInformation> stripes;
@@ -59,7 +58,7 @@ public class OrcRecordReader
     private long nextRowInGroup;
 
     public OrcRecordReader(
-            Set<Integer> includedColumns,
+            Map<Integer, Type> includedColumns,
             OrcPredicate predicate,
             long numberOfRows,
             List<StripeInformation> fileStripes,
@@ -86,13 +85,13 @@ public class OrcRecordReader
         checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
 
         // reduce the included columns to the set that is also present
-        ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
+        ImmutableMap.Builder<Integer, Type> presentColumns = ImmutableMap.builder();
         OrcType root = types.get(0);
-        for (int includedColumn : includedColumns) {
+        for (int includedColumn : includedColumns.keySet()) {
             // an old file can have less columns since columns can be added
             // after the file was written
             if (includedColumn < root.getFieldCount()) {
-                presentColumns.add(includedColumn);
+                presentColumns.put(includedColumn, includedColumns.get(includedColumn));
             }
         }
         this.presentColumns = presentColumns.build();
@@ -123,7 +122,7 @@ public class OrcRecordReader
                 compressionKind,
                 types,
                 bufferSize,
-                this.presentColumns,
+                this.presentColumns.keySet(),
                 rowsInRowGroup,
                 predicate,
                 metadataReader);
@@ -180,7 +179,7 @@ public class OrcRecordReader
 
     public boolean isColumnPresent(int hiveColumnIndex)
     {
-        return presentColumns.contains(hiveColumnIndex);
+        return presentColumns.containsKey(hiveColumnIndex);
     }
 
     public int nextBatch()
@@ -270,16 +269,16 @@ public class OrcRecordReader
     private static StreamReader[] createStreamReaders(OrcDataSource orcDataSource,
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
-            Set<Integer> includedColumns)
+            Map<Integer, Type> includedColumns)
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
 
         OrcType rowType = types.get(0);
         StreamReader[] streamReaders = new StreamReader[rowType.getFieldCount()];
         for (int columnId = 0; columnId < rowType.getFieldCount(); columnId++) {
-            if (includedColumns.contains(columnId)) {
+            if (includedColumns.containsKey(columnId)) {
                 StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
-                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone);
+                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone, includedColumns.get(columnId));
             }
         }
         return streamReaders;

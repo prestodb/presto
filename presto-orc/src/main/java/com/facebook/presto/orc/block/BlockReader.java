@@ -38,5 +38,5 @@ public interface BlockReader
     default Slice toSlice()
     {
         throw new UnsupportedOperationException();
-    };
+    }
 }

@@ -18,6 +18,7 @@ import com.facebook.presto.hive.rcfile.RcFilePageSource.RcFileColumnsBatch;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.LazyFixedWidthBlock;
 import com.facebook.presto.spi.block.LazySliceArrayBlock;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -60,12 +61,10 @@ public class RcTextBlockLoader
         implements RcFileBlockLoader
 {
     private final DateTimeZone hiveStorageTimeZone;
-    private final DateTimeZone sessionTimeZone;
 
-    public RcTextBlockLoader(DateTimeZone hiveStorageTimeZone, DateTimeZone sessionTimeZone)
+    public RcTextBlockLoader(DateTimeZone hiveStorageTimeZone)
     {
         this.hiveStorageTimeZone = hiveStorageTimeZone;
-        this.sessionTimeZone = sessionTimeZone;
     }
 
     @Override
@@ -90,7 +89,7 @@ public class RcTextBlockLoader
     }
 
     @Override
-    public LazyBlockLoader<LazySliceArrayBlock> variableWidthBlockLoader(RcFileColumnsBatch batch, int fieldId, HiveType hiveType, ObjectInspector fieldInspector)
+    public LazyBlockLoader<LazySliceArrayBlock> variableWidthBlockLoader(RcFileColumnsBatch batch, int fieldId, HiveType hiveType, ObjectInspector fieldInspector, Type type)
     {
         if (HIVE_STRING.equals(hiveType)) {
             return new LazyStringBlockLoader(batch, fieldId);
@@ -99,7 +98,7 @@ public class RcTextBlockLoader
             return new LazyBinaryBlockLoader(batch, fieldId);
         }
         if (isStructuralType(hiveType)) {
-            return new LazyJsonSliceBlockLoader(batch, fieldId, fieldInspector, sessionTimeZone);
+            return new LazyJsonSliceBlockLoader(batch, fieldId, fieldInspector, type);
         }
         throw new UnsupportedOperationException("Unsupported column type: " + hiveType);
     }
@@ -486,15 +485,15 @@ public class RcTextBlockLoader
         private final RcFileColumnsBatch batch;
         private final int fieldId;
         private final ObjectInspector fieldInspector;
-        private final DateTimeZone sessionTimeZone;
+        private final Type type;
         private boolean loaded;
 
-        private LazyJsonSliceBlockLoader(RcFileColumnsBatch batch, int fieldId, ObjectInspector fieldInspector, DateTimeZone sessionTimeZone)
+        private LazyJsonSliceBlockLoader(RcFileColumnsBatch batch, int fieldId, ObjectInspector fieldInspector, Type type)
         {
             this.batch = batch;
             this.fieldId = fieldId;
             this.fieldInspector = fieldInspector;
-            this.sessionTimeZone = sessionTimeZone;
+            this.type = type;
         }
 
         @Override
@@ -522,7 +521,7 @@ public class RcTextBlockLoader
                         ByteArrayRef byteArrayRef = new ByteArrayRef();
                         byteArrayRef.setData(bytes);
                         lazyObject.init(byteArrayRef, start, length);
-                        vector[i] = getBlockSlice(sessionTimeZone, lazyObject.getObject(), fieldInspector);
+                        vector[i] = getBlockSlice(lazyObject.getObject(), fieldInspector, type);
                     }
                 }
 

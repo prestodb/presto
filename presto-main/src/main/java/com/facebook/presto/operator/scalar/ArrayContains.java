@@ -32,7 +32,7 @@ import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.createBlock;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
+import static com.facebook.presto.type.TypeUtils.readArrayBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class ArrayContains
@@ -81,7 +81,7 @@ public final class ArrayContains
 
     public static boolean contains(Type type, Slice slice, Slice value)
     {
-        Block arrayBlock = readStructuralBlock(slice);
+        Block arrayBlock = readArrayBlock(type, slice);
         Block valueBlock = createBlock(type, value);
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             if (type.equalTo(arrayBlock, i, valueBlock, 0)) {
@@ -93,7 +93,7 @@ public final class ArrayContains
 
     public static boolean contains(Type type, Slice slice, long value)
     {
-        Block arrayBlock = readStructuralBlock(slice);
+        Block arrayBlock = readArrayBlock(type, slice);
         Block valueBlock = createBlock(type, value);
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             if (type.equalTo(arrayBlock, i, valueBlock, 0)) {
@@ -105,7 +105,7 @@ public final class ArrayContains
 
     public static boolean contains(Type type, Slice slice, boolean value)
     {
-        Block arrayBlock = readStructuralBlock(slice);
+        Block arrayBlock = readArrayBlock(type, slice);
         Block valueBlock = createBlock(type, value);
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             if (type.equalTo(arrayBlock, i, valueBlock, 0)) {
@@ -117,7 +117,7 @@ public final class ArrayContains
 
     public static boolean contains(Type type, Slice slice, double value)
     {
-        Block arrayBlock = readStructuralBlock(slice);
+        Block arrayBlock = readArrayBlock(type, slice);
         Block valueBlock = createBlock(type, value);
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             if (type.equalTo(arrayBlock, i, valueBlock, 0)) {

@@ -15,7 +15,9 @@ package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 
 public abstract class AbstractVariableWidthType
         extends AbstractType
@@ -38,5 +40,11 @@ public abstract class AbstractVariableWidthType
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return createBlockBuilder(blockBuilderStatus, expectedEntries, EXPECTED_BYTES_PER_ENTRY);
+    }
+
+    @Override
+    public BlockEncoding getEncoding()
+    {
+        return new VariableWidthBlockEncoding();
     }
 }

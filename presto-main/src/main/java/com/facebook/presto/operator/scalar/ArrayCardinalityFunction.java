@@ -27,9 +27,9 @@ import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.facebook.presto.type.TypeUtils.readArrayBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -38,7 +38,7 @@ public final class ArrayCardinalityFunction
 {
     public static final ArrayCardinalityFunction ARRAY_CARDINALITY = new ArrayCardinalityFunction();
     private static final Signature SIGNATURE = new Signature("cardinality", ImmutableList.of(typeParameter("E")), "bigint", ImmutableList.of("array<E>"), false, false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayCardinalityFunction.class, "arrayLength", Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayCardinalityFunction.class, "arrayLength", Type.class, Slice.class);
 
     @Override
     public Signature getSignature()
@@ -69,11 +69,12 @@ public final class ArrayCardinalityFunction
     {
         checkArgument(types.size() == 1, "Cardinality expects only one argument");
         Type type = types.get("E");
-        return new FunctionInfo(new Signature("cardinality", parseTypeSignature(StandardTypes.BIGINT), parameterizedTypeName("array", type.getTypeSignature())), "Returns the cardinality (length) of the array", false, METHOD_HANDLE, true, false, ImmutableList.of(false));
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(type);
+        return new FunctionInfo(new Signature("cardinality", parseTypeSignature(StandardTypes.BIGINT), parameterizedTypeName("array", type.getTypeSignature())), "Returns the cardinality (length) of the array", false, methodHandle, true, false, ImmutableList.of(false));
     }
 
-    public static long arrayLength(Slice slice)
+    public static long arrayLength(Type type, Slice slice)
     {
-        return (long) readStructuralBlock(slice).getPositionCount();
+        return (long) readArrayBlock(type, slice).getPositionCount();
     }
 }

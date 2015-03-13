@@ -30,6 +30,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 
 import java.util.Arrays;
@@ -125,7 +126,7 @@ public final class TypeUtils
 
     public static Block createBlock(Type type, Object element)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, EXPECTED_ARRAY_SIZE);
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
         appendToBlockBuilder(type, element, blockBuilder);
         return blockBuilder.build();
     }
@@ -139,7 +140,7 @@ public final class TypeUtils
         // TODO: This should be removed. Functions that rely on this functionality should
         // be doing the conversion themselves.
         else if (type.getTypeSignature().getBase().equals(StandardTypes.ARRAY) && element instanceof Iterable<?>) {
-            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), EXPECTED_ARRAY_SIZE);
+            BlockBuilder subBlockBuilder = type.getTypeParameters().get(0).createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ARRAY_SIZE);
             for (Object subElement : (Iterable<?>) element) {
                 appendToBlockBuilder(type.getTypeParameters().get(0), subElement, subBlockBuilder);
             }
@@ -155,12 +156,13 @@ public final class TypeUtils
             type.writeSlice(blockBuilder, buildStructuralSlice(subBlockBuilder));
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.MAP) && element instanceof Map<?, ?>) {
-            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), EXPECTED_ARRAY_SIZE);
+            BlockBuilder keyBlockBuilder = type.getTypeParameters().get(0).createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ARRAY_SIZE);
+            BlockBuilder valueBlockBuilder = type.getTypeParameters().get(1).createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ARRAY_SIZE);
             for (Map.Entry<?, ?> entry : ((Map<?, ?>) element).entrySet()) {
-                appendToBlockBuilder(type.getTypeParameters().get(0), entry.getKey(), subBlockBuilder);
-                appendToBlockBuilder(type.getTypeParameters().get(1), entry.getValue(), subBlockBuilder);
+                appendToBlockBuilder(type.getTypeParameters().get(0), entry.getKey(), keyBlockBuilder);
+                appendToBlockBuilder(type.getTypeParameters().get(1), entry.getValue(), valueBlockBuilder);
             }
-            type.writeSlice(blockBuilder, buildStructuralSlice(subBlockBuilder));
+            type.writeSlice(blockBuilder, buildMapSlice(keyBlockBuilder, valueBlockBuilder));
         }
 
         else if (javaType == boolean.class) {
@@ -214,15 +216,56 @@ public final class TypeUtils
 
     public static Slice buildStructuralSlice(BlockBuilder builder)
     {
-        BlockEncoding encoding = builder.getEncoding();
-        Block block = builder.build();
+        return buildStructuralSlice(builder.build());
+    }
+
+    public static Slice buildStructuralSlice(Block block)
+    {
+        BlockEncoding encoding = block.getEncoding();
         DynamicSliceOutput output = new DynamicSliceOutput(encoding.getEstimatedSize(block));
         encoding.writeBlock(output, block);
 
         return output.slice();
     }
 
-    public static Block readStructuralBlock(Slice slice)
+    public static Slice buildMapSlice(BlockBuilder keyBuilder, BlockBuilder valueBuilder)
+    {
+        return buildMapSlice(keyBuilder.build(), valueBuilder.build());
+    }
+
+    public static Slice buildMapSlice(Block keyBlock, Block valueBlock)
+    {
+        if (keyBlock.getPositionCount() != valueBlock.getPositionCount()) {
+            throw new IllegalArgumentException("Key and value Blocks must have the same positionCount");
+        }
+
+        BlockEncoding keyEncoding = keyBlock.getEncoding();
+        BlockEncoding valueEncoding = valueBlock.getEncoding();
+
+        DynamicSliceOutput output = new DynamicSliceOutput(keyEncoding.getEstimatedSize(keyBlock) + valueEncoding.getEstimatedSize(valueBlock));
+
+        keyEncoding.writeBlock(output, keyBlock);
+        valueEncoding.writeBlock(output, valueBlock);
+
+        return output.slice();
+    }
+
+    public static Block readArrayBlock(Type type, Slice slice)
+    {
+        return type.getEncoding().readBlock(slice.getInput());
+    }
+
+    public static Block[] readMapBlocks(Type keyType, Type valueType, Slice slice)
+    {
+        Block[] blocks = new Block[2];
+        SliceInput input = slice.getInput();
+        blocks[0] = keyType.getEncoding().readBlock(input);
+        blocks[1] = valueType.getEncoding().readBlock(input);
+
+        return blocks;
+    }
+
+    public static Block readRowBlock(Slice slice)
     {
         return new VariableWidthBlockEncoding().readBlock(slice.getInput());
     }

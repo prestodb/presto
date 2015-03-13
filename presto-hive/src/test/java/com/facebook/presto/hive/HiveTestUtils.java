@@ -31,6 +31,7 @@ import io.airlift.slice.Slice;
 import java.util.List;
 
 import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
+import static com.facebook.presto.type.TypeUtils.buildMapSlice;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 
 public final class HiveTestUtils
@@ -67,24 +68,29 @@ public final class HiveTestUtils
 
     public static Slice arraySliceOf(Type elementType, Object... values)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), values.length);
         for (Object value : values) {
             appendToBlockBuilder(elementType, value, blockBuilder);
         }
         return buildStructuralSlice(blockBuilder);
     }
 
-    public static Slice mapSliceOf(Type keyType, Type valueType, Object key, Object value)
+    public static Slice mapSliceOf(Type keyType, Type valueType, Object... values)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
-        appendToBlockBuilder(keyType, key, blockBuilder);
-        appendToBlockBuilder(valueType, value, blockBuilder);
-        return buildStructuralSlice(blockBuilder);
+        BlockBuilder keyBuilder = keyType.createBlockBuilder(new BlockBuilderStatus(), values.length);
+        BlockBuilder valueBuilder = valueType.createBlockBuilder(new BlockBuilderStatus(), values.length);
+
+        for (int i = 0; i < values.length; i += 2) {
+            appendToBlockBuilder(keyType, values[i], keyBuilder);
+            appendToBlockBuilder(valueType, values[i + 1], valueBuilder);
+        }
+
+        return buildMapSlice(keyBuilder, valueBuilder);
     }
 
     public static Slice rowSliceOf(List<Type> parameterTypes, Object... values)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), values.length);
         for (int i = 0; i < values.length; i++) {
             appendToBlockBuilder(parameterTypes.get(i), values[i], blockBuilder);
         }

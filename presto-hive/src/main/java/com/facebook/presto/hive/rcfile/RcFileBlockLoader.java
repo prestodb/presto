@@ -18,11 +18,12 @@ import com.facebook.presto.hive.rcfile.RcFilePageSource.RcFileColumnsBatch;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.LazyFixedWidthBlock;
 import com.facebook.presto.spi.block.LazySliceArrayBlock;
+import com.facebook.presto.spi.type.Type;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 
 public interface RcFileBlockLoader
 {
     LazyBlockLoader<LazyFixedWidthBlock> fixedWidthBlockLoader(RcFileColumnsBatch batch, int fieldId, HiveType hiveType);
 
-    LazyBlockLoader<LazySliceArrayBlock> variableWidthBlockLoader(RcFileColumnsBatch batch, int fieldId, HiveType hiveType, ObjectInspector fieldInspector);
+    LazyBlockLoader<LazySliceArrayBlock> variableWidthBlockLoader(RcFileColumnsBatch batch, int fieldId, HiveType hiveType, ObjectInspector fieldInspector, Type type);
 }

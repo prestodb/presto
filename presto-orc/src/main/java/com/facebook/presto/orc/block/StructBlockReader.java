@@ -19,6 +19,7 @@ import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
@@ -29,7 +30,6 @@ import java.util.List;
 
 import static com.facebook.presto.orc.block.BlockReaders.createBlockReader;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -40,21 +40,25 @@ public class StructBlockReader
 
     private final StreamDescriptor streamDescriptor;
     private final boolean checkForNulls;
+    private final Type type;
     private final BlockReader[] structFields;
 
     @Nullable
     private BooleanStream presentStream;
 
-    public StructBlockReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone)
+    private BlockBuilder currentBuilder;
+
+    public StructBlockReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone, Type type)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
         this.checkForNulls = checkForNulls;
+        this.type = checkNotNull(type, "type is null");
 
         List<StreamDescriptor> nestedStreams = streamDescriptor.getNestedStreams();
         this.structFields = new BlockReader[nestedStreams.size()];
         for (int i = 0; i < nestedStreams.size(); i++) {
             StreamDescriptor nestedStream = nestedStreams.get(i);
-            this.structFields[i] = createBlockReader(nestedStream, true, hiveStorageTimeZone);
+            this.structFields[i] = createBlockReader(nestedStream, true, hiveStorageTimeZone, type.getTypeParameters().get(i));
         }
     }
 
@@ -69,7 +73,7 @@ public class StructBlockReader
             return;
         }
 
-        BlockBuilder currentBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), structFields.length);
+        currentBuilder = type.createBlockBuilder(new BlockBuilderStatus(), structFields.length);
         for (BlockReader structField : structFields) {
             structField.readNextValueInto(currentBuilder);
         }
@@ -77,7 +81,7 @@ public class StructBlockReader
         currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
 
         if (builder != null) {
-            VARBINARY.writeSlice(builder, out.copySlice());
+            type.writeSlice(builder, out.copySlice());
         }
     }
 

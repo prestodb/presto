@@ -31,9 +31,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.type.TypeUtils.readMapBlocks;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -207,9 +207,9 @@ public final class ModelUtils
         Map<Integer, Double> features = new HashMap<>();
 
         if (map != Slices.EMPTY_SLICE) {
-            Block block = readStructuralBlock(map);
-            for (int position = 0; position < block.getPositionCount(); position += 2) {
-                features.put((int) BIGINT.getLong(block, position), DOUBLE.getDouble(block, position + 1));
+            Block[] blocks = readMapBlocks(BIGINT, DOUBLE, map);
+            for (int position = 0; position < blocks[0].getPositionCount(); position++) {
+                features.put((int) BIGINT.getLong(blocks[0], position), DOUBLE.getDouble(blocks[1], position));
             }
         }
         return new FeatureVector(features);

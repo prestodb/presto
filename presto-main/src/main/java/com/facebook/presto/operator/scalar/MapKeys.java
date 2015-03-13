@@ -18,9 +18,6 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -32,7 +29,7 @@ import java.util.Map;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
+import static com.facebook.presto.type.TypeUtils.readMapBlocks;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -41,7 +38,7 @@ public class MapKeys
 {
     public static final MapKeys MAP_KEYS = new MapKeys();
     private static final Signature SIGNATURE = new Signature("map_keys", ImmutableList.of(typeParameter("K"), typeParameter("V")), "array<K>", ImmutableList.of("map<K,V>"), false, false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapKeys.class, "getKeys", Type.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapKeys.class, "getKeys", Type.class, Type.class, Slice.class);
 
     @Override
     public Signature getSignature()
@@ -73,20 +70,16 @@ public class MapKeys
         checkArgument(arity == 1, "map_keys expects only one argument");
         Type keyType = types.get("K");
         Type valueType = types.get("V");
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(keyType);
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(keyType).bindTo(valueType);
         Signature signature = new Signature("map_keys",
                 parameterizedTypeName("array", keyType.getTypeSignature()),
                 parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature()));
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false));
     }
 
-    public static Slice getKeys(Type keyType, Slice map)
+    public static Slice getKeys(Type keyType, Type valueType, Slice map)
     {
-        Block block = readStructuralBlock(map);
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
-        for (int i = 0; i < block.getPositionCount(); i += 2) {
-            keyType.appendTo(block, i, blockBuilder);
-        }
-        return buildStructuralSlice(blockBuilder);
+        Block[] blocks = readMapBlocks(keyType, valueType, map);
+        return buildStructuralSlice(blocks[0]);
     }
 }

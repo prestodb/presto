@@ -16,7 +16,9 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
+import com.facebook.presto.spi.block.FixedWidthBlockEncoding;
 import io.airlift.slice.Slice;
 
 public abstract class AbstractFixedWidthType
@@ -59,5 +61,11 @@ public abstract class AbstractFixedWidthType
     public final Slice getSlice(Block block, int position)
     {
         return block.getSlice(position, 0, getFixedSize());
+    }
+
+    @Override
+    public BlockEncoding getEncoding()
+    {
+        return new FixedWidthBlockEncoding(fixedSize);
     }
 }

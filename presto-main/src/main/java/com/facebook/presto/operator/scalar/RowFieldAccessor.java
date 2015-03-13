@@ -30,8 +30,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.FunctionRegistry.mangleFieldAccessor;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.type.RowType.RowField;
+import static com.facebook.presto.type.TypeUtils.readRowBlock;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -104,21 +104,21 @@ public class RowFieldAccessor
 
     public static Long longAccessor(Type type, Integer field, Slice row)
     {
-        return type.getLong(readStructuralBlock(row), field);
+        return type.getLong(readRowBlock(row), field);
     }
 
     public static Boolean booleanAccessor(Type type, Integer field, Slice row)
     {
-        return type.getBoolean(readStructuralBlock(row), field);
+        return type.getBoolean(readRowBlock(row), field);
     }
 
     public static Double doubleAccessor(Type type, Integer field, Slice row)
     {
-        return type.getDouble(readStructuralBlock(row), field);
+        return type.getDouble(readRowBlock(row), field);
     }
 
     public static Slice sliceAccessor(Type type, Integer field, Slice row)
     {
-        return type.getSlice(readStructuralBlock(row), field);
+        return type.getSlice(readRowBlock(row), field);
     }
 }

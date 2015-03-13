@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.block;
 
 import com.facebook.presto.orc.StreamDescriptor;
+import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 public final class BlockReaders
@@ -25,7 +26,8 @@ public final class BlockReaders
     public static BlockReader createBlockReader(
             StreamDescriptor streamDescriptor,
             boolean checkForNulls,
-            DateTimeZone hiveStorageTimeZone)
+            DateTimeZone hiveStorageTimeZone,
+            Type type)
     {
         switch (streamDescriptor.getStreamType()) {
             case BOOLEAN:
@@ -48,11 +50,11 @@ public final class BlockReaders
             case DATE:
                 return new DateBlockReader(streamDescriptor);
             case STRUCT:
-                return new StructBlockReader(streamDescriptor, checkForNulls, hiveStorageTimeZone);
+                return new StructBlockReader(streamDescriptor, checkForNulls, hiveStorageTimeZone, type);
             case LIST:
-                return new ListBlockReader(streamDescriptor, checkForNulls, hiveStorageTimeZone);
+                return new ListBlockReader(streamDescriptor, checkForNulls, hiveStorageTimeZone, type);
             case MAP:
-                return new MapBlockReader(streamDescriptor, checkForNulls, hiveStorageTimeZone);
+                return new MapBlockReader(streamDescriptor, checkForNulls, hiveStorageTimeZone, type);
             case UNION:
             case DECIMAL:
             case VARCHAR:

@@ -15,12 +15,7 @@ package com.facebook.presto.hive.util;
 
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -53,36 +48,35 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class SerDeUtils
 {
     private SerDeUtils() {}
 
-    public static Slice getBlockSlice(DateTimeZone sessionTimeZone, Object object, ObjectInspector objectInspector)
+    public static Slice getBlockSlice(Object object, ObjectInspector objectInspector, Type type)
     {
-        return checkNotNull(serializeObject(sessionTimeZone, null, object, objectInspector), "serialized result is null");
+        return checkNotNull(serializeObject(null, object, objectInspector, type), "serialized result is null");
     }
 
     @VisibleForTesting
-    static Slice serializeObject(DateTimeZone sessionTimeZone, BlockBuilder builder, Object object, ObjectInspector inspector)
+    static Slice serializeObject(BlockBuilder builder, Object object, ObjectInspector inspector, Type type)
     {
         switch (inspector.getCategory()) {
             case PRIMITIVE:
-                serializePrimitive(sessionTimeZone, builder, object, (PrimitiveObjectInspector) inspector);
+                serializePrimitive(builder, object, (PrimitiveObjectInspector) inspector, type);
                 return null;
             case LIST:
-                return serializeList(sessionTimeZone, builder, object, (ListObjectInspector) inspector);
+                return serializeList(builder, object, (ListObjectInspector) inspector, type);
             case MAP:
-                return serializeMap(sessionTimeZone, builder, object, (MapObjectInspector) inspector);
+                return serializeMap(builder, object, (MapObjectInspector) inspector, type);
             case STRUCT:
-                return serializeStruct(sessionTimeZone, builder, object, (StructObjectInspector) inspector);
+                return serializeStruct(builder, object, (StructObjectInspector) inspector, type);
         }
         throw new RuntimeException("Unknown object inspector category: " + inspector.getCategory());
     }
 
-    private static void serializePrimitive(DateTimeZone sessionTimeZone, BlockBuilder builder, Object object, PrimitiveObjectInspector inspector)
+    private static void serializePrimitive(BlockBuilder builder, Object object, PrimitiveObjectInspector inspector, Type type)
     {
         checkNotNull(builder, "parent builder is null");
 
@@ -93,43 +87,43 @@ public final class SerDeUtils
 
         switch (inspector.getPrimitiveCategory()) {
             case BOOLEAN:
-                BooleanType.BOOLEAN.writeBoolean(builder, ((BooleanObjectInspector) inspector).get(object));
+                type.writeBoolean(builder, ((BooleanObjectInspector) inspector).get(object));
                 return;
             case BYTE:
-                BigintType.BIGINT.writeLong(builder, ((ByteObjectInspector) inspector).get(object));
+                type.writeLong(builder, ((ByteObjectInspector) inspector).get(object));
                 return;
             case SHORT:
-                BigintType.BIGINT.writeLong(builder, ((ShortObjectInspector) inspector).get(object));
+                type.writeLong(builder, ((ShortObjectInspector) inspector).get(object));
                 return;
             case INT:
-                BigintType.BIGINT.writeLong(builder, ((IntObjectInspector) inspector).get(object));
+                type.writeLong(builder, ((IntObjectInspector) inspector).get(object));
                 return;
             case LONG:
-                BigintType.BIGINT.writeLong(builder, ((LongObjectInspector) inspector).get(object));
+                type.writeLong(builder, ((LongObjectInspector) inspector).get(object));
                 return;
             case FLOAT:
-                DoubleType.DOUBLE.writeDouble(builder, ((FloatObjectInspector) inspector).get(object));
+                type.writeDouble(builder, ((FloatObjectInspector) inspector).get(object));
                 return;
             case DOUBLE:
-                DoubleType.DOUBLE.writeDouble(builder, ((DoubleObjectInspector) inspector).get(object));
+                type.writeDouble(builder, ((DoubleObjectInspector) inspector).get(object));
                 return;
             case STRING:
-                VarcharType.VARCHAR.writeSlice(builder, Slices.utf8Slice(((StringObjectInspector) inspector).getPrimitiveJavaObject(object)));
+                type.writeSlice(builder, Slices.utf8Slice(((StringObjectInspector) inspector).getPrimitiveJavaObject(object)));
                 return;
             case DATE:
-                DateType.DATE.writeLong(builder, formatDateAsLong(object, (DateObjectInspector) inspector));
+                type.writeLong(builder, formatDateAsLong(object, (DateObjectInspector) inspector));
                 return;
             case TIMESTAMP:
-                TimestampType.TIMESTAMP.writeLong(builder, formatTimestampAsLong(object, (TimestampObjectInspector) inspector));
+                type.writeLong(builder, formatTimestampAsLong(object, (TimestampObjectInspector) inspector));
                 return;
             case BINARY:
-                VARBINARY.writeSlice(builder, Slices.wrappedBuffer(((BinaryObjectInspector) inspector).getPrimitiveJavaObject(object)));
+                type.writeSlice(builder, Slices.wrappedBuffer(((BinaryObjectInspector) inspector).getPrimitiveJavaObject(object)));
                 return;
         }
         throw new RuntimeException("Unknown primitive type: " + inspector.getPrimitiveCategory());
     }
 
-    private static Slice serializeList(DateTimeZone sessionTimeZone, BlockBuilder builder, Object object, ListObjectInspector inspector)
+    private static Slice serializeList(BlockBuilder builder, Object object, ListObjectInspector inspector, Type type)
     {
         List<?> list = inspector.getList(object);
         if (list == null) {
@@ -138,23 +132,23 @@ public final class SerDeUtils
         }
 
         ObjectInspector elementInspector = inspector.getListElementObjectInspector();
-        BlockBuilder currentBuilder = createBlockBuilder();
+        BlockBuilder currentBuilder = createBlockBuilder(type.getTypeParameters().get(0), list.size());
 
         for (Object element : list) {
-            serializeObject(sessionTimeZone, currentBuilder, element, elementInspector);
+            serializeObject(currentBuilder, element, elementInspector, type.getTypeParameters().get(0));
         }
 
         SliceOutput out = new DynamicSliceOutput(1024);
         currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
 
         if (builder != null) {
-            VARBINARY.writeSlice(builder, out.slice());
+            type.writeSlice(builder, out.slice());
         }
 
         return out.slice();
     }
 
-    private static Slice serializeMap(DateTimeZone sessionTimeZone, BlockBuilder builder, Object object, MapObjectInspector inspector)
+    private static Slice serializeMap(BlockBuilder builder, Object object, MapObjectInspector inspector, Type type)
     {
         Map<?, ?> map = inspector.getMap(object);
         if (map == null) {
@@ -164,52 +158,56 @@ public final class SerDeUtils
 
         ObjectInspector keyInspector = inspector.getMapKeyObjectInspector();
         ObjectInspector valueInspector = inspector.getMapValueObjectInspector();
-        BlockBuilder currentBuilder = createBlockBuilder();
+        Type keyType = type.getTypeParameters().get(0);
+        Type valueType = type.getTypeParameters().get(1);
+        BlockBuilder keyBuilder = createBlockBuilder(keyType, map.size());
+        BlockBuilder valueBuilder = createBlockBuilder(valueType, map.size());
 
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             // Hive skips map entries with null keys
             if (entry.getKey() != null) {
-                serializeObject(sessionTimeZone, currentBuilder, entry.getKey(), keyInspector);
-                serializeObject(sessionTimeZone, currentBuilder, entry.getValue(), valueInspector);
+                serializeObject(keyBuilder, entry.getKey(), keyInspector, keyType);
+                serializeObject(valueBuilder, entry.getValue(), valueInspector, valueType);
             }
         }
 
         SliceOutput out = new DynamicSliceOutput(1024);
-        currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
+        keyType.getEncoding().writeBlock(out, keyBuilder.build());
+        valueType.getEncoding().writeBlock(out, valueBuilder.build());
 
         if (builder != null) {
-            VARBINARY.writeSlice(builder, out.slice());
+            type.writeSlice(builder, out.slice());
         }
 
         return out.slice();
     }
 
-    private static Slice serializeStruct(DateTimeZone sessionTimeZone, BlockBuilder builder, Object object, StructObjectInspector inspector)
+    private static Slice serializeStruct(BlockBuilder builder, Object object, StructObjectInspector inspector, Type type)
     {
         if (object == null) {
             checkNotNull(builder, "parent builder is null").appendNull();
             return null;
         }
 
-        BlockBuilder currentBuilder = createBlockBuilder();
+        BlockBuilder currentBuilder = createBlockBuilder(type, inspector.getAllStructFieldRefs().size());
+        int index = 0;
         for (StructField field : inspector.getAllStructFieldRefs()) {
-            serializeObject(sessionTimeZone, currentBuilder, inspector.getStructFieldData(object, field), field.getFieldObjectInspector());
+            serializeObject(currentBuilder, inspector.getStructFieldData(object, field), field.getFieldObjectInspector(), type.getTypeParameters().get(index++));
         }
 
         SliceOutput out = new DynamicSliceOutput(1024);
         currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
 
         if (builder != null) {
-            VARBINARY.writeSlice(builder, out.slice());
+            type.writeSlice(builder, out.slice());
         }
 
         return out.slice();
     }
 
-    private static BlockBuilder createBlockBuilder()
+    private static BlockBuilder createBlockBuilder(Type type, int size)
     {
-        // default BlockBuilderStatus could cause OOM at unit tests
-        return VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 100);
+        return type.createBlockBuilder(new BlockBuilderStatus(), size);
     }
 
     private static long formatDateAsLong(Object object, DateObjectInspector inspector)

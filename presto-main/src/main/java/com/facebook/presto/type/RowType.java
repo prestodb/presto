@@ -33,7 +33,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
+import static com.facebook.presto.type.TypeUtils.readRowBlock;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -88,7 +88,7 @@ public class RowType
         }
 
         Slice slice = getSlice(block, position);
-        Block arrayBlock = readStructuralBlock(slice);
+        Block arrayBlock = readRowBlock(slice);
         List<Object> values = Lists.newArrayListWithCapacity(arrayBlock.getPositionCount());
 
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
@@ -181,8 +181,8 @@ public class RowType
     {
         Slice leftSlice = getSlice(leftBlock, leftPosition);
         Slice rightSlice = getSlice(rightBlock, rightPosition);
-        Block leftArray = readStructuralBlock(leftSlice);
-        Block rightArray = readStructuralBlock(rightSlice);
+        Block leftArray = readRowBlock(leftSlice);
+        Block rightArray = readRowBlock(rightSlice);
 
         for (int i = 0; i < leftArray.getPositionCount(); i++) {
             checkElementNotNull(leftArray.isNull(i));
@@ -200,7 +200,7 @@ public class RowType
     public int hash(Block block, int position)
     {
         Slice value = getSlice(block, position);
-        Block arrayBlock = readStructuralBlock(value);
+        Block arrayBlock = readRowBlock(value);
         int result = 1;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             checkElementNotNull(arrayBlock.isNull(i));

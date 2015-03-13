@@ -53,7 +53,6 @@ public class GenericHiveRecordCursorProvider
                 partitionKeys,
                 columns,
                 hiveStorageTimeZone,
-                DateTimeZone.forID(session.getTimeZoneKey().getId()),
                 typeManager));
     }
 

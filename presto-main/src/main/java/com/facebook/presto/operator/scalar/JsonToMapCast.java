@@ -22,7 +22,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -71,7 +70,7 @@ public class JsonToMapCast
             if (map == null) {
                 return null;
             }
-            return toStackRepresentation((Map<?, ?>) map, ((MapType) mapType).getKeyType(), ((MapType) mapType).getValueType());
+            return toStackRepresentation((Map<?, ?>) map, mapType.getTypeParameters().get(0), mapType.getTypeParameters().get(1));
         }
         catch (RuntimeException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to " + mapType, e);

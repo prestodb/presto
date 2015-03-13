@@ -20,7 +20,6 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -34,9 +33,9 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.facebook.presto.type.TypeUtils.readArrayBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -87,7 +86,7 @@ public final class ArraySortFunction
 
     public static Slice sort(Type type, Slice encodedArray)
     {
-        Block block = readStructuralBlock(encodedArray);
+        Block block = readArrayBlock(type, encodedArray);
 
         List<Integer> positions = Ints.asList(new int[block.getPositionCount()]);
         for (int i = 0; i < block.getPositionCount(); i++) {
@@ -104,7 +103,7 @@ public final class ArraySortFunction
             }
         });
 
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
 
         for (int position : positions) {
             type.appendTo(block, position, blockBuilder);

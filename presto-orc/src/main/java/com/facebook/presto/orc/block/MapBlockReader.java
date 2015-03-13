@@ -21,6 +21,7 @@ import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -33,7 +34,6 @@ import java.util.List;
 import static com.facebook.presto.orc.block.BlockReaders.createBlockReader;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -44,22 +44,27 @@ public class MapBlockReader
 
     private final StreamDescriptor streamDescriptor;
     private final boolean checkForNulls;
+    private final Type type;
 
     private final BlockReader keyReader;
     private final BlockReader valueReader;
+
+    private BlockBuilder keyBuilder;
+    private BlockBuilder valueBuilder;
 
     @Nullable
     private BooleanStream presentStream;
     @Nullable
     private LongStream lengthStream;
 
-    public MapBlockReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone)
+    public MapBlockReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone, Type type)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
         this.checkForNulls = checkForNulls;
+        this.type = checkNotNull(type, "type is null");
 
-        keyReader = createBlockReader(streamDescriptor.getNestedStreams().get(0), true, hiveStorageTimeZone);
-        valueReader = createBlockReader(streamDescriptor.getNestedStreams().get(1), true, hiveStorageTimeZone);
+        keyReader = createBlockReader(streamDescriptor.getNestedStreams().get(0), true, hiveStorageTimeZone, type.getTypeParameters().get(0));
+        valueReader = createBlockReader(streamDescriptor.getNestedStreams().get(1), true, hiveStorageTimeZone, type.getTypeParameters().get(1));
     }
 
     @Override
@@ -78,16 +83,20 @@ public class MapBlockReader
         }
 
         long length = lengthStream.next();
-        BlockBuilder currentBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), Ints.checkedCast(length));
+
+        keyBuilder = type.getTypeParameters().get(0).createBlockBuilder(new BlockBuilderStatus(), Ints.checkedCast(length));
+        valueBuilder = type.getTypeParameters().get(1).createBlockBuilder(new BlockBuilderStatus(), Ints.checkedCast(length));
+
         for (int i = 0; i < length; i++) {
-            keyReader.readNextValueInto(currentBuilder);
-            valueReader.readNextValueInto(currentBuilder);
+            keyReader.readNextValueInto(keyBuilder);
+            valueReader.readNextValueInto(valueBuilder);
         }
 
-        currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
+        keyBuilder.getEncoding().writeBlock(out, keyBuilder.build());
+        valueBuilder.getEncoding().writeBlock(out, valueBuilder.build());
 
         if (builder != null) {
-            VARBINARY.writeSlice(builder, out.copySlice());
+            type.writeSlice(builder, out.copySlice());
         }
     }
 

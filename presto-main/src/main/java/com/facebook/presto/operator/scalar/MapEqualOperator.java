@@ -34,9 +34,9 @@ import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.castValue;
+import static com.facebook.presto.type.TypeUtils.readMapBlocks;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class MapEqualOperator
@@ -70,17 +70,17 @@ public class MapEqualOperator
 
     public static Boolean equals(MethodHandle keyEqualsFunction, MethodHandle keyHashcodeFunction, MethodHandle valueEqualsFunction, Type keyType, Type valueType, Slice left, Slice right)
     {
-        Block leftMapBlock = readStructuralBlock(left);
-        Block rightMapBlock = readStructuralBlock(right);
+        Block[] leftMapBlocks = readMapBlocks(keyType, valueType, left);
+        Block[] rightMapBlocks = readMapBlocks(keyType, valueType, right);
 
         Map<KeyWrapper, Integer> wrappedLeftMap = new LinkedHashMap<>();
-        for (int position = 0; position < leftMapBlock.getPositionCount(); position += 2) {
-            wrappedLeftMap.put(new KeyWrapper(castValue(keyType, leftMapBlock, position), keyEqualsFunction, keyHashcodeFunction), position + 1);
+        for (int position = 0; position < leftMapBlocks[0].getPositionCount(); position++) {
+            wrappedLeftMap.put(new KeyWrapper(castValue(keyType, leftMapBlocks[0], position), keyEqualsFunction, keyHashcodeFunction), position);
         }
 
         Map<KeyWrapper, Integer> wrappedRightMap = new LinkedHashMap<>();
-        for (int position = 0; position < rightMapBlock.getPositionCount(); position += 2) {
-            wrappedRightMap.put(new KeyWrapper(castValue(keyType, rightMapBlock, position), keyEqualsFunction, keyHashcodeFunction), position + 1);
+        for (int position = 0; position < rightMapBlocks[0].getPositionCount(); position++) {
+            wrappedRightMap.put(new KeyWrapper(castValue(keyType, rightMapBlocks[0], position), keyEqualsFunction, keyHashcodeFunction), position);
         }
 
         if (wrappedLeftMap.size() != wrappedRightMap.size()) {
@@ -94,12 +94,12 @@ public class MapEqualOperator
                 return false;
             }
 
-            Object leftValue = castValue(valueType, leftMapBlock, leftValuePosition);
+            Object leftValue = castValue(valueType, leftMapBlocks[1], leftValuePosition);
             if (leftValue == null) {
                 return null;
             }
 
-            Object rightValue = castValue(valueType, rightMapBlock, entry.getValue());
+            Object rightValue = castValue(valueType, rightMapBlocks[1], entry.getValue());
             if (rightValue == null) {
                 return null;
             }

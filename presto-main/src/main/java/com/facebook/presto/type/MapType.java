@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.AbstractVariableWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -29,9 +28,9 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
-import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
+import static com.facebook.presto.type.TypeUtils.buildMapSlice;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
+import static com.facebook.presto.type.TypeUtils.readMapBlocks;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class MapType
@@ -50,12 +49,13 @@ public class MapType
 
     public static Slice toStackRepresentation(Map<?, ?> value, Type keyType, Type valueType)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
+        BlockBuilder keyBuilder = keyType.createBlockBuilder(new BlockBuilderStatus(), value.size());
+        BlockBuilder valueBuilder = valueType.createBlockBuilder(new BlockBuilderStatus(), value.size());
         for (Map.Entry<?, ?> entry : value.entrySet()) {
-            appendToBlockBuilder(keyType, entry.getKey(), blockBuilder);
-            appendToBlockBuilder(valueType, entry.getValue(), blockBuilder);
+            appendToBlockBuilder(keyType, entry.getKey(), keyBuilder);
+            appendToBlockBuilder(valueType, entry.getValue(), valueBuilder);
         }
-        return buildStructuralSlice(blockBuilder);
+        return buildMapSlice(keyBuilder, valueBuilder);
     }
 
     public Type getKeyType()
@@ -76,10 +76,10 @@ public class MapType
         }
 
         Slice slice = block.getSlice(position, 0, block.getLength(position));
-        Block mapBlock = readStructuralBlock(slice);
+        Block[] mapBlocks = readMapBlocks(keyType, valueType, slice);
         Map<Object, Object> map = new HashMap<>();
-        for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-            map.put(keyType.getObjectValue(session, mapBlock, i), valueType.getObjectValue(session, mapBlock, i + 1));
+        for (int i = 0; i < mapBlocks[0].getPositionCount(); i++) {
+            map.put(keyType.getObjectValue(session, mapBlocks[0], i), valueType.getObjectValue(session, mapBlocks[1], i));
         }
 
         return Collections.unmodifiableMap(map);

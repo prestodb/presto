@@ -28,6 +28,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.RowType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -64,6 +65,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
@@ -208,7 +210,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_struct_bigint",
                     getStandardStructObjectInspector(ImmutableList.of("s_bigint"), ImmutableList.of(javaLongObjectInspector)),
                     new Long[] {1L},
-                    arraySliceOf(BIGINT, 1)))
+                    rowSliceOf(ImmutableList.of(BIGINT), 1)))
             .add(new TestColumn("t_complex",
                     getStandardMapObjectInspector(
                             javaStringObjectInspector,
@@ -220,10 +222,11 @@ public abstract class AbstractTestHiveFileFormats
                             )
                     ),
                     ImmutableMap.of("test", ImmutableList.<Object>of(new Integer[] {1})),
-                    mapSliceOf(VARCHAR, new ArrayType(new ArrayType(BIGINT)), "test", arraySliceOf(new ArrayType(BIGINT), arraySliceOf(BIGINT, 1)))
+                    mapSliceOf(VARCHAR, new ArrayType(new RowType(ImmutableList.of(BIGINT), Optional.empty())),
+                            "test", arraySliceOf(new ArrayType(new RowType(ImmutableList.of(BIGINT), Optional.empty())), rowSliceOf(ImmutableList.of(BIGINT), 1)))
             ))
             .add(new TestColumn("t_struct_nested", getStandardStructObjectInspector(ImmutableList.of("struct_field"),
-                    ImmutableList.of(getStandardListObjectInspector(javaStringObjectInspector))), ImmutableList.of(ImmutableList.of("1", "2", "3")) , rowSliceOf(ImmutableList.of(new ArrayType(VARCHAR)), arraySliceOf(VARCHAR, "1", "2", "3"))))
+                    ImmutableList.of(getStandardListObjectInspector(javaStringObjectInspector))), ImmutableList.of(ImmutableList.of("1", "2", "3")), rowSliceOf(ImmutableList.of(new ArrayType(VARCHAR)), arraySliceOf(VARCHAR, "1", "2", "3"))))
             .add(new TestColumn("t_struct_null", getStandardStructObjectInspector(ImmutableList.of("struct_field", "struct_field2"),
                     ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)), Arrays.asList(null, null), rowSliceOf(ImmutableList.of(VARCHAR, VARCHAR), null, null)))
             .build();

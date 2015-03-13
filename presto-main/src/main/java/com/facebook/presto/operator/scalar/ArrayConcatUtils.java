@@ -16,12 +16,11 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
+import static com.facebook.presto.type.TypeUtils.readArrayBlock;
 
 public final class ArrayConcatUtils
 {
@@ -29,9 +28,9 @@ public final class ArrayConcatUtils
 
     public static Slice concat(Type elementType, Slice left, Slice right)
     {
-        Block leftBlock = readStructuralBlock(left);
-        Block rightBlock = readStructuralBlock(right);
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), leftBlock.getSizeInBytes() + rightBlock.getSizeInBytes());
+        Block leftBlock = readArrayBlock(elementType, left);
+        Block rightBlock = readArrayBlock(elementType, right);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), leftBlock.getPositionCount() + rightBlock.getPositionCount());
         for (int i = 0; i < leftBlock.getPositionCount(); i++) {
             elementType.appendTo(leftBlock, i, blockBuilder);
         }
@@ -43,8 +42,8 @@ public final class ArrayConcatUtils
 
     public static Slice appendElement(Type elementType, Slice in, long value)
     {
-        Block block = readStructuralBlock(in);
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+        Block block = readArrayBlock(elementType, in);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
         for (int i = 0; i < block.getPositionCount(); i++) {
             elementType.appendTo(block, i, blockBuilder);
         }
@@ -56,8 +55,8 @@ public final class ArrayConcatUtils
 
     public static Slice appendElement(Type elementType, Slice in, boolean value)
     {
-        Block block = readStructuralBlock(in);
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+        Block block = readArrayBlock(elementType, in);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
         for (int i = 0; i < block.getPositionCount(); i++) {
             elementType.appendTo(block, i, blockBuilder);
         }
@@ -69,8 +68,8 @@ public final class ArrayConcatUtils
 
     public static Slice appendElement(Type elementType, Slice in, double value)
     {
-        Block block = readStructuralBlock(in);
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+        Block block = readArrayBlock(elementType, in);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
         for (int i = 0; i < block.getPositionCount(); i++) {
             elementType.appendTo(block, i, blockBuilder);
         }
@@ -82,8 +81,8 @@ public final class ArrayConcatUtils
 
     public static Slice appendElement(Type elementType, Slice in, Slice value)
     {
-        Block block = readStructuralBlock(in);
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+        Block block = readArrayBlock(elementType, in);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
         for (int i = 0; i < block.getPositionCount(); i++) {
             elementType.appendTo(block, i, blockBuilder);
         }
@@ -95,8 +94,8 @@ public final class ArrayConcatUtils
 
     public static Slice prependElement(Type elementType, Slice value, Slice in)
     {
-        Block block = readStructuralBlock(in);
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+        Block block = readArrayBlock(elementType, in);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
 
         elementType.writeSlice(blockBuilder, value);
         for (int i = 0; i < block.getPositionCount(); i++) {
@@ -108,8 +107,8 @@ public final class ArrayConcatUtils
 
     public static Slice prependElement(Type elementType, long value, Slice in)
     {
-        Block block = readStructuralBlock(in);
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+        Block block = readArrayBlock(elementType, in);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
 
         elementType.writeLong(blockBuilder, value);
         for (int i = 0; i < block.getPositionCount(); i++) {
@@ -121,8 +120,8 @@ public final class ArrayConcatUtils
 
     public static Slice prependElement(Type elementType, boolean value, Slice in)
     {
-        Block block = readStructuralBlock(in);
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+        Block block = readArrayBlock(elementType, in);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
 
         elementType.writeBoolean(blockBuilder, value);
         for (int i = 0; i < block.getPositionCount(); i++) {
@@ -134,8 +133,8 @@ public final class ArrayConcatUtils
 
     public static Slice prependElement(Type elementType, double value, Slice in)
     {
-        Block block = readStructuralBlock(in);
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+        Block block = readArrayBlock(elementType, in);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
 
         elementType.writeDouble(blockBuilder, value);
         for (int i = 0; i < block.getPositionCount(); i++) {

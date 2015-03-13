@@ -19,6 +19,7 @@ import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.PostScript;
 import com.facebook.presto.orc.stream.OrcInputStream;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
@@ -29,7 +30,7 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
@@ -152,14 +153,14 @@ public class OrcReader
         return bufferSize;
     }
 
-    public OrcRecordReader createRecordReader(Set<Integer> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone)
+    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone)
             throws IOException
     {
         return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone);
     }
 
     public OrcRecordReader createRecordReader(
-            Set<Integer> includedColumns,
+            Map<Integer, Type> includedColumns,
             OrcPredicate predicate,
             long offset,
             long length,

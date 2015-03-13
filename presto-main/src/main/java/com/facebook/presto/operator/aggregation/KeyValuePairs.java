@@ -19,7 +19,6 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
@@ -28,7 +27,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Optional;
 
-import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
+import static com.facebook.presto.type.TypeUtils.buildMapSlice;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class KeyValuePairs
@@ -66,7 +65,7 @@ public class KeyValuePairs
         keysHash = new GroupByHash(ImmutableList.of(keyType), new int[] {0}, Optional.empty(), 10_000);
         keyPageBuilder = new PageBuilder(ImmutableList.of(this.keyType));
         valuePageBuilder = new PageBuilder(ImmutableList.of(this.valueType));
-        deserialize(serialized);
+        deserialize(this.keyType, this.valueType, serialized);
     }
 
     public Block getKeys()
@@ -79,11 +78,11 @@ public class KeyValuePairs
         return valuePageBuilder.getBlockBuilder(0).build();
     }
 
-    private void deserialize(Slice serialized)
+    private void deserialize(Type keyType, Type valueType, Slice serialized)
     {
-        Block block = TypeUtils.readStructuralBlock(serialized);
-        for (int i = 0; i < block.getPositionCount(); i += 2) {
-            add(block, block, i, i + 1);
+        Block[] blocks = TypeUtils.readMapBlocks(keyType, valueType, serialized);
+        for (int i = 0; i < blocks[0].getPositionCount(); i++) {
+            add(blocks[0], blocks[1], i, i);
         }
     }
 
@@ -91,12 +90,13 @@ public class KeyValuePairs
     {
         Block values = valuePageBuilder.getBlockBuilder(0).build();
         Block keys = keyPageBuilder.getBlockBuilder(0).build();
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), keys.getSizeInBytes() + values.getSizeInBytes());
+        BlockBuilder keyBuilder = keyType.createBlockBuilder(new BlockBuilderStatus(), keys.getPositionCount());
+        BlockBuilder valueBuilder = valueType.createBlockBuilder(new BlockBuilderStatus(), values.getPositionCount());
         for (int i = 0; i < keys.getPositionCount(); i++) {
-            keyType.appendTo(keys, i, blockBuilder);
-            valueType.appendTo(values, i, blockBuilder);
+            keyType.appendTo(keys, i, keyBuilder);
+            valueType.appendTo(values, i, valueBuilder);
         }
-        return buildStructuralSlice(blockBuilder);
+        return buildMapSlice(keyBuilder, valueBuilder);
     }
 
     public long estimatedInMemorySize()
