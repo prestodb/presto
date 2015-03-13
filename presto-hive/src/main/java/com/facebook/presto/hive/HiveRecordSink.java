@@ -159,11 +159,11 @@ public class HiveRecordSink
     public void appendLong(long value)
     {
         Type type = columnTypes.get(field);
-        if (type == DateType.DATE) {
+        if (type.equals(DateType.DATE)) {
             // todo should this be adjusted to midnight in JVM timezone?
             append(new Date(TimeUnit.DAYS.toMillis(value)));
         }
-        else if (type == TimestampType.TIMESTAMP) {
+        else if (type.equals(TimestampType.TIMESTAMP)) {
             append(new Timestamp(value));
         }
         else {
@@ -181,7 +181,7 @@ public class HiveRecordSink
     public void appendString(byte[] value)
     {
         Type type = columnTypes.get(field);
-        if (type == VarbinaryType.VARBINARY) {
+        if (type.equals(VarbinaryType.VARBINARY)) {
             append(value);
         }
         else if (isMapType(type) || isArrayType(type)) {
