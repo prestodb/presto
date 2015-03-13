@@ -60,7 +60,6 @@ public class ColumnarTextHiveRecordCursorProvider
                 partitionKeys,
                 columns,
                 hiveStorageTimeZone,
-                DateTimeZone.forID(session.getTimeZoneKey().getId()),
                 typeManager));
     }
 

@@ -79,7 +79,6 @@ class ColumnarBinaryHiveRecordCursor<K>
         extends HiveRecordCursor
 {
     private final RecordReader<K, BytesRefArrayWritable> recordReader;
-    private final DateTimeZone sessionTimeZone;
     private final K key;
     private final BytesRefArrayWritable value;
 
@@ -120,7 +119,6 @@ class ColumnarBinaryHiveRecordCursor<K>
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
-            DateTimeZone sessionTimeZone,
             TypeManager typeManager)
     {
         checkNotNull(recordReader, "recordReader is null");
@@ -128,13 +126,11 @@ class ColumnarBinaryHiveRecordCursor<K>
         checkNotNull(splitSchema, "splitSchema is null");
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(columns, "columns is null");
-        checkNotNull(sessionTimeZone, "sessionTimeZone is null");
 
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;
         this.key = recordReader.createKey();
         this.value = recordReader.createValue();
-        this.sessionTimeZone = sessionTimeZone;
 
         int size = columns.size();
 
@@ -550,7 +546,7 @@ class ColumnarBinaryHiveRecordCursor<K>
                 ByteArrayRef byteArrayRef = new ByteArrayRef();
                 byteArrayRef.setData(bytes);
                 lazyObject.init(byteArrayRef, start, length);
-                slices[column] = getBlockSlice(sessionTimeZone, lazyObject.getObject(), fieldInspectors[column]);
+                slices[column] = getBlockSlice(lazyObject.getObject(), fieldInspectors[column]);
             }
             else {
                 // TODO: zero length BINARY is not supported. See https://issues.apache.org/jira/browse/HIVE-2483
