@@ -23,7 +23,6 @@ import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.VarcharType;
 import org.testng.annotations.Test;
@@ -46,7 +45,7 @@ public class TestStateCompiler
         state.setLong(2);
         state.setNull(false);
 
-        BlockBuilder builder = BigintType.BIGINT.createBlockBuilder(new BlockBuilderStatus(), 2);
+        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 2);
         serializer.serialize(state, builder);
         state.setNull(true);
         serializer.serialize(state, builder);
@@ -74,7 +73,7 @@ public class TestStateCompiler
 
         state.setLong(2);
 
-        BlockBuilder builder = BigintType.BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
         serializer.serialize(state, builder);
 
         Block block = builder.build();
@@ -89,7 +88,7 @@ public class TestStateCompiler
     {
         StateCompiler compiler = new StateCompiler();
         AccumulatorStateSerializer<LongState> serializer = compiler.generateStateSerializer(LongState.class);
-        assertEquals(serializer.getSerializedType(), BigintType.BIGINT);
+        assertEquals(serializer.getSerializedType(), BIGINT);
     }
 
     @Test
@@ -124,7 +123,7 @@ public class TestStateCompiler
 
         state.setByte((byte) 3);
 
-        BlockBuilder builder = BigintType.BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
         serializer.serialize(state, builder);
 
         Block block = builder.build();
