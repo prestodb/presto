@@ -160,6 +160,7 @@ public final class SymbolExtractor
             node.getSource().accept(this, context);
 
             builder.addAll(Iterables.concat(node.getUnnestSymbols().values()));
+            node.getOrdinalitySymbol().ifPresent(builder::add);
 
             return null;
         }

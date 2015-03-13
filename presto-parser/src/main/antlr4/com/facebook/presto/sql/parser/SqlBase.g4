@@ -152,10 +152,10 @@ columnAliases
     ;
 
 relationPrimary
-    : qualifiedName                                #tableName
-    | '(' query ')'                                #subqueryRelation
-    | UNNEST '(' expression (',' expression)* ')'  #unnest
-    | '(' relation ')'                             #parenthesizedRelation
+    : qualifiedName                                                   #tableName
+    | '(' query ')'                                                   #subqueryRelation
+    | UNNEST '(' expression (',' expression)* ')' (WITH ORDINALITY)?  #unnest
+    | '(' relation ')'                                                #parenthesizedRelation
     ;
 
 expression
@@ -445,6 +445,7 @@ STRATIFY: 'STRATIFY';
 ALTER: 'ALTER';
 RENAME: 'RENAME';
 UNNEST: 'UNNEST';
+ORDINALITY: 'ORDINALITY';
 ARRAY: 'ARRAY';
 MAP: 'MAP';
 SET: 'SET';

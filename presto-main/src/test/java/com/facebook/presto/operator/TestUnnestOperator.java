@@ -80,7 +80,8 @@ public class TestUnnestOperator
                 .row(6, ArrayType.toStackRepresentation(ImmutableList.of(7, 8), BIGINT), MapType.toStackRepresentation(ImmutableMap.of(9, 10, 11, 12), BIGINT, BIGINT))
                 .build();
 
-        OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(0, ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType));
+        OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
+                0, ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false);
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT, BIGINT)
@@ -89,6 +90,37 @@ public class TestUnnestOperator
                 .row(2, 99, null, null)
                 .row(6, 7, 9, 10)
                 .row(6, 8, 11, 12)
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
+    public void testUnnestWithOrdinality()
+            throws Exception
+    {
+        MetadataManager metadata = new MetadataManager();
+        Type arrayType = metadata.getType(parseTypeSignature("array<bigint>"));
+        Type mapType = metadata.getType(parseTypeSignature("map<bigint,bigint>"));
+
+        List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
+                .row(1, ArrayType.toStackRepresentation(ImmutableList.of(2, 3), BIGINT), MapType.toStackRepresentation(ImmutableMap.of(4, 5), BIGINT, BIGINT))
+                .row(2, ArrayType.toStackRepresentation(ImmutableList.of(99), BIGINT), null)
+                .row(3, null, null)
+                .pageBreak()
+                .row(6, ArrayType.toStackRepresentation(ImmutableList.of(7, 8), BIGINT), MapType.toStackRepresentation(ImmutableMap.of(9, 10, 11, 12), BIGINT, BIGINT))
+                .build();
+
+        OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
+                0, ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), true);
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT, BIGINT, BIGINT)
+                .row(1, 2, 4, 5, 1)
+                .row(1, 3, null, null, 2)
+                .row(2, 99, null, null, 1)
+                .row(6, 7, 9, 10, 1)
+                .row(6, 8, 11, 12, 2)
                 .build();
 
         assertOperatorEquals(operator, input, expected);
@@ -107,7 +139,8 @@ public class TestUnnestOperator
                         MapType.toStackRepresentation(ImmutableMap.of(1, NEGATIVE_INFINITY, 2, POSITIVE_INFINITY, 3, NaN), BIGINT, DOUBLE))
                 .build();
 
-        OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(0, ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType));
+        OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
+                0, ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false);
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE, BIGINT, DOUBLE)

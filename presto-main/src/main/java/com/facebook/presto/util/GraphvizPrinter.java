@@ -331,7 +331,12 @@ public final class GraphvizPrinter
         @Override
         public Void visitUnnest(UnnestNode node, Void context)
         {
-            printNode(node, format("Unnest[%s]", node.getUnnestSymbols().keySet()), NODE_COLORS.get(NodeType.UNNEST));
+            if (node.getOrdinalitySymbol() == null) {
+                printNode(node, format("Unnest[%s]", node.getUnnestSymbols().keySet()), NODE_COLORS.get(NodeType.UNNEST));
+            }
+            else {
+                printNode(node, format("Unnest[%s (ordinality)]", node.getUnnestSymbols().keySet()), NODE_COLORS.get(NodeType.UNNEST));
+            }
             return node.getSource().accept(this, context);
         }
 

@@ -24,6 +24,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -35,13 +36,15 @@ public class UnnestNode
     private final PlanNode source;
     private final List<Symbol> replicateSymbols;
     private final Map<Symbol, List<Symbol>> unnestSymbols;
+    private final Optional<Symbol> ordinalitySymbol;
 
     @JsonCreator
     public UnnestNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("replicateSymbols") List<Symbol> replicateSymbols,
-            @JsonProperty("unnestSymbols") Map<Symbol, List<Symbol>> unnestSymbols)
+            @JsonProperty("unnestSymbols") Map<Symbol, List<Symbol>> unnestSymbols,
+            @JsonProperty("ordinalitySymbol") Optional<Symbol> ordinalitySymbol)
     {
         super(id);
         this.source = checkNotNull(source, "source is null");
@@ -53,15 +56,17 @@ public class UnnestNode
             builder.put(entry.getKey(), ImmutableList.copyOf(entry.getValue()));
         }
         this.unnestSymbols = builder.build();
+        this.ordinalitySymbol = checkNotNull(ordinalitySymbol, "ordinalitySymbol is null");
     }
 
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.<Symbol>builder()
+        ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.<Symbol>builder()
                 .addAll(replicateSymbols)
-                .addAll(Iterables.concat(unnestSymbols.values()))
-                .build();
+                .addAll(Iterables.concat(unnestSymbols.values()));
+        ordinalitySymbol.ifPresent(outputSymbolsBuilder::add);
+        return outputSymbolsBuilder.build();
     }
 
     @JsonProperty
@@ -80,6 +85,12 @@ public class UnnestNode
     public Map<Symbol, List<Symbol>> getUnnestSymbols()
     {
         return unnestSymbols;
+    }
+
+    @JsonProperty
+    public Optional<Symbol> getOrdinalitySymbol()
+    {
+        return ordinalitySymbol;
     }
 
     @Override
