@@ -131,12 +131,6 @@ public class RowType
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
-    {
-        return new VariableWidthBlockBuilder(blockBuilderStatus);
-    }
-
-    @Override
     public List<Type> getTypeParameters()
     {
         return fields.stream()

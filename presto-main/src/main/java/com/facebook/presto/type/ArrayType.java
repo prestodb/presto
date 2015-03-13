@@ -179,12 +179,6 @@ public class ArrayType
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
-    {
-        return new VariableWidthBlockBuilder(blockBuilderStatus);
-    }
-
-    @Override
     public List<Type> getTypeParameters()
     {
         return ImmutableList.of(getElementType());
