@@ -15,12 +15,11 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.window.FrameInfo;
 import com.facebook.presto.operator.window.WindowFunction;
-import com.facebook.presto.operator.window.WindowIndex;
+import com.facebook.presto.operator.window.WindowPartition;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.FrameBound;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import it.unimi.dsi.fastutil.ints.IntComparator;
@@ -29,14 +28,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
-import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
-import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
-import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
-import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -145,17 +137,10 @@ public class WindowOperator
 
     private State state = State.NEEDS_INPUT;
 
-    private int currentPosition;
+    private WindowPartition partition;
 
     private IntComparator partitionComparator;
     private IntComparator orderComparator;
-
-    private int partitionStart;
-    private int partitionEnd;
-    private int peerGroupStart;
-    private int peerGroupEnd;
-    private int frameStart;
-    private int frameEnd;
 
     public WindowOperator(
             OperatorContext operatorContext,
@@ -254,67 +239,29 @@ public class WindowOperator
             return null;
         }
 
-        if (currentPosition >= pagesIndex.getPositionCount()) {
-            state = State.FINISHED;
-            return null;
-        }
-
         // iterate through the positions sequentially until we have one full page
         pageBuilder.reset();
-        while (!pageBuilder.isFull() && currentPosition < pagesIndex.getPositionCount()) {
+        while (!pageBuilder.isFull()) {
             // check for new partition
-            boolean newPartition = (currentPosition == 0) || (currentPosition == partitionEnd);
-            if (newPartition) {
-                partitionStart = currentPosition;
-                // find end of partition
-                partitionEnd++;
-                while ((partitionEnd < pagesIndex.getPositionCount()) &&
-                        (partitionComparator.compare(partitionEnd - 1, partitionEnd) == 0)) {
+            if (partition == null || !partition.hasNext()) {
+                // the next partition starts as the end of the current partition
+                int partitionStart = partition == null ? 0 : partition.getPartitionEnd();
+
+                // are we at the end?
+                if (partitionStart >= pagesIndex.getPositionCount()) {
+                    break;
+                }
+
+                // find partition end
+                int partitionEnd = partitionStart + 1;
+                while ((partitionEnd < pagesIndex.getPositionCount()) && (partitionComparator.compare(partitionStart, partitionEnd) == 0)) {
                     partitionEnd++;
                 }
 
-                // reset functions for new partition
-                WindowIndex windowIndex = new WindowIndex(pagesIndex, partitionStart, partitionEnd);
-                for (WindowFunction function : windowFunctions) {
-                    function.reset(windowIndex);
-                }
+                partition = new WindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, frameInfo, orderComparator);
             }
 
-            // copy output channels
-            pageBuilder.declarePosition();
-            int channel = 0;
-            while (channel < outputChannels.length) {
-                pagesIndex.appendTo(outputChannels[channel], currentPosition, pageBuilder.getBlockBuilder(channel));
-                channel++;
-            }
-
-            // check for new peer group
-            boolean newPeerGroup = newPartition || (currentPosition == peerGroupEnd);
-            if (newPeerGroup) {
-                peerGroupStart = currentPosition;
-                // find end of peer group
-                peerGroupEnd++;
-                while ((peerGroupEnd < partitionEnd) &&
-                        (orderComparator.compare(peerGroupEnd - 1, peerGroupEnd) == 0)) {
-                    peerGroupEnd++;
-                }
-            }
-
-            // compute window frame
-            updateFrame();
-
-            // process window functions
-            for (WindowFunction function : windowFunctions) {
-                function.processRow(
-                        pageBuilder.getBlockBuilder(channel),
-                        peerGroupStart - partitionStart,
-                        peerGroupEnd - partitionStart - 1,
-                        frameStart,
-                        frameEnd);
-                channel++;
-            }
-
-            currentPosition++;
+            partition.processNextRow(pageBuilder);
         }
 
         // output the page if we have any data
@@ -325,107 +272,5 @@ public class WindowOperator
 
         Page page = pageBuilder.build();
         return page;
-    }
-
-    private void updateFrame()
-    {
-        int rowPosition = currentPosition - partitionStart;
-        int endPosition = partitionEnd - partitionStart - 1;
-
-        // frame start
-        if (frameInfo.getStartType() == UNBOUNDED_PRECEDING) {
-            frameStart = 0;
-        }
-        else if (frameInfo.getStartType() == PRECEDING) {
-            frameStart = preceding(rowPosition, getStartValue());
-        }
-        else if (frameInfo.getStartType() == FOLLOWING) {
-            frameStart = following(rowPosition, endPosition, getStartValue());
-        }
-        else if (frameInfo.getType() == RANGE) {
-            frameStart = peerGroupStart - partitionStart;
-        }
-        else {
-            frameStart = rowPosition;
-        }
-
-        // frame end
-        if (frameInfo.getEndType() == UNBOUNDED_FOLLOWING) {
-            frameEnd = endPosition;
-        }
-        else if (frameInfo.getEndType() == PRECEDING) {
-            frameEnd = preceding(rowPosition, getEndValue());
-        }
-        else if (frameInfo.getEndType() == FOLLOWING) {
-            frameEnd = following(rowPosition, endPosition, getEndValue());
-        }
-        else if (frameInfo.getType() == RANGE) {
-            frameEnd = peerGroupEnd - partitionStart - 1;
-        }
-        else {
-            frameEnd = rowPosition;
-        }
-
-        // handle empty frame
-        if (emptyFrame(rowPosition, endPosition)) {
-            frameStart = -1;
-            frameEnd = -1;
-        }
-    }
-
-    private boolean emptyFrame(int rowPosition, int endPosition)
-    {
-        if (frameInfo.getStartType() != frameInfo.getEndType()) {
-            return false;
-        }
-
-        FrameBound.Type type = frameInfo.getStartType();
-        if ((type != PRECEDING) && (type != FOLLOWING)) {
-            return false;
-        }
-
-        long start = getStartValue();
-        long end = getEndValue();
-
-        if (type == PRECEDING) {
-            return (start < end) || ((start > rowPosition) && (end > rowPosition));
-        }
-
-        int positions = endPosition - rowPosition;
-        return (start > end) || ((start > positions) && (end > positions));
-    }
-
-    private static int preceding(int rowPosition, long value)
-    {
-        if (value > rowPosition) {
-            return 0;
-        }
-        return Ints.checkedCast(rowPosition - value);
-    }
-
-    private static int following(int rowPosition, int endPosition, long value)
-    {
-        if (value > (endPosition - rowPosition)) {
-            return endPosition;
-        }
-        return Ints.checkedCast(rowPosition + value);
-    }
-
-    private long getStartValue()
-    {
-        return getFrameValue(frameInfo.getStartChannel(), "starting");
-    }
-
-    private long getEndValue()
-    {
-        return getFrameValue(frameInfo.getEndChannel(), "ending");
-    }
-
-    private long getFrameValue(int channel, String type)
-    {
-        checkCondition(!pagesIndex.isNull(channel, currentPosition), INVALID_WINDOW_FRAME, "Window frame %s offset must not be null", type);
-        long value = pagesIndex.getLong(channel, currentPosition);
-        checkCondition(value >= 0, INVALID_WINDOW_FRAME, "Window frame %s offset must not be negative");
-        return value;
     }
 }
