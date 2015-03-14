@@ -21,21 +21,39 @@ public interface ConnectorHandleResolver
 
     boolean canHandle(ConnectorSplit split);
 
-    boolean canHandle(ConnectorIndexHandle indexHandle);
+    default boolean canHandle(ConnectorIndexHandle indexHandle)
+    {
+        return false;
+    }
 
-    boolean canHandle(ConnectorOutputTableHandle tableHandle);
+    default boolean canHandle(ConnectorOutputTableHandle tableHandle)
+    {
+        return false;
+    }
 
-    boolean canHandle(ConnectorInsertTableHandle tableHandle);
+    default boolean canHandle(ConnectorInsertTableHandle tableHandle)
+    {
+        return false;
+    }
 
     Class<? extends ConnectorTableHandle> getTableHandleClass();
 
     Class<? extends ConnectorColumnHandle> getColumnHandleClass();
 
-    Class<? extends ConnectorIndexHandle> getIndexHandleClass();
-
     Class<? extends ConnectorSplit> getSplitClass();
 
-    Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass();
+    default Class<? extends ConnectorIndexHandle> getIndexHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
 
-    Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass();
+    default Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
 }
