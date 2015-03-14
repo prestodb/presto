@@ -31,10 +31,10 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class NodesSystemTable
+public class NodeSystemTable
         implements SystemTable
 {
-    public static final SchemaTableName NODES_TABLE_NAME = new SchemaTableName("sys", "node");
+    public static final SchemaTableName NODES_TABLE_NAME = new SchemaTableName("runtime", "nodes");
 
     public static final ConnectorTableMetadata NODES_TABLE = tableMetadataBuilder(NODES_TABLE_NAME)
             .column("node_id", VARCHAR)
@@ -46,7 +46,7 @@ public class NodesSystemTable
     private final InternalNodeManager nodeManager;
 
     @Inject
-    public NodesSystemTable(InternalNodeManager nodeManager)
+    public NodeSystemTable(InternalNodeManager nodeManager)
     {
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
     }

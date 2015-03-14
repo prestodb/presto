@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.connector.system.SystemHandleResolver;
-import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexHandle;
@@ -45,7 +43,6 @@ public class HandleResolver
     public HandleResolver(Map<String, ConnectorHandleResolver> handleIdResolvers)
     {
         this.handleIdResolvers.putAll(handleIdResolvers);
-        this.handleIdResolvers.put(SystemTablesManager.CONNECTOR_ID, new SystemHandleResolver());
     }
 
     public void addHandleResolver(String id, ConnectorHandleResolver connectorHandleResolver)

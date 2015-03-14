@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.connector.system.SystemTablesManager;
+import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.spi.Node;
 import com.google.common.base.Splitter;
@@ -126,7 +126,7 @@ public final class DiscoveryNodeManager
                     }
 
                     // always add system data source
-                    byDataSourceBuilder.put(SystemTablesManager.CONNECTOR_ID, node);
+                    byDataSourceBuilder.put(SystemConnector.NAME, node);
                 }
                 else {
                     inactiveNodesBuilder.add(node);

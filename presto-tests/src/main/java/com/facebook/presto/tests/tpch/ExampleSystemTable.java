@@ -11,40 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.connector.system;
+package com.facebook.presto.tests.tpch;
 
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
-import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 
-import javax.inject.Inject;
-
-import java.util.Map;
-
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkNotNull;
 
-public class CatalogSystemTable
+public class ExampleSystemTable
         implements SystemTable
 {
-    public static final SchemaTableName CATALOG_TABLE_NAME = new SchemaTableName("metadata", "catalogs");
+    public static final SchemaTableName NAME = new SchemaTableName("sys", "example");
 
-    public static final ConnectorTableMetadata CATALOG_TABLE = tableMetadataBuilder(CATALOG_TABLE_NAME)
-            .column("catalog_name", VARCHAR)
-            .column("connector_id", VARCHAR)
+    private static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
+            .column("name", VARCHAR)
             .build();
-    private final Metadata metadata;
 
-    @Inject
-    public CatalogSystemTable(Metadata metadata)
-    {
-        this.metadata = checkNotNull(metadata);
-    }
+    private static final RecordSet DATA = InMemoryRecordSet.builder(METADATA)
+            .addRow("test")
+            .build();
 
     @Override
     public boolean isDistributed()
@@ -55,16 +45,12 @@ public class CatalogSystemTable
     @Override
     public ConnectorTableMetadata getTableMetadata()
     {
-        return CATALOG_TABLE;
+        return METADATA;
     }
 
     @Override
     public RecordCursor cursor()
     {
-        Builder table = InMemoryRecordSet.builder(CATALOG_TABLE);
-        for (Map.Entry<String, String> entry : metadata.getCatalogNames().entrySet()) {
-            table.addRow(entry.getKey(), entry.getValue());
-        }
-        return table.build().cursor();
+        return DATA.cursor();
     }
 }

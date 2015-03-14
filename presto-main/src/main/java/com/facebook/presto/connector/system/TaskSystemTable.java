@@ -36,7 +36,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 public class TaskSystemTable
         implements SystemTable
 {
-    public static final SchemaTableName TASK_TABLE_NAME = new SchemaTableName("sys", "task");
+    public static final SchemaTableName TASK_TABLE_NAME = new SchemaTableName("runtime", "tasks");
 
     public static final ConnectorTableMetadata TASK_TABLE = tableMetadataBuilder(TASK_TABLE_NAME)
             .column("node_id", VARCHAR)

@@ -29,6 +29,7 @@ import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -113,7 +114,8 @@ public class HiveConnectorFactory
                     new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader),
                     new ClassLoaderSafeConnectorPageSourceProvider(connectorPageSource, classLoader),
                     new ClassLoaderSafeConnectorRecordSinkProvider(recordSinkProvider, classLoader),
-                    new ClassLoaderSafeConnectorHandleResolver(handleResolver, classLoader));
+                    new ClassLoaderSafeConnectorHandleResolver(handleResolver, classLoader),
+                    ImmutableSet.of());
         }
         catch (Exception e) {
             throw Throwables.propagate(e);

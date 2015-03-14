@@ -16,6 +16,7 @@ package com.facebook.presto.connector;
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
 import com.facebook.presto.connector.informationSchema.InformationSchemaPageSourceProvider;
 import com.facebook.presto.connector.informationSchema.InformationSchemaSplitManager;
+import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
@@ -30,6 +31,7 @@ import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
@@ -40,6 +42,7 @@ import com.facebook.presto.split.SplitManager;
 import javax.inject.Inject;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -50,6 +53,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class ConnectorManager
 {
     public static final String INFORMATION_SCHEMA_CONNECTOR_PREFIX = "$info_schema@";
+    public static final String SYSTEM_TABLES_CONNECTOR_PREFIX = "$system@";
 
     private final MetadataManager metadataManager;
     private final SplitManager splitManager;
@@ -109,23 +113,35 @@ public class ConnectorManager
         checkNotNull(properties, "properties is null");
         checkNotNull(connectorFactory, "connectorFactory is null");
 
-        // for now connectorId == catalogName
-        String connectorId = catalogName;
+        String connectorId = getConnectorId(catalogName);
         checkState(!connectors.containsKey(connectorId), "A connector %s already exists", connectorId);
 
         Connector connector = connectorFactory.create(connectorId, properties);
-        connectors.put(connectorId, connector);
 
         addConnector(catalogName, connectorId, connector);
     }
 
-    private void addConnector(String catalogName, String connectorId, Connector connector)
+    public synchronized void createConnection(String catalogName, Connector connector)
     {
+        checkNotNull(catalogName, "catalogName is null");
+        checkNotNull(connector, "connector is null");
+
+        addConnector(catalogName, getConnectorId(catalogName), connector);
+    }
+
+    private synchronized void addConnector(String catalogName, String connectorId, Connector connector)
+    {
+        checkState(!connectors.containsKey(connectorId), "A connector %s already exists", connectorId);
+        connectors.put(connectorId, connector);
+
         ConnectorMetadata connectorMetadata = connector.getMetadata();
         checkState(connectorMetadata != null, "Connector %s can not provide metadata", connectorId);
 
         ConnectorSplitManager connectorSplitManager = connector.getSplitManager();
         checkState(connectorSplitManager != null, "Connector %s does not have a split manager", connectorId);
+
+        Set<SystemTable> systemTables = connector.getSystemTables();
+        checkNotNull(systemTables, "Connector %s returned a null system tables set");
 
         ConnectorPageSourceProvider connectorPageSourceProvider = null;
         try {
@@ -186,6 +202,11 @@ public class ConnectorManager
         splitManager.addConnectorSplitManager(makeInformationSchemaConnectorId(connectorId), new InformationSchemaSplitManager(nodeManager));
         pageSourceManager.addConnectorPageSourceProvider(makeInformationSchemaConnectorId(connectorId), new InformationSchemaPageSourceProvider(metadataManager, splitManager));
 
+        Connector systemConnector = new SystemConnector(nodeManager, systemTables);
+        metadataManager.addSystemTablesMetadata(makeSystemTablesConnectorId(connectorId), catalogName, systemConnector.getMetadata());
+        splitManager.addConnectorSplitManager(makeSystemTablesConnectorId(connectorId), systemConnector.getSplitManager());
+        pageSourceManager.addConnectorPageSourceProvider(makeSystemTablesConnectorId(connectorId), new RecordPageSourceProvider(systemConnector.getRecordSetProvider()));
+
         splitManager.addConnectorSplitManager(connectorId, connectorSplitManager);
         handleResolver.addHandleResolver(connectorId, connectorHandleResolver);
         pageSourceManager.addConnectorPageSourceProvider(connectorId, connectorPageSourceProvider);
@@ -202,5 +223,16 @@ public class ConnectorManager
     private static String makeInformationSchemaConnectorId(String connectorId)
     {
         return INFORMATION_SCHEMA_CONNECTOR_PREFIX + connectorId;
+    }
+
+    private static String makeSystemTablesConnectorId(String connectorId)
+    {
+        return SYSTEM_TABLES_CONNECTOR_PREFIX + connectorId;
+    }
+
+    private static String getConnectorId(String catalogName)
+    {
+        // for now connectorId == catalogName
+        return catalogName;
     }
 }

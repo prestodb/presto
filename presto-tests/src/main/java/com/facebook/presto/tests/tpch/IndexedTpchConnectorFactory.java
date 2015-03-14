@@ -21,11 +21,14 @@ import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchRecordSetProvider;
 import com.facebook.presto.tpch.TpchSplitManager;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -85,6 +88,12 @@ public class IndexedTpchConnectorFactory
             public ConnectorIndexResolver getIndexResolver()
             {
                 return new TpchIndexResolver(connectorId, indexedData);
+            }
+
+            @Override
+            public Set<SystemTable> getSystemTables()
+            {
+                return ImmutableSet.of(new ExampleSystemTable());
             }
         };
     }
