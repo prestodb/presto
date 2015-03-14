@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.spi.SystemTable;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
+
+import javax.inject.Inject;
 
 public class SystemTablesModule
         implements Module
@@ -25,15 +28,22 @@ public class SystemTablesModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(SystemTablesManager.class).in(Scopes.SINGLETON);
-        binder.bind(SystemTablesMetadata.class).in(Scopes.SINGLETON);
-        binder.bind(SystemSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(SystemRecordSetProvider.class).in(Scopes.SINGLETON);
-
         Multibinder<SystemTable> globalTableBinder = Multibinder.newSetBinder(binder, SystemTable.class);
-        globalTableBinder.addBinding().to(NodesSystemTable.class).in(Scopes.SINGLETON);
+        globalTableBinder.addBinding().to(NodeSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(QuerySystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(TaskSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(CatalogSystemTable.class).in(Scopes.SINGLETON);
+
+        binder.bind(SystemConnector.class).in(Scopes.SINGLETON);
+        binder.bind(SystemTablesRegistrar.class).asEagerSingleton();
+    }
+
+    private static class SystemTablesRegistrar
+    {
+        @Inject
+        public SystemTablesRegistrar(ConnectorManager manager, SystemConnector connector)
+        {
+            manager.createConnection(SystemConnector.NAME, connector);
+        }
     }
 }

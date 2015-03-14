@@ -121,9 +121,9 @@ public class TestServer
             }
         }
 
-        // no catalogs in a the server by default
+        // only the system catalog exists by default
         List<List<Object>> rows = data.build();
-        assertEquals(rows.size(), 0);
+        assertEquals(rows, ImmutableList.of(ImmutableList.of("system")));
     }
 
     public URI uriFor(String path)

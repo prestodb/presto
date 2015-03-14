@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.connector.system.SystemSplitManager;
-import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.PartitionResult;
@@ -30,8 +28,6 @@ import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,19 +35,11 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.metadata.Util.toConnectorDomain;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class SplitManager
 {
     private final ConcurrentMap<String, ConnectorSplitManager> splitManagers = new ConcurrentHashMap<>();
-    private final SystemSplitManager systemSplitManager;
-
-    @Inject
-    public SplitManager(SystemSplitManager systemSplitManager)
-    {
-        this.systemSplitManager = checkNotNull(systemSplitManager, "systemSplitManager is null");
-    }
 
     public void addConnectorSplitManager(String connectorId, ConnectorSplitManager connectorSplitManager)
     {
@@ -86,10 +74,6 @@ public class SplitManager
     private ConnectorSplitManager getConnectorSplitManager(TableHandle handle)
     {
         String connectorId = handle.getConnectorId();
-
-        if (connectorId.equals(SystemTablesManager.CONNECTOR_ID)) {
-            return systemSplitManager;
-        }
 
         ConnectorSplitManager result = splitManagers.get(connectorId);
         checkArgument(result != null, "No split manager for connector '%s'", connectorId);

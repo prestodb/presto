@@ -276,7 +276,7 @@ public abstract class AbstractTestDistributedQueries
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS FROM tpch");
         ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertTrue(schemaNames.containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "sys", "tiny")));
+        assertTrue(schemaNames.containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "tiny", "sf1")));
     }
 
     @Test

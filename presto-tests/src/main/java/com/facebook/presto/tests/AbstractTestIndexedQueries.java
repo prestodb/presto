@@ -13,12 +13,19 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.TpchIndexSpec;
 import com.facebook.presto.tests.tpch.TpchIndexSpec.Builder;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
+
+import java.util.Set;
+
+import static com.google.common.collect.Iterables.transform;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestIndexedQueries
         extends AbstractTestQueryFramework
@@ -34,6 +41,21 @@ public abstract class AbstractTestIndexedQueries
     protected AbstractTestIndexedQueries(QueryRunner queryRunner)
     {
         super(queryRunner);
+    }
+
+    @Test
+    public void testExampleSystemTable()
+            throws Exception
+    {
+        assertQuery("SELECT name FROM sys.example", "SELECT 'test' AS name");
+
+        MaterializedResult result = computeActual("SHOW SCHEMAS");
+        Set<String> actual = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
+        assertTrue(actual.containsAll(ImmutableSet.of("sf100", "tiny", "sys")));
+
+        result = computeActual("SHOW TABLES FROM sys");
+        actual = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
+        assertEquals(actual, ImmutableSet.of("example"));
     }
 
     @Test

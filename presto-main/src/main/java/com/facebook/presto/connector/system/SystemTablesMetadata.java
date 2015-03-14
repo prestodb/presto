@@ -21,14 +21,14 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.SystemTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.Set;
 
 import static com.facebook.presto.connector.system.SystemColumnHandle.toSystemColumnHandles;
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
@@ -36,15 +36,19 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 
 public class SystemTablesMetadata
         extends ReadOnlyConnectorMetadata
 {
-    private final ConcurrentMap<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
+    private final Map<SchemaTableName, ConnectorTableMetadata> tables;
 
-    public void addTable(ConnectorTableMetadata tableMetadata)
+    public SystemTablesMetadata(Set<SystemTable> tables)
     {
-        checkArgument(tables.putIfAbsent(tableMetadata.getTable(), tableMetadata) == null, "Table %s is already registered", tableMetadata.getTable());
+        this.tables = tables.stream()
+                .map(SystemTable::getTableMetadata)
+                .collect(toMap(ConnectorTableMetadata::getTable, identity()));
     }
 
     private SystemTableHandle checkTableHandle(ConnectorTableHandle tableHandle)

@@ -15,8 +15,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
-import com.facebook.presto.connector.system.SystemTablesManager;
-import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -74,11 +72,10 @@ import static java.lang.String.format;
 public class MetadataManager
         implements Metadata
 {
-    private static final String SYS_SCHEMA_NAME = "sys";
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
 
-    private final SystemTablesMetadata systemMetadata;
     private final ConcurrentMap<String, ConnectorMetadataEntry> informationSchemasByCatalog = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ConnectorMetadataEntry> systemTablesByCatalog = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ConnectorMetadataEntry> connectorsByCatalog = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ConnectorMetadata> connectorsById = new ConcurrentHashMap<>();
     private final FunctionRegistry functions;
@@ -88,51 +85,55 @@ public class MetadataManager
     @VisibleForTesting
     public MetadataManager()
     {
-        this(new FeaturesConfig(), new TypeRegistry(), new SystemTablesMetadata());
+        this(new FeaturesConfig(), new TypeRegistry());
     }
 
-    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, SystemTablesMetadata systemMetadata)
+    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager)
     {
-        this(featuresConfig, typeManager, createTestingViewCodec(), systemMetadata);
+        this(featuresConfig, typeManager, createTestingViewCodec());
     }
 
     @Inject
-    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, JsonCodec<ViewDefinition> viewCodec, SystemTablesMetadata systemMetadata)
+    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, JsonCodec<ViewDefinition> viewCodec)
     {
         functions = new FunctionRegistry(typeManager, featuresConfig.isExperimentalSyntaxEnabled());
         this.typeManager = checkNotNull(typeManager, "types is null");
         this.viewCodec = checkNotNull(viewCodec, "viewCodec is null");
-        this.systemMetadata = checkNotNull(systemMetadata, "systemMetadata is null");
-
-        connectorsById.put(SystemTablesManager.CONNECTOR_ID, systemMetadata);
     }
 
     public synchronized void addConnectorMetadata(String connectorId, String catalogName, ConnectorMetadata connectorMetadata)
     {
-        checkNotNull(connectorId, "connectorId is null");
-        checkNotNull(catalogName, "catalogName is null");
-        checkNotNull(connectorMetadata, "connectorMetadata is null");
-
+        checkMetadataArguments(connectorId, catalogName, connectorMetadata);
         checkArgument(!connectorsByCatalog.containsKey(catalogName), "Catalog '%s' is already registered", catalogName);
-        checkArgument(!connectorsById.containsKey(connectorId), "Connector '%s' is already registered", connectorId);
-
-        ConnectorMetadataEntry entry = new ConnectorMetadataEntry(connectorId, connectorMetadata);
 
         connectorsById.put(connectorId, connectorMetadata);
-        connectorsByCatalog.put(catalogName, entry);
+        connectorsByCatalog.put(catalogName, new ConnectorMetadataEntry(connectorId, connectorMetadata));
     }
 
     public synchronized void addInformationSchemaMetadata(String connectorId, String catalogName, InformationSchemaMetadata metadata)
     {
-        checkNotNull(connectorId, "connectorId is null");
-        checkNotNull(catalogName, "catalogName is null");
-        checkNotNull(metadata, "metadata is null");
-
-        checkArgument(!connectorsById.containsKey(connectorId), "Connector '%s' is already registered", connectorId);
+        checkMetadataArguments(connectorId, catalogName, metadata);
         checkArgument(!informationSchemasByCatalog.containsKey(catalogName), "Information schema for catalog '%s' is already registered", catalogName);
 
         connectorsById.put(connectorId, metadata);
         informationSchemasByCatalog.put(catalogName, new ConnectorMetadataEntry(connectorId, metadata));
+    }
+
+    public synchronized void addSystemTablesMetadata(String connectorId, String catalogName, ConnectorMetadata metadata)
+    {
+        checkMetadataArguments(connectorId, catalogName, metadata);
+        checkArgument(!systemTablesByCatalog.containsKey(catalogName), "System tables for catalog '%s' are already registered", catalogName);
+
+        connectorsById.put(connectorId, metadata);
+        systemTablesByCatalog.put(catalogName, new ConnectorMetadataEntry(connectorId, metadata));
+    }
+
+    private void checkMetadataArguments(String connectorId, String catalogName, ConnectorMetadata metadata)
+    {
+        checkNotNull(connectorId, "connectorId is null");
+        checkNotNull(catalogName, "catalogName is null");
+        checkNotNull(metadata, "metadata is null");
+        checkArgument(!connectorsById.containsKey(connectorId), "Connector '%s' is already registered", connectorId);
     }
 
     @Override
@@ -474,11 +475,14 @@ public class MetadataManager
     {
         ImmutableList.Builder<ConnectorMetadataEntry> builder = ImmutableList.builder();
 
-        builder.add(new ConnectorMetadataEntry(SystemTablesManager.CONNECTOR_ID, systemMetadata));
-
         ConnectorMetadataEntry entry = informationSchemasByCatalog.get(catalogName);
         if (entry != null) {
             builder.add(entry);
+        }
+
+        ConnectorMetadataEntry systemTables = systemTablesByCatalog.get(catalogName);
+        if (systemTables != null) {
+            builder.add(systemTables);
         }
 
         ConnectorMetadataEntry connector = connectorsByCatalog.get(catalogName);
@@ -494,11 +498,13 @@ public class MetadataManager
         String catalog = name.getCatalogName();
         String schema = name.getSchemaName();
 
-        if (schema.equals(SYS_SCHEMA_NAME)) {
-            return new ConnectorMetadataEntry(SystemTablesManager.CONNECTOR_ID, systemMetadata);
-        }
-        else if (schema.equals(INFORMATION_SCHEMA_NAME)) {
+        if (schema.equals(INFORMATION_SCHEMA_NAME)) {
             return informationSchemasByCatalog.get(catalog);
+        }
+
+        ConnectorMetadataEntry entry = systemTablesByCatalog.get(catalog);
+        if ((entry != null) && (entry.getMetadata().getTableHandle(null, name.asSchemaTableName()) != null)) {
+            return entry;
         }
 
         return connectorsByCatalog.get(catalog);

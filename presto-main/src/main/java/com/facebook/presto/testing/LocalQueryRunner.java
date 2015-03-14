@@ -19,11 +19,8 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
-import com.facebook.presto.connector.system.NodesSystemTable;
-import com.facebook.presto.connector.system.SystemRecordSetProvider;
-import com.facebook.presto.connector.system.SystemSplitManager;
-import com.facebook.presto.connector.system.SystemTablesManager;
-import com.facebook.presto.connector.system.SystemTablesMetadata;
+import com.facebook.presto.connector.system.NodeSystemTable;
+import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
@@ -54,11 +51,11 @@ import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -144,22 +141,9 @@ public class LocalQueryRunner
         this.indexManager = new IndexManager();
         this.pageSinkManager = new PageSinkManager();
 
-        // sys schema
-        SystemTablesMetadata systemTablesMetadata = new SystemTablesMetadata();
-        SystemSplitManager systemSplitManager = new SystemSplitManager(nodeManager);
-        SystemRecordSetProvider systemRecordSetProvider = new SystemRecordSetProvider();
-
-        this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry, systemTablesMetadata);
-        this.splitManager = new SplitManager(systemSplitManager);
-        this.pageSourceManager = new PageSourceManager(systemRecordSetProvider);
-
-        SystemTablesManager systemTablesManager = new SystemTablesManager(systemTablesMetadata, systemSplitManager, systemRecordSetProvider, ImmutableSet.<SystemTable>of());
-
-        // sys.node
-        systemTablesManager.addTable(new NodesSystemTable(nodeManager));
-
-        // sys.catalog
-        systemTablesManager.addTable(new CatalogSystemTable(metadata));
+        this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry);
+        this.splitManager = new SplitManager();
+        this.pageSourceManager = new PageSourceManager();
 
         this.compiler = new ExpressionCompiler(metadata);
 
@@ -173,6 +157,12 @@ public class LocalQueryRunner
                 ImmutableMap.<String, ConnectorFactory>of(),
                 nodeManager
         );
+
+        Connector systemConnector = new SystemConnector(nodeManager, ImmutableSet.of(
+                new NodeSystemTable(nodeManager),
+                new CatalogSystemTable(metadata)));
+
+        connectorManager.createConnection(SystemConnector.NAME, systemConnector);
     }
 
     public static LocalQueryRunner createHashEnabledQueryRunner(LocalQueryRunner localQueryRunner)

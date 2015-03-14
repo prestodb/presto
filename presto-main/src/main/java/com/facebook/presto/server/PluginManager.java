@@ -15,12 +15,10 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.connector.system.SystemTablesManager;
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.type.Type;
@@ -77,7 +75,6 @@ public class PluginManager
 
     private final Injector injector;
     private final ConnectorManager connectorManager;
-    private final SystemTablesManager systemTablesManager;
     private final Metadata metadata;
     private final BlockEncodingManager blockEncodingManager;
     private final TypeRegistry typeRegistry;
@@ -95,7 +92,6 @@ public class PluginManager
             PluginManagerConfig config,
             ConnectorManager connectorManager,
             ConfigurationFactory configurationFactory,
-            SystemTablesManager systemTablesManager,
             Metadata metadata,
             BlockEncodingManager blockEncodingManager,
             TypeRegistry typeRegistry)
@@ -123,7 +119,6 @@ public class PluginManager
         this.optionalConfig = ImmutableMap.copyOf(optionalConfig);
 
         this.connectorManager = checkNotNull(connectorManager, "connectorManager is null");
-        this.systemTablesManager = checkNotNull(systemTablesManager, "systemTablesManager is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.blockEncodingManager = checkNotNull(blockEncodingManager, "blockEncodingManager is null");
         this.typeRegistry = checkNotNull(typeRegistry, "typeRegistry is null");
@@ -205,11 +200,6 @@ public class PluginManager
         for (ConnectorFactory connectorFactory : plugin.getServices(ConnectorFactory.class)) {
             log.info("Registering connector %s", connectorFactory.getName());
             connectorManager.addConnectorFactory(connectorFactory);
-        }
-
-        for (SystemTable systemTable : plugin.getServices(SystemTable.class)) {
-            log.info("Registering system table %s", systemTable.getTableMetadata().getTable());
-            systemTablesManager.addTable(systemTable);
         }
 
         for (FunctionFactory functionFactory : plugin.getServices(FunctionFactory.class)) {
