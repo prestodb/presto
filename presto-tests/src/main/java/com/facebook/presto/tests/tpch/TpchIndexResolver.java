@@ -18,7 +18,7 @@ import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.Index;
+import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -85,7 +85,7 @@ public class TpchIndexResolver
     }
 
     @Override
-    public Index getIndex(ConnectorIndexHandle indexHandle, List<ConnectorColumnHandle> lookupSchema, List<ConnectorColumnHandle> outputSchema)
+    public ConnectorIndex getIndex(ConnectorIndexHandle indexHandle, List<ConnectorColumnHandle> lookupSchema, List<ConnectorColumnHandle> outputSchema)
     {
         TpchIndexHandle tpchIndexHandle = checkType(indexHandle, TpchIndexHandle.class, "indexHandle");
 
@@ -137,7 +137,7 @@ public class TpchIndexResolver
             }
         };
 
-        return new TpchIndex(keyFormatter, outputFormatter, table);
+        return new TpchConnectorIndex(keyFormatter, outputFormatter, table);
     }
 
     private static List<Integer> computeRemap(List<String> startSchema, List<String> endSchema)

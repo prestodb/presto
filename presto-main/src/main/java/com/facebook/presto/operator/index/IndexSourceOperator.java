@@ -21,7 +21,7 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.PageSourceOperator;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
-import com.facebook.presto.spi.Index;
+import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
@@ -47,7 +47,7 @@ public class IndexSourceOperator
     {
         private final int operatorId;
         private final PlanNodeId sourceId;
-        private final Index index;
+        private final ConnectorIndex index;
         private final List<Type> types;
         private final Function<RecordSet, RecordSet> probeKeyNormalizer;
         private boolean closed;
@@ -55,7 +55,7 @@ public class IndexSourceOperator
         public IndexSourceOperatorFactory(
                 int operatorId,
                 PlanNodeId sourceId,
-                Index index,
+                ConnectorIndex index,
                 List<Type> types,
                 Function<RecordSet, RecordSet> probeKeyNormalizer)
         {
@@ -100,7 +100,7 @@ public class IndexSourceOperator
 
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
-    private final Index index;
+    private final ConnectorIndex index;
     private final List<Type> types;
     private final Function<RecordSet, RecordSet> probeKeyNormalizer;
 
@@ -110,7 +110,7 @@ public class IndexSourceOperator
     public IndexSourceOperator(
             OperatorContext operatorContext,
             PlanNodeId planNodeId,
-            Index index,
+            ConnectorIndex index,
             List<Type> types,
             Function<RecordSet, RecordSet> probeKeyNormalizer)
     {

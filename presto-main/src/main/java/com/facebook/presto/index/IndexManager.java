@@ -20,7 +20,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
-import com.facebook.presto.spi.Index;
+import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -62,7 +62,7 @@ public class IndexManager
         return Optional.of(new ResolvedIndex(tableHandle.getConnectorId(), resolved));
     }
 
-    public Index getIndex(IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
+    public ConnectorIndex getIndex(IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
     {
         return getResolver(indexHandle)
                 .getIndex(indexHandle.getConnectorHandle(), Lists.transform(lookupSchema, ColumnHandle::getConnectorHandle), Lists.transform(outputSchema, ColumnHandle::getConnectorHandle));
