@@ -56,7 +56,7 @@ public class BenchmarkPagesIndexPageSorter
     public int runBenchmark(BenchmarkData data)
     {
         PageSorter pageSorter = new PagesIndexPageSorter();
-        long[] addresses = pageSorter.sort(data.types, data.pages, data.sortTypes, data.sortChannels, nCopies(data.sortChannels.size(), ASC_NULLS_FIRST), 10_000);
+        long[] addresses = pageSorter.sort(data.types, data.pages, data.sortChannels, nCopies(data.sortChannels.size(), ASC_NULLS_FIRST), 10_000);
         return addresses.length;
     }
 
@@ -102,7 +102,6 @@ public class BenchmarkPagesIndexPageSorter
         private final int maxPages = 500;
 
         public List<Type> types;
-        public List<Type> sortTypes;
         public List<Integer> sortChannels;
 
         @Setup
@@ -118,7 +117,6 @@ public class BenchmarkPagesIndexPageSorter
             for (int i = 0; i < numSortChannels; i++) {
                 sortChannels.add(i);
             }
-            sortTypes = nCopies(numSortChannels, type);
         }
 
         private Type getType()

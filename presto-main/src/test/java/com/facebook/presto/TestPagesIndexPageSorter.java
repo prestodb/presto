@@ -42,7 +42,6 @@ public class TestPagesIndexPageSorter
             throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT, DOUBLE, VARCHAR);
-        List<Type> sortTypes = ImmutableList.of(BIGINT);
         List<Integer> sortChannels = Ints.asList(0);
         List<SortOrder> sortOrders = ImmutableList.of(ASC_NULLS_FIRST);
 
@@ -62,7 +61,7 @@ public class TestPagesIndexPageSorter
                 .row(2, 1.1, "d")
                 .build();
 
-        assertSorted(inputPages, expectedPages, types, sortTypes, sortChannels, sortOrders, 100);
+        assertSorted(inputPages, expectedPages, types, sortChannels, sortOrders, 100);
     }
 
     @Test
@@ -70,7 +69,6 @@ public class TestPagesIndexPageSorter
             throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT, DOUBLE, VARCHAR);
-        List<Type> sortTypes = ImmutableList.copyOf(types);
         List<Integer> sortChannels = Ints.asList(0, 1, 2);
         List<SortOrder> sortOrders = Collections.nCopies(sortChannels.size(), ASC_NULLS_FIRST);
 
@@ -95,7 +93,7 @@ public class TestPagesIndexPageSorter
                 .row(1, 2.2, "c")
                 .row(2, 1.1, "d")
                 .build();
-        assertSorted(inputPages, expectedPages, types, sortTypes, sortChannels, sortOrders, 100);
+        assertSorted(inputPages, expectedPages, types, sortChannels, sortOrders, 100);
     }
 
     @Test
@@ -103,7 +101,6 @@ public class TestPagesIndexPageSorter
             throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT, DOUBLE, VARCHAR);
-        List<Type> sortTypes = ImmutableList.of(BIGINT);
         List<Integer> sortChannels = Ints.asList(0);
         List<SortOrder> sortOrders = ImmutableList.of(ASC_NULLS_FIRST);
 
@@ -122,7 +119,7 @@ public class TestPagesIndexPageSorter
                 .row(2, 1.1, "c")
                 .build();
 
-        assertSorted(inputPages, expectedPages, types, sortTypes, sortChannels, sortOrders, 100);
+        assertSorted(inputPages, expectedPages, types, sortChannels, sortOrders, 100);
     }
 
     @Test
@@ -130,7 +127,6 @@ public class TestPagesIndexPageSorter
             throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT, DOUBLE, VARCHAR);
-        List<Type> sortTypes = ImmutableList.of(BIGINT);
         List<Integer> sortChannels = Ints.asList(0);
         List<SortOrder> sortOrders = ImmutableList.of(ASC_NULLS_FIRST);
 
@@ -150,12 +146,12 @@ public class TestPagesIndexPageSorter
                 .row(2, 1.1, "c")
                 .build();
 
-        assertSorted(inputPages, expectedPages, types, sortTypes, sortChannels, sortOrders, 2);
+        assertSorted(inputPages, expectedPages, types, sortChannels, sortOrders, 2);
     }
 
-    private static void assertSorted(List<Page> inputPages, List<Page> expectedPages, List<Type> types, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders, int expectedPositions)
+    private static void assertSorted(List<Page> inputPages, List<Page> expectedPages, List<Type> types, List<Integer> sortChannels, List<SortOrder> sortOrders, int expectedPositions)
     {
-        long[] sortedAddresses = sorter.sort(types, inputPages, sortTypes, sortChannels, sortOrders, expectedPositions);
+        long[] sortedAddresses = sorter.sort(types, inputPages, sortChannels, sortOrders, expectedPositions);
         List<Page> outputPages = createOutputPages(types, inputPages, sortedAddresses);
 
         MaterializedResult expected = toMaterializedResult(TEST_SESSION, types, expectedPages);

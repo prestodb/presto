@@ -39,6 +39,7 @@ import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.sizeOf;
 
@@ -225,23 +226,30 @@ public class PagesIndex
         return types.get(channel).getSlice(block, blockPosition);
     }
 
-    public void sort(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
+    public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
-        orderingCompiler.compilePagesIndexOrdering(sortTypes, sortChannels, sortOrders).sort(this);
+        createPagesIndexComparator(sortChannels, sortOrders).sort(this);
     }
 
-    public IntComparator createComparator(final List<Type> sortTypes, final List<Integer> sortChannels, final List<SortOrder> sortOrders)
+    public IntComparator createComparator(List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
+        PagesIndexComparator comparator = createPagesIndexComparator(sortChannels, sortOrders).getComparator();
         return new AbstractIntComparator()
         {
-            private final PagesIndexComparator comparator = orderingCompiler.compilePagesIndexOrdering(sortTypes, sortChannels, sortOrders).getComparator();
-
             @Override
             public int compare(int leftPosition, int rightPosition)
             {
                 return comparator.compareTo(PagesIndex.this, leftPosition, rightPosition);
             }
         };
+    }
+
+    private PagesIndexOrdering createPagesIndexComparator(List<Integer> sortChannels, List<SortOrder> sortOrders)
+    {
+        List<Type> sortTypes = sortChannels.stream()
+                .map(types::get)
+                .collect(toImmutableList());
+        return orderingCompiler.compilePagesIndexOrdering(sortTypes, sortChannels, sortOrders);
     }
 
     public LookupSource createLookupSource(List<Integer> joinChannels, OperatorContext operatorContext)
