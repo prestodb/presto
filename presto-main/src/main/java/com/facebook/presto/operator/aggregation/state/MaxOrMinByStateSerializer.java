@@ -27,6 +27,15 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 public class MaxOrMinByStateSerializer
         implements AccumulatorStateSerializer<MaxOrMinByState>
 {
+    private final Type valueType;
+    private final Type keyType;
+
+    public MaxOrMinByStateSerializer(Type valueType, Type keyType)
+    {
+        this.valueType = valueType;
+        this.keyType = keyType;
+    }
+
     @Override
     public Type getSerializedType()
     {
@@ -51,10 +60,10 @@ public class MaxOrMinByStateSerializer
         sliceOutput.writeInt(valueLength);
 
         if (state.getKey() != null && !state.getKey().isNull(0)) {
-            appendTo(state.getKeyType(), sliceOutput, state.getKey());
+            appendTo(keyType, sliceOutput, state.getKey());
         }
         if (state.getValue() != null && !state.getValue().isNull(0)) {
-            appendTo(state.getValueType(), sliceOutput, state.getValue());
+            appendTo(valueType, sliceOutput, state.getValue());
         }
         Slice slice = sliceOutput.slice();
         out.writeBytes(slice, 0, slice.length());
@@ -90,10 +99,10 @@ public class MaxOrMinByStateSerializer
         state.setKey(null);
         state.setValue(null);
         if (keyLength > 0) {
-            state.setKey(toBlock(state.getKeyType(), input, keyLength));
+            state.setKey(toBlock(keyType, input, keyLength));
         }
         if (valueLength > 0) {
-            state.setValue(toBlock(state.getValueType(), input, valueLength));
+            state.setValue(toBlock(valueType, input, valueLength));
         }
     }
 

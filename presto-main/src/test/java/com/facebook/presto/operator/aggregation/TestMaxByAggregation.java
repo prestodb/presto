@@ -25,10 +25,8 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.AbstractFixedWidthType;
-import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.TypeRegistry;
 import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
@@ -39,7 +37,9 @@ import java.util.Set;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static org.testng.Assert.assertEquals;
@@ -147,7 +147,7 @@ public class TestMaxByAggregation
         String[] keys = new String[] {"loooooong string", "short string"};
         double[] values = new double[] { 3.14, 2.71 };
 
-        MaxOrMinByStateSerializer serializer = new MaxOrMinByStateSerializer();
+        MaxOrMinByStateSerializer serializer = new MaxOrMinByStateSerializer(DOUBLE, VARCHAR);
         BlockBuilder builder = new VariableWidthBlockBuilder(new BlockBuilderStatus());
 
         for (int i = 0; i < keys.length; i++) {
@@ -157,16 +157,16 @@ public class TestMaxByAggregation
         Block serialized = builder.build();
 
         for (int i = 0; i < keys.length; i++) {
-            MaxOrMinByState deserialized = new MaxOrMinByStateFactory(DoubleType.DOUBLE, VarcharType.VARCHAR).createSingleState();
+            MaxOrMinByState deserialized = new MaxOrMinByStateFactory().createSingleState();
             serializer.deserialize(serialized, i, deserialized);
-            assertEquals(VarcharType.VARCHAR.getSlice(deserialized.getKey(), 0), Slices.utf8Slice(keys[i]));
-            assertEquals(DoubleType.DOUBLE.getDouble(deserialized.getValue(), 0), values[i]);
+            assertEquals(VARCHAR.getSlice(deserialized.getKey(), 0), Slices.utf8Slice(keys[i]));
+            assertEquals(DOUBLE.getDouble(deserialized.getValue(), 0), values[i]);
         }
     }
 
     private static MaxOrMinByState makeState(String key, double value)
     {
-        MaxOrMinByState result = new MaxOrMinByStateFactory(DoubleType.DOUBLE, VarcharType.VARCHAR).createSingleState();
+        MaxOrMinByState result = new MaxOrMinByStateFactory().createSingleState();
         result.setKey(createStringsBlock(key));
         result.setValue(createDoublesBlock(value));
         return result;
