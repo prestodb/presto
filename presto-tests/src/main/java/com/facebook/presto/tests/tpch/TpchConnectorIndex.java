@@ -13,21 +13,21 @@
  */
 package com.facebook.presto.tests.tpch;
 
-import com.facebook.presto.spi.Index;
+import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.tests.tpch.TpchIndexedData.IndexedTable;
 import com.google.common.base.Function;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-class TpchIndex
-        implements Index
+class TpchConnectorIndex
+        implements ConnectorIndex
 {
     private final Function<RecordSet, RecordSet> keyFormatter;
     private final Function<RecordSet, RecordSet> outputFormatter;
     private final IndexedTable indexedTable;
 
-    public TpchIndex(Function<RecordSet, RecordSet> keyFormatter, Function<RecordSet, RecordSet> outputFormatter, IndexedTable indexedTable)
+    public TpchConnectorIndex(Function<RecordSet, RecordSet> keyFormatter, Function<RecordSet, RecordSet> outputFormatter, IndexedTable indexedTable)
     {
         this.keyFormatter = checkNotNull(keyFormatter, "keyFormatter is null");
         this.outputFormatter = checkNotNull(outputFormatter, "outputFormatter is null");

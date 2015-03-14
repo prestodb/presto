@@ -18,7 +18,7 @@ import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.Index;
+import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.TupleDomain;
 
 import java.util.List;
@@ -47,7 +47,7 @@ public class ClassLoaderSafeConnectorIndexResolver
     }
 
     @Override
-    public Index getIndex(ConnectorIndexHandle indexHandle, List<ConnectorColumnHandle> lookupSchema, List<ConnectorColumnHandle> outputSchema)
+    public ConnectorIndex getIndex(ConnectorIndexHandle indexHandle, List<ConnectorColumnHandle> lookupSchema, List<ConnectorColumnHandle> outputSchema)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getIndex(indexHandle, lookupSchema, outputSchema);
