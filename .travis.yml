@@ -5,7 +5,7 @@ jdk:
 
 env:
   global:
-    - MAVEN_OPTS="-Xmx512M"
+    - MAVEN_OPTS="-Xmx256M"
 
 sudo: false
 
