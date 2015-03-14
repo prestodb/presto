@@ -65,6 +65,7 @@ import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.operator.index.IndexLookupSourceSupplier;
 import com.facebook.presto.operator.index.IndexSourceOperator;
 import com.facebook.presto.spi.ConnectorIndex;
+import com.facebook.presto.operator.window.FrameInfo;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
@@ -103,6 +104,7 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.planner.plan.WindowNode.Frame;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -505,11 +507,12 @@ public class LocalExecutionPlanner
 
             Optional<Integer> frameStartChannel = Optional.empty();
             Optional<Integer> frameEndChannel = Optional.empty();
-            if (node.getFrame().getStartValue().isPresent()) {
-                frameStartChannel = Optional.of(source.getLayout().get(node.getFrame().getStartValue().get()));
+            Frame frame = node.getFrame();
+            if (frame.getStartValue().isPresent()) {
+                frameStartChannel = Optional.of(source.getLayout().get(frame.getStartValue().get()));
             }
-            if (node.getFrame().getEndValue().isPresent()) {
-                frameEndChannel = Optional.of(source.getLayout().get(node.getFrame().getEndValue().get()));
+            if (frame.getEndValue().isPresent()) {
+                frameEndChannel = Optional.of(source.getLayout().get(frame.getEndValue().get()));
             }
 
             ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
@@ -555,9 +558,7 @@ public class LocalExecutionPlanner
                     partitionChannels,
                     sortChannels,
                     sortOrder,
-                    node.getFrame().getType(),
-                    node.getFrame().getStartType(), frameStartChannel,
-                    node.getFrame().getEndType(), frameEndChannel,
+                    new FrameInfo(frame.getType(), frame.getStartType(), frameStartChannel, frame.getEndType(), frameEndChannel),
                     1_000_000);
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);

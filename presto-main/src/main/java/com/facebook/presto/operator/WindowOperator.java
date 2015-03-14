@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.operator.window.FrameInfo;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.operator.window.WindowIndex;
 import com.facebook.presto.spi.Page;
@@ -20,14 +21,12 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.FrameBound;
-import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import it.unimi.dsi.fastutil.ints.IntComparator;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
@@ -35,6 +34,7 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -53,11 +53,7 @@ public class WindowOperator
         private final List<Integer> partitionChannels;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrder;
-        private final WindowFrame.Type frameType;
-        private final FrameBound.Type frameStartType;
-        private final Optional<Integer> frameStartChannel;
-        private final FrameBound.Type frameEndType;
-        private final Optional<Integer> frameEndChannel;
+        private final FrameInfo frameInfo;
         private final int expectedPositions;
         private final List<Type> types;
         private boolean closed;
@@ -70,11 +66,7 @@ public class WindowOperator
                 List<Integer> partitionChannels,
                 List<Integer> sortChannels,
                 List<SortOrder> sortOrder,
-                WindowFrame.Type frameType,
-                FrameBound.Type frameStartType,
-                Optional<Integer> frameStartChannel,
-                FrameBound.Type frameEndType,
-                Optional<Integer> frameEndChannel,
+                FrameInfo frameInfo,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
@@ -85,11 +77,7 @@ public class WindowOperator
             this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
             this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder, "sortOrder is null"));
 
-            this.frameType = checkNotNull(frameType, "frameType is null");
-            this.frameStartType = checkNotNull(frameStartType, "frameStartType is null");
-            this.frameStartChannel = checkNotNull(frameStartChannel, "frameStartChannel is null");
-            this.frameEndType = checkNotNull(frameEndType, "frameEndType is null");
-            this.frameEndChannel = checkNotNull(frameEndChannel, "frameEndChannel is null");
+            this.frameInfo = checkNotNull(frameInfo, "frameInfo is null");
 
             this.expectedPositions = expectedPositions;
 
@@ -116,11 +104,7 @@ public class WindowOperator
                     partitionChannels,
                     sortChannels,
                     sortOrder,
-                    frameType,
-                    frameStartType,
-                    frameStartChannel,
-                    frameEndType,
-                    frameEndChannel,
+                    frameInfo,
                     expectedPositions);
         }
 
@@ -146,11 +130,7 @@ public class WindowOperator
     private final List<SortOrder> sortOrder;
     private final List<Type> types;
 
-    private final boolean frameRange;
-    private final FrameBound.Type frameStartType;
-    private final int frameStartChannel;
-    private final FrameBound.Type frameEndType;
-    private final int frameEndChannel;
+    private final FrameInfo frameInfo;
 
     private final PagesIndex pagesIndex;
 
@@ -178,11 +158,7 @@ public class WindowOperator
             List<Integer> partitionChannels,
             List<Integer> sortChannels,
             List<SortOrder> sortOrder,
-            WindowFrame.Type frameType,
-            FrameBound.Type frameStartType,
-            Optional<Integer> frameStartChannel,
-            FrameBound.Type frameEndType,
-            Optional<Integer> frameEndChannel,
+            FrameInfo frameInfo,
             int expectedPositions)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
@@ -191,12 +167,7 @@ public class WindowOperator
         this.partitionChannels = ImmutableList.copyOf(checkNotNull(partitionChannels, "partitionChannels is null"));
         this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
         this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder, "sortOrder is null"));
-
-        this.frameRange = (checkNotNull(frameType, "frameType is null") == WindowFrame.Type.RANGE);
-        this.frameStartType = checkNotNull(frameStartType, "frameStartType is null");
-        this.frameStartChannel = checkNotNull(frameStartChannel, "frameStartChannel is null").orElse(-1);
-        this.frameEndType = checkNotNull(frameEndType, "frameEndType is null");
-        this.frameEndChannel = checkNotNull(frameEndChannel, "frameEndChannel is null").orElse(-1);
+        this.frameInfo = checkNotNull(frameInfo, "frameInfo is null");
 
         this.types = toTypes(sourceTypes, outputChannels, windowFunctions);
 
@@ -348,16 +319,16 @@ public class WindowOperator
         int endPosition = partitionEnd - partitionStart - 1;
 
         // frame start
-        if (frameStartType == UNBOUNDED_PRECEDING) {
+        if (frameInfo.getStartType() == UNBOUNDED_PRECEDING) {
             frameStart = 0;
         }
-        else if (frameStartType == PRECEDING) {
+        else if (frameInfo.getStartType() == PRECEDING) {
             frameStart = preceding(rowPosition, getStartValue());
         }
-        else if (frameStartType == FOLLOWING) {
+        else if (frameInfo.getStartType() == FOLLOWING) {
             frameStart = following(rowPosition, endPosition, getStartValue());
         }
-        else if (frameRange) {
+        else if (frameInfo.getType() == RANGE) {
             frameStart = peerGroupStart - partitionStart;
         }
         else {
@@ -365,16 +336,16 @@ public class WindowOperator
         }
 
         // frame end
-        if (frameEndType == UNBOUNDED_FOLLOWING) {
+        if (frameInfo.getEndType() == UNBOUNDED_FOLLOWING) {
             frameEnd = endPosition;
         }
-        else if (frameEndType == PRECEDING) {
+        else if (frameInfo.getEndType() == PRECEDING) {
             frameEnd = preceding(rowPosition, getEndValue());
         }
-        else if (frameEndType == FOLLOWING) {
+        else if (frameInfo.getEndType() == FOLLOWING) {
             frameEnd = following(rowPosition, endPosition, getEndValue());
         }
-        else if (frameRange) {
+        else if (frameInfo.getType() == RANGE) {
             frameEnd = peerGroupEnd - partitionStart - 1;
         }
         else {
@@ -390,11 +361,11 @@ public class WindowOperator
 
     private boolean emptyFrame(int rowPosition, int endPosition)
     {
-        if (frameStartType != frameEndType) {
+        if (frameInfo.getStartType() != frameInfo.getEndType()) {
             return false;
         }
 
-        FrameBound.Type type = frameStartType;
+        FrameBound.Type type = frameInfo.getStartType();
         if ((type != PRECEDING) && (type != FOLLOWING)) {
             return false;
         }
@@ -428,12 +399,12 @@ public class WindowOperator
 
     private long getStartValue()
     {
-        return getFrameValue(frameStartChannel, "starting");
+        return getFrameValue(frameInfo.getStartChannel(), "starting");
     }
 
     private long getEndValue()
     {
-        return getFrameValue(frameEndChannel, "ending");
+        return getFrameValue(frameInfo.getEndChannel(), "ending");
     }
 
     private long getFrameValue(int channel, String type)
