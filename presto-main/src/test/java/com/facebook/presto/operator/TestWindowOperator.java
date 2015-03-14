@@ -17,6 +17,7 @@ import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.window.FirstValueFunction.VarcharFirstValueFunction;
+import com.facebook.presto.operator.window.FrameInfo;
 import com.facebook.presto.operator.window.LagFunction.VarcharLagFunction;
 import com.facebook.presto.operator.window.LastValueFunction.VarcharLastValueFunction;
 import com.facebook.presto.operator.window.LeadFunction.VarcharLeadFunction;
@@ -26,8 +27,6 @@ import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.FrameBound;
-import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -50,6 +49,9 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
+import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -432,9 +434,7 @@ public class TestWindowOperator
                 partitionChannels,
                 sortChannels,
                 sortOrder,
-                WindowFrame.Type.RANGE,
-                FrameBound.Type.UNBOUNDED_PRECEDING, Optional.empty(),
-                FrameBound.Type.UNBOUNDED_FOLLOWING, Optional.empty(),
+                new FrameInfo(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty()),
                 10);
     }
 }
