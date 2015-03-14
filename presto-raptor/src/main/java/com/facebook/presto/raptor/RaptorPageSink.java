@@ -47,7 +47,6 @@ public class RaptorPageSink
 
     private final PageSorter pageSorter;
     private final List<Type> columnTypes;
-    private final List<Type> sortTypes;
     private final List<Integer> sortFields;
     private final List<SortOrder> sortOrders;
 
@@ -74,7 +73,6 @@ public class RaptorPageSink
         this.sampleWeightField = columnIds.indexOf(sampleWeightColumnId.orElse(-1L));
 
         this.sortFields = ImmutableList.copyOf(sortColumnIds.stream().map(columnIds::indexOf).collect(toList()));
-        this.sortTypes = ImmutableList.copyOf(sortFields.stream().map(columnTypes::get).collect(toList()));
         this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
 
         this.pageBuffer = storageManager.createPageBuffer();
@@ -170,7 +168,7 @@ public class RaptorPageSink
         else {
             checkState(pageBuffer.getRowCount() <= Integer.MAX_VALUE);
 
-            long[] orderedAddresses = pageSorter.sort(columnTypes, pages, sortTypes, sortFields, sortOrders, Ints.checkedCast(pageBuffer.getRowCount()));
+            long[] orderedAddresses = pageSorter.sort(columnTypes, pages, sortFields, sortOrders, Ints.checkedCast(pageBuffer.getRowCount()));
             int[] orderedPageIndex = new int[orderedAddresses.length];
             int[] orderedPositionIndex = new int[orderedAddresses.length];
             for (int i = 0; i < orderedAddresses.length; i++) {
