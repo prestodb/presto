@@ -83,12 +83,6 @@ public class QuerySystemTable
     }
 
     @Override
-    public List<Type> getColumnTypes()
-    {
-        return ImmutableList.copyOf(transform(QUERY_TABLE.getColumns(), ColumnMetadata::getType));
-    }
-
-    @Override
     public RecordCursor cursor()
     {
         Builder table = InMemoryRecordSet.builder(QUERY_TABLE);
