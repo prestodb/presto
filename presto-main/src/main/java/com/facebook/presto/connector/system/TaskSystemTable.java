@@ -16,15 +16,12 @@ package com.facebook.presto.connector.system;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.operator.TaskStats;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -32,12 +29,9 @@ import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 
-import java.util.List;
-
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.collect.Iterables.transform;
 
 public class TaskSystemTable
         implements SystemTable
@@ -97,12 +91,6 @@ public class TaskSystemTable
     public ConnectorTableMetadata getTableMetadata()
     {
         return TASK_TABLE;
-    }
-
-    @Override
-    public List<Type> getColumnTypes()
-    {
-        return ImmutableList.copyOf(transform(TASK_TABLE.getColumns(), ColumnMetadata::getType));
     }
 
     @Override
