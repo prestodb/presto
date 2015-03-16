@@ -20,32 +20,35 @@ import java.util.List;
 
 class ActualProperties
 {
-    // partitioning:
-    //   partitioned: *, {k_i}
-    //   unpartitioned
-
-    // placement
-    //   coordinator-only (=> unpartitioned)
-    //   source
-    //   anywhere
-
     private final PartitioningProperties partitioning;
     private final PlacementProperties placement;
+    private final GroupingProperties grouping;
 
-    public ActualProperties(PartitioningProperties partitioning, PlacementProperties placement)
+    public ActualProperties(PartitioningProperties partitioning, PlacementProperties placement, GroupingProperties grouping)
     {
         this.partitioning = partitioning;
         this.placement = placement;
+        this.grouping = grouping;
     }
 
-    public static ActualProperties of(PartitioningProperties partitioning, PlacementProperties placement)
+    public static ActualProperties of(PartitioningProperties partitioning, PlacementProperties placement, GroupingProperties grouping)
     {
-        return new ActualProperties(partitioning, placement);
+        return new ActualProperties(partitioning, placement, grouping);
     }
 
     public PartitioningProperties getPartitioning()
     {
         return partitioning;
+    }
+
+    public GroupingProperties getGrouping()
+    {
+        return grouping;
+    }
+
+    public PlacementProperties getPlacement()
+    {
+        return placement;
     }
 
     public boolean isCoordinatorOnly()
@@ -71,9 +74,15 @@ class ActualProperties
         return partitioning.getType() == PartitioningProperties.Type.UNPARTITIONED;
     }
 
+    public boolean isGroupedOnKeys(List<Symbol> keys)
+    {
+        // grouped on set of columns C_x => grouped on C_y if C_y is a subset of C_x
+        return grouping.getColumns().containsAll(keys);
+    }
+
     @Override
     public String toString()
     {
-        return "partitioning: " + partitioning + ", placement: " + placement;
+        return "partitioning: " + partitioning + ", placement: " + placement + ", grouping: " + grouping;
     }
 }

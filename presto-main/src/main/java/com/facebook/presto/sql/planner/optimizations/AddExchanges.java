@@ -50,16 +50,21 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
+import static com.facebook.presto.sql.planner.optimizations.PropertyDerivations.deriveProperties;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
@@ -121,7 +126,7 @@ public class AddExchanges
                     Iterables.getOnlyElement(node.getSources()).accept(this, Optional.empty()),
                     Requirements.of(PartitioningProperties.unpartitioned()));
 
-            return new PlanWithProperties(ChildReplacer.replaceChildren(node, ImmutableList.of(child.getNode())), child.getProperties());
+            return rebaseAndDeriveProperties(node, child);
         }
 
         @Override
@@ -136,22 +141,21 @@ public class AddExchanges
             Requirements enforcedChildProperties;
             Optional<Requirements> preferredChildProperties;
             if (node.getGroupBy().isEmpty()) {
-                // if this is not a group-by aggregation, prefer a partitioned plan so that we can perform partials in parallel
-                preferredChildProperties = Optional.of(Requirements.of(PartitioningProperties.arbitrary()));
                 enforcedChildProperties = Requirements.of(PartitioningProperties.unpartitioned());
+                preferredChildProperties = Optional.empty();
             }
             else {
-                enforcedChildProperties = Requirements.of(PartitioningProperties.partitioned(node.getGroupBy(), node.getHashSymbol()));
+                enforcedChildProperties = determineChildRequirements(preferredProperties, node.getGroupBy());
                 preferredChildProperties = Optional.of(enforcedChildProperties);
             }
 
             PlanWithProperties source = node.getSource().accept(this, preferredChildProperties);
             if (source.getProperties().isUnpartitioned() || source.getProperties().isPartitionedOnKeys(node.getGroupBy())) {
-                return rebaseAndPropagateChildProperties(node, source);
+                return rebaseAndDeriveProperties(node, source);
             }
 
             if (!decomposable) {
-                return rebaseAndPropagateChildProperties(node, enforce(source, enforcedChildProperties));
+                return rebaseAndDeriveProperties(node, enforce(source, enforcedChildProperties));
             }
 
             // otherwise, add a partial and final with an exchange in between
@@ -191,19 +195,19 @@ public class AddExchanges
                     source.getProperties(),
                     enforcedChildProperties);
 
-            return new PlanWithProperties(
-                    new AggregationNode(
-                            node.getId(),
-                            partial.getNode(),
-                            node.getGroupBy(),
-                            finalCalls,
-                            node.getFunctions(),
-                            ImmutableMap.of(),
-                            FINAL,
-                            Optional.empty(),
-                            node.getConfidence(),
-                            node.getHashSymbol()),
-                    properties);
+            AggregationNode result = new AggregationNode(
+                    node.getId(),
+                    partial.getNode(),
+                    node.getGroupBy(),
+                    finalCalls,
+                    node.getFunctions(),
+                    ImmutableMap.of(),
+                    FINAL,
+                    Optional.empty(),
+                    node.getConfidence(),
+                    node.getHashSymbol());
+
+            return new PlanWithProperties(result, deriveProperties(result, partial.getProperties()));
         }
 
         @Override
@@ -216,19 +220,49 @@ public class AddExchanges
                 child = enforce(child, preferredChildProperties);
             }
 
-            return rebaseAndPropagateChildProperties(node, child);
+            return rebaseAndDeriveProperties(node, child);
         }
 
         @Override
         public PlanWithProperties visitWindow(WindowNode node, Optional<Requirements> preferredProperties)
         {
-            return planWindowFunction(node, node.getPartitionBy(), node.getHashSymbol());
+            Requirements childRequirements;
+            if (node.getPartitionBy().isEmpty()) {
+                childRequirements = Requirements.of(PartitioningProperties.unpartitioned());
+            }
+            else {
+                childRequirements = determineChildRequirements(preferredProperties, node.getPartitionBy());
+            }
+
+            PlanWithProperties child = planChild(node, childRequirements);
+
+            // TODO: partitioned on {} should be equivalent to unpartitioned
+            if (!child.getProperties().isUnpartitioned() && !child.getProperties().isPartitionedOnKeys(node.getPartitionBy())) {
+                child = enforce(child, childRequirements);
+            }
+
+            return rebaseAndDeriveProperties(node, child);
         }
 
         @Override
         public PlanWithProperties visitRowNumber(RowNumberNode node, Optional<Requirements> preferredProperties)
         {
-            return planWindowFunction(node, node.getPartitionBy(), node.getHashSymbol());
+            Requirements childRequirements;
+            if (node.getPartitionBy().isEmpty()) {
+                childRequirements = Requirements.of(PartitioningProperties.unpartitioned());
+            }
+            else {
+                childRequirements = determineChildRequirements(preferredProperties, node.getPartitionBy());
+            }
+
+            PlanWithProperties child = planChild(node, childRequirements);
+
+            // TODO: partitioned on {} should be equivalent to unpartitioned
+            if (!child.getProperties().isUnpartitioned() && !child.getProperties().isPartitionedOnKeys(node.getPartitionBy())) {
+                child = enforce(child, childRequirements);
+            }
+
+            return rebaseAndDeriveProperties(node, child);
         }
 
         @Override
@@ -278,7 +312,7 @@ public class AddExchanges
                 }
             }
 
-            return rebaseAndPropagateChildProperties(node, child);
+            return rebaseAndDeriveProperties(node, child);
         }
 
         @Override
@@ -293,14 +327,14 @@ public class AddExchanges
                         Requirements.of(PartitioningProperties.unpartitioned()));
             }
 
-            return rebaseAndPropagateChildProperties(node, child);
+            return rebaseAndDeriveProperties(node, child);
         }
 
         @Override
         public PlanWithProperties visitSort(SortNode node, Optional<Requirements> preferredProperties)
         {
             Requirements requirements = Requirements.of(PartitioningProperties.unpartitioned());
-            return rebaseAndPropagateChildProperties(node, enforce(planChild(node, requirements), requirements));
+            return rebaseAndDeriveProperties(node, enforce(planChild(node, requirements), requirements));
         }
 
         @Override
@@ -315,7 +349,7 @@ public class AddExchanges
                         Requirements.of(PartitioningProperties.unpartitioned()));
             }
 
-            return rebaseAndPropagateChildProperties(node, child);
+            return rebaseAndDeriveProperties(node, child);
         }
 
         @Override
@@ -330,26 +364,26 @@ public class AddExchanges
                         Requirements.of(PartitioningProperties.unpartitioned()));
             }
 
-            return rebaseAndPropagateChildProperties(node, child);
+            return rebaseAndDeriveProperties(node, child);
         }
 
         @Override
         public PlanWithProperties visitTableScan(TableScanNode node, Optional<Requirements> preferredProperties)
         {
-            return new PlanWithProperties(node, ActualProperties.of(PartitioningProperties.arbitrary(), PlacementProperties.source()));
+            return new PlanWithProperties(node, ActualProperties.of(PartitioningProperties.arbitrary(), PlacementProperties.source(), GroupingProperties.ungrouped()));
         }
 
         @Override
         public PlanWithProperties visitValues(ValuesNode node, Optional<Requirements> preferredProperties)
         {
-            return new PlanWithProperties(node, ActualProperties.of(PartitioningProperties.unpartitioned(), PlacementProperties.anywhere()));
+            return new PlanWithProperties(node, ActualProperties.of(PartitioningProperties.unpartitioned(), PlacementProperties.anywhere(), GroupingProperties.ungrouped()));
         }
 
         @Override
         public PlanWithProperties visitTableCommit(TableCommitNode node, Optional<Requirements> preferredProperties)
         {
             Requirements requirements = Requirements.of(PartitioningProperties.unpartitioned(), PlacementProperties.coordinatorOnly());
-            return rebaseAndPropagateChildProperties(node, enforce(planChild(node, requirements), requirements));
+            return rebaseAndDeriveProperties(node, enforce(planChild(node, requirements), requirements));
         }
 
         @Override
@@ -369,13 +403,12 @@ public class AddExchanges
             PlanWithProperties left = node.getLeft().accept(this, Optional.of(leftRequirements));
             PlanWithProperties right = node.getRight().accept(this, Optional.of(rightRequirements));
 
-            PlanNode rightNode;
             if (distributedJoins) {
                 left = enforce(left, leftRequirements);
-                rightNode = enforce(right, rightRequirements).getNode();
+                right = enforce(right, rightRequirements);
             }
             else {
-                rightNode = new ExchangeNode(
+                PlanNode rightNode = new ExchangeNode(
                         idAllocator.getNextId(),
                         ExchangeNode.Type.REPLICATE,
                         ImmutableList.of(),
@@ -383,17 +416,19 @@ public class AddExchanges
                         ImmutableList.of(right.getNode()),
                         right.getNode().getOutputSymbols(),
                         ImmutableList.of(right.getNode().getOutputSymbols()));
+
+                right = new PlanWithProperties(rightNode, PropertyDerivations.deriveProperties(rightNode, right.getProperties()));
             }
 
-            return new PlanWithProperties(
-                    new JoinNode(node.getId(),
-                            node.getType(),
-                            left.getNode(),
-                            rightNode,
-                            node.getCriteria(),
-                            node.getLeftHashSymbol(),
-                            node.getRightHashSymbol()),
-                    left.getProperties());
+            JoinNode result = new JoinNode(node.getId(),
+                    node.getType(),
+                    left.getNode(),
+                    right.getNode(),
+                    node.getCriteria(),
+                    node.getLeftHashSymbol(),
+                    node.getRightHashSymbol());
+
+            return new PlanWithProperties(result, PropertyDerivations.deriveProperties(result, ImmutableList.of(left.getProperties(), right.getProperties())));
         }
 
         @Override
@@ -403,9 +438,8 @@ public class AddExchanges
             PlanWithProperties filteringSource = node.getFilteringSource().accept(this, Optional.empty());
 
             // make filtering source match requirements of source
-            PlanNode filteringSourceNode;
             if (source.getProperties().isPartitioned()) {
-                filteringSourceNode = new ExchangeNode(
+                PlanNode exchange = new ExchangeNode(
                         idAllocator.getNextId(),
                         ExchangeNode.Type.REPLICATE,
                         ImmutableList.of(),
@@ -413,28 +447,34 @@ public class AddExchanges
                         ImmutableList.of(filteringSource.getNode()),
                         filteringSource.getNode().getOutputSymbols(),
                         ImmutableList.of(filteringSource.getNode().getOutputSymbols()));
+
+                filteringSource = new PlanWithProperties(exchange, PropertyDerivations.deriveProperties(exchange, filteringSource.getProperties()));
             }
             else {
-                filteringSourceNode = enforce(filteringSource, Requirements.of(PartitioningProperties.unpartitioned()))
-                        .getNode();
+                filteringSource = enforce(filteringSource, Requirements.of(PartitioningProperties.unpartitioned()));
             }
+
             // TODO: add support for hash-partitioned semijoins
 
-            return rebase(node, source.getProperties(), ImmutableList.of(source.getNode(), filteringSourceNode));
+            return rebaseAndDeriveProperties(node, ImmutableList.of(source, filteringSource));
         }
 
         @Override
         public PlanWithProperties visitIndexJoin(IndexJoinNode node, Optional<Requirements> preferredProperties)
         {
-            Requirements requirements = Requirements.of(PartitioningProperties.partitioned(Lists.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getProbe), node.getProbeHashSymbol()));
+            List<Symbol> joinColumns = Lists.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getProbe);
+            Requirements requirements = determineChildRequirements(preferredProperties, joinColumns);
             PlanWithProperties probeSource = node.getProbeSource().accept(this, Optional.of(requirements));
 
             if (distributedIndexJoins) {
                 probeSource = enforce(probeSource, requirements);
             }
 
-            // index side runs with the same partitioning/distribution strategy as the probe side, so don't insert exchanges
-            return rebase(node, probeSource.getProperties(), ImmutableList.of(probeSource.getNode(), node.getIndexSource()));
+            // TODO: if input is grouped, create streaming join
+
+            // index side is really a nested-loops plan, so don't add exchanges
+            PlanNode result = ChildReplacer.replaceChildren(node, ImmutableList.of(probeSource.getNode(), node.getIndexSource()));
+            return new PlanWithProperties(result, deriveProperties(result, probeSource.getProperties()));
         }
 
         @Override
@@ -490,27 +530,32 @@ public class AddExchanges
                 result = new UnionNode(node.getId(), unpartitionedChildren, mappings.build());
             }
 
-            return new PlanWithProperties(result, ActualProperties.of(PartitioningProperties.unpartitioned(), PlacementProperties.anywhere()));
+            return new PlanWithProperties(result, ActualProperties.of(PartitioningProperties.unpartitioned(), PlacementProperties.anywhere(), GroupingProperties.ungrouped()));
         }
 
-        private PlanWithProperties planWindowFunction(PlanNode node, List<Symbol> partitionBy, Optional<Symbol> hashSymbol)
+        private Requirements determineChildRequirements(Optional<Requirements> preferredProperties, List<Symbol> columns)
         {
-            PlanWithProperties child;
+            Set<Symbol> partitioningColumns = ImmutableSet.copyOf(columns);
+            Set<Symbol> groupingColumns = ImmutableSet.copyOf(columns);
 
-            if (partitionBy.isEmpty()) {
-                Requirements requirements = Requirements.of(PartitioningProperties.unpartitioned());
-                child = enforce(planChild(node, requirements), requirements);
-            }
-            else {
-                Requirements requirements = Requirements.of(PartitioningProperties.partitioned(partitionBy, hashSymbol));
-                child = planChild(node, requirements);
+            if (preferredProperties.isPresent()) {
+                if (preferredProperties.get().getPartitioning().isPresent() && preferredProperties.get().getPartitioning().get().getKeys().isPresent()) {
+                    Set<Symbol> preference = ImmutableSet.copyOf(Sets.intersection(partitioningColumns, ImmutableSet.copyOf(preferredProperties.get().getPartitioning().get().getKeys().get())));
 
-                if (!child.getProperties().isUnpartitioned() && !child.getProperties().isPartitionedOnKeys(partitionBy)) {
-                    child = enforce(child, requirements);
+                    if (!preference.isEmpty()) {
+                        partitioningColumns = preference;
+                    }
+                }
+
+                if (preferredProperties.get().getGrouping().isPresent()) {
+                    groupingColumns = ImmutableSet.copyOf(Sets.union(groupingColumns, ImmutableSet.copyOf(preferredProperties.get().getGrouping().get().getColumns())));
                 }
             }
 
-            return rebaseAndPropagateChildProperties(node, child);
+            return Requirements.builder()
+                    .partitioning(PartitioningProperties.partitioned(partitioningColumns, Optional.<Symbol>empty()))
+                    .grouping(GroupingProperties.grouped(groupingColumns))
+                    .build();
         }
 
         private PlanWithProperties planChild(PlanNode node, Requirements preferredProperties)
@@ -528,7 +573,7 @@ public class AddExchanges
             if (requirements.isCoordinatorOnly() && !properties.isCoordinatorOnly()) {
                 return new PlanWithProperties(
                         gatheringExchange(idAllocator.getNextId(), node),
-                        ActualProperties.of(PartitioningProperties.unpartitioned(), PlacementProperties.coordinatorOnly()));
+                        ActualProperties.of(PartitioningProperties.unpartitioned(), PlacementProperties.coordinatorOnly(), GroupingProperties.ungrouped()));
             }
 
             // req: unpartitioned, actual: unpartitioned
@@ -547,7 +592,7 @@ public class AddExchanges
             if (properties.isPartitioned() && requirements.isUnpartitioned()) {
                 return new PlanWithProperties(
                         gatheringExchange(idAllocator.getNextId(), node),
-                        ActualProperties.of(PartitioningProperties.unpartitioned(), PlacementProperties.anywhere()));
+                        ActualProperties.of(PartitioningProperties.unpartitioned(), PlacementProperties.anywhere(), GroupingProperties.ungrouped()));
             }
 
             // req: partitioned[k], actual: partitioned[?] or unpartitioned
@@ -557,24 +602,24 @@ public class AddExchanges
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 node,
-                                requirements.getPartitioning().get().getKeys().get(),
+                                ImmutableList.copyOf(requirements.getPartitioning().get().getKeys().get()),
                                 requirements.getPartitioning().get().getHashSymbol()),
-                        ActualProperties.of(requirements.getPartitioning().get(), PlacementProperties.anywhere()));
+                        ActualProperties.of(requirements.getPartitioning().get(), PlacementProperties.anywhere(), GroupingProperties.ungrouped()));
             }
 
             throw new UnsupportedOperationException(String.format("not supported: required %s, current %s", requirements, properties));
         }
 
-        private PlanWithProperties rebaseAndPropagateChildProperties(PlanNode node, PlanWithProperties child)
+        private PlanWithProperties rebaseAndDeriveProperties(PlanNode node, PlanWithProperties child)
         {
             PlanNode result = ChildReplacer.replaceChildren(node, ImmutableList.of(child.getNode()));
-            return new PlanWithProperties(result, child.getProperties());
+            return new PlanWithProperties(result, deriveProperties(result, ImmutableList.of(child.getProperties())));
         }
 
-        private PlanWithProperties rebase(PlanNode node, ActualProperties properties, List<PlanNode> children)
+        private PlanWithProperties rebaseAndDeriveProperties(PlanNode node, List<PlanWithProperties> children)
         {
-            PlanNode result = ChildReplacer.replaceChildren(node, children);
-            return new PlanWithProperties(result, properties);
+            PlanNode result = ChildReplacer.replaceChildren(node, children.stream().map(PlanWithProperties::getNode).collect(Collectors.toList()));
+            return new PlanWithProperties(result, deriveProperties(result, children.stream().map(PlanWithProperties::getProperties).collect(Collectors.toList())));
         }
     }
 
@@ -604,21 +649,28 @@ public class AddExchanges
     {
         private final Optional<PartitioningProperties> partitioning;
         private final Optional<PlacementProperties> placement;
+        private final Optional<GroupingProperties> grouping;
 
-        private Requirements(Optional<PartitioningProperties> partitioning, Optional<PlacementProperties> placement)
+        private Requirements(Optional<PartitioningProperties> partitioning, Optional<PlacementProperties> placement, Optional<GroupingProperties> grouping)
         {
             this.partitioning = partitioning;
             this.placement = placement;
+            this.grouping = grouping;
         }
 
         public static Requirements of(PartitioningProperties partitioning)
         {
-            return new Requirements(Optional.of(partitioning), Optional.empty());
+            return new Requirements(Optional.of(partitioning), Optional.empty(), Optional.empty());
         }
 
         public static Requirements of(PartitioningProperties partitioning, PlacementProperties placement)
         {
-            return new Requirements(Optional.of(partitioning), Optional.of(placement));
+            return new Requirements(Optional.of(partitioning), Optional.of(placement), Optional.empty());
+        }
+
+        public static Builder builder()
+        {
+            return new Builder();
         }
 
         public Optional<PartitioningProperties> getPartitioning()
@@ -652,6 +704,41 @@ public class AddExchanges
         public boolean isPartitioned()
         {
             return partitioning.isPresent() && partitioning.get().getType() == PartitioningProperties.Type.PARTITIONED;
+        }
+
+        public Optional<GroupingProperties> getGrouping()
+        {
+            return grouping;
+        }
+
+        public static class Builder
+        {
+            private PartitioningProperties partitioning;
+            private PlacementProperties placement;
+            private GroupingProperties grouping;
+
+            public Builder partitioning(PartitioningProperties partitioning)
+            {
+                this.partitioning = partitioning;
+                return this;
+            }
+
+            public Builder placement(PlacementProperties placement)
+            {
+                this.placement = placement;
+                return this;
+            }
+
+            public Builder grouping(GroupingProperties grouping)
+            {
+                this.grouping = grouping;
+                return this;
+            }
+
+            public Requirements build()
+            {
+                return new Requirements(Optional.ofNullable(partitioning), Optional.ofNullable(placement), Optional.ofNullable(grouping));
+            }
         }
     }
 }

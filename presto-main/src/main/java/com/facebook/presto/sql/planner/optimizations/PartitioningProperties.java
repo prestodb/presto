@@ -14,9 +14,11 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.sql.planner.Symbol;
+import com.google.common.collect.ImmutableSet;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 
 class PartitioningProperties
 {
@@ -28,7 +30,7 @@ class PartitioningProperties
 
     private final Type type;
     private final Optional<Symbol> hashSymbol;
-    private final Optional<List<Symbol>> keys;
+    private final Optional<Set<Symbol>> keys;
 
     public static PartitioningProperties arbitrary()
     {
@@ -40,9 +42,9 @@ class PartitioningProperties
         return new PartitioningProperties(Type.UNPARTITIONED);
     }
 
-    public static PartitioningProperties partitioned(List<Symbol> symbols, Optional<Symbol> hashSymbol)
+    public static PartitioningProperties partitioned(Collection<Symbol> symbols, Optional<Symbol> hashSymbol)
     {
-        return new PartitioningProperties(Type.PARTITIONED, symbols, hashSymbol);
+        return new PartitioningProperties(Type.PARTITIONED, ImmutableSet.copyOf(symbols), hashSymbol);
     }
 
     private PartitioningProperties(Type type)
@@ -52,7 +54,7 @@ class PartitioningProperties
         this.hashSymbol = Optional.empty();
     }
 
-    private PartitioningProperties(Type type, List<Symbol> keys, Optional<Symbol> hashSymbol)
+    private PartitioningProperties(Type type, Set<Symbol> keys, Optional<Symbol> hashSymbol)
     {
         this.type = type;
         this.keys = Optional.of(keys);
@@ -64,7 +66,7 @@ class PartitioningProperties
         return type;
     }
 
-    public Optional<List<Symbol>> getKeys()
+    public Optional<Set<Symbol>> getKeys()
     {
         return keys;
     }
