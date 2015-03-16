@@ -45,6 +45,7 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
@@ -55,7 +56,9 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveCharObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.CharTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
@@ -113,6 +116,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDateObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDoubleObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaFloatObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaHiveCharObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaHiveVarcharObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
@@ -173,6 +177,9 @@ public abstract class AbstractTestHiveFileFormats
     private static final BigDecimal EXPECTED_DECIMAL_PRECISION_18 = new BigDecimal("-1234567890.12345678");
     private static final BigDecimal EXPECTED_DECIMAL_PRECISION_38 = new BigDecimal("1234567890123456789012.1234567800000000");
 
+    public static final int CHAR_COLUMN_LENGTH = 4;
+    public static final ObjectInspector hiveCharLength4ObjectInspector = new JavaHiveCharObjectInspector(new CharTypeInfo(CHAR_COLUMN_LENGTH));
+
     // TODO: support null values and determine if timestamp and binary are allowed as partition keys
     public static final int NUM_ROWS = 1000;
     public static final List<TestColumn> TEST_COLUMNS = ImmutableList.<TestColumn>builder()
@@ -180,6 +187,8 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("p_string", javaStringObjectInspector, "test", Slices.utf8Slice("test"), true))
             .add(new TestColumn("p_empty_varchar", javaHiveVarcharObjectInspector, "", Slices.EMPTY_SLICE, true))
             .add(new TestColumn("p_varchar", javaHiveVarcharObjectInspector, "test", Slices.utf8Slice("test"), true))
+            .add(new TestColumn("p_empty_char", hiveCharLength4ObjectInspector, "", Slices.EMPTY_SLICE, true))
+            .add(new TestColumn("p_char", hiveCharLength4ObjectInspector, "test", Slices.utf8Slice("test"), true))
             .add(new TestColumn("p_tinyint", javaByteObjectInspector, "1", 1L, true))
             .add(new TestColumn("p_smallint", javaShortObjectInspector, "2", 2L, true))
             .add(new TestColumn("p_int", javaIntObjectInspector, "3", 3L, true))
@@ -198,6 +207,7 @@ public abstract class AbstractTestHiveFileFormats
 //            .add(new TestColumn("p_binary", javaByteArrayObjectInspector, "test2", Slices.utf8Slice("test2"), true))
             .add(new TestColumn("p_null_string", javaStringObjectInspector, HIVE_DEFAULT_DYNAMIC_PARTITION, null, true))
             .add(new TestColumn("p_null_varchar", javaHiveVarcharObjectInspector, HIVE_DEFAULT_DYNAMIC_PARTITION, null, true))
+            .add(new TestColumn("p_null_char", javaHiveCharObjectInspector, HIVE_DEFAULT_DYNAMIC_PARTITION, null, true))
             .add(new TestColumn("p_null_tinyint", javaByteObjectInspector, HIVE_DEFAULT_DYNAMIC_PARTITION, null, true))
             .add(new TestColumn("p_null_smallint", javaShortObjectInspector, HIVE_DEFAULT_DYNAMIC_PARTITION, null, true))
             .add(new TestColumn("p_null_int", javaIntObjectInspector, HIVE_DEFAULT_DYNAMIC_PARTITION, null, true))
@@ -217,6 +227,7 @@ public abstract class AbstractTestHiveFileFormats
 //            .add(new TestColumn("p_null_binary", javaByteArrayObjectInspector, HIVE_DEFAULT_DYNAMIC_PARTITION, null, true))
             .add(new TestColumn("t_null_string", javaStringObjectInspector, null, null))
             .add(new TestColumn("t_null_varchar", javaHiveVarcharObjectInspector, null, null))
+            .add(new TestColumn("t_null_char", javaHiveCharObjectInspector, null, null))
             .add(new TestColumn("t_null_array_int", getStandardListObjectInspector(javaIntObjectInspector), null, null))
             .add(new TestColumn("t_null_decimal_precision_2", DECIMAL_INSPECTOR_PRECISION_2, null, null))
             .add(new TestColumn("t_null_decimal_precision_4", DECIMAL_INSPECTOR_PRECISION_4, null, null))
@@ -228,6 +239,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_string", javaStringObjectInspector, "test", Slices.utf8Slice("test")))
             .add(new TestColumn("t_empty_varchar", javaHiveVarcharObjectInspector, new HiveVarchar("", HiveVarchar.MAX_VARCHAR_LENGTH), Slices.EMPTY_SLICE))
             .add(new TestColumn("t_varchar", javaHiveVarcharObjectInspector, new HiveVarchar("test", HiveVarchar.MAX_VARCHAR_LENGTH), Slices.utf8Slice("test")))
+            .add(new TestColumn("t_char", hiveCharLength4ObjectInspector, new HiveChar("test", CHAR_COLUMN_LENGTH), Slices.utf8Slice("test"))) // chars are padded to length
             .add(new TestColumn("t_tinyint", javaByteObjectInspector, (byte) 1, 1L))
             .add(new TestColumn("t_smallint", javaShortObjectInspector, (short) 2, 2L))
             .add(new TestColumn("t_int", javaIntObjectInspector, 3, 3L))
@@ -256,6 +268,10 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_map_varchar",
                     getStandardMapObjectInspector(javaHiveVarcharObjectInspector, javaHiveVarcharObjectInspector),
                     ImmutableMap.of(new HiveVarchar("test", HiveVarchar.MAX_VARCHAR_LENGTH), new HiveVarchar("test", HiveVarchar.MAX_VARCHAR_LENGTH)),
+                    mapBlockOf(VARCHAR, VARCHAR, "test", "test")))
+            .add(new TestColumn("t_map_char",
+                    getStandardMapObjectInspector(hiveCharLength4ObjectInspector, hiveCharLength4ObjectInspector),
+                    ImmutableMap.of(new HiveChar("test", CHAR_COLUMN_LENGTH), new HiveChar("test", CHAR_COLUMN_LENGTH)),
                     mapBlockOf(VARCHAR, VARCHAR, "test", "test")))
             .add(new TestColumn("t_map_smallint",
                     getStandardMapObjectInspector(javaShortObjectInspector, javaShortObjectInspector),
@@ -321,6 +337,11 @@ public abstract class AbstractTestHiveFileFormats
                     "t_array_varchar",
                     getStandardListObjectInspector(javaHiveVarcharObjectInspector),
                     ImmutableList.of(new HiveVarchar("test", HiveVarchar.MAX_VARCHAR_LENGTH)),
+                    arrayBlockOf(VARCHAR, "test")))
+            .add(new TestColumn(
+                    "t_array_char",
+                    getStandardListObjectInspector(hiveCharLength4ObjectInspector),
+                    ImmutableList.of(new HiveChar("test", CHAR_COLUMN_LENGTH)),
                     arrayBlockOf(VARCHAR, "test")))
             .add(new TestColumn("t_array_date",
                     getStandardListObjectInspector(javaDateObjectInspector),
@@ -625,7 +646,6 @@ public abstract class AbstractTestHiveFileFormats
                         if (actualValue instanceof SqlVarbinary) {
                             actualValue = new String(((SqlVarbinary) actualValue).getBytes(), UTF_8);
                         }
-
                         if (actualValue instanceof SqlDecimal) {
                             actualValue = new BigDecimal(actualValue.toString());
                         }

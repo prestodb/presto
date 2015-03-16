@@ -2332,6 +2332,20 @@ public abstract class AbstractTestHiveClient
                     }
                 }
 
+                // CHAR(25)
+                index = columnIndex.get("t_char");
+                if (index != null) {
+                    if ((rowNumber % 41) == 0) {
+                        assertNull(row.getField(index));
+                    }
+                    else if ((rowNumber % 41) == 1) {
+                        assertEquals(row.getField(index), "                         "); // 25 trailing spaces
+                    }
+                    else {
+                        assertEquals(row.getField(index), "test char                "); // padded
+                    }
+                }
+
                 // MAP<STRING, STRING>
                 index = columnIndex.get("t_map");
                 if (index != null) {

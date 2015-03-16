@@ -92,6 +92,7 @@ SELECT * FROM presto_test_types_textfile
 
 -- Parquet fails when trying to use complex nested types.
 -- Parquet is missing TIMESTAMP and BINARY.
+-- Empty strings are not padded correctly for CHAR(n) type.
 CREATE TABLE presto_test_types_parquet (
   t_string STRING
 , t_tinyint TINYINT

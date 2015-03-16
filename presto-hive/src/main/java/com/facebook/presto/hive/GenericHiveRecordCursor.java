@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.Varchars;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.Deserializer;
@@ -430,6 +431,9 @@ class GenericHiveRecordCursor<K, V extends Writable>
             }
             else if (fieldValue instanceof byte[]) {
                 value = Slices.wrappedBuffer((byte[]) fieldValue);
+            }
+            else if (fieldValue instanceof HiveChar) {
+                value = Slices.utf8Slice(((HiveChar) fieldValue).getValue());
             }
             else if (fieldValue instanceof HiveVarchar) {
                 value = Slices.utf8Slice(((HiveVarchar) fieldValue).getValue());

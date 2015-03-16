@@ -301,7 +301,7 @@ public class TestHiveFileFormats
         List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, testColumn -> {
             ObjectInspector objectInspector = testColumn.getObjectInspector();
             return !hasType(objectInspector, PrimitiveCategory.DATE) && !hasType(objectInspector, PrimitiveCategory.DECIMAL)
-                    && !hasType(objectInspector, PrimitiveCategory.VARCHAR);
+                    && !hasType(objectInspector, PrimitiveCategory.VARCHAR) && !hasType(objectInspector, PrimitiveCategory.CHAR);
         }));
 
         assertThatFileFormat(DWRF)

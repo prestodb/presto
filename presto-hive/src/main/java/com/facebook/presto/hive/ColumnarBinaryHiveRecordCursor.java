@@ -126,7 +126,7 @@ class ColumnarBinaryHiveRecordCursor<K>
     private static final int SIZE_OF_INT = 4;
     private static final int SIZE_OF_LONG = 8;
 
-    private static final Set<PrimitiveCategory> VALID_HIVE_STRING_TYPES = ImmutableSet.of(PrimitiveCategory.BINARY, PrimitiveCategory.VARCHAR, PrimitiveCategory.STRING);
+    private static final Set<PrimitiveCategory> VALID_HIVE_STRING_TYPES = ImmutableSet.of(PrimitiveCategory.BINARY, PrimitiveCategory.VARCHAR, PrimitiveCategory.STRING, PrimitiveCategory.CHAR);
     private static final Set<Category> VALID_HIVE_STRUCTURAL_CATEGORIES = ImmutableSet.of(Category.LIST, Category.MAP, Category.STRUCT);
 
     public ColumnarBinaryHiveRecordCursor(RecordReader<K, BytesRefArrayWritable> recordReader,
