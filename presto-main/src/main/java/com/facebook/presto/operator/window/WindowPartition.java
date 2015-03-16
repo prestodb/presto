@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.window;
 
+import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.google.common.primitives.Ints;
-import it.unimi.dsi.fastutil.ints.IntComparator;
 
 import java.util.List;
 
@@ -39,7 +39,7 @@ public final class WindowPartition
     private final int[] outputChannels;
     private final List<WindowFunction> windowFunctions;
     private final FrameInfo frameInfo;
-    private final IntComparator orderComparator;
+    private final PagesHashStrategy peerGroupHashStrategy;
 
     private int peerGroupStart;
     private int peerGroupEnd;
@@ -54,7 +54,7 @@ public final class WindowPartition
             int[] outputChannels,
             List<WindowFunction> windowFunctions,
             FrameInfo frameInfo,
-            IntComparator orderComparator)
+            PagesHashStrategy peerGroupHashStrategy)
     {
         this.pagesIndex = pagesIndex;
         this.partitionStart = partitionStart;
@@ -62,7 +62,7 @@ public final class WindowPartition
         this.outputChannels = outputChannels;
         this.windowFunctions = windowFunctions;
         this.frameInfo = frameInfo;
-        this.orderComparator = orderComparator;
+        this.peerGroupHashStrategy = peerGroupHashStrategy;
 
         // reset functions for new partition
         WindowIndex windowIndex = new WindowIndex(pagesIndex, partitionStart, partitionEnd);
@@ -123,8 +123,7 @@ public final class WindowPartition
         peerGroupStart = currentPosition;
         // find end of peer group
         peerGroupEnd = peerGroupStart + 1;
-        while ((peerGroupEnd < partitionEnd) &&
-                (orderComparator.compare(peerGroupEnd - 1, peerGroupEnd) == 0)) {
+        while ((peerGroupEnd < partitionEnd) && pagesIndex.positionEqualsPosition(peerGroupHashStrategy, peerGroupStart, peerGroupEnd)) {
             peerGroupEnd++;
         }
     }

@@ -22,10 +22,10 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import it.unimi.dsi.fastutil.ints.IntComparator;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
@@ -129,6 +129,9 @@ public class WindowOperator
     private final List<SortOrder> sortOrder;
     private final List<Type> types;
 
+    private final PagesHashStrategy partitionHashStrategy;
+    private final PagesHashStrategy peerGroupHashStrategy;
+
     private final FrameInfo frameInfo;
 
     private final PagesIndex pagesIndex;
@@ -138,9 +141,6 @@ public class WindowOperator
     private State state = State.NEEDS_INPUT;
 
     private WindowPartition partition;
-
-    private IntComparator partitionComparator;
-    private IntComparator orderComparator;
 
     public WindowOperator(
             OperatorContext operatorContext,
@@ -171,6 +171,9 @@ public class WindowOperator
                 .collect(toImmutableList());
 
         this.pagesIndex = new PagesIndex(sourceTypes, expectedPositions);
+        this.partitionHashStrategy = pagesIndex.createPagesHashStrategy(partitionChannels, operatorContext, Optional.empty());
+        this.peerGroupHashStrategy = pagesIndex.createPagesHashStrategy(sortChannels, operatorContext, Optional.empty());
+
         this.pageBuilder = new PageBuilder(this.types);
     }
 
@@ -201,12 +204,6 @@ public class WindowOperator
 
             // sort the index
             pagesIndex.sort(orderChannels, ordering);
-
-            // create partition comparator
-            partitionComparator = pagesIndex.createComparator(partitionChannels, partitionOrder);
-
-            // create order comparator
-            orderComparator = pagesIndex.createComparator(sortChannels, sortOrder);
         }
     }
 
@@ -254,11 +251,11 @@ public class WindowOperator
 
                 // find partition end
                 int partitionEnd = partitionStart + 1;
-                while ((partitionEnd < pagesIndex.getPositionCount()) && (partitionComparator.compare(partitionStart, partitionEnd) == 0)) {
+                while ((partitionEnd < pagesIndex.getPositionCount()) && pagesIndex.positionEqualsPosition(partitionHashStrategy, partitionStart, partitionEnd)) {
                     partitionEnd++;
                 }
 
-                partition = new WindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, frameInfo, orderComparator);
+                partition = new WindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, frameInfo, peerGroupHashStrategy);
             }
 
             partition.processNextRow(pageBuilder);
