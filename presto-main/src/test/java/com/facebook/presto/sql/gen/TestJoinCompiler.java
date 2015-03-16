@@ -99,18 +99,21 @@ public class TestJoinCompiler
                 for (int rightBlockIndex = 0; rightBlockIndex < channel.size(); rightBlockIndex++) {
                     Block rightBlock = channel.get(rightBlockIndex);
                     for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
-                        assertEquals(
-                                hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition),
-                                positionEqualsPosition(VARCHAR, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition));
+                        boolean expected = positionEqualsPosition(VARCHAR, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+                        assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightBlockPosition, rightBlock), expected);
+                        assertEquals(hashStrategy.rowEqualsRow(leftBlockPosition, new Block[] {leftBlock}, rightBlockPosition, new Block[] {rightBlock}), expected);
+                        assertEquals(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition), expected);
                     }
                 }
 
                 // check equality of every position against every other position in the block cursor
-                for (Block rightBlock : channel) {
-                    for (int position = 0; position < rightBlock.getPositionCount(); position++) {
-                        assertEquals(
-                                hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, position, rightBlock),
-                                positionEqualsPosition(VARCHAR, leftBlock, leftBlockPosition, rightBlock, position));
+                for (int rightBlockIndex = 0; rightBlockIndex < channel.size(); rightBlockIndex++) {
+                    Block rightBlock = channel.get(rightBlockIndex);
+                    for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
+                        boolean expected = positionEqualsPosition(VARCHAR, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+                        assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightBlockPosition, rightBlock), expected);
+                        assertEquals(hashStrategy.rowEqualsRow(leftBlockPosition, new Block[] {leftBlock}, rightBlockPosition, new Block[] {rightBlock}), expected);
+                        assertEquals(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition), expected);
                     }
                 }
 
@@ -181,6 +184,12 @@ public class TestJoinCompiler
         for (int leftBlockIndex = 0; leftBlockIndex < varcharChannel.size(); leftBlockIndex++) {
             PageBuilder pageBuilder = new PageBuilder(types);
 
+            Block[] leftBlocks = new Block[4];
+            leftBlocks[0] = varcharChannel.get(leftBlockIndex);
+            leftBlocks[1] = longChannel.get(leftBlockIndex);
+            leftBlocks[2] = doubleChannel.get(leftBlockIndex);
+            leftBlocks[3] = booleanChannel.get(leftBlockIndex);
+
             int leftPositionCount = varcharChannel.get(leftBlockIndex).getPositionCount();
             for (int leftBlockPosition = 0; leftBlockPosition < leftPositionCount; leftBlockPosition++) {
                 // hash code of position must match block hash
@@ -211,9 +220,11 @@ public class TestJoinCompiler
 
                     int rightPositionCount = varcharChannel.get(rightBlockIndex).getPositionCount();
                     for (int rightPosition = 0; rightPosition < rightPositionCount; rightPosition++) {
-                        assertEquals(
-                                hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, rightBlocks),
-                                expectedHashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, rightBlocks));
+                        boolean expected = expectedHashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, rightBlocks);
+
+                        assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, rightBlocks), expected);
+                        assertEquals(hashStrategy.rowEqualsRow(leftBlockPosition, leftBlocks, rightPosition, rightBlocks), expected);
+                        assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, rightBlocks), expected);
                     }
                 }
 

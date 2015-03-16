@@ -243,6 +243,15 @@ public class PagesIndex
         return partitionHashStrategy.positionEqualsPosition(leftPageIndex, leftPagePosition, rightPageIndex, rightPagePosition);
     }
 
+    public boolean positionEqualsRow(PagesHashStrategy pagesHashStrategy, int indexPosition, int rowPosition, Block... row)
+    {
+        long pageAddress = valueAddresses.getLong(indexPosition);
+        int pageIndex = decodeSliceIndex(pageAddress);
+        int pagePosition = decodePosition(pageAddress);
+
+        return pagesHashStrategy.positionEqualsRow(pageIndex, pagePosition, rowPosition, row);
+    }
+
     private PagesIndexOrdering createPagesIndexComparator(List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
         List<Type> sortTypes = sortChannels.stream()

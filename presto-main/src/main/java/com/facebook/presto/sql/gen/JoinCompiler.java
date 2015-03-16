@@ -151,7 +151,8 @@ public class JoinCompiler
         generateGetChannelCountMethod(classDefinition, channelFields);
         generateAppendToMethod(classDefinition, callSiteBinder, types, channelFields);
         generateHashPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, hashChannelField);
-        generateHashRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
+        generateHashRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
+        generateRowEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
         generatePositionEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
 
@@ -312,7 +313,7 @@ public class JoinCompiler
                 .retInt();
     }
 
-    private void generateHashRowMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> joinChannelTypes, List<FieldDefinition> joinChannelFields)
+    private void generateHashRowMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> joinChannelTypes)
     {
         CompilerContext compilerContext = new CompilerContext(BOOTSTRAP_METHOD);
         MethodDefinition hashPositionMethod = classDefinition.declareMethod(compilerContext,
@@ -360,6 +361,53 @@ public class JoinCompiler
         ifStatementBuilder.ifFalse(new Block(compilerContext).append(type.invoke("hash", int.class, blockRef, blockPosition)));
 
         return ifStatementBuilder.build();
+    }
+
+    private void generateRowEqualsRowMethod(
+            ClassDefinition classDefinition,
+            CallSiteBinder callSiteBinder,
+            List<Type> joinChannelTypes)
+    {
+        CompilerContext compilerContext = new CompilerContext(BOOTSTRAP_METHOD);
+        MethodDefinition hashPositionMethod = classDefinition.declareMethod(compilerContext,
+                a(PUBLIC),
+                "rowEqualsRow",
+                type(boolean.class),
+                arg("leftPosition", int.class),
+                arg("leftBlocks", com.facebook.presto.spi.block.Block[].class),
+                arg("rightPosition", int.class),
+                arg("rightBlocks", com.facebook.presto.spi.block.Block[].class));
+
+        for (int index = 0; index < joinChannelTypes.size(); index++) {
+            ByteCodeExpression type = constantType(compilerContext, callSiteBinder, joinChannelTypes.get(index));
+
+            ByteCodeExpression leftBlock = compilerContext
+                    .getVariable("leftBlocks")
+                    .getElement(index);
+
+            ByteCodeExpression rightBlock = compilerContext
+                    .getVariable("rightBlocks")
+                    .getElement(index);
+
+            LabelNode checkNextField = new LabelNode("checkNextField");
+            hashPositionMethod
+                    .getBody()
+                    .append(typeEquals(compilerContext,
+                            type,
+                            leftBlock,
+                            compilerContext.getVariable("leftPosition"),
+                            rightBlock,
+                            compilerContext.getVariable("rightPosition")))
+                    .ifTrueGoto(checkNextField)
+                    .push(false)
+                    .retBoolean()
+                    .visitLabel(checkNextField);
+        }
+
+        hashPositionMethod
+                .getBody()
+                .push(true)
+                .retInt();
     }
 
     private void generatePositionEqualsRowMethod(

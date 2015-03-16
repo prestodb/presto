@@ -95,6 +95,21 @@ public class SimplePagesHashStrategy
     }
 
     @Override
+    public boolean rowEqualsRow(int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks)
+    {
+        for (int i = 0; i < hashChannels.size(); i++) {
+            int hashChannel = hashChannels.get(i);
+            Type type = types.get(hashChannel);
+            Block leftBlock = leftBlocks[i];
+            Block rightBlock = rightBlocks[i];
+            if (!TypeUtils.positionEqualsPosition(type, leftBlock, leftPosition, rightBlock, rightPosition)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
     public boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Block... rightBlocks)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
