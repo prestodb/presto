@@ -60,6 +60,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
@@ -69,6 +70,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.rowBlockOf;
 import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.Iterables.all;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.stream.Collectors.toList;
@@ -143,10 +145,12 @@ public class TestHiveFileFormats
     public void testRCBinary()
             throws Exception
     {
-        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, testColumn -> {
-            // RC file does not support complex type as key of a map
-            return !testColumn.getName().equals("t_map_null_key_complex_key_value");
-        }));
+        // RC file does not support complex type as key of a map and interprets empty VARCHAR as nulls
+        List<TestColumn> testColumns = TEST_COLUMNS.stream()
+                .filter(testColumn -> {
+                    String name = testColumn.getName();
+                    return !name.equals("t_map_null_key_complex_key_value") && !name.equals("t_empty_varchar");
+                }).collect(toList());
 
         HiveOutputFormat<?, ?> outputFormat = new RCFileOutputFormat();
         InputFormat<?, ?> inputFormat = new RCFileInputFormat<>();
@@ -322,13 +326,13 @@ public class TestHiveFileFormats
         RowType phoneType = new RowType(ImmutableList.of(VARCHAR, VARCHAR), Optional.empty());
         RowType personType = new RowType(ImmutableList.of(nameType, BIGINT, VARCHAR, new ArrayType(phoneType)), Optional.empty());
 
-        List<TestColumn> testColumns = ImmutableList.<TestColumn>of(
+        List<TestColumn> testColumns = ImmutableList.of(
             new TestColumn(
                 "persons",
                 getStandardListObjectInspector(
                     getStandardStructObjectInspector(
                         ImmutableList.of("name", "id", "email", "phones"),
-                        ImmutableList.<ObjectInspector>of(
+                                        ImmutableList.of(
                             getStandardStructObjectInspector(
                               ImmutableList.of("first_name", "last_name"),
                               ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
@@ -369,10 +373,9 @@ public class TestHiveFileFormats
     public void testDwrf()
             throws Exception
     {
-        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, testColumn -> {
-            ObjectInspector objectInspector = testColumn.getObjectInspector();
-            return !hasType(objectInspector, PrimitiveCategory.DATE);
-        }));
+        List<TestColumn> testColumns = filterOutPrimitiveTypes(
+                TEST_COLUMNS,
+                ImmutableList.of(PrimitiveCategory.DATE, PrimitiveCategory.VARCHAR));
 
         HiveOutputFormat<?, ?> outputFormat = new com.facebook.hive.orc.OrcOutputFormat();
         InputFormat<?, ?> inputFormat = new com.facebook.hive.orc.OrcInputFormat();
@@ -504,5 +507,13 @@ public class TestHiveFileFormats
             return false;
         }
         throw new IllegalArgumentException("Unknown object inspector type " + objectInspector);
+    }
+
+    private List<TestColumn> filterOutPrimitiveTypes(List<TestColumn> testColumns, List<PrimitiveCategory> primitiveCategories)
+    {
+        return testColumns.stream()
+                .filter(testColumn -> all(primitiveCategories,
+                        primitiveCategory -> !hasType(testColumn.getObjectInspector(), primitiveCategory)))
+                .collect(Collectors.toList());
     }
 }
