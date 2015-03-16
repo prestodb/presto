@@ -341,21 +341,12 @@ public class PruneUnreferencedOutputs
             List<Symbol> replicateSymbols = FluentIterable.from(node.getReplicateSymbols())
                     .filter(in(context.get()))
                     .toList();
-            ImmutableMap.Builder<Symbol, List<Symbol>> builder = ImmutableMap.builder();
-            for (Map.Entry<Symbol, List<Symbol>> entry : node.getUnnestSymbols().entrySet()) {
-                if (Iterables.any(entry.getValue(), in(context.get()))) {
-                    builder.put(entry);
-                }
-            }
-            Map<Symbol, List<Symbol>> unnestSymbols = builder.build();
+            Map<Symbol, List<Symbol>> unnestSymbols = node.getUnnestSymbols();
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(replicateSymbols)
                     .addAll(unnestSymbols.keySet());
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
-            if (unnestSymbols.isEmpty()) {
-                return source;
-            }
             return new UnnestNode(node.getId(), source, replicateSymbols, unnestSymbols);
         }
 
