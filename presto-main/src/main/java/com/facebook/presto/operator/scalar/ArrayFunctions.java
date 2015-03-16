@@ -18,24 +18,25 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import javax.annotation.Nullable;
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 //import javax.annotation.Nullable;
@@ -56,6 +57,7 @@ public final class ArrayFunctions
 
     private static final String FUNCTION_NAME = "contains";
     private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(typeParameter("T")), "array<T>", ImmutableList.of("array<T>", "T"), false, false);
+    public static final MethodHandle METHOD_HANDLE = methodHandle(ArrayFunctions.class, "contains", Slice.class, Slice.class);
 
     @Override
     public Signature getSignature()
@@ -88,18 +90,23 @@ public final class ArrayFunctions
         TypeSignature valueType = type.getTypeSignature();
         TypeSignature arrayType = parameterizedTypeName("array", valueType);
         TypeSignature returnType = parseTypeSignature(StandardTypes.BOOLEAN);
-        MethodHandle methodHandle = methodHandle(JsonFunctions.class, "jsonArrayContains", Slice.class, type.getJavaType());
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(type);
         Signature signature = new Signature(FUNCTION_NAME, returnType, arrayType, valueType);
 
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false, false));
     }
 
-    @Nullable
-    public static Boolean equals(Type type, Slice slice, Slice value)
+    public static boolean contains(Slice givenArray, Slice value)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
-        blockBuilder.writeBytes(slice, 0, slice.length());
-        return JsonFunctions.jsonArrayContains(blockBuilder.closeEntry().build(), 0, value);
+        int arrayLength = givenArray.length();
+        int valueLength = value.length();
+        int numElements = arrayLength / valueLength;
+        for (int i = 0; i < numElements; i++) {
+            if (givenArray.compareTo(i * valueLength, valueLength, value, 0, valueLength) == 0) {
+                return true;
+            }
+        }
+        return false;
     }
 /*
     @Nullable
