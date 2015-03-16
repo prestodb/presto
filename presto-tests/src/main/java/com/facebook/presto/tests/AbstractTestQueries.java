@@ -1002,6 +1002,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByOnSupersetOfPartitioning()
+            throws Exception
+    {
+        assertQuery("SELECT orderdate, c, count(*) FROM (SELECT orderdate, count(*) c FROM orders GROUP BY orderdate) GROUP BY orderdate, c");
+    }
+
+    @Test
     public void testInlineView()
             throws Exception
     {
