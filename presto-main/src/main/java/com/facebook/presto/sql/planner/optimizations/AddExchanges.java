@@ -50,6 +50,7 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
@@ -664,9 +665,10 @@ public class AddExchanges
 
         public boolean isPartitionedOnKeys(List<Symbol> keys)
         {
+            // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
             return isPartitioned() &&
                     partitioning.getKeys().isPresent() &&
-                    partitioning.getKeys().get().equals(keys);
+                    ImmutableSet.copyOf(keys).containsAll(partitioning.getKeys().get());
         }
 
         public boolean isUnpartitioned()
