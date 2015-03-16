@@ -144,10 +144,12 @@ public class TestHiveFileFormats
     public void testRCBinary()
             throws Exception
     {
-        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, testColumn -> {
-            // RC file does not support complex type as key of a map
-            return !testColumn.getName().equals("t_map_null_key_complex_key_value");
-        }));
+        // RC file does not support complex type as key of a map and interprets empty VARCHAR as nulls
+        List<TestColumn> testColumns = TEST_COLUMNS.stream()
+                .filter(testColumn -> {
+                    String name = testColumn.getName();
+                    return !name.equals("t_map_null_key_complex_key_value") && !name.equals("t_empty_varchar");
+                }).collect(toList());
 
         HiveOutputFormat<?, ?> outputFormat = new RCFileOutputFormat();
         InputFormat<?, ?> inputFormat = new RCFileInputFormat<>();
@@ -348,38 +350,38 @@ public class TestHiveFileFormats
         RowType phoneType = new RowType(ImmutableList.of(VARCHAR, VARCHAR), Optional.empty());
         RowType personType = new RowType(ImmutableList.of(nameType, BIGINT, VARCHAR, new ArrayType(phoneType)), Optional.empty());
 
-        List<TestColumn> testColumns = ImmutableList.<TestColumn>of(
-            new TestColumn(
-                "persons",
-                getStandardListObjectInspector(
-                    getStandardStructObjectInspector(
-                        ImmutableList.of("name", "id", "email", "phones"),
-                        ImmutableList.<ObjectInspector>of(
-                            getStandardStructObjectInspector(
-                              ImmutableList.of("first_name", "last_name"),
-                              ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
-                            ),
-                            javaIntObjectInspector,
-                            javaStringObjectInspector,
-                            getStandardListObjectInspector(
-                              getStandardStructObjectInspector(
-                                ImmutableList.of("number", "type"),
-                                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
-                              )
-                            )
-                        )
-                    )
-                ),
-                null,
-                arrayBlockOf(personType,
-                        rowBlockOf(ImmutableList.of(nameType, BIGINT, VARCHAR, new ArrayType(phoneType)),
-                                rowBlockOf(ImmutableList.of(VARCHAR, VARCHAR), "Bob", "Roberts"),
-                                0,
-                                "bob.roberts@example.com",
-                                arrayBlockOf(phoneType, rowBlockOf(ImmutableList.of(VARCHAR, VARCHAR), "1234567890", null))
+        List<TestColumn> testColumns = ImmutableList.of(
+                new TestColumn(
+                        "persons",
+                        getStandardListObjectInspector(
+                                getStandardStructObjectInspector(
+                                        ImmutableList.of("name", "id", "email", "phones"),
+                                        ImmutableList.of(
+                                                getStandardStructObjectInspector(
+                                                        ImmutableList.of("first_name", "last_name"),
+                                                        ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
+                                                ),
+                                                javaIntObjectInspector,
+                                                javaStringObjectInspector,
+                                                getStandardListObjectInspector(
+                                                        getStandardStructObjectInspector(
+                                                                ImmutableList.of("number", "type"),
+                                                                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
+                                                        )
+                                                )
+                                        )
+                                )
+                        ),
+                        null,
+                        arrayBlockOf(personType,
+                                rowBlockOf(ImmutableList.of(nameType, BIGINT, VARCHAR, new ArrayType(phoneType)),
+                                        rowBlockOf(ImmutableList.of(VARCHAR, VARCHAR), "Bob", "Roberts"),
+                                        0,
+                                        "bob.roberts@example.com",
+                                        arrayBlockOf(phoneType, rowBlockOf(ImmutableList.of(VARCHAR, VARCHAR), "1234567890", null))
+                                )
                         )
                 )
-            )
         );
 
         InputFormat<?, ?> inputFormat = new MapredParquetInputFormat();
@@ -397,7 +399,8 @@ public class TestHiveFileFormats
     {
         List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, testColumn -> {
             ObjectInspector objectInspector = testColumn.getObjectInspector();
-            return !hasType(objectInspector, PrimitiveCategory.DATE) && !hasType(objectInspector, PrimitiveCategory.DECIMAL);
+            return !hasType(objectInspector, PrimitiveCategory.DATE) && !hasType(objectInspector, PrimitiveCategory.DECIMAL)
+                    && !hasType(objectInspector, PrimitiveCategory.VARCHAR);
         }));
 
         HiveOutputFormat<?, ?> outputFormat = new com.facebook.hive.orc.OrcOutputFormat();
