@@ -27,8 +27,6 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import it.unimi.dsi.fastutil.Swapper;
-import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
-import it.unimi.dsi.fastutil.ints.IntComparator;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
@@ -40,6 +38,7 @@ import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.sizeOf;
 
@@ -231,17 +230,17 @@ public class PagesIndex
         createPagesIndexComparator(sortChannels, sortOrders).sort(this);
     }
 
-    public IntComparator createComparator(List<Integer> sortChannels, List<SortOrder> sortOrders)
+    public boolean positionEqualsPosition(PagesHashStrategy partitionHashStrategy, int leftPosition, int rightPosition)
     {
-        PagesIndexComparator comparator = createPagesIndexComparator(sortChannels, sortOrders).getComparator();
-        return new AbstractIntComparator()
-        {
-            @Override
-            public int compare(int leftPosition, int rightPosition)
-            {
-                return comparator.compareTo(PagesIndex.this, leftPosition, rightPosition);
-            }
-        };
+        long leftAddress = valueAddresses.getLong(leftPosition);
+        int leftPageIndex = decodeSliceIndex(leftAddress);
+        int leftPagePosition = decodePosition(leftAddress);
+
+        long rightAddress = valueAddresses.getLong(rightPosition);
+        int rightPageIndex = decodeSliceIndex(rightAddress);
+        int rightPagePosition = decodePosition(rightAddress);
+
+        return partitionHashStrategy.positionEqualsPosition(leftPageIndex, leftPagePosition, rightPageIndex, rightPagePosition);
     }
 
     private PagesIndexOrdering createPagesIndexComparator(List<Integer> sortChannels, List<SortOrder> sortOrders)
@@ -255,6 +254,20 @@ public class PagesIndex
     public LookupSource createLookupSource(List<Integer> joinChannels, OperatorContext operatorContext)
     {
         return createLookupSource(joinChannels, operatorContext, Optional.empty());
+    }
+
+    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, OperatorContext operatorContext, Optional<Integer> hashChannel)
+    {
+        try {
+            return joinCompiler.compilePagesHashStrategyFactory(types, joinChannels)
+                    .createPagesHashStrategy(ImmutableList.copyOf(channels), hashChannel);
+        }
+        catch (Exception e) {
+            log.error(e, "Lookup source compile failed for types=%s error=%s", types, e);
+        }
+
+        // if compilation fails, use interpreter
+        return new SimplePagesHashStrategy(types, ImmutableList.<List<Block>>copyOf(channels), joinChannels, hashChannel);
     }
 
     public LookupSource createLookupSource(List<Integer> joinChannels, OperatorContext operatorContext, Optional<Integer> hashChannel)
@@ -291,5 +304,15 @@ public class PagesIndex
             hashTypes.add(types.get(channel));
         }
         return new InMemoryJoinHash(valueAddresses, hashTypes.build(), hashStrategy, operatorContext);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("positionCount", positionCount)
+                .add("types", types)
+                .add("estimatedSize", estimatedSize)
+                .toString();
     }
 }
