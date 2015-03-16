@@ -102,8 +102,25 @@ public class PagesIndex
         return channels[channel];
     }
 
+    public void clear()
+    {
+        for (ObjectArrayList<Block> channel : channels) {
+            channel.clear();
+        }
+        valueAddresses.clear();
+        positionCount = 0;
+        pagesMemorySize = 0;
+
+        estimatedSize = calculateEstimatedSize();
+    }
+
     public void addPage(Page page)
     {
+        // ignore empty pages
+        if (page.getPositionCount() == 0) {
+            return;
+        }
+
         positionCount += page.getPositionCount();
 
         int pageIndex = (channels.length > 0) ? channels[0].size() : 0;

@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.operator.PrePartitionedWindowOperator.PrePartitionedWindowOperatorFactory;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.window.FirstValueFunction.VarcharFirstValueFunction;
 import com.facebook.presto.operator.window.FrameInfo;
@@ -164,6 +165,97 @@ public class TestWindowOperator
                 .row("a", 6, 0.1, true, 3)
                 .row("b", -1, -0.1, true, 1)
                 .row("b", 5, 0.4, false, 2)
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
+    public void testRowNumberPrePartitionedNoPageBreaks()
+            throws Exception
+    {
+        assertRowNumberPrePartitioned(rowPagesBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN)
+                .row("a", 2, 0.3, false)
+                .row("a", 6, 0.1, true)
+                .row("a", 4, 0.2, true)
+                .row("b", -1, -0.1, true)
+                .row("b", 5, 0.4, false)
+                .row("c", 14, 0.2, true)
+                .row("c", 12, 0.3, false)
+                .row("c", 16, 0.1, true)
+                .row("d", 15, 0.4, false)
+                .row("d", -11, -0.1, true)
+                .build());
+    }
+
+    @Test
+    public void testRowNumberPrePartitionedPageBreakAtPartition()
+            throws Exception
+    {
+        assertRowNumberPrePartitioned(rowPagesBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN)
+                .row("a", 4, 0.2, true)
+                .row("a", 6, 0.1, true)
+                .row("a", 2, 0.3, false)
+                .pageBreak()
+                .row("b", -1, -0.1, true)
+                .row("b", 5, 0.4, false)
+                .pageBreak()
+                .row("c", 14, 0.2, true)
+                .row("c", 12, 0.3, false)
+                .row("c", 16, 0.1, true)
+                .pageBreak()
+                .row("d", 15, 0.4, false)
+                .row("d", -11, -0.1, true)
+                .build());
+    }
+
+    @Test
+    public void testRowNumberPrePartitionedPageBreakWithinPartition()
+            throws Exception
+    {
+        assertRowNumberPrePartitioned(rowPagesBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN)
+                .row("a", 2, 0.3, false)
+                .row("a", 6, 0.1, true)
+                .row("a", 4, 0.2, true)
+                .row("b", -1, -0.1, true)
+                .pageBreak()
+                .row("b", 5, 0.4, false)
+                .row("c", 14, 0.2, true)
+                .row("c", 12, 0.3, false)
+                .pageBreak()
+                .row("c", 16, 0.1, true)
+                .row("d", 15, 0.4, false)
+                .pageBreak()
+                .row("d", -11, -0.1, true)
+                .build());
+    }
+
+    private void assertRowNumberPrePartitioned(List<Page> input)
+    {
+        PrePartitionedWindowOperatorFactory operatorFactory = new PrePartitionedWindowOperatorFactory(
+                0,
+                ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN),
+                Ints.asList(0, 1, 2, 3),
+                ROW_NUMBER,
+                Ints.asList(0),
+                Ints.asList(1),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new FrameInfo(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty()),
+                10);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, DOUBLE, BOOLEAN, BIGINT)
+                .row("a", 2, 0.3, false, 1)
+                .row("a", 4, 0.2, true, 2)
+                .row("a", 6, 0.1, true, 3)
+                .row("b", -1, -0.1, true, 1)
+                .row("b", 5, 0.4, false, 2)
+                .row("c", 12, 0.3, false, 1)
+                .row("c", 14, 0.2, true, 2)
+                .row("c", 16, 0.1, true, 3)
+                .row("d", -11, -0.1, true, 1)
+                .row("d", 15, 0.4, false, 2)
                 .build();
 
         assertOperatorEquals(operator, input, expected);
