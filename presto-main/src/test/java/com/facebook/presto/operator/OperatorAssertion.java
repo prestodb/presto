@@ -32,6 +32,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public final class OperatorAssertion
@@ -60,30 +61,19 @@ public final class OperatorAssertion
     {
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
 
-        while (input.hasNext()) {
-            Page inputPage = input.next();
+        boolean finishing = false;
 
-            // read output until input is needed or operator is finished
-            int nullPages = 0;
-            while (!operator.needsInput() && !operator.isFinished()) {
-                Page outputPage = operator.getOutput();
-                if (outputPage == null) {
-                    // break infinite loop due to null pages
-                    assertTrue(nullPages < 1_000_000, "Too many null pages; infinite loop?");
-                    nullPages++;
+        for (int loops = 0; !operator.isFinished() && loops < 10_000; loops++) {
+            if (operator.needsInput()) {
+                if (input.hasNext()) {
+                    Page inputPage = input.next();
+                    operator.addInput(inputPage);
                 }
-                else {
-                    outputPages.add(outputPage);
-                    nullPages = 0;
+                else if (!finishing) {
+                    operator.finish();
+                    finishing = true;
                 }
             }
-
-            if (operator.isFinished()) {
-                break;
-            }
-
-            assertEquals(operator.needsInput(), true);
-            operator.addInput(inputPage);
 
             Page outputPage = operator.getOutput();
             if (outputPage != null) {
@@ -91,12 +81,10 @@ public final class OperatorAssertion
             }
         }
 
-        // finish
-        operator.finish();
-        assertEquals(operator.needsInput(), false);
+        assertFalse(operator.needsInput());
+        assertTrue(operator.isBlocked().isDone());
+        assertTrue(operator.isFinished());
 
-        // add remaining output pages
-        addRemainingOutputPages(operator, outputPages);
         return outputPages.build();
     }
 
@@ -123,15 +111,14 @@ public final class OperatorAssertion
     private static void addRemainingOutputPages(Operator operator, ImmutableList.Builder<Page> outputPages)
     {
         // pull remaining output pages
-        while (true) {
+        while (!operator.isFinished()) {
             // at this point the operator should not need more input
             assertEquals(operator.needsInput(), false);
 
             Page outputPage = operator.getOutput();
-            if (outputPage == null) {
-                break;
+            if (outputPage != null) {
+                outputPages.add(outputPage);
             }
-            outputPages.add(outputPage);
         }
 
         // verify final state
