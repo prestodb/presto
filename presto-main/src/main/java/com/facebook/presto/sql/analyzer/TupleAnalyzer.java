@@ -547,9 +547,11 @@ public class TupleAnalyzer
         }
         if (!leftType.equals(superType.get())) {
             analysis.addCoercion(leftExpression, superType.get());
+            analysis.replaceType(leftExpression, superType.get());
         }
         if (!rightType.equals(superType.get())) {
             analysis.addCoercion(rightExpression, superType.get());
+            analysis.replaceType(rightExpression, superType.get());
         }
     }
 
