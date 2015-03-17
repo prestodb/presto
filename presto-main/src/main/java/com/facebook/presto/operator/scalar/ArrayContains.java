@@ -31,7 +31,7 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.createBlock;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
@@ -44,7 +44,7 @@ public final class ArrayContains
     public static final ArrayContains ARRAY_CONTAINS = new ArrayContains();
     private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BOOLEAN);
     private static final String FUNCTION_NAME = "contains";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(typeParameter("T")), "boolean", ImmutableList.of("array<T>", "T"), false, false);
+    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.BOOLEAN, ImmutableList.of("array<T>", "T"), false, false);
 
     @Override
     public Signature getSignature()
