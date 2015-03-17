@@ -13,36 +13,26 @@
  */
 package com.facebook.presto.operator.scalar;
 
+//import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+//import com.facebook.presto.spi.type.BigintType;
+//import com.facebook.presto.spi.type.BooleanType;
+//import com.facebook.presto.spi.type.DoubleType;
 //import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricScalar;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
+//import com.facebook.presto.spi.type.Type;
+//import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.SqlType;
-import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-
-import java.lang.invoke.MethodHandle;
-import java.util.List;
-import java.util.Map;
-
-import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
-import static com.facebook.presto.util.Reflection.methodHandle;
 
 //import javax.annotation.Nullable;
 
+//import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
+import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
+//import static com.facebook.presto.type.TypeUtils.createBlock;
+
 public final class ArrayFunctions
-        extends ParametricScalar
 {
     private ArrayFunctions()
     {
@@ -52,61 +42,8 @@ public final class ArrayFunctions
     @SqlType("array<unknown>")
     public static Slice arrayConstructor()
     {
-        return Slices.utf8Slice("[]");
-    }
-
-    private static final String FUNCTION_NAME = "contains";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(typeParameter("T")), "array<T>", ImmutableList.of("array<T>", "T"), false, false);
-    public static final MethodHandle METHOD_HANDLE = methodHandle(ArrayFunctions.class, "contains", Slice.class, Slice.class);
-
-    @Override
-    public Signature getSignature()
-    {
-        return SIGNATURE;
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Determines whether given value exists in given array; returns boolean";
-    }
-
-    @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        Type type = types.get("T");
-        TypeSignature valueType = type.getTypeSignature();
-        TypeSignature arrayType = parameterizedTypeName("array", valueType);
-        TypeSignature returnType = parseTypeSignature(StandardTypes.BOOLEAN);
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(type);
-        Signature signature = new Signature(FUNCTION_NAME, returnType, arrayType, valueType);
-
-        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false, false));
-    }
-
-    public static boolean contains(Slice givenArray, Slice value)
-    {
-        int arrayLength = givenArray.length();
-        int valueLength = value.length();
-        int numElements = arrayLength / valueLength;
-        for (int i = 0; i < numElements; i++) {
-            if (givenArray.compareTo(i * valueLength, valueLength, value, 0, valueLength) == 0) {
-                return true;
-            }
-        }
-        return false;
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 0);
+        return buildStructuralSlice(blockBuilder);
     }
 /*
     @Nullable
@@ -114,7 +51,7 @@ public final class ArrayFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean contains(@SqlType("array<bigint>") Slice slice, @SqlType(StandardTypes.BIGINT) long value)
     {
-        return JsonFunctions.jsonArrayContains(slice, value);
+        return arrayContains(slice, BigintType.BIGINT, value);
     }
 
     @Nullable
@@ -122,7 +59,7 @@ public final class ArrayFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean contains(@SqlType("array<boolean>") Slice slice, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
-        return JsonFunctions.jsonArrayContains(slice, value);
+        return arrayContains(slice, BooleanType.BOOLEAN, value);
     }
 
     @Nullable
@@ -130,7 +67,7 @@ public final class ArrayFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean contains(@SqlType("array<double>") Slice slice, @SqlType(StandardTypes.DOUBLE) double value)
     {
-        return JsonFunctions.jsonArrayContains(slice, value);
+        return arrayContains(slice, DoubleType.DOUBLE, value);
     }
 
     @Nullable
@@ -138,6 +75,21 @@ public final class ArrayFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean contains(@SqlType("array<varchar>") Slice slice, @SqlType(StandardTypes.VARCHAR) Slice value)
     {
-        return JsonFunctions.jsonArrayContains(slice, value);
+        return arrayContains(slice, VarcharType.VARCHAR, value);
+    }
+
+    private static Boolean arrayContains(Slice slice, Type type, Object value)
+    {
+        Block block = readStructuralBlock(slice);
+        Block valueBlock = createBlock(type, value);
+
+        //TODO: This could be quite slow, it should use parametric equals
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            if (type.equalTo(block, i, valueBlock, 0)) {
+                return true;
+            }
+        }
+
+        return false;
     }*/
 }
