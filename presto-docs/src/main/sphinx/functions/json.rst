@@ -14,7 +14,7 @@ JSON Functions
 
         SELECT json_array_length('[1, 2, 3]');
 
-.. function:: json_extract(json, json_path) -> varchar
+.. function:: json_extract(json, json_path) -> json
 
     Evaluates the `JSONPath`_-like expression ``json_path`` on ``json``
     (a string containing JSON) and returns the result as a JSON string. ::
