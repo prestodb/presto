@@ -332,6 +332,8 @@ public final class AggregationTestUtils
 
         finalAggregation.addIntermediate(createGroupByIdBlock(0, partialBlock.getPositionCount()), partialBlock);
 
+        finalAggregation.addIntermediate(createGroupByIdBlock(0, emptyBlock.getPositionCount()), emptyBlock);
+
         return getGroupValue(finalAggregation, 0);
     }
 
