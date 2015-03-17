@@ -31,6 +31,7 @@ import com.facebook.presto.operator.aggregation.LongSumAggregation;
 import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
 import com.facebook.presto.operator.aggregation.NumericHistogramAggregation;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
+import com.facebook.presto.operator.scalar.ArrayFunctions;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
@@ -297,6 +298,7 @@ public class FunctionRegistry
                 .scalar(TimestampWithTimeZoneOperators.class)
                 .scalar(DateTimeOperators.class)
                 .scalar(HyperLogLogOperators.class)
+                .scalar(ArrayFunctions.class)
                 .scalar(LikeFunctions.class)
                 .scalar(CombineHashFunction.class)
                 .scalar(JsonOperators.class)
