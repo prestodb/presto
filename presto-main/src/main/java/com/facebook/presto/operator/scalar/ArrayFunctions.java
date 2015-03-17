@@ -13,24 +13,24 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.block.Block;
+//import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
+//import com.facebook.presto.spi.type.BigintType;
+//import com.facebook.presto.spi.type.BooleanType;
+//import com.facebook.presto.spi.type.DoubleType;
+//import com.facebook.presto.spi.type.StandardTypes;
+//import com.facebook.presto.spi.type.Type;
+//import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 
-import javax.annotation.Nullable;
+//import javax.annotation.Nullable;
 
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
+//import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
-import static com.facebook.presto.type.TypeUtils.createBlock;
+//import static com.facebook.presto.type.TypeUtils.createBlock;
 
 public final class ArrayFunctions
 {
@@ -45,7 +45,7 @@ public final class ArrayFunctions
         BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 0);
         return buildStructuralSlice(blockBuilder);
     }
-
+/*
     @Nullable
     @ScalarFunction
     @SqlType(StandardTypes.BOOLEAN)
@@ -91,5 +91,5 @@ public final class ArrayFunctions
         }
 
         return false;
-    }
+    }*/
 }
