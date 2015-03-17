@@ -107,7 +107,14 @@ function renderDoneQueries(queries)
                               return "info";
                       }
                   })
-            .on("click", function(query) { window.location = "query.html?" + query.queryId });
+            .on("click", function(query) {
+                    var e = d3.event;
+                    if (e.ctrlKey || e.metaKey || e.which == 2) {
+                        window.open("query.html?" + query.queryId);
+                    } else {
+                        window.location = "query.html?" + query.queryId;
+                    }
+             });
 
     rows.exit()
             .remove();
@@ -159,7 +166,14 @@ function renderRunningQueries(queries)
     rows.enter()
             .append("tr")
             .attr("class", "info")
-            .on("click", function(query) { window.location = "query.html?" + query.queryId });
+            .on("click", function(query) {
+                    var e = d3.event;
+                    if (e.ctrlKey || e.metaKey || e.which == 2) {
+                        window.open("query.html?" + query.queryId);
+                    } else {
+                        window.location = "query.html?" + query.queryId;
+                    }
+             });
 
     var cells = rows.selectAll("td")
             .data(function (queryInfo)
