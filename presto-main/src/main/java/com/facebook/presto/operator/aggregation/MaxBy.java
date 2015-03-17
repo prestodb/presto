@@ -123,7 +123,11 @@ public class MaxBy
             state.setKey(otherState.getKey());
             state.setValue(otherState.getValue());
         }
-        else if (keyType.compareTo(otherState.getKey(), 0, state.getKey(), 0) > 0) {
+        else if (otherState.getKey() == null) {
+            otherState.setKey(state.getKey());
+            otherState.setValue(state.getValue());
+        }
+        else if (state.getKeyType().compareTo(otherState.getKey(), 0, state.getKey(), 0) > 0) {
             state.setKey(otherState.getKey());
             state.setValue(otherState.getValue());
         }
