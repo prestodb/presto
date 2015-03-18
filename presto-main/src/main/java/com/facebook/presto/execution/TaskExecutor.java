@@ -17,6 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.util.CpuTimer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.SetThreadName;
@@ -170,10 +171,17 @@ public class TaskExecutor
         return taskHandle;
     }
 
-    public synchronized void removeTask(TaskHandle taskHandle)
+    public void removeTask(TaskHandle taskHandle)
     {
-        taskHandle.destroy();
-        tasks.remove(taskHandle);
+        List<PrioritizedSplitRunner> splits;
+        synchronized (this) {
+            tasks.remove(taskHandle);
+            splits = taskHandle.destroy();
+        }
+        // call destroy outside of synchronized block as it is expensive and doesn't need a lock on the task executor
+        for (PrioritizedSplitRunner split : splits) {
+            split.destroy();
+        }
 
         // record completed stats
         long threadUsageNanos = taskHandle.getThreadUsageNanos();
@@ -307,22 +315,17 @@ public class TaskExecutor
             return taskId;
         }
 
-        private void destroy()
+        // Returns any remaining splits. The caller must destroy these.
+        private List<PrioritizedSplitRunner> destroy()
         {
-            for (PrioritizedSplitRunner runningSplit : forcedRunningSplits) {
-                runningSplit.destroy();
-            }
+            ImmutableList.Builder<PrioritizedSplitRunner> builder = ImmutableList.builder();
+            builder.addAll(forcedRunningSplits);
+            builder.addAll(runningSplits);
+            builder.addAll(queuedSplits);
             forcedRunningSplits.clear();
-
-            for (PrioritizedSplitRunner runningSplit : runningSplits) {
-                runningSplit.destroy();
-            }
             runningSplits.clear();
-
-            for (PrioritizedSplitRunner queuedSplit : queuedSplits) {
-                queuedSplit.destroy();
-            }
             queuedSplits.clear();
+            return builder.build();
         }
 
         private void enqueueSplit(PrioritizedSplitRunner split)
