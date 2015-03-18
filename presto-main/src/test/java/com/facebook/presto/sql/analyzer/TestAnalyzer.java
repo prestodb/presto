@@ -471,6 +471,14 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testGroupByWithRowExpression()
+            throws Exception
+    {
+        // TODO: verify output
+        analyze("SELECT (a, b) FROM t1 GROUP BY a, b");
+    }
+
+    @Test
     public void testHaving()
             throws Exception
     {
