@@ -101,7 +101,7 @@ public class QuerySystemTable
         return table.build().cursor();
     }
 
-    private Long toMillis(Duration duration)
+    private static Long toMillis(Duration duration)
     {
         if (duration == null) {
             return null;
@@ -109,7 +109,7 @@ public class QuerySystemTable
         return duration.toMillis();
     }
 
-    private Long toTimeStamp(DateTime dateTime)
+    private static Long toTimeStamp(DateTime dateTime)
     {
         if (dateTime == null) {
             return null;
