@@ -72,7 +72,6 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
-import static com.facebook.presto.connector.system.CatalogSystemTable.CATALOG_TABLE_NAME;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.aliasedName;
@@ -110,6 +109,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.elementsEqual;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.stream.Collectors.toList;
 
 class StatementAnalyzer
         extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
@@ -188,10 +188,13 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitShowCatalogs(ShowCatalogs node, AnalysisContext context)
     {
+        List<Expression> rows = metadata.getCatalogNames().keySet().stream()
+                .map(name -> row(new StringLiteral(name)))
+                .collect(toList());
+
         Query query = simpleQuery(
-                selectList(aliasedName("catalog_name", "Catalog")),
-                from(session.getCatalog(), CATALOG_TABLE_NAME),
-                ordering(ascending("catalog_name")));
+                selectList(new AllColumns()),
+                aliased(new Values(rows), "catalogs", ImmutableList.of("Catalog")));
 
         return process(query, context);
     }
