@@ -31,6 +31,7 @@ import javax.inject.Inject;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TaskSystemTable
@@ -65,10 +66,10 @@ public class TaskSystemTable
             .column("output_bytes", BIGINT)
             .column("output_rows", BIGINT)
 
-            .column("created", BIGINT)
-            .column("start", BIGINT)
-            .column("last_heartbeat", BIGINT)
-            .column("end", BIGINT)
+            .column("created", TIMESTAMP)
+            .column("start", TIMESTAMP)
+            .column("last_heartbeat", TIMESTAMP)
+            .column("end", TIMESTAMP)
             .build();
 
     private final TaskManager taskManager;
