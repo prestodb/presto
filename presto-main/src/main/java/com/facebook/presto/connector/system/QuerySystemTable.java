@@ -30,6 +30,7 @@ import javax.inject.Inject;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class QuerySystemTable
@@ -48,10 +49,10 @@ public class QuerySystemTable
             .column("analysis_time_ms", BIGINT)
             .column("distributed_planning_time_ms", BIGINT)
 
-            .column("created", BIGINT)
-            .column("started", BIGINT)
-            .column("last_heartbeat", BIGINT)
-            .column("end", BIGINT)
+            .column("created", TIMESTAMP)
+            .column("started", TIMESTAMP)
+            .column("last_heartbeat", TIMESTAMP)
+            .column("end", TIMESTAMP)
             .build();
 
     private final QueryManager queryManager;
