@@ -40,7 +40,7 @@ public class NodeSystemTable
             .column("node_id", VARCHAR)
             .column("http_uri", VARCHAR)
             .column("node_version", VARCHAR)
-            .column("is_active", BOOLEAN)
+            .column("active", BOOLEAN)
             .build();
 
     private final InternalNodeManager nodeManager;
