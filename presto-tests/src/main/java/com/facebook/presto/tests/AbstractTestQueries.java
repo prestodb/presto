@@ -1132,6 +1132,28 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinCriteriaCoercion()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT a.x ax, b.x bx FROM (VALUES 1.0) a(x) JOIN (VALUES 1) b(x) ON a.x = b.x",
+                "SELECT a.x ax, b.x bx FROM (VALUES 1.0) a(x) JOIN (VALUES 1) b(x) ON a.x = CAST(b.x AS DOUBLE)"
+        );
+        assertQuery(
+                "SELECT a.x ax, b.x bx FROM (VALUES 1.0) a(x) JOIN (VALUES 2) b(x) ON a.x < b.x",
+                "SELECT a.x ax, b.x bx FROM (VALUES 1.0) a(x) JOIN (VALUES 2) b(x) ON a.x < CAST(b.x AS DOUBLE)"
+        );
+        assertQuery(
+                "SELECT a.x ax, b.x bx FROM (VALUES 1.0) a(x) JOIN (VALUES 2) b(x) ON b.x > a.x",
+                "SELECT a.x ax, b.x bx FROM (VALUES 1.0) a(x) JOIN (VALUES 2) b(x) ON CAST(b.x AS DOUBLE) > a.x"
+        );
+        assertQuery(
+                "SELECT a.x ax, b.x bx FROM (VALUES 1.0) a(x) JOIN (VALUES 1) b(x) USING(x)",
+                "SELECT a.x ax, b.x bx FROM (VALUES 1.0) a(x) JOIN (VALUES 1) b(x) ON a.x = CAST(b.x AS DOUBLE)"
+        );
+    }
+
+    @Test
     public void testJoinWithReversedComparison()
             throws Exception
     {
