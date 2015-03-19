@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cli;
 
-import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -26,11 +25,14 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class FormatUtils
 {
-    private FormatUtils() {}
+    private FormatUtils()
+    {
+    }
 
     public static String formatCount(long count)
     {
@@ -159,11 +161,12 @@ public final class FormatUtils
 
     public static String formatTime(Duration duration)
     {
-        int totalSeconds = Ints.saturatedCast(duration.roundTo(SECONDS));
-        int minutes = totalSeconds / 60;
-        int seconds = totalSeconds % 60;
+        long totalMillis = duration.roundTo(MILLISECONDS);
+        long minutes = totalMillis / 60000;
+        long seconds = (totalMillis / 1000) % 60;
+        long millis = totalMillis % 1000;
 
-        return format("%s:%02d", minutes, seconds);
+        return format("%s:%02d:%03d", minutes, seconds, millis);
     }
 
     /**
