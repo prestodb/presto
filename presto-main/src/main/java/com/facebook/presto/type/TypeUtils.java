@@ -45,6 +45,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public final class TypeUtils
 {
     public static final int EXPECTED_ARRAY_SIZE = 1024;
+    public static final int NULL_HASH_CODE = 0;
 
     private TypeUtils()
     {
@@ -53,7 +54,7 @@ public final class TypeUtils
     public static int hashPosition(Type type, Block block, int position)
     {
         if (block.isNull(position)) {
-            return 0;
+            return NULL_HASH_CODE;
         }
         return type.hash(block, position);
     }
