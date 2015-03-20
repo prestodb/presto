@@ -31,3 +31,9 @@ DROP TABLE IF EXISTS presto_test_types_rcbinary;
 DROP TABLE IF EXISTS presto_test_types_orc;
 DROP TABLE IF EXISTS presto_test_types_parquet;
 DROP TABLE IF EXISTS presto_test_types_dwrf;
+
+DROP TABLE IF EXISTS presto_insert_destination;
+DROP TABLE IF EXISTS presto_insert_destination_partitioned;
+
+DROP TABLE IF EXISTS presto_insert_destination;
+DROP TABLE IF EXISTS presto_insert_destination_partitioned;

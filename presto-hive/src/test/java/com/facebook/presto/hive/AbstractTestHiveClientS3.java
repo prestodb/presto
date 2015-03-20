@@ -29,6 +29,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.type.TypeRegistry;
@@ -58,10 +59,13 @@ import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_DATA_STREAM_FA
 import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_RECORD_CURSOR_PROVIDER;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
+import static com.facebook.presto.hive.HiveType.HIVE_INT;
+import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
@@ -90,6 +94,12 @@ public abstract class AbstractTestHiveClientS3
 
     private ExecutorService executor;
 
+    protected InsertTestWorker insertTestWorker;
+    protected ConnectorColumnHandle dsColumn;
+    protected ConnectorColumnHandle dummyColumn;
+    protected SchemaTableName insertTableDestination;
+    protected SchemaTableName insertTablePartitionedDestination;
+
     @BeforeClass
     public void setUp()
             throws Exception
@@ -107,18 +117,25 @@ public abstract class AbstractTestHiveClientS3
         }
     }
 
-    protected void setupHive(String databaseName)
+    protected void setupHive(String connectorId, String databaseName)
     {
         database = databaseName;
         tableS3 = new SchemaTableName(database, "presto_test_s3");
 
         String random = UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_s3_" + random);
+
+        dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);
+        dummyColumn = new HiveColumnHandle(connectorId, "dummy", 2, HIVE_INT, parseTypeSignature(StandardTypes.BIGINT), -1, true);
+
+        insertTableDestination = new SchemaTableName(database, "presto_insert_destination_s3");
+        insertTablePartitionedDestination = new SchemaTableName(database, "presto_insert_destination_partitioned_s3");
     }
 
     protected void setup(String host, int port, String databaseName, String awsAccessKey, String awsSecretKey, String writableBucket)
     {
-        setupHive(databaseName);
+        HiveConnectorId connectorId = new HiveConnectorId("hive-test");
+        setupHive(connectorId.toString(), databaseName);
 
         HiveClientConfig hiveClientConfig = new HiveClientConfig()
                 .setS3AwsAccessKey(awsAccessKey)
@@ -129,20 +146,12 @@ public abstract class AbstractTestHiveClientS3
             hiveClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
         }
 
-        HiveConnectorId connectorId = new HiveConnectorId("hive-test");
         HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-s3-%s"));
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig);
         metastoreClient = new TestingHiveMetastore(hiveCluster, executor, hiveClientConfig, writableBucket);
-        metadata = new HiveMetadata(
-                connectorId,
-                hiveClientConfig,
-                metastoreClient,
-                hdfsEnvironment,
-                newDirectExecutorService(),
-                new TypeRegistry());
         splitManager = new HiveSplitManager(
                 connectorId,
                 hiveClientConfig,
@@ -151,8 +160,28 @@ public abstract class AbstractTestHiveClientS3
                 hdfsEnvironment,
                 new HadoopDirectoryLister(),
                 executor);
+        metadata = new HiveMetadata(
+                connectorId,
+                hiveClientConfig,
+                metastoreClient,
+                hdfsEnvironment,
+                newDirectExecutorService(),
+                new TypeRegistry(),
+                splitManager);
         recordSinkProvider = new HiveRecordSinkProvider(hdfsEnvironment);
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER, DEFAULT_HIVE_DATA_STREAM_FACTORIES, TYPE_MANAGER);
+
+        insertTestWorker = new InsertTestWorker(SESSION,
+                dsColumn,
+                dummyColumn,
+                hdfsEnvironment,
+                metadata,
+                splitManager,
+                pageSourceProvider,
+                recordSinkProvider,
+                insertTableDestination,
+                insertTablePartitionedDestination,
+                metastoreClient);
     }
 
     @Test
@@ -206,6 +235,20 @@ public abstract class AbstractTestHiveClientS3
         finally {
             dropTable(temporaryCreateTable);
         }
+    }
+
+    @Test
+    public void testInsertIntoTable()
+            throws Exception
+    {
+        insertTestWorker.insertIntoTest();
+    }
+
+    @Test
+    public void testInsertIntoPartitionedTable()
+            throws Exception
+    {
+        insertTestWorker.insertIntoPartitionedTableTest();
     }
 
     private void doCreateTable(SchemaTableName tableName, String tableOwner)
