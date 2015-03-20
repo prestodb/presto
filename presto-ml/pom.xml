@@ -23,6 +23,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spi-base</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.thirdparty</groupId>
             <artifactId>libsvm</artifactId>
         </dependency>
