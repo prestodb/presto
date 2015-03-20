@@ -5,6 +5,7 @@ Release 0.119
 General Changes
 ---------------
 
+* Add :doc:`/connector/redis`.
 * Add :func:`geometric_mean` function.
 * Fix restoring interrupt status in ``StatementClient``.
 * Support getting server version in JDBC driver.

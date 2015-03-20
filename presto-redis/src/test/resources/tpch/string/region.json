@@ -1,0 +1,35 @@
+{
+    "tableName": "region",
+    "schemaName": "tpch",
+    "key": {
+        "dataFormat": "raw",
+        "fields": [
+            {
+                "name": "redis_key",
+                "dataFormat": "VARCHAR",
+                "type": "VARCHAR",
+                "hidden": "true"
+            }
+        ]
+    },
+    "value": {
+        "dataFormat": "json",
+        "fields": [
+            {
+                "name": "regionkey",
+                "mapping": "regionkey",
+                "type": "BIGINT"
+            },
+            {
+                "name": "name",
+                "mapping": "name",
+                "type": "VARCHAR"
+            },
+            {
+                "name": "comment",
+                "mapping": "comment",
+                "type": "VARCHAR"
+            }
+        ]
+    }
+}
