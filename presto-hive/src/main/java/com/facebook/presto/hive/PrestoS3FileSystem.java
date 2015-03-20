@@ -27,6 +27,9 @@ import com.amazonaws.internal.StaticCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.DeleteObjectRequest;
+import com.amazonaws.services.s3.model.DeleteObjectsRequest.KeyVersion;
+import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
@@ -37,7 +40,6 @@ import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.services.s3.transfer.Upload;
-import com.facebook.presto.hadoop.HadoopFileStatus;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractSequentialIterator;
@@ -121,6 +123,9 @@ public class PrestoS3FileSystem
 
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
+
+    private static final int DELETE_BATCH_SIZE = 500;
+    private static final String FOLDER_SUFFIX = "_$folder$";
 
     private final TransferManagerConfiguration transferConfig = new TransferManagerConfiguration();
 
@@ -306,41 +311,65 @@ public class PrestoS3FileSystem
     public boolean rename(Path src, Path dst)
             throws IOException
     {
-        boolean srcDirectory;
+        FileStatus srcStatus;
+        FileStatus dstStatus = null;
         try {
-            srcDirectory = directory(src);
+            srcStatus = getFileStatus(src);
         }
         catch (FileNotFoundException e) {
-            return false;
+            throw new IOException("Source does not exist");
         }
 
         try {
-            if (!directory(dst)) {
-                // cannot copy a file to an existing file
-                return keysEqual(src, dst);
+            dstStatus = getFileStatus(dst);
+            if (!dstStatus.isDir()) {
+                // trying to rename to an existing file
+                return false;
             }
-            // move source under destination directory
-            dst = new Path(dst, src.getName());
         }
         catch (FileNotFoundException e) {
-            // destination does not exist
+            // good to go
         }
 
-        if (keysEqual(src, dst)) {
-            return true;
-        }
-
-        if (srcDirectory) {
-            for (FileStatus file : listStatus(src)) {
-                rename(file.getPath(), new Path(dst, file.getPath().getName()));
-            }
-            deleteObject(keyFromPath(src) + DIRECTORY_SUFFIX);
+        String srcKey = keyFromPath(src);
+        String destKey = keyFromPath(new Path(dst, src.getName()));
+        if (!srcStatus.isDir()) {
+            s3.copyObject(src.toUri().getHost(), srcKey, dst.toUri().getHost(), destKey);
+            s3.deleteObject(new DeleteObjectRequest(src.toUri().getHost(), srcKey));
         }
         else {
-            s3.copyObject(uri.getHost(), keyFromPath(src), uri.getHost(), keyFromPath(dst));
-            delete(src, true);
+            renameDirectory(src, dst);
         }
+        return true;
+    }
 
+    private boolean renameDirectory(Path src, Path dst)
+    {
+        List<KeyVersion> deleteKeys = new ArrayList<KeyVersion>();
+        try {
+            RemoteIterator<LocatedFileStatus> iterator = listLocatedStatus(src);
+            String destKey = keyFromPath(dst);
+            String destBucket = dst.toUri().getHost();
+            String srcBucket = src.toUri().getHost();
+            DeleteObjectsRequest multiObjectDeleteRequest = new DeleteObjectsRequest(srcBucket);
+            while (iterator.hasNext()) {
+                String srcKey = keyFromPath(iterator.next().getPath());
+                s3.copyObject(srcBucket, srcKey, destBucket, destKey);
+                deleteKeys.add(new KeyVersion(srcKey));
+                if (deleteKeys.size() == DELETE_BATCH_SIZE) {
+                    multiObjectDeleteRequest.setKeys(deleteKeys);
+                    s3.deleteObjects(multiObjectDeleteRequest);
+                    deleteKeys.clear();
+                }
+            }
+
+            deleteKeys.add(new KeyVersion(keyFromPath(src) + FOLDER_SUFFIX));
+            multiObjectDeleteRequest.setKeys(deleteKeys);
+            s3.deleteObjects(multiObjectDeleteRequest);
+        }
+        catch (IOException e) {
+            return false;
+        }
         return true;
     }
 
@@ -348,42 +377,44 @@ public class PrestoS3FileSystem
     public boolean delete(Path path, boolean recursive)
             throws IOException
     {
+        FileStatus status;
         try {
-            if (!directory(path)) {
-                return deleteObject(keyFromPath(path));
-            }
+            status = getFileStatus(path);
         }
         catch (FileNotFoundException e) {
             return false;
         }
 
-        if (!recursive) {
-            throw new IOException("Directory " + path + " is not empty");
+        if (status.isDir()) {
+            deleteDirectory(path, recursive);
         }
-
-        for (FileStatus file : listStatus(path)) {
-            delete(file.getPath(), true);
+        else {
+            String key = keyFromPath(path);
+            s3.deleteObject(new DeleteObjectRequest(uri.getHost(), key));
         }
-        deleteObject(keyFromPath(path) + DIRECTORY_SUFFIX);
-
         return true;
     }
 
-    private boolean directory(Path path)
-            throws IOException
+    private boolean deleteDirectory(Path f, boolean recursive) throws IOException
     {
-        return HadoopFileStatus.isDirectory(getFileStatus(path));
-    }
+        String bucket = f.toUri().getHost();
+        DeleteObjectsRequest multiObjectDeleteRequest = new DeleteObjectsRequest(bucket);
+        RemoteIterator<LocatedFileStatus> iterator = listLocatedStatus(f);
+        ArrayList<KeyVersion> keys = new ArrayList<KeyVersion>();
+        while (iterator.hasNext()) {
+            checkState(!recursive && keys.size() > 1, "Directory " + f.toString() + " is not empty.");
+            keys.add(new KeyVersion(keyFromPath(iterator.next().getPath())));
+            if (keys.size() == DELETE_BATCH_SIZE) {
+                multiObjectDeleteRequest.setKeys(keys);
+                s3.deleteObjects(multiObjectDeleteRequest);
+                keys.clear();
+            }
+        }
+        keys.add(new KeyVersion(keyFromPath(f) + FOLDER_SUFFIX));
+        multiObjectDeleteRequest.setKeys(keys);
+        s3.deleteObjects(multiObjectDeleteRequest);
 
-    private boolean deleteObject(String key)
-    {
-        try {
-            s3.deleteObject(uri.getHost(), key);
-            return true;
-        }
-        catch (AmazonClientException e) {
-            return false;
-        }
+        return true;
     }
 
     @Override
