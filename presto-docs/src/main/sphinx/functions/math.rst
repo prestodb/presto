@@ -34,6 +34,10 @@ Mathematical Functions
 
     Returns ``x`` rounded up to the nearest integer.
 
+.. function:: degrees(x) -> double
+
+    Converts angle ``x`` in radians to degrees.
+
 .. function:: e() -> double
 
     Returns the constant Euler's number.
@@ -74,6 +78,10 @@ Mathematical Functions
 
     Returns ``x`` raised to the power of ``p``.
 
+.. function:: radians(x) -> double
+
+    Converts angle ``x`` in degrees to radians.
+
 .. function:: rand() -> double
 
     Alias for ``random()``.
@@ -98,6 +106,7 @@ Trigonometric Functions
 -----------------------
 
 All trigonometric function arguments are expressed in radians.
+See unit conversion functions :func:`degrees` and :func:`radians`.
 
 .. function:: acos(x) -> double
 
