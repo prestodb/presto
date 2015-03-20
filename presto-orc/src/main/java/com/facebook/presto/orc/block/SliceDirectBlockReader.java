@@ -59,17 +59,21 @@ public class SliceDirectBlockReader
     }
 
     @Override
-    public void readNextValueInto(BlockBuilder builder)
+    public boolean readNextValueInto(BlockBuilder builder, boolean skipNull)
             throws IOException
     {
         if (presentStream != null && !presentStream.nextBit()) {
-            builder.appendNull();
-            return;
+            if (!skipNull) {
+                builder.appendNull();
+                return true;
+            }
+            return false;
         }
 
         int length = bufferNextValue();
 
         VARCHAR.writeSlice(builder, Slices.wrappedBuffer(data, 0, length));
+        return true;
     }
 
     private int bufferNextValue()
