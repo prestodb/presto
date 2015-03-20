@@ -66,6 +66,7 @@
         <module>presto-jmx</module>
         <module>presto-record-decoder</module>
         <module>presto-kafka</module>
+        <module>presto-redis</module>
         <module>presto-cassandra</module>
         <module>presto-blackhole</module>
         <module>presto-orc</module>
@@ -652,6 +653,18 @@
                 <groupId>org.jgrapht</groupId>
                 <artifactId>jgrapht-core</artifactId>
                 <version>0.9.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>redis.clients</groupId>
+                <artifactId>jedis</artifactId>
+                <version>2.6.2</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.orange.redis-embedded</groupId>
+                <artifactId>embedded-redis</artifactId>
+                <version>0.6</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
