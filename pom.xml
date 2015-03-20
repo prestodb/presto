@@ -62,6 +62,7 @@
     <modules>
         <module>presto-spi</module>
         <module>presto-kafka</module>
+        <module>presto-redis</module>
         <module>presto-cassandra</module>
         <module>presto-blackhole</module>
         <module>presto-orc</module>
