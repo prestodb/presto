@@ -45,6 +45,7 @@
         <dep.antlr.version>4.3</dep.antlr.version>
         <dep.airlift.version>0.105</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
+        <dep.jetty.version>9.2.8.v20150217</dep.jetty.version>
 
         <cli.skip-execute>true</cli.skip-execute>
         <cli.main-class>None</cli.main-class>
