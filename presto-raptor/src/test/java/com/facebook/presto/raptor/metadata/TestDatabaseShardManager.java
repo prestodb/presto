@@ -120,7 +120,7 @@ public class TestDatabaseShardManager
         ShardNodes actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
         assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1")));
 
-        shardManager.assignShard(shard, "node2");
+        shardManager.assignShard(tableId, shard, "node2");
 
         actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
         assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1", "node2")));

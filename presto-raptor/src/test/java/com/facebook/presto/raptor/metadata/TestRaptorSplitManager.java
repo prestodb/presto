@@ -57,12 +57,14 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shardInfo;
 import static com.facebook.presto.raptor.storage.TestOrcStorageManager.createOrcStorageManager;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -85,6 +87,7 @@ public class TestRaptorSplitManager
     private ConnectorTableHandle tableHandle;
     private ShardManager shardManager;
     private StorageManager storageManagerWithBackup;
+    private long tableId;
 
     @BeforeMethod
     public void setup()
@@ -119,7 +122,7 @@ public class TestRaptorSplitManager
                 .add(shardInfo(UUID.randomUUID(), nodeName))
                 .build();
 
-        long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
+        tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
 
         List<ColumnInfo> columns = metadata.getColumnHandles(tableHandle).values().stream()
                 .map(handle -> checkType(handle, RaptorColumnHandle.class, "columnHandle"))
@@ -164,7 +167,7 @@ public class TestRaptorSplitManager
     public void testNoHostForShard()
             throws InterruptedException
     {
-        dummyHandle.execute("DELETE FROM shard_nodes");
+        deleteShardNodes();
 
         ConnectorPartitionResult result = raptorSplitManager.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
 
@@ -180,7 +183,7 @@ public class TestRaptorSplitManager
         nodeManager.addNode("fbraptor", node);
         RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), nodeManager, shardManager, storageManagerWithBackup);
 
-        dummyHandle.execute("DELETE FROM shard_nodes");
+        deleteShardNodes();
 
         ConnectorPartitionResult result = raptorSplitManagerWithBackup.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
         ConnectorSplitSource partitionSplit = raptorSplitManagerWithBackup.getPartitionSplits(tableHandle, result.getPartitions());
@@ -191,9 +194,16 @@ public class TestRaptorSplitManager
     public void testNoNodes()
             throws InterruptedException, URISyntaxException
     {
+        deleteShardNodes();
+
         RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), new InMemoryNodeManager(), shardManager, storageManagerWithBackup);
-        dummyHandle.execute("DELETE FROM shard_nodes");
         ConnectorPartitionResult result = raptorSplitManagerWithBackup.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
         raptorSplitManagerWithBackup.getPartitionSplits(tableHandle, result.getPartitions()).getNextBatch(1000);
+    }
+
+    private void deleteShardNodes()
+    {
+        dummyHandle.execute("DELETE FROM shard_nodes");
+        dummyHandle.execute(format("UPDATE %s SET node_ids = ''", shardIndexTable(tableId)));
     }
 }
