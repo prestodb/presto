@@ -258,7 +258,7 @@ public class PageProcessorCompiler
 
         Block body = method.getBody()
                 .comment("boolean wasNull = false;")
-                .putVariable(wasNullVariable, projection.getType().getJavaType() == void.class);
+                .putVariable(wasNullVariable, false);
 
         ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(callSiteBinder, positionVariable, wasNullVariable), metadata.getFunctionRegistry());
 
