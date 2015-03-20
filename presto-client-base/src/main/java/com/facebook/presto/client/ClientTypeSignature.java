@@ -16,8 +16,10 @@ package com.facebook.presto.client;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayList;
@@ -41,7 +43,14 @@ public class ClientTypeSignature
     {
         this(
                 typeSignature.getBase(),
-                Lists.transform(typeSignature.getParameters(), ClientTypeSignature::new),
+                Lists.transform(typeSignature.getParameters(), new Function<TypeSignature, ClientTypeSignature>() {
+                    @Nullable
+                    @Override
+                    public ClientTypeSignature apply(TypeSignature typeSignature1)
+                    {
+                        return new ClientTypeSignature(typeSignature1);
+                    }
+                }),
                 typeSignature.getLiteralParameters());
     }
 
@@ -60,8 +69,8 @@ public class ClientTypeSignature
         for (Object literal : literalArguments) {
             checkArgument(literal instanceof String || literal instanceof Long, "Unsupported literal type: %s", literal.getClass());
         }
-        this.typeArguments = unmodifiableList(new ArrayList<>(typeArguments));
-        this.literalArguments = unmodifiableList(new ArrayList<>(literalArguments));
+        this.typeArguments = unmodifiableList(new ArrayList<ClientTypeSignature>(typeArguments));
+        this.literalArguments = unmodifiableList(new ArrayList<Object>(literalArguments));
     }
 
     @JsonProperty

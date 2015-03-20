@@ -203,7 +203,7 @@ public class QueryResults
         ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
         for (List<Object> row : data) {
             checkArgument(row.size() == columns.size(), "row/column size mismatch");
-            List<Object> newRow = new ArrayList<>();
+            List<Object> newRow = new ArrayList<Object>();
             for (int i = 0; i < row.size(); i++) {
                 newRow.add(fixValue(columns.get(i).getType(), row.get(i)));
             }
@@ -222,7 +222,7 @@ public class QueryResults
         }
         TypeSignature signature = parseTypeSignature(type);
         if (signature.getBase().equals(ARRAY)) {
-            List<Object> fixedValue = new ArrayList<>();
+            List<Object> fixedValue = new ArrayList<Object>();
             for (Object object : List.class.cast(value)) {
                 fixedValue.add(fixValue(signature.getParameters().get(0).toString(), object));
             }
@@ -231,14 +231,14 @@ public class QueryResults
         if (signature.getBase().equals(MAP)) {
             String keyType = signature.getParameters().get(0).toString();
             String valueType = signature.getParameters().get(1).toString();
-            Map<Object, Object> fixedValue = new HashMap<>();
+            Map<Object, Object> fixedValue = new HashMap<Object, Object>();
             for (Map.Entry<?, ?> entry : (Set<Map.Entry<?, ?>>) Map.class.cast(value).entrySet()) {
                 fixedValue.put(fixValue(keyType, entry.getKey()), fixValue(valueType, entry.getValue()));
             }
             return fixedValue;
         }
         if (signature.getBase().equals(ROW)) {
-            Map<String, Object> fixedValue = new LinkedHashMap<>();
+            Map<String, Object> fixedValue = new LinkedHashMap<String, Object>();
             List<Object> listValue = List.class.cast(value);
             checkArgument(listValue.size() == signature.getLiteralParameters().size(), "Mismatched data values and row type");
             for (int i = 0; i < listValue.size(); i++) {
@@ -247,39 +247,42 @@ public class QueryResults
             }
             return fixedValue;
         }
-        switch (type) {
-            case BIGINT:
-                if (value instanceof String) {
-                    return Long.parseLong((String) value);
-                }
-                return ((Number) value).longValue();
-            case DOUBLE:
-                if (value instanceof String) {
-                    return Double.parseDouble((String) value);
-                }
-                return ((Number) value).doubleValue();
-            case BOOLEAN:
-                if (value instanceof String) {
-                    return Boolean.parseBoolean((String) value);
-                }
-                return Boolean.class.cast(value);
-            case VARCHAR:
-            case JSON:
-            case TIME:
-            case TIME_WITH_TIME_ZONE:
-            case TIMESTAMP:
-            case TIMESTAMP_WITH_TIME_ZONE:
-            case DATE:
-            case INTERVAL_YEAR_TO_MONTH:
-            case INTERVAL_DAY_TO_SECOND:
-                return String.class.cast(value);
-            default:
-                // for now we assume that only the explicit types above are passed
-                // as a plain text and everything else is base64 encoded binary
-                if (value instanceof String) {
-                    return Base64.getDecoder().decode((String) value);
-                }
-                return value;
+        if (type.equals(BIGINT)) {
+            if (value instanceof String) {
+                return Long.parseLong((String) value);
+            }
+            return ((Number) value).longValue();
+        }
+        else if (type.equals(DOUBLE)) {
+            if (value instanceof String) {
+                return Double.parseDouble((String) value);
+            }
+            return ((Number) value).doubleValue();
+        }
+        else if (type.equals(BOOLEAN)) {
+            if (value instanceof String) {
+                return Boolean.parseBoolean((String) value);
+            }
+            return Boolean.class.cast(value);
+        }
+        else if (type.equals(VARCHAR) ||
+                type.equals(JSON) ||
+                type.equals(TIME) ||
+                type.equals(TIME_WITH_TIME_ZONE) ||
+                type.equals(TIMESTAMP) ||
+                type.equals(TIMESTAMP_WITH_TIME_ZONE) ||
+                type.equals(DATE) ||
+                type.equals(INTERVAL_YEAR_TO_MONTH) ||
+                type.equals(INTERVAL_DAY_TO_SECOND)) {
+            return String.class.cast(value);
+        }
+        else {
+            // for now we assume that only the explicit types above are passed
+            // as a plain text and everything else is base64 encoded binary
+            if (value instanceof String) {
+                return Base64.getDecoder().decode((String) value);
+            }
+            return value;
         }
     }
 }

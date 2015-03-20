@@ -55,7 +55,7 @@ public class ClientSession
 
     public static ClientSession withSessionProperties(ClientSession session, Map<String, String> sessionProperties)
     {
-        Map<String, String> properties = new HashMap<>(session.getProperties());
+        Map<String, String> properties = new HashMap<String, String>(session.getProperties());
         properties.putAll(sessionProperties);
 
         return new ClientSession(

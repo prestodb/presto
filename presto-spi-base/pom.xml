@@ -35,4 +35,17 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>${jdbc.drvier.java.version}</source>
+                    <target>${jdbc.drvier.java.version}</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

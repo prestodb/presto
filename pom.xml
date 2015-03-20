@@ -49,6 +49,9 @@
         <cli.skip-execute>true</cli.skip-execute>
         <cli.main-class>None</cli.main-class>
 
+        <jdbc.drvier.java.version>1.6</jdbc.drvier.java.version>
+        <presto.java.version>1.8</presto.java.version>
+
         <!-- use a fractional hour timezone offset for tests -->
         <test.timezone>Asia/Katmandu</test.timezone>
     </properties>
@@ -836,7 +839,7 @@
                 <artifactId>modernizer-maven-plugin</artifactId>
                 <version>1.2.2</version>
                 <configuration>
-                    <javaVersion>1.8</javaVersion>
+                    <javaVersion>${presto.java.version}</javaVersion>
                     <failOnViolations>false</failOnViolations>
                 </configuration>
                 <executions>

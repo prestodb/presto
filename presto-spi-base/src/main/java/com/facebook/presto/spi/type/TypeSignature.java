@@ -41,8 +41,8 @@ public class TypeSignature
         for (Object literal : literalParameters) {
             checkArgument(literal instanceof String || literal instanceof Long, "Unsupported literal type: %s", literal.getClass());
         }
-        this.parameters = unmodifiableList(new ArrayList<>(parameters));
-        this.literalParameters = unmodifiableList(new ArrayList<>(literalParameters));
+        this.parameters = unmodifiableList(new ArrayList<TypeSignature>(parameters));
+        this.literalParameters = unmodifiableList(new ArrayList<Object>(literalParameters));
     }
 
     private static boolean validateName(String name)
@@ -113,12 +113,12 @@ public class TypeSignature
     public static TypeSignature parseTypeSignature(String signature)
     {
         if (!signature.contains("<") && !signature.contains("(")) {
-            return new TypeSignature(signature, new ArrayList<TypeSignature>(), new ArrayList<>());
+            return new TypeSignature(signature, new ArrayList<TypeSignature>(), new ArrayList<Object>());
         }
 
         String baseName = null;
-        List<TypeSignature> parameters = new ArrayList<>();
-        List<Object> literalParameters = new ArrayList<>();
+        List<TypeSignature> parameters = new ArrayList<TypeSignature>();
+        List<Object> literalParameters = new ArrayList<Object>();
         int parameterStart = -1;
         int bracketCount = 0;
         boolean inLiteralParameters = false;

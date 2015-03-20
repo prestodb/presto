@@ -17,11 +17,11 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Locale.ENGLISH;
-import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -68,18 +68,20 @@ public class TestTypeSignature
 
     private static void assertSignature(String base, List<String> parameters, List<Object> literalParameters)
     {
-        List<String> lowerCaseTypeNames = parameters.stream()
-                .map(value -> value.toLowerCase(ENGLISH))
-                .collect(toList());
+        List<String> lowerCaseTypeNames = new ArrayList<String>();
+        for (String param : parameters) {
+            lowerCaseTypeNames.add(param.toLowerCase(ENGLISH));
+        }
 
         String typeName = base.toLowerCase(ENGLISH);
         if (!parameters.isEmpty()) {
             typeName += "<" + Joiner.on(",").join(lowerCaseTypeNames) + ">";
         }
         if (!literalParameters.isEmpty()) {
-            List<String> transform = literalParameters.stream()
-                    .map(TestTypeSignature::convertParameter)
-                    .collect(toList());
+            List<String> transform = new ArrayList<String>();
+            for (Object param : literalParameters) {
+                transform.add(TestTypeSignature.convertParameter(param));
+            }
             typeName += "(" + Joiner.on(",").join(transform) + ")";
         }
         TypeSignature signature = parseTypeSignature(typeName);
