@@ -301,7 +301,8 @@ public class RcFilePageSource
                     LazyBlockLoader<LazySliceArrayBlock> loader = blockLoader.variableWidthBlockLoader(rcFileColumnsBatch,
                             fieldId,
                             hiveTypes.get(fieldId),
-                            fieldInspectors[fieldId]);
+                            fieldInspectors[fieldId],
+                            types.get(fieldId));
                     blocks[fieldId] = new LazySliceArrayBlock(currentPageSize, loader);
                 }
             }

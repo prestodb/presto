@@ -76,20 +76,20 @@ public class TestMapOperators
         Slice slice = toStackRepresentation(ImmutableMap.of(1.0, array), DoubleType.DOUBLE, new ArrayType(BigintType.BIGINT));
 
         DynamicSliceOutput output = new DynamicSliceOutput(100);
-        output.appendInt(2) // size of map * 2
-                .appendInt(8) // length of double value 1.0
-                .appendInt(33) // length of array
+        output.appendInt(1) // number of element
                 .appendByte(0) // null flags
-                .appendInt(41) // length of data
+                .appendInt(8) // length of data
                 .appendDouble(1.0) // value 1
-
-                .appendInt(2)
-                .appendInt(8)
-                .appendInt(8)
-                .appendByte(0)
-                .appendInt(16)
-                .appendLong(1)
-                .appendLong(2);
+                // encoded value block
+                .appendInt(1) // number of element
+                .appendInt(25)
+                .appendByte(0) // null flags
+                    .appendInt(25)
+                    .appendInt(2)
+                    .appendByte(0)
+                    .appendInt(16)
+                    .appendLong(1)
+                    .appendLong(2);
 
         assertEquals(slice, output.slice());
     }

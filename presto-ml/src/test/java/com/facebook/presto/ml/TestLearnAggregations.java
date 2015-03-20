@@ -25,7 +25,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -43,7 +42,7 @@ import java.util.Random;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
-import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
+import static com.facebook.presto.type.TypeUtils.buildMapSlice;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -107,9 +106,11 @@ public class TestLearnAggregations
 
     private static Slice mapSliceOf(Type keyType, Type valueType, Object key, Object value)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
-        appendToBlockBuilder(keyType, key, blockBuilder);
-        appendToBlockBuilder(valueType, value, blockBuilder);
-        return buildStructuralSlice(blockBuilder);
+        BlockBuilder keyBuilder = keyType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder valueBuilder = valueType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        appendToBlockBuilder(keyType, key, keyBuilder);
+        appendToBlockBuilder(valueType, value, valueBuilder);
+
+        return buildMapSlice(keyBuilder, valueBuilder);
     }
 }

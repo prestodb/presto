@@ -15,6 +15,7 @@ package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockEncoding;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
@@ -137,6 +138,12 @@ public abstract class AbstractType
 
     @Override
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public BlockEncoding getEncoding()
     {
         throw new UnsupportedOperationException();
     }

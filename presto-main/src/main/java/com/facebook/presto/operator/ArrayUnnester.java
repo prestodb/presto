@@ -22,7 +22,7 @@ import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
+import static com.facebook.presto.type.TypeUtils.readArrayBlock;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ArrayUnnester
@@ -45,7 +45,7 @@ public class ArrayUnnester
             positionCount = 0;
         }
         else {
-            arrayBlock = readStructuralBlock(slice);
+            arrayBlock = readArrayBlock(arrayType.getElementType(), slice);
             positionCount = arrayBlock.getPositionCount();
         }
     }

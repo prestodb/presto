@@ -32,7 +32,7 @@ import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.type.TypeUtils.castValue;
 import static com.facebook.presto.type.TypeUtils.createBlock;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
+import static com.facebook.presto.type.TypeUtils.readMapBlocks;
 import static java.lang.invoke.MethodHandles.lookup;
 
 public class MapSubscriptOperator
@@ -155,25 +155,23 @@ public class MapSubscriptOperator
     @SuppressWarnings("unchecked")
     private static <T> T subscript(Type keyType, Type valueType, Slice map, Object key)
     {
-        Block block = readStructuralBlock(map);
+        Block[] blocks = readMapBlocks(keyType, valueType, map);
 
         Block keyBlock = createBlock(keyType, key);
 
         int position = 0;
         //TODO: This could be quite slow, it should use parametric equals
-        for (; position < block.getPositionCount(); position += 2) {
-            if (keyType.equalTo(block, position, keyBlock, 0)) {
+        for (; position < blocks[0].getPositionCount(); position++) {
+            if (keyType.equalTo(blocks[0], position, keyBlock, 0)) {
                 break;
             }
         }
 
-        if (position == block.getPositionCount()) {
+        if (position == blocks[0].getPositionCount()) {
             // key not found
             return null;
         }
 
-        position += 1; // value position
-
-        return (T) castValue(valueType, block, position);
+        return (T) castValue(valueType, blocks[1], position);
     }
 }

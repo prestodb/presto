@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -27,9 +28,9 @@ import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.facebook.presto.type.TypeUtils.readMapBlocks;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -38,7 +39,7 @@ public final class MapCardinalityFunction
 {
     public static final MapCardinalityFunction MAP_CARDINALITY = new MapCardinalityFunction();
     private static final Signature SIGNATURE = new Signature("cardinality", ImmutableList.of(typeParameter("K"), typeParameter("V")), "bigint", ImmutableList.of("map<K,V>"), false, false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapCardinalityFunction.class, "mapCardinality", Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapCardinalityFunction.class, "mapCardinality", Type.class, Type.class, Slice.class);
 
     @Override
     public Signature getSignature()
@@ -70,11 +71,13 @@ public final class MapCardinalityFunction
         checkArgument(arity == 1, "Cardinality expects only one argument");
         Type keyType = types.get("K");
         Type valueType = types.get("V");
-        return new FunctionInfo(new Signature("cardinality", parseTypeSignature(StandardTypes.BIGINT), parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature())), "Returns the cardinality (size) of the map", false, METHOD_HANDLE, true, true, ImmutableList.of(false));
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(keyType).bindTo(valueType);
+        return new FunctionInfo(new Signature("cardinality", parseTypeSignature(StandardTypes.BIGINT), parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature())), "Returns the cardinality (size) of the map", false, methodHandle, true, true, ImmutableList.of(false));
     }
 
-    public static Long mapCardinality(Slice slice)
+    public static Long mapCardinality(Type keyType, Type valueType, Slice slice)
     {
-        return (long) readStructuralBlock(slice).getPositionCount() / 2;
+        Block[] blocks = readMapBlocks(keyType, valueType, slice);
+        return (long) blocks[0].getPositionCount();
     }
 }

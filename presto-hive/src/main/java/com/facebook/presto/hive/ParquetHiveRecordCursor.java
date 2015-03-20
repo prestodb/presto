@@ -113,7 +113,6 @@ class ParquetHiveRecordCursor
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(columns, "columns is null");
 
-        this.recordReader = createParquetRecordReader(configuration, path, start, length, columns);
         this.totalBytes = length;
 
         int size = columns.size();
@@ -139,6 +138,7 @@ class ParquetHiveRecordCursor
             isPartitionColumn[i] = column.isPartitionKey();
             nullsRowDefault[i] = !column.isPartitionKey();
         }
+        this.recordReader = createParquetRecordReader(configuration, path, start, length, columns);
 
         // parse requested partition columns
         Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
@@ -377,17 +377,18 @@ class ParquetHiveRecordCursor
                     }
                     else {
                         GroupType groupType = parquetType.asGroupType();
+                        Type type = getType(i);
                         switch (column.getTypeSignature().getBase()) {
                             case StandardTypes.ARRAY:
-                                ParquetColumnConverter listConverter = new ParquetColumnConverter(new ParquetListConverter(groupType.getName(), groupType), i);
+                                ParquetColumnConverter listConverter = new ParquetColumnConverter(new ParquetListConverter(groupType.getName(), groupType, type), i);
                                 converters.add(listConverter);
                                 break;
                             case StandardTypes.MAP:
-                                ParquetColumnConverter mapConverter = new ParquetColumnConverter(new ParquetMapConverter(groupType.getName(), groupType), i);
+                                ParquetColumnConverter mapConverter = new ParquetColumnConverter(new ParquetMapConverter(groupType.getName(), groupType, type), i);
                                 converters.add(mapConverter);
                                 break;
                             case StandardTypes.ROW:
-                                ParquetColumnConverter rowConverter = new ParquetColumnConverter(new ParquetStructConverter(groupType.getName(), groupType), i);
+                                ParquetColumnConverter rowConverter = new ParquetColumnConverter(new ParquetStructConverter(groupType.getName(), groupType, type), i);
                                 converters.add(rowConverter);
                                 break;
                             default:
@@ -601,29 +602,30 @@ class ParquetHiveRecordCursor
         void beforeValue(BlockBuilder builder);
 
         void afterValue();
+
+        Slice toSlice();
     }
 
     private abstract static class GroupedConverter
             extends GroupConverter
             implements BlockConverter
     {
-        public abstract Slice toSlice();
     }
 
-    private static BlockConverter createConverter(String columnName, parquet.schema.Type type)
+    private static BlockConverter createConverter(String columnName, parquet.schema.Type type, Type prestoType)
     {
         if (type.isPrimitive()) {
             return new ParquetPrimitiveConverter();
         }
         else if (type.getOriginalType() == LIST) {
-            return new ParquetListConverter(columnName, type.asGroupType());
+            return new ParquetListConverter(columnName, type.asGroupType(), prestoType);
         }
         else if (type.getOriginalType() == MAP) {
-            return new ParquetMapConverter(columnName, type.asGroupType());
+            return new ParquetMapConverter(columnName, type.asGroupType(), prestoType);
         }
         else if (type.getOriginalType() == null) {
             // struct does not have an original type
-            return new ParquetStructConverter(columnName, type.asGroupType());
+            return new ParquetStructConverter(columnName, type.asGroupType(), prestoType);
         }
         throw new IllegalArgumentException("Unsupported type " + type);
     }
@@ -634,16 +636,19 @@ class ParquetHiveRecordCursor
         private final DynamicSliceOutput out = new DynamicSliceOutput(1024);
 
         private final List<BlockConverter> converters;
+        private final Type type;
         private BlockBuilder builder;
         private BlockBuilder currentBuilder;
 
-        public ParquetStructConverter(String columnName, GroupType entryType)
+        public ParquetStructConverter(String columnName, GroupType entryType, Type type)
         {
             ImmutableList.Builder<BlockConverter> converters = ImmutableList.builder();
+            int index = 0;
             for (parquet.schema.Type fieldType : entryType.getFields()) {
-                converters.add(createConverter(columnName + "." + fieldType.getName(), fieldType));
+                converters.add(createConverter(columnName + "." + fieldType.getName(), fieldType, type.getTypeParameters().get(index++)));
             }
             this.converters = converters.build();
+            this.type = checkNotNull(type, "type is null");
         }
 
         @Override
@@ -662,7 +667,7 @@ class ParquetHiveRecordCursor
         public void start()
         {
             out.reset();
-            this.currentBuilder = createBlockBuilder();
+            this.currentBuilder = createBlockBuilder(type);
             for (BlockConverter converter : converters) {
                 converter.beforeValue(currentBuilder);
             }
@@ -677,7 +682,7 @@ class ParquetHiveRecordCursor
             currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
 
             if (builder != null) {
-                VARBINARY.writeSlice(builder, out.copySlice());
+                type.writeSlice(builder, out.copySlice());
             }
         }
 
@@ -696,20 +701,17 @@ class ParquetHiveRecordCursor
     private static class ParquetListConverter
             extends GroupedConverter
     {
-        private final DynamicSliceOutput out = new DynamicSliceOutput(1024);
-
         private final BlockConverter elementConverter;
         private BlockBuilder builder;
-        private BlockBuilder currentBuilder;
 
-        public ParquetListConverter(String columnName, GroupType listType)
+        public ParquetListConverter(String columnName, GroupType listType, Type type)
         {
             checkArgument(listType.getFieldCount() == 1,
                     "Expected LIST column '%s' to only have one field, but has %s fields",
                     columnName,
                     listType.getFieldCount());
 
-            elementConverter = new ParquetListEntryConverter(columnName, listType.getType(0).asGroupType());
+            elementConverter = new ParquetListEntryConverter(columnName, listType.getType(0).asGroupType(), type);
         }
 
         @Override
@@ -730,20 +732,13 @@ class ParquetHiveRecordCursor
         @Override
         public void start()
         {
-            out.reset();
-            this.currentBuilder = createBlockBuilder();
-            elementConverter.beforeValue(currentBuilder);
+            elementConverter.beforeValue(builder);
         }
 
         @Override
         public void end()
         {
             elementConverter.afterValue();
-            currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
-
-            if (builder != null) {
-                VARBINARY.writeSlice(builder, out.copySlice());
-            }
         }
 
         @Override
@@ -754,7 +749,7 @@ class ParquetHiveRecordCursor
         @Override
         public Slice toSlice()
         {
-            return out.copySlice();
+            return elementConverter.toSlice();
         }
     }
 
@@ -762,11 +757,15 @@ class ParquetHiveRecordCursor
             extends GroupConverter
             implements BlockConverter
     {
+        private final DynamicSliceOutput out = new DynamicSliceOutput(1024);
+
         private final BlockConverter elementConverter;
+        private final Type type;
 
         private BlockBuilder builder;
+        private BlockBuilder currentBuilder;
 
-        public ParquetListEntryConverter(String columnName, GroupType elementType)
+        public ParquetListEntryConverter(String columnName, GroupType elementType, Type type)
         {
             checkArgument(elementType.getOriginalType() == null,
                     "Expected LIST column '%s' field to be type STRUCT, but is %s",
@@ -783,7 +782,8 @@ class ParquetHiveRecordCursor
                     columnName,
                     elementType.getFieldName(0));
 
-            elementConverter = createConverter(columnName + ".element", elementType.getType(0));
+            elementConverter = createConverter(columnName + ".element", elementType.getType(0), type.getTypeParameters().get(0));
+            this.type = checkNotNull(type, "type is null");
         }
 
         @Override
@@ -799,12 +799,14 @@ class ParquetHiveRecordCursor
         public void beforeValue(BlockBuilder builder)
         {
             this.builder = builder;
+            this.currentBuilder = createBlockBuilder(type.getTypeParameters().get(0));
+            out.reset();
         }
 
         @Override
         public void start()
         {
-            elementConverter.beforeValue(builder);
+            elementConverter.beforeValue(currentBuilder);
         }
 
         @Override
@@ -816,19 +818,26 @@ class ParquetHiveRecordCursor
         @Override
         public void afterValue()
         {
+            currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
+            if (builder != null) {
+                type.writeSlice(builder, out.copySlice());
+            }
+        }
+
+        @Override
+        public Slice toSlice()
+        {
+            return out.copySlice();
         }
     }
 
     private static class ParquetMapConverter
             extends GroupedConverter
     {
-        private final DynamicSliceOutput out = new DynamicSliceOutput(1024);
-
         private final ParquetMapEntryConverter entryConverter;
         private BlockBuilder builder;
-        private BlockBuilder currentBuilder;
 
-        public ParquetMapConverter(String columnName, GroupType mapType)
+        public ParquetMapConverter(String columnName, GroupType mapType, Type type)
         {
             checkArgument(mapType.getFieldCount() == 1,
                     "Expected MAP column '%s' to only have one field, but has %s fields",
@@ -846,7 +855,7 @@ class ParquetHiveRecordCursor
                         entryType);
             }
 
-            entryConverter = new ParquetMapEntryConverter(columnName + ".entry", entryType.asGroupType());
+            entryConverter = new ParquetMapEntryConverter(columnName + ".entry", entryType.asGroupType(), type);
         }
 
         @Override
@@ -867,20 +876,13 @@ class ParquetHiveRecordCursor
         @Override
         public void start()
         {
-            out.reset();
-            this.currentBuilder = createBlockBuilder();
-            entryConverter.beforeValue(currentBuilder);
+            entryConverter.beforeValue(builder);
         }
 
         @Override
         public void end()
         {
             entryConverter.afterValue();
-            currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
-
-            if (builder != null) {
-                VARBINARY.writeSlice(builder, out.copySlice());
-            }
         }
 
         @Override
@@ -891,7 +893,7 @@ class ParquetHiveRecordCursor
         @Override
         public Slice toSlice()
         {
-            return out.copySlice();
+            return entryConverter.toSlice();
         }
     }
 
@@ -899,12 +901,18 @@ class ParquetHiveRecordCursor
             extends GroupConverter
             implements BlockConverter
     {
+        private final DynamicSliceOutput out = new DynamicSliceOutput(1024);
+
         private final BlockConverter keyConverter;
         private final BlockConverter valueConverter;
 
-        private BlockBuilder builder;
+        private final Type type;
 
-        public ParquetMapEntryConverter(String columnName, GroupType entryType)
+        private BlockBuilder builder;
+        private BlockBuilder keyBuilder;
+        private BlockBuilder valueBuilder;
+
+        public ParquetMapEntryConverter(String columnName, GroupType entryType, Type type)
         {
             // original version of parquet used null for entry due to a bug
             if (entryType.getOriginalType() != null) {
@@ -933,8 +941,10 @@ class ParquetHiveRecordCursor
                     columnName,
                     entryGroupType.getType(0));
 
-            keyConverter = createConverter(columnName + ".key", entryGroupType.getFields().get(0));
-            valueConverter = createConverter(columnName + ".value", entryGroupType.getFields().get(1));
+            keyConverter = createConverter(columnName + ".key", entryGroupType.getFields().get(0), type.getTypeParameters().get(0));
+            valueConverter = createConverter(columnName + ".value", entryGroupType.getFields().get(1), type.getTypeParameters().get(1));
+
+            this.type = checkNotNull(type, "type is null");
         }
 
         @Override
@@ -953,13 +963,17 @@ class ParquetHiveRecordCursor
         public void beforeValue(BlockBuilder builder)
         {
             this.builder = builder;
+            this.keyBuilder = createBlockBuilder(type.getTypeParameters().get(0));
+            this.valueBuilder = createBlockBuilder(type.getTypeParameters().get(1));
+
+            out.reset();
         }
 
         @Override
         public void start()
         {
-            keyConverter.beforeValue(builder);
-            valueConverter.beforeValue(builder);
+            keyConverter.beforeValue(keyBuilder);
+            valueConverter.beforeValue(valueBuilder);
         }
 
         @Override
@@ -972,6 +986,18 @@ class ParquetHiveRecordCursor
         @Override
         public void afterValue()
         {
+            keyBuilder.getEncoding().writeBlock(out, keyBuilder.build());
+            valueBuilder.getEncoding().writeBlock(out, valueBuilder.build());
+
+            if (builder != null) {
+                type.writeSlice(builder, out.copySlice());
+            }
+        }
+
+        @Override
+        public Slice toSlice()
+        {
+            return out.copySlice();
         }
     }
 
@@ -1001,6 +1027,12 @@ class ParquetHiveRecordCursor
             }
 
             builder.appendNull();
+        }
+
+        @Override
+        public Slice toSlice()
+        {
+            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -1074,8 +1106,8 @@ class ParquetHiveRecordCursor
         }
     }
 
-    private static BlockBuilder createBlockBuilder()
+    private static BlockBuilder createBlockBuilder(Type type)
     {
-        return VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 100);
+        return type.createBlockBuilder(new BlockBuilderStatus(), 100);
     }
 }

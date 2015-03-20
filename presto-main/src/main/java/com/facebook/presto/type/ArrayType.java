@@ -19,7 +19,6 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.AbstractVariableWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -34,7 +33,7 @@ import java.util.Objects;
 import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
+import static com.facebook.presto.type.TypeUtils.readArrayBlock;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ArrayType
@@ -58,7 +57,7 @@ public class ArrayType
      */
     public static Slice toStackRepresentation(List<?> values, Type elementType)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 0);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), values.size());
         for (Object element : values) {
             appendToBlockBuilder(elementType, element, blockBuilder);
         }
@@ -87,7 +86,7 @@ public class ArrayType
     public int hash(Block block, int position)
     {
         Slice value = getSlice(block, position);
-        Block array = readStructuralBlock(value);
+        Block array = readArrayBlock(elementType, value);
         List<Integer> hashArray = new ArrayList<>(array.getPositionCount());
         for (int i = 0; i < array.getPositionCount(); i++) {
             checkElementNotNull(array.isNull(i));
@@ -101,8 +100,8 @@ public class ArrayType
     {
         Slice leftSlice = getSlice(leftBlock, leftPosition);
         Slice rightSlice = getSlice(rightBlock, rightPosition);
-        Block leftArray = readStructuralBlock(leftSlice);
-        Block rightArray = readStructuralBlock(rightSlice);
+        Block leftArray = readArrayBlock(elementType, leftSlice);
+        Block rightArray = readArrayBlock(elementType, rightSlice);
 
         int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
         int index = 0;
@@ -138,7 +137,7 @@ public class ArrayType
         }
 
         Slice slice = block.getSlice(position, 0, block.getLength(position));
-        Block arrayBlock = readStructuralBlock(slice);
+        Block arrayBlock = readArrayBlock(elementType, slice);
         List<Object> values = Lists.newArrayListWithCapacity(arrayBlock.getPositionCount());
 
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {

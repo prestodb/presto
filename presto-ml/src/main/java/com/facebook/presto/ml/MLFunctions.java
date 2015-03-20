@@ -17,7 +17,6 @@ import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -31,7 +30,7 @@ import io.airlift.slice.Slices;
 import static com.facebook.presto.ml.type.ClassifierType.BIGINT_CLASSIFIER;
 import static com.facebook.presto.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
 import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
-import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
+import static com.facebook.presto.type.TypeUtils.buildMapSlice;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -162,13 +161,14 @@ public final class MLFunctions
 
     private static Slice featuresHelper(double... features)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), features.length * (8 + 8));
+        BlockBuilder keyBuilder = BigintType.BIGINT.createBlockBuilder(new BlockBuilderStatus(), features.length);
+        BlockBuilder valueBuilder = DoubleType.DOUBLE.createBlockBuilder(new BlockBuilderStatus(), features.length);
 
         for (int i = 0; i < features.length; i++) {
-            BigintType.BIGINT.writeLong(blockBuilder, i);
-            DoubleType.DOUBLE.writeDouble(blockBuilder, features[i]);
+            BigintType.BIGINT.writeLong(keyBuilder, i);
+            DoubleType.DOUBLE.writeDouble(valueBuilder, features[i]);
         }
 
-        return buildStructuralSlice(blockBuilder);
+        return buildMapSlice(keyBuilder, valueBuilder);
     }
 }

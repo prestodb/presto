@@ -245,10 +245,10 @@ public abstract class AbstractTestOrcReader
                         Collections.nCopies(1_000_000, null))),
                 200_000);
 
-        tester.assertRoundTrip(javaIntObjectInspector, values, transform(values, value -> value == null ? null : (long) value));
+        tester.assertRoundTrip(javaIntObjectInspector, values, transform(values, value -> value == null ? null : (long) value), BIGINT);
 
         Iterable<String> stringValue = transform(values, value -> value == null ? null : String.valueOf(value));
-        tester.assertRoundTrip(javaStringObjectInspector, stringValue, stringValue);
+        tester.assertRoundTrip(javaStringObjectInspector, stringValue, stringValue, VARCHAR);
     }
 
     @Test

@@ -85,21 +85,18 @@ public class TestArrayOperators
 
         DynamicSliceOutput output = new DynamicSliceOutput(100);
         output.appendInt(2) // size of root array
-                .appendInt(33) // length of the first sub array bytes
-                .appendInt(21) // length of the second sub array bytes
+                .appendInt(25) // length of the first sub array bytes
+                .appendInt(17) // length of the second sub array bytes
                 .appendByte(0) // null flags
-                .appendInt(54) // length of root array bytes
+                .appendInt(42) // length of root array bytes
 
                     .appendInt(2) // size of the first array
-                    .appendInt(8) // length of long value 1
-                    .appendInt(8) // length of long value 2
                     .appendByte(0) // null flags
                     .appendInt(16) // length of values
                     .appendLong(1) // value 1
                     .appendLong(2) // value 2
 
                     .appendInt(1) // size of the second array
-                    .appendInt(8) // length of long value 3
                     .appendByte(0) // null flags
                     .appendInt(8) // length of values
                     .appendLong(3); // value 3

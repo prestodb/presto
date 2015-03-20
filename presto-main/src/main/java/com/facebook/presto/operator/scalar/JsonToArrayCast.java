@@ -22,7 +22,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -70,7 +69,7 @@ public class JsonToArrayCast
             if (array == null) {
                 return null;
             }
-            return toStackRepresentation((List<?>) array, ((ArrayType) arrayType).getElementType());
+            return toStackRepresentation((List<?>) array, arrayType.getTypeParameters().get(0));
         }
         catch (RuntimeException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to " + arrayType, e);

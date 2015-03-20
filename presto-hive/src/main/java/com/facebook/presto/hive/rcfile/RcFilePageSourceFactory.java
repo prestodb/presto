@@ -91,10 +91,10 @@ public class RcFilePageSourceFactory
 
         RcFileBlockLoader blockLoader;
         if (deserializerClassName.equals(LazyBinaryColumnarSerDe.class.getName())) {
-            blockLoader = new RcBinaryBlockLoader(DateTimeZone.forID(session.getTimeZoneKey().getId()));
+            blockLoader = new RcBinaryBlockLoader();
         }
         else if (deserializerClassName.equals(ColumnarSerDe.class.getName())) {
-            blockLoader = new RcTextBlockLoader(hiveStorageTimeZone, DateTimeZone.forID(session.getTimeZoneKey().getId()));
+            blockLoader = new RcTextBlockLoader(hiveStorageTimeZone);
         }
         else {
             return Optional.empty();

@@ -15,12 +15,12 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
 public final class ArrayFunctions
 {
@@ -32,7 +32,7 @@ public final class ArrayFunctions
     @SqlType("array<unknown>")
     public static Slice arrayConstructor()
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 0);
+        BlockBuilder blockBuilder = UNKNOWN.createBlockBuilder(new BlockBuilderStatus(), 0);
         return buildStructuralSlice(blockBuilder);
     }
 }

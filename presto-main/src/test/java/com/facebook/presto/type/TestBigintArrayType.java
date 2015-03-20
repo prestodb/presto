@@ -16,7 +16,6 @@ package com.facebook.presto.type;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -27,7 +26,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
+import static com.facebook.presto.type.TypeUtils.readArrayBlock;
 
 public class TestBigintArrayType
         extends AbstractTestType
@@ -50,8 +49,8 @@ public class TestBigintArrayType
     @Override
     protected Object getGreaterValue(Object value)
     {
-        Block block = readStructuralBlock(((Slice) value));
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes() + 8);
+        Block block = readArrayBlock(BIGINT, ((Slice) value));
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
         for (int i = 0; i < block.getPositionCount(); i++) {
             BIGINT.appendTo(block, i, blockBuilder);
         }

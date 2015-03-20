@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockEncoding;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.airlift.slice.Slice;
 
@@ -141,4 +142,9 @@ public interface Type
      * Compare the values in the specified block at the specified positions equal.
      */
     int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
+
+    /**
+     * Get the encoding for this type.
+     */
+    BlockEncoding getEncoding();
 }
