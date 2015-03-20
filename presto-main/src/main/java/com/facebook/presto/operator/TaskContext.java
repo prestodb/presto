@@ -257,7 +257,7 @@ public class TaskContext
         if (taskStateMachine.getState().isDone()) {
             DateTime now = DateTime.now();
             if (executionEndTime.compareAndSet(null, now)) {
-                lastExecutionStartTime.set(now);
+                lastExecutionStartTime.compareAndSet(null, now);
                 endNanos.set(System.nanoTime());
             }
         }
