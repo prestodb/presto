@@ -126,7 +126,7 @@ public class TestShardManagerDao
             throws Exception
     {
         dao.insertNode("node");
-        long nodeId = dao.getNodeId("node");
+        int nodeId = dao.getNodeId("node");
 
         long tableId = 1;
         UUID shard = UUID.randomUUID();
@@ -145,12 +145,12 @@ public class TestShardManagerDao
 
         String nodeName1 = UUID.randomUUID().toString();
         dao.insertNode(nodeName1);
-        Long nodeId1 = dao.getNodeId(nodeName1);
+        Integer nodeId1 = dao.getNodeId(nodeName1);
         assertNotNull(nodeId1);
 
         String nodeName2 = UUID.randomUUID().toString();
         dao.insertNode(nodeName2);
-        Long nodeId2 = dao.getNodeId(nodeName2);
+        Integer nodeId2 = dao.getNodeId(nodeName2);
         assertNotNull(nodeId2);
 
         assertEquals(dao.getAllNodesInUse(), ImmutableSet.of(nodeName1, nodeName2));
@@ -199,14 +199,14 @@ public class TestShardManagerDao
 
         String nodeName1 = UUID.randomUUID().toString();
         dao.insertNode(nodeName1);
-        Long nodeId1 = dao.getNodeId(nodeName1);
+        Integer nodeId1 = dao.getNodeId(nodeName1);
         assertNotNull(nodeId1);
 
         assertEquals(dao.getAllNodesInUse(), ImmutableSet.of(nodeName1));
 
         String nodeName2 = UUID.randomUUID().toString();
         dao.insertNode(nodeName2);
-        Long nodeId2 = dao.getNodeId(nodeName2);
+        Integer nodeId2 = dao.getNodeId(nodeName2);
         assertNotNull(nodeId2);
 
         assertEquals(dao.getAllNodesInUse(), ImmutableSet.of(nodeName1, nodeName2));
