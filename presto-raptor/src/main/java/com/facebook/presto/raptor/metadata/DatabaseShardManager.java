@@ -61,12 +61,12 @@ public class DatabaseShardManager
     private final IDBI dbi;
     private final ShardManagerDao dao;
 
-    private final LoadingCache<String, Long> nodeIdCache = CacheBuilder.newBuilder()
+    private final LoadingCache<String, Integer> nodeIdCache = CacheBuilder.newBuilder()
             .maximumSize(10_000)
-            .build(new CacheLoader<String, Long>()
+            .build(new CacheLoader<String, Integer>()
             {
                 @Override
-                public Long load(String nodeIdentifier)
+                public Integer load(String nodeIdentifier)
                 {
                     return loadNodeId(nodeIdentifier);
                 }
@@ -120,7 +120,7 @@ public class DatabaseShardManager
                 .map(ShardInfo::getNodeIdentifiers)
                 .flatMap(Collection::stream)
                 .collect(toSet());
-        Map<String, Long> nodeIds = Maps.toMap(identifiers, this::getOrCreateNodeId);
+        Map<String, Integer> nodeIds = Maps.toMap(identifiers, this::getOrCreateNodeId);
 
         dbi.inTransaction((handle, status) -> {
             ShardManagerDao dao = handle.attach(ShardManagerDao.class);
@@ -177,13 +177,13 @@ public class DatabaseShardManager
     @Override
     public void assignShard(UUID shardUuid, String nodeIdentifier)
     {
-        long nodeId = getOrCreateNodeId(nodeIdentifier);
+        int nodeId = getOrCreateNodeId(nodeIdentifier);
 
         // assigning a shard is idempotent
         runIgnoringConstraintViolation(() -> dao.insertShardNode(shardUuid, nodeId));
     }
 
-    private long getOrCreateNodeId(String nodeIdentifier)
+    private int getOrCreateNodeId(String nodeIdentifier)
     {
         try {
             return nodeIdCache.getUnchecked(nodeIdentifier);
@@ -193,9 +193,9 @@ public class DatabaseShardManager
         }
     }
 
-    private long loadNodeId(String nodeIdentifier)
+    private int loadNodeId(String nodeIdentifier)
     {
-        Long id = dao.getNodeId(nodeIdentifier);
+        Integer id = dao.getNodeId(nodeIdentifier);
         if (id != null) {
             return id;
         }

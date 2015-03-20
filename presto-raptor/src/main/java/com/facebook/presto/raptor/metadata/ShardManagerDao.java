@@ -33,7 +33,7 @@ import java.util.UUID;
 public interface ShardManagerDao
 {
     @SqlUpdate("CREATE TABLE IF NOT EXISTS nodes (\n" +
-            "  node_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
+            "  node_id INT PRIMARY KEY AUTO_INCREMENT,\n" +
             "  node_identifier VARCHAR(255) NOT NULL,\n" +
             "  UNIQUE (node_identifier)\n" +
             ")")
@@ -53,7 +53,7 @@ public interface ShardManagerDao
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS shard_nodes (\n" +
             "  shard_id BIGINT NOT NULL,\n" +
-            "  node_id BIGINT NOT NULL,\n" +
+            "  node_id INT NOT NULL,\n" +
             "  PRIMARY KEY (shard_id, node_id),\n" +
             "  FOREIGN KEY (shard_id) REFERENCES shards (shard_id),\n" +
             "  FOREIGN KEY (node_id) REFERENCES nodes (node_id)\n" +
@@ -80,14 +80,14 @@ public interface ShardManagerDao
 
     @SqlUpdate("INSERT INTO shard_nodes (shard_id, node_id)\n" +
             "VALUES (:shardId, :nodeId)\n")
-    void insertShardNode(@Bind("shardId") long shardId, @Bind("nodeId") long nodeId);
+    void insertShardNode(@Bind("shardId") long shardId, @Bind("nodeId") int nodeId);
 
     @SqlUpdate("INSERT INTO shard_nodes (shard_id, node_id)\n" +
             "VALUES ((SELECT shard_id FROM shards WHERE shard_uuid = :shardUuid), :nodeId)")
-    void insertShardNode(@Bind("shardUuid") UUID shardUuid, @Bind("nodeId") long nodeId);
+    void insertShardNode(@Bind("shardUuid") UUID shardUuid, @Bind("nodeId") int nodeId);
 
     @SqlQuery("SELECT node_id FROM nodes WHERE node_identifier = :nodeIdentifier")
-    Long getNodeId(@Bind("nodeIdentifier") String nodeIdentifier);
+    Integer getNodeId(@Bind("nodeIdentifier") String nodeIdentifier);
 
     @SqlQuery("SELECT shard_uuid FROM shards WHERE table_id = :tableId")
     List<UUID> getShards(@Bind("tableId") long tableId);
