@@ -123,11 +123,13 @@ public class RaptorSplitManager
             implements ConnectorSplitSource
     {
         private final Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), Node::getNodeIdentifier);
+        private final long tableId;
         private final TupleDomain<RaptorColumnHandle> effectivePredicate;
         private final CloseableIterator<ShardNodes> iterator;
 
         public RaptorSplitSource(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate)
         {
+            this.tableId = tableId;
             this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
             this.iterator = shardManager.getShardNodes(tableId, effectivePredicate);
         }
@@ -175,7 +177,7 @@ public class RaptorSplitManager
                     throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
                 }
                 Node node = selectRandom(availableNodes);
-                shardManager.assignShard(shardId, node.getNodeIdentifier());
+                shardManager.assignShard(tableId, shardId, node.getNodeIdentifier());
                 addresses = ImmutableList.of(node.getHostAndPort());
             }
 

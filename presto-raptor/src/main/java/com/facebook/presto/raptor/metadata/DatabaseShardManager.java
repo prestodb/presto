@@ -22,6 +22,7 @@ import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -29,6 +30,7 @@ import io.airlift.log.Logger;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.exceptions.DBIException;
+import org.skife.jdbi.v2.util.ByteArrayMapper;
 
 import javax.inject.Inject;
 
@@ -46,6 +48,9 @@ import static com.facebook.presto.raptor.metadata.ShardManagerDaoUtils.createSha
 import static com.facebook.presto.raptor.metadata.ShardPredicate.jdbcType;
 import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.storage.ShardStats.MAX_BINARY_INDEX_SIZE;
+import static com.facebook.presto.raptor.util.ArrayUtil.intArrayFromBytes;
+import static com.facebook.presto.raptor.util.ArrayUtil.intArrayToBytes;
+import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
@@ -99,6 +104,7 @@ public class DatabaseShardManager
                 "CREATE TABLE " + shardIndexTable(tableId) + " (\n" +
                 "  shard_id BIGINT NOT NULL PRIMARY KEY,\n" +
                 "  shard_uuid BINARY(16) NOT NULL,\n" +
+                "  node_ids VARBINARY(128) NOT NULL,\n" +
                 tableColumns +
                 "  UNIQUE (shard_uuid)\n" +
                 ")";
@@ -129,11 +135,12 @@ public class DatabaseShardManager
                 for (ShardInfo shard : shards) {
                     long shardId = dao.insertShard(shard.getShardUuid(), tableId, shard.getRowCount(), shard.getDataSize());
 
-                    for (String nodeIdentifier : shard.getNodeIdentifiers()) {
-                        dao.insertShardNode(shardId, nodeIds.get(nodeIdentifier));
+                    Set<Integer> shardNodes = shard.getNodeIdentifiers().stream().map(nodeIds::get).collect(toSet());
+                    for (int nodeId : shardNodes) {
+                        dao.insertShardNode(shardId, nodeId);
                     }
 
-                    indexInserter.insert(shardId, shard.getShardUuid(), shard.getColumnStats());
+                    indexInserter.insert(shardId, shard.getShardUuid(), shardNodes, shard.getColumnStats());
                 }
             }
 
@@ -147,7 +154,7 @@ public class DatabaseShardManager
     @Override
     public CloseableIterator<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate)
     {
-        return new ShardIterator(tableId, effectivePredicate, dbi.open().getConnection());
+        return new ShardIterator(tableId, effectivePredicate, dbi);
     }
 
     @Override
@@ -175,12 +182,23 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void assignShard(UUID shardUuid, String nodeIdentifier)
+    public void assignShard(long tableId, UUID shardUuid, String nodeIdentifier)
     {
         int nodeId = getOrCreateNodeId(nodeIdentifier);
 
         // assigning a shard is idempotent
-        runIgnoringConstraintViolation(() -> dao.insertShardNode(shardUuid, nodeId));
+        dbi.inTransaction((handle, status) -> runIgnoringConstraintViolation(() -> {
+            ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+            dao.insertShardNode(shardUuid, nodeId);
+
+            Set<Integer> nodeIds = ImmutableSet.<Integer>builder()
+                    .addAll(fetchLockedNodeIds(handle, tableId, shardUuid))
+                    .add(nodeId)
+                    .build();
+            updateNodeIds(handle, tableId, shardUuid, nodeIds);
+
+            return null;
+        }));
     }
 
     private int getOrCreateNodeId(String nodeIdentifier)
@@ -208,6 +226,29 @@ public class DatabaseShardManager
             throw new PrestoException(INTERNAL_ERROR, "node does not exist after insert");
         }
         return id;
+    }
+
+    private static Collection<Integer> fetchLockedNodeIds(Handle handle, long tableId, UUID shardUuid)
+    {
+        String sql = format(
+                "SELECT node_ids FROM %s WHERE shard_uuid = ? FOR UPDATE",
+                shardIndexTable(tableId));
+
+        byte[] nodeArray = handle.createQuery(sql)
+                .bind(0, uuidToBytes(shardUuid))
+                .map(ByteArrayMapper.FIRST)
+                .first();
+
+        return intArrayFromBytes(nodeArray);
+    }
+
+    private static void updateNodeIds(Handle handle, long tableId, UUID shardUuid, Set<Integer> nodeIds)
+    {
+        String sql = format(
+                "UPDATE %s SET node_ids = ? WHERE shard_uuid = ?",
+                shardIndexTable(tableId));
+
+        handle.execute(sql, intArrayToBytes(nodeIds), uuidToBytes(shardUuid));
     }
 
     static String shardIndexTable(long tableId)

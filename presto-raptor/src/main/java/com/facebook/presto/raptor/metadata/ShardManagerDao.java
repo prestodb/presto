@@ -89,6 +89,13 @@ public interface ShardManagerDao
     @SqlQuery("SELECT node_id FROM nodes WHERE node_identifier = :nodeIdentifier")
     Integer getNodeId(@Bind("nodeIdentifier") String nodeIdentifier);
 
+    @SqlQuery("SELECT node_identifier FROM nodes WHERE node_id = :nodeId")
+    String getNodeIdentifier(@Bind("nodeId") int nodeId);
+
+    @SqlQuery("SELECT node_id, node_identifier FROM nodes")
+    @Mapper(Node.Mapper.class)
+    List<Node> getNodes();
+
     @SqlQuery("SELECT shard_uuid FROM shards WHERE table_id = :tableId")
     List<UUID> getShards(@Bind("tableId") long tableId);
 

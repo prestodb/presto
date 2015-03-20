@@ -53,5 +53,5 @@ public interface ShardManager
     /**
      * Assign a shard to a node.
      */
-    void assignShard(UUID shardUuid, String nodeIdentifier);
+    void assignShard(long tableId, UUID shardUuid, String nodeIdentifier);
 }
