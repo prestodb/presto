@@ -13,11 +13,41 @@
  */
 package com.facebook.presto.sql.parser;
 
-import com.facebook.presto.sql.tree.*;
+import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.ArrayConstructor;
+import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.Intersect;
+import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import com.facebook.presto.sql.tree.IntervalLiteral.Sign;
+import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NegativeExpression;
+import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.Row;
+import com.facebook.presto.sql.tree.Select;
+import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SingleColumn;
+import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubscriptExpression;
+import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.TimeLiteral;
+import com.facebook.presto.sql.tree.TimestampLiteral;
+import com.facebook.presto.sql.tree.Union;
+import com.facebook.presto.sql.tree.Values;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+
+import org.antlr.runtime.tree.CommonTree;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -54,6 +84,14 @@ public class TestSqlParser
         SQL_PARSER.createExpression("@[QBKZ70D4M].[Revenue]");
         SQL_PARSER.createExpression("@abc/@dce");
         SQL_PARSER.createExpression("@[abc/dce]");
+        //SQL_PARSER.createExpression("D'2015-03-03'");
+        //String exp = "D('111', 222)";
+        String exp = "D'2015-03-03'";
+        
+        Expression lastone = SQL_PARSER.createExpression(exp);
+        CommonTree commone = SQL_PARSER.parseExpression(exp);
+        System.out.println("treetostring -> " + TreePrinter.treeToString(commone));
+        System.out.println("expression tostring() -> " + lastone.toString());
     }
 
     @Test
@@ -163,11 +201,13 @@ public class TestSqlParser
         assertCast("decimal(100, 2)", "DECIMAL(100,2)");
     }
 
-    public static void assertCast(String type, String result) {
+    public static void assertCast(String type, String result)
+    {
         assertExpression("cast(123 as " + type + ")", new Cast(new LongLiteral("123"), result));
     }
 
-    public static void assertCast(String type) {
+    public static void assertCast(String type)
+    {
         assertCast(type, type);
     }
 

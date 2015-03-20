@@ -499,6 +499,7 @@ literal
     | (TIMESTAMP) => TIMESTAMP STRING -> ^(TIMESTAMP STRING)
     | (INTERVAL) => intervalLiteral
     | (ARRAY) => arrayConstructor
+    | D STRING  				      -> ^(FUNCTION_CALL ^(QNAME IDENT["D"]) STRING)
     | ident STRING                    -> ^(LITERAL ident STRING)
     ;
 
@@ -783,7 +784,7 @@ nonReserved
     | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
     | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | JSON | TO
     | RESCALED | APPROXIMATE | AT | CONFIDENCE
-    | VIEW | REPLACE
+    | VIEW | REPLACE | D
     ;
 
 SELECT: 'SELECT';
@@ -922,6 +923,7 @@ RENAME: 'RENAME';
 UNNEST: 'UNNEST';
 TEMP: 'TEMP';
 DATA: 'DATA';
+D: 'D';
 
 EQ  : '=';
 NEQ : '<>' | '!=';
