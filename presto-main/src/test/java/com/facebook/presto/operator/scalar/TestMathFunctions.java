@@ -120,6 +120,14 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testDegrees()
+    {
+        for (double doubleValue : DOUBLE_VALUES) {
+            assertFunction(String.format("degrees(%s)", doubleValue), Math.toDegrees(doubleValue));
+        }
+    }
+
+    @Test
     public void testE()
     {
         assertFunction("e()", Math.E);
@@ -275,6 +283,14 @@ public class TestMathFunctions
             for (double right : doubleRights) {
                 assertFunction("pow(" + left + ", " + right + ")", Math.pow(left, right));
             }
+        }
+    }
+
+    @Test
+    public void testRadians()
+    {
+        for (double doubleValue : DOUBLE_VALUES) {
+            assertFunction(String.format("radians(%s)", doubleValue), Math.toRadians(doubleValue));
         }
     }
 
