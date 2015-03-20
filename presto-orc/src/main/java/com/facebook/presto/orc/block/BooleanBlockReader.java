@@ -47,12 +47,15 @@ public class BooleanBlockReader
     }
 
     @Override
-    public void readNextValueInto(BlockBuilder builder)
+    public boolean readNextValueInto(BlockBuilder builder, boolean skipNull)
             throws IOException
     {
         if (presentStream != null && !presentStream.nextBit()) {
-            builder.appendNull();
-            return;
+            if (!skipNull) {
+                builder.appendNull();
+                return true;
+            }
+            return false;
         }
 
         if (dataStream == null) {
@@ -60,6 +63,7 @@ public class BooleanBlockReader
         }
 
         BOOLEAN.writeBoolean(builder, dataStream.nextBit());
+        return true;
     }
 
     @Override

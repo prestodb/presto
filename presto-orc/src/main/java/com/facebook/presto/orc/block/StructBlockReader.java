@@ -59,19 +59,22 @@ public class StructBlockReader
     }
 
     @Override
-    public void readNextValueInto(BlockBuilder builder)
+    public boolean readNextValueInto(BlockBuilder builder, boolean skipNull)
             throws IOException
     {
         out.reset();
 
         if (presentStream != null && !presentStream.nextBit()) {
-            checkNotNull(builder, "parent builder is null").appendNull();
-            return;
+            if (!skipNull) {
+                checkNotNull(builder, "parent builder is null").appendNull();
+                return true;
+            }
+            return false;
         }
 
         BlockBuilder currentBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), structFields.length);
         for (BlockReader structField : structFields) {
-            structField.readNextValueInto(currentBuilder);
+            structField.readNextValueInto(currentBuilder, false);
         }
 
         currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
@@ -79,6 +82,7 @@ public class StructBlockReader
         if (builder != null) {
             VARBINARY.writeSlice(builder, out.copySlice());
         }
+        return true;
     }
 
     @Override

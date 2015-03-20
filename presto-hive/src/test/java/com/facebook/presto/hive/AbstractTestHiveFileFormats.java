@@ -63,7 +63,9 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
@@ -172,6 +174,7 @@ public abstract class AbstractTestHiveFileFormats
                     getStandardMapObjectInspector(javaShortObjectInspector, javaShortObjectInspector),
                     ImmutableMap.of((short) 2, (short) 2),
                     mapSliceOf(BIGINT, BIGINT, 2, 2)))
+            .add(new TestColumn("t_map_null_key", getStandardMapObjectInspector(javaIntObjectInspector, javaIntObjectInspector), mapWithNullKey(), mapSliceOf(BIGINT, BIGINT, 2, 3)))
             .add(new TestColumn("t_map_int", getStandardMapObjectInspector(javaIntObjectInspector, javaIntObjectInspector), ImmutableMap.of(3, 3), mapSliceOf(BIGINT, BIGINT, 3, 3)))
             .add(new TestColumn("t_map_bigint", getStandardMapObjectInspector(javaLongObjectInspector, javaLongObjectInspector), ImmutableMap.of(4L, 4L), mapSliceOf(BIGINT, BIGINT, 4L, 4L)))
             .add(new TestColumn("t_map_float", getStandardMapObjectInspector(javaFloatObjectInspector, javaFloatObjectInspector), ImmutableMap.of(5.0f, 5.0f), mapSliceOf(DOUBLE, DOUBLE, 5.0f, 5.0f)))
@@ -227,6 +230,14 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_struct_null", getStandardStructObjectInspector(ImmutableList.of("struct_field", "struct_field2"),
                     ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)), Arrays.asList(null, null), rowSliceOf(ImmutableList.of(VARCHAR, VARCHAR), null, null)))
             .build();
+
+    private static Map<Integer, Integer> mapWithNullKey()
+    {
+        Map<Integer, Integer> map = new HashMap<>();
+        map.put(null, 0);
+        map.put(2, 3);
+        return map;
+    }
 
     protected List<HiveColumnHandle> getColumnHandles(List<TestColumn> testColumns)
     {

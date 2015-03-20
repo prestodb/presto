@@ -29,7 +29,7 @@ public interface BlockReader
     void openRowGroup(StreamSources dataStreamSources)
             throws IOException;
 
-    void readNextValueInto(BlockBuilder builder)
+    boolean readNextValueInto(BlockBuilder builder, boolean skipNull)
             throws IOException;
 
     void skip(int skipSize)

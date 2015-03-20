@@ -75,15 +75,19 @@ public class SliceDictionaryBlockReader
     }
 
     @Override
-    public void readNextValueInto(BlockBuilder builder)
+    public boolean readNextValueInto(BlockBuilder builder, boolean skipNull)
             throws IOException
     {
         if (presentStream != null && !presentStream.nextBit()) {
-            builder.appendNull();
-            return;
+            if (!skipNull) {
+                builder.appendNull();
+                return true;
+            }
+            return false;
         }
 
         VARCHAR.writeSlice(builder, Slices.wrappedBuffer(getNextValue()));
+        return true;
     }
 
     private byte[] getNextValue()

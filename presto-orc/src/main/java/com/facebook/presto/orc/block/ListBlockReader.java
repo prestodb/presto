@@ -62,14 +62,17 @@ public class ListBlockReader
     }
 
     @Override
-    public void readNextValueInto(BlockBuilder builder)
+    public boolean readNextValueInto(BlockBuilder builder, boolean skipNull)
             throws IOException
     {
         out.reset();
 
         if (presentStream != null && !presentStream.nextBit()) {
-            checkNotNull(builder, "parent builder is null").appendNull();
-            return;
+            if (!skipNull) {
+                checkNotNull(builder, "parent builder is null").appendNull();
+                return true;
+            }
+            return false;
         }
 
         if (lengthStream == null) {
@@ -79,7 +82,7 @@ public class ListBlockReader
         long length = lengthStream.next();
         BlockBuilder currentBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), Ints.checkedCast(length));
         for (int i = 0; i < length; i++) {
-            elementReader.readNextValueInto(currentBuilder);
+            elementReader.readNextValueInto(currentBuilder, false);
         }
 
         currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
@@ -87,6 +90,7 @@ public class ListBlockReader
         if (builder != null) {
             VARBINARY.writeSlice(builder, out.copySlice());
         }
+        return true;
     }
 
     @Override

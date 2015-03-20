@@ -48,10 +48,10 @@ public class LongBlockReader
     }
 
     @Override
-    public void readNextValueInto(BlockBuilder builder)
+    public boolean readNextValueInto(BlockBuilder builder, boolean skipNull)
             throws IOException
     {
-        currentReader.readNextValueInto(builder);
+        return currentReader.readNextValueInto(builder, skipNull);
     }
 
     @Override

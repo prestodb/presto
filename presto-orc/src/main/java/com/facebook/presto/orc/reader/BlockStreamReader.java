@@ -100,7 +100,7 @@ public class BlockStreamReader
 
         for (int i = 0; i < nextBatchSize; i++) {
             if (!isNullVector[i]) {
-                blockReader.readNextValueInto(null);
+                blockReader.readNextValueInto(null, false);
 
                 sliceVector.vector[i] = blockReader.toSlice();
             }
