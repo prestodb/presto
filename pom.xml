@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>35</version>
+        <version>34</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -43,9 +43,8 @@
         <air.check.skip-checkstyle>false</air.check.skip-checkstyle>
 
         <dep.antlr.version>4.3</dep.antlr.version>
-        <dep.airlift.version>0.105</dep.airlift.version>
+        <dep.airlift.version>0.104</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.jetty.version>9.2.8.v20150217</dep.jetty.version>
 
         <cli.skip-execute>true</cli.skip-execute>
         <cli.main-class>None</cli.main-class>
@@ -552,7 +551,7 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.23</version>
+                <version>1.22</version>
             </dependency>
 
             <dependency>
