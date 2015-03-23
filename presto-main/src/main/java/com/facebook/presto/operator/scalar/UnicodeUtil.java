@@ -13,6 +13,8 @@ package com.facebook.presto.operator.scalar;
 
 import io.airlift.slice.Slice;
 
+import java.nio.charset.StandardCharsets;
+
 /**
  * Ideas for fast counting based on
  * <a href="http://www.daemonology.net/blog/2008-06-05-faster-utf8-strlen.html">Even faster UTF-8 character counting</a>.
@@ -31,10 +33,10 @@ final class UnicodeUtil {
     /**
      * Counts the code points within UTF8 encoded slice.
      */
-    static int countCodePoints(final Slice slice) {
+    static int countCodePoints(final Slice string) {
         //
         // Quick exit if empty string
-        if (slice.length() == 0) {
+        if (string.length() == 0) {
             return 0;
         }
 
@@ -42,11 +44,11 @@ final class UnicodeUtil {
         int i = 0;
         //
         // Length rounded to 8 bytes
-        final int length8 = slice.length() & 0x7FFFFFF8;
+        final int length8 = string.length() & 0x7FFFFFF8;
         for (; i < length8; i += 8) {
             //
             // Fetch 8 bytes as long
-            long i64 = slice.getLong(i);
+            long i64 = string.getLong(i);
             //
             // Count bytes which are NOT the start of a code point
             i64 = ((i64 & TOP_MASK64) >> 7) & (~i64 >> 6);
@@ -54,10 +56,10 @@ final class UnicodeUtil {
         }
         //
         // Enough bytes left for 32 bits?
-        if (i + 4 < slice.length()) {
+        if (i + 4 < string.length()) {
             //
             // Fetch 4 bytes as integer
-            int i32 = slice.getInt(i);
+            int i32 = string.getInt(i);
             //
             // Count bytes which are NOT the start of a code point
             i32 = ((i32 & TOP_MASK32) >> 7) & (~i32 >> 6);
@@ -67,14 +69,28 @@ final class UnicodeUtil {
         }
         //
         // Do the rest one by one
-        for (; i < slice.length(); i++) {
-            int i8 = slice.getByte(i) & 0xff;
+        for (; i < string.length(); i++) {
+            int i8 = string.getByte(i) & 0xff;
             //
             // Count bytes which are NOT the start of a code point
             count += (i8 >> 7) & (~i8 >> 6);
         }
 
-        assert count <= slice.length();
-        return slice.length() - count;
+        assert count <= string.length();
+        return string.length() - count;
+    }
+
+    /**
+     * Finds the offset of the first byte of the code point at a position.
+     */
+    static int findUtf8OffsetOfCodePointPosition(final Slice string, final int codePointPosition) {
+        final String value = string.toStringUtf8();
+        //
+        // Invalid position after end of string
+        if (codePointPosition > value.length()) {
+            return -1;
+        }
+
+        return value.substring(0, codePointPosition).getBytes(StandardCharsets.UTF_8).length;
     }
 }
