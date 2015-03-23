@@ -41,10 +41,12 @@ public class UnicodeUtilTest {
         assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("Quadratically"), 13), 13);
         assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("\u00D6sterreich"), 0), 0);
         assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("\u00D6sterreich"), 1), 2);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("\u00D6sterreich"), 4), 5);
         assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("\u00D6sterreich"), 7), 8);
         assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("Duli\u00F6 duli\u00F6"), 1), 1);
         assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("Duli\u00F6 duli\u00F6"), 4), 4);
         assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("Duli\u00F6 duli\u00F6"), 5), 6);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("Duli\u00F6 duli\u00F6"), 8), 9);
         assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("Duli\u00F6 duli\u00F6"), 11), 13);
         assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("\u4FE1\u5FF5,\u7231,\u5E0C\u671B"), 1), 3);
         assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("\u4FE1\u5FF5,\u7231,\u5E0C\u671B"), 2), 6);
