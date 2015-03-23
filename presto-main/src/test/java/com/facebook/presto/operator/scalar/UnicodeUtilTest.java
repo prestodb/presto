@@ -17,52 +17,61 @@ import static org.testng.Assert.assertEquals;
 
 public class UnicodeUtilTest {
 
+    private static final String EMPTY = "";
+    private static final String HELLO = "hello";
+    private static final String QUADRATICALLY = "Quadratically";
+    private static final String OESTERREICH = "\u00D6sterreich";
+    private static final String DULIOE_DULIOE = "Duli\u00F6 duli\u00F6";
+    private static final String FAITH_HOPE_LOVE = "\u4FE1\u5FF5,\u7231,\u5E0C\u671B";
+    private static final String NAIVE = "na\u00EFve";
+    private static final String OO = "\uD801\uDC2D";
+
     @Test
     public void testCodePointCount() {
-        assertEquals(UnicodeUtil.countCodePoints(Slices.utf8Slice("")), 0);
-        assertEquals(UnicodeUtil.countCodePoints(Slices.utf8Slice("hello")), 5);
-        assertEquals(UnicodeUtil.countCodePoints(Slices.utf8Slice("Quadratically")), 13);
-        assertEquals(UnicodeUtil.countCodePoints(Slices.utf8Slice("\u00D6sterreich")), 10);
-        assertEquals(UnicodeUtil.countCodePoints(Slices.utf8Slice("Duli\u00F6 duli\u00F6")), 11);
-        assertEquals(UnicodeUtil.countCodePoints(Slices.utf8Slice("\u4FE1\u5FF5,\u7231,\u5E0C\u671B")), 7);
-        assertEquals(UnicodeUtil.countCodePoints(Slices.utf8Slice("na\u00EFve")), 5);
-        assertEquals(UnicodeUtil.countCodePoints(Slices.utf8Slice("\uD801\uDC2D")), 1);
+        assertEquals(UnicodeUtil.countCodePoints(Slices.utf8Slice(EMPTY)), 0);
+        assertEquals(UnicodeUtil.countCodePoints(Slices.utf8Slice(HELLO)), 5);
+        assertEquals(UnicodeUtil.countCodePoints(Slices.utf8Slice(QUADRATICALLY)), 13);
+        assertEquals(UnicodeUtil.countCodePoints(Slices.utf8Slice(OESTERREICH)), 10);
+        assertEquals(UnicodeUtil.countCodePoints(Slices.utf8Slice(DULIOE_DULIOE)), 11);
+        assertEquals(UnicodeUtil.countCodePoints(Slices.utf8Slice(FAITH_HOPE_LOVE)), 7);
+        assertEquals(UnicodeUtil.countCodePoints(Slices.utf8Slice(NAIVE)), 5);
+        assertEquals(UnicodeUtil.countCodePoints(Slices.utf8Slice(OO)), 1);
     }
 
     @Test
     public void testOffsetOfCodePointPosition() {
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(""), 0), 0);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("hello"), 0), 0);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("hello"), 3), 3);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("hello"), 5), 5);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("Quadratically"), 0), 0);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("Quadratically"), 4), 4);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("Quadratically"), 12), 12);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("Quadratically"), 13), 13);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("\u00D6sterreich"), 0), 0);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("\u00D6sterreich"), 1), 2);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("\u00D6sterreich"), 4), 5);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("\u00D6sterreich"), 7), 8);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("Duli\u00F6 duli\u00F6"), 1), 1);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("Duli\u00F6 duli\u00F6"), 4), 4);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("Duli\u00F6 duli\u00F6"), 5), 6);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("Duli\u00F6 duli\u00F6"), 8), 9);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("Duli\u00F6 duli\u00F6"), 11), 13);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("\u4FE1\u5FF5,\u7231,\u5E0C\u671B"), 1), 3);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("\u4FE1\u5FF5,\u7231,\u5E0C\u671B"), 2), 6);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("na\u00EFve"), 3), 4);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("\uD801\uDC2D"), 0), 0);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("\uD801\uDC2D"), 1), 4);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(EMPTY), 0), 0);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(HELLO), 0), 0);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(HELLO), 3), 3);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(HELLO), 5), 5);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(QUADRATICALLY), 0), 0);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(QUADRATICALLY), 4), 4);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(QUADRATICALLY), 12), 12);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(QUADRATICALLY), 13), 13);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(OESTERREICH), 0), 0);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(OESTERREICH), 1), 2);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(OESTERREICH), 4), 5);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(OESTERREICH), 7), 8);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(DULIOE_DULIOE), 1), 1);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(DULIOE_DULIOE), 4), 4);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(DULIOE_DULIOE), 5), 6);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(DULIOE_DULIOE), 8), 9);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(DULIOE_DULIOE), 11), 13);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(FAITH_HOPE_LOVE), 1), 3);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(FAITH_HOPE_LOVE), 2), 6);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(NAIVE), 3), 4);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(OO), 0), 0);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(OO), 1), 4);
     }
 
     @Test
     public void testOffsetOfCodePointPositionBounds() {
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(""), 1), -1);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("hello"), 6), -1);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("Quadratically"), 14), -1);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("\u00D6sterreich"), 11), -1);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("Duli\u00F6 duli\u00F6"), 12), -1);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("\u4FE1\u5FF5,\u7231,\u5E0C\u671B"), 8), -1);
-        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice("\uD801\uDC2D"), 2), -1);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(EMPTY), 1), -1);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(HELLO), 6), -1);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(QUADRATICALLY), 14), -1);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(OESTERREICH), 11), -1);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(DULIOE_DULIOE), 12), -1);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(FAITH_HOPE_LOVE), 8), -1);
+        assertEquals(UnicodeUtil.findUtf8OffsetOfCodePointPosition(Slices.utf8Slice(OO), 2), -1);
     }
 }
