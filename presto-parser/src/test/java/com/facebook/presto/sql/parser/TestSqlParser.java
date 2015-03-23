@@ -87,7 +87,6 @@ public class TestSqlParser
         //SQL_PARSER.createExpression("D'2015-03-03'");
         //String exp = "D('111', 222)";
         String exp = "D'2015-03-03'";
-        
         Expression lastone = SQL_PARSER.createExpression(exp);
         CommonTree commone = SQL_PARSER.parseExpression(exp);
         System.out.println("treetostring -> " + TreePrinter.treeToString(commone));

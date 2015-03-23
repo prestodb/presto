@@ -44,7 +44,9 @@ public class IntervalLiteral
 
     public enum IntervalField
     {
-        YEAR, MONTH, DAY, HOUR, MINUTE, SECOND
+        YEAR, MONTH, DAY, HOUR, MINUTE, SECOND,
+        // below are added by vero
+        QUARTER, DAYOFYEAR, WEEK, MILLISECOND, MICROSECOND, NANOSECOND
     }
 
     private final String value;
