@@ -241,6 +241,23 @@ public class AddExchanges
                 child = enforce(child, childRequirements);
             }
 
+            if (child.getProperties().isGroupedOnKeys(node.getPartitionBy())) {
+                // create streaming version of window node
+                WindowNode result = new WindowNode(
+                        node.getId(),
+                        child.getNode(),
+                        node.getPartitionBy(),
+                        node.getOrderBy(),
+                        node.getOrderings(),
+                        node.getFrame(),
+                        node.getWindowFunctions(),
+                        node.getSignatures(),
+                        node.getHashSymbol(),
+                        true);
+
+                return new PlanWithProperties(result, deriveProperties(result, ImmutableList.of(child.getProperties())));
+            }
+
             return rebaseAndDeriveProperties(node, child);
         }
 

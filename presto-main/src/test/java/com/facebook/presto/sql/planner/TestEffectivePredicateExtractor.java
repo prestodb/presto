@@ -286,7 +286,8 @@ public class TestEffectivePredicateExtractor
                         FrameBound.Type.UNBOUNDED_PRECEDING, Optional.empty(),
                         FrameBound.Type.CURRENT_ROW, Optional.empty()),
                 ImmutableMap.<Symbol, FunctionCall>of(),
-                ImmutableMap.<Symbol, Signature>of(), Optional.empty());
+                ImmutableMap.<Symbol, Signature>of(), Optional.empty(),
+                false);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 

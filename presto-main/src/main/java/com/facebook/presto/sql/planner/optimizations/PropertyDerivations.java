@@ -82,12 +82,20 @@ class PropertyDerivations
         @Override
         public ActualProperties visitWindow(WindowNode node, List<ActualProperties> inputProperties)
         {
-            Set<Symbol> grouping = ImmutableSet.<Symbol>builder()
-                    .addAll(node.getOrderBy())
-                    .addAll(node.getPartitionBy())
-                    .build();
-
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+
+            Set<Symbol> grouping;
+            if (node.isInputAlreadyPartitioned() && node.getOrderBy().isEmpty()) {
+                checkState(properties.isGroupedOnKeys(node.getPartitionBy()), "Expected input to be grouped on PARTITION BY keys");
+                grouping = properties.getGrouping().getColumns();
+            }
+            else {
+                grouping = ImmutableSet.<Symbol>builder()
+                        .addAll(node.getOrderBy())
+                        .addAll(node.getPartitionBy())
+                        .build();
+            }
+
             return new ActualProperties(properties.getPartitioning(), properties.getPlacement(), GroupingProperties.grouped(grouping));
         }
 
