@@ -1,15 +1,17 @@
 /*
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
- * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
- * specific language governing permissions and limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.facebook.presto.operator.scalar;
-
 
 import io.airlift.slice.Slice;
 
@@ -17,21 +19,23 @@ import io.airlift.slice.Slice;
  * Ideas for fast counting based on
  * <a href="http://www.daemonology.net/blog/2008-06-05-faster-utf8-strlen.html">Even faster UTF-8 character counting</a>.
  */
-final class UnicodeUtil {
-
-    private UnicodeUtil() {
+final class UnicodeUtil
+{
+    private UnicodeUtil()
+    {
     }
 
-    private final static int TOP_MASK32 = 0x80808080;
-    private final static long TOP_MASK64 = 0x8080808080808080L;
+    private static final int TOP_MASK32 = 0x80808080;
+    private static final long TOP_MASK64 = 0x8080808080808080L;
 
-    private final static int ONE_MULTIPLIER32 = 0x01010101;
-    private final static long ONE_MULTIPLIER64 = 0x0101010101010101L;
+    private static final int ONE_MULTIPLIER32 = 0x01010101;
+    private static final long ONE_MULTIPLIER64 = 0x0101010101010101L;
 
     /**
      * Counts the code points within UTF8 encoded slice.
      */
-    static int countCodePoints(final Slice string) {
+    static int countCodePoints(final Slice string)
+    {
         //
         // Quick exit if empty string
         if (string.length() == 0) {
@@ -81,7 +85,8 @@ final class UnicodeUtil {
     /**
      * Finds the index of the first byte of the code point at a position.
      */
-    static int findUtf8IndexOfCodePointPosition(final Slice string, final int codePointPosition) {
+    static int findUtf8IndexOfCodePointPosition(final Slice string, final int codePointPosition)
+    {
         //
         // Quick exit if we are sure that the position is after the end
         if (string.length() <= codePointPosition) {
