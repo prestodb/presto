@@ -26,6 +26,9 @@ public class UnicodeUtilTest {
     private static final String NAIVE = "na\u00EFve";
     private static final String OO = "\uD801\uDC2Dend";
 
+    private static final byte[] INVALID_UTF8_1 = new byte[]{-127};
+    private static final byte[] INVALID_UTF8_2 = new byte[]{50, -127, 52, 50};
+
     @Test
     public void testCodePointCount() {
         assertEquals(UnicodeUtil.countCodePoints(Slices.utf8Slice(EMPTY)), 0);
@@ -81,5 +84,22 @@ public class UnicodeUtilTest {
 
         assertEquals(UnicodeUtil.findUtf8IndexOfCodePointPosition(Slices.utf8Slice(OO), 4), 7);
         assertEquals(UnicodeUtil.findUtf8IndexOfCodePointPosition(Slices.utf8Slice(OO), 5), 7);
+    }
+
+    /**
+     * Test invalid UTF8 encodings. We do not expect a 'correct' but none harmful result.
+     */
+    @Test
+    public void testInvalidUtf8() {
+        assertEquals(UnicodeUtil.countCodePoints(Slices.wrappedBuffer(INVALID_UTF8_1)), 0);
+        assertEquals(UnicodeUtil.countCodePoints(Slices.wrappedBuffer(INVALID_UTF8_2)), 3);
+
+        assertEquals(UnicodeUtil.findUtf8IndexOfCodePointPosition(Slices.wrappedBuffer(INVALID_UTF8_1), 0), 1);
+        assertEquals(UnicodeUtil.findUtf8IndexOfCodePointPosition(Slices.wrappedBuffer(INVALID_UTF8_1), 1), 1);
+
+        assertEquals(UnicodeUtil.findUtf8IndexOfCodePointPosition(Slices.wrappedBuffer(INVALID_UTF8_2), 0), 0);
+        assertEquals(UnicodeUtil.findUtf8IndexOfCodePointPosition(Slices.wrappedBuffer(INVALID_UTF8_2), 1), 2);
+        assertEquals(UnicodeUtil.findUtf8IndexOfCodePointPosition(Slices.wrappedBuffer(INVALID_UTF8_2), 2), 3);
+        assertEquals(UnicodeUtil.findUtf8IndexOfCodePointPosition(Slices.wrappedBuffer(INVALID_UTF8_2), 3), 4);
     }
 }
