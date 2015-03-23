@@ -57,7 +57,6 @@ public class NodeScheduler
     private final AtomicLong scheduleLocal = new AtomicLong();
     private final AtomicLong scheduleRack = new AtomicLong();
     private final AtomicLong scheduleRandom = new AtomicLong();
-    private final int minCandidates;
     private final boolean locationAwareScheduling;
     private final boolean includeCoordinator;
     private final int maxSplitsPerNode;
@@ -69,7 +68,6 @@ public class NodeScheduler
     public NodeScheduler(NodeManager nodeManager, NodeSchedulerConfig config, NodeTaskMap nodeTaskMap)
     {
         this.nodeManager = nodeManager;
-        this.minCandidates = config.getMinCandidates();
         this.locationAwareScheduling = config.isLocationAwareSchedulingEnabled();
         this.includeCoordinator = config.isIncludeCoordinator();
         this.doubleScheduling = config.isMultipleTasksPerNodeEnabled();
@@ -202,7 +200,7 @@ public class NodeScheduler
          * @return a multimap from node to splits only for splits for which we could identify a node to schedule on.
          *      If we cannot find an assignment for a split, it is not included in the map.
          */
-        public Multimap<Node, Split> computeAssignments(Set<Split> splits, Iterable<RemoteTask> existingTasks)
+        public Multimap<Node, Split> computeAssignments(Set<Split> splits, Iterable<RemoteTask> existingTasks, int minCandidates)
         {
             Multimap<Node, Split> assignment = HashMultimap.create();
             Map<Node, Integer> assignmentCount = new HashMap<>();
@@ -223,7 +221,7 @@ public class NodeScheduler
             for (Split split : splits) {
                 List<Node> candidateNodes;
                 if (locationAwareScheduling || !split.isRemotelyAccessible()) {
-                    candidateNodes = selectCandidateNodes(nodeMap.get().get(), split);
+                    candidateNodes = selectCandidateNodes(nodeMap.get().get(), split, minCandidates);
                 }
                 else {
                     candidateNodes = selectRandomNodes(minCandidates);
@@ -271,7 +269,7 @@ public class NodeScheduler
             return assignment;
         }
 
-        private List<Node> selectCandidateNodes(NodeMap nodeMap, final Split split)
+        private List<Node> selectCandidateNodes(NodeMap nodeMap, final Split split, int minCandidates)
         {
             Set<Node> chosen = new LinkedHashSet<>(minCandidates);
             String coordinatorIdentifier = nodeManager.getCurrentNode().getNodeIdentifier();
