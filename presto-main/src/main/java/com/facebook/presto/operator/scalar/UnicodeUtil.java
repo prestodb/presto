@@ -22,11 +22,11 @@ final class UnicodeUtil {
     private UnicodeUtil() {
     }
 
-    private final static int TOP32 = 0x80808080;
-    private final static long TOP64 = 0x8080808080808080L;
+    private final static int TOP_MASK32 = 0x80808080;
+    private final static long TOP_MASK64 = 0x8080808080808080L;
 
-    private final static int ONEMASK32 = 0x01010101;
-    private final static long ONEMASK64 = 0x0101010101010101L;
+    private final static int ONE_MULTIPLIER32 = 0x01010101;
+    private final static long ONE_MULTIPLIER64 = 0x0101010101010101L;
 
     /**
      * Counts the code points within UTF8 encoded slice.
@@ -49,8 +49,8 @@ final class UnicodeUtil {
             long i64 = slice.getLong(i);
             //
             // Count bytes which are NOT the start of a code point
-            i64 = ((i64 & TOP64) >> 7) & (~i64 >> 6);
-            count += (i64 * ONEMASK64) >> 56;
+            i64 = ((i64 & TOP_MASK64) >> 7) & (~i64 >> 6);
+            count += (i64 * ONE_MULTIPLIER64) >> 56;
         }
         //
         // Enough bytes left for 32 bits?
@@ -60,8 +60,8 @@ final class UnicodeUtil {
             int i32 = slice.getInt(i);
             //
             // Count bytes which are NOT the start of a code point
-            i32 = ((i32 & TOP32) >> 7) & (~i32 >> 6);
-            count += (i32 * ONEMASK32) >> 24;
+            i32 = ((i32 & TOP_MASK32) >> 7) & (~i32 >> 6);
+            count += (i32 * ONE_MULTIPLIER32) >> 24;
 
             i += 4;
         }
