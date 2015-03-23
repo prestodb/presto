@@ -13,8 +13,6 @@ package com.facebook.presto.operator.scalar;
 
 import io.airlift.slice.Slice;
 
-import java.nio.charset.StandardCharsets;
-
 /**
  * Ideas for fast counting based on
  * <a href="http://www.daemonology.net/blog/2008-06-05-faster-utf8-strlen.html">Even faster UTF-8 character counting</a>.
@@ -81,16 +79,64 @@ final class UnicodeUtil {
     }
 
     /**
-     * Finds the offset of the first byte of the code point at a position.
+     * Finds the index of the first byte of the code point at a position.
      */
-    static int findUtf8OffsetOfCodePointPosition(final Slice string, final int codePointPosition) {
-        final String value = string.toStringUtf8();
+    static int findUtf8IndexOfCodePointPosition(final Slice string, final int codePointPosition) {
         //
-        // Invalid position after end of string
-        if (codePointPosition > value.length()) {
-            return -1;
+        // Quick exit if we are sure that the position is after the end
+        if (string.length() <= codePointPosition) {
+            return string.length();
         }
 
-        return value.substring(0, codePointPosition).getBytes(StandardCharsets.UTF_8).length;
+        int correctIndex = codePointPosition;
+        int i = 0;
+        //
+        // Length rounded to 8 bytes
+        final int length8 = string.length() & 0x7FFFFFF8;
+        //
+        // While we have enough bytes left and we need at least 8 characters process 8 bytes at once
+        while (i < length8 && correctIndex >= i + 8) {
+            //
+            // Fetch 8 bytes as long
+            long i64 = string.getLong(i);
+            //
+            // Count bytes which are NOT the start of a code point
+            i64 = ((i64 & TOP_MASK64) >> 7) & (~i64 >> 6);
+            correctIndex += ((i64 * ONE_MULTIPLIER64) >> 56);
+
+            i += 8;
+        }
+        //
+        // Length rounded to 4 bytes
+        final int length4 = string.length() & 0x7FFFFFFC;
+        //
+        // While we have enough bytes left and we need at least 4 characters process 4 bytes at once
+        while (i < length4 && correctIndex >= i + 4) {
+            //
+            // Fetch 4 bytes as integer
+            int i32 = string.getInt(i);
+            //
+            // Count bytes which are NOT the start of a code point
+            i32 = ((i32 & TOP_MASK32) >> 7) & (~i32 >> 6);
+            correctIndex += ((i32 * ONE_MULTIPLIER32) >> 24);
+
+            i += 4;
+        }
+        //
+        // Do the rest one by one, always check the last byte to find the end of the code point
+        while (i < string.length()) {
+            int i8 = string.getByte(i) & 0xff;
+            //
+            // Count bytes which are NOT the start of a code point
+            correctIndex += ((i8 >> 7) & (~i8 >> 6));
+            if (i == correctIndex) {
+                return i;
+            }
+
+            i++;
+        }
+
+        assert i == string.length();
+        return string.length();
     }
 }
