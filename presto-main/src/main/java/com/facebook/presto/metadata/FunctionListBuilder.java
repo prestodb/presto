@@ -119,7 +119,7 @@ public class FunctionListBuilder
 
         String description = getDescription(function.getClass());
         Signature signature = new Signature(name, function.getFinalType().getTypeSignature(), Lists.transform(ImmutableList.copyOf(function.getParameterTypes()), Type::getTypeSignature));
-        functions.add(new FunctionInfo(signature, description, function.getIntermediateType().getTypeSignature(), function, function.isApproximate()));
+        functions.add(new FunctionInfo(signature, description, function));
         return this;
     }
 
