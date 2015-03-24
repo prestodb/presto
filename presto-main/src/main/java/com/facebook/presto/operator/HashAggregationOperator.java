@@ -31,6 +31,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -268,7 +269,7 @@ public class HashAggregationOperator
                 Optional<Integer> hashChannel,
                 MemoryManager memoryManager)
         {
-            this.groupByHash = new GroupByHash(groupByTypes, Ints.toArray(groupByChannels), hashChannel, expectedGroups);
+            this.groupByHash = createGroupByHash(groupByTypes, Ints.toArray(groupByChannels), hashChannel, expectedGroups);
             this.memoryManager = memoryManager;
 
             // wrapper each function with an aggregator

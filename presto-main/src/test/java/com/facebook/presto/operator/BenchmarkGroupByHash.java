@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 @State(Scope.Thread)
@@ -51,7 +52,7 @@ public class BenchmarkGroupByHash
     @Benchmark
     public int runBenchmark(BenchmarkData data)
     {
-        GroupByHash groupByHash = new GroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), 100);
+        GroupByHash groupByHash = createGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), 100);
         int groupCount = 0;
         for (Page page : data.getPages()) {
             GroupByIdBlock groupIds = groupByHash.getGroupIds(page);

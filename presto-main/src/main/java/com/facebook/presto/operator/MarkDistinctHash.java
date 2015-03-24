@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.Type;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 public class MarkDistinctHash
@@ -36,7 +37,7 @@ public class MarkDistinctHash
 
     public MarkDistinctHash(List<Type> types, int[] channels, Optional<Integer> hashChannel, int expectedDistinctValues)
     {
-        this.groupByHash = new GroupByHash(types, channels, hashChannel, expectedDistinctValues);
+        this.groupByHash = createGroupByHash(types, channels, hashChannel, expectedDistinctValues);
     }
 
     public long getEstimatedSize()

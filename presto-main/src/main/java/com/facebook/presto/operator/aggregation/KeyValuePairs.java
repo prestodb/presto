@@ -28,6 +28,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Optional;
 
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -50,7 +51,7 @@ public class KeyValuePairs
 
         this.keyType = keyType;
         this.valueType = valueType;
-        keysHash = new GroupByHash(ImmutableList.of(keyType), new int[] {0}, Optional.empty(), EXPECTED_HASH_SIZE);
+        keysHash = createGroupByHash(ImmutableList.of(keyType), new int[] {0}, Optional.empty(), EXPECTED_HASH_SIZE);
         keyPageBuilder = new PageBuilder(ImmutableList.of(this.keyType));
         valuePageBuilder = new PageBuilder(ImmutableList.of(this.valueType));
     }
@@ -63,7 +64,7 @@ public class KeyValuePairs
 
         this.keyType = keyType;
         this.valueType = valueType;
-        keysHash = new GroupByHash(ImmutableList.of(keyType), new int[] {0}, Optional.empty(), 10_000);
+        keysHash = createGroupByHash(ImmutableList.of(keyType), new int[] {0}, Optional.empty(), 10_000);
         keyPageBuilder = new PageBuilder(ImmutableList.of(this.keyType));
         valuePageBuilder = new PageBuilder(ImmutableList.of(this.valueType));
         deserialize(serialized);
