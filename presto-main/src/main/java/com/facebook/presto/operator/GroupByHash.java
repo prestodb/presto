@@ -141,6 +141,22 @@ public class GroupByHash
         hashStrategy.appendTo(blockIndex, position, pageBuilder, outputChannelOffset);
     }
 
+    public void addPage(Page page)
+    {
+        // extract the hash columns
+        Block[] hashBlocks = new Block[channels.length];
+        for (int i = 0; i < channels.length; i++) {
+            hashBlocks[i] = page.getBlock(channels[i]);
+        }
+
+        // get the group id for each position
+        int positionCount = page.getPositionCount();
+        for (int position = 0; position < positionCount; position++) {
+            // get the group for the current row
+            putIfAbsent(position, page, hashBlocks);
+        }
+    }
+
     public GroupByIdBlock getGroupIds(Page page)
     {
         int positionCount = page.getPositionCount();

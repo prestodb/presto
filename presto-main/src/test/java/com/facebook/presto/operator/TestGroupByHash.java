@@ -37,6 +37,34 @@ public class TestGroupByHash
     private static final int MAX_GROUP_ID = 500;
 
     @Test
+    public void testAddPage()
+            throws Exception
+    {
+        GroupByHash groupByHash = new GroupByHash(ImmutableList.of(BIGINT), new int[] { 0 }, Optional.of(1), 100);
+        for (int tries = 0; tries < 2; tries++) {
+            for (int value = 0; value < MAX_GROUP_ID; value++) {
+                Block block = BlockAssertions.createLongsBlock(value);
+                Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(BIGINT), block);
+                Page page = new Page(block, hashBlock);
+                for (int addValuesTries = 0; addValuesTries < 10; addValuesTries++) {
+                    groupByHash.addPage(page);
+                    assertEquals(groupByHash.getGroupCount(), tries == 0 ? value + 1 : MAX_GROUP_ID);
+
+                    // add the page again using get group ids and make sure the group count didn't change
+                    GroupByIdBlock groupIds = groupByHash.getGroupIds(page);
+                    assertEquals(groupByHash.getGroupCount(), tries == 0 ? value + 1 : MAX_GROUP_ID);
+                    assertEquals(groupIds.getGroupCount(), tries == 0 ? value + 1 : MAX_GROUP_ID);
+
+                    // verify the first position
+                    assertEquals(groupIds.getPositionCount(), 1);
+                    long groupId = groupIds.getGroupId(0);
+                    assertEquals(groupId, value);
+                }
+            }
+        }
+    }
+
+    @Test
     public void testGetGroupIds()
             throws Exception
     {

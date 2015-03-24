@@ -216,7 +216,7 @@ public final class ArrayDistinctFunction
         }
 
         GroupByHash groupByHash = new GroupByHash(ImmutableList.of(type), new int[] {0}, Optional.empty(), elementsBlock.getPositionCount());
-        groupByHash.getGroupIds(new Page(elementsBlock));
+        groupByHash.addPage(new Page(elementsBlock));
 
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
         for (int i = 0; i < groupByHash.getGroupCount(); i++) {

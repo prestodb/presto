@@ -90,7 +90,7 @@ public class ChannelSet
 
         public void addPage(Page page)
         {
-            hash.getGroupIds(page);
+            hash.addPage(page);
 
             if (operatorContext != null) {
                 operatorContext.setMemoryReservation(hash.getEstimatedSize());
