@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
@@ -215,7 +216,7 @@ public final class ArrayDistinctFunction
             return jsonArray;
         }
 
-        GroupByHash groupByHash = new GroupByHash(ImmutableList.of(type), new int[] {0}, Optional.empty(), elementsBlock.getPositionCount());
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), new int[] {0}, Optional.empty(), elementsBlock.getPositionCount());
         groupByHash.addPage(new Page(elementsBlock));
 
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());

@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -180,7 +181,7 @@ public class TopNRowNumberOperator
             this.groupByHash = Optional.empty();
         }
         else {
-            this.groupByHash = Optional.of(new GroupByHash(partitionTypes, Ints.toArray(partitionChannels), hashChannel, expectedPositions));
+            this.groupByHash = Optional.of(createGroupByHash(partitionTypes, Ints.toArray(partitionChannels), hashChannel, expectedPositions));
         }
         this.flushingPartition = Optional.empty();
         this.pageBuilder = new PageBuilder(types);
