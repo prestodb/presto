@@ -53,6 +53,11 @@ public class TestStringFunctions
         assertFunction("CONCAT('', 'what')", "what");
         assertFunction("CONCAT(CONCAT('this', ' is'), ' cool')", "this is cool");
         assertFunction("CONCAT('this', CONCAT(' is', ' cool'))", "this is cool");
+        //
+        // Test concat of non-ASCII
+        assertFunction("CONCAT('hello na\u00EFve', ' world')", "hello na\u00EFve world");
+        assertFunction("CONCAT('\uD801\uDC2D', 'end')", "\uD801\uDC2Dend");
+        assertFunction("CONCAT(CONCAT('\u4FE1\u5FF5', ',\u7231'), ',\u5E0C\u671B')", "\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
     }
 
     @Test
