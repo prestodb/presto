@@ -54,7 +54,7 @@ public class TestStringFunctions
         assertFunction("CONCAT(CONCAT('this', ' is'), ' cool')", "this is cool");
         assertFunction("CONCAT('this', CONCAT(' is', ' cool'))", "this is cool");
         //
-        // Test concat of non-ASCII
+        // Test concat for non-ASCII
         assertFunction("CONCAT('hello na\u00EFve', ' world')", "hello na\u00EFve world");
         assertFunction("CONCAT('\uD801\uDC2D', 'end')", "\uD801\uDC2Dend");
         assertFunction("CONCAT(CONCAT('\u4FE1\u5FF5', ',\u7231'), ',\u5E0C\u671B')", "\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
@@ -66,6 +66,11 @@ public class TestStringFunctions
         assertFunction("LENGTH('')", 0);
         assertFunction("LENGTH('hello')", 5);
         assertFunction("LENGTH('Quadratically')", 13);
+        //
+        // Test length for non-ASCII
+        assertFunction("LENGTH('hello na\u00EFve world')", 17);
+        assertFunction("LENGTH('\uD801\uDC2Dend')", 4);
+        assertFunction("LENGTH('\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", 7);
     }
 
     @Test
@@ -239,8 +244,7 @@ public class TestStringFunctions
         try {
             assertFunction(projection, null);
             fail("Expected to throw an INVALID_FUNCTION_ARGUMENT exception with message " + message);
-        }
-        catch (PrestoException e) {
+        } catch (PrestoException e) {
             assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
             assertEquals(e.getMessage(), message);
         }

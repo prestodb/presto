@@ -71,7 +71,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long length(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
-        return slice.length();
+        return UnicodeUtil.countCodePoints(slice);
     }
 
     @Description("greedily removes occurrences of a pattern in a string")
