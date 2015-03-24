@@ -134,15 +134,15 @@ public class UnicodeUtilTest
     }
 
     @Test
-    public void testLength()
+    public void testRequiredLengthOfCodePoint()
     {
-        assertEquals(UnicodeUtil.leastAvailableLengthOfCodePoint(0x24), 1);
-        assertEquals(UnicodeUtil.leastAvailableLengthOfCodePoint(0xC2), 2);
-        assertEquals(UnicodeUtil.leastAvailableLengthOfCodePoint(0xE2), 3);
-        assertEquals(UnicodeUtil.leastAvailableLengthOfCodePoint(0xF0), 4);
-
-        assertEquals(UnicodeUtil.leastAvailableLengthOfCodePoint(0x8D), 1);
-        assertEquals(UnicodeUtil.leastAvailableLengthOfCodePoint(0x80), 1);
-        assertEquals(UnicodeUtil.leastAvailableLengthOfCodePoint(0xFE), 1);
+        assertEquals(UnicodeUtil.requiredLengthOfCodePoint(0x24), 1);
+        assertEquals(UnicodeUtil.requiredLengthOfCodePoint(0xC2), 2);
+        assertEquals(UnicodeUtil.requiredLengthOfCodePoint(0xE2), 3);
+        assertEquals(UnicodeUtil.requiredLengthOfCodePoint(0xF0), 4);
+        // some illegal start bytes
+        assertEquals(UnicodeUtil.requiredLengthOfCodePoint(0x8D), 1);
+        assertEquals(UnicodeUtil.requiredLengthOfCodePoint(0x80), 1);
+        assertEquals(UnicodeUtil.requiredLengthOfCodePoint(0xFE), 1);
     }
 }

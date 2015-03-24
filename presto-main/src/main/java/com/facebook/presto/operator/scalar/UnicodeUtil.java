@@ -174,9 +174,12 @@ final class UnicodeUtil
     }
 
     /**
-     * Method returns the length of code point by examine the start byte. Invalid start bytes or code point will not throw an exception but return 1.
+     * Method returns the length of code point by examine the start byte.
+     * <p>
+     * Invalid start bytes or code points will not throw an exception but return 1.
+     * </p>
      */
-    static int leastAvailableLengthOfCodePoint(final int ch)
+    static int requiredLengthOfCodePoint(final int ch)
     {
         if (ch < 0x80) {
             // normal ASCII
