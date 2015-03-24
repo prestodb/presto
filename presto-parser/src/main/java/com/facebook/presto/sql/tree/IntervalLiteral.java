@@ -53,6 +53,16 @@ public class IntervalLiteral
     private final Sign sign;
     private final IntervalField startField;
     private final IntervalField endField;
+    private String startText = null;
+
+    public IntervalLiteral(String value, Sign sign, String startText)
+    {
+        this.value = value;
+        this.sign = sign;
+        this.startField = null;
+        this.endField = null;
+        this.startText = startText;
+    }
 
     public IntervalLiteral(String value, Sign sign, IntervalField startField)
     {
@@ -89,6 +99,11 @@ public class IntervalLiteral
     public IntervalField getEndField()
     {
         return endField;
+    }
+
+    public String getStartText()
+    {
+        return startText;
     }
 
     public boolean isYearToMonth()
