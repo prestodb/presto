@@ -109,4 +109,27 @@ public class UnicodeUtilTest
         assertEquals(UnicodeUtil.findUtf8IndexOfCodePointPosition(Slices.wrappedBuffer(INVALID_UTF8_2), 2), 3);
         assertEquals(UnicodeUtil.findUtf8IndexOfCodePointPosition(Slices.wrappedBuffer(INVALID_UTF8_2), 3), 4);
     }
+
+    @Test
+    public void testFindUtf8IndexOfString() throws Exception
+    {
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_QUADRATICALLY), 0, 13, Slices.utf8Slice("drat")), 3);
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_QUADRATICALLY), 0, 7, Slices.utf8Slice("drat")), 3);
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_QUADRATICALLY), 0, 6, Slices.utf8Slice("drat")), -1);
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_QUADRATICALLY), 0, 13, Slices.utf8Slice("lly")), 10);
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_QUADRATICALLY), 0, 13, Slices.utf8Slice("llyx")), -1);
+
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_HELLO), 0, 5, Slices.utf8Slice("hello")), 0);
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_HELLO), 0, 5, Slices.utf8Slice("o")), 4);
+
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_HELLO), 0, 5, Slices.utf8Slice(STRING_EMPTY)), 0);
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_EMPTY), 0, 5, Slices.utf8Slice(STRING_EMPTY)), 0);
+
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_FAITH_HOPE_LOVE), 0, 17, Slices.utf8Slice("\u7231")), 7);
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_FAITH_HOPE_LOVE), 0, 7, Slices.utf8Slice("\u7231")), -1);
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_FAITH_HOPE_LOVE), 0, 17, Slices.utf8Slice(",")), 6);
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_FAITH_HOPE_LOVE), 0, 17, Slices.utf8Slice("\u5E0C\u671B")), 11);
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_FAITH_HOPE_LOVE), 0, 14, Slices.utf8Slice("\u5E0C\u671B")), -1);
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_FAITH_HOPE_LOVE), 0, 17, Slices.utf8Slice("\u5E0C\u671Bx")), -1);
+    }
 }

@@ -144,4 +144,22 @@ final class UnicodeUtil
         assert i == string.length();
         return string.length();
     }
+
+    /**
+     * Find substring within UTF-8 encoding string.
+     */
+    static int findUtf8IndexOfString(final Slice string, int start, int end, final Slice substring)
+    {
+        if (substring.length() > end - start) {
+            return -1;
+        }
+
+        for (int i = start; i <= (end - substring.length()); i++) {
+            if (string.equals(i, substring.length(), substring, 0, substring.length())) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
 }
