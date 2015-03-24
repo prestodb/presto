@@ -643,7 +643,7 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <configuration combine.children="append">
-                        <argLine>${argLine} -Duser.timezone=${test.timezone} -Xmx2g -Xms2g -XX:OnOutOfMemoryError="kill -9 %p" -XX:+HeapDumpOnOutOfMemoryError</argLine>
+                        <argLine>${argLine} -Duser.timezone=${test.timezone} -Xmx1792m -Xms1792m -XX:OnOutOfMemoryError="kill -9 %p" -XX:+HeapDumpOnOutOfMemoryError</argLine>
                         <parallel>methods</parallel>
                         <threadCount>4</threadCount>
                         <systemPropertyVariables>
