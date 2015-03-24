@@ -98,6 +98,12 @@ public class TestStringFunctions
         assertFunction("REVERSE('hello')", "olleh");
         assertFunction("REVERSE('Quadratically')", "yllacitardauQ");
         assertFunction("REVERSE('racecar')", "racecar");
+        //
+        // Test REVERSE for non-ASCII
+        assertFunction("REVERSE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", "\u671B\u5E0C,\u7231,\u5FF5\u4FE1");
+        assertFunction("REVERSE('\u00D6sterreich')", "hcierrets\u00D6");
+        assertFunction("REVERSE('na\u00EFve')", "ev\u00EFan");
+        assertFunction("REVERSE('\uD801\uDC2Dend')", "dne\uD801\uDC2D");
     }
 
     @Test
@@ -164,8 +170,10 @@ public class TestStringFunctions
         assertFunction("SPLIT('a.b.c', '.', 4)", ImmutableList.of("a", "b", "c"));
         assertFunction("SPLIT('a.b.c.', '.', 4)", ImmutableList.of("a", "b", "c"));
         assertFunction("SPLIT('a.b.c.', '.', 3)", ImmutableList.of("a", "b", "c."));
-
+        //
+        // Test SPLIT for non-ASCII
         assertFunction("SPLIT('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 3)", ImmutableList.of("\u4FE1\u5FF5", "\u7231", "\u5E0C\u671B"));
+        assertFunction("SPLIT('\u8B49\u8BC1\u8A3C', '\u8BC1', 2)", ImmutableList.of("\u8B49", "\u8A3C"));
 
         assertFunction("SPLIT('.a.b.c', '.', 4)", ImmutableList.of("a", "b", "c"));
         assertFunction("SPLIT('.a.b.c', '.', 3)", ImmutableList.of("a", "b", "c"));
@@ -211,6 +219,15 @@ public class TestStringFunctions
         assertFunction("SPLIT_PART('abcdddddef', 'dd', 3)", "def");
         assertFunction("SPLIT_PART('a/b/c', '/', 4)", null);
         assertFunction("SPLIT_PART('a/b/c/', '/', 4)", "");
+        //
+        // Test SPLIT_PART for non-ASCII
+        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 1)", "\u4FE1\u5FF5");
+        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 2)", "\u7231");
+        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 3)", "\u5E0C\u671B");
+        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 4)", null);
+        assertFunction("SPLIT_PART('\u8B49\u8BC1\u8A3C', '\u8BC1', 1)", "\u8B49");
+        assertFunction("SPLIT_PART('\u8B49\u8BC1\u8A3C', '\u8BC1', 2)", "\u8A3C");
+        assertFunction("SPLIT_PART('\u8B49\u8BC1\u8A3C', '\u8BC1', 3)", null);
 
         assertInvalidFunction("SPLIT_PART('abc', '', 0)", "Index must be greater than zero");
         assertInvalidFunction("SPLIT_PART('abc', '', -1)", "Index must be greater than zero");

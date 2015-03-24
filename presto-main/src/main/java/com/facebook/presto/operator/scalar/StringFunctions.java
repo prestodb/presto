@@ -101,12 +101,28 @@ public final class StringFunctions
     @Description("reverses the given string")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice reverse(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    public static Slice reverse(@SqlType(StandardTypes.VARCHAR) Slice string)
     {
-        Slice reverse = Slices.allocate(slice.length());
-        for (int i = 0, j = slice.length() - 1; i < slice.length(); i++, j--) {
-            reverse.setByte(j, slice.getByte(i));
+        final Slice reverse = Slices.allocate(string.length());
+
+        for (int i = 0, j = string.length(); i < string.length(); ) {
+            final int startByte = string.getUnsignedByte(i);
+            final int codePointLength = UnicodeUtil.requiredLengthOfCodePoint(startByte);
+
+            if (codePointLength == 1) {
+                // In the special case of length 1, we can set the byte directly
+                j--;
+                reverse.setByte(j, startByte);
+            }
+            else {
+                j -= codePointLength;
+                // TODO Illegal start bytes could end in IOOB. Discuss this in review if it is ok.
+                reverse.setBytes(j, string, i, codePointLength);
+            }
+
+            i += codePointLength;
         }
+
         return reverse;
     }
 
@@ -216,7 +232,6 @@ public final class StringFunctions
         return toStackRepresentation(parts, VARCHAR);
     }
 
-    // TODO: Implement a more efficient string search
     @Nullable
     @Description("splits a string by a delimiter and returns the specified field (counting from one)")
     @ScalarFunction
@@ -224,35 +239,44 @@ public final class StringFunctions
     public static Slice splitPart(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter, @SqlType(StandardTypes.BIGINT) long index)
     {
         checkCondition(index > 0, INVALID_FUNCTION_ARGUMENT, "Index must be greater than zero");
-
+        //
+        // Empty delimiter? Then every character will be a split
         if (delimiter.length() == 0) {
-            if (index > string.length()) {
+            final int stringLength = UnicodeUtil.countCodePoints(string);
+            if (index > stringLength) {
                 // index is too big, null is returned
                 return null;
             }
-            return string.slice((int) (index - 1), 1);
+
+            final int indexStart = UnicodeUtil.findUtf8IndexOfCodePointPosition(string, (int) index - 1);
+            // TODO Illegal start bytes could end in IOOB. Discuss this in review if it is ok.
+            return string.slice(indexStart, UnicodeUtil.requiredLengthOfCodePoint(string.getUnsignedByte(indexStart)));
         }
 
-        int previousIndex = 0;
         int matchCount = 0;
 
-        for (int i = 0; i <= (string.length() - delimiter.length()); i++) {
-            if (string.equals(i, delimiter.length(), delimiter, 0, delimiter.length())) {
-                matchCount++;
-                if (matchCount == index) {
-                    return string.slice(previousIndex, i - previousIndex);
-                }
-                // noinspection AssignmentToForLoopParameter
-                i += (delimiter.length() - 1);
-                previousIndex = i + 1;
+        int p = 0;
+        while (p < string.length()) {
+            final int matchIndex = UnicodeUtil.findUtf8IndexOfString(string, p, string.length(), delimiter);
+            //
+            // No match
+            if (matchIndex < 0) {
+                break;
             }
+            //
+            // Reached the requested part?
+            if (++matchCount == index) {
+                return string.slice(p, matchIndex - p);
+            }
+            //
+            // Continue searching after the delimiter
+            p = matchIndex + delimiter.length();
         }
 
         if (matchCount == index - 1) {
             // returns last section of the split
-            return string.slice(previousIndex, string.length() - previousIndex);
+            return string.slice(p, string.length() - p);
         }
-
         // index is too big, null is returned
         return null;
     }
