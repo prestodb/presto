@@ -121,9 +121,9 @@ public final class StringFunctions
     @Description("suffix starting at given index")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice substr(@SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.BIGINT) long start)
+    public static Slice substr(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.BIGINT) long start)
     {
-        return substr(slice, start, slice.length());
+        return substr(string, start, UnicodeUtil.countCodePoints(string));
     }
 
     @Description("substring of given length starting at an index")
