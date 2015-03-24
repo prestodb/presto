@@ -283,6 +283,11 @@ public class HashAggregationOperator
 
         private void processPage(Page page)
         {
+            if (aggregators.isEmpty()) {
+                groupByHash.addPage(page);
+                return;
+            }
+
             GroupByIdBlock groupIds = groupByHash.getGroupIds(page);
 
             for (Aggregator aggregator : aggregators) {
