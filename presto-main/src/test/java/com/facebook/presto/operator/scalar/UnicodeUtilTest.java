@@ -111,7 +111,7 @@ public class UnicodeUtilTest
     }
 
     @Test
-    public void testFindUtf8IndexOfString() throws Exception
+    public void testFindUtf8IndexOfString()
     {
         assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_QUADRATICALLY), 0, 13, Slices.utf8Slice("drat")), 3);
         assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_QUADRATICALLY), 0, 7, Slices.utf8Slice("drat")), 3);
@@ -131,5 +131,18 @@ public class UnicodeUtilTest
         assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_FAITH_HOPE_LOVE), 0, 17, Slices.utf8Slice("\u5E0C\u671B")), 11);
         assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_FAITH_HOPE_LOVE), 0, 14, Slices.utf8Slice("\u5E0C\u671B")), -1);
         assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_FAITH_HOPE_LOVE), 0, 17, Slices.utf8Slice("\u5E0C\u671Bx")), -1);
+    }
+
+    @Test
+    public void testLength()
+    {
+        assertEquals(UnicodeUtil.leastAvailableLengthOfCodePoint(0x24), 1);
+        assertEquals(UnicodeUtil.leastAvailableLengthOfCodePoint(0xC2), 2);
+        assertEquals(UnicodeUtil.leastAvailableLengthOfCodePoint(0xE2), 3);
+        assertEquals(UnicodeUtil.leastAvailableLengthOfCodePoint(0xF0), 4);
+
+        assertEquals(UnicodeUtil.leastAvailableLengthOfCodePoint(0x8D), 1);
+        assertEquals(UnicodeUtil.leastAvailableLengthOfCodePoint(0x80), 1);
+        assertEquals(UnicodeUtil.leastAvailableLengthOfCodePoint(0xFE), 1);
     }
 }

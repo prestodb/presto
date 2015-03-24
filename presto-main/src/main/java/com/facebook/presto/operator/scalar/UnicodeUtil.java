@@ -172,4 +172,36 @@ final class UnicodeUtil
 
         return -1;
     }
+
+    /**
+     * Method returns the length of code point by examine the start byte. Invalid start bytes or code point will not throw an exception but return 1.
+     */
+    static int leastAvailableLengthOfCodePoint(final int ch)
+    {
+        if (ch < 0x80) {
+            // normal ASCII
+            return 1;
+        }
+        else if (ch < 0xc0) {
+            //
+            // 10xxxxxx -- illegal as start
+            // Illegal character but we want to skip this byte gracefully
+            return 1;
+        }
+        else if (ch < 0xe0) {
+            // 110xxxxx 10xxxxxx
+            return 2;
+        }
+        else if (ch < 0xf0) {
+            // 1110xxxx 10xxxxxx 10xxxxxx
+            return 3;
+        }
+        else if (ch < 0xf8) {
+            // 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+            return 4;
+        }
+        //
+        // According to RFC3629 limited to 4 bytes so 5 and 6 bytes are illegal
+        return 1;
+    }
 }
