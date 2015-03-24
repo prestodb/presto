@@ -106,7 +106,6 @@ public class OrcRecordCursorProvider
                 partitionKeys,
                 columns,
                 hiveStorageTimeZone,
-                DateTimeZone.forID(session.getTimeZoneKey().getId()),
                 typeManager));
     }
 

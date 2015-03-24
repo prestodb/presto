@@ -95,7 +95,6 @@ class ColumnarTextHiveRecordCursor<K>
 
     private final long totalBytes;
     private final DateTimeZone hiveStorageTimeZone;
-    private final DateTimeZone sessionTimeZone;
 
     private long completedBytes;
     private boolean closed;
@@ -107,7 +106,6 @@ class ColumnarTextHiveRecordCursor<K>
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
-            DateTimeZone sessionTimeZone,
             TypeManager typeManager)
     {
         checkNotNull(recordReader, "recordReader is null");
@@ -116,14 +114,12 @@ class ColumnarTextHiveRecordCursor<K>
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(columns, "columns is null");
         checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
-        checkNotNull(sessionTimeZone, "sessionTimeZone is null");
 
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;
         this.key = recordReader.createKey();
         this.value = recordReader.createValue();
         this.hiveStorageTimeZone = hiveStorageTimeZone;
-        this.sessionTimeZone = sessionTimeZone;
 
         int size = columns.size();
 
@@ -490,7 +486,7 @@ class ColumnarTextHiveRecordCursor<K>
             ByteArrayRef byteArrayRef = new ByteArrayRef();
             byteArrayRef.setData(bytes);
             lazyObject.init(byteArrayRef, start, length);
-            slices[column] = getBlockSlice(sessionTimeZone, lazyObject.getObject(), fieldInspectors[column]);
+            slices[column] = getBlockSlice(lazyObject.getObject(), fieldInspectors[column]);
             wasNull = false;
         }
         else {

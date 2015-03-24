@@ -93,7 +93,6 @@ class GenericHiveRecordCursor<K, V extends Writable>
 
     private final long totalBytes;
     private final DateTimeZone hiveStorageTimeZone;
-    private final DateTimeZone sessionTimeZone;
 
     private long completedBytes;
     private Object rowData;
@@ -106,7 +105,6 @@ class GenericHiveRecordCursor<K, V extends Writable>
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
-            DateTimeZone sessionTimeZone,
             TypeManager typeManager)
     {
         checkNotNull(recordReader, "recordReader is null");
@@ -115,14 +113,12 @@ class GenericHiveRecordCursor<K, V extends Writable>
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(columns, "columns is null");
         checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
-        checkNotNull(sessionTimeZone, "sessionTimeZone is null");
 
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;
         this.key = recordReader.createKey();
         this.value = recordReader.createValue();
         this.hiveStorageTimeZone = hiveStorageTimeZone;
-        this.sessionTimeZone = sessionTimeZone;
 
         this.deserializer = getDeserializer(splitSchema);
         this.rowInspector = getTableObjectInspector(deserializer);
@@ -406,7 +402,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
             nulls[column] = true;
         }
         else if (isStructuralType(hiveTypes[column])) {
-            slices[column] = getBlockSlice(sessionTimeZone, fieldData, fieldInspectors[column]);
+            slices[column] = getBlockSlice(fieldData, fieldInspectors[column]);
             nulls[column] = false;
         }
         else {
