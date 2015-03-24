@@ -20,20 +20,31 @@ import static java.util.Objects.requireNonNull;
 /**
  * Result of fetching Partitions in the ConnectorSplitManager interface.
  *
- * Results are comprised of two parts:
+ * Results are comprised of three parts:
  * 1) The actual partitions
  * 2) The TupleDomain that represents the values that the connector was not able to pre-evaluate
  * when generating the partitions and will need to be double-checked by the final execution plan.
+ * 3) The domains which are evaluated by the connector.
  */
 public class ConnectorPartitionResult
 {
     private final List<ConnectorPartition> partitions;
     private final TupleDomain<ConnectorColumnHandle> undeterminedTupleDomain;
+    private final PartitionQueryDomain partitionQueryDomains;
 
-    public ConnectorPartitionResult(List<ConnectorPartition> partitions, TupleDomain<ConnectorColumnHandle> undeterminedTupleDomain)
+    public ConnectorPartitionResult(List<ConnectorPartition> partitions,
+                                    TupleDomain<ConnectorColumnHandle> undeterminedTupleDomain)
+    {
+        this(partitions, undeterminedTupleDomain, new PartitionQueryDomain());
+    }
+
+    public ConnectorPartitionResult(List<ConnectorPartition> partitions,
+                                    TupleDomain<ConnectorColumnHandle> undeterminedTupleDomain,
+                                    PartitionQueryDomain partitionQueryDomains)
     {
         this.partitions = requireNonNull(partitions, "partitions is null");
         this.undeterminedTupleDomain = requireNonNull(undeterminedTupleDomain, "undeterminedTupleDomain is null");
+        this.partitionQueryDomains = partitionQueryDomains;
     }
 
     public List<ConnectorPartition> getPartitions()
@@ -44,5 +55,10 @@ public class ConnectorPartitionResult
     public TupleDomain<ConnectorColumnHandle> getUndeterminedTupleDomain()
     {
         return undeterminedTupleDomain;
+    }
+
+    public PartitionQueryDomain getPartitionQueryDomains()
+    {
+        return partitionQueryDomains;
     }
 }
