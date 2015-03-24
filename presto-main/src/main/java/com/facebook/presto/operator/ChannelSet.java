@@ -14,9 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
@@ -54,12 +52,6 @@ public class ChannelSet
     public boolean containsNull()
     {
         return containsNull;
-    }
-
-    public boolean contains(int position, Page page, Block hashBlock)
-    {
-        int rawHash = (int) BigintType.BIGINT.getLong(hashBlock, position);
-        return hash.contains(position, page, rawHash);
     }
 
     public boolean contains(int position, Page page)
