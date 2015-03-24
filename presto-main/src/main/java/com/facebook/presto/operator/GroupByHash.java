@@ -200,7 +200,18 @@ public class GroupByHash
         return false;
     }
 
-    public int putIfAbsent(int position, Page page, Block[] hashBlocks)
+    public int putIfAbsent(int position, Page page)
+    {
+        // extract the hash columns
+        Block[] hashBlocks = new Block[channels.length];
+        for (int i = 0; i < channels.length; i++) {
+            hashBlocks[i] = page.getBlock(channels[i]);
+        }
+
+        return putIfAbsent(position, page, hashBlocks);
+    }
+
+    private int putIfAbsent(int position, Page page, Block[] hashBlocks)
     {
         int rawHash = hashGenerator.hashPosition(position, page);
         int hashPosition = getHashPosition(rawHash, mask);

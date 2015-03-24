@@ -108,7 +108,7 @@ public class KeyValuePairs
     {
         Page page = new Page(key);
         if (!keysHash.contains(keyPosition, page)) {
-            int groupId = keysHash.putIfAbsent(keyPosition, page, new Block[] { key });
+            int groupId = keysHash.putIfAbsent(keyPosition, page);
             keysHash.appendValuesTo(groupId, keyPageBuilder, 0);
             if (value.isNull(valuePosition)) {
                 valuePageBuilder.getBlockBuilder(0).appendNull();
