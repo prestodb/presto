@@ -167,12 +167,7 @@ public class GroupByHash
 
     public boolean contains(int position, Page page)
     {
-        // if hash is not provided, compute it using all the blocks in the page
-        return contains(position, page, hashStrategy.hashRow(position, page.getBlocks()));
-    }
-
-    public boolean contains(int position, Page page, int rawHash)
-    {
+        int rawHash = hashStrategy.hashRow(position, page.getBlocks());
         int hashPosition = getHashPosition(rawHash, mask);
 
         // look for a slot containing this key

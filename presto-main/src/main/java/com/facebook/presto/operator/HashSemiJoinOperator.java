@@ -173,13 +173,7 @@ public class HashSemiJoinOperator
                 blockBuilder.appendNull();
             }
             else {
-                boolean contains;
-                if (probeHashChannel.isPresent()) {
-                    contains = channelSet.contains(position, probeJoinPage,  page.getBlock(probeHashChannel.get()));
-                }
-                else {
-                    contains = channelSet.contains(position, probeJoinPage);
-                }
+                boolean contains = channelSet.contains(position, probeJoinPage);
                 if (!contains && channelSet.containsNull()) {
                     blockBuilder.appendNull();
                 }
