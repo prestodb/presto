@@ -18,7 +18,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.google.common.base.Ascii;
-import com.google.common.base.Splitter;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -26,6 +25,7 @@ import io.airlift.slice.Slices;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -173,9 +173,7 @@ public final class StringFunctions
     @SqlType("array<varchar>")
     public static Slice split(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter)
     {
-        List<String> result = Splitter.on(delimiter.toStringUtf8())
-                .splitToList(string.toStringUtf8());
-        return toStackRepresentation(result, VARCHAR);
+        return split(string, delimiter, string.length());
     }
 
     @ScalarFunction
@@ -184,10 +182,38 @@ public final class StringFunctions
     {
         checkCondition(limit > 0, INVALID_FUNCTION_ARGUMENT, "Limit must be positive");
         checkCondition(limit <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "Limit is too large");
-        List<String> result = Splitter.on(delimiter.toStringUtf8())
-                .limit((int) limit)
-                .splitToList(string.toStringUtf8());
-        return toStackRepresentation(result, VARCHAR);
+        checkCondition(delimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "The delimiter may not be the empty string");
+
+        final List<Slice> parts = new ArrayList<>();
+
+        int index = 0;
+        while (index < string.length()) {
+            final int splitIndex = UnicodeUtil.findUtf8IndexOfString(string, index, string.length(), delimiter);
+            //
+            // Found split?
+            if (splitIndex < 0) {
+                break;
+            }
+            //
+            // Non empty split?
+            if (splitIndex > index) {
+                if (parts.size() == limit - 1) {
+                    break;
+                }
+
+                parts.add(string.slice(index, splitIndex - index));
+            }
+            //
+            // Continue searching after delimiter
+            index = splitIndex + delimiter.length();
+        }
+        //
+        // Non-empty rest of string?
+        if (index < string.length()) {
+            parts.add(string.slice(index, string.length() - index));
+        }
+
+        return toStackRepresentation(parts, VARCHAR);
     }
 
     // TODO: Implement a more efficient string search

@@ -162,6 +162,17 @@ public class TestStringFunctions
         assertFunction("SPLIT('a.b.c', '.', 2)", ImmutableList.of("a", "b.c"));
         assertFunction("SPLIT('a.b.c', '.', 3)", ImmutableList.of("a", "b", "c"));
         assertFunction("SPLIT('a.b.c', '.', 4)", ImmutableList.of("a", "b", "c"));
+        assertFunction("SPLIT('a.b.c.', '.', 4)", ImmutableList.of("a", "b", "c"));
+        assertFunction("SPLIT('a.b.c.', '.', 3)", ImmutableList.of("a", "b", "c."));
+
+        assertFunction("SPLIT('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 3)", ImmutableList.of("\u4FE1\u5FF5", "\u7231", "\u5E0C\u671B"));
+
+        assertFunction("SPLIT('.a.b.c', '.', 4)", ImmutableList.of("a", "b", "c"));
+        assertFunction("SPLIT('.a.b.c', '.', 3)", ImmutableList.of("a", "b", "c"));
+        assertFunction("SPLIT('.a.b.c', '.', 2)", ImmutableList.of("a", "b.c"));
+        assertFunction("SPLIT('a..b..c', '.', 3)", ImmutableList.of("a", "b", "c"));
+
+        assertInvalidFunction("SPLIT('a.b.c', '', 1)", "The delimiter may not be the empty string");
         assertInvalidFunction("SPLIT('a.b.c', '.', 0)", "Limit must be positive");
         assertInvalidFunction("SPLIT('a.b.c', '.', -1)", "Limit must be positive");
         assertInvalidFunction("SPLIT('a.b.c', '.', 2147483648)", "Limit is too large");

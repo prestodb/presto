@@ -163,6 +163,8 @@ final class UnicodeUtil
         }
 
         for (int i = start; i <= (end - substring.length()); i++) {
+            //
+            // TODO If slice provides indexOfByte with start, we could optimize searching
             if (string.equals(i, substring.length(), substring, 0, substring.length())) {
                 return i;
             }
