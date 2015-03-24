@@ -143,11 +143,7 @@ public class GroupByHash
 
     public void addPage(Page page)
     {
-        // extract the hash columns
-        Block[] hashBlocks = new Block[channels.length];
-        for (int i = 0; i < channels.length; i++) {
-            hashBlocks[i] = page.getBlock(channels[i]);
-        }
+        Block[] hashBlocks = extractHashColumns(page);
 
         // get the group id for each position
         int positionCount = page.getPositionCount();
@@ -165,10 +161,7 @@ public class GroupByHash
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(positionCount);
 
         // extract the hash columns
-        Block[] hashBlocks = new Block[channels.length];
-        for (int i = 0; i < channels.length; i++) {
-            hashBlocks[i] = page.getBlock(channels[i]);
-        }
+        Block[] hashBlocks = extractHashColumns(page);
 
         // get the group id for each position
         for (int position = 0; position < positionCount; position++) {
@@ -202,13 +195,7 @@ public class GroupByHash
 
     public int putIfAbsent(int position, Page page)
     {
-        // extract the hash columns
-        Block[] hashBlocks = new Block[channels.length];
-        for (int i = 0; i < channels.length; i++) {
-            hashBlocks[i] = page.getBlock(channels[i]);
-        }
-
-        return putIfAbsent(position, page, hashBlocks);
+        return putIfAbsent(position, page, extractHashColumns(page));
     }
 
     private int putIfAbsent(int position, Page page, Block[] hashBlocks)
@@ -321,6 +308,15 @@ public class GroupByHash
         this.key = newKey;
         this.value = newValue;
         groupAddress.ensureCapacity(maxFill);
+    }
+
+    private Block[] extractHashColumns(Page page)
+    {
+        Block[] hashBlocks = new Block[channels.length];
+        for (int i = 0; i < channels.length; i++) {
+            hashBlocks[i] = page.getBlock(channels[i]);
+        }
+        return hashBlocks;
     }
 
     private int hashPosition(long sliceAddress)
