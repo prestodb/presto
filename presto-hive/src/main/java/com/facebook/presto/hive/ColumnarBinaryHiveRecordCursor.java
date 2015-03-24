@@ -321,7 +321,7 @@ class ColumnarBinaryHiveRecordCursor<K>
 
         if (!types[fieldId].equals(BIGINT) && !types[fieldId].equals(DATE) && !types[fieldId].equals(TIMESTAMP)) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
-            throw new IllegalArgumentException(String.format("Expected field to be %s, %s or %s , actual %s (field %s)", BIGINT, DATE, TIMESTAMP, types[fieldId], fieldId));
+            throw new IllegalArgumentException(format("Expected field to be %s, %s or %s , actual %s (field %s)", BIGINT, DATE, TIMESTAMP, types[fieldId], fieldId));
         }
         if (!loaded[fieldId]) {
             parseLongColumn(fieldId);
@@ -405,7 +405,7 @@ class ColumnarBinaryHiveRecordCursor<K>
             }
         }
         else {
-            throw new RuntimeException(String.format("%s is not a valid LONG type", hiveTypes[column]));
+            throw new RuntimeException(format("%s is not a valid LONG type", hiveTypes[column]));
         }
     }
 
@@ -481,7 +481,7 @@ class ColumnarBinaryHiveRecordCursor<K>
                 doubles[column] = Double.longBitsToDouble(Long.reverseBytes(longBits));
             }
             else {
-                throw new RuntimeException(String.format("%s is not a valid DOUBLE type", hiveTypes[column]));
+                throw new RuntimeException(format("%s is not a valid DOUBLE type", hiveTypes[column]));
             }
         }
     }
@@ -494,7 +494,7 @@ class ColumnarBinaryHiveRecordCursor<K>
         Type type = types[fieldId];
         if (!type.equals(VARCHAR) && !type.equals(VARBINARY) && !isStructuralType(hiveTypes[fieldId])) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
-            throw new IllegalArgumentException(String.format("Expected field to be VARCHAR or VARBINARY, actual %s (field %s)", type, fieldId));
+            throw new IllegalArgumentException(format("Expected field to be VARCHAR or VARBINARY, actual %s (field %s)", type, fieldId));
         }
 
         if (!loaded[fieldId]) {
@@ -601,7 +601,7 @@ class ColumnarBinaryHiveRecordCursor<K>
     {
         if (!types[fieldId].equals(type)) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
-            throw new IllegalArgumentException(String.format("Expected field to be %s, actual %s (field %s)", type, types[fieldId], fieldId));
+            throw new IllegalArgumentException(format("Expected field to be %s, actual %s (field %s)", type, types[fieldId], fieldId));
         }
     }
 
