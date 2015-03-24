@@ -97,9 +97,9 @@ public class SqlQueryQueueManager
         checkIsDAG(this.rules);
     }
 
-    private void checkIsDAG(List<QueryQueueRule> rules)
+    private static void checkIsDAG(List<QueryQueueRule> rules)
     {
-        DirectedPseudograph<String, DefaultEdge> graph = new DirectedPseudograph<String, DefaultEdge>(DefaultEdge.class);
+        DirectedPseudograph<String, DefaultEdge> graph = new DirectedPseudograph<>(DefaultEdge.class);
         for (QueryQueueRule rule : rules) {
             String lastQueueName = null;
             for (QueryQueueDefinition queue : rule.getQueues()) {
