@@ -22,7 +22,6 @@ import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import io.airlift.slice.XxHash64;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.Arrays;
@@ -39,6 +38,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.maxFill;
+import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 
 // This implementation assumes arrays used in the hash are always a power of 2
 public class GroupByHash
@@ -341,6 +341,6 @@ public class GroupByHash
 
     private static int getHashPosition(int rawHash, int mask)
     {
-        return ((int) XxHash64.hash(rawHash)) & mask;
+        return murmurHash3(rawHash) & mask;
     }
 }
