@@ -144,6 +144,12 @@ public class TestStringFunctions
 
         assertFunction("SUBSTRING('Quadratically' FROM 5 FOR 6)", "ratica");
         assertFunction("SUBSTRING('Quadratically' FROM 5 FOR 50)", "ratically");
+        //
+        // Test SUBSTRING for non-ASCII
+        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 1 FOR 1)", "\u4FE1");
+        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 3 FOR 5)", ",\u7231,\u5E0C\u671B");
+        assertFunction("SUBSTRING('\uD801\uDC2Dend' FROM 1 FOR 1)", "\uD801\uDC2D");
+        assertFunction("SUBSTRING('\uD801\uDC2Dend' FROM 2 FOR 3)", "end");
     }
 
     @Test

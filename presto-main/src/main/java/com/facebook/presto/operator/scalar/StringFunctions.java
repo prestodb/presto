@@ -129,32 +129,37 @@ public final class StringFunctions
     @Description("substring of given length starting at an index")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice substr(@SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    public static Slice substr(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
         if ((start == 0) || (length <= 0)) {
             return Slices.EMPTY_SLICE;
         }
 
+        final int stringLength = UnicodeUtil.countCodePoints(string);
         if (start > 0) {
             // make start zero-based
             start--;
         } else {
             // negative start is relative to end of string
-            start += slice.length();
+            start += stringLength;
             if (start < 0) {
                 return Slices.EMPTY_SLICE;
             }
         }
 
-        if ((start + length) > slice.length()) {
-            length = slice.length() - start;
+        if ((start + length) > stringLength) {
+            length = stringLength - start;
         }
 
-        if (start >= slice.length()) {
+        if (start >= stringLength) {
             return Slices.EMPTY_SLICE;
         }
+        //
+        // Find start and end withing UTF-8 bytes
+        final int indexStart = UnicodeUtil.findUtf8IndexOfCodePointPosition(string, (int) start);
+        final int indexEnd = UnicodeUtil.findUtf8IndexOfCodePointPosition(string, (int) (start + length));
 
-        return slice.slice((int) start, (int) length);
+        return string.slice(indexStart, indexEnd - indexStart);
     }
 
     // TODO: Implement a more efficient string search
