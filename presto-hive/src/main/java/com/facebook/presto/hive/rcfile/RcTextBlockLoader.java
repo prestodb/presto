@@ -60,12 +60,10 @@ public class RcTextBlockLoader
         implements RcFileBlockLoader
 {
     private final DateTimeZone hiveStorageTimeZone;
-    private final DateTimeZone sessionTimeZone;
 
-    public RcTextBlockLoader(DateTimeZone hiveStorageTimeZone, DateTimeZone sessionTimeZone)
+    public RcTextBlockLoader(DateTimeZone hiveStorageTimeZone)
     {
         this.hiveStorageTimeZone = hiveStorageTimeZone;
-        this.sessionTimeZone = sessionTimeZone;
     }
 
     @Override
@@ -99,7 +97,7 @@ public class RcTextBlockLoader
             return new LazyBinaryBlockLoader(batch, fieldId);
         }
         if (isStructuralType(hiveType)) {
-            return new LazyJsonSliceBlockLoader(batch, fieldId, fieldInspector, sessionTimeZone);
+            return new LazyJsonSliceBlockLoader(batch, fieldId, fieldInspector);
         }
         throw new UnsupportedOperationException("Unsupported column type: " + hiveType);
     }
@@ -486,15 +484,13 @@ public class RcTextBlockLoader
         private final RcFileColumnsBatch batch;
         private final int fieldId;
         private final ObjectInspector fieldInspector;
-        private final DateTimeZone sessionTimeZone;
         private boolean loaded;
 
-        private LazyJsonSliceBlockLoader(RcFileColumnsBatch batch, int fieldId, ObjectInspector fieldInspector, DateTimeZone sessionTimeZone)
+        private LazyJsonSliceBlockLoader(RcFileColumnsBatch batch, int fieldId, ObjectInspector fieldInspector)
         {
             this.batch = batch;
             this.fieldId = fieldId;
             this.fieldInspector = fieldInspector;
-            this.sessionTimeZone = sessionTimeZone;
         }
 
         @Override
@@ -522,7 +518,7 @@ public class RcTextBlockLoader
                         ByteArrayRef byteArrayRef = new ByteArrayRef();
                         byteArrayRef.setData(bytes);
                         lazyObject.init(byteArrayRef, start, length);
-                        vector[i] = getBlockSlice(sessionTimeZone, lazyObject.getObject(), fieldInspector);
+                        vector[i] = getBlockSlice(lazyObject.getObject(), fieldInspector);
                     }
                 }
 

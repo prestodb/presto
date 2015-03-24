@@ -60,29 +60,29 @@ public final class SerDeUtils
 {
     private SerDeUtils() {}
 
-    public static Slice getBlockSlice(DateTimeZone sessionTimeZone, Object object, ObjectInspector objectInspector)
+    public static Slice getBlockSlice(Object object, ObjectInspector objectInspector)
     {
-        return checkNotNull(serializeObject(sessionTimeZone, null, object, objectInspector), "serialized result is null");
+        return checkNotNull(serializeObject(null, object, objectInspector), "serialized result is null");
     }
 
     @VisibleForTesting
-    static Slice serializeObject(DateTimeZone sessionTimeZone, BlockBuilder builder, Object object, ObjectInspector inspector)
+    static Slice serializeObject(BlockBuilder builder, Object object, ObjectInspector inspector)
     {
         switch (inspector.getCategory()) {
             case PRIMITIVE:
-                serializePrimitive(sessionTimeZone, builder, object, (PrimitiveObjectInspector) inspector);
+                serializePrimitive(builder, object, (PrimitiveObjectInspector) inspector);
                 return null;
             case LIST:
-                return serializeList(sessionTimeZone, builder, object, (ListObjectInspector) inspector);
+                return serializeList(builder, object, (ListObjectInspector) inspector);
             case MAP:
-                return serializeMap(sessionTimeZone, builder, object, (MapObjectInspector) inspector);
+                return serializeMap(builder, object, (MapObjectInspector) inspector);
             case STRUCT:
-                return serializeStruct(sessionTimeZone, builder, object, (StructObjectInspector) inspector);
+                return serializeStruct(builder, object, (StructObjectInspector) inspector);
         }
         throw new RuntimeException("Unknown object inspector category: " + inspector.getCategory());
     }
 
-    private static void serializePrimitive(DateTimeZone sessionTimeZone, BlockBuilder builder, Object object, PrimitiveObjectInspector inspector)
+    private static void serializePrimitive(BlockBuilder builder, Object object, PrimitiveObjectInspector inspector)
     {
         checkNotNull(builder, "parent builder is null");
 
@@ -129,7 +129,7 @@ public final class SerDeUtils
         throw new RuntimeException("Unknown primitive type: " + inspector.getPrimitiveCategory());
     }
 
-    private static Slice serializeList(DateTimeZone sessionTimeZone, BlockBuilder builder, Object object, ListObjectInspector inspector)
+    private static Slice serializeList(BlockBuilder builder, Object object, ListObjectInspector inspector)
     {
         List<?> list = inspector.getList(object);
         if (list == null) {
@@ -141,7 +141,7 @@ public final class SerDeUtils
         BlockBuilder currentBuilder = createBlockBuilder();
 
         for (Object element : list) {
-            serializeObject(sessionTimeZone, currentBuilder, element, elementInspector);
+            serializeObject(currentBuilder, element, elementInspector);
         }
 
         SliceOutput out = new DynamicSliceOutput(1024);
@@ -154,7 +154,7 @@ public final class SerDeUtils
         return out.slice();
     }
 
-    private static Slice serializeMap(DateTimeZone sessionTimeZone, BlockBuilder builder, Object object, MapObjectInspector inspector)
+    private static Slice serializeMap(BlockBuilder builder, Object object, MapObjectInspector inspector)
     {
         Map<?, ?> map = inspector.getMap(object);
         if (map == null) {
@@ -169,8 +169,8 @@ public final class SerDeUtils
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             // Hive skips map entries with null keys
             if (entry.getKey() != null) {
-                serializeObject(sessionTimeZone, currentBuilder, entry.getKey(), keyInspector);
-                serializeObject(sessionTimeZone, currentBuilder, entry.getValue(), valueInspector);
+                serializeObject(currentBuilder, entry.getKey(), keyInspector);
+                serializeObject(currentBuilder, entry.getValue(), valueInspector);
             }
         }
 
@@ -184,7 +184,7 @@ public final class SerDeUtils
         return out.slice();
     }
 
-    private static Slice serializeStruct(DateTimeZone sessionTimeZone, BlockBuilder builder, Object object, StructObjectInspector inspector)
+    private static Slice serializeStruct(BlockBuilder builder, Object object, StructObjectInspector inspector)
     {
         if (object == null) {
             checkNotNull(builder, "parent builder is null").appendNull();
@@ -193,7 +193,7 @@ public final class SerDeUtils
 
         BlockBuilder currentBuilder = createBlockBuilder();
         for (StructField field : inspector.getAllStructFieldRefs()) {
-            serializeObject(sessionTimeZone, currentBuilder, inspector.getStructFieldData(object, field), field.getFieldObjectInspector());
+            serializeObject(currentBuilder, inspector.getStructFieldData(object, field), field.getFieldObjectInspector());
         }
 
         SliceOutput out = new DynamicSliceOutput(1024);

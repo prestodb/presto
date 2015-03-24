@@ -31,7 +31,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.io.BytesWritable;
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Type;
@@ -59,8 +58,6 @@ import static org.testng.Assert.assertEquals;
 @SuppressWarnings("PackageVisibleField")
 public class TestSerDeUtils
 {
-    private static final DateTimeZone SESSION_TIME_ZONE = DateTimeZone.forID("Europe/Berlin");
-
     private static class ListHolder
     {
         List<InnerStruct> array;
@@ -270,7 +267,7 @@ public class TestSerDeUtils
         Type type = new TypeToken<Map<BytesWritable, Integer>>() {}.getType();
         ObjectInspector inspector = getReflectionObjectInspector(type, ObjectInspectorOptions.JAVA);
 
-        Slice actual = getBlockSlice(SESSION_TIME_ZONE, ImmutableMap.of(value, 0), inspector);
+        Slice actual = getBlockSlice(ImmutableMap.of(value, 0), inspector);
         Slice expected = mapSliceOf(VARCHAR, BIGINT, "bye", 0);
 
         assertEquals(actual, expected);
@@ -279,15 +276,15 @@ public class TestSerDeUtils
     private static Slice toBinarySlice(Object object, ObjectInspector inspector)
     {
         if (inspector.getCategory() == Category.PRIMITIVE) {
-            return getPrimitiveSlice(SESSION_TIME_ZONE, object, inspector);
+            return getPrimitiveSlice(object, inspector);
         }
-        return getBlockSlice(SESSION_TIME_ZONE, object, inspector);
+        return getBlockSlice(object, inspector);
     }
 
-    private static Slice getPrimitiveSlice(DateTimeZone sessionTimeZone, Object object, ObjectInspector inspector)
+    private static Slice getPrimitiveSlice(Object object, ObjectInspector inspector)
     {
         BlockBuilder builder = VarbinaryType.VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1);
-        serializeObject(sessionTimeZone, builder, object, inspector);
+        serializeObject(builder, object, inspector);
         if (builder.isNull(0)) {
             return Slices.EMPTY_SLICE;
         }
