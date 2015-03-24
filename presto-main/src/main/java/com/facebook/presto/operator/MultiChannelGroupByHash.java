@@ -37,7 +37,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
-import static it.unimi.dsi.fastutil.HashCommon.maxFill;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 
 // This implementation assumes arrays used in the hash are always a power of 2
@@ -103,7 +102,7 @@ public class MultiChannelGroupByHash
         // reserve memory for the arrays
         int hashSize = arraySize(expectedSize, FILL_RATIO);
 
-        maxFill = maxFill(hashSize, FILL_RATIO);
+        maxFill = calculateMaxFill(hashSize);
         mask = hashSize - 1;
         key = new long[hashSize];
         Arrays.fill(key, -1);
@@ -313,7 +312,7 @@ public class MultiChannelGroupByHash
         }
 
         this.mask = newMask;
-        this.maxFill = maxFill(newSize, FILL_RATIO);
+        this.maxFill = calculateMaxFill(newSize);
         this.key = newKey;
         this.value = newValue;
         groupAddress.ensureCapacity(maxFill);
@@ -351,5 +350,16 @@ public class MultiChannelGroupByHash
     private static int getHashPosition(int rawHash, int mask)
     {
         return murmurHash3(rawHash) & mask;
+    }
+
+    private static int calculateMaxFill(int hashSize)
+    {
+        checkArgument(hashSize > 0, "hashSize must greater than 0");
+        int maxFill = (int) Math.ceil(hashSize * FILL_RATIO);
+        if (maxFill == hashSize) {
+            maxFill--;
+        }
+        checkArgument(hashSize > maxFill, "hashSize must be larger than maxFill");
+        return maxFill;
     }
 }
