@@ -74,13 +74,13 @@ public final class FunctionInfo
         this.windowFunctionSupplier = checkNotNull(windowFunctionSupplier, "windowFunction is null");
     }
 
-    public FunctionInfo(Signature signature, String description, TypeSignature intermediateType, InternalAggregationFunction function, boolean isApproximate)
+    public FunctionInfo(Signature signature, String description, InternalAggregationFunction function)
     {
         this.signature = signature;
         this.description = description;
-        this.isApproximate = isApproximate;
+        this.isApproximate = function.isApproximate();
         this.hidden = false;
-        this.intermediateType = intermediateType;
+        this.intermediateType = function.getIntermediateType().getTypeSignature();
         this.aggregationFunction = function;
         this.isAggregate = true;
         this.methodHandle = null;

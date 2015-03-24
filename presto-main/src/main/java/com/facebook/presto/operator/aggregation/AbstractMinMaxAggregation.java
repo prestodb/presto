@@ -88,7 +88,7 @@ public abstract class AbstractMinMaxAggregation
         MethodHandle compareMethodHandle = functionRegistry.resolveOperator(operatorType, ImmutableList.of(type, type)).getMethodHandle();
         Signature signature = new Signature(name, type.getTypeSignature(), type.getTypeSignature());
         InternalAggregationFunction aggregation = generateAggregation(type, compareMethodHandle);
-        return new FunctionInfo(signature, getDescription(), aggregation.getIntermediateType().getTypeSignature(), aggregation, false);
+        return new FunctionInfo(signature, getDescription(), aggregation);
     }
 
     protected InternalAggregationFunction generateAggregation(Type type, MethodHandle compareMethodHandle)
