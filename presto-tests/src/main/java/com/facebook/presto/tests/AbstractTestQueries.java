@@ -1136,20 +1136,20 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery(
-                "SELECT a.x ax, b.x bx FROM (VALUES 1.0) a(x) JOIN (VALUES 1) b(x) ON a.x = b.x",
-                "SELECT a.x ax, b.x bx FROM (VALUES 1.0) a(x) JOIN (VALUES 1) b(x) ON a.x = CAST(b.x AS DOUBLE)"
+                "SELECT * FROM (VALUES (1.0, 2)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) ON x.a = y.a",
+                "VALUES (1.0, 2, 1, 3)"
         );
         assertQuery(
-                "SELECT a.x ax, b.x bx FROM (VALUES 1.0) a(x) JOIN (VALUES 2) b(x) ON a.x < b.x",
-                "SELECT a.x ax, b.x bx FROM (VALUES 1.0) a(x) JOIN (VALUES 2) b(x) ON a.x < CAST(b.x AS DOUBLE)"
+                "SELECT * FROM (VALUES (1.0, 2)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) ON x.b < y.b",
+                "VALUES (1.0, 2, 1, 3)"
         );
         assertQuery(
-                "SELECT a.x ax, b.x bx FROM (VALUES 1.0) a(x) JOIN (VALUES 2) b(x) ON b.x > a.x",
-                "SELECT a.x ax, b.x bx FROM (VALUES 1.0) a(x) JOIN (VALUES 2) b(x) ON CAST(b.x AS DOUBLE) > a.x"
+                "SELECT * FROM (VALUES (1.0, 2)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) ON y.b > x.b",
+                "VALUES (1.0, 2, 1, 3)"
         );
         assertQuery(
-                "SELECT a.x ax, b.x bx FROM (VALUES 1.0) a(x) JOIN (VALUES 1) b(x) USING(x)",
-                "SELECT a.x ax, b.x bx FROM (VALUES 1.0) a(x) JOIN (VALUES 1) b(x) ON a.x = CAST(b.x AS DOUBLE)"
+                "SELECT * FROM (VALUES (1.0, 2)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
+                "VALUES (1.0, 2, 1, 3)"
         );
     }
 
