@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
+import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -110,6 +111,10 @@ public class TestStringFunctions
         assertFunction("STRPOS('zoo!', '!')", 4);
         assertFunction("STRPOS('x', '')", 1);
         assertFunction("STRPOS('', '')", 1);
+
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u7231')", 4);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u5E0C\u671B')", 6);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', 'nice')", 0);
     }
 
     @Test

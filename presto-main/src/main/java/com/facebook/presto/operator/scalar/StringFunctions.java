@@ -23,7 +23,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
-
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 
@@ -33,7 +32,9 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class StringFunctions
 {
-    private StringFunctions() {}
+    private StringFunctions()
+    {
+    }
 
     @Description("convert Unicode code point to a string")
     @ScalarFunction
@@ -49,8 +50,7 @@ public final class StringFunctions
     {
         try {
             return Character.toChars(Ints.checkedCast(codepoint));
-        }
-        catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Not a valid Unicode code point: " + codepoint);
         }
     }
@@ -110,17 +110,12 @@ public final class StringFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long stringPosition(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice substring)
     {
-        if (substring.length() > string.length()) {
+        final int index = UnicodeUtil.findUtf8IndexOfString(string, 0, string.length(), substring);
+        if (index < 0) {
             return 0;
+        } else {
+            return UnicodeUtil.countCodePoints(string, index) + 1;
         }
-
-        for (int i = 0; i <= (string.length() - substring.length()); i++) {
-            if (string.equals(i, substring.length(), substring, 0, substring.length())) {
-                return i + 1;
-            }
-        }
-
-        return 0;
     }
 
     @Description("suffix starting at given index")
@@ -143,8 +138,7 @@ public final class StringFunctions
         if (start > 0) {
             // make start zero-based
             start--;
-        }
-        else {
+        } else {
             // negative start is relative to end of string
             start += slice.length();
             if (start < 0) {

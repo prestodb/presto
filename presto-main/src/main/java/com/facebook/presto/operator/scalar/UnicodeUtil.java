@@ -36,9 +36,17 @@ final class UnicodeUtil
      */
     static int countCodePoints(final Slice string)
     {
+        return countCodePoints(string, string.length());
+    }
+
+    /**
+     * Counts the code points within UTF8 encoded slice up to {@code end}.
+     */
+    static int countCodePoints(final Slice string, int end)
+    {
         //
         // Quick exit if empty string
-        if (string.length() == 0) {
+        if (end == 0) {
             return 0;
         }
 
@@ -46,7 +54,7 @@ final class UnicodeUtil
         int i = 0;
         //
         // Length rounded to 8 bytes
-        final int length8 = string.length() & 0x7FFFFFF8;
+        final int length8 = end & 0x7FFFFFF8;
         for (; i < length8; i += 8) {
             //
             // Fetch 8 bytes as long
@@ -58,7 +66,7 @@ final class UnicodeUtil
         }
         //
         // Enough bytes left for 32 bits?
-        if (i + 4 < string.length()) {
+        if (i + 4 < end) {
             //
             // Fetch 4 bytes as integer
             int i32 = string.getInt(i);
@@ -71,15 +79,15 @@ final class UnicodeUtil
         }
         //
         // Do the rest one by one
-        for (; i < string.length(); i++) {
+        for (; i < end; i++) {
             int i8 = string.getByte(i) & 0xff;
             //
             // Count bytes which are NOT the start of a code point
             count += (i8 >> 7) & (~i8 >> 6);
         }
 
-        assert count <= string.length();
-        return string.length() - count;
+        assert count <= end;
+        return end - count;
     }
 
     /**
