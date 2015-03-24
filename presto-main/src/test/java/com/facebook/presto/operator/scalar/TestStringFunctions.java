@@ -199,6 +199,10 @@ public class TestStringFunctions
         assertFunction("LTRIM('  hello')", "hello");
         assertFunction("LTRIM('hello  ')", "hello  ");
         assertFunction("LTRIM(' hello world ')", "hello world ");
+
+        assertFunction("LTRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ')", "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ");
+        assertFunction("LTRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", "\u4FE1\u5FF5 \u7231 \u5E0C\u671B ");
+        assertFunction("LTRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
     }
 
     @Test
@@ -210,6 +214,10 @@ public class TestStringFunctions
         assertFunction("RTRIM('  hello')", "  hello");
         assertFunction("RTRIM('hello  ')", "hello");
         assertFunction("RTRIM(' hello world ')", " hello world");
+
+        assertFunction("RTRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ')", "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("RTRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", " \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("RTRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", "  \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
     }
 
     @Test
@@ -221,6 +229,11 @@ public class TestStringFunctions
         assertFunction("TRIM('  hello')", "hello");
         assertFunction("TRIM('hello  ')", "hello");
         assertFunction("TRIM(' hello world ')", "hello world");
+
+
+        assertFunction("TRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ')", "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("TRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("TRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
     }
 
     @Test
