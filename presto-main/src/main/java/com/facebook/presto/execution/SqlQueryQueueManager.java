@@ -42,6 +42,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -58,7 +59,7 @@ import static java.lang.String.format;
 public class SqlQueryQueueManager
         implements QueryQueueManager
 {
-    private final ConcurrentMap<String, QueryQueue> queryQueues = new ConcurrentHashMap<>();
+    private final ConcurrentMap<QueueKey, QueryQueue> queryQueues = new ConcurrentHashMap<>();
     private final List<QueryQueueRule> rules;
     private final MBeanExporter mbeanExporter;
 
@@ -184,15 +185,16 @@ public class SqlQueryQueueManager
         ImmutableList.Builder<QueryQueue> queues = ImmutableList.builder();
         for (QueryQueueDefinition definition : definitions) {
             String expandedName = definition.getExpandedTemplate(session);
-            if (!queryQueues.containsKey(expandedName)) {
+            QueueKey key = new QueueKey(definition, expandedName);
+            if (!queryQueues.containsKey(key)) {
                 QueryQueue queue = new QueryQueue(executor, definition.getMaxQueued(), definition.getMaxConcurrent());
-                if (queryQueues.putIfAbsent(expandedName, queue) == null) {
+                if (queryQueues.putIfAbsent(key, queue) == null) {
                     // Export the mbean, after checking for races
-                    String objectName = ObjectNames.builder(QueryQueue.class, expandedName).build();
+                    String objectName = ObjectNames.builder(QueryQueue.class, definition.getTemplate()).withProperty("expansion", expandedName).build();
                     mbeanExporter.export(objectName, queue);
                 }
             }
-            queues.add(queryQueues.get(expandedName));
+            queues.add(queryQueues.get(key));
         }
         return queues.build();
     }
@@ -200,9 +202,52 @@ public class SqlQueryQueueManager
     @PreDestroy
     public void destroy()
     {
-        for (String queueName : queryQueues.keySet()) {
-            String objectName = ObjectNames.builder(QueryQueue.class, queueName).build();
+        for (QueueKey key : queryQueues.keySet()) {
+            String objectName = ObjectNames.builder(QueryQueue.class, key.getQueue().getTemplate()).withProperty("expansion", key.getName()).build();
             mbeanExporter.unexport(objectName);
+        }
+    }
+
+    private static class QueueKey
+    {
+        private final QueryQueueDefinition queue;
+        private final String name;
+
+        private QueueKey(QueryQueueDefinition queue, String name)
+        {
+            this.queue = checkNotNull(queue, "queue is null");
+            this.name = checkNotNull(name, "name is null");
+        }
+
+        public QueryQueueDefinition getQueue()
+        {
+            return queue;
+        }
+
+        public String getName()
+        {
+            return name;
+        }
+
+        @Override
+        public boolean equals(Object other)
+        {
+            if (this == other) {
+                return true;
+            }
+            if (other == null || getClass() != other.getClass()) {
+                return false;
+            }
+
+            QueueKey queueKey = (QueueKey) other;
+
+            return Objects.equals(name, queueKey.name) && Objects.equals(queue.getTemplate(), queueKey.queue.getTemplate());
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(queue.getTemplate(), name);
         }
     }
 
