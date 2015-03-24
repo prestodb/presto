@@ -152,10 +152,10 @@ columnAliases
     ;
 
 relationPrimary
-    : qualifiedName                                #tableName
-    | '(' query ')'                                #subqueryRelation
-    | UNNEST '(' expression (',' expression)* ')'  #unnest
-    | '(' relation ')'                             #parenthesizedRelation
+    : qualifiedName                                                   #tableName
+    | '(' query ')'                                                   #subqueryRelation
+    | UNNEST '(' expression (',' expression)* ')' (WITH ORDINALITY)?  #unnest
+    | '(' relation ')'                                                #parenthesizedRelation
     ;
 
 expression
@@ -215,6 +215,7 @@ primaryExpression
     | TRY_CAST '(' expression AS type ')'                                            #cast
     | ARRAY '[' (expression (',' expression)*)? ']'                                  #arrayConstructor
     | value=primaryExpression '[' index=valueExpression ']'                          #subscript
+    | value=primaryExpression '.' fieldName=identifier                               #fieldReference
     | name=CURRENT_DATE                                                              #specialDateTimeFunction
     | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?                           #specialDateTimeFunction
     | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                      #specialDateTimeFunction
@@ -444,6 +445,7 @@ STRATIFY: 'STRATIFY';
 ALTER: 'ALTER';
 RENAME: 'RENAME';
 UNNEST: 'UNNEST';
+ORDINALITY: 'ORDINALITY';
 ARRAY: 'ARRAY';
 MAP: 'MAP';
 SET: 'SET';

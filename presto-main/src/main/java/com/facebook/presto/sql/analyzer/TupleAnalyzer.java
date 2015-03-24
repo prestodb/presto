@@ -24,6 +24,7 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.ExpressionUtils;
@@ -168,6 +169,9 @@ public class TupleAnalyzer
             else {
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
             }
+        }
+        if (node.isWithOrdinality()) {
+            outputFields.add(Field.newUnqualified(Optional.empty(), BigintType.BIGINT));
         }
         TupleDescriptor descriptor = new TupleDescriptor(outputFields.build());
         analysis.setOutputDescriptor(node, descriptor);

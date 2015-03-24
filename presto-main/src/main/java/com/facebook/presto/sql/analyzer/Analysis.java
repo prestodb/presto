@@ -68,7 +68,7 @@ public class Analysis
 
     private final IdentityHashMap<Table, TableHandle> tables = new IdentityHashMap<>();
 
-    private final IdentityHashMap<Expression, Boolean> rowFieldAccesors = new IdentityHashMap<>();
+    private final IdentityHashMap<Expression, Boolean> rowFieldReferences = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> types = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> coercions = new IdentityHashMap<>();
     private final IdentityHashMap<FunctionCall, FunctionInfo> functionInfo = new IdentityHashMap<>();
@@ -128,9 +128,9 @@ public class Analysis
         return new IdentityHashMap<>(types);
     }
 
-    public boolean isRowFieldAccessor(QualifiedNameReference qualifiedNameReference)
+    public boolean isRowFieldReference(QualifiedNameReference qualifiedNameReference)
     {
-        return rowFieldAccesors.containsKey(qualifiedNameReference);
+        return rowFieldReferences.containsKey(qualifiedNameReference);
     }
 
     public Type getType(Expression expression)
@@ -290,9 +290,9 @@ public class Analysis
         this.types.putAll(types);
     }
 
-    public void addRowFieldAccessors(IdentityHashMap<Expression, Boolean> rowFieldAccesors)
+    public void addRowFieldReferences(IdentityHashMap<Expression, Boolean> rowFieldReferences)
     {
-        this.rowFieldAccesors.putAll(rowFieldAccesors);
+        this.rowFieldReferences.putAll(rowFieldReferences);
     }
 
     public void addCoercion(Expression expression, Type type)

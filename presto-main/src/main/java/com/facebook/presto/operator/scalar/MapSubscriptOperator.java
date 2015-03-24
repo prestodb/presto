@@ -72,6 +72,22 @@ public class MapSubscriptOperator
         }
     }
 
+    public static void longvoidSubscript(Type keyType, Type valueType, Slice map, long key)
+    {
+    }
+
+    public static void SlicevoidSubscript(Type keyType, Type valueType, Slice map, Slice key)
+    {
+    }
+
+    public static void booleanvoidSubscript(Type keyType, Type valueType, Slice map, boolean key)
+    {
+    }
+
+    public static void doublevoidSubscript(Type keyType, Type valueType, Slice map, double key)
+    {
+    }
+
     public static Long SlicelongSubscript(Type keyType, Type valueType, Slice map, Slice key)
     {
         return subscript(keyType, valueType, map, key);
