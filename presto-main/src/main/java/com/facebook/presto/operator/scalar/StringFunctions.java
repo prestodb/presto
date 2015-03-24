@@ -50,7 +50,8 @@ public final class StringFunctions
     {
         try {
             return Character.toChars(Ints.checkedCast(codepoint));
-        } catch (IllegalArgumentException e) {
+        }
+        catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Not a valid Unicode code point: " + codepoint);
         }
     }
@@ -113,7 +114,8 @@ public final class StringFunctions
         final int index = UnicodeUtil.findUtf8IndexOfString(string, 0, string.length(), substring);
         if (index < 0) {
             return 0;
-        } else {
+        }
+        else {
             return UnicodeUtil.countCodePoints(string, index) + 1;
         }
     }
@@ -139,7 +141,8 @@ public final class StringFunctions
         if (start > 0) {
             // make start zero-based
             start--;
-        } else {
+        }
+        else {
             // negative start is relative to end of string
             start += stringLength;
             if (start < 0) {

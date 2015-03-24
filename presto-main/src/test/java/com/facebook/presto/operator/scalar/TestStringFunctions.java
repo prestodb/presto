@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
-import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -238,7 +237,6 @@ public class TestStringFunctions
         assertFunction("TRIM('hello  ')", "hello");
         assertFunction("TRIM(' hello world ')", "hello world");
 
-
         assertFunction("TRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ')", "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
         assertFunction("TRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
         assertFunction("TRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
@@ -270,7 +268,8 @@ public class TestStringFunctions
         try {
             assertFunction(projection, null);
             fail("Expected to throw an INVALID_FUNCTION_ARGUMENT exception with message " + message);
-        } catch (PrestoException e) {
+        }
+        catch (PrestoException e) {
             assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
             assertEquals(e.getMessage(), message);
         }
