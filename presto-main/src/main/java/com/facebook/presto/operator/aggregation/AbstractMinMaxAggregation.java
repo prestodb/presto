@@ -97,8 +97,8 @@ public abstract class AbstractMinMaxAggregation
 
         List<Type> inputTypes = ImmutableList.of(type);
 
-        AccumulatorStateSerializer stateSerializer;
-        AccumulatorStateFactory stateFactory;
+        AccumulatorStateSerializer<?> stateSerializer;
+        AccumulatorStateFactory<?> stateFactory;
         MethodHandle inputFunction;
         Class<? extends AccumulatorState> stateInterface;
 
