@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -34,7 +35,7 @@ public class TaskManagerConfig
     private DataSize maxPartialAggregationMemoryUsage = new DataSize(16, Unit.MEGABYTE);
     private DataSize operatorPreAllocatedMemory = new DataSize(16, Unit.MEGABYTE);
     private DataSize maxTaskIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
-    private int maxShardProcessorThreads = Runtime.getRuntime().availableProcessors() * 4;
+    private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 4;
     private Integer minDrivers;
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
@@ -136,15 +137,16 @@ public class TaskManagerConfig
     }
 
     @Min(1)
-    public int getMaxShardProcessorThreads()
+    public int getMaxWorkerThreads()
     {
-        return maxShardProcessorThreads;
+        return maxWorkerThreads;
     }
 
-    @Config("task.shard.max-threads")
-    public TaskManagerConfig setMaxShardProcessorThreads(int maxShardProcessorThreads)
+    @LegacyConfig("task.shard.max-threads")
+    @Config("task.max-worker-threads")
+    public TaskManagerConfig setMaxWorkerThreads(int maxWorkerThreads)
     {
-        this.maxShardProcessorThreads = maxShardProcessorThreads;
+        this.maxWorkerThreads = maxWorkerThreads;
         return this;
     }
 
@@ -152,7 +154,7 @@ public class TaskManagerConfig
     public int getMinDrivers()
     {
         if (minDrivers == null) {
-            return 2 * maxShardProcessorThreads;
+            return 2 * maxWorkerThreads;
         }
         return minDrivers;
     }

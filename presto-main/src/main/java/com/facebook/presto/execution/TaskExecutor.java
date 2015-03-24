@@ -102,7 +102,7 @@ public class TaskExecutor
     @Inject
     public TaskExecutor(TaskManagerConfig config)
     {
-        this(checkNotNull(config, "config is null").getMaxShardProcessorThreads(), config.getMinDrivers());
+        this(checkNotNull(config, "config is null").getMaxWorkerThreads(), config.getMinDrivers());
     }
 
     public TaskExecutor(int runnerThreads, int minDrivers)
