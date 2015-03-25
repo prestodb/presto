@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.RowType;
@@ -104,21 +105,25 @@ public class RowFieldReference
 
     public static Long longAccessor(Type type, Integer field, Slice row)
     {
-        return type.getLong(readStructuralBlock(row), field);
+        Block block = readStructuralBlock(row);
+        return block.isNull(field) ? null : type.getLong(block, field);
     }
 
     public static Boolean booleanAccessor(Type type, Integer field, Slice row)
     {
-        return type.getBoolean(readStructuralBlock(row), field);
+        Block block = readStructuralBlock(row);
+        return block.isNull(field) ? null : type.getBoolean(block, field);
     }
 
     public static Double doubleAccessor(Type type, Integer field, Slice row)
     {
-        return type.getDouble(readStructuralBlock(row), field);
+        Block block = readStructuralBlock(row);
+        return block.isNull(field) ? null : type.getDouble(block, field);
     }
 
     public static Slice sliceAccessor(Type type, Integer field, Slice row)
     {
-        return type.getSlice(readStructuralBlock(row), field);
+        Block block = readStructuralBlock(row);
+        return block.isNull(field) ? null : type.getSlice(block, field);
     }
 }
