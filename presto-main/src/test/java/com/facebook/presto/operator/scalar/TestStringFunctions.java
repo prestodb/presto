@@ -294,6 +294,10 @@ public class TestStringFunctions
         assertFunction("LOWER('')", "");
         assertFunction("LOWER('Hello World')", "hello world");
         assertFunction("LOWER('WHAT!!')", "what!!");
+        //
+        // LOWER only supports A-Z
+        assertFunction("LOWER('\u00D6STERREICH')", "\u00D6sterreich");
+        assertFunction("LOWER('From\uD801\uDC2DTo')", "from\uD801\uDC2Dto");
     }
 
     @Test
@@ -302,6 +306,10 @@ public class TestStringFunctions
         assertFunction("UPPER('')", "");
         assertFunction("UPPER('Hello World')", "HELLO WORLD");
         assertFunction("UPPER('what!!')", "WHAT!!");
+        //
+        // UPPER only supports A-Z
+        assertFunction("UPPER('\u00D6sterreich')", "\u00D6STERREICH");
+        assertFunction("UPPER('From\uD801\uDC2DTo')", "FROM\uD801\uDC2DTO");
     }
 
     private void assertFunction(String projection, Object expected)
