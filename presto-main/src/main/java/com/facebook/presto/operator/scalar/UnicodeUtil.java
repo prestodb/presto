@@ -207,4 +207,12 @@ final class UnicodeUtil
         // According to RFC3629 limited to 4 bytes so 5 and 6 bytes are illegal
         return 1;
     }
+
+    /**
+     * Test if the {@code string\ is empty.
+     */
+    static boolean isEmpty(final Slice string)
+    {
+        return string.length() == 0;
+    }
 }

@@ -145,4 +145,13 @@ public class UnicodeUtilTest
         assertEquals(UnicodeUtil.requiredLengthOfCodePoint(0x80), 1);
         assertEquals(UnicodeUtil.requiredLengthOfCodePoint(0xFE), 1);
     }
+
+    @Test
+    public void testIsEmpty()
+    {
+        assertEquals(UnicodeUtil.isEmpty(Slices.EMPTY_SLICE), true);
+        assertEquals(UnicodeUtil.isEmpty(Slices.utf8Slice("X")), false);
+        assertEquals(UnicodeUtil.isEmpty(Slices.utf8Slice(STRING_OO)), false);
+        assertEquals(UnicodeUtil.isEmpty(Slices.wrappedBuffer(INVALID_UTF8_1)), false);
+    }
 }
