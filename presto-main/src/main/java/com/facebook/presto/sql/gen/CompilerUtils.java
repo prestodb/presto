@@ -21,6 +21,7 @@ import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.SmartClassWriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
+import com.google.common.reflect.Reflection;
 import io.airlift.log.Logger;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -116,6 +117,15 @@ public final class CompilerUtils
                 classReader.accept(new TraceClassVisitor(new PrintWriter(System.err)), ClassReader.SKIP_FRAMES);
             }
         }
-        return classLoader.defineClasses(byteCodes);
+        Map<String, Class<?>> classes = classLoader.defineClasses(byteCodes);
+        try {
+            for (Class<?> clazz : classes.values()) {
+                Reflection.initialize(clazz);
+            }
+        }
+        catch (VerifyError e) {
+            throw new RuntimeException(e);
+        }
+        return classes;
     }
 }
