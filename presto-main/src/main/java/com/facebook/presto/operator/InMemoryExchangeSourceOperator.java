@@ -123,4 +123,11 @@ public class InMemoryExchangeSourceOperator
         }
         return page;
     }
+
+    @Override
+    public void close()
+            throws Exception
+    {
+        finish();
+    }
 }
