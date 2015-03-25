@@ -34,9 +34,12 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Arrays.asList;
 
 public final class RegexpFunctions
 {
@@ -135,6 +138,15 @@ public final class RegexpFunctions
             return null;
         }
         return Slices.utf8Slice(extracted);
+    }
+
+    @ScalarFunction
+    @Description("returns array of strings split by pattern")
+    @SqlType("array<varchar>")
+    public static Slice regexpSplit(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Pattern pattern)
+    {
+        String[] result = pattern.split(source.toStringUtf8());
+        return toStackRepresentation(asList(result), VARCHAR);
     }
 
     private static void validateGroup(long group, Matcher matcher)
