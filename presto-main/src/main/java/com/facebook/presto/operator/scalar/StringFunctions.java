@@ -90,12 +90,54 @@ public final class StringFunctions
     @Description("greedily replaces occurrences of a pattern with a string")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice replace(@SqlType(StandardTypes.VARCHAR) Slice str, @SqlType(StandardTypes.VARCHAR) Slice search, @SqlType(StandardTypes.VARCHAR) Slice replace)
+    public static Slice replace(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice search, @SqlType(StandardTypes.VARCHAR) Slice replace)
     {
-        String replaced = str.toString(UTF_8).replace(
-                search.toString(UTF_8),
-                replace.toString(UTF_8));
-        return Slices.copiedBuffer(replaced, UTF_8);
+        //
+        // Empty search returns original string
+        if (UnicodeUtil.isEmpty(search)) {
+            return string;
+        }
+        //
+        // Allocate a reasonable buffer
+        Slice buffer = Slices.allocate(string.length());
+
+        int index = 0;
+        int indexBuffer = 0;
+        while (index < string.length()) {
+            final int matchIndex = UnicodeUtil.findUtf8IndexOfString(string, index, string.length(), search);
+            //
+            // Found a match?
+            if (matchIndex < 0) {
+                //
+                // No match found so copy the rest of string
+                final int bytesToCopy = string.length() - index;
+                buffer = Slices.ensureSize(buffer, indexBuffer + bytesToCopy);
+                buffer.setBytes(indexBuffer, string, index, bytesToCopy);
+                indexBuffer += bytesToCopy;
+
+                break;
+            }
+
+            final int bytesToCopy = matchIndex - index;
+            buffer = Slices.ensureSize(buffer, indexBuffer + bytesToCopy + replace.length());
+            //
+            // Non empty match?
+            if (bytesToCopy > 0) {
+                buffer.setBytes(indexBuffer, string, index, bytesToCopy);
+                indexBuffer += bytesToCopy;
+            }
+            //
+            // Non empty replace?
+            if (!UnicodeUtil.isEmpty(replace)) {
+                buffer.setBytes(indexBuffer, replace);
+                indexBuffer += replace.length();
+            }
+            //
+            // Continue searching after match
+            index = matchIndex + search.length();
+        }
+
+        return Slices.copyOf(buffer, 0, indexBuffer);
     }
 
     @Description("reverses the given string")
