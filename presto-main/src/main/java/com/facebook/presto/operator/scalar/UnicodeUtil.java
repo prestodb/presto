@@ -156,12 +156,8 @@ final class UnicodeUtil
     /**
      * Find substring within UTF-8 encoding string.
      */
-    static int findUtf8IndexOfString(final Slice string, int start, int end, final Slice substring)
+    static int findUtf8IndexOfString(final Slice string, final int start, final int end, final Slice substring)
     {
-        if (substring.length() > end - start) {
-            return -1;
-        }
-
         for (int i = start; i <= (end - substring.length()); i++) {
             //
             // TODO If slice provides indexOfByte with start, we could optimize searching
