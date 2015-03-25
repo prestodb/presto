@@ -240,7 +240,7 @@ public final class StringFunctions
     {
         checkCondition(limit > 0, INVALID_FUNCTION_ARGUMENT, "Limit must be positive");
         checkCondition(limit <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "Limit is too large");
-        checkCondition(delimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "The delimiter may not be the empty string");
+        checkCondition(!UnicodeUtil.isEmpty(delimiter), INVALID_FUNCTION_ARGUMENT, "The delimiter may not be the empty string");
 
         final List<Slice> parts = new ArrayList<>();
 
@@ -283,7 +283,7 @@ public final class StringFunctions
         checkCondition(index > 0, INVALID_FUNCTION_ARGUMENT, "Index must be greater than zero");
         //
         // Empty delimiter? Then every character will be a split
-        if (delimiter.length() == 0) {
+        if (UnicodeUtil.isEmpty(delimiter)) {
             final int stringLength = UnicodeUtil.countCodePoints(string);
             if (index > stringLength) {
                 // index is too big, null is returned
