@@ -70,6 +70,10 @@ public class TestRowOperators
     public void testFieldAccessor()
             throws Exception
     {
+        assertFunction("test_row(1, NULL).col1", null);
+        assertFunction("test_row(1, CAST(NULL AS DOUBLE)).col1", null);
+        assertFunction("test_row(TRUE, NULL).col1", null);
+        assertFunction("test_row(1.0, CAST(NULL AS VARCHAR)).col1", null);
         assertFunction("test_row(1, 2).col0", 1);
         assertFunction("test_row(1, 'kittens').col1", "kittens");
         assertFunction("test_row(1, 2).\"col1\"", 2);
