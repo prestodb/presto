@@ -11,22 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.jdbc;
+package com.facebook.presto.client;
 
-import org.eclipse.jetty.util.log.JavaUtilLog;
-import org.eclipse.jetty.util.log.Log;
+import java.net.URI;
+import java.util.Map;
+import java.util.Set;
 
-// TODO: fix this in Airlift
-final class JettyLogging
+public interface QueryHttpClient
 {
-    private JettyLogging() {}
+    QueryResults startQuery(ClientSession session, String query);
 
-    /**
-     * Force Jetty to use java.util.logging instead of SLF4J
-     */
-    public static void useJavaUtilLogging()
-    {
-        Log.__logClass = JavaUtilLog.class.getName();
-        Log.initialized();
-    }
+    void deleteAsync(URI uri);
+
+    boolean delete(URI uri);
+
+    QueryResults execute(URI uri) throws RuntimeException;
+
+    Map<String, String> getSetSessionProperties();
+
+    Set<String> getResetSessionProperties();
+
+    boolean isClosed();
+
+    void close();
 }

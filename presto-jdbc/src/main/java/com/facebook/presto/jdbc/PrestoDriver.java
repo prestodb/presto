@@ -16,6 +16,7 @@ package com.facebook.presto.jdbc;
 import com.google.common.base.Throwables;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.Connection;
@@ -52,8 +53,6 @@ public class PrestoDriver
     private final QueryExecutor queryExecutor;
 
     static {
-        JettyLogging.useJavaUtilLogging();
-
         try {
             DriverManager.registerDriver(new PrestoDriver());
         }
@@ -68,7 +67,7 @@ public class PrestoDriver
     }
 
     @Override
-    public void close()
+    public void close() throws IOException
     {
         queryExecutor.close();
     }

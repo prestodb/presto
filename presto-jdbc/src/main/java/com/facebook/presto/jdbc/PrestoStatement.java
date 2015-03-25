@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.jdbc;
 
+import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -34,11 +35,11 @@ public class PrestoStatement
     private final AtomicBoolean escapeProcessing = new AtomicBoolean(true);
     private final AtomicBoolean closeOnCompletion = new AtomicBoolean();
     private final AtomicReference<PrestoConnection> connection;
-    private AtomicReference<ResultSet> currentResult = new AtomicReference<>();
+    private AtomicReference<ResultSet> currentResult = new AtomicReference<ResultSet>();
 
     PrestoStatement(PrestoConnection connection)
     {
-        this.connection = new AtomicReference<>(checkNotNull(connection, "connection is null"));
+        this.connection = new AtomicReference<PrestoConnection>(checkNotNull(connection, "connection is null"));
     }
 
     @Override
@@ -51,6 +52,9 @@ public class PrestoStatement
             return result;
         }
         catch (RuntimeException e) {
+            throw new SQLException("Error executing query", e);
+        }
+        catch (URISyntaxException e) {
             throw new SQLException("Error executing query", e);
         }
     }

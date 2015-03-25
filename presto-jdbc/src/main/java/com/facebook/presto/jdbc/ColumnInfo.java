@@ -75,69 +75,80 @@ class ColumnInfo
             parameterTypes.add(getType(parameter));
         }
         builder.setColumnParameterTypes(parameterTypes.build());
-        switch (type.toString()) {
-            case "boolean":
-                builder.setColumnDisplaySize(5);
-                break;
-            case "bigint":
-                builder.setSigned(true);
-                builder.setPrecision(19);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(20);
-                break;
-            case "double":
-                builder.setSigned(true);
-                builder.setPrecision(17);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(24);
-                break;
-            case "varchar":
-                builder.setSigned(true);
-                builder.setPrecision(VARCHAR_MAX);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(VARCHAR_MAX);
-                break;
-            case "varbinary":
-                builder.setSigned(true);
-                builder.setPrecision(VARBINARY_MAX);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(VARBINARY_MAX);
-                break;
-            case "time":
-                builder.setSigned(true);
-                builder.setPrecision(3);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(TIME_MAX);
-                break;
-            case "time with time zone":
-                builder.setSigned(true);
-                builder.setPrecision(3);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(TIME_WITH_TIME_ZONE_MAX);
-                break;
-            case "timestamp":
-                builder.setSigned(true);
-                builder.setPrecision(3);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(TIMESTAMP_MAX);
-                break;
-            case "timestamp with time zone":
-                builder.setSigned(true);
-                builder.setPrecision(3);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(TIMESTAMP_WITH_TIME_ZONE_MAX);
-                break;
-            case "date":
-                builder.setSigned(true);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(DATE_MAX);
-                break;
-            case "interval year to month":
-                builder.setColumnDisplaySize(TIMESTAMP_MAX);
-                break;
-            case "interval day to second":
-                builder.setColumnDisplaySize(TIMESTAMP_MAX);
-                break;
+        String s = type.toString();
+        if (s.equals("boolean")) {
+            builder.setColumnDisplaySize(5);
+
+        }
+        else if (s.equals("bigint")) {
+            builder.setSigned(true);
+            builder.setPrecision(19);
+            builder.setScale(0);
+            builder.setColumnDisplaySize(20);
+
+        }
+        else if (s.equals("double")) {
+            builder.setSigned(true);
+            builder.setPrecision(17);
+            builder.setScale(0);
+            builder.setColumnDisplaySize(24);
+
+        }
+        else if (s.equals("varchar")) {
+            builder.setSigned(true);
+            builder.setPrecision(VARCHAR_MAX);
+            builder.setScale(0);
+            builder.setColumnDisplaySize(VARCHAR_MAX);
+
+        }
+        else if (s.equals("varbinary")) {
+            builder.setSigned(true);
+            builder.setPrecision(VARBINARY_MAX);
+            builder.setScale(0);
+            builder.setColumnDisplaySize(VARBINARY_MAX);
+
+        }
+        else if (s.equals("time")) {
+            builder.setSigned(true);
+            builder.setPrecision(3);
+            builder.setScale(0);
+            builder.setColumnDisplaySize(TIME_MAX);
+
+        }
+        else if (s.equals("time with time zone")) {
+            builder.setSigned(true);
+            builder.setPrecision(3);
+            builder.setScale(0);
+            builder.setColumnDisplaySize(TIME_WITH_TIME_ZONE_MAX);
+
+        }
+        else if (s.equals("timestamp")) {
+            builder.setSigned(true);
+            builder.setPrecision(3);
+            builder.setScale(0);
+            builder.setColumnDisplaySize(TIMESTAMP_MAX);
+
+        }
+        else if (s.equals("timestamp with time zone")) {
+            builder.setSigned(true);
+            builder.setPrecision(3);
+            builder.setScale(0);
+            builder.setColumnDisplaySize(TIMESTAMP_WITH_TIME_ZONE_MAX);
+
+        }
+        else if (s.equals("date")) {
+            builder.setSigned(true);
+            builder.setScale(0);
+            builder.setColumnDisplaySize(DATE_MAX);
+
+        }
+        else if (s.equals("interval year to month")) {
+            builder.setColumnDisplaySize(TIMESTAMP_MAX);
+
+        }
+        else if (s.equals("interval day to second")) {
+            builder.setColumnDisplaySize(TIMESTAMP_MAX);
+
         }
     }
 
@@ -146,29 +157,39 @@ class ColumnInfo
         if (type.getBase().equals("array")) {
             return Types.ARRAY;
         }
-        switch (type.toString()) {
-            case "boolean":
-                return Types.BOOLEAN;
-            case "bigint":
-                return Types.BIGINT;
-            case "double":
-                return Types.DOUBLE;
-            case "varchar":
-                return Types.LONGNVARCHAR;
-            case "varbinary":
-                return Types.LONGVARBINARY;
-            case "time":
-                return Types.TIME;
-            case "time with time zone":
-                return Types.TIME;
-            case "timestamp":
-                return Types.TIMESTAMP;
-            case "timestamp with time zone":
-                return Types.TIMESTAMP;
-            case "date":
-                return Types.DATE;
-            default:
-                return Types.JAVA_OBJECT;
+        String s = type.toString();
+        if (s.equals("boolean")) {
+            return Types.BOOLEAN;
+        }
+        else if (s.equals("bigint")) {
+            return Types.BIGINT;
+        }
+        else if (s.equals("double")) {
+            return Types.DOUBLE;
+        }
+        else if (s.equals("varchar")) {
+            return Types.LONGNVARCHAR;
+        }
+        else if (s.equals("varbinary")) {
+            return Types.LONGVARBINARY;
+        }
+        else if (s.equals("time")) {
+            return Types.TIME;
+        }
+        else if (s.equals("time with time zone")) {
+            return Types.TIME;
+        }
+        else if (s.equals("timestamp")) {
+            return Types.TIMESTAMP;
+        }
+        else if (s.equals("timestamp with time zone")) {
+            return Types.TIMESTAMP;
+        }
+        else if (s.equals("date")) {
+            return Types.DATE;
+        }
+        else {
+            return Types.JAVA_OBJECT;
         }
     }
 

@@ -927,7 +927,7 @@ public class PrestoDatabaseMetaData
         query.append(", '' AS REF_GENERATION");
         query.append(" FROM information_schema.tables ");
 
-        List<String> filters = new ArrayList<>(4);
+        List<String> filters = new ArrayList<String>(4);
         if (catalog != null) {
             if (catalog.length() == 0) {
                 filters.add("table_catalog IS NULL");
@@ -1055,7 +1055,7 @@ public class PrestoDatabaseMetaData
                 ", '' IS_GENERATEDCOLUMN " +
                 "FROM information_schema.columns ");
 
-        List<String> filters = new ArrayList<>(4);
+        List<String> filters = new ArrayList<String>(4);
         if (catalog != null) {
             if (catalog.isEmpty()) {
                 filters.add("table_catalog IS NULL");
@@ -1394,7 +1394,7 @@ public class PrestoDatabaseMetaData
         query.append("SELECT DISTINCT schema_name TABLE_SCHEM, catalog_name TABLE_CATALOG ");
         query.append(" FROM information_schema.schemata");
 
-        List<String> filters = new ArrayList<>(4);
+        List<String> filters = new ArrayList<String>(4);
         if (catalog != null) {
             if (catalog.length() == 0) {
                 filters.add("catalog_name IS NULL");
@@ -1492,8 +1492,12 @@ public class PrestoDatabaseMetaData
     private ResultSet select(String sql)
             throws SQLException
     {
-        try (Statement statement = getConnection().createStatement()) {
+        Statement statement = getConnection().createStatement();
+        try {
             return statement.executeQuery(sql);
+        }
+        finally {
+            statement.close();
         }
     }
 

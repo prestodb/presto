@@ -152,7 +152,7 @@ public class FailureInfo
 
         FailureException(String type, String message, FailureException cause)
         {
-            super(message, cause, true, true);
+            super(message, cause);
             this.type = checkNotNull(type, "type is null");
         }
 

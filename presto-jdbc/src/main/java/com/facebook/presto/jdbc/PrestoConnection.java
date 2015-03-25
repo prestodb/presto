@@ -13,13 +13,16 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.client.UniversalStatementClient;
 import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.client.StatementClient;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+import org.apache.http.client.utils.URIBuilder;
 
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
 import java.sql.Array;
 import java.sql.Blob;
@@ -53,22 +56,20 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Maps.fromProperties;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
-import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public class PrestoConnection
         implements Connection
 {
     private final AtomicBoolean closed = new AtomicBoolean();
-    private final AtomicReference<String> catalog = new AtomicReference<>();
-    private final AtomicReference<String> schema = new AtomicReference<>();
-    private final AtomicReference<String> timeZoneId = new AtomicReference<>();
-    private final AtomicReference<Locale> locale = new AtomicReference<>();
+    private final AtomicReference<String> catalog = new AtomicReference<String>();
+    private final AtomicReference<String> schema = new AtomicReference<String>();
+    private final AtomicReference<String> timeZoneId = new AtomicReference<String>();
+    private final AtomicReference<Locale> locale = new AtomicReference<Locale>();
     private final URI uri;
     private final HostAndPort address;
     private final String user;
-    private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
-    private final Map<String, String> sessionProperties = new ConcurrentHashMap<>();
+    private final Map<String, String> clientInfo = new ConcurrentHashMap<String, String>();
+    private final Map<String, String> sessionProperties = new ConcurrentHashMap<String, String>();
     private final QueryExecutor queryExecutor;
 
     PrestoConnection(URI uri, String user, QueryExecutor queryExecutor)
@@ -511,7 +512,7 @@ public class PrestoConnection
         checkNotNull(value, "value is null");
         checkArgument(!name.isEmpty(), "name is empty");
 
-        CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
+        CharsetEncoder charsetEncoder = Charset.forName("US-ASCII").newEncoder();
         checkArgument(name.indexOf('=') < 0, "Session property name must not contain '=': %s", name);
         checkArgument(charsetEncoder.canEncode(name), "Session property name is not US_ASCII: %s", name);
         checkArgument(charsetEncoder.canEncode(value), "Session property value is not US_ASCII: %s", value);
@@ -568,7 +569,7 @@ public class PrestoConnection
         return user;
     }
 
-    StatementClient startQuery(String sql)
+    UniversalStatementClient startQuery(String sql) throws URISyntaxException
     {
         URI uri = createHttpUri(address);
 
@@ -634,12 +635,13 @@ public class PrestoConnection
         }
     }
 
-    private static URI createHttpUri(HostAndPort address)
+    private static URI createHttpUri(HostAndPort address) throws URISyntaxException
     {
-        return uriBuilder()
-                .scheme("http")
-                .host(address.getHostText())
-                .port(address.getPort())
+        return new URIBuilder()
+                .setScheme("http")
+                .setHost(address.getHostText())
+                .setPort(address.getPort())
+                .setPath("/v1/statement")
                 .build();
     }
 

@@ -24,72 +24,12 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-client</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi-base</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>http-client</artifactId>
-            <exclusions>
-                <!-- configuration is not used -->
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>configuration</artifactId>
-                </exclusion>
-                <!-- trace-token is not used -->
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>trace-token</artifactId>
-                </exclusion>
-                <!-- guice is not used -->
-                <exclusion>
-                    <groupId>com.google.inject</groupId>
-                    <artifactId>guice</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.inject.extensions</groupId>
-                    <artifactId>guice-multibindings</artifactId>
-                </exclusion>
-                <!-- jmxutils is not used -->
-                <exclusion>
-                    <groupId>org.weakref</groupId>
-                    <artifactId>jmxutils</artifactId>
-                </exclusion>
-                <!-- TODO: remove when fixed in airlift -->
-                <exclusion>
-                    <groupId>org.eclipse.jetty</groupId>
-                    <artifactId>jetty-servlet</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>json</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>javax.inject</groupId>
-                    <artifactId>javax.inject</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.inject</groupId>
-                    <artifactId>guice</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.inject.extensions</groupId>
-                    <artifactId>guice-multibindings</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
 
         <dependency>
@@ -107,10 +47,25 @@
             <artifactId>annotations</artifactId>
         </dependency>
 
-        <!-- TODO: fix this in Airlift and remove this dependency -->
         <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-util</artifactId>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpcore</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpasyncclient</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>jcl-over-slf4j</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- for testing -->
@@ -147,6 +102,35 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>java-${jdbc.drvier.java.version}-compile</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <source>${jdbc.drvier.java.version}</source>
+                            <target>${jdbc.drvier.java.version}</target>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>java-${presto.java.version}-compile</id>
+                        <phase>process-test-sources</phase>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                        <configuration>
+                            <source>${presto.java.version}</source>
+                            <target>${presto.java.version}</target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -198,8 +182,12 @@
                                     <shadedPattern>${shadeBase}.joda.time</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>org.eclipse.jetty</pattern>
-                                    <shadedPattern>${shadeBase}.jetty</shadedPattern>
+                                    <pattern>org.apache</pattern>
+                                    <shadedPattern>${shadeBase}.org.apache</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.slf4j</pattern>
+                                    <shadedPattern>${shadeBase}.slf4j</shadedPattern>
                                 </relocation>
                             </relocations>
                             <filters>
@@ -227,24 +215,6 @@
                                     <artifact>javax.validation:validation-api</artifact>
                                     <excludes>
                                         <exclude>**</exclude>
-                                    </excludes>
-                                </filter>
-                                <filter>
-                                    <artifact>io.airlift</artifact>
-                                    <excludes>
-                                        <exclude>jetty-logging.properties</exclude>
-                                    </excludes>
-                                </filter>
-                                <filter>
-                                    <artifact>org.eclipse.jetty:jetty-util</artifact>
-                                    <excludes>
-                                        <exclude>jetty-dir.css</exclude>
-                                    </excludes>
-                                </filter>
-                                <filter>
-                                    <artifact>org.eclipse.jetty:*</artifact>
-                                    <excludes>
-                                        <exclude>about.html</exclude>
                                     </excludes>
                                 </filter>
                             </filters>

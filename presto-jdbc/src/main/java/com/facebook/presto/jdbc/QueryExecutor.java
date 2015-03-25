@@ -13,58 +13,65 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.client.UniversalStatementClient;
 import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.client.QueryResults;
-import com.facebook.presto.client.StatementClient;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.net.HostAndPort;
-import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.jetty.JettyHttpClient;
-import io.airlift.http.client.jetty.JettyIoPool;
-import io.airlift.http.client.jetty.JettyIoPoolConfig;
-import io.airlift.json.JsonCodec;
-import io.airlift.units.Duration;
+import org.apache.http.HttpHost;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
+import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.apache.http.impl.nio.client.HttpAsyncClients;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import javax.annotation.Nullable;
-
 import java.io.Closeable;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.ProxySelector;
 import java.net.URI;
-import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.airlift.json.JsonCodec.jsonCodec;
 
 class QueryExecutor
         implements Closeable
 {
-    private final JsonCodec<QueryResults> queryInfoCodec;
-    private final HttpClient httpClient;
+    private final ObjectMapper mapper;
+    private final CloseableHttpAsyncClient httpClient;
+    private final String userAgent;
 
-    private QueryExecutor(String userAgent, JsonCodec<QueryResults> queryResultsCodec, HostAndPort socksProxy)
+    private QueryExecutor(String userAgent, ObjectMapper mapper, HttpHost proxy)
     {
         checkNotNull(userAgent, "userAgent is null");
-        checkNotNull(queryResultsCodec, "queryResultsCodec is null");
+        checkNotNull(mapper, "mapper is null");
 
-        this.queryInfoCodec = queryResultsCodec;
-        this.httpClient = new JettyHttpClient(
-                new HttpClientConfig()
-                        .setConnectTimeout(new Duration(10, TimeUnit.SECONDS))
-                        .setSocksProxy(socksProxy),
-                new JettyIoPool("presto-jdbc", new JettyIoPoolConfig()),
-                ImmutableSet.of(new UserAgentRequestFilter(userAgent)));
+        this.userAgent = userAgent;
+        this.mapper = mapper;
+
+        HttpClientBuilder builder = HttpClients.custom();
+        HttpAsyncClientBuilder asyncBuilder = HttpAsyncClients.custom();
+
+        if (proxy != null) {
+            DefaultProxyRoutePlanner routePlanner = new DefaultProxyRoutePlanner(proxy);
+            builder.setRoutePlanner(routePlanner);
+            asyncBuilder.setRoutePlanner(routePlanner);
+        }
+
+        this.httpClient = asyncBuilder.build();
+        this.httpClient.start();
     }
 
-    public StatementClient startQuery(ClientSession session, String query)
+    public UniversalStatementClient startQuery(ClientSession session, String query)
     {
-        return new StatementClient(httpClient, queryInfoCodec, session, query);
+        return new UniversalStatementClient(
+                new ApacheQueryHttpClient(httpClient, mapper, userAgent),
+                session,
+                query);
     }
 
     @Override
-    public void close()
+    public void close() throws IOException
     {
         httpClient.close();
     }
@@ -72,25 +79,25 @@ class QueryExecutor
     // TODO: replace this with a phantom reference
     @SuppressWarnings("FinalizeDeclaration")
     @Override
-    protected void finalize()
+    protected void finalize() throws IOException
     {
         close();
     }
 
     static QueryExecutor create(String userAgent)
     {
-        return new QueryExecutor(userAgent, jsonCodec(QueryResults.class), getSystemSocksProxy());
+        return new QueryExecutor(userAgent, new ObjectMapper(), getSystemSocksProxy());
     }
 
     @Nullable
-    private static HostAndPort getSystemSocksProxy()
+    private static HttpHost getSystemSocksProxy()
     {
         URI uri = URI.create("socket://0.0.0.0:80");
         for (Proxy proxy : ProxySelector.getDefault().select(uri)) {
             if (proxy.type() == Proxy.Type.SOCKS) {
                 if (proxy.address() instanceof InetSocketAddress) {
                     InetSocketAddress address = (InetSocketAddress) proxy.address();
-                    return HostAndPort.fromParts(address.getHostString(), address.getPort());
+                    return new HttpHost(address.getHostString(), address.getPort());
                 }
             }
         }

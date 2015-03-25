@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.client.UniversalStatementClient;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
-import com.facebook.presto.client.StatementClient;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -65,8 +65,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Throwables.propagate;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
-import static com.google.common.collect.Iterators.concat;
-import static com.google.common.collect.Iterators.transform;
+import static com.google.common.collect.Iterables.concat;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -120,17 +119,17 @@ public class PrestoResultSet
     private static final int SECOND_FIELD = 6;
     private static final int MILLIS_FIELD = 7;
 
-    private final StatementClient client;
+    private final UniversalStatementClient client;
     private final DateTimeZone sessionTimeZone;
     private final String queryId;
     private final Iterator<List<Object>> results;
     private final Map<String, Integer> fieldMap;
     private final List<ColumnInfo> columnInfoList;
     private final ResultSetMetaData resultSetMetaData;
-    private final AtomicReference<List<Object>> row = new AtomicReference<>();
+    private final AtomicReference<List<Object>> row = new AtomicReference<List<Object>>();
     private final AtomicBoolean wasNull = new AtomicBoolean();
 
-    PrestoResultSet(StatementClient client)
+    PrestoResultSet(UniversalStatementClient client)
             throws SQLException
     {
         this.client = checkNotNull(client, "client is null");
@@ -142,7 +141,7 @@ public class PrestoResultSet
         this.columnInfoList = getColumnInfo(columns);
         this.resultSetMetaData = new PrestoResultSetMetaData(columnInfoList);
 
-        this.results = flatten(new ResultsPageIterator(client));
+        this.results = flatten(new ResultsPageIterable(client));
     }
 
     public String getQueryId()
@@ -1718,7 +1717,7 @@ public class PrestoResultSet
         return index;
     }
 
-    private static List<Column> getColumns(StatementClient client)
+    private static List<Column> getColumns(UniversalStatementClient client)
             throws SQLException
     {
         while (client.isValid()) {
@@ -1736,17 +1735,17 @@ public class PrestoResultSet
         throw resultsException(results);
     }
 
-    private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator)
+    private static <T> Iterator<T> flatten(Iterable<Iterable<T>> iterator)
     {
-        return concat(transform(iterator, Iterable::iterator));
+        return concat(iterator).iterator();
     }
 
     private static class ResultsPageIterator
             extends AbstractIterator<Iterable<List<Object>>>
     {
-        private final StatementClient client;
+        private final UniversalStatementClient client;
 
-        private ResultsPageIterator(StatementClient client)
+        private ResultsPageIterator(UniversalStatementClient client)
         {
             this.client = checkNotNull(client, "client is null");
         }
@@ -1770,6 +1769,23 @@ public class PrestoResultSet
         }
     }
 
+    private static class ResultsPageIterable
+            implements Iterable<Iterable<List<Object>>>
+    {
+        private final UniversalStatementClient client;
+
+        private ResultsPageIterable(UniversalStatementClient client)
+        {
+            this.client = checkNotNull(client, "client is null");
+        }
+
+        @Override
+        public Iterator<Iterable<List<Object>>> iterator()
+        {
+            return new ResultsPageIterator(client);
+        }
+    }
+
     private static SQLException resultsException(QueryResults results)
     {
         QueryError error = results.getError();
@@ -1780,7 +1796,7 @@ public class PrestoResultSet
 
     private static Map<String, Integer> getFieldMap(List<Column> columns)
     {
-        Map<String, Integer> map = new HashMap<>();
+        Map<String, Integer> map = new HashMap<String, Integer>();
         for (int i = 0; i < columns.size(); i++) {
             String name = columns.get(i).getName().toLowerCase(ENGLISH);
             if (!map.containsKey(name)) {

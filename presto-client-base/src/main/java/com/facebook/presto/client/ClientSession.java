@@ -16,6 +16,7 @@ package com.facebook.presto.client;
 import com.google.common.collect.ImmutableMap;
 
 import java.net.URI;
+import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
 import java.util.HashMap;
 import java.util.Locale;
@@ -25,7 +26,6 @@ import java.util.Map.Entry;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public class ClientSession
 {
@@ -97,7 +97,7 @@ public class ClientSession
         this.properties = ImmutableMap.copyOf(checkNotNull(properties, "properties is null"));
 
         // verify the properties are valid
-        CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
+        CharsetEncoder charsetEncoder = Charset.forName("US-ASCII").newEncoder();
         for (Entry<String, String> entry : properties.entrySet()) {
             checkArgument(!entry.getKey().isEmpty(), "Session property name is empty");
             checkArgument(entry.getKey().indexOf('=') < 0, "Session property name must not contain '=': %s", entry.getKey());
