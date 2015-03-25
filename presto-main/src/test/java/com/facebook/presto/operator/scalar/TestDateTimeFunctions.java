@@ -565,7 +565,7 @@ public class TestDateTimeFunctions
         assertFunction("date_format(" + dateTimeLiteral + ", '%c')", "1");
         assertFunction("date_format(" + dateTimeLiteral + ", '%d')", "09");
         assertFunction("date_format(" + dateTimeLiteral + ", '%e')", "9");
-        assertFunction("date_format(" + dateTimeLiteral + ", '%f')", "000321");
+        assertFunction("date_format(" + dateTimeLiteral + ", '%f')", "321000");
         assertFunction("date_format(" + dateTimeLiteral + ", '%H')", "13");
         assertFunction("date_format(" + dateTimeLiteral + ", '%h')", "01");
         assertFunction("date_format(" + dateTimeLiteral + ", '%I')", "01");
@@ -598,7 +598,7 @@ public class TestDateTimeFunctions
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%c')", "1");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%d')", "09");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%e')", "9");
-        assertFunction("date_format(" + wierdDateTimeLiteral + ", '%f')", "000321");
+        assertFunction("date_format(" + wierdDateTimeLiteral + ", '%f')", "321000");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%H')", "13");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%h')", "01");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%I')", "01");
@@ -623,6 +623,8 @@ public class TestDateTimeFunctions
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%g')", "g");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%4')", "4");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%x %v')", "2001 02");
+
+        assertFunction("date_format(TIMESTAMP '2001-01-09 13:04:05.32', '%f')", "320000");
     }
 
     @Test
@@ -642,6 +644,10 @@ public class TestDateTimeFunctions
         assertFunction("date_parse('2013 14', '%Y %y')", toTimestamp(new DateTime(2014, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE)));
 
         assertFunction("date_parse('1998 53', '%x %v')", toTimestamp(new DateTime(1998, 12, 28, 0, 0, 0, 0, DATE_TIME_ZONE)));
+
+        assertFunction("date_parse('1.1', '%s.%f')", toTimestamp(new DateTime(1970, 1, 1, 0, 0, 1, 100, DATE_TIME_ZONE)));
+        assertFunction("date_parse('1.01', '%s.%f')", toTimestamp(new DateTime(1970, 1, 1, 0, 0, 1, 10, DATE_TIME_ZONE)));
+        assertFunction("date_parse('1.2006', '%s.%f')", toTimestamp(new DateTime(1970, 1, 1, 0, 0, 1, 200, DATE_TIME_ZONE)));
     }
 
     @Test
