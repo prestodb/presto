@@ -32,6 +32,7 @@ import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.Slices.utf8Slice;
 
 public class DwrfMetadataReader
         implements MetadataReader
@@ -222,8 +223,8 @@ public class DwrfMetadataReader
         }
 
         return new StringStatistics(
-                stringStatistics.hasMinimum() ? stringStatistics.getMinimum() : null,
-                stringStatistics.hasMaximum() ? stringStatistics.getMaximum() : null);
+                stringStatistics.hasMinimum() ? utf8Slice(stringStatistics.getMinimum()) : null,
+                stringStatistics.hasMaximum() ? utf8Slice(stringStatistics.getMaximum()) : null);
     }
 
     private static OrcType toType(OrcProto.Type type)

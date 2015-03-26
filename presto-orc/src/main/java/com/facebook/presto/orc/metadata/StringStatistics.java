@@ -13,26 +13,28 @@
  */
 package com.facebook.presto.orc.metadata;
 
-public class StringStatistics
-        implements RangeStatistics<String>
-{
-    private final String minimum;
-    private final String maximum;
+import io.airlift.slice.Slice;
 
-    public StringStatistics(String minimum, String maximum)
+public class StringStatistics
+        implements RangeStatistics<Slice>
+{
+    private final Slice minimum;
+    private final Slice maximum;
+
+    public StringStatistics(Slice minimum, Slice maximum)
     {
         this.minimum = minimum;
         this.maximum = maximum;
     }
 
     @Override
-    public String getMin()
+    public Slice getMin()
     {
         return minimum;
     }
 
     @Override
-    public String getMax()
+    public Slice getMax()
     {
         return maximum;
     }
