@@ -41,9 +41,12 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -90,7 +93,7 @@ public class TaskExecutor
     private final Set<PrioritizedSplitRunner> allSplits = new HashSet<>();
     private final PriorityBlockingQueue<PrioritizedSplitRunner> pendingSplits;
     private final Set<PrioritizedSplitRunner> runningSplits = newConcurrentHashSet();
-    private final Set<PrioritizedSplitRunner> blockedSplits = newConcurrentHashSet();
+    private final Map<PrioritizedSplitRunner, Future<?>> blockedSplits = new ConcurrentHashMap<>();
 
     private final AtomicLongArray completedTasksPerLevel = new AtomicLongArray(5);
 
@@ -180,7 +183,7 @@ public class TaskExecutor
 
             // stop tracking splits (especially blocked splits which may never unblock)
             allSplits.removeAll(splits);
-            blockedSplits.removeAll(splits);
+            blockedSplits.keySet().removeAll(splits);
             pendingSplits.removeAll(splits);
         }
 
@@ -633,7 +636,7 @@ public class TaskExecutor
                                 pendingSplits.put(split);
                             }
                             else {
-                                blockedSplits.add(split);
+                                blockedSplits.put(split, blocked);
                                 blocked.addListener(new Runnable()
                                 {
                                     @Override
