@@ -180,6 +180,13 @@ public abstract class AbstractTestOrcReader
     }
 
     @Test
+    public void testDoubleNaNInfinity()
+            throws Exception
+    {
+        tester.testRoundTrip(javaDoubleObjectInspector, ImmutableList.of(Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY), DOUBLE);
+    }
+
+    @Test
     public void testStringDirectSequence()
             throws Exception
     {
