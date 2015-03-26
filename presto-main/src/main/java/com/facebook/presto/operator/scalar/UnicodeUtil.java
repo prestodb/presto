@@ -61,8 +61,8 @@ final class UnicodeUtil
             long i64 = string.getLong(i);
             //
             // Count bytes which are NOT the start of a code point
-            i64 = ((i64 & TOP_MASK64) >> 7) & (~i64 >> 6);
-            count += (i64 * ONE_MULTIPLIER64) >> 56;
+            i64 = ((i64 & TOP_MASK64) >>> 7) & (~i64 >>> 6);
+            count += (i64 * ONE_MULTIPLIER64) >>> 56;
         }
         //
         // Enough bytes left for 32 bits?
@@ -72,8 +72,8 @@ final class UnicodeUtil
             int i32 = string.getInt(i);
             //
             // Count bytes which are NOT the start of a code point
-            i32 = ((i32 & TOP_MASK32) >> 7) & (~i32 >> 6);
-            count += (i32 * ONE_MULTIPLIER32) >> 24;
+            i32 = ((i32 & TOP_MASK32) >>> 7) & (~i32 >>> 6);
+            count += (i32 * ONE_MULTIPLIER32) >>> 24;
 
             i += 4;
         }
@@ -83,7 +83,7 @@ final class UnicodeUtil
             int i8 = string.getByte(i) & 0xff;
             //
             // Count bytes which are NOT the start of a code point
-            count += (i8 >> 7) & (~i8 >> 6);
+            count += (i8 >>> 7) & (~i8 >>> 6);
         }
 
         assert count <= end;
@@ -114,8 +114,8 @@ final class UnicodeUtil
             long i64 = string.getLong(i);
             //
             // Count bytes which are NOT the start of a code point
-            i64 = ((i64 & TOP_MASK64) >> 7) & (~i64 >> 6);
-            correctIndex += ((i64 * ONE_MULTIPLIER64) >> 56);
+            i64 = ((i64 & TOP_MASK64) >>> 7) & (~i64 >>> 6);
+            correctIndex += ((i64 * ONE_MULTIPLIER64) >>> 56);
 
             i += 8;
         }
@@ -130,8 +130,8 @@ final class UnicodeUtil
             int i32 = string.getInt(i);
             //
             // Count bytes which are NOT the start of a code point
-            i32 = ((i32 & TOP_MASK32) >> 7) & (~i32 >> 6);
-            correctIndex += ((i32 * ONE_MULTIPLIER32) >> 24);
+            i32 = ((i32 & TOP_MASK32) >>> 7) & (~i32 >>> 6);
+            correctIndex += ((i32 * ONE_MULTIPLIER32) >>> 24);
 
             i += 4;
         }
@@ -141,7 +141,7 @@ final class UnicodeUtil
             int i8 = string.getByte(i) & 0xff;
             //
             // Count bytes which are NOT the start of a code point
-            correctIndex += ((i8 >> 7) & (~i8 >> 6));
+            correctIndex += ((i8 >>> 7) & (~i8 >>> 6));
             if (i == correctIndex) {
                 return i;
             }
