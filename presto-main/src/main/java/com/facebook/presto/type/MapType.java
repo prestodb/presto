@@ -29,7 +29,9 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
+import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
+import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -39,6 +41,7 @@ public class MapType
 {
     private final Type keyType;
     private final Type valueType;
+    private static final String MAP_NULL_ELEMENT_MSG = "MAP comparison not supported for null value elements";
 
     public MapType(Type keyType, Type valueType)
     {
@@ -66,6 +69,100 @@ public class MapType
     public Type getValueType()
     {
         return valueType;
+    }
+
+    @Override
+    public boolean isComparable()
+    {
+        return valueType.isComparable();
+    }
+
+    @Override
+    public int hash(Block block, int position)
+    {
+        Slice mapSlice = getSlice(block, position);
+        Block mapBlock = readStructuralBlock(mapSlice);
+        int result = 0;
+
+        for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
+            result += hashPosition(keyType, mapBlock, i);
+            result += hashPosition(valueType, mapBlock, i + 1);
+        }
+        return result;
+    }
+
+    @Override
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        Slice leftSlice = getSlice(leftBlock, leftPosition);
+        Slice rightSlice = getSlice(rightBlock, rightPosition);
+        Block leftMapBlock = readStructuralBlock(leftSlice);
+        Block rightMapBlock = readStructuralBlock(rightSlice);
+
+        if (leftMapBlock.getPositionCount() != rightMapBlock.getPositionCount()) {
+            return false;
+        }
+
+        Map<KeyWrapper, Integer> wrappedLeftMap = new HashMap<>();
+        for (int position = 0; position < leftMapBlock.getPositionCount(); position += 2) {
+            wrappedLeftMap.put(new KeyWrapper(keyType, leftMapBlock, position), position + 1);
+        }
+
+        for (int position = 0; position < rightMapBlock.getPositionCount(); position += 2) {
+            KeyWrapper key = new KeyWrapper(keyType, rightMapBlock, position);
+            Integer leftValuePosition = wrappedLeftMap.get(key);
+            if (leftValuePosition == null) {
+                return false;
+            }
+            int rightValuePosition = position + 1;
+            checkElementNotNull(leftMapBlock.isNull(leftValuePosition), MAP_NULL_ELEMENT_MSG);
+            checkElementNotNull(rightMapBlock.isNull(rightValuePosition), MAP_NULL_ELEMENT_MSG);
+
+            if (!valueType.equalTo(leftMapBlock, leftValuePosition, rightMapBlock, rightValuePosition)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static final class KeyWrapper
+    {
+        private final Type type;
+        private final Block block;
+        private final int position;
+
+        public KeyWrapper(Type type, Block block, int position)
+        {
+            this.type = type;
+            this.block = block;
+            this.position = position;
+        }
+
+        public Block getBlock()
+        {
+            return this.block;
+        }
+
+        public int getPosition()
+        {
+            return this.position;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return type.hash(block, position);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (obj == null || !getClass().equals(obj.getClass())) {
+                return false;
+            }
+            KeyWrapper other = (KeyWrapper) obj;
+            return type.equalTo(this.block, this.position, other.getBlock(), other.getPosition());
+        }
     }
 
     @Override
