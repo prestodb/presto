@@ -90,9 +90,25 @@ public class TaskExecutor
     @GuardedBy("this")
     private final List<TaskHandle> tasks;
 
+    /**
+     * All splits registered with the task executor.
+     */
+    @GuardedBy("this")
     private final Set<PrioritizedSplitRunner> allSplits = new HashSet<>();
+
+    /**
+     * Splits waiting for a runner thread.
+     */
     private final PriorityBlockingQueue<PrioritizedSplitRunner> pendingSplits;
+
+    /**
+     * Splits running on a thread.
+     */
     private final Set<PrioritizedSplitRunner> runningSplits = newConcurrentHashSet();
+
+    /**
+     * Splits blocked by the driver (typically output buffer is full or input buffer is empty).
+     */
     private final Map<PrioritizedSplitRunner, Future<?>> blockedSplits = new ConcurrentHashMap<>();
 
     private final AtomicLongArray completedTasksPerLevel = new AtomicLongArray(5);
