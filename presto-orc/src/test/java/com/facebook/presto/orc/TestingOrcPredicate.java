@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.metadata.ColumnStatistics;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
+import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
@@ -269,12 +270,12 @@ public final class TestingOrcPredicate
             // statistics can be missing for any reason
             if (columnStatistics.getStringStatistics() != null) {
                 // verify min
-                if (!columnStatistics.getStringStatistics().getMin().equals(Ordering.natural().nullsLast().min(chunk))) {
+                if (!columnStatistics.getStringStatistics().getMin().equals(Slices.utf8Slice(Ordering.natural().nullsLast().min(chunk)))) {
                     return false;
                 }
 
                 // verify max
-                if (!columnStatistics.getStringStatistics().getMax().equals(Ordering.natural().nullsFirst().max(chunk))) {
+                if (!columnStatistics.getStringStatistics().getMax().equals(Slices.utf8Slice(Ordering.natural().nullsFirst().max(chunk)))) {
                     return false;
                 }
             }

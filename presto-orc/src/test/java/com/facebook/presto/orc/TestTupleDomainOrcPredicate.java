@@ -23,6 +23,7 @@ import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.SortedRangeSet;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.orc.TupleDomainOrcPredicate.getDomain;
@@ -164,7 +165,9 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics stringColumnStats(Long numberOfValues, String minimum, String maximum)
     {
-        return new ColumnStatistics(numberOfValues, null, null, null, new StringStatistics(minimum, maximum), null);
+        Slice minSlice = (minimum == null ? null : Slices.utf8Slice(minimum));
+        Slice maxSlice = (maximum == null ? null : Slices.utf8Slice(maximum));
+        return new ColumnStatistics(numberOfValues, null, null, null, new StringStatistics(minSlice, maxSlice), null);
     }
 
     @Test
