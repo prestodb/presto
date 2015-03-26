@@ -13,35 +13,22 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestMathFunctions
+        extends AbstractTestFunctions
 {
     private static final double[] DOUBLE_VALUES = {123, -123, 123.45, -123.45};
     private static final long[] longLefts = {9, 10, 11, -9, -10, -11};
     private static final long[] longRights = {3, -3};
     private static final double[] doubleLefts = {9, 10, 11, -9, -10, -11, 9.1, 10.1, 11.1, -9.1, -10.1, -11.1};
     private static final double[] doubleRights = {3, -3, 3.1, -3.1};
-
-    private FunctionAssertions functionAssertions;
-
-    @BeforeClass
-    public void setUp()
-    {
-        functionAssertions = new FunctionAssertions();
-    }
 
     @Test
     public void testAbs()
@@ -398,6 +385,9 @@ public class TestMathFunctions
         // mixed
         assertFunction("greatest(1, 2.0)", DOUBLE, 2.0);
         assertFunction("greatest(1.0, 2)", DOUBLE, 2.0);
+
+        // invalid
+        assertInvalidFunction("greatest(1.5, 0.0 / 0.0)", DOUBLE, "Invalid argument to greatest(): NaN");
     }
 
     @Test
@@ -419,20 +409,9 @@ public class TestMathFunctions
         // mixed
         assertFunction("least(1, 2.0)", DOUBLE, 1.0);
         assertFunction("least(1.0, 2)", DOUBLE, 1.0);
-    }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "\\QInvalid argument to greatest(): NaN\\E")
-    public void testGreatestWithNaN()
-            throws Exception
-    {
-        functionAssertions.tryEvaluate("greatest(1.5, 0.0 / 0.0)", DOUBLE);
-    }
-
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "\\QInvalid argument to least(): NaN\\E")
-    public void testLeastWithNaN()
-            throws Exception
-    {
-        functionAssertions.tryEvaluate("least(1.5, 0.0 / 0.0)", DOUBLE);
+        // invalid
+        assertInvalidFunction("least(1.5, 0.0 / 0.0)", DOUBLE, "Invalid argument to least(): NaN");
     }
 
     @Test
@@ -457,22 +436,5 @@ public class TestMathFunctions
         assertInvalidFunction("from_base('Z', 37)", BIGINT, "Radix must be between 2 and 36");
         assertInvalidFunction("from_base('Z', 35)", BIGINT, "Not a valid base-35 number: Z");
         assertInvalidFunction("from_base('9223372036854775808', 10)", BIGINT, "Not a valid base-10 number: 9223372036854775808");
-    }
-
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
-    }
-
-    private void assertInvalidFunction(String projection, Type expectedType, String message)
-    {
-        try {
-            assertFunction(projection, expectedType, null);
-            fail("Expected to throw an INVALID_FUNCTION_ARGUMENT exception with message " + message);
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
-            assertEquals(e.getMessage(), message);
-        }
     }
 }

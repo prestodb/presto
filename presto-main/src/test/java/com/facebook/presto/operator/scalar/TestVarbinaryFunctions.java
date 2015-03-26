@@ -14,8 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.type.SqlVarbinary;
-import com.facebook.presto.spi.type.Type;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Base64;
@@ -28,6 +26,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class TestVarbinaryFunctions
+        extends AbstractTestFunctions
 {
     private static final byte[] ALL_BYTES;
 
@@ -36,19 +35,6 @@ public class TestVarbinaryFunctions
         for (int i = 0; i < ALL_BYTES.length; i++) {
             ALL_BYTES[i] = (byte) i;
         }
-    }
-
-    private FunctionAssertions functionAssertions;
-
-    @BeforeClass
-    public void setUp()
-    {
-        functionAssertions = new FunctionAssertions();
-    }
-
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
     }
 
     @Test

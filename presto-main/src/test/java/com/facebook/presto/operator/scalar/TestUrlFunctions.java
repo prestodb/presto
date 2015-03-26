@@ -13,23 +13,14 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.type.Type;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestUrlFunctions
+        extends AbstractTestFunctions
 {
-    private FunctionAssertions functionAssertions;
-
-    @BeforeClass
-    public void setUp()
-    {
-        functionAssertions = new FunctionAssertions();
-    }
-
     @Test
     public void testUrlExtract()
     {
@@ -63,7 +54,7 @@ public class TestUrlFunctions
         assertFunction("url_extract_protocol('" + url + "')", VARCHAR, protocol);
         assertFunction("url_extract_host('" + url + "')", VARCHAR, host);
         if (port == null) {
-            assertFunctionNull("url_extract_port('" + url + "')", BIGINT);
+            assertFunction("url_extract_port('" + url + "')", BIGINT, null);
         }
         else {
             assertFunction("url_extract_port('" + url + "')", BIGINT, port);
@@ -71,15 +62,5 @@ public class TestUrlFunctions
         assertFunction("url_extract_path('" + url + "')", VARCHAR, path);
         assertFunction("url_extract_query('" + url + "')", VARCHAR, query);
         assertFunction("url_extract_fragment('" + url + "')", VARCHAR, fragment);
-    }
-
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
-    }
-
-    private void assertFunctionNull(String projection, Type expectedType)
-    {
-        functionAssertions.assertFunctionNull(projection, expectedType);
     }
 }

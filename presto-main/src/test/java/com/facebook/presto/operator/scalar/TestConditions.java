@@ -13,26 +13,17 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestConditions
+        extends AbstractTestFunctions
 {
-    private FunctionAssertions functionAssertions;
-
-    @BeforeClass
-    public void setUp()
-    {
-        functionAssertions = new FunctionAssertions();
-    }
-
     @Test
     public void testLike()
     {
@@ -75,6 +66,8 @@ public class TestConditions
         assertFunction("null not like 'monkey'", BOOLEAN, null);
         assertFunction("'monkey' not like null", BOOLEAN, null);
         assertFunction("'monkey' not like 'monkey' escape null", BOOLEAN, null);
+
+        assertInvalidFunction("'monkey' like 'monkey' escape 'foo'", VARCHAR, "Escape must be empty or a single character");
     }
 
     @Test
@@ -93,13 +86,6 @@ public class TestConditions
         assertFunction("1 IS NOT DISTINCT FROM 1", BOOLEAN, true);
         assertFunction("1 IS NOT DISTINCT FROM 2", BOOLEAN, false);
     }
-
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*escape must be empty or a single character.*")
-    public void testLikeInvalidEscape()
-    {
-        evaluate("'monkey' like 'monkey' escape 'foo'", VARCHAR);
-    }
-
     @Test
     public void testBetween()
     {
@@ -166,10 +152,10 @@ public class TestConditions
         assertFunction("(3 not in (2, null)) is null", BOOLEAN, true);
     }
 
-    @Test(expectedExceptions = PrestoException.class)
+    @Test
     public void testInDoesNotShortCircuit()
     {
-        evaluate("3 in (2, 4, 3, 5 / 0)", DOUBLE);
+        assertInvalidFunction("3 in (2, 4, 3, 5 / 0)", DOUBLE, DIVISION_BY_ZERO);
     }
 
     @Test
@@ -290,15 +276,5 @@ public class TestConditions
                         "end",
                 DOUBLE,
                 33.0);
-    }
-
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
-    }
-
-    private void evaluate(String projection, Type expectedType)
-    {
-        functionAssertions.tryEvaluate(projection, expectedType);
     }
 }

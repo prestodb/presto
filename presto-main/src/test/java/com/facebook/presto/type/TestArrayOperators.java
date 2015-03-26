@@ -13,13 +13,11 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.metadata.FunctionListBuilder;
-import com.facebook.presto.operator.scalar.FunctionAssertions;
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.operator.scalar.TestingRowConstructor;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.SqlTimestamp;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.google.common.collect.ImmutableList;
@@ -27,12 +25,10 @@ import com.google.common.collect.Lists;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -52,36 +48,11 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestArrayOperators
+        extends AbstractTestFunctions
 {
-    private FunctionAssertions functionAssertions;
-
-    @BeforeClass
-    public void setUp()
+    public TestArrayOperators()
     {
-        functionAssertions = new FunctionAssertions();
-        functionAssertions.getMetadata().getFunctionRegistry().addFunctions(new FunctionListBuilder(functionAssertions.getMetadata().getTypeManager()).scalar(TestingRowConstructor.class).getFunctions());
-    }
-
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
-    }
-
-    private void assertInvalidFunction(String projection, String message)
-    {
-        try {
-            assertFunction(projection, UNKNOWN, null);
-            fail("Expected to throw an INVALID_FUNCTION_ARGUMENT exception with message " + message);
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
-            assertEquals(e.getMessage(), message);
-        }
-    }
-
-    private void assertInvalidFunction(String projection)
-    {
-        functionAssertions.assertInvalidFunction(projection);
+        registerScalar(TestingRowConstructor.class);
     }
 
     @Test
@@ -141,10 +112,10 @@ public class TestArrayOperators
         assertFunction("CAST(CAST('[true, false]' AS JSON) AS ARRAY<BOOLEAN>)", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
         assertFunction("CAST(CAST('[[1], [null]]' AS JSON) AS ARRAY<ARRAY<BIGINT>>)", new ArrayType(new ArrayType(BIGINT)), asList(asList(1L), asList((Long) null)));
         assertFunction("CAST(CAST('null' AS JSON) AS ARRAY<BIGINT>)", new ArrayType(BIGINT), null);
-        assertInvalidFunction("CAST(CAST('[1, null, 3]' AS JSON) AS ARRAY<TIMESTAMP>)");
-        assertInvalidFunction("CAST(CAST('[1, null, 3]' AS JSON) AS ARRAY<ARRAY<TIMESTAMP>>)");
-        assertInvalidFunction("CAST(CAST('[1, 2, 3]' AS JSON) AS ARRAY<BOOLEAN>)");
-        assertInvalidFunction("CAST(CAST('[\"puppies\", \"kittens\"]' AS JSON) AS ARRAY<BIGINT>)");
+        assertInvalidCast("CAST(CAST('[1, null, 3]' AS JSON) AS ARRAY<TIMESTAMP>)");
+        assertInvalidCast("CAST(CAST('[1, null, 3]' AS JSON) AS ARRAY<ARRAY<TIMESTAMP>>)");
+        assertInvalidCast("CAST(CAST('[1, 2, 3]' AS JSON) AS ARRAY<BOOLEAN>)");
+        assertInvalidCast("CAST(CAST('[\"puppies\", \"kittens\"]' AS JSON) AS ARRAY<BIGINT>)");
     }
 
     @Test
@@ -254,11 +225,11 @@ public class TestArrayOperators
             throws Exception
     {
         String outOfBounds = "Index out of bounds";
-        assertInvalidFunction("ARRAY [][1]", outOfBounds);
-        assertInvalidFunction("ARRAY [null][-1]", outOfBounds);
-        assertInvalidFunction("ARRAY [1, 2, 3][0]", outOfBounds);
-        assertInvalidFunction("ARRAY [1, 2, 3][-1]", outOfBounds);
-        assertInvalidFunction("ARRAY [1, 2, 3][4]", outOfBounds);
+        assertInvalidFunction("ARRAY [][1]", UNKNOWN, outOfBounds);
+        assertInvalidFunction("ARRAY [null][-1]", UNKNOWN, outOfBounds);
+        assertInvalidFunction("ARRAY [1, 2, 3][0]", UNKNOWN, outOfBounds);
+        assertInvalidFunction("ARRAY [1, 2, 3][-1]", UNKNOWN, outOfBounds);
+        assertInvalidFunction("ARRAY [1, 2, 3][4]", UNKNOWN, outOfBounds);
 
         try {
             assertFunction("ARRAY [1, 2, 3][1.1]", BIGINT, null);

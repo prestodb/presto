@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarOperator;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import org.jcodings.specific.UTF8Encoding;
@@ -23,6 +24,7 @@ import org.joni.Option;
 import org.joni.Regex;
 import org.joni.Syntax;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.joni.constants.MetaChar.INEFFECTIVE_META_CHAR;
 import static org.joni.constants.SyntaxProperties.OP_ASTERISK_ZERO_INF;
@@ -135,7 +137,7 @@ public final class LikeFunctions
         if (escapeString.length() == 1) {
             return escapeString.charAt(0);
         }
-        throw new IllegalArgumentException("escape must be empty or a single character: " + escapeString);
+        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Escape must be empty or a single character");
     }
 
     private static boolean isAscii(byte[] bytes)

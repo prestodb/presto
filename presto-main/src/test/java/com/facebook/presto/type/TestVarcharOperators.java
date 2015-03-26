@@ -13,29 +13,15 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.spi.type.Type;
-import org.testng.annotations.BeforeClass;
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestVarcharOperators
+        extends AbstractTestFunctions
 {
-    private FunctionAssertions functionAssertions;
-
-    @BeforeClass
-    public void setUp()
-    {
-        functionAssertions = new FunctionAssertions();
-    }
-
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
-    }
-
     @Test
     public void testLiteral()
             throws Exception
