@@ -50,3 +50,7 @@ Array Functions
 .. function:: contains(array, element) -> boolean
 
     Returns true if the ``array`` contains the ``element``.
+
+.. function:: array_join(x, delimiter, null_replacement) -> varchar
+
+    Concatenates the elements of the given array using the delimiter and an optional string to replace nulls.
