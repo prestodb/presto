@@ -584,7 +584,9 @@ public class HttpRemoteTask
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
-                    currentRequest = null;
+                    synchronized (HttpRemoteTask.this) {
+                        currentRequest = null;
+                    }
                     updateTaskInfo(value, sources);
                     updateErrorTracker.requestSucceeded();
                 }
@@ -599,7 +601,9 @@ public class HttpRemoteTask
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
-                    currentRequest = null;
+                    synchronized (HttpRemoteTask.this) {
+                        currentRequest = null;
+                    }
 
                     // on failure assume we need to update again
                     needsUpdate.set(true);
