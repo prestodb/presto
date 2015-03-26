@@ -321,6 +321,8 @@ public class TestMathFunctions
         assertFunction("round(-3.5, 1)", -3.5);
         assertFunction("round(-3.5001, 1)", -3.5);
         assertFunction("round(-3.99, 1)", -4.0);
+        assertFunction("round(24.700000000000003, 14)", 24.7);
+        assertFunction("round(24.700000000000005, 14)", 24.70000000000001);
     }
 
     @Test
