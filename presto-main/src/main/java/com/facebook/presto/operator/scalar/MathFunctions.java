@@ -112,6 +112,14 @@ public final class MathFunctions
         return Math.cosh(num);
     }
 
+    @Description("converts an angle in radians to degrees")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double degrees(@SqlType(StandardTypes.DOUBLE) double angrad)
+    {
+        return Math.toDegrees(angrad);
+    }
+
     @Description("Euler's number")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
@@ -206,6 +214,14 @@ public final class MathFunctions
     public static double pow(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.DOUBLE) double exponent)
     {
         return Math.pow(num, exponent);
+    }
+
+    @Description("converts an angle in degrees to radians")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double radians(@SqlType(StandardTypes.DOUBLE) double angdeg)
+    {
+        return Math.toRadians(angdeg);
     }
 
     @Description("a pseudo-random value")

@@ -34,6 +34,10 @@ Mathematical Functions
 
     Returns ``x`` rounded up to the nearest integer.
 
+.. function:: degrees(x) -> double
+
+    Returns converts angle ``x`` in radians to degrees
+
 .. function:: e() -> double
 
     Returns the constant Euler's number.
@@ -73,6 +77,10 @@ Mathematical Functions
 .. function:: pow(x, p) -> double
 
     Returns ``x`` raised to the power of ``p``.
+
+.. function:: radians(x) -> double
+
+    Returns converts angle ``x`` in degrees to radians
 
 .. function:: rand() -> double
 
