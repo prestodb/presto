@@ -72,13 +72,6 @@ String Functions
     Field indexes start with ``1``. If the index is larger than than
     the number of fields, then null is returned.
 
-.. function:: split_regexp(string, pattern) -> array<varchar>
-
-    Splits ``string`` using ``pattern`` and returns an array.
-    ``pattern`` uses the `Java pattern`_ syntax.
-
-        .. _Java pattern: http://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
-
 .. function:: strpos(string, substring) -> bigint
 
     Returns the starting position of the first instance of ``substring`` in

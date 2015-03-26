@@ -188,15 +188,6 @@ public final class StringFunctions
         return toStackRepresentation(result, VARCHAR);
     }
 
-    @ScalarFunction
-    @SqlType("array<varchar>")
-    public static Slice splitRegexp(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice pattern)
-    {
-        List<String> result = Splitter.onPattern(pattern.toStringUtf8())
-                .splitToList(string.toStringUtf8());
-        return toStackRepresentation(result, VARCHAR);
-    }
-
     // TODO: Implement a more efficient string search
     @Nullable
     @Description("splits a string by a delimiter and returns the specified field (counting from one)")

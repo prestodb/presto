@@ -146,17 +146,6 @@ public class TestStringFunctions
     }
 
     @Test
-    public void testSplitRegexp()
-    {
-        assertFunction("SPLIT_REGEXP('a.b:c;d', '[\\.:;]')", ImmutableList.of("a", "b", "c", "d"));
-        assertFunction("SPLIT_REGEXP('a.b:c;d', '\\.')", ImmutableList.of("a", "b:c;d"));
-        assertFunction("SPLIT_REGEXP('a.b:c;d', ':')", ImmutableList.of("a.b", "c;d"));
-        assertFunction("SPLIT_REGEXP('a,b,c', ',')", ImmutableList.of("a", "b", "c"));
-        assertFunction("SPLIT_REGEXP('a1b2c3d', '\\d')", ImmutableList.of("a", "b", "c", "d"));
-        assertFunction("SPLIT_REGEXP('a1b2346c3d', '\\d+')", ImmutableList.of("a", "b", "c", "d"));
-    }
-
-    @Test
     public void testSplitPart()
     {
         assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 1)", "abc");
