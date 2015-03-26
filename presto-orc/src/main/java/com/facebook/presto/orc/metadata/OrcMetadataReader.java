@@ -17,9 +17,12 @@ import com.facebook.presto.hive.protobuf.CodedInputStream;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.ql.io.orc.OrcProto;
 import org.apache.hadoop.hive.ql.io.orc.OrcProto.RowIndexEntry;
 
@@ -31,11 +34,13 @@ import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Character.MIN_SURROGATE;
 
 public class OrcMetadataReader
         implements MetadataReader
 {
+    private static final Slice MAX_BYTE = Slices.wrappedBuffer(new byte[] { (byte) 0xFF });
+
     @Override
     public PostScript readPostScript(byte[] data, int offset, int length)
             throws IOException
@@ -220,15 +225,84 @@ public class OrcMetadataReader
             return null;
         }
 
-        // temporarily disable string statistics until we figure out the implications of how UTF-16
-        // strings are compared when they contain surrogate pairs and replacement characters
-        if (true) {
+        /*
+        The writer performs comparisons using java Strings to determine the minimum and maximum
+        values. This results in weird behaviors in the presence of surrogate pairs and special characters.
+
+        For example, unicode codepoint 0x1D403 has the following representations:
+        UTF-16: [0xD835, 0xDC03]
+        UTF-8: [0xF0, 0x9D, 0x90, 0x83]
+
+        while codepoint 0xFFFD (the replacement character) has the following representations:
+        UTF-16: [0xFFFD]
+        UTF-8: [0xEF, 0xBF, 0xBD]
+
+        when comparisons between strings containing these characters are done with Java Strings (UTF-16),
+        0x1D403 < 0xFFFD, but when comparisons are done using raw codepoints or UTF-8, 0x1D403 > 0xFFFD
+
+        We use the following logic to ensure that we have a wider range of min-max
+        * if a min string has a surrogate character, the min string is truncated
+          at the first occurrence of the surrogate character (to exclude the surrogate character)
+        * if a max string has a surrogate character, the max string is truncated
+          at the first occurrence the surrogate character and 0xFF byte is appended to it.
+
+         */
+        Slice minimum = stringStatistics.hasMinimum() ? getMinSlice(stringStatistics.getMinimum()) : null;
+        Slice maximum = stringStatistics.hasMaximum() ? getMaxSlice(stringStatistics.getMaximum()) : null;
+
+        return new StringStatistics(minimum, maximum);
+    }
+
+    @VisibleForTesting
+    public static Slice getMaxSlice(String maximum)
+    {
+        if (maximum == null) {
             return null;
         }
 
-        return new StringStatistics(
-                stringStatistics.hasMinimum() ? utf8Slice(stringStatistics.getMinimum()) : null,
-                stringStatistics.hasMaximum() ? utf8Slice(stringStatistics.getMaximum()) : null);
+        int index = firstSurrogateCharacter(maximum);
+        if (index == -1) {
+            return Slices.utf8Slice(maximum);
+        }
+        // Append 0xFF so that it is larger than maximum
+        return concatSlices(Slices.utf8Slice(maximum.substring(0, index)), MAX_BYTE);
+    }
+
+    @VisibleForTesting
+    public static Slice getMinSlice(String minimum)
+    {
+        if (minimum == null) {
+            return null;
+        }
+
+        int index = firstSurrogateCharacter(minimum);
+        if (index == -1) {
+            return Slices.utf8Slice(minimum);
+        }
+        // truncate the string at the first surrogate character
+        return Slices.utf8Slice(minimum.substring(0, index));
+    }
+
+    // returns index of first surrogateCharacter in the string -1 if no surrogate character is found
+    @VisibleForTesting
+    static int firstSurrogateCharacter(String value)
+    {
+        char[] chars = value.toCharArray();
+        for (int i = 0; i < chars.length; i++) {
+            if (chars[i] >= MIN_SURROGATE) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    @VisibleForTesting
+    static Slice concatSlices(Slice slice1, Slice slice2)
+    {
+        Slice slice = Slices.allocate(slice1.length() + slice2.length());
+        slice.setBytes(0, slice1.getBytes());
+        slice.setBytes(slice1.length(), slice2.getBytes());
+        return slice;
     }
 
     private static DateStatistics toDateStatistics(OrcProto.DateStatistics dateStatistics, boolean isRowGroup)
