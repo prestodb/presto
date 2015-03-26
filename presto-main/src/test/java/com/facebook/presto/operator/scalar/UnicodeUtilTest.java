@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
@@ -134,16 +135,24 @@ public class UnicodeUtilTest
     }
 
     @Test
-    public void testRequiredLengthOfCodePoint()
+    public void testLengthOfCodePoint()
     {
-        assertEquals(UnicodeUtil.requiredLengthOfCodePoint(0x24), 1);
-        assertEquals(UnicodeUtil.requiredLengthOfCodePoint(0xC2), 2);
-        assertEquals(UnicodeUtil.requiredLengthOfCodePoint(0xE2), 3);
-        assertEquals(UnicodeUtil.requiredLengthOfCodePoint(0xF0), 4);
-        // some illegal start bytes
-        assertEquals(UnicodeUtil.requiredLengthOfCodePoint(0x8D), 1);
-        assertEquals(UnicodeUtil.requiredLengthOfCodePoint(0x80), 1);
-        assertEquals(UnicodeUtil.requiredLengthOfCodePoint(0xFE), 1);
+        assertEquals(UnicodeUtil.lengthOfCodePoint(0x24), 1);
+        assertEquals(UnicodeUtil.lengthOfCodePoint(0xC2), 2);
+        assertEquals(UnicodeUtil.lengthOfCodePoint(0xE2), 3);
+        assertEquals(UnicodeUtil.lengthOfCodePoint(0xF0), 4);
+    }
+
+    @Test(expectedExceptions = PrestoException.class)
+    public void testLengthOfCodePointIllegal1()
+    {
+        UnicodeUtil.lengthOfCodePoint(0x80);
+    }
+
+    @Test(expectedExceptions = PrestoException.class)
+    public void testLengthOfCodePointIllegal2()
+    {
+        UnicodeUtil.lengthOfCodePoint(0xFE);
     }
 
     @Test

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import io.airlift.slice.Slice;
 
 /**
@@ -170,12 +172,9 @@ final class UnicodeUtil
     }
 
     /**
-     * Method returns the length of code point by examine the start byte.
-     * <p>
-     * Invalid start bytes or code points will not throw an exception but return 1.
-     * </p>
+     * Method returns the length of code point by examine the start byte of a code point.
      */
-    static int requiredLengthOfCodePoint(final int ch)
+    static int lengthOfCodePoint(final int ch)
     {
         if (ch < 0x80) {
             // normal ASCII
@@ -184,8 +183,7 @@ final class UnicodeUtil
         else if (ch < 0xc0) {
             //
             // 10xxxxxx -- illegal as start
-            // Illegal character but we want to skip this byte gracefully
-            return 1;
+            throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "illegal start 0x" + Integer.toHexString(ch) + " of code point");
         }
         else if (ch < 0xe0) {
             // 110xxxxx 10xxxxxx
@@ -201,7 +199,7 @@ final class UnicodeUtil
         }
         //
         // According to RFC3629 limited to 4 bytes so 5 and 6 bytes are illegal
-        return 1;
+        throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "illegal start 0x" + Integer.toHexString(ch) + " of code point");
     }
 
     /**

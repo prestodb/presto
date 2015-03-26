@@ -149,7 +149,7 @@ public final class StringFunctions
 
         for (int i = 0, j = string.length(); i < string.length(); ) {
             final int startByte = string.getUnsignedByte(i);
-            final int codePointLength = UnicodeUtil.requiredLengthOfCodePoint(startByte);
+            final int codePointLength = UnicodeUtil.lengthOfCodePoint(startByte);
 
             if (codePointLength == 1) {
                 // In the special case of length 1, we can set the byte directly
@@ -292,7 +292,7 @@ public final class StringFunctions
 
             final int indexStart = UnicodeUtil.findUtf8IndexOfCodePointPosition(string, (int) index - 1);
             // TODO Illegal start bytes could end in IOOB. Discuss this in review if it is ok.
-            return string.slice(indexStart, UnicodeUtil.requiredLengthOfCodePoint(string.getUnsignedByte(indexStart)));
+            return string.slice(indexStart, UnicodeUtil.lengthOfCodePoint(string.getUnsignedByte(indexStart)));
         }
 
         int matchCount = 0;
