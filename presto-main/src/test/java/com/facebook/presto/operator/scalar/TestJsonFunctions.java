@@ -14,30 +14,18 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.UnknownType;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.type.JsonType.JSON;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public class TestJsonFunctions
+        extends AbstractTestFunctions
 {
-    private FunctionAssertions functionAssertions;
-
-    @BeforeClass
-    public void setUp()
-    {
-        functionAssertions = new FunctionAssertions();
-    }
-
     @Test
     public void testJsonArrayLength()
     {
@@ -289,10 +277,10 @@ public class TestJsonFunctions
         assertFunction(format("JSON_SIZE(CAST('%s' AS JSON), '%s')", "[1,2,3]", "$"), BIGINT, 3);
         assertFunction(format("JSON_SIZE(null, '%s')", "$"), BIGINT, null);
         assertFunction(format("JSON_SIZE(CAST('%s' AS JSON), null)", "[1,2,3]"), BIGINT, null);
-        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", ""), "Invalid JSON path: ''");
-        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", "."), "Invalid JSON path: '.'");
-        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", "null"), "Invalid JSON path: 'null'");
-        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", null), "Invalid JSON path: 'null'");
+        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", ""), BIGINT, "Invalid JSON path: ''");
+        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", "."), BIGINT, "Invalid JSON path: '.'");
+        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", "null"), BIGINT, "Invalid JSON path: 'null'");
+        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", null), BIGINT, "Invalid JSON path: 'null'");
     }
 
     @Test
@@ -316,22 +304,5 @@ public class TestJsonFunctions
         assertFunction("CAST('[1,2,3]' AS JSON) != CAST('[2,3,1]' AS JSON)", BOOLEAN, true);
         assertFunction("CAST('{\"p_1\": 1, \"p_2\":\"v_2\", \"p_3\":null, \"p_4\":true, \"p_5\": {\"p_1\":1}}' AS JSON) != " +
                 "CAST('{\"p_2\":\"v_2\", \"p_4\":true, \"p_1\": 1, \"p_3\":null, \"p_5\": {\"p_1\":1}}' AS JSON)", BOOLEAN, false);
-    }
-
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
-    }
-
-    private void assertInvalidFunction(String projection, String message)
-    {
-        try {
-            assertFunction(projection, UnknownType.UNKNOWN, null);
-            fail("Expected to throw an INVALID_FUNCTION_ARGUMENT exception with message " + message);
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
-            assertEquals(e.getMessage(), message);
-        }
     }
 }

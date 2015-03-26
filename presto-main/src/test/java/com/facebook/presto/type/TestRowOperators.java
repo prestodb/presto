@@ -13,15 +13,13 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.metadata.FunctionListBuilder;
-import com.facebook.presto.operator.scalar.FunctionAssertions;
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.operator.scalar.TestingRowConstructor;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -35,18 +33,11 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public class TestRowOperators
+        extends AbstractTestFunctions
 {
-    private FunctionAssertions functionAssertions;
-
-    @BeforeClass
-    public void setUp()
+    public TestRowOperators()
     {
-        functionAssertions = new FunctionAssertions();
-        functionAssertions.getMetadata().getFunctionRegistry().addFunctions(new FunctionListBuilder(functionAssertions.getMetadata().getTypeManager()).scalar(TestingRowConstructor.class).getFunctions());
-    }
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
+        registerScalar(TestingRowConstructor.class);
     }
 
     @Test

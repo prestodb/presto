@@ -13,24 +13,20 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -41,40 +37,10 @@ import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.MapType.toStackRepresentation;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestMapOperators
+        extends AbstractTestFunctions
 {
-    private FunctionAssertions functionAssertions;
-
-    @BeforeClass
-    public void setUp()
-    {
-        functionAssertions = new FunctionAssertions();
-    }
-
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
-    }
-
-    private void assertInvalidFunction(String projection, Type expectedType, String message)
-    {
-        try {
-            assertFunction(projection, expectedType, null);
-            fail("Expected to throw an INVALID_FUNCTION_ARGUMENT exception with message " + message);
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
-            assertEquals(e.getMessage(), message);
-        }
-    }
-
-    private void assertInvalidFunction(String projection)
-    {
-        functionAssertions.assertInvalidFunction(projection);
-    }
-
     @Test
     public void testStackRepresentation()
             throws Exception
@@ -181,7 +147,7 @@ public class TestMapOperators
         assertFunction("CAST(CAST('null' AS JSON) AS MAP<BOOLEAN, VARCHAR>)",
                 new MapType(BOOLEAN, VARCHAR),
                 null);
-        assertInvalidFunction("CAST(CAST('{\"true\":\"kittens\"}' AS JSON) AS MAP<BOOLEAN, VARBINARY>)");
+        assertInvalidCast("CAST(CAST('{\"true\":\"kittens\"}' AS JSON) AS MAP<BOOLEAN, VARBINARY>)");
     }
 
     @Test
