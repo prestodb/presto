@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.util.List;
 import java.util.Map;
@@ -115,7 +114,7 @@ public class TupleDomainOrcPredicate<C>
             return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDoubleStatistics());
         }
         else if (boxedJavaType == Slice.class && columnStatistics.getStringStatistics() != null) {
-            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getStringStatistics(), Slices::utf8Slice);
+            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getStringStatistics());
         }
         return Domain.create(SortedRangeSet.all(boxedJavaType), hasNullValue);
     }
