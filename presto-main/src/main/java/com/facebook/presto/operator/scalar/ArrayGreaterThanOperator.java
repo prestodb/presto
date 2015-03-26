@@ -16,8 +16,6 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricOperator;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -30,6 +28,7 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.OperatorType.GREATER_THAN;
+import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -39,7 +38,6 @@ public class ArrayGreaterThanOperator
 {
     public static final ArrayGreaterThanOperator ARRAY_GREATER_THAN = new ArrayGreaterThanOperator();
     private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BOOLEAN);
-    public static final MethodHandle METHOD_HANDLE = methodHandle(ArrayGreaterThanOperator.class, "greaterThan", Type.class, Slice.class, Slice.class);
 
     private ArrayGreaterThanOperator()
     {
@@ -49,18 +47,17 @@ public class ArrayGreaterThanOperator
     @Override
     public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type type = types.get("T");
-        type = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(type.getTypeSignature()), ImmutableList.of());
+        Type elementType = types.get("T");
+        Type type = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(elementType.getTypeSignature()), ImmutableList.of());
         TypeSignature typeSignature = type.getTypeSignature();
-        return operatorInfo(GREATER_THAN, RETURN_TYPE, ImmutableList.of(typeSignature, typeSignature), METHOD_HANDLE.bindTo(type), false, ImmutableList.of(false, false));
+        MethodHandle lessThanFunction = functionRegistry.resolveOperator(LESS_THAN, ImmutableList.of(elementType, elementType)).getMethodHandle();
+        MethodHandle methodHandle = methodHandle(ArrayGreaterThanOperator.class, "greaterThan", MethodHandle.class, Type.class, Slice.class, Slice.class);
+        MethodHandle method = methodHandle.bindTo(lessThanFunction).bindTo(elementType);
+        return operatorInfo(GREATER_THAN, RETURN_TYPE, ImmutableList.of(typeSignature, typeSignature), method, false, ImmutableList.of(false, false));
     }
 
-    public static boolean greaterThan(Type type, Slice left, Slice right)
+    public static boolean greaterThan(MethodHandle lessThanFunction, Type type, Slice left, Slice right)
     {
-        BlockBuilder leftBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, left.length());
-        BlockBuilder rightBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, right.length());
-        leftBlockBuilder.writeBytes(left, 0, left.length());
-        rightBlockBuilder.writeBytes(right, 0, right.length());
-        return type.compareTo(leftBlockBuilder.closeEntry().build(), 0, rightBlockBuilder.closeEntry().build(), 0) > 0;
+        return ArrayLessThanOperator.lessThan(lessThanFunction, type, right, left);
     }
 }

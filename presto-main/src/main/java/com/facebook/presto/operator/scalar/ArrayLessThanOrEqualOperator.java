@@ -16,8 +16,6 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricOperator;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -29,6 +27,8 @@ import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
+import static com.facebook.presto.metadata.OperatorType.EQUAL;
+import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
 import static com.facebook.presto.metadata.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -39,7 +39,6 @@ public class ArrayLessThanOrEqualOperator
 {
     public static final ArrayLessThanOrEqualOperator ARRAY_LESS_THAN_OR_EQUAL = new ArrayLessThanOrEqualOperator();
     private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BOOLEAN);
-    public static final MethodHandle METHOD_HANDLE = methodHandle(ArrayLessThanOrEqualOperator.class, "lessThanOrEqual", Type.class, Slice.class, Slice.class);
 
     private ArrayLessThanOrEqualOperator()
     {
@@ -49,18 +48,19 @@ public class ArrayLessThanOrEqualOperator
     @Override
     public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type type = types.get("T");
-        type = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(type.getTypeSignature()), ImmutableList.of());
+        Type elementType = types.get("T");
+        Type type = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(elementType.getTypeSignature()), ImmutableList.of());
         TypeSignature typeSignature = type.getTypeSignature();
-        return operatorInfo(LESS_THAN_OR_EQUAL, RETURN_TYPE, ImmutableList.of(typeSignature, typeSignature), METHOD_HANDLE.bindTo(type), false, ImmutableList.of(false, false));
+        MethodHandle lessThanFunction = functionRegistry.resolveOperator(LESS_THAN, ImmutableList.of(elementType, elementType)).getMethodHandle();
+        MethodHandle equalsFunction = functionRegistry.resolveOperator(EQUAL, ImmutableList.of(elementType, elementType)).getMethodHandle();
+        MethodHandle methodHandle = methodHandle(ArrayLessThanOrEqualOperator.class, "lessThanOrEqual", MethodHandle.class, MethodHandle.class, Type.class, Slice.class, Slice.class);
+        MethodHandle method = methodHandle.bindTo(lessThanFunction).bindTo(equalsFunction).bindTo(elementType);
+        return operatorInfo(LESS_THAN_OR_EQUAL, RETURN_TYPE, ImmutableList.of(typeSignature, typeSignature), method, false, ImmutableList.of(false, false));
     }
 
-    public static boolean lessThanOrEqual(Type type, Slice left, Slice right)
+    public static boolean lessThanOrEqual(MethodHandle lessThanFunction, MethodHandle equalsFunction, Type type, Slice left, Slice right)
     {
-        BlockBuilder leftBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, left.length());
-        BlockBuilder rightBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, right.length());
-        leftBlockBuilder.writeBytes(left, 0, left.length());
-        rightBlockBuilder.writeBytes(right, 0, right.length());
-        return type.compareTo(leftBlockBuilder.closeEntry().build(), 0, rightBlockBuilder.closeEntry().build(), 0) <= 0;
+        return ArrayLessThanOperator.lessThan(lessThanFunction, type, left, right) ||
+                ArrayEqualOperator.equals(equalsFunction, type, left, right);
     }
 }
