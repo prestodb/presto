@@ -124,7 +124,7 @@ public class OrcTester
         orcTester.listTestsEnabled = true;
         orcTester.nullTestsEnabled = true;
         orcTester.skipBatchTestsEnabled = true;
-        orcTester.formats = ImmutableSet.of(DWRF);
+        orcTester.formats = ImmutableSet.of(ORC_12);
         orcTester.compressions = ImmutableSet.of(ZLIB);
         return orcTester;
     }
