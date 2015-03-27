@@ -28,6 +28,10 @@ public final class Presto
             return;
         }
 
+        if (console.version.showVersionIfRequested()) {
+            return;
+        }
+
         console.run();
     }
 }
