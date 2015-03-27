@@ -77,6 +77,7 @@ import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -145,6 +146,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.SystemSessionProperties.getTaskJoinConcurrency;
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static com.facebook.presto.operator.TableCommitOperator.TableCommitOperatorFactory;
 import static com.facebook.presto.operator.TableCommitOperator.TableCommitter;
@@ -154,6 +156,8 @@ import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
@@ -185,6 +189,7 @@ public class LocalExecutionPlanner
     private final IndexJoinLookupStats indexJoinLookupStats;
     private final DataSize maxPartialAggregationMemorySize;
     private final int writerCount;
+    private final int defaultConcurrency;
 
     @Inject
     public LocalExecutionPlanner(
@@ -211,6 +216,7 @@ public class LocalExecutionPlanner
         this.maxIndexMemorySize = checkNotNull(taskManagerConfig, "taskManagerConfig is null").getMaxTaskIndexMemoryUsage();
         this.maxPartialAggregationMemorySize = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
         this.writerCount = taskManagerConfig.getWriterCount();
+        this.defaultConcurrency = taskManagerConfig.getTaskDefaultConcurrency();
 
         interpreterEnabled = compilerConfig.isInterpreterEnabled();
     }
@@ -219,9 +225,10 @@ public class LocalExecutionPlanner
             PlanNode plan,
             List<Symbol> outputLayout,
             Map<Symbol, Type> types,
+            PlanDistribution distribution,
             OutputFactory outputOperatorFactory)
     {
-        LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types);
+        LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types, distribution != PlanDistribution.SOURCE);
 
         PhysicalOperation physicalOperation = enforceLayout(outputLayout, context, plan.accept(new Visitor(session), context));
 
@@ -266,6 +273,7 @@ public class LocalExecutionPlanner
     {
         private final Session session;
         private final Map<Symbol, Type> types;
+        private final boolean allowLocalParallel;
         private final List<DriverFactory> driverFactories;
         private final Optional<IndexSourceContext> indexSourceContext;
 
@@ -273,15 +281,21 @@ public class LocalExecutionPlanner
         private boolean inputDriver = true;
         private int driverInstanceCount = 1;
 
-        public LocalExecutionPlanContext(Session session, Map<Symbol, Type> types)
+        public LocalExecutionPlanContext(Session session, Map<Symbol, Type> types, boolean allowLocalParallel)
         {
-            this(session, types, new ArrayList<>(), Optional.empty());
+            this(session, types, allowLocalParallel, new ArrayList<>(), Optional.empty());
         }
 
-        private LocalExecutionPlanContext(Session session, Map<Symbol, Type> types, List<DriverFactory> driverFactories, Optional<IndexSourceContext> indexSourceContext)
+        private LocalExecutionPlanContext(
+                Session session,
+                Map<Symbol, Type> types,
+                boolean allowLocalParallel,
+                List<DriverFactory> driverFactories,
+                Optional<IndexSourceContext> indexSourceContext)
         {
             this.session = session;
             this.types = types;
+            this.allowLocalParallel = allowLocalParallel;
             this.driverFactories = driverFactories;
             this.indexSourceContext = indexSourceContext;
         }
@@ -329,12 +343,17 @@ public class LocalExecutionPlanner
         public LocalExecutionPlanContext createSubContext()
         {
             checkState(!indexSourceContext.isPresent(), "index build plan can not have sub-contexts");
-            return new LocalExecutionPlanContext(session, types, driverFactories, indexSourceContext);
+            return new LocalExecutionPlanContext(session, types, allowLocalParallel, driverFactories, indexSourceContext);
         }
 
         public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
         {
-            return new LocalExecutionPlanContext(session, types, driverFactories, Optional.of(indexSourceContext));
+            return new LocalExecutionPlanContext(session, types, false, driverFactories, Optional.of(indexSourceContext));
+        }
+
+        public boolean isAllowLocalParallel()
+        {
+            return allowLocalParallel;
         }
 
         public int getDriverInstanceCount()
@@ -1206,7 +1225,19 @@ public class LocalExecutionPlanner
                 LocalExecutionPlanContext context)
         {
             // Plan probe and introduce a projection to put all fields from the probe side into a single channel if necessary
-            PhysicalOperation probeSource = probeNode.accept(this, context);
+            PhysicalOperation probeSource;
+            LocalExecutionPlanContext parallelParentContext = null;
+            int joinConcurrency = getTaskJoinConcurrency(session, defaultConcurrency);
+            // currently we can not run joins with an outer build in parallel
+            if ((node.getType() == INNER ||  node.getType() == LEFT) && context.isAllowLocalParallel() && context.getDriverInstanceCount() == 1 && joinConcurrency > 1) {
+                parallelParentContext = context;
+                context = context.createSubContext();
+                probeSource = createInMemoryExchange(probeNode, context);
+                context.setDriverInstanceCount(joinConcurrency);
+            }
+            else {
+                probeSource = probeNode.accept(this, context);
+            }
             List<Integer> probeChannels = ImmutableList.copyOf(getChannelsForSymbols(probeSymbols, probeSource.getLayout()));
             Optional<Integer> probeHashChannel = probeHashSymbol.map(channelGetter(probeSource));
 
@@ -1244,7 +1275,14 @@ public class LocalExecutionPlanner
             }
 
             OperatorFactory operator = createJoinOperator(node.getType(), lookupSourceSupplier, probeSource.getTypes(), probeChannels, probeHashChannel, context);
-            return new PhysicalOperation(operator, outputMappings.build(), probeSource);
+            PhysicalOperation operation = new PhysicalOperation(operator, outputMappings.build(), probeSource);
+
+            // merge parallel joiners back into a single stream
+            if (parallelParentContext != null) {
+                operation = addInMemoryExchange(parallelParentContext, operation, context);
+            }
+
+            return operation;
         }
 
         private OperatorFactory createJoinOperator(
@@ -1336,16 +1374,21 @@ public class LocalExecutionPlanner
             LocalExecutionPlanContext subContext = context.createSubContext();
             PhysicalOperation source = node.accept(this, subContext);
 
-            InMemoryExchange exchange = new InMemoryExchange(getSourceOperatorTypes(node, context.getTypes()));
+            return addInMemoryExchange(context, source, subContext);
+        }
+
+        private PhysicalOperation addInMemoryExchange(LocalExecutionPlanContext context, PhysicalOperation source, LocalExecutionPlanContext sourceContext)
+        {
+            InMemoryExchange exchange = new InMemoryExchange(source.getTypes());
 
             // create exchange sink
             List<OperatorFactory> factories = ImmutableList.<OperatorFactory>builder()
                     .addAll(source.getOperatorFactories())
-                    .add(exchange.createSinkFactory(subContext.getNextOperatorId()))
+                    .add(exchange.createSinkFactory(sourceContext.getNextOperatorId()))
                     .build();
 
             // add sub-context to current context
-            context.addDriverFactory(new DriverFactory(subContext.isInputDriver(), false, factories));
+            context.addDriverFactory(new DriverFactory(sourceContext.isInputDriver(), false, factories));
 
             exchange.noMoreSinkFactories();
 
@@ -1354,7 +1397,7 @@ public class LocalExecutionPlanner
 
             // add exchange source as first operator in the current context
             OperatorFactory factory = new InMemoryExchangeSourceOperatorFactory(context.getNextOperatorId(), exchange);
-            return new PhysicalOperation(factory, makeLayout(node));
+            return new PhysicalOperation(factory, source.getLayout());
         }
 
         @Override

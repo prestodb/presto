@@ -144,7 +144,13 @@ public class SqlTaskExecution
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             List<DriverFactory> driverFactories;
             try {
-                LocalExecutionPlan localExecutionPlan = planner.plan(taskContext.getSession(), fragment.getRoot(), fragment.getOutputLayout(), fragment.getSymbols(), new TaskOutputFactory(sharedBuffer));
+                LocalExecutionPlan localExecutionPlan = planner.plan(
+                        taskContext.getSession(),
+                        fragment.getRoot(),
+                        fragment.getOutputLayout(),
+                        fragment.getSymbols(),
+                        fragment.getDistribution(),
+                        new TaskOutputFactory(sharedBuffer));
                 driverFactories = localExecutionPlan.getDriverFactories();
             }
             catch (Throwable e) {
