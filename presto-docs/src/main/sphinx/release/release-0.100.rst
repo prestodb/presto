@@ -13,7 +13,8 @@ implementing the ``getSystemTables()`` method on the ``Connector`` interface.
 
 General Changes
 ---------------
-* Fix '%f' specifier in :func:`date_format` and :func:`date_parse`.
+
+* Fix ``%f`` specifier in :func:`date_format` and :func:`date_parse`.
 * Add :func:`array_distinct` function.
 * Add :func:`split` function.
 * Add :func:`degrees` and :func:`radians` functions.
