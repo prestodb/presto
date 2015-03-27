@@ -104,6 +104,7 @@ public class TestingPrestoServer
                 .putAll(properties)
                 .put("coordinator", String.valueOf(coordinator))
                 .put("presto.version", "testversion")
+                .put("task.default-concurrency", "4")
                 .put("analyzer.experimental-syntax-enabled", "true");
 
         if (coordinator) {

@@ -381,7 +381,7 @@ public class LocalQueryRunner
                 compiler,
                 new IndexJoinLookupStats(),
                 new CompilerConfig().setInterpreterEnabled(false), // make sure tests fail if compiler breaks
-                new TaskManagerConfig()
+                new TaskManagerConfig().setTaskDefaultConcurrency(4)
         );
 
         // plan query
@@ -389,6 +389,7 @@ public class LocalQueryRunner
                 subplan.getFragment().getRoot(),
                 subplan.getFragment().getOutputLayout(),
                 plan.getTypes(),
+                subplan.getFragment().getDistribution(),
                 outputFactory);
 
         // generate sources
@@ -419,11 +420,13 @@ public class LocalQueryRunner
         List<Driver> drivers = new ArrayList<>();
         Map<PlanNodeId, Driver> driversBySource = new HashMap<>();
         for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
-            DriverContext driverContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
-            Driver driver = driverFactory.createDriver(driverContext);
-            drivers.add(driver);
-            for (PlanNodeId sourceId : driver.getSourceIds()) {
-                driversBySource.put(sourceId, driver);
+            for (int i = 0; i < driverFactory.getDriverInstances(); i++) {
+                DriverContext driverContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
+                Driver driver = driverFactory.createDriver(driverContext);
+                drivers.add(driver);
+                for (PlanNodeId sourceId : driver.getSourceIds()) {
+                    driversBySource.put(sourceId, driver);
+                }
             }
             driverFactory.close();
         }

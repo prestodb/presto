@@ -21,6 +21,8 @@ public final class SystemSessionProperties
     private static final String HASH_PARTITION_COUNT = "hash_partition_count";
     private static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     private static final String TASK_WRITER_COUNT = "task_writer_count";
+    private static final String TASK_DEFAULT_CONCURRENCY = "task_default_concurrency";
+    private static final String TASK_JOIN_CONCURRENCY = "task_join_concurrency";
 
     private SystemSessionProperties() {}
 
@@ -76,5 +78,15 @@ public final class SystemSessionProperties
     public static int getTaskWriterCount(Session session, int defaultValue)
     {
         return getNumber(TASK_WRITER_COUNT, session, defaultValue);
+    }
+
+    public static int getTaskDefaultConcurrency(Session session, int defaultValue)
+    {
+        return getNumber(TASK_DEFAULT_CONCURRENCY, session, defaultValue);
+    }
+
+    public static int getTaskJoinConcurrency(Session session, int defaultValue)
+    {
+        return getNumber(TASK_JOIN_CONCURRENCY, session, getTaskDefaultConcurrency(session, defaultValue));
     }
 }
