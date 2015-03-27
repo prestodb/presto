@@ -1311,7 +1311,18 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitSemiJoin(SemiJoinNode node, LocalExecutionPlanContext context)
         {
             // introduce a projection to put all fields from the probe side into a single channel if necessary
-            PhysicalOperation probeSource = node.getSource().accept(this, context);
+            PhysicalOperation probeSource;
+            LocalExecutionPlanContext parallelParentContext = null;
+            int joinConcurrency = getTaskJoinConcurrency(session, defaultConcurrency);
+            if (context.isAllowLocalParallel() && context.getDriverInstanceCount() == 1 && joinConcurrency > 1) {
+                parallelParentContext = context;
+                context = context.createSubContext();
+                probeSource = createInMemoryExchange(node.getSource(), context);
+                context.setDriverInstanceCount(joinConcurrency);
+            }
+            else {
+                probeSource = node.getSource().accept(this, context);
+            }
 
             // do the same on the build side
             LocalExecutionPlanContext buildContext = context.createSubContext();
@@ -1341,7 +1352,14 @@ public class LocalExecutionPlanner
                     .build();
 
             HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), setProvider, probeSource.getTypes(), probeChannel, probeHashChannel);
-            return new PhysicalOperation(operator, outputMappings, probeSource);
+            PhysicalOperation operation = new PhysicalOperation(operator, outputMappings, probeSource);
+
+            // merge parallel joiners back into a single stream
+            if (parallelParentContext != null) {
+                operation = addInMemoryExchange(parallelParentContext, operation, context);
+            }
+
+            return operation;
         }
 
         @Override
