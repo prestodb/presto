@@ -826,6 +826,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByMap()
+            throws Exception
+    {
+        assertQuery("SELECT col[1], count FROM (SELECT MAP(ARRAY[1], ARRAY[custkey]) col, COUNT(*) count FROM ORDERS GROUP BY 1)", "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
+    }
+
+    @Test
     public void testGroupByRow()
             throws Exception
     {
