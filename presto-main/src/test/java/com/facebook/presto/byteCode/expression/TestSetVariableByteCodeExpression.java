@@ -24,7 +24,6 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressionAssertions.assertByteCodeNode;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.newInstance;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static org.testng.Assert.assertEquals;
 
 public class TestSetVariableByteCodeExpression
@@ -33,7 +32,7 @@ public class TestSetVariableByteCodeExpression
     public void testGetField()
             throws Exception
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext context = new CompilerContext();
         Variable point = context.declareVariable(Point.class, "point");
         ByteCodeExpression setPoint = point.set(newInstance(Point.class, constantInt(3), constantInt(7)));
 

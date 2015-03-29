@@ -51,7 +51,6 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.getStatic;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.invokeStatic;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
@@ -114,7 +113,7 @@ public class OrderingCompiler
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
                 a(PUBLIC, FINAL),
                 makeClassName("PagesIndexComparator"),
                 type(Object.class),
@@ -128,7 +127,7 @@ public class OrderingCompiler
 
     private void generateCompareTo(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext context = new CompilerContext();
         MethodDefinition compareToMethod = classDefinition.declareMethod(context,
                 a(PUBLIC),
                 "compareTo",

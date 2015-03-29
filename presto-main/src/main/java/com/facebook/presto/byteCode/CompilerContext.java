@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
 import org.objectweb.asm.Type;
 
-import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -31,9 +30,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 public class CompilerContext
 {
-    private final Method defaultBootstrapMethod;
-    private final Object[] defaultBootstrapArguments;
-
     private final Map<String, Variable> variables = new TreeMap<>();
     private final List<Variable> allVariables = new ArrayList<>();
 
@@ -48,18 +44,6 @@ public class CompilerContext
 
     public CompilerContext()
     {
-        this(null);
-    }
-
-    public CompilerContext(Method defaultBootstrapMethod)
-    {
-        this(defaultBootstrapMethod, new Object[0]);
-    }
-
-    public CompilerContext(Method defaultBootstrapMethod, Object[] defaultBootstrapArguments)
-    {
-        this.defaultBootstrapMethod = defaultBootstrapMethod;
-        this.defaultBootstrapArguments = defaultBootstrapArguments;
     }
 
     public Variable createTempVariable(Class<?> type)
@@ -133,16 +117,6 @@ public class CompilerContext
     public IterationScope peekIterationScope(int level)
     {
         return Iterators.get(iterationScopes.iterator(), level - 1, null);
-    }
-
-    public Method getDefaultBootstrapMethod()
-    {
-        return defaultBootstrapMethod;
-    }
-
-    public Object[] getDefaultBootstrapArguments()
-    {
-        return defaultBootstrapArguments;
     }
 
     public boolean hasVisitedLine(Integer line)

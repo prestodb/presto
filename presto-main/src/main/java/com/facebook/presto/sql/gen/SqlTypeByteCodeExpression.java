@@ -24,6 +24,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SqlTypeByteCodeExpression
@@ -36,7 +37,7 @@ public class SqlTypeByteCodeExpression
         checkNotNull(type, "type is null");
 
         Binding binding = callSiteBinder.bind(type, Type.class);
-        return new SqlTypeByteCodeExpression(type, binding, context.getDefaultBootstrapMethod());
+        return new SqlTypeByteCodeExpression(type, binding, BOOTSTRAP_METHOD);
     }
 
     private final Type type;

@@ -25,7 +25,6 @@ import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.sql.gen.Bootstrap;
 import com.facebook.presto.sql.gen.ByteCodeUtils;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.CompilerUtils;
@@ -120,7 +119,7 @@ public final class ArrayConstructor
 
     private static Class<?> generateArrayConstructor(List<Class<?>> stackTypes, Type elementType)
     {
-        CompilerContext context = new CompilerContext(Bootstrap.BOOTSTRAP_METHOD);
+        CompilerContext context = new CompilerContext();
         List<String> stackTypeNames = stackTypes.stream()
                 .map(Class::getSimpleName)
                 .collect(toImmutableList());

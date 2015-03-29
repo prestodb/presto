@@ -45,7 +45,6 @@ import static com.facebook.presto.byteCode.OpCode.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.control.ForLoop.ForLoopBuilder;
 import static com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.generateWrite;
 import static java.lang.String.format;
 
@@ -72,7 +71,7 @@ public class CursorProcessorCompiler
 
     private void generateProcessMethod(ClassDefinition classDefinition, int projections)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext context = new CompilerContext();
         MethodDefinition method = classDefinition.declareMethod(context,
                 a(PUBLIC),
                 "process",
@@ -170,7 +169,7 @@ public class CursorProcessorCompiler
 
     private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext context = new CompilerContext();
         MethodDefinition method = classDefinition.declareMethod(
                 context,
                 a(PUBLIC),
@@ -203,7 +202,7 @@ public class CursorProcessorCompiler
 
     private void generateProjectMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String methodName, RowExpression projection)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext context = new CompilerContext();
         MethodDefinition method = classDefinition.declareMethod(context,
                 a(PUBLIC),
                 methodName,

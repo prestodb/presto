@@ -59,7 +59,6 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantNull;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.notEqual;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
@@ -127,7 +126,7 @@ public class JoinCompiler
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
                 a(PUBLIC, FINAL),
                 makeClassName("PagesHashStrategy"),
                 type(Object.class),
@@ -165,7 +164,7 @@ public class JoinCompiler
             List<FieldDefinition> joinChannelFields,
             FieldDefinition hashChannelField)
     {
-        CompilerContext compilerContext = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext compilerContext = new CompilerContext();
         Block constructor = classDefinition.declareConstructor(compilerContext,
                 a(PUBLIC),
                 arg("channels", type(List.class, type(List.class, com.facebook.presto.spi.block.Block.class))),
@@ -206,7 +205,7 @@ public class JoinCompiler
 
     private void generateGetChannelCountMethod(ClassDefinition classDefinition, List<FieldDefinition> channelFields)
     {
-        classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
+        classDefinition.declareMethod(new CompilerContext(),
                 a(PUBLIC),
                 "getChannelCount",
                 type(int.class))
@@ -217,7 +216,7 @@ public class JoinCompiler
 
     private void generateAppendToMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> types, List<FieldDefinition> channelFields)
     {
-        CompilerContext compilerContext = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext compilerContext = new CompilerContext();
         Block appendToBody = classDefinition.declareMethod(compilerContext,
                 a(PUBLIC),
                 "appendTo",
@@ -255,7 +254,7 @@ public class JoinCompiler
 
     private void generateHashPositionMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> joinChannelTypes, List<FieldDefinition> joinChannelFields, FieldDefinition hashChannelField)
     {
-        CompilerContext compilerContext = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext compilerContext = new CompilerContext();
         MethodDefinition hashPositionMethod = classDefinition.declareMethod(compilerContext,
                 a(PUBLIC),
                 "hashPosition",
@@ -315,7 +314,7 @@ public class JoinCompiler
 
     private void generateHashRowMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> joinChannelTypes)
     {
-        CompilerContext compilerContext = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext compilerContext = new CompilerContext();
         MethodDefinition hashPositionMethod = classDefinition.declareMethod(compilerContext,
                 a(PUBLIC),
                 "hashRow",
@@ -368,7 +367,7 @@ public class JoinCompiler
             CallSiteBinder callSiteBinder,
             List<Type> joinChannelTypes)
     {
-        CompilerContext compilerContext = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext compilerContext = new CompilerContext();
         MethodDefinition hashPositionMethod = classDefinition.declareMethod(compilerContext,
                 a(PUBLIC),
                 "rowEqualsRow",
@@ -416,7 +415,7 @@ public class JoinCompiler
             List<Type> joinChannelTypes,
             List<FieldDefinition> joinChannelFields)
     {
-        CompilerContext compilerContext = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext compilerContext = new CompilerContext();
         MethodDefinition hashPositionMethod = classDefinition.declareMethod(compilerContext,
                 a(PUBLIC),
                 "positionEqualsRow",
@@ -466,7 +465,7 @@ public class JoinCompiler
             List<Type> joinChannelTypes,
             List<FieldDefinition> joinChannelFields)
     {
-        CompilerContext compilerContext = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext compilerContext = new CompilerContext();
         MethodDefinition hashPositionMethod = classDefinition.declareMethod(compilerContext,
                 a(PUBLIC),
                 "positionEqualsPosition",

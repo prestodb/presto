@@ -258,7 +258,7 @@ public class ClassDefinition
 
     public ClassDefinition declareDefaultConstructor(EnumSet<Access> access)
     {
-        declareConstructor(new CompilerContext(null), access)
+        declareConstructor(new CompilerContext(), access)
                 .getBody()
                 .pushThis()
                 .invokeConstructor(superClass)
