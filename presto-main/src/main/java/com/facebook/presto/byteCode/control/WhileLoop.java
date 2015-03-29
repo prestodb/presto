@@ -31,6 +31,7 @@ import static com.facebook.presto.byteCode.ExpectedType.VOID;
 public class WhileLoop
         implements FlowControl
 {
+    @SuppressWarnings("UnusedDeclaration")
     public static WhileLoopBuilder whileLoopBuilder(CompilerContext context)
     {
         return new WhileLoopBuilder(context);

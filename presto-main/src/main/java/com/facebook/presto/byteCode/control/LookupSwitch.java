@@ -53,7 +53,7 @@ public class LookupSwitch
 
         public LookupSwitchBuilder addCase(int key, LabelNode label)
         {
-            cases.add(CaseStatement.caseStatement(key, label));
+            addCase(CaseStatement.caseStatement(key, label));
             return this;
         }
 

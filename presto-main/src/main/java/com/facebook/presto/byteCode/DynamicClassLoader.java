@@ -29,7 +29,7 @@ public class DynamicClassLoader
         extends ClassLoader
 {
     private final ConcurrentMap<String, byte[]> pendingClasses = new ConcurrentHashMap<>();
-    private final Map<Long, MethodHandle> callsiteBindings;
+    private final Map<Long, MethodHandle> callSiteBindings;
 
     public DynamicClassLoader()
     {
@@ -41,15 +41,15 @@ public class DynamicClassLoader
         this(parentClassLoader, ImmutableMap.<Long, MethodHandle>of());
     }
 
-    public DynamicClassLoader(ClassLoader parentClassLoader, Map<Long, MethodHandle> callsiteBindings)
+    public DynamicClassLoader(ClassLoader parentClassLoader, Map<Long, MethodHandle> callSiteBindings)
     {
         super(resolveClassLoader(parentClassLoader));
-        this.callsiteBindings = ImmutableMap.copyOf(callsiteBindings);
+        this.callSiteBindings = ImmutableMap.copyOf(callSiteBindings);
     }
 
     public Class<?> defineClass(String className, byte[] byteCode)
     {
-        return super.defineClass(className, byteCode, 0, byteCode.length);
+        return defineClass(className, byteCode, 0, byteCode.length);
     }
 
     public Map<String, Class<?>> defineClasses(Map<String, byte[]> newClasses)
@@ -77,9 +77,9 @@ public class DynamicClassLoader
         }
     }
 
-    public Map<Long, MethodHandle> getCallsiteBindings()
+    public Map<Long, MethodHandle> getCallSiteBindings()
     {
-        return callsiteBindings;
+        return callSiteBindings;
     }
 
     @Override

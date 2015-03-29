@@ -258,8 +258,8 @@ class ComparisonByteCodeExpression
     }
 
     private final String infixSymbol;
-    private OpCode comparisonInstruction;
-    private OpCode noMatchJumpInstruction;
+    private final OpCode comparisonInstruction;
+    private final OpCode noMatchJumpInstruction;
     private final ByteCodeExpression left;
     private final ByteCodeExpression right;
 

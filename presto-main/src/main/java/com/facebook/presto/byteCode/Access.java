@@ -58,7 +58,7 @@ public enum Access
     ANNOTATION(ACC_ANNOTATION),
     ENUM(ACC_ENUM);
 
-    private int modifier;
+    private final int modifier;
 
     Access(int modifier)
     {
@@ -73,7 +73,7 @@ public enum Access
     @Override
     public String toString()
     {
-        return super.name().toLowerCase(ENGLISH);
+        return name().toLowerCase(ENGLISH);
     }
 
     public static EnumSet<Access> a(Access... access)

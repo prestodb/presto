@@ -28,6 +28,7 @@ import static com.facebook.presto.byteCode.OpCode.INSTANCEOF;
 import static com.facebook.presto.byteCode.OpCode.NEW;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 
+@SuppressWarnings("UnusedDeclaration")
 public class TypeInstruction
         implements InstructionNode
 {

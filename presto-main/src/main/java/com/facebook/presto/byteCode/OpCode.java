@@ -23,6 +23,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+@SuppressWarnings("SpellCheckingInspection")
 public enum OpCode
         implements InstructionNode
 {

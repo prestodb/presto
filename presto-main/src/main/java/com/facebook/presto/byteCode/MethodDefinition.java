@@ -34,6 +34,7 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.google.common.collect.Iterables.transform;
 import static org.objectweb.asm.Opcodes.RETURN;
 
+@SuppressWarnings("UnusedDeclaration")
 @NotThreadSafe
 public class MethodDefinition
 {
@@ -89,7 +90,7 @@ public class MethodDefinition
         this.parameterAnnotations = ImmutableList.copyOf(transform(parameters, input -> new ArrayList<>()));
 
         if (!access.contains(STATIC)) {
-            getCompilerContext().declareThisVariable(declaringClass.getType());
+            compilerContext.declareThisVariable(declaringClass.getType());
         }
         int argId = 0;
         for (NamedParameterDefinition parameter : parameters) {
@@ -97,7 +98,7 @@ public class MethodDefinition
             if (parameterName == null) {
                 parameterName = "arg" + argId;
             }
-            getCompilerContext().declareVariable(parameter.getType(), parameterName);
+            compilerContext.declareVariable(parameter.getType(), parameterName);
             argId++;
         }
     }

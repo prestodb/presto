@@ -60,7 +60,7 @@ public class NamedParameterDefinition
     @Override
     public String toString()
     {
-        final StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder();
         sb.append("NamedParameterDefinition");
         sb.append("{name='").append(name).append('\'');
         sb.append(", type=").append(type);

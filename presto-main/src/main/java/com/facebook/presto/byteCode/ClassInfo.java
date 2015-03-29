@@ -157,7 +157,7 @@ public class ClassInfo
         return false;
     }
 
-    public boolean isAssignableFrom(final ClassInfo that)
+    public boolean isAssignableFrom(ClassInfo that)
     {
         if (this == that) {
             return true;
