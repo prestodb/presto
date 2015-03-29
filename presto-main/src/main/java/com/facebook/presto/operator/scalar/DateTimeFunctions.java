@@ -362,6 +362,8 @@ public final class DateTimeFunctions
     {
         String unitString = unit.toString(UTF_8).toLowerCase(ENGLISH);
         switch (unitString) {
+            case "millisecond":
+                return chronology.millisOfSecond();
             case "second":
                 return chronology.secondOfMinute();
             case "minute":
@@ -376,6 +378,8 @@ public final class DateTimeFunctions
     {
         String unitString = unit.toString(UTF_8).toLowerCase(ENGLISH);
         switch (unitString) {
+            case "millisecond":
+                return chronology.millisOfSecond();
             case "second":
                 return chronology.secondOfMinute();
             case "minute":
