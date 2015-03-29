@@ -15,6 +15,7 @@ package com.facebook.presto.byteCode.debug;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.google.common.collect.ImmutableList;
@@ -39,7 +40,7 @@ public class LocalVariableNode
     }
 
     @Override
-    public void accept(MethodVisitor visitor)
+    public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
         visitor.visitLocalVariable(variable.getName(),
                 variable.getType().getType(),

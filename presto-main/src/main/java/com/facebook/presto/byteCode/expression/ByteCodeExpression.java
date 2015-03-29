@@ -16,6 +16,7 @@ package com.facebook.presto.byteCode.expression;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.FieldDefinition;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
@@ -56,7 +57,7 @@ public abstract class ByteCodeExpression
         return type;
     }
 
-    public abstract ByteCodeNode getByteCode();
+    public abstract ByteCodeNode getByteCode(MethodGenerationContext generationContext);
 
     protected abstract String formatOneLine();
 
@@ -184,9 +185,9 @@ public abstract class ByteCodeExpression
     }
 
     @Override
-    public final void accept(MethodVisitor visitor)
+    public final void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
-        getByteCode().accept(visitor);
+        getByteCode(generationContext).accept(visitor, generationContext);
     }
 
     @Override

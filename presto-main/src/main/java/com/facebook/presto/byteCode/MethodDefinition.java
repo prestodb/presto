@@ -247,14 +247,15 @@ public class MethodDefinition
         methodVisitor.visitCode();
 
         // visit instructions
-        body.accept(methodVisitor);
+        MethodGenerationContext generationContext = new MethodGenerationContext();
+        body.accept(methodVisitor, generationContext);
         if (addReturn) {
             new InsnNode(RETURN).accept(methodVisitor);
         }
 
         // visit local variable declarations
         for (LocalVariableNode localVariableNode : localVariableNodes) {
-            localVariableNode.accept(methodVisitor);
+            localVariableNode.accept(methodVisitor, generationContext);
         }
 
         // done

@@ -15,6 +15,7 @@ package com.facebook.presto.byteCode.expression;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.google.common.collect.ImmutableList;
 
@@ -36,7 +37,7 @@ class NotByteCodeExpression
     }
 
     @Override
-    public ByteCodeNode getByteCode()
+    public ByteCodeNode getByteCode(MethodGenerationContext generationContext)
     {
         LabelNode trueLabel = new LabelNode("true");
         LabelNode endLabel = new LabelNode("end");

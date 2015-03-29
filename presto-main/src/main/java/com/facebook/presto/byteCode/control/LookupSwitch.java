@@ -15,6 +15,7 @@ package com.facebook.presto.byteCode.control;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
@@ -97,7 +98,7 @@ public class LookupSwitch
     }
 
     @Override
-    public void accept(MethodVisitor visitor)
+    public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
         int[] keys = new int[cases.size()];
         Label[] labels = new Label[cases.size()];

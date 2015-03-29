@@ -13,15 +13,6 @@
  */
 package com.facebook.presto.byteCode;
 
-import org.objectweb.asm.MethodVisitor;
-
-import java.util.List;
-
-public interface ByteCodeNode
+public class MethodGenerationContext
 {
-    List<ByteCodeNode> getChildNodes();
-
-    void accept(MethodVisitor visitor, MethodGenerationContext generationContext);
-
-    <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor);
 }

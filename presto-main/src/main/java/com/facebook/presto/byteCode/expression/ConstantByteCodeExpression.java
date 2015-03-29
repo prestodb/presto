@@ -14,6 +14,7 @@
 package com.facebook.presto.byteCode.expression;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.instruction.Constant;
 import com.google.common.collect.ImmutableList;
@@ -39,7 +40,7 @@ class ConstantByteCodeExpression
     }
 
     @Override
-    public Constant getByteCode()
+    public Constant getByteCode(MethodGenerationContext generationContext)
     {
         return value;
     }

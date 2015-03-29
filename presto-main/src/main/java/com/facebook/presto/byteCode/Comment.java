@@ -37,7 +37,7 @@ public class Comment
     }
 
     @Override
-    public void accept(MethodVisitor visitor)
+    public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
     }
 
