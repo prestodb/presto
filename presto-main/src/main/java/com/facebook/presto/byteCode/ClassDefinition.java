@@ -54,30 +54,10 @@ public class ClassDefinition
             ParameterizedType superClass,
             ParameterizedType... interfaces)
     {
-        this(new CompilerContext(), access, new ParameterizedType(name), superClass, interfaces);
+        this(access, new ParameterizedType(name), superClass, interfaces);
     }
 
     public ClassDefinition(
-            CompilerContext compilerContext,
-            EnumSet<Access> access,
-            String name,
-            ParameterizedType superClass,
-            ParameterizedType... interfaces)
-    {
-        this(compilerContext, access, new ParameterizedType(name), superClass, interfaces);
-    }
-
-    public ClassDefinition(
-            EnumSet<Access> access,
-            ParameterizedType type,
-            ParameterizedType superClass,
-            ParameterizedType... interfaces)
-    {
-        this(new CompilerContext(), access, type, superClass, interfaces);
-    }
-
-    public ClassDefinition(
-            CompilerContext compilerContext,
             EnumSet<Access> access,
             ParameterizedType type,
             ParameterizedType superClass,
@@ -93,7 +73,7 @@ public class ClassDefinition
         this.superClass = superClass;
         this.interfaces.addAll(ImmutableList.copyOf(interfaces));
 
-        classInitializer = new MethodDefinition(compilerContext, this, a(STATIC), "<clinit>", ParameterizedType.type(void.class), ImmutableList.<NamedParameterDefinition>of());
+        classInitializer = new MethodDefinition(new CompilerContext(), this, a(STATIC), "<clinit>", ParameterizedType.type(void.class), ImmutableList.<NamedParameterDefinition>of());
     }
 
     public Set<Access> getAccess()

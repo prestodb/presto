@@ -125,7 +125,7 @@ public class JoinCompiler
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
+        ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName("PagesHashStrategy"),
                 type(Object.class),

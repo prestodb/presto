@@ -113,7 +113,7 @@ public class OrderingCompiler
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
+        ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName("PagesIndexComparator"),
                 type(Object.class),
