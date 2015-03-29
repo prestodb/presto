@@ -119,13 +119,11 @@ public final class ArrayConstructor
 
     private static Class<?> generateArrayConstructor(List<Class<?>> stackTypes, Type elementType)
     {
-        CompilerContext context = new CompilerContext();
         List<String> stackTypeNames = stackTypes.stream()
                 .map(Class::getSimpleName)
                 .collect(toImmutableList());
 
         ClassDefinition definition = new ClassDefinition(
-                context,
                 a(PUBLIC, FINAL),
                 CompilerUtils.makeClassName(Joiner.on("").join(stackTypeNames) + "ArrayConstructor"),
                 type(Object.class));
@@ -140,6 +138,7 @@ public final class ArrayConstructor
             parameters.add(arg("arg" + i, stackType));
         }
 
+        CompilerContext context = new CompilerContext();
         Block body = definition.declareMethod(context, a(PUBLIC, STATIC), "arrayConstructor", type(Slice.class), parameters.build())
                 .getBody();
 

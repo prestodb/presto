@@ -57,7 +57,7 @@ public final class ByteCodeExpressionAssertions
     public static Object execute(ByteCodeNode node, ParameterizedType returnType)
             throws Exception
     {
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
+        ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName("Test"),
                 type(Object.class));

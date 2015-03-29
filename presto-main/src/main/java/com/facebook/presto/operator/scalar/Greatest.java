@@ -122,9 +122,7 @@ public final class Greatest
     {
         List<String> nativeContainerTypeNames = nativeContainerTypes.stream().map(Class::getSimpleName).collect(ImmutableCollectors.toImmutableList());
 
-        CompilerContext context = new CompilerContext();
         ClassDefinition definition = new ClassDefinition(
-                context,
                 a(PUBLIC, FINAL),
                 CompilerUtils.makeClassName(Joiner.on("").join(nativeContainerTypeNames) + "Greatest"),
                 type(Object.class));
@@ -137,6 +135,7 @@ public final class Greatest
             parameters.add(arg("arg" + i, nativeContainerType));
         }
 
+        CompilerContext context = new CompilerContext();
         Block body = definition.declareMethod(context, a(PUBLIC, STATIC), "greatest", type(nativeContainerTypes.get(0)), parameters.build())
                 .getBody();
 

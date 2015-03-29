@@ -106,7 +106,7 @@ public class ExpressionCompiler
             BodyCompiler<T> bodyCompiler,
             Class<? extends T> superType)
     {
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
+        ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName(superType.getSimpleName()),
                 type(Object.class),

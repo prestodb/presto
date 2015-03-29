@@ -96,7 +96,7 @@ public class JoinProbeCompiler
     {
         Class<? extends JoinProbe> joinProbeClass = compileJoinProbe(types, probeJoinChannel, probeHashChannel);
 
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
+        ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName("JoinProbeFactory"),
                 type(Object.class),
@@ -147,7 +147,7 @@ public class JoinProbeCompiler
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
+        ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName("JoinProbe"),
                 type(Object.class),

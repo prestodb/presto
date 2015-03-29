@@ -121,9 +121,7 @@ public final class Least
     {
         List<String> nativeContainerTypeNames = nativeContainerTypes.stream().map(Class::getSimpleName).collect(ImmutableCollectors.toImmutableList());
 
-        CompilerContext context = new CompilerContext();
         ClassDefinition definition = new ClassDefinition(
-                context,
                 a(PUBLIC, FINAL),
                 CompilerUtils.makeClassName(Joiner.on("").join(nativeContainerTypeNames) + "Least"),
                 type(Object.class));
@@ -136,6 +134,7 @@ public final class Least
             parameters.add(arg("arg" + i, nativeContainerType));
         }
 
+        CompilerContext context = new CompilerContext();
         Block body = definition.declareMethod(context, a(PUBLIC, STATIC), "least", type(nativeContainerTypes.get(0)), parameters.build())
                 .getBody();
 
