@@ -20,10 +20,19 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
+import static org.weakref.jmx.ObjectNames.generatedNameOf;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class StorageModule
         implements Module
 {
+    private final String connectorId;
+
+    public StorageModule(String connectorId)
+    {
+        this.connectorId = connectorId;
+    }
+
     @Override
     public void configure(Binder binder)
     {
@@ -32,5 +41,7 @@ public class StorageModule
         binder.bind(StorageService.class).to(FileStorageService.class).in(Scopes.SINGLETON);
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardRecoveryManager.class).in(Scopes.SINGLETON);
+        binder.bind(ShardRecoveryStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(ShardRecoveryStats.class).as(generatedNameOf(ShardRecoveryStats.class, connectorId));
     }
 }

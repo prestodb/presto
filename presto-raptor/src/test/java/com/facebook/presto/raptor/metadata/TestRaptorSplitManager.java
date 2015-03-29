@@ -24,6 +24,7 @@ import com.facebook.presto.raptor.RaptorSplitManager;
 import com.facebook.presto.raptor.RaptorTableHandle;
 import com.facebook.presto.raptor.storage.FileStorageService;
 import com.facebook.presto.raptor.storage.ShardRecoveryManager;
+import com.facebook.presto.raptor.storage.ShardRecoveryStats;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.spi.ConnectorColumnHandle;
@@ -103,7 +104,7 @@ public class TestRaptorSplitManager
 
         StorageService storageService = new FileStorageService(dataDir, Optional.empty());
         StorageService storageServiceWithBackup = new FileStorageService(dataDir, Optional.of(Files.createTempDir()));
-        ShardRecoveryManager recoveryManager = new ShardRecoveryManager(storageServiceWithBackup, new InMemoryNodeManager(), shardManager, new Duration(5, TimeUnit.MINUTES), 10);
+        ShardRecoveryManager recoveryManager = new ShardRecoveryManager(storageServiceWithBackup, new InMemoryNodeManager(), shardManager,  new ShardRecoveryStats(), new Duration(5, TimeUnit.MINUTES), 10);
         StorageManager storageManager = createOrcStorageManager(storageService, recoveryManager);
         storageManagerWithBackup = createOrcStorageManager(storageServiceWithBackup, recoveryManager);
 

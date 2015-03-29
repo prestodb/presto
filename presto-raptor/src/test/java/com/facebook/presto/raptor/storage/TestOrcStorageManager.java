@@ -115,7 +115,7 @@ public class TestOrcStorageManager
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
         ShardManager shardManager = new DatabaseShardManager(dbi);
-        recoveryManager = new ShardRecoveryManager(storageService, nodeManager, shardManager, new Duration(5, TimeUnit.MINUTES), 10);
+        recoveryManager = new ShardRecoveryManager(storageService, nodeManager, shardManager, new ShardRecoveryStats(), new Duration(5, TimeUnit.MINUTES), 10);
     }
 
     @AfterClass(alwaysRun = true)
