@@ -29,6 +29,7 @@ import org.joda.time.DateMidnight;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalTime;
+import org.joda.time.ReadableInstant;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -45,7 +46,10 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
+import static org.joda.time.DateTimeUtils.getInstantChronology;
 import static org.joda.time.Days.daysBetween;
+import static org.joda.time.DurationFieldType.millis;
 import static org.joda.time.Hours.hoursBetween;
 import static org.joda.time.Minutes.minutesBetween;
 import static org.joda.time.Months.monthsBetween;
@@ -492,6 +496,7 @@ public class TestDateTimeFunctions
         DateTime baseDateTime = new DateTime(1960, 5, 3, 7, 2, 9, 678, DATE_TIME_ZONE);
         String baseDateTimeLiteral = "TIMESTAMP '1960-05-03 07:02:09.678'";
 
+        assertFunction("date_diff('millisecond', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, millisBetween(baseDateTime, TIMESTAMP));
         assertFunction("date_diff('second', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, secondsBetween(baseDateTime, TIMESTAMP).getSeconds());
         assertFunction("date_diff('minute', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, minutesBetween(baseDateTime, TIMESTAMP).getMinutes());
         assertFunction("date_diff('hour', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, hoursBetween(baseDateTime, TIMESTAMP).getHours());
@@ -504,6 +509,9 @@ public class TestDateTimeFunctions
         DateTime weirdBaseDateTime = new DateTime(1960, 5, 3, 7, 2, 9, 678, WEIRD_ZONE);
         String weirdBaseDateTimeLiteral = "TIMESTAMP '1960-05-03 07:02:09.678 +07:09'";
 
+        assertFunction("date_diff('millisecond', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIMESTAMP_LITERAL + ")",
+                BIGINT,
+                millisBetween(weirdBaseDateTime, WEIRD_TIMESTAMP));
         assertFunction("date_diff('second', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIMESTAMP_LITERAL + ")",
                 BIGINT,
                 secondsBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getSeconds());
@@ -549,6 +557,7 @@ public class TestDateTimeFunctions
         DateTime baseDateTime = new DateTime(1970, 1, 1, 7, 2, 9, 678, DATE_TIME_ZONE);
         String baseDateTimeLiteral = "TIME '07:02:09.678'";
 
+        assertFunction("date_diff('millisecond', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, millisBetween(baseDateTime, TIME));
         assertFunction("date_diff('second', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, secondsBetween(baseDateTime, TIME).getSeconds());
         assertFunction("date_diff('minute', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, minutesBetween(baseDateTime, TIME).getMinutes());
         assertFunction("date_diff('hour', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, hoursBetween(baseDateTime, TIME).getHours());
@@ -556,6 +565,7 @@ public class TestDateTimeFunctions
         DateTime weirdBaseDateTime = new DateTime(1970, 1, 1, 7, 2, 9, 678, WEIRD_ZONE);
         String weirdBaseDateTimeLiteral = "TIME '07:02:09.678 +07:09'";
 
+        assertFunction("date_diff('millisecond', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, millisBetween(weirdBaseDateTime, WEIRD_TIME));
         assertFunction("date_diff('second', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, secondsBetween(weirdBaseDateTime, WEIRD_TIME).getSeconds());
         assertFunction("date_diff('minute', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, minutesBetween(weirdBaseDateTime, WEIRD_TIME).getMinutes());
         assertFunction("date_diff('hour', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, hoursBetween(weirdBaseDateTime, WEIRD_TIME).getHours());
@@ -767,6 +777,13 @@ public class TestDateTimeFunctions
     {
         long millis = dateDate.getMillis();
         return new SqlDate((int) TimeUnit.MILLISECONDS.toDays(millis));
+    }
+
+    private static long millisBetween(ReadableInstant start, ReadableInstant end)
+    {
+        requireNonNull(start, "start is null");
+        requireNonNull(end, "end is null");
+        return millis().getField(getInstantChronology(start)).getDifferenceAsLong(end.getMillis(), start.getMillis());
     }
 
     private SqlTime toTime(long milliseconds)
