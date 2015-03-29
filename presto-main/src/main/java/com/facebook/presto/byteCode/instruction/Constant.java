@@ -15,6 +15,7 @@ package com.facebook.presto.byteCode.instruction;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -178,7 +179,7 @@ public abstract class Constant
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
             visitor.visitInsn(ACONST_NULL.getOpCode());
         }
@@ -207,7 +208,7 @@ public abstract class Constant
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
             if (value) {
                 visitor.visitInsn(ICONST_1.getOpCode());
@@ -241,13 +242,13 @@ public abstract class Constant
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
             if (value) {
-                getStaticInstruction(Boolean.class, "TRUE", Boolean.class).accept(visitor);
+                getStaticInstruction(Boolean.class, "TRUE", Boolean.class).accept(visitor, generationContext);
             }
             else {
-                getStaticInstruction(Boolean.class, "FALSE", Boolean.class).accept(visitor);
+                getStaticInstruction(Boolean.class, "FALSE", Boolean.class).accept(visitor, generationContext);
             }
         }
 
@@ -275,7 +276,7 @@ public abstract class Constant
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
             if (value <= Byte.MAX_VALUE && value >= Byte.MIN_VALUE) {
                 switch (value) {
@@ -337,10 +338,10 @@ public abstract class Constant
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
-            loadInt(value).accept(visitor);
-            invokeStatic(Integer.class, "valueOf", Integer.class, int.class).accept(visitor);
+            loadInt(value).accept(visitor, generationContext);
+            invokeStatic(Integer.class, "valueOf", Integer.class, int.class).accept(visitor, generationContext);
         }
 
         @Override
@@ -368,7 +369,7 @@ public abstract class Constant
 
         @Override
         @SuppressWarnings("FloatingPointEquality")
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
             // We can not use "value == 0.0" because when value is "-0.0" the expression
             // will evaluate to true and we would convert "-0.0" to "0.0" which is
@@ -411,10 +412,10 @@ public abstract class Constant
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
-            loadFloat(value).accept(visitor);
-            invokeStatic(Float.class, "valueOf", Float.class, float.class).accept(visitor);
+            loadFloat(value).accept(visitor, generationContext);
+            invokeStatic(Float.class, "valueOf", Float.class, float.class).accept(visitor, generationContext);
         }
 
         @Override
@@ -441,7 +442,7 @@ public abstract class Constant
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
             if (value == 0) {
                 visitor.visitInsn(LCONST_0.getOpCode());
@@ -478,10 +479,10 @@ public abstract class Constant
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
-            loadLong(value).accept(visitor);
-            invokeStatic(Long.class, "valueOf", Long.class, long.class).accept(visitor);
+            loadLong(value).accept(visitor, generationContext);
+            invokeStatic(Long.class, "valueOf", Long.class, long.class).accept(visitor, generationContext);
         }
 
         @Override
@@ -509,7 +510,7 @@ public abstract class Constant
 
         @Override
         @SuppressWarnings("FloatingPointEquality")
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
             // We can not use "value == 0.0" because when value is "-0.0" the expression
             // will evaluate to true and we would convert "-0.0" to "0.0" which is
@@ -549,10 +550,10 @@ public abstract class Constant
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
-            loadDouble(value).accept(visitor);
-            invokeStatic(Double.class, "valueOf", Double.class, double.class).accept(visitor);
+            loadDouble(value).accept(visitor, generationContext);
+            invokeStatic(Double.class, "valueOf", Double.class, double.class).accept(visitor, generationContext);
         }
 
         @Override
@@ -579,7 +580,7 @@ public abstract class Constant
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
             visitor.visitLdcInsn(value);
         }
@@ -608,7 +609,7 @@ public abstract class Constant
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
             visitor.visitLdcInsn(Type.getType(value.getType()));
         }

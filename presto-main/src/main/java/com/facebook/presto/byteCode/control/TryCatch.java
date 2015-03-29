@@ -17,6 +17,7 @@ import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.google.common.collect.ImmutableList;
@@ -66,7 +67,7 @@ public class TryCatch
     }
 
     @Override
-    public void accept(MethodVisitor visitor)
+    public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
         LabelNode tryStart = new LabelNode("tryStart");
         LabelNode tryEnd = new LabelNode("tryEnd");
@@ -88,7 +89,7 @@ public class TryCatch
         // all done
         block.visitLabel(done);
 
-        block.accept(visitor);
+        block.accept(visitor, generationContext);
         visitor.visitTryCatchBlock(tryStart.getLabel(), tryEnd.getLabel(), handler.getLabel(), exceptionName);
     }
 

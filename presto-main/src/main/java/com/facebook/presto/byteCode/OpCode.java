@@ -259,7 +259,7 @@ public enum OpCode
     }
 
     @Override
-    public void accept(MethodVisitor visitor)
+    public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
         visitor.visitInsn(opCode);
     }

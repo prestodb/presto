@@ -15,6 +15,7 @@ package com.facebook.presto.byteCode.instruction;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.Variable;
 import com.google.common.base.Preconditions;
@@ -93,7 +94,7 @@ public abstract class VariableInstruction
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
             visitor.visitVarInsn(Type.getType(getVariable().getType().getType()).getOpcode(ILOAD.getOpCode()), getVariable().getSlot());
         }
@@ -114,7 +115,7 @@ public abstract class VariableInstruction
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
             visitor.visitVarInsn(Type.getType(getVariable().getType().getType()).getOpcode(ISTORE.getOpCode()), getVariable().getSlot());
         }
@@ -145,7 +146,7 @@ public abstract class VariableInstruction
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
             visitor.visitIincInsn(getVariable().getSlot(), increment);
         }

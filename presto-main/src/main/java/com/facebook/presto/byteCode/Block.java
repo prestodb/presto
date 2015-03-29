@@ -48,6 +48,8 @@ import static com.facebook.presto.byteCode.instruction.FieldInstruction.putField
 import static com.facebook.presto.byteCode.instruction.FieldInstruction.putStaticInstruction;
 import static com.facebook.presto.byteCode.instruction.TypeInstruction.cast;
 import static com.facebook.presto.byteCode.instruction.TypeInstruction.instanceOf;
+import static com.facebook.presto.byteCode.instruction.VariableInstruction.loadVariable;
+import static com.facebook.presto.byteCode.instruction.VariableInstruction.storeVariable;
 import static com.google.common.base.Preconditions.checkArgument;
 
 @SuppressWarnings("UnusedDeclaration")
@@ -826,7 +828,7 @@ public class Block
 
     public Block getVariable(String name)
     {
-        append(context.getVariable(name).getByteCode());
+        append(loadVariable(context.getVariable(name)));
         return this;
     }
 
@@ -866,14 +868,14 @@ public class Block
             nodes.add(Constant.loadNull());
         }
 
-        nodes.add(VariableInstruction.storeVariable(variable));
+        nodes.add(storeVariable(variable));
 
         return this;
     }
 
     public Block getVariable(Variable variable)
     {
-        nodes.add(VariableInstruction.loadVariable(variable));
+        nodes.add(loadVariable(variable));
         return this;
     }
 
@@ -927,7 +929,7 @@ public class Block
 
     public Block putVariable(Variable variable)
     {
-        nodes.add(VariableInstruction.storeVariable(variable));
+        nodes.add(storeVariable(variable));
         return this;
     }
 
@@ -1006,10 +1008,10 @@ public class Block
     }
 
     @Override
-    public void accept(MethodVisitor visitor)
+    public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
         for (ByteCodeNode node : nodes) {
-            node.accept(visitor);
+            node.accept(visitor, generationContext);
         }
     }
 
