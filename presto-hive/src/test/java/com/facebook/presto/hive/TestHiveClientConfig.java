@@ -80,7 +80,8 @@ public class TestHiveClientConfig
                 .setAssumeCanonicalPartitionKeys(false)
                 .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE))
                 .setOrcMaxBufferSize(new DataSize(8, Unit.MEGABYTE))
-                .setOrcStreamBufferSize(new DataSize(8, Unit.MEGABYTE)));
+                .setOrcStreamBufferSize(new DataSize(8, Unit.MEGABYTE))
+                .setInsertS3TempEnabled(true));
     }
 
     @Test
@@ -130,6 +131,7 @@ public class TestHiveClientConfig
                 .put("hive.orc.max-merge-distance", "22kB")
                 .put("hive.orc.max-buffer-size", "44kB")
                 .put("hive.orc.stream-buffer-size", "55kB")
+                .put("hive.insert-s3-temp-enabled", "false")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -175,7 +177,8 @@ public class TestHiveClientConfig
                 .setAssumeCanonicalPartitionKeys(true)
                 .setOrcMaxMergeDistance(new DataSize(22, Unit.KILOBYTE))
                 .setOrcMaxBufferSize(new DataSize(44, Unit.KILOBYTE))
-                .setOrcStreamBufferSize(new DataSize(55, Unit.KILOBYTE));
+                .setOrcStreamBufferSize(new DataSize(55, Unit.KILOBYTE))
+                .setInsertS3TempEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

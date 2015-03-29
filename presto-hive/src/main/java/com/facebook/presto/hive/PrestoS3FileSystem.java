@@ -26,6 +26,9 @@ import com.amazonaws.event.ProgressListener;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.DeleteObjectRequest;
+import com.amazonaws.services.s3.model.DeleteObjectsRequest.KeyVersion;
+import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
@@ -105,6 +108,9 @@ public class PrestoS3FileSystem
 
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
+
+    private static final int DELETE_BATCH_SIZE = 500;
+    private static final String FOLDER_SUFFIX = "_$folder$";
 
     private final TransferManagerConfiguration transferConfig = new TransferManagerConfiguration();
     private URI uri;
@@ -287,14 +293,111 @@ public class PrestoS3FileSystem
     public boolean rename(Path src, Path dst)
             throws IOException
     {
-        throw new UnsupportedOperationException("rename");
+        FileStatus srcStatus;
+        FileStatus dstStatus = null;
+        try {
+            srcStatus = getFileStatus(src);
+        }
+        catch (FileNotFoundException e) {
+            throw new IOException("Source does not exist");
+        }
+
+        try {
+            dstStatus = getFileStatus(dst);
+            if (!dstStatus.isDir()) {
+                // trying to rename to an existing file
+                return false;
+            }
+        }
+        catch (FileNotFoundException e) {
+            // good to go
+        }
+
+        String srcKey = keyFromPath(src);
+        String destKey = keyFromPath(new Path(dst, src.getName()));
+        if (!srcStatus.isDir()) {
+            s3.copyObject(src.toUri().getHost(), srcKey, dst.toUri().getHost(), destKey);
+            s3.deleteObject(new DeleteObjectRequest(src.toUri().getHost(), srcKey));
+        }
+        else {
+            renameDirectory(src, dst);
+        }
+        return true;
+    }
+
+    private boolean renameDirectory(Path src, Path dst)
+    {
+        List<KeyVersion> deleteKeys = new ArrayList<KeyVersion>();
+        try {
+            RemoteIterator<LocatedFileStatus> iterator = listLocatedStatus(src);
+            String destKey = keyFromPath(dst);
+            String destBucket = dst.toUri().getHost();
+            String srcBucket = src.toUri().getHost();
+            DeleteObjectsRequest multiObjectDeleteRequest = new DeleteObjectsRequest(srcBucket);
+            while (iterator.hasNext()) {
+                String srcKey = keyFromPath(iterator.next().getPath());
+                s3.copyObject(srcBucket, srcKey, destBucket, destKey);
+                deleteKeys.add(new KeyVersion(srcKey));
+                if (deleteKeys.size() == DELETE_BATCH_SIZE) {
+                    multiObjectDeleteRequest.setKeys(deleteKeys);
+                    s3.deleteObjects(multiObjectDeleteRequest);
+                    deleteKeys.clear();
+                }
+            }
+
+            deleteKeys.add(new KeyVersion(keyFromPath(src) + FOLDER_SUFFIX));
+            multiObjectDeleteRequest.setKeys(deleteKeys);
+            s3.deleteObjects(multiObjectDeleteRequest);
+        }
+        catch (IOException e) {
+            return false;
+        }
+        return true;
     }
 
     @Override
     public boolean delete(Path f, boolean recursive)
             throws IOException
     {
-        throw new UnsupportedOperationException("delete");
+        FileStatus status;
+        try {
+            status = getFileStatus(f);
+        }
+        catch (FileNotFoundException e) {
+            return false;
+        }
+
+        if (status.isDir()) {
+            deleteDirectory(f, recursive);
+        }
+        else {
+            String key = keyFromPath(f);
+            s3.deleteObject(new DeleteObjectRequest(uri.getHost(), key));
+        }
+
+        return true;
+    }
+
+    private boolean deleteDirectory(Path f, boolean recursive) throws IOException
+    {
+        String bucket = f.toUri().getHost();
+        DeleteObjectsRequest multiObjectDeleteRequest = new DeleteObjectsRequest(bucket);
+        RemoteIterator<LocatedFileStatus> iterator = listLocatedStatus(f);
+        ArrayList<KeyVersion> keys = new ArrayList<KeyVersion>();
+        while (iterator.hasNext()) {
+            checkState(!recursive && keys.size() > 1, "Directory " + f.toString() + " is not empty.");
+            keys.add(new KeyVersion(keyFromPath(iterator.next().getPath())));
+            if (keys.size() == DELETE_BATCH_SIZE) {
+                multiObjectDeleteRequest.setKeys(keys);
+                s3.deleteObjects(multiObjectDeleteRequest);
+                keys.clear();
+            }
+        }
+        keys.add(new KeyVersion(keyFromPath(f) + FOLDER_SUFFIX));
+        multiObjectDeleteRequest.setKeys(keys);
+        s3.deleteObjects(multiObjectDeleteRequest);
+
+        return true;
     }
 
     @Override

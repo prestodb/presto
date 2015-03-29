@@ -182,6 +182,13 @@ public abstract class AbstractTestHiveClient
     protected ConnectorRecordSinkProvider recordSinkProvider;
     protected ExecutorService executor;
 
+    protected SchemaTableName insertTableDestination;
+    protected SchemaTableName insertTablePartitionedDestination;
+
+    protected HiveMetastore metastoreClient;
+
+    protected InsertTestWorker insertTestWorker;
+
     @BeforeClass
     public void setUp()
             throws Exception
@@ -227,6 +234,9 @@ public abstract class AbstractTestHiveClient
         dummyColumn = new HiveColumnHandle(connectorId, "dummy", 2, HIVE_INT, parseTypeSignature(StandardTypes.BIGINT), -1, true);
         intColumn = new HiveColumnHandle(connectorId, "t_int", 0, HIVE_INT, parseTypeSignature(StandardTypes.BIGINT), -1, true);
         invalidColumnHandle = new HiveColumnHandle(connectorId, INVALID_COLUMN, 0, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), 0, false);
+
+        insertTableDestination = new SchemaTableName(database, "presto_insert_destination");
+        insertTablePartitionedDestination = new SchemaTableName(database, "presto_insert_destination_partitioned");
 
         partitions = ImmutableSet.<ConnectorPartition>builder()
                 .add(new HivePartition(tablePartitionFormat,
@@ -288,21 +298,11 @@ public abstract class AbstractTestHiveClient
         }
 
         HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
-        HiveMetastore metastoreClient = new CachingHiveMetastore(hiveCluster, executor, Duration.valueOf("1m"), Duration.valueOf("15s"));
+        metastoreClient = new CachingHiveMetastore(hiveCluster, executor, Duration.valueOf("1m"), Duration.valueOf("15s"));
         HiveConnectorId connectorId = new HiveConnectorId(connectorName);
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig);
-        metadata = new HiveMetadata(
-                connectorId,
-                metastoreClient,
-                hdfsEnvironment,
-                timeZone,
-                true,
-                true,
-                true,
-                hiveClientConfig.getHiveStorageFormat(),
-                new TypeRegistry());
         splitManager = new HiveSplitManager(
                 connectorId,
                 metastoreClient,
@@ -321,8 +321,32 @@ public abstract class AbstractTestHiveClient
                 false,
                 false,
                 false);
+        metadata = new HiveMetadata(
+                connectorId,
+                metastoreClient,
+                hdfsEnvironment,
+                timeZone,
+                true,
+                true,
+                true,
+                hiveClientConfig.getHiveStorageFormat(),
+                true,
+                new TypeRegistry(),
+                splitManager);
         recordSinkProvider = new HiveRecordSinkProvider(hdfsEnvironment);
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER, DEFAULT_HIVE_DATA_STREAM_FACTORIES, TYPE_MANAGER);
+
+        insertTestWorker = new InsertTestWorker(SESSION,
+                dsColumn,
+                dummyColumn,
+                hdfsEnvironment,
+                metadata,
+                splitManager,
+                pageSourceProvider,
+                recordSinkProvider,
+                insertTableDestination,
+                insertTablePartitionedDestination,
+                metastoreClient);
     }
 
     @Test
@@ -1143,6 +1167,20 @@ public abstract class AbstractTestHiveClient
                 assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
             }
         }
+    }
+
+    @Test
+    public void testInsertIntoTable()
+            throws Exception
+    {
+        insertTestWorker.insertIntoTest();
+    }
+
+    @Test
+    public void testInsertIntoPartitionedTable()
+            throws Exception
+    {
+        insertTestWorker.insertIntoPartitionedTableTest();
     }
 
     private void createDummyTable(SchemaTableName tableName)

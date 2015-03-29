@@ -93,6 +93,8 @@ public class HiveClientConfig
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
 
+    private boolean insertS3TempEnabled = true;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -666,6 +668,19 @@ public class HiveClientConfig
     public HiveClientConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
     {
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        return this;
+    }
+
+    public boolean getInsertS3TempEnabled()
+    {
+        return insertS3TempEnabled;
+    }
+
+    @Config("hive.insert-s3-temp-enabled")
+    @ConfigDescription("Use temporary location for Insert into s3 locations")
+    public HiveClientConfig setInsertS3TempEnabled(boolean enabled)
+    {
+        this.insertS3TempEnabled = enabled;
         return this;
     }
 }
