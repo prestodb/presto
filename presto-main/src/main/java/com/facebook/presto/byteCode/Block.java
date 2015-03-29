@@ -20,7 +20,6 @@ import com.facebook.presto.byteCode.instruction.JumpInstruction;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.byteCode.instruction.TypeInstruction;
 import com.facebook.presto.byteCode.instruction.VariableInstruction;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 
@@ -52,6 +51,7 @@ import static com.facebook.presto.byteCode.instruction.TypeInstruction.instanceO
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.invoke.MethodType.methodType;
 
+@SuppressWarnings("UnusedDeclaration")
 @NotThreadSafe
 public class Block
         implements ByteCodeNode
@@ -105,7 +105,7 @@ public class Block
 
     public boolean isEmpty()
     {
-        return nodes.size() == 0;
+        return nodes.isEmpty();
     }
 
     public Block visitLabel(LabelNode label)
@@ -998,7 +998,7 @@ public class Block
     public Block incrementVariable(Variable variable, byte increment)
     {
         String type = variable.getType().getClassName();
-        Preconditions.checkArgument(ImmutableList.of("byte", "short", "int").contains(type), "variable must be an byte, short or int, but is %s", type);
+        checkArgument(ImmutableList.of("byte", "short", "int").contains(type), "variable must be an byte, short or int, but is %s", type);
         nodes.add(VariableInstruction.incrementVariable(variable, increment));
         return this;
     }

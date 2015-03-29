@@ -28,6 +28,7 @@ import static com.facebook.presto.byteCode.OpCode.ILOAD;
 import static com.facebook.presto.byteCode.OpCode.ISTORE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
+@SuppressWarnings("UnusedDeclaration")
 public abstract class VariableInstruction
         implements InstructionNode
 {

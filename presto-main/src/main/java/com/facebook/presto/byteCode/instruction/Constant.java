@@ -45,6 +45,7 @@ import static com.facebook.presto.byteCode.instruction.FieldInstruction.getStati
 import static com.facebook.presto.byteCode.instruction.InvokeInstruction.invokeStatic;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
+@SuppressWarnings("UnusedDeclaration")
 public abstract class Constant
         implements InstructionNode
 {

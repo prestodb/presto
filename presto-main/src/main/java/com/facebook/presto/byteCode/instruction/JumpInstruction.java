@@ -38,6 +38,7 @@ import static com.facebook.presto.byteCode.OpCode.IF_ICMPLE;
 import static com.facebook.presto.byteCode.OpCode.IF_ICMPLT;
 import static com.facebook.presto.byteCode.OpCode.IF_ICMPNE;
 
+@SuppressWarnings("UnusedDeclaration")
 public class JumpInstruction
         implements InstructionNode
 {
