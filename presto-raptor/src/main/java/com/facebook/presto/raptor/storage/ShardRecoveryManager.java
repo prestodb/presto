@@ -26,6 +26,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Flatten;
+import org.weakref.jmx.Managed;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -75,6 +77,7 @@ public class ShardRecoveryManager
 
     private final ScheduledExecutorService missingShardExecutor = newScheduledThreadPool(1, daemonThreadsNamed("missing-shard-discovery"));
     private final ExecutorService executorService = newCachedThreadPool(daemonThreadsNamed("shard-recovery-%s"));
+    private final ShardRecoveryStats stats;
 
     @Inject
     public ShardRecoveryManager(StorageService storageService, NodeManager nodeManager, ShardManager shardManager, StorageManagerConfig storageManagerConfig)
@@ -89,6 +92,7 @@ public class ShardRecoveryManager
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
         this.missingShardDiscoveryInterval = checkNotNull(missingShardDiscoveryInterval, "missingShardDiscoveryInterval is null");
         this.shardQueue = new MissingShardsQueue(new PrioritizedFifoExecutor<>(executorService, recoveryThreads, new MissingShardComparator()));
+        this.stats = new ShardRecoveryStats();
     }
 
     @PostConstruct
@@ -115,6 +119,7 @@ public class ShardRecoveryManager
             try {
                 SECONDS.sleep(ThreadLocalRandom.current().nextInt(1, 30));
                 for (UUID shard : getMissingShards()) {
+                    stats.incrementBackgroundShardRecovery();
                     shardQueue.submit(MissingShard.createBackgroundMissingShard(shard));
                 }
             }
@@ -144,6 +149,7 @@ public class ShardRecoveryManager
             throws ExecutionException
     {
         checkNotNull(shardUuid, "shardUuid is null");
+        stats.incrementActiveShardRecovery();
         return shardQueue.submit(MissingShard.createActiveMissingShard(shardUuid));
     }
 
@@ -153,6 +159,7 @@ public class ShardRecoveryManager
         File storageFile = storageService.getStorageFile(shardUuid);
         File backupFile = storageService.getBackupFile(shardUuid);
         if (!backupFile.exists()) {
+            stats.incrementShardRecoveryBackupNotFound();
             throw new PrestoException(RAPTOR_RECOVERY_ERROR, "No backup file found for shard: " + shardUuid);
         }
 
@@ -176,12 +183,15 @@ public class ShardRecoveryManager
             copyFile(backupFile.toPath(), stagingFile.toPath());
         }
         catch (IOException e) {
+            stats.incrementShardRecoveryFailure();
             throw new PrestoException(RAPTOR_RECOVERY_ERROR, "Failed to copy backup shard: " + shardUuid, e);
         }
 
         Duration duration = nanosSince(start);
         DataSize size = new DataSize(stagingFile.length(), BYTE);
         DataSize rate = dataRate(size, duration).convertToMostSuccinctDataSize();
+        stats.addShardRecoveryDataRate(rate, size, duration);
+
         log.info("Copied shard %s from backup in %s (%s at %s/s)", shardUuid, duration, size, rate);
 
         // move to final location
@@ -193,16 +203,22 @@ public class ShardRecoveryManager
             // someone else already created it (should not happen, but safe to ignore)
         }
         catch (IOException e) {
+            stats.incrementShardRecoveryFailure();
             throw new PrestoException(RAPTOR_RECOVERY_ERROR, "Failed to move shard: " + shardUuid, e);
         }
 
         if (!storageFile.exists() || storageFile.length() != backupFile.length()) {
+            stats.incrementShardRecoveryFailure();
             throw new PrestoException(RAPTOR_RECOVERY_ERROR, format("File not recovered correctly: %s", shardUuid));
         }
 
         if (storageFile.length() != backupFile.length()) {
+            stats.incrementShardRecoveryFailure();
             log.info("Files do not match after recovery. Deleting local file: " + shardUuid);
             storageFile.delete();
+        }
+        else {
+            stats.incrementShardRecoverySuccess();
         }
     }
 
@@ -226,7 +242,6 @@ public class ShardRecoveryManager
         boolean isActive();
     }
 
-    @VisibleForTesting
     private class MissingShardRecovery
             implements MissingShardRunnable
     {
@@ -353,5 +368,12 @@ public class ShardRecoveryManager
     private static File temporarySuffix(File file)
     {
         return new File(file.getPath() + ".tmp-" + UUID.randomUUID());
+    }
+
+    @Managed
+    @Flatten
+    public ShardRecoveryStats getStats()
+    {
+        return stats;
     }
 }
