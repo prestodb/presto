@@ -760,11 +760,6 @@ public final class SqlStageExecution
         // update in case task finished before listener was registered
         doUpdateState();
 
-        // stop if stage is already done
-        if (getState().isDone()) {
-            return task;
-        }
-
         return task;
     }
 
