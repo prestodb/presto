@@ -30,7 +30,6 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.sql.gen.Bootstrap;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.CompilerOperations;
 import com.facebook.presto.sql.gen.CompilerUtils;
@@ -125,7 +124,7 @@ public final class Greatest
     {
         List<String> nativeContainerTypeNames = nativeContainerTypes.stream().map(Class::getSimpleName).collect(ImmutableCollectors.toImmutableList());
 
-        CompilerContext context = new CompilerContext(Bootstrap.BOOTSTRAP_METHOD);
+        CompilerContext context = new CompilerContext();
         ClassDefinition definition = new ClassDefinition(
                 context,
                 a(PUBLIC, FINAL),

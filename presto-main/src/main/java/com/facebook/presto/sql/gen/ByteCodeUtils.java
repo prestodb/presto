@@ -37,6 +37,7 @@ import java.util.List;
 
 import static com.facebook.presto.byteCode.OpCode.NOP;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.invokeDynamic;
+import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static java.lang.String.format;
 
 public final class ByteCodeUtils
@@ -141,7 +142,7 @@ public final class ByteCodeUtils
     public static ByteCodeExpression loadConstant(CompilerContext context, Binding binding)
     {
         return invokeDynamic(
-                context.getDefaultBootstrapMethod(),
+                BOOTSTRAP_METHOD,
                 ImmutableList.of(binding.getBindingId()),
                 "constant_" + binding.getBindingId(),
                 binding.getType().returnType());
@@ -258,7 +259,7 @@ public final class ByteCodeUtils
     public static ByteCodeNode invoke(CompilerContext context, Binding binding, String name)
     {
         return new Block(context)
-                .invokeDynamic(name, binding.getType(), binding.getBindingId());
+                .invokeDynamic(name, binding.getType(), BOOTSTRAP_METHOD, binding.getBindingId());
     }
 
     public static ByteCodeNode invoke(CompilerContext context, Binding binding, Signature signature)

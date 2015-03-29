@@ -59,7 +59,6 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantLong;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.newInstance;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
@@ -97,7 +96,7 @@ public class JoinProbeCompiler
     {
         Class<? extends JoinProbe> joinProbeClass = compileJoinProbe(types, probeJoinChannel, probeHashChannel);
 
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
                 a(PUBLIC, FINAL),
                 makeClassName("JoinProbeFactory"),
                 type(Object.class),
@@ -105,7 +104,7 @@ public class JoinProbeCompiler
 
         classDefinition.declareDefaultConstructor(a(PUBLIC));
 
-        classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
+        classDefinition.declareMethod(new CompilerContext(),
                 a(PUBLIC),
                 "createJoinProbe",
                 type(JoinProbe.class),
@@ -148,7 +147,7 @@ public class JoinProbeCompiler
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
                 a(PUBLIC, FINAL),
                 makeClassName("JoinProbe"),
                 type(Object.class),
@@ -194,7 +193,7 @@ public class JoinProbeCompiler
             FieldDefinition positionField,
             FieldDefinition positionCountField)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext context = new CompilerContext();
         Block constructor = classDefinition.declareConstructor(context,
                 a(PUBLIC),
                 arg("lookupSource", LookupSource.class),
@@ -260,7 +259,7 @@ public class JoinProbeCompiler
 
     private void generateGetChannelCountMethod(ClassDefinition classDefinition, int channelCount)
     {
-        classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
+        classDefinition.declareMethod(new CompilerContext(),
                 a(PUBLIC),
                 "getChannelCount",
                 type(int.class))
@@ -275,7 +274,7 @@ public class JoinProbeCompiler
             List<Type> types, List<FieldDefinition> blockFields,
             FieldDefinition positionField)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext context = new CompilerContext();
         Block appendToBody = classDefinition.declareMethod(context,
                 a(PUBLIC),
                 "appendTo",
@@ -297,7 +296,7 @@ public class JoinProbeCompiler
 
     private void generateAdvanceNextPosition(ClassDefinition classDefinition, FieldDefinition positionField, FieldDefinition positionCountField)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext context = new CompilerContext();
         Block advanceNextPositionBody = classDefinition.declareMethod(context,
                 a(PUBLIC),
                 "advanceNextPosition",
@@ -338,7 +337,7 @@ public class JoinProbeCompiler
             FieldDefinition probeHashBlockField,
             FieldDefinition positionField)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext context = new CompilerContext();
 //        Variable thisVariable = context.getVariable("this");
         Block body = classDefinition.declareMethod(context,
                 a(PUBLIC),
@@ -373,7 +372,7 @@ public class JoinProbeCompiler
 
     private void generateCurrentRowContainsNull(ClassDefinition classDefinition, List<FieldDefinition> probeBlockFields, FieldDefinition positionField)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext context = new CompilerContext();
         Block body = classDefinition.declareMethod(context,
                 a(PRIVATE),
                 "currentRowContainsNull",

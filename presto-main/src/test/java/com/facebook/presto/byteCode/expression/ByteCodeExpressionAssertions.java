@@ -29,7 +29,6 @@ import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static org.testng.Assert.assertEquals;
 
@@ -58,12 +57,12 @@ public final class ByteCodeExpressionAssertions
     public static Object execute(ByteCodeNode node, ParameterizedType returnType)
             throws Exception
     {
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
+        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(),
                 a(PUBLIC, FINAL),
                 makeClassName("Test"),
                 type(Object.class));
 
-        classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD), a(PUBLIC, STATIC), "test", returnType)
+        classDefinition.declareMethod(new CompilerContext(), a(PUBLIC, STATIC), "test", returnType)
                 .getBody()
                 .append(node);
 

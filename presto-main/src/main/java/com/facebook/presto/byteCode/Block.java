@@ -49,7 +49,6 @@ import static com.facebook.presto.byteCode.instruction.FieldInstruction.putStati
 import static com.facebook.presto.byteCode.instruction.TypeInstruction.cast;
 import static com.facebook.presto.byteCode.instruction.TypeInstruction.instanceOf;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.invoke.MethodType.methodType;
 
 @SuppressWarnings("UnusedDeclaration")
 @NotThreadSafe
@@ -481,27 +480,6 @@ public class Block
     public Block invokeSpecial(ParameterizedType type, String name, ParameterizedType returnType, Iterable<ParameterizedType> parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeSpecial(type, name, returnType, parameterTypes));
-        return this;
-    }
-
-    public Block invokeDynamic(String name, Class<?> returnType, List<Class<?>> parameterTypes)
-    {
-        return invokeDynamic(name, methodType(returnType, parameterTypes));
-    }
-
-    public Block invokeDynamic(String name, Class<?> returnType, Class<?>... parameterTypes)
-    {
-        return invokeDynamic(name, methodType(returnType, ImmutableList.copyOf(parameterTypes)));
-    }
-
-    public Block invokeDynamic(String name, MethodType methodType)
-    {
-        return invokeDynamic(name, methodType, context.getDefaultBootstrapMethod(), context.getDefaultBootstrapArguments());
-    }
-
-    public Block invokeDynamic(String name, MethodType methodType, Object... defaultBootstrapArguments)
-    {
-        nodes.add(InvokeInstruction.invokeDynamic(name, methodType, context.getDefaultBootstrapMethod(), defaultBootstrapArguments));
         return this;
     }
 

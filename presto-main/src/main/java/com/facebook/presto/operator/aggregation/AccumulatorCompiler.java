@@ -55,7 +55,6 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.countInputChannels;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
@@ -164,7 +163,7 @@ public class AccumulatorCompiler
         MethodDefinition methodDefinition = definition.declareMethod(a(PUBLIC), "getIntermediateType", type(Type.class));
 
         methodDefinition.getBody()
-                .append(constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, type))
+                .append(constantType(new CompilerContext(), callSiteBinder, type))
                 .retObject();
 
         return methodDefinition;
@@ -175,7 +174,7 @@ public class AccumulatorCompiler
         MethodDefinition methodDefinition = definition.declareMethod(a(PUBLIC), "getFinalType", type(Type.class));
 
         methodDefinition.getBody()
-                .append(constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, type))
+                .append(constantType(new CompilerContext(), callSiteBinder, type))
                 .retObject();
 
         return methodDefinition;
@@ -202,7 +201,7 @@ public class AccumulatorCompiler
             CallSiteBinder callSiteBinder,
             boolean grouped)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext context = new CompilerContext();
 
         ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
         if (grouped) {
@@ -437,28 +436,28 @@ public class AccumulatorCompiler
         }
         else if (parameter == long.class) {
             block.comment("%s.getLong(block, position)", sqlType.getTypeSignature())
-                    .append(constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, sqlType))
+                    .append(constantType(new CompilerContext(), callSiteBinder, sqlType))
                     .append(getBlockByteCode)
                     .getVariable("position")
                     .invokeInterface(Type.class, "getLong", long.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else if (parameter == double.class) {
             block.comment("%s.getDouble(block, position)", sqlType.getTypeSignature())
-                    .append(constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, sqlType))
+                    .append(constantType(new CompilerContext(), callSiteBinder, sqlType))
                     .append(getBlockByteCode)
                     .getVariable("position")
                     .invokeInterface(Type.class, "getDouble", double.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else if (parameter == boolean.class) {
             block.comment("%s.getBoolean(block, position)", sqlType.getTypeSignature())
-                    .append(constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, sqlType))
+                    .append(constantType(new CompilerContext(), callSiteBinder, sqlType))
                     .append(getBlockByteCode)
                     .getVariable("position")
                     .invokeInterface(Type.class, "getBoolean", boolean.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else if (parameter == Slice.class) {
             block.comment("%s.getBoolean(block, position)", sqlType.getTypeSignature())
-                    .append(constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, sqlType))
+                    .append(constantType(new CompilerContext(), callSiteBinder, sqlType))
                     .append(getBlockByteCode)
                     .getVariable("position")
                     .invokeInterface(Type.class, "getSlice", Slice.class, com.facebook.presto.spi.block.Block.class, int.class);
@@ -478,7 +477,7 @@ public class AccumulatorCompiler
             CallSiteBinder callSiteBinder,
             boolean grouped)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext context = new CompilerContext();
 
         Block body = declareAddIntermediate(definition, grouped, context);
 
@@ -566,7 +565,7 @@ public class AccumulatorCompiler
             CallSiteBinder callSiteBinder,
             boolean grouped)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext context = new CompilerContext();
 
         Block body = declareAddIntermediate(definition, grouped, context);
 
@@ -670,7 +669,7 @@ public class AccumulatorCompiler
             boolean approximate,
             CallSiteBinder callSiteBinder)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext context = new CompilerContext();
         Block body = definition.declareMethod(
                 a(PUBLIC),
                 "evaluateFinal",
@@ -719,7 +718,7 @@ public class AccumulatorCompiler
             boolean approximate,
             CallSiteBinder callSiteBinder)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
+        CompilerContext context = new CompilerContext();
         Block body = definition.declareMethod(
                 a(PUBLIC),
                 "evaluateFinal",

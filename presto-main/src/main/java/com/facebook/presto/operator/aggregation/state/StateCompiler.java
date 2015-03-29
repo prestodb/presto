@@ -58,7 +58,6 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
@@ -164,7 +163,7 @@ public class StateCompiler
         }
 
         body.comment("return %s", type.getTypeSignature())
-                .append(constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, type))
+                .append(constantType(new CompilerContext(), callSiteBinder, type))
                 .retObject();
     }
 
@@ -420,7 +419,7 @@ public class StateCompiler
                 .putStaticField(classSize);
 
         // Add getter for class size
-        definition.declareMethod(new CompilerContext(null), a(PUBLIC), "getEstimatedSize", type(long.class))
+        definition.declareMethod(new CompilerContext(), a(PUBLIC), "getEstimatedSize", type(long.class))
                 .getBody()
                 .getStaticField(classSize)
                 .retLong();
