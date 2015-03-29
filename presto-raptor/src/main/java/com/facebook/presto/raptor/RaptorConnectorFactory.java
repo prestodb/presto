@@ -93,7 +93,7 @@ public class RaptorConnectorFactory
                         binder.bind(TypeManager.class).toInstance(typeManager);
                     },
                     module,
-                    new StorageModule(),
+                    new StorageModule(connectorId),
                     new RaptorModule(connectorId));
 
             Injector injector = app
