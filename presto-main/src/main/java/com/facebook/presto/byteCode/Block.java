@@ -61,6 +61,7 @@ public class Block
     private final List<ByteCodeNode> nodes = new ArrayList<>();
 
     private String description;
+    private int currentLineNumber = -1;
 
     public Block(CompilerContext context)
     {
@@ -995,14 +996,12 @@ public class Block
         return this;
     }
 
-    public Block visitLineNumber(int line)
+    public Block visitLineNumber(int currentLineNumber)
     {
-        if (line <= 0) {
-            context.cleanLineNumber();
-        }
-        else if (!context.hasVisitedLine(line)) {
-            nodes.add(new LineNumberNode(line));
-            context.visitLine(line);
+        checkArgument(currentLineNumber >= 0, "currentLineNumber must be positive");
+        if (this.currentLineNumber != currentLineNumber) {
+            nodes.add(new LineNumberNode(currentLineNumber));
+            this.currentLineNumber = currentLineNumber;
         }
         return this;
     }
