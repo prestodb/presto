@@ -44,6 +44,7 @@ import static com.facebook.presto.cassandra.CassandraColumnHandle.columnMetadata
 import static com.facebook.presto.cassandra.CassandraType.BIGINT;
 import static com.facebook.presto.cassandra.CassandraType.toCassandraType;
 import static com.facebook.presto.cassandra.util.Types.checkType;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -216,7 +217,7 @@ public class CassandraMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "CREATE TABLE not yet supported for Cassandra");
     }
 
     @Override
@@ -225,7 +226,7 @@ public class CassandraMetadata
         checkArgument(tableHandle instanceof CassandraTableHandle, "tableHandle is not an instance of CassandraTableHandle");
 
         if (!allowDropTable) {
-            throw new PrestoException(PERMISSION_DENIED, "DROP TABLE is disabled in this Hive catalog");
+            throw new PrestoException(PERMISSION_DENIED, "DROP TABLE is disabled in this Cassandra catalog");
         }
 
         CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;
@@ -240,7 +241,7 @@ public class CassandraMetadata
     @Override
     public void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "Renaming tables not yet supported for Cassandra");
     }
 
     @Override
@@ -305,7 +306,7 @@ public class CassandraMetadata
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "INSERT not yet supported for Cassandra");
     }
 
     @Override
@@ -317,13 +318,13 @@ public class CassandraMetadata
     @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "CREATE VIEW not yet supported for Cassandra");
     }
 
     @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "DROP VIEW not yet supported for Cassandra");
     }
 
     @Override
