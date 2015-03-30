@@ -45,7 +45,7 @@ class AndByteCodeExpression
     {
         LabelNode falseLabel = new LabelNode("false");
         LabelNode endLabel = new LabelNode("end");
-        return new Block(null)
+        return new Block()
                 .append(left)
                 .ifFalseGoto(falseLabel)
                 .append(right)

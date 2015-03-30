@@ -41,7 +41,7 @@ class NotByteCodeExpression
     {
         LabelNode trueLabel = new LabelNode("true");
         LabelNode endLabel = new LabelNode("end");
-        return new Block(null)
+        return new Block()
                 .append(value)
                 .ifTrueGoto(trueLabel)
                 .push(true)

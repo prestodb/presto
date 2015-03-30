@@ -75,7 +75,7 @@ class InvokeByteCodeExpression
     @Override
     public ByteCodeNode getByteCode(MethodGenerationContext generationContext)
     {
-        Block block = new Block(null);
+        Block block = new Block();
         if (instance != null) {
             block.append(instance);
         }

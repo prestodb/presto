@@ -184,7 +184,7 @@ public class ArithmeticByteCodeExpression
     @Override
     public ByteCodeNode getByteCode(MethodGenerationContext generationContext)
     {
-        return new Block(null)
+        return new Block()
                 .append(left)
                 .append(right)
                 .append(opCode);

@@ -43,7 +43,7 @@ class NewInstanceByteCodeExpression
     @Override
     public ByteCodeNode getByteCode(MethodGenerationContext generationContext)
     {
-        Block block = new Block(null)
+        Block block = new Block()
                 .newObject(getType())
                 .dup();
 

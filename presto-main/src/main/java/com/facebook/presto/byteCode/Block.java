@@ -63,6 +63,11 @@ public class Block
     private String description;
     private int currentLineNumber = -1;
 
+    public Block()
+    {
+        this.context = null;
+    }
+
     public Block(CompilerContext context)
     {
         this.context = context;
@@ -829,6 +834,7 @@ public class Block
 
     public Block getVariable(String name)
     {
+        checkArgument(context != null, "Variable %s not defined", name);
         append(loadVariable(context.getVariable(name)));
         return this;
     }
@@ -882,6 +888,7 @@ public class Block
 
     public Block putVariable(String name)
     {
+        checkArgument(context != null, "Variable %s not defined", name);
         putVariable(context.getVariable(name));
         return this;
     }
