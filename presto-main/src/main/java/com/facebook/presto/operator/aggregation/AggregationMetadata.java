@@ -56,7 +56,6 @@ public class AggregationMetadata
     private final MethodHandle combineFunction;
     @Nullable
     private final MethodHandle outputFunction;
-    private final Class<?> stateInterface;
     private final AccumulatorStateSerializer<?> stateSerializer;
     private final AccumulatorStateFactory<?> stateFactory;
     private final Type outputType;
@@ -92,7 +91,6 @@ public class AggregationMetadata
         this.intermediateInputFunction = intermediateInputFunction;
         this.combineFunction = combineFunction;
         this.outputFunction = outputFunction;
-        this.stateInterface = checkNotNull(stateInterface, "stateInterface is null");
         this.stateSerializer = checkNotNull(stateSerializer, "stateSerializer is null");
         this.stateFactory = checkNotNull(stateFactory, "stateFactory is null");
         this.approximate = approximate;
@@ -154,11 +152,6 @@ public class AggregationMetadata
     public MethodHandle getOutputFunction()
     {
         return outputFunction;
-    }
-
-    public Class<?> getStateInterface()
-    {
-        return stateInterface;
     }
 
     public AccumulatorStateSerializer<?> getStateSerializer()
