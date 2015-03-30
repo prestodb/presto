@@ -26,23 +26,16 @@ public class Variable
         extends ByteCodeExpression
 {
     private final String name;
-    private final int slot;
 
-    public Variable(String name, int slot, ParameterizedType type)
+    public Variable(String name, ParameterizedType type)
     {
         super(type);
         this.name = checkNotNull(name, "name is null");
-        this.slot = slot;
     }
 
     public String getName()
     {
         return name;
-    }
-
-    public int getSlot()
-    {
-        return slot;
     }
 
     public ByteCodeExpression set(ByteCodeExpression value)

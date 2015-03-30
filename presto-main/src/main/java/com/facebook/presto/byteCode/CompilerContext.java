@@ -14,7 +14,7 @@
 package com.facebook.presto.byteCode;
 
 import com.facebook.presto.byteCode.instruction.LabelNode;
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.Type;
 
 import java.util.ArrayList;
@@ -24,27 +24,49 @@ import java.util.TreeMap;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class CompilerContext
 {
     private final Map<String, Variable> variables = new TreeMap<>();
     private final List<Variable> allVariables = new ArrayList<>();
 
-    private int nextSlot;
-
     private final LabelNode variableStartLabel = new LabelNode("VariableStart");
     private final LabelNode variableEndLabel = new LabelNode("VariableEnd");
+
+    private int nextTempVariableId;
 
     // This can only be constructed by a method definition
     CompilerContext()
     {
     }
 
+    void declareThisVariable(ParameterizedType type)
+    {
+        if (variables.containsKey("this")) {
+            return;
+        }
+
+        checkState(variables.isEmpty(), "The 'this' variable must be declared first");
+        Variable variable = new Variable("this", type);
+
+        variables.put("this", variable);
+        allVariables.add(variable);
+    }
+
+    public List<Variable> getVariables()
+    {
+        return ImmutableList.copyOf(allVariables);
+    }
+
     public Variable createTempVariable(Class<?> type)
     {
         // reserve a slot for this variable
-        Variable variable = new Variable("temp_" + nextSlot, nextSlot, type(type));
-        nextSlot += Type.getType(type(type).getType()).getSize();
+        Variable variable = new Variable("temp_" + nextTempVariableId, type(type));
+        nextTempVariableId += Type.getType(type(type).getType()).getSize();
+
+        allVariables.add(variable);
 
         return variable;
     }
@@ -61,29 +83,6 @@ public class CompilerContext
         return variable;
     }
 
-    /**
-     * BE VERY CAREFUL WITH THIS METHOD
-     */
-    public void setVariable(String name, Variable variable)
-    {
-        Preconditions.checkNotNull(name, "name is null");
-        Preconditions.checkNotNull(variable, "variable is null");
-        variables.put(name, variable);
-    }
-
-    public void declareThisVariable(ParameterizedType type)
-    {
-        if (variables.containsKey("this")) {
-            return;
-        }
-
-        Preconditions.checkState(nextSlot == 0, "The 'this' variable must be declared before all other parameters and local variables");
-        Variable variable = new Variable("this", 0, type);
-        nextSlot = 1;
-
-        variables.put("this", variable);
-    }
-
     public Variable declareVariable(Class<?> type, String variableName)
     {
         return declareVariable(type(type), variableName);
@@ -91,13 +90,15 @@ public class CompilerContext
 
     public Variable declareVariable(ParameterizedType type, String variableName)
     {
+        requireNonNull(type, "type is null");
+        requireNonNull(variableName, "variableName is null");
         checkArgument(!variables.containsKey(variableName), "There is already a variable named %s", variableName);
+        checkArgument(!variableName.equals("this"), "The 'this' variable can not be declared");
 
-        Variable variable = new Variable(variableName, nextSlot, type);
-        nextSlot += Type.getType(type.getType()).getSize();
+        Variable variable = new Variable(variableName, type);
 
-        allVariables.add(variable);
         variables.put(variableName, variable);
+        allVariables.add(variable);
 
         return variable;
     }
@@ -114,7 +115,7 @@ public class CompilerContext
 
     public void addLocalVariables(MethodDefinition methodDefinition)
     {
-        for (Variable variable : allVariables) {
+        for (Variable variable : variables.values()) {
             methodDefinition.addLocalVariable(variable, variableStartLabel, variableEndLabel);
         }
     }
