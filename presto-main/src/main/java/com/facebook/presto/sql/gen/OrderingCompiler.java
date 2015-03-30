@@ -201,7 +201,7 @@ public class OrderingCompiler
                     .invoke("compareBlockValue",
                             int.class,
                             ImmutableList.of(Type.class, com.facebook.presto.spi.block.Block.class, int.class, com.facebook.presto.spi.block.Block.class, int.class),
-                            constantType(context, callSiteBinder, sortType),
+                            constantType(callSiteBinder, sortType),
                             leftBlock,
                             leftBlockPosition,
                             rightBlock,

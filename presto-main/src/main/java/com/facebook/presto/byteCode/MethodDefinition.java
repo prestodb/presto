@@ -170,6 +170,11 @@ public class MethodDefinition
         return compilerContext;
     }
 
+    public Variable getThis()
+    {
+        return compilerContext.getThis();
+    }
+
     public String getMethodDescriptor()
     {
         return methodDescription(returnType, parameterTypes);

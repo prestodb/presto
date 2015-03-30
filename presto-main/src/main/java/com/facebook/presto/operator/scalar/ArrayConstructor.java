@@ -146,7 +146,7 @@ public final class ArrayConstructor
         CallSiteBinder binder = new CallSiteBinder();
 
         body.comment("elementTypeVariable = elementType;")
-                .append(constantType(context, binder, elementType))
+                .append(constantType(binder, elementType))
                 .putVariable(elementTypeVariable);
 
         Variable valuesVariable = context.declareVariable(List.class, "values");
@@ -159,7 +159,7 @@ public final class ArrayConstructor
         for (int i = 0; i < stackTypes.size(); i++) {
             body.comment("values.add(arg" + i + ");")
                     .getVariable(valuesVariable)
-                    .getVariable("arg" + i);
+                    .append(context.getVariable("arg" + i));
             Class<?> stackType = stackTypes.get(i);
             if (stackType.isPrimitive()) {
                 body.append(ByteCodeUtils.boxPrimitiveIfNecessary(context, stackType));

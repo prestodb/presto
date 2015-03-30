@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.byteCode.control.LookupSwitch.lookupSwitchBuilder;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
 import static com.facebook.presto.byteCode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.ifWasNullPopAndGoto;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
@@ -119,7 +120,7 @@ public class InCodeGenerator
             switchBlock = new Block(context)
                     .comment("lookupSwitch(hashCode(<stackValue>))")
                     .dup(javaType)
-                    .append(invoke(generatorContext.getContext(), hashCodeBinding, hashCodeFunction.getSignature()))
+                    .append(invoke(hashCodeBinding, hashCodeFunction.getSignature()))
                     .longToInt()
                     .append(switchBuilder.build())
                     .append(switchCaseBlocks);
@@ -137,7 +138,7 @@ public class InCodeGenerator
                                     .dup(javaType)
                                     .append(ByteCodeUtils.boxPrimitive(context, javaType))
                                     .comment("set")
-                                    .append(loadConstant(context, constant))
+                                    .append(loadConstant(constant))
                                     // TODO: use invokeVirtual on the set instead. This requires swapping the two elements in the stack
                                     .invokeStatic(CompilerOperations.class, "in", boolean.class, Object.class, Set.class))
                             .ifTrue(jump(match)));
@@ -156,7 +157,7 @@ public class InCodeGenerator
                 .setDescription("match")
                 .visitLabel(match)
                 .pop(javaType)
-                .putVariable("wasNull", false)
+                .append(generatorContext.wasNull().set(constantFalse()))
                 .push(true)
                 .gotoLabel(end);
         block.append(matchBlock);
@@ -199,9 +200,9 @@ public class InCodeGenerator
         Block elseBlock = new Block(context)
                 .visitLabel(elseLabel);
 
+        Variable wasNull = generatorContext.wasNull();
         if (checkForNulls) {
-            elseBlock.getVariable(caseWasNull)
-                    .putVariable("wasNull");
+            elseBlock.append(wasNull.set(caseWasNull));
         }
 
         elseBlock.gotoLabel(noMatchLabel);
@@ -224,12 +225,12 @@ public class InCodeGenerator
 
             if (checkForNulls) {
                 test.condition()
-                        .append(context.getVariable("wasNull"))
+                        .append(wasNull)
                         .putVariable(caseWasNull)
                         .append(ifWasNullPopAndGoto(context, elseLabel, void.class, type.getJavaType(), type.getJavaType()));
             }
             test.condition()
-                    .append(invoke(generatorContext.getContext(), equalsFunction, operator.getSignature()));
+                    .append(invoke(equalsFunction, operator.getSignature()));
 
             test.ifTrue().gotoLabel(matchLabel);
             test.ifFalse(elseNode);

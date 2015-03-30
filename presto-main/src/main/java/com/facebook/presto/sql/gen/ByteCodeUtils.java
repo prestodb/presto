@@ -36,6 +36,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.byteCode.OpCode.NOP;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.invokeDynamic;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static java.lang.String.format;
@@ -67,13 +69,15 @@ public final class ByteCodeUtils
             List<Class<?>> stackArgsToPop,
             boolean clearNullFlag)
     {
+        Variable wasNull = context.getVariable("wasNull");
+
         Block nullCheck = new Block(context)
                 .setDescription("ifWasNullGoto")
-                .getVariable("wasNull");
+                .append(wasNull);
 
         String clearComment = null;
         if (clearNullFlag) {
-            nullCheck.putVariable("wasNull", false);
+            nullCheck.append(wasNull.set(constantFalse()));
             clearComment = "clear wasNull";
         }
 
@@ -134,13 +138,13 @@ public final class ByteCodeUtils
         throw new UnsupportedOperationException("not yet implemented: " + unboxedType);
     }
 
-    public static ByteCodeExpression loadConstant(CompilerContext context, CallSiteBinder callSiteBinder, Object constant, Class<?> type)
+    public static ByteCodeExpression loadConstant(CallSiteBinder callSiteBinder, Object constant, Class<?> type)
     {
         Binding binding = callSiteBinder.bind(MethodHandles.constant(type, constant));
-        return loadConstant(context, binding);
+        return loadConstant(binding);
     }
 
-    public static ByteCodeExpression loadConstant(CompilerContext context, Binding binding)
+    public static ByteCodeExpression loadConstant(Binding binding)
     {
         return invokeDynamic(
                 BOOTSTRAP_METHOD,
@@ -167,7 +171,7 @@ public final class ByteCodeUtils
         for (Class<?> type : methodType.parameterArray()) {
             stackTypes.add(type);
             if (type == ConnectorSession.class) {
-                block.getVariable("session");
+                block.append(context.getVariable("session"));
             }
             else {
                 block.append(arguments.get(index));
@@ -176,12 +180,12 @@ public final class ByteCodeUtils
                 }
                 else {
                     block.append(boxPrimitiveIfNecessary(context, type));
-                    block.putVariable("wasNull", false);
+                    block.append(context.getVariable("wasNull").set(constantFalse()));
                 }
                 index++;
             }
         }
-        block.append(invoke(context, binding, function.getSignature()));
+        block.append(invoke(binding, function.getSignature()));
 
         if (function.isNullable()) {
             block.append(unboxPrimitiveIfNecessary(context, returnType));
@@ -196,12 +200,13 @@ public final class ByteCodeUtils
         Block block = new Block(context);
         LabelNode end = new LabelNode("end");
         Class<?> unboxedType = Primitives.unwrap(boxedType);
+        Variable wasNull = context.getVariable("wasNull");
 
         if (unboxedType.isPrimitive() && unboxedType != void.class) {
             LabelNode notNull = new LabelNode("notNull");
             block.dup(boxedType)
                     .ifNotNullGoto(notNull)
-                    .putVariable("wasNull", true)
+                    .append(wasNull.set(constantTrue()))
                     .comment("swap boxed null with unboxed default")
                     .pop(boxedType)
                     .pushJavaDefault(unboxedType)
@@ -212,7 +217,7 @@ public final class ByteCodeUtils
         else {
             block.dup(boxedType)
                     .ifNotNullGoto(end)
-                    .putVariable("wasNull", true);
+                    .append(wasNull.set(constantTrue()));
         }
         block.visitLabel(end);
 
@@ -247,7 +252,7 @@ public final class ByteCodeUtils
             throw new UnsupportedOperationException("not yet implemented: " + type);
         }
 
-        Block condition = new Block(context).getVariable("wasNull");
+        Block condition = new Block(context).append(context.getVariable("wasNull"));
 
         Block wasNull = new Block(context)
                 .pop(expectedCurrentStackType)
@@ -260,15 +265,14 @@ public final class ByteCodeUtils
                 .ifFalse(notNull);
     }
 
-    public static ByteCodeNode invoke(CompilerContext context, Binding binding, String name)
+    public static ByteCodeNode invoke(Binding binding, String name)
     {
-        return new Block(context)
-                .invokeDynamic(name, binding.getType(), BOOTSTRAP_METHOD, binding.getBindingId());
+        return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), name, binding.getType());
     }
 
-    public static ByteCodeNode invoke(CompilerContext context, Binding binding, Signature signature)
+    public static ByteCodeNode invoke(Binding binding, Signature signature)
     {
-        return invoke(context, binding, signature.getName());
+        return invoke(binding, signature.getName());
     }
 
     public static ByteCodeNode generateWrite(CallSiteBinder callSiteBinder, CompilerContext context, Variable wasNullVariable, Type type)
@@ -302,7 +306,7 @@ public final class ByteCodeUtils
                                 .comment(type.getTypeSignature() + "." + methodName + "(output, " + type.getJavaType().getSimpleName() + ")")
                                 .putVariable(tempValue)
                                 .putVariable(tempOutput)
-                                .append(loadConstant(context, callSiteBinder.bind(type, Type.class)))
+                                .append(loadConstant(callSiteBinder.bind(type, Type.class)))
                                 .getVariable(tempOutput)
                                 .getVariable(tempValue)
                                 .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, type.getJavaType())));

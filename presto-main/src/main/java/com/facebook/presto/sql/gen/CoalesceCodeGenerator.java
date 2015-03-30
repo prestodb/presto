@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
@@ -24,6 +25,9 @@ import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
 
 public class CoalesceCodeGenerator
         implements ByteCodeGenerator
@@ -37,8 +41,9 @@ public class CoalesceCodeGenerator
         }
 
         CompilerContext context = generatorContext.getContext();
+        Variable wasNull = generatorContext.wasNull();
         ByteCodeNode nullValue = new Block(context)
-                .putVariable(context.getVariable("wasNull"), true)
+                .append(wasNull.set(constantTrue()))
                 .pushJavaDefault(returnType.getJavaType());
 
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
@@ -47,12 +52,12 @@ public class CoalesceCodeGenerator
 
             ifStatement.condition()
                     .append(operand)
-                    .append(context.getVariable("wasNull"));
+                    .append(wasNull);
 
             // if value was null, pop the null value, clear the null flag, and process the next operand
             ifStatement.ifTrue()
                     .pop(returnType.getJavaType())
-                    .putVariable(context.getVariable("wasNull"), false)
+                    .append(wasNull.set(constantFalse()))
                     .append(nullValue);
 
             nullValue = ifStatement;

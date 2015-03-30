@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.PageProcessor;
@@ -134,10 +133,9 @@ public class ExpressionCompiler
     private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)
     {
         // bind constant via invokedynamic to avoid constant pool issues due to large strings
-        CompilerContext context = new CompilerContext();
-        classDefinition.declareMethod(context, a(PUBLIC), "toString", type(String.class))
+        classDefinition.declareMethod(a(PUBLIC), "toString", type(String.class))
                 .getBody()
-                .append(invoke(context, callSiteBinder.bind(string, String.class), "toString"))
+                .append(invoke(callSiteBinder.bind(string, String.class), "toString"))
                 .retObject();
     }
 

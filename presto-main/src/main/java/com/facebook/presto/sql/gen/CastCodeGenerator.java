@@ -25,6 +25,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
+
 public class CastCodeGenerator
         implements ByteCodeGenerator
 {
@@ -36,7 +38,7 @@ public class CastCodeGenerator
         CompilerContext context = generatorContext.getContext();
         if (argument.getType().equals(UnknownType.UNKNOWN)) {
             return new Block(context)
-                    .putVariable("wasNull", true)
+                    .append(generatorContext.wasNull().set(constantTrue()))
                     .pushJavaDefault(returnType.getJavaType());
         }
 

@@ -166,7 +166,7 @@ public class AccumulatorCompiler
         MethodDefinition methodDefinition = definition.declareMethod(a(PUBLIC), "getIntermediateType", type(Type.class));
 
         methodDefinition.getBody()
-                .append(constantType(new CompilerContext(), callSiteBinder, type))
+                .append(constantType(callSiteBinder, type))
                 .retObject();
 
         return methodDefinition;
@@ -177,7 +177,7 @@ public class AccumulatorCompiler
         MethodDefinition methodDefinition = definition.declareMethod(a(PUBLIC), "getFinalType", type(Type.class));
 
         methodDefinition.getBody()
-                .append(constantType(new CompilerContext(), callSiteBinder, type))
+                .append(constantType(callSiteBinder, type))
                 .retObject();
 
         return methodDefinition;
@@ -186,8 +186,7 @@ public class AccumulatorCompiler
     private static void generateGetEstimatedSize(ClassDefinition definition, FieldDefinition stateField)
     {
         MethodDefinition method = definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class));
-        CompilerContext compilerContext = method.getCompilerContext();
-        ByteCodeExpression state = compilerContext.getVariable("this").getField(stateField);
+        ByteCodeExpression state = method.getThis().getField(stateField);
         method.getBody()
                 .append(state.invoke("getEstimatedSize", long.class).ret());
     }
@@ -211,7 +210,7 @@ public class AccumulatorCompiler
 
         MethodDefinition method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), parameters.build());
         CompilerContext context = method.getCompilerContext();
-        Variable thisVariable = context.getVariable("this");
+        Variable thisVariable = context.getThis();
         Variable page = context.getVariable("page");
         Block body = method.getBody();
 
@@ -392,7 +391,7 @@ public class AccumulatorCompiler
             ParameterMetadata parameterMetadata = parameterMetadatas.get(i);
             switch (parameterMetadata.getParameterType()) {
                 case STATE:
-                    block.append(context.getVariable("this").getField(stateField));
+                    block.append(context.getThis().getField(stateField));
                     break;
                 case BLOCK_INDEX:
                     block.getVariable(position);
@@ -416,7 +415,7 @@ public class AccumulatorCompiler
             }
         }
 
-        block.append(invoke(context, callSiteBinder.bind(inputFunction), "input"));
+        block.append(invoke(callSiteBinder.bind(inputFunction), "input"));
         return block;
     }
 
@@ -429,28 +428,28 @@ public class AccumulatorCompiler
         }
         else if (parameter == long.class) {
             block.comment("%s.getLong(block, position)", sqlType.getTypeSignature())
-                    .append(constantType(new CompilerContext(), callSiteBinder, sqlType))
+                    .append(constantType(callSiteBinder, sqlType))
                     .append(getBlockByteCode)
                     .append(position)
                     .invokeInterface(Type.class, "getLong", long.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else if (parameter == double.class) {
             block.comment("%s.getDouble(block, position)", sqlType.getTypeSignature())
-                    .append(constantType(new CompilerContext(), callSiteBinder, sqlType))
+                    .append(constantType(callSiteBinder, sqlType))
                     .append(getBlockByteCode)
                     .append(position)
                     .invokeInterface(Type.class, "getDouble", double.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else if (parameter == boolean.class) {
             block.comment("%s.getBoolean(block, position)", sqlType.getTypeSignature())
-                    .append(constantType(new CompilerContext(), callSiteBinder, sqlType))
+                    .append(constantType(callSiteBinder, sqlType))
                     .append(getBlockByteCode)
                     .append(position)
                     .invokeInterface(Type.class, "getBoolean", boolean.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else if (parameter == Slice.class) {
             block.comment("%s.getBoolean(block, position)", sqlType.getTypeSignature())
-                    .append(constantType(new CompilerContext(), callSiteBinder, sqlType))
+                    .append(constantType(callSiteBinder, sqlType))
                     .append(getBlockByteCode)
                     .append(position)
                     .invokeInterface(Type.class, "getSlice", Slice.class, com.facebook.presto.spi.block.Block.class, int.class);
@@ -479,7 +478,7 @@ public class AccumulatorCompiler
         Variable position = context.declareVariable(int.class, "position");
 
         body.comment("scratchState = stateFactory.createSingleState();")
-                .append(context.getVariable("this").getField(stateFactoryField))
+                .append(context.getThis().getField(stateFactoryField))
                 .invokeInterface(AccumulatorStateFactory.class, "createSingleState", Object.class)
                 .checkCast(scratchState.getType())
                 .putVariable(scratchState);
@@ -492,15 +491,15 @@ public class AccumulatorCompiler
 
         if (grouped) {
             Variable groupIdsBlock = context.getVariable("groupIdsBlock");
-            loopBody.append(context.getVariable("this").getField(stateField).invoke("setGroupId", void.class, groupIdsBlock.invoke("getGroupId", long.class, position)));
+            loopBody.append(context.getThis().getField(stateField).invoke("setGroupId", void.class, groupIdsBlock.invoke("getGroupId", long.class, position)));
         }
 
-        loopBody.append(context.getVariable("this").getField(stateSerializerField).invoke("deserialize", void.class, block, position, scratchState.cast(Object.class)));
+        loopBody.append(context.getThis().getField(stateSerializerField).invoke("deserialize", void.class, block, position, scratchState.cast(Object.class)));
 
         loopBody.comment("combine(state, scratchState)")
-                .append(context.getVariable("this").getField(stateField))
+                .append(context.getThis().getField(stateField))
                 .append(scratchState)
-                .append(invoke(context, callSiteBinder.bind(combineFunction), "combine"));
+                .append(invoke(callSiteBinder.bind(combineFunction), "combine"));
 
         body.append(generateBlockNonNullPositionForLoop(context, position, loopBody))
                 .ret();
@@ -510,14 +509,14 @@ public class AccumulatorCompiler
     {
         Variable groupIdsBlock = context.getVariable("groupIdsBlock");
         Variable position = context.getVariable("position");
-        ByteCodeExpression state = context.getVariable("this").getField(stateField);
+        ByteCodeExpression state = context.getThis().getField(stateField);
         block.append(state.invoke("setGroupId", void.class, groupIdsBlock.invoke("getGroupId", long.class, position)));
     }
 
     private static void generateEnsureCapacity(CompilerContext context, FieldDefinition stateField, Block block)
     {
         Variable groupIdsBlock = context.getVariable("groupIdsBlock");
-        ByteCodeExpression state = context.getVariable("this").getField(stateField);
+        ByteCodeExpression state = context.getThis().getField(stateField);
         block.append(state.invoke("ensureCapacity", void.class, groupIdsBlock.invoke("getGroupCount", long.class)));
     }
 
@@ -603,7 +602,7 @@ public class AccumulatorCompiler
                 arg("out", BlockBuilder.class));
 
         CompilerContext context = method.getCompilerContext();
-        Variable thisVariable = context.getVariable("this");
+        Variable thisVariable = method.getThis();
         Variable groupId = context.getVariable("groupId");
         Variable out = context.getVariable("out");
 
@@ -625,7 +624,7 @@ public class AccumulatorCompiler
                 arg("out", BlockBuilder.class));
 
         CompilerContext context = method.getCompilerContext();
-        Variable thisVariable = context.getVariable("this");
+        Variable thisVariable = method.getThis();
         Variable out = context.getVariable("out");
         ByteCodeExpression stateSerializer = thisVariable.getField(stateSerializerField);
         ByteCodeExpression state = thisVariable.getField(stateField);
@@ -653,7 +652,7 @@ public class AccumulatorCompiler
 
         Block body = method.getBody();
         CompilerContext context = method.getCompilerContext();
-        Variable thisVariable = context.getVariable("this");
+        Variable thisVariable = method.getThis();
         Variable groupId = context.getVariable("groupId");
         Variable out = context.getVariable("out");
 
@@ -669,7 +668,7 @@ public class AccumulatorCompiler
                 body.append(thisVariable.getField(confidenceField));
             }
             body.append(out);
-            body.append(invoke(context, callSiteBinder.bind(outputFunction), "output"));
+            body.append(invoke(callSiteBinder.bind(outputFunction), "output"));
         }
         else {
             checkArgument(!approximate, "Approximate aggregations must specify an output function");
@@ -697,7 +696,7 @@ public class AccumulatorCompiler
 
         Block body = method.getBody();
         CompilerContext context = method.getCompilerContext();
-        Variable thisVariable = context.getVariable("this");
+        Variable thisVariable = method.getThis();
         Variable out = context.getVariable("out");
 
         ByteCodeExpression state = thisVariable.getField(stateField);
@@ -710,7 +709,7 @@ public class AccumulatorCompiler
                 body.append(thisVariable.getField(confidenceField));
             }
             body.append(out);
-            body.append(invoke(context, callSiteBinder.bind(outputFunction), "output"));
+            body.append(invoke(callSiteBinder.bind(outputFunction), "output"));
         }
         else {
             checkArgument(!approximate, "Approximate aggregations must specify an output function");
@@ -742,7 +741,7 @@ public class AccumulatorCompiler
 
         Block body = method.getBody();
         CompilerContext context = method.getCompilerContext();
-        Variable thisVariable = context.getVariable("this");
+        Variable thisVariable = method.getThis();
         Variable stateSerializer = context.getVariable("stateSerializer");
         Variable stateFactory = context.getVariable("stateFactory");
         Variable inputChannels = context.getVariable("inputChannels");

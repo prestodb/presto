@@ -15,6 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -30,6 +31,7 @@ public class ByteCodeGeneratorContext
     private final CompilerContext context;
     private final CallSiteBinder callSiteBinder;
     private final FunctionRegistry registry;
+    private final Variable wasNull;
 
     public ByteCodeGeneratorContext(
             ByteCodeExpressionVisitor byteCodeGenerator,
@@ -46,6 +48,7 @@ public class ByteCodeGeneratorContext
         this.context = context;
         this.callSiteBinder = callSiteBinder;
         this.registry = registry;
+        this.wasNull = context.getVariable("wasNull");
     }
 
     public CompilerContext getContext()
@@ -75,5 +78,10 @@ public class ByteCodeGeneratorContext
     {
         Binding binding = callSiteBinder.bind(function.getMethodHandle());
         return generateInvocation(context, function, arguments, binding);
+    }
+
+    public Variable wasNull()
+    {
+        return wasNull;
     }
 }

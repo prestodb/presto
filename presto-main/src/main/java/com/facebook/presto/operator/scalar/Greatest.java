@@ -142,7 +142,7 @@ public final class Greatest
         Variable typeVariable = context.declareVariable(Type.class, "typeVariable");
         CallSiteBinder binder = new CallSiteBinder();
         body.comment("typeVariable = type;")
-                .append(constantType(context, binder, type))
+                .append(constantType(binder, type))
                 .putVariable(typeVariable);
 
         for (int i = 0; i < nativeContainerTypes.size(); i++) {
@@ -179,7 +179,7 @@ public final class Greatest
 
             if (type.getTypeSignature().getBase().equals(StandardTypes.DOUBLE)) {
                 buildBlock
-                        .getVariable("arg" + i)
+                        .append(context.getVariable("arg" + i))
                         .invokeStatic(Greatest.class, "checkNotNaN", void.class, double.class);
             }
 
@@ -187,7 +187,7 @@ public final class Greatest
                     .comment("typeVariable.%s(blockBuilder%d, arg%d);", writeMethodName, i, i)
                     .getVariable(typeVariable)
                     .getVariable(blockBuilder)
-                    .getVariable("arg" + i)
+                    .append(context.getVariable("arg" + i))
                     .invokeInterface(Type.class, writeMethodName, void.class, BlockBuilder.class, nativeContainerType);
 
             buildBlock.append(writeBlock);
@@ -205,9 +205,9 @@ public final class Greatest
         Variable greatestBlockVariable = context.declareVariable(com.facebook.presto.spi.block.Block.class, "greatestBlock");
 
         body.comment("greatest = arg0; greatestBlock = block0;")
-                .getVariable("arg0")
+                .append(context.getVariable("arg0"))
                 .putVariable(greatestVariable)
-                .getVariable("block0")
+                .append(context.getVariable("block0"))
                 .putVariable(greatestBlockVariable);
 
         for (int i = 1; i < nativeContainerTypes.size(); i++) {

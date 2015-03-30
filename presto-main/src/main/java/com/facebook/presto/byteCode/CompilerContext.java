@@ -48,6 +48,11 @@ public class CompilerContext
         return variable;
     }
 
+    public Variable getThis()
+    {
+        return getVariable("this");
+    }
+
     public Variable getVariable(String name)
     {
         Variable variable = variables.get(name);

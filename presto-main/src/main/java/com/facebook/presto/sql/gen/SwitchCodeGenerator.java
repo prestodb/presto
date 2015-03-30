@@ -32,6 +32,9 @@ import com.google.common.collect.Lists;
 
 import java.util.List;
 
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
+
 public class SwitchCodeGenerator
         implements ByteCodeGenerator
 {
@@ -80,7 +83,7 @@ public class SwitchCodeGenerator
         if (last instanceof CallExpression && ((CallExpression) last).getSignature().getName().equals("WHEN")) {
             whenClauses = arguments.subList(1, arguments.size());
             elseValue = new Block(context)
-                    .putVariable("wasNull", true)
+                    .append(generatorContext.wasNull().set(constantTrue()))
                     .pushJavaDefault(returnType.getJavaType());
         }
         else {
@@ -124,7 +127,7 @@ public class SwitchCodeGenerator
 
             Block condition = new Block(context)
                     .append(equalsCall)
-                    .putVariable("wasNull", false);
+                    .append(generatorContext.wasNull().set(constantFalse()));
 
             elseValue = new IfStatement("when")
                     .condition(condition)

@@ -16,7 +16,6 @@ package com.facebook.presto.byteCode.expression;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.ClassInfoLoader;
-import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.DumpByteCodeVisitor;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.ParameterizedType;
@@ -62,7 +61,7 @@ public final class ByteCodeExpressionAssertions
                 makeClassName("Test"),
                 type(Object.class));
 
-        classDefinition.declareMethod(new CompilerContext(), a(PUBLIC, STATIC), "test", returnType)
+        classDefinition.declareMethod(a(PUBLIC, STATIC), "test", returnType)
                 .getBody()
                 .append(node);
 

@@ -28,6 +28,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
+
 public class NullIfCodeGenerator
         implements ByteCodeGenerator
 {
@@ -68,7 +70,7 @@ public class NullIfCodeGenerator
 
         // if first and second are equal, return null
         Block trueBlock = new Block(context)
-                .putVariable("wasNull", true)
+                .append(generatorContext.wasNull().set(constantTrue()))
                 .pop(first.getType().getJavaType())
                 .pushJavaDefault(first.getType().getJavaType());
 
