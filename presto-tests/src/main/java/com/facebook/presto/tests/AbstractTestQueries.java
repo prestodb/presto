@@ -833,6 +833,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinCoercion()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM orders t join (SELECT * FROM orders LIMIT 1) t2 ON sin(t2.custkey) = 0");
+    }
+
+    @Test
     public void testGroupByNoAggregations()
             throws Exception
     {
