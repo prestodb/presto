@@ -124,7 +124,7 @@ public class CursorProcessorCompiler
         // if (filter(cursor))
         IfStatement ifStatement = new IfStatement();
         ifStatement.condition()
-                .append(context.getVariable("this"))
+                .append(method.getThis())
                 .getVariable(sessionVariable)
                 .getVariable(cursorVariable)
                 .invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), type(ConnectorSession.class), type(RecordCursor.class));
@@ -137,7 +137,7 @@ public class CursorProcessorCompiler
         // this.project_43(session, cursor, pageBuilder.getBlockBuilder(42)));
         for (int projectionIndex = 0; projectionIndex < projections; projectionIndex++) {
             ifStatement.ifTrue()
-                    .append(context.getVariable("this"))
+                    .append(method.getThis())
                     .getVariable(sessionVariable)
                     .getVariable(cursorVariable);
 

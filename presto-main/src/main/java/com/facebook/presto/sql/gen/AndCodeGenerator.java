@@ -15,7 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.metadata.Signature;
@@ -25,6 +25,8 @@ import com.google.common.base.Preconditions;
 
 import java.util.List;
 
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
+
 public class AndCodeGenerator
         implements ByteCodeGenerator
 {
@@ -33,23 +35,23 @@ public class AndCodeGenerator
     {
         Preconditions.checkArgument(arguments.size() == 2);
 
+        Variable wasNull = generator.wasNull();
         Block block = new Block(generator.getContext())
                 .comment("AND")
                 .setDescription("AND");
 
-        CompilerContext context = generator.getContext();
         ByteCodeNode left = generator.generate(arguments.get(0));
         ByteCodeNode right = generator.generate(arguments.get(1));
 
         block.append(left);
 
         IfStatement ifLeftIsNull = new IfStatement("if left wasNull...")
-                .condition(new Block(context).getVariable("wasNull"));
+                .condition(wasNull);
 
         LabelNode end = new LabelNode("end");
         ifLeftIsNull.ifTrue()
                 .comment("clear the null flag, pop left value off stack, and push left null flag on the stack (true)")
-                .putVariable(context.getVariable("wasNull"), false)
+                .append(wasNull.set(constantFalse()))
                 .pop(arguments.get(0).getType().getJavaType()) // discard left value
                 .push(true);
 
@@ -73,7 +75,7 @@ public class AndCodeGenerator
 
         IfStatement ifRightIsNull = new IfStatement("if right wasNull...");
         ifRightIsNull.condition()
-                .append(context.getVariable("wasNull"));
+                .append(wasNull);
 
         // this leaves a single boolean on the stack which is ignored since the value in NULL
         ifRightIsNull.ifTrue()
@@ -89,7 +91,7 @@ public class AndCodeGenerator
                 .gotoLabel(end)
                 .comment("right was true; store left null flag (on stack) in wasNull variable, and push true")
                 .visitLabel(rightIsTrue)
-                .putVariable(context.getVariable("wasNull"))
+                .putVariable(wasNull)
                 .push(true);
 
         block.append(ifRightIsNull)

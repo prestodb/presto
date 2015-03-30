@@ -762,12 +762,6 @@ public class Block
     // Load constants
     //
 
-    public Block pushThis()
-    {
-        getVariable("this");
-        return this;
-    }
-
     public Block pushNull()
     {
         nodes.add(OpCode.ACONST_NULL);
@@ -830,20 +824,6 @@ public class Block
         return pushNull();
     }
 
-    public Block getVariable(String name)
-    {
-        checkArgument(context != null, "Variable %s not defined", name);
-        append(loadVariable(context.getVariable(name)));
-        return this;
-    }
-
-    public Block getVariable(String name, ParameterizedType type)
-    {
-        getVariable(name);
-        checkCast(type);
-        return this;
-    }
-
     public Block initializeVariable(Variable variable)
     {
         ParameterizedType type = variable.getType();
@@ -881,55 +861,6 @@ public class Block
     public Block getVariable(Variable variable)
     {
         nodes.add(loadVariable(variable));
-        return this;
-    }
-
-    public Block putVariable(String name)
-    {
-        checkArgument(context != null, "Variable %s not defined", name);
-        putVariable(context.getVariable(name));
-        return this;
-    }
-
-    public Block putVariable(String name, Class<?> type)
-    {
-        nodes.add(loadClass(type));
-        putVariable(name);
-        return this;
-    }
-
-    public Block putVariable(String name, ParameterizedType type)
-    {
-        nodes.add(loadClass(type));
-        putVariable(name);
-        return this;
-    }
-
-    public Block putVariable(String name, String value)
-    {
-        nodes.add(Constant.loadString(value));
-        putVariable(name);
-        return this;
-    }
-
-    public Block putVariable(String name, Number value)
-    {
-        nodes.add(loadNumber(value));
-        putVariable(name);
-        return this;
-    }
-
-    public Block putVariable(String name, int value)
-    {
-        nodes.add(loadInt(value));
-        putVariable(name);
-        return this;
-    }
-
-    public Block putVariable(String name, boolean value)
-    {
-        nodes.add(loadBoolean(value));
-        putVariable(name);
         return this;
     }
 

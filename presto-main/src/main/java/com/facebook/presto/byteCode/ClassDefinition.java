@@ -238,9 +238,10 @@ public class ClassDefinition
 
     public ClassDefinition declareDefaultConstructor(EnumSet<Access> access)
     {
-        declareConstructor(new CompilerContext(), access)
+        MethodDefinition constructor = declareConstructor(access);
+        constructor
                 .getBody()
-                .pushThis()
+                .append(constructor.getThis())
                 .invokeConstructor(superClass)
                 .ret();
         return this;

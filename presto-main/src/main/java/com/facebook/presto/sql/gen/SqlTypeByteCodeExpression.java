@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.byteCode.instruction.InvokeInstruction;
@@ -31,9 +30,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class SqlTypeByteCodeExpression
         extends ByteCodeExpression
 {
-    public static ByteCodeExpression constantType(CompilerContext context, CallSiteBinder callSiteBinder, Type type)
+    public static ByteCodeExpression constantType(CallSiteBinder callSiteBinder, Type type)
     {
-        checkNotNull(context, "context is null");
         checkNotNull(callSiteBinder, "callSiteBinder is null");
         checkNotNull(type, "type is null");
 

@@ -176,7 +176,7 @@ public class StateCompiler
         }
 
         body.comment("return %s", type.getTypeSignature())
-                .append(constantType(new CompilerContext(), callSiteBinder, type))
+                .append(constantType(callSiteBinder, type))
                 .retObject();
     }
 
@@ -411,7 +411,7 @@ public class StateCompiler
         MethodDefinition constructor = definition.declareConstructor(a(PUBLIC));
 
         constructor.getBody()
-                .append(constructor.getCompilerContext().getVariable("this"))
+                .append(constructor.getThis())
                 .invokeConstructor(Object.class);
 
         // Generate fields
@@ -440,7 +440,7 @@ public class StateCompiler
         // Create constructor
         MethodDefinition constructor = definition.declareConstructor(a(PUBLIC));
         constructor.getBody()
-                .append(constructor.getCompilerContext().getVariable("this"))
+                .append(constructor.getThis())
                 .invokeConstructor(AbstractGroupedAccumulatorState.class);
 
         // Create ensureCapacity
@@ -466,7 +466,7 @@ public class StateCompiler
 
         // add field to size
         for (FieldDefinition field : fieldDefinitions) {
-            body.append(size.set(add(size, getEstimatedSize.getCompilerContext().getVariable("this").getField(field).invoke("sizeOf", long.class))));
+            body.append(size.set(add(size, getEstimatedSize.getThis().getField(field).invoke("sizeOf", long.class))));
         }
 
         // return size
@@ -483,17 +483,17 @@ public class StateCompiler
         MethodDefinition getter = definition.declareMethod(a(PUBLIC), stateField.getGetterName(), type(stateField.getType()));
         CompilerContext getterContext = getter.getCompilerContext();
         getter.getBody()
-                .append(getterContext.getVariable("this").getField(field).ret());
+                .append(getterContext.getThis().getField(field).ret());
 
         // Generate setter
         MethodDefinition setter = definition.declareMethod(a(PUBLIC), stateField.getSetterName(), type(void.class), arg("value", stateField.getType()));
         CompilerContext setterContext = setter.getCompilerContext();
         setter.getBody()
-                .append(setterContext.getVariable("this").setField(field, setterContext.getVariable("value")))
+                .append(setterContext.getThis().setField(field, setterContext.getVariable("value")))
                 .ret();
 
         constructor.getBody()
-                .append(constructor.getCompilerContext().getVariable("this").setField(field, stateField.initialValueExpression()));
+                .append(constructor.getThis().setField(field, stateField.initialValueExpression()));
     }
 
     private static FieldDefinition generateGroupedField(ClassDefinition definition, MethodDefinition constructor, MethodDefinition ensureCapacity, StateField stateField)
@@ -505,31 +505,31 @@ public class StateCompiler
         MethodDefinition getter = definition.declareMethod(a(PUBLIC), stateField.getGetterName(), type(stateField.getType()));
         CompilerContext getterContext = getter.getCompilerContext();
         getter.getBody()
-                .append(getterContext.getVariable("this").getField(field).invoke(
+                .append(getterContext.getThis().getField(field).invoke(
                         "get",
                         stateField.getType(),
-                        getterContext.getVariable("this").invoke("getGroupId", long.class))
+                        getterContext.getThis().invoke("getGroupId", long.class))
                         .ret());
 
         // Generate setter
         MethodDefinition setter = definition.declareMethod(a(PUBLIC), stateField.getSetterName(), type(void.class), arg("value", stateField.getType()));
         CompilerContext setterContext = setter.getCompilerContext();
         setter.getBody()
-                .append(setterContext.getVariable("this").getField(field).invoke(
+                .append(setterContext.getThis().getField(field).invoke(
                         "set",
                         void.class,
-                        setterContext.getVariable("this").invoke("getGroupId", long.class),
+                        setterContext.getThis().invoke("getGroupId", long.class),
                         setterContext.getVariable("value")))
                 .ret();
 
         CompilerContext ensureCapacityContext = ensureCapacity.getCompilerContext();
         ensureCapacity.getBody()
-                .append(ensureCapacityContext.getVariable("this").getField(field).invoke("ensureCapacity", void.class, ensureCapacityContext.getVariable("size")));
+                .append(ensureCapacityContext.getThis().getField(field).invoke("ensureCapacity", void.class, ensureCapacityContext.getVariable("size")));
 
         // Initialize field in constructor
         CompilerContext constructorContext = constructor.getCompilerContext();
         constructor.getBody()
-                .append(constructorContext.getVariable("this").setField(field, newInstance(field.getType(), stateField.initialValueExpression())));
+                .append(constructorContext.getThis().setField(field, newInstance(field.getType(), stateField.initialValueExpression())));
 
         return field;
     }

@@ -140,7 +140,7 @@ public class PageProcessorCompiler
         // if (filter(cursor))
         IfStatement filterBlock = new IfStatement();
         filterBlock.condition()
-                .append(context.getVariable("this"))
+                .append(method.getThis())
                 .getVariable(sessionVariable)
                 .append(pushBlockVariables(context, getInputChannels(filter)))
                 .getVariable(positionVariable)
@@ -161,7 +161,7 @@ public class PageProcessorCompiler
             List<Integer> inputChannels = getInputChannels(projections.get(projectionIndex));
 
             filterBlock.ifTrue()
-                    .append(context.getVariable("this"))
+                    .append(method.getThis())
                     .getVariable(sessionVariable)
                     .append(pushBlockVariables(context, inputChannels))
                     .getVariable(positionVariable);
@@ -296,7 +296,7 @@ public class PageProcessorCompiler
     {
         Block block = new Block(context);
         for (int channel : inputs) {
-            block.getVariable("block_" + channel);
+            block.append(context.getVariable("block_" + channel));
         }
         return block;
     }
@@ -326,7 +326,7 @@ public class PageProcessorCompiler
                 String methodName = "get" + Primitives.wrap(javaType).getSimpleName();
 
                 ifStatement.ifFalse()
-                        .append(loadConstant(context, callSiteBinder.bind(type, Type.class)))
+                        .append(loadConstant(callSiteBinder.bind(type, Type.class)))
                         .append(context.getVariable("block_" + field))
                         .getVariable(positionVariable)
                         .invokeInterface(Type.class, methodName, javaType, com.facebook.presto.spi.block.Block.class, int.class);

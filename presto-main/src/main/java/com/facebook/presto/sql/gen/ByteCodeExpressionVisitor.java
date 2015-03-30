@@ -22,6 +22,7 @@ import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
 import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.byteCode.instruction.Constant.loadDouble;
 import static com.facebook.presto.byteCode.instruction.Constant.loadFloat;
@@ -119,7 +120,7 @@ public class ByteCodeExpressionVisitor
         Block block = new Block(context);
         if (value == null) {
             return block.comment("constant null")
-                    .putVariable("wasNull", true)
+                    .append(context.getVariable("wasNull").set(constantTrue()))
                     .pushJavaDefault(javaType);
         }
 
@@ -153,7 +154,7 @@ public class ByteCodeExpressionVisitor
         return new Block(context)
                 .setDescription("constant " + constant.getType())
                 .comment(constant.toString())
-                .append(loadConstant(context, binding));
+                .append(loadConstant(binding));
     }
 
     @Override
