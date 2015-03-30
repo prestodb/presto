@@ -35,7 +35,7 @@ public class IfCodeGenerator
         Preconditions.checkArgument(arguments.size() == 3);
 
         Variable wasNull = context.wasNull();
-        Block condition = new Block(context.getContext())
+        Block condition = new Block()
                 .append(context.generate(arguments.get(0)))
                 .comment("... and condition value was not null")
                 .append(wasNull)

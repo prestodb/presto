@@ -148,7 +148,7 @@ public final class Least
             Class<?> nativeContainerType = nativeContainerTypes.get(i);
             Variable currentBlock = context.declareVariable(com.facebook.presto.spi.block.Block.class, "block" + i);
             Variable blockBuilder = context.declareVariable(BlockBuilder.class, "blockBuilder" + i);
-            Block buildBlock = new Block(context)
+            Block buildBlock = new Block()
                     .comment("blockBuilder%d = typeVariable.createBlockBuilder(new BlockBuilderStatus(), 1, 32);", i)
                     .getVariable(typeVariable)
                     .newObject(BlockBuilderStatus.class)
@@ -182,7 +182,7 @@ public final class Least
                         .invokeStatic(Least.class, "checkNotNaN", void.class, double.class);
             }
 
-            Block writeBlock = new Block(context)
+            Block writeBlock = new Block()
                     .comment("typeVariable.%s(blockBuilder%d, arg%d);", writeMethodName, i, i)
                     .getVariable(typeVariable)
                     .getVariable(blockBuilder)
@@ -191,7 +191,7 @@ public final class Least
 
             buildBlock.append(writeBlock);
 
-            Block storeBlock = new Block(context)
+            Block storeBlock = new Block()
                     .comment("block%d = blockBuilder%d.build();", i, i)
                     .getVariable(blockBuilder)
                     .invokeInterface(BlockBuilder.class, "build", com.facebook.presto.spi.block.Block.class)

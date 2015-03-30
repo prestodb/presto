@@ -71,7 +71,7 @@ public final class ByteCodeUtils
     {
         Variable wasNull = context.getVariable("wasNull");
 
-        Block nullCheck = new Block(context)
+        Block nullCheck = new Block()
                 .setDescription("ifWasNullGoto")
                 .append(wasNull);
 
@@ -81,7 +81,7 @@ public final class ByteCodeUtils
             clearComment = "clear wasNull";
         }
 
-        Block isNull = new Block(context);
+        Block isNull = new Block();
         for (Class<?> parameterType : stackArgsToPop) {
             isNull.pop(parameterType);
         }
@@ -104,9 +104,9 @@ public final class ByteCodeUtils
                 .ifTrue(isNull);
     }
 
-    public static ByteCodeNode boxPrimitive(CompilerContext context, Class<?> type)
+    public static ByteCodeNode boxPrimitive(Class<?> type)
     {
-        Block block = new Block(context).comment("box primitive");
+        Block block = new Block().comment("box primitive");
         if (type == long.class) {
             return block.invokeStatic(Long.class, "valueOf", Long.class, long.class);
         }
@@ -123,9 +123,9 @@ public final class ByteCodeUtils
         return NOP;
     }
 
-    public static ByteCodeNode unboxPrimitive(CompilerContext context, Class<?> unboxedType)
+    public static ByteCodeNode unboxPrimitive(Class<?> unboxedType)
     {
-        Block block = new Block(context).comment("unbox primitive");
+        Block block = new Block().comment("unbox primitive");
         if (unboxedType == long.class) {
             return block.invokeVirtual(Long.class, "longValue", long.class);
         }
@@ -162,7 +162,7 @@ public final class ByteCodeUtils
         Class<?> unboxedReturnType = Primitives.unwrap(returnType);
 
         LabelNode end = new LabelNode("end");
-        Block block = new Block(context)
+        Block block = new Block()
                 .setDescription("invoke " + signature);
 
         List<Class<?>> stackTypes = new ArrayList<>();
@@ -197,7 +197,7 @@ public final class ByteCodeUtils
 
     public static Block unboxPrimitiveIfNecessary(CompilerContext context, Class<?> boxedType)
     {
-        Block block = new Block(context);
+        Block block = new Block();
         LabelNode end = new LabelNode("end");
         Class<?> unboxedType = Primitives.unwrap(boxedType);
         Variable wasNull = context.getVariable("wasNull");
@@ -212,7 +212,7 @@ public final class ByteCodeUtils
                     .pushJavaDefault(unboxedType)
                     .gotoLabel(end)
                     .visitLabel(notNull)
-                    .append(unboxPrimitive(context, unboxedType));
+                    .append(unboxPrimitive(unboxedType));
         }
         else {
             block.dup(boxedType)
@@ -229,7 +229,7 @@ public final class ByteCodeUtils
         if (!Primitives.isWrapperType(type)) {
             return NOP;
         }
-        Block notNull = new Block(context).comment("box primitive");
+        Block notNull = new Block().comment("box primitive");
         Class<?> expectedCurrentStackType;
         if (type == Long.class) {
             notNull.invokeStatic(Long.class, "valueOf", Long.class, long.class);
@@ -252,9 +252,9 @@ public final class ByteCodeUtils
             throw new UnsupportedOperationException("not yet implemented: " + type);
         }
 
-        Block condition = new Block(context).append(context.getVariable("wasNull"));
+        Block condition = new Block().append(context.getVariable("wasNull"));
 
-        Block wasNull = new Block(context)
+        Block wasNull = new Block()
                 .pop(expectedCurrentStackType)
                 .pushNull()
                 .checkCast(type);
@@ -278,7 +278,7 @@ public final class ByteCodeUtils
     public static ByteCodeNode generateWrite(CallSiteBinder callSiteBinder, CompilerContext context, Variable wasNullVariable, Type type)
     {
         if (type.getJavaType() == void.class) {
-            return new Block(context).comment("output.appendNull();")
+            return new Block().comment("output.appendNull();")
                     .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
                     .pop();
         }
@@ -293,16 +293,16 @@ public final class ByteCodeUtils
         // TODO: clean up once try_cast is fixed
         Variable tempValue = context.createTempVariable(type.getJavaType());
         Variable tempOutput = context.createTempVariable(BlockBuilder.class);
-        return new Block(context)
+        return new Block()
                 .comment("if (wasNull)")
                 .append(new IfStatement()
-                        .condition(new Block(context).getVariable(wasNullVariable))
-                        .ifTrue(new Block(context)
+                        .condition(wasNullVariable)
+                        .ifTrue(new Block()
                                 .comment("output.appendNull();")
                                 .pop(type.getJavaType())
                                 .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
                                 .pop())
-                        .ifFalse(new Block(context)
+                        .ifFalse(new Block()
                                 .comment(type.getTypeSignature() + "." + methodName + "(output, " + type.getJavaType().getSimpleName() + ")")
                                 .putVariable(tempValue)
                                 .putVariable(tempOutput)

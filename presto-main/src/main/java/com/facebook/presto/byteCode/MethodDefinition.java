@@ -75,7 +75,7 @@ public class MethodDefinition
     {
         this.compilerContext = compilerContext;
         this.declaringClass = declaringClass;
-        body = new Block(compilerContext);
+        body = new Block();
 
         this.access = access;
         this.name = name;

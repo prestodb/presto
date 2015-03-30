@@ -57,7 +57,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class Block
         implements ByteCodeNode
 {
-    private final CompilerContext context;
     private final List<ByteCodeNode> nodes = new ArrayList<>();
 
     private String description;
@@ -65,12 +64,6 @@ public class Block
 
     public Block()
     {
-        this.context = null;
-    }
-
-    public Block(CompilerContext context)
-    {
-        this.context = context;
     }
 
     public String getDescription()

@@ -100,7 +100,7 @@ public class InCodeGenerator
 
         ByteCodeNode switchBlock;
         if (constantValues.size() < 1000) {
-            Block switchCaseBlocks = new Block(context);
+            Block switchCaseBlocks = new Block();
             LookupSwitch.LookupSwitchBuilder switchBuilder = lookupSwitchBuilder();
             for (Map.Entry<Integer, Collection<ByteCodeNode>> bucket : hashBuckets.asMap().entrySet()) {
                 LabelNode label = new LabelNode("inHash" + bucket.getKey());
@@ -117,7 +117,7 @@ public class InCodeGenerator
                     .getCallSiteBinder()
                     .bind(hashCodeFunction.getMethodHandle());
 
-            switchBlock = new Block(context)
+            switchBlock = new Block()
                     .comment("lookupSwitch(hashCode(<stackValue>))")
                     .dup(javaType)
                     .append(invoke(hashCodeBinding, hashCodeFunction.getSignature()))
@@ -130,13 +130,13 @@ public class InCodeGenerator
             // for huge IN lists, use a Set
             Binding constant = generatorContext.getCallSiteBinder().bind(constantValues, Set.class);
 
-            switchBlock = new Block(context)
+            switchBlock = new Block()
                     .comment("inListSet.contains(<stackValue>)")
                     .append(new IfStatement()
                             .condition(new Block()
                                     .comment("value (+boxing if necessary)")
                                     .dup(javaType)
-                                    .append(ByteCodeUtils.boxPrimitive(context, javaType))
+                                    .append(ByteCodeUtils.boxPrimitive(javaType))
                                     .comment("set")
                                     .append(loadConstant(constant))
                                     // TODO: use invokeVirtual on the set instead. This requires swapping the two elements in the stack
@@ -146,14 +146,14 @@ public class InCodeGenerator
 
         Block defaultCaseBlock = buildInCase(generatorContext, context, type, defaultLabel, match, noMatch, defaultBucket.build(), true).setDescription("default");
 
-        Block block = new Block(context)
+        Block block = new Block()
                 .comment("IN")
                 .append(value)
                 .append(ifWasNullPopAndGoto(context, end, boolean.class, javaType))
                 .append(switchBlock)
                 .append(defaultCaseBlock);
 
-        Block matchBlock = new Block(context)
+        Block matchBlock = new Block()
                 .setDescription("match")
                 .visitLabel(match)
                 .pop(javaType)
@@ -162,7 +162,7 @@ public class InCodeGenerator
                 .gotoLabel(end);
         block.append(matchBlock);
 
-        Block noMatchBlock = new Block(context)
+        Block noMatchBlock = new Block()
                 .setDescription("noMatch")
                 .visitLabel(noMatch)
                 .pop(javaType)
@@ -189,7 +189,7 @@ public class InCodeGenerator
             caseWasNull = context.createTempVariable(boolean.class);
         }
 
-        Block caseBlock = new Block(context)
+        Block caseBlock = new Block()
                 .visitLabel(caseLabel);
 
         if (checkForNulls) {
@@ -197,7 +197,7 @@ public class InCodeGenerator
         }
 
         LabelNode elseLabel = new LabelNode("else");
-        Block elseBlock = new Block(context)
+        Block elseBlock = new Block()
                 .visitLabel(elseLabel);
 
         Variable wasNull = generatorContext.wasNull();

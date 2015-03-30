@@ -15,7 +15,6 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.metadata.Signature;
@@ -40,9 +39,8 @@ public class CoalesceCodeGenerator
             operands.add(generatorContext.generate(expression));
         }
 
-        CompilerContext context = generatorContext.getContext();
         Variable wasNull = generatorContext.wasNull();
-        ByteCodeNode nullValue = new Block(context)
+        ByteCodeNode nullValue = new Block()
                 .append(wasNull.set(constantTrue()))
                 .pushJavaDefault(returnType.getJavaType());
 

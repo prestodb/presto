@@ -15,7 +15,6 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
@@ -36,8 +35,7 @@ public class OrCodeGenerator
     {
         Preconditions.checkArgument(arguments.size() == 2);
 
-        CompilerContext context = generator.getContext();
-        Variable wasNull = context.getVariable("wasNull");
+        Variable wasNull = generator.wasNull();
         Block block = new Block()
                 .comment("OR")
                 .setDescription("OR");

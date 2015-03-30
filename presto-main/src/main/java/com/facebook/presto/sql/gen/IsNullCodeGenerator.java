@@ -44,7 +44,7 @@ public class IsNullCodeGenerator
 
         // evaluate the expression, pop the produced value, and load the null flag
         Variable wasNull = generatorContext.wasNull();
-        Block block = new Block(generatorContext.getContext())
+        Block block = new Block()
                 .comment("is null")
                 .append(value)
                 .pop(argument.getType().getJavaType())

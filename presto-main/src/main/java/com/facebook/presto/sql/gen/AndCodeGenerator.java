@@ -36,7 +36,7 @@ public class AndCodeGenerator
         Preconditions.checkArgument(arguments.size() == 2);
 
         Variable wasNull = generator.wasNull();
-        Block block = new Block(generator.getContext())
+        Block block = new Block()
                 .comment("AND")
                 .setDescription("AND");
 

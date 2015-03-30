@@ -117,7 +117,7 @@ public class ByteCodeExpressionVisitor
         Object value = constant.getValue();
         Class<?> javaType = constant.getType().getJavaType();
 
-        Block block = new Block(context);
+        Block block = new Block();
         if (value == null) {
             return block.comment("constant null")
                     .append(context.getVariable("wasNull").set(constantTrue()))
@@ -151,7 +151,7 @@ public class ByteCodeExpressionVisitor
         // bind constant object directly into the call-site using invoke dynamic
         Binding binding = callSiteBinder.bind(value, constant.getType().getJavaType());
 
-        return new Block(context)
+        return new Block()
                 .setDescription("constant " + constant.getType())
                 .comment(constant.toString())
                 .append(loadConstant(binding));

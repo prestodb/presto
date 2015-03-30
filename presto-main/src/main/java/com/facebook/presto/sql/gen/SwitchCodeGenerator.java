@@ -82,7 +82,7 @@ public class SwitchCodeGenerator
         RowExpression last = arguments.get(arguments.size() - 1);
         if (last instanceof CallExpression && ((CallExpression) last).getSignature().getName().equals("WHEN")) {
             whenClauses = arguments.subList(1, arguments.size());
-            elseValue = new Block(context)
+            elseValue = new Block()
                     .append(generatorContext.wasNull().set(constantTrue()))
                     .pushJavaDefault(returnType.getJavaType());
         }
@@ -97,7 +97,7 @@ public class SwitchCodeGenerator
         // evaluate the value and store it in a variable
         LabelNode nullValue = new LabelNode("nullCondition");
         Variable tempVariable = context.createTempVariable(valueType);
-        Block block = new Block(context)
+        Block block = new Block()
                 .append(valueBytecode)
                 .append(ByteCodeUtils.ifWasNullClearPopAndGoto(context, nullValue, void.class, valueType))
                 .putVariable(tempVariable);
@@ -105,7 +105,7 @@ public class SwitchCodeGenerator
         ByteCodeNode getTempVariableNode = VariableInstruction.loadVariable(tempVariable);
 
         // build the statements
-        elseValue = new Block(context).visitLabel(nullValue).append(elseValue);
+        elseValue = new Block().visitLabel(nullValue).append(elseValue);
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
         for (RowExpression clause : Lists.reverse(whenClauses)) {
             Preconditions.checkArgument(clause instanceof CallExpression && ((CallExpression) clause).getSignature().getName().equals("WHEN"));
@@ -125,7 +125,7 @@ public class SwitchCodeGenerator
                     equalsFunction,
                     ImmutableList.of(generatorContext.generate(operand), getTempVariableNode));
 
-            Block condition = new Block(context)
+            Block condition = new Block()
                     .append(equalsCall)
                     .append(generatorContext.wasNull().set(constantFalse()));
 

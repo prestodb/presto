@@ -182,7 +182,7 @@ public class OrderingCompiler
             int sortChannel = sortChannels.get(i);
             SortOrder sortOrder = sortOrders.get(i);
 
-            Block block = new Block(context)
+            Block block = new Block()
                     .setDescription("compare channel " + sortChannel + " " + sortOrder);
 
             Type sortType = sortTypes.get(i);
