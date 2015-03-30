@@ -19,6 +19,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 
@@ -28,19 +29,19 @@ public abstract class ReadOnlyConnectorMetadata
     @Override
     public final void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating tables");
     }
 
     @Override
     public final void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming tables");
     }
 
     @Override
     public final void dropTable(ConnectorTableHandle tableHandle)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping tables");
     }
 
     @Override
@@ -52,7 +53,7 @@ public abstract class ReadOnlyConnectorMetadata
     @Override
     public final ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating tables");
     }
 
     @Override
@@ -64,7 +65,7 @@ public abstract class ReadOnlyConnectorMetadata
     @Override
     public final ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support inserts");
     }
 
     @Override
@@ -76,13 +77,13 @@ public abstract class ReadOnlyConnectorMetadata
     @Override
     public final void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating views");
     }
 
     @Override
     public final void dropView(ConnectorSession session, SchemaTableName viewName)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping views");
     }
 
     @Override
