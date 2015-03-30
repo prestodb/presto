@@ -17,6 +17,7 @@ import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.DynamicClassLoader;
+import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.NamedParameterDefinition;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
@@ -135,9 +136,9 @@ public final class Greatest
             parameters.add(arg("arg" + i, nativeContainerType));
         }
 
-        CompilerContext context = new CompilerContext();
-        Block body = definition.declareMethod(context, a(PUBLIC, STATIC), "greatest", type(nativeContainerTypes.get(0)), parameters.build())
-                .getBody();
+        MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "greatest", type(nativeContainerTypes.get(0)), parameters.build());
+        CompilerContext context = method.getCompilerContext();
+        Block body = method.getBody();
 
         Variable typeVariable = context.declareVariable(Type.class, "typeVariable");
         CallSiteBinder binder = new CallSiteBinder();

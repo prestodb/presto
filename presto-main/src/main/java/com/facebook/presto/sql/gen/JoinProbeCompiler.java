@@ -283,12 +283,13 @@ public class JoinProbeCompiler
             List<Type> types, List<FieldDefinition> blockFields,
             FieldDefinition positionField)
     {
-        CompilerContext context = new CompilerContext();
-        MethodDefinition method = classDefinition.declareMethod(context,
+        MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
                 "appendTo",
                 type(void.class),
                 arg("pageBuilder", PageBuilder.class));
+
+        CompilerContext context = method.getCompilerContext();
 
         Variable thisVariable = method.getThis();
         for (int index = 0; index < blockFields.size(); index++) {

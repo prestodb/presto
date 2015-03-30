@@ -17,6 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
@@ -24,6 +25,16 @@ import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 public final class Reflection
 {
     private Reflection() {}
+
+    public static Field field(Class<?> clazz, String name)
+    {
+        try {
+            return clazz.getField(name);
+        }
+        catch (NoSuchFieldException e) {
+            throw new PrestoException(INTERNAL_ERROR, e);
+        }
+    }
 
     public static Method method(Class<?> clazz, String name, Class<?>... parameterTypes)
     {

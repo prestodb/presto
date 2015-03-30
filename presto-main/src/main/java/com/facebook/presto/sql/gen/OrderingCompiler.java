@@ -127,14 +127,14 @@ public class OrderingCompiler
 
     private void generateCompareTo(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
-        CompilerContext context = new CompilerContext();
-        MethodDefinition compareToMethod = classDefinition.declareMethod(context,
+        MethodDefinition compareToMethod = classDefinition.declareMethod(
                 a(PUBLIC),
                 "compareTo",
                 type(int.class),
                 arg("pagesIndex", PagesIndex.class),
                 arg("leftPosition", int.class),
                 arg("rightPosition", int.class));
+        CompilerContext context = compareToMethod.getCompilerContext();
 
         Variable valueAddresses = context.declareVariable(LongArrayList.class, "valueAddresses");
         compareToMethod

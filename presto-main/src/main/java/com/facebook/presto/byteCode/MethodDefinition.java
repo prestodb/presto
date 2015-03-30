@@ -54,18 +54,17 @@ public class MethodDefinition
     private String comment;
 
     public MethodDefinition(
-            CompilerContext compilerContext, ClassDefinition declaringClass,
+            ClassDefinition declaringClass,
             EnumSet<Access> access,
             String name,
             ParameterizedType returnType,
             NamedParameterDefinition... parameters
     )
     {
-        this(compilerContext, declaringClass, access, name, returnType, ImmutableList.copyOf(parameters));
+        this(declaringClass, access, name, returnType, ImmutableList.copyOf(parameters));
     }
 
     public MethodDefinition(
-            CompilerContext compilerContext,
             ClassDefinition declaringClass,
             EnumSet<Access> access,
             String name,
@@ -73,9 +72,9 @@ public class MethodDefinition
             Iterable<NamedParameterDefinition> parameters
     )
     {
-        this.compilerContext = compilerContext;
         this.declaringClass = declaringClass;
         body = new Block();
+        compilerContext = new CompilerContext();
 
         this.access = access;
         this.name = name;

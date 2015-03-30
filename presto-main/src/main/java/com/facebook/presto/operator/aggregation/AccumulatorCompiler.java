@@ -470,9 +470,9 @@ public class AccumulatorCompiler
             CallSiteBinder callSiteBinder,
             boolean grouped)
     {
-        CompilerContext context = new CompilerContext();
-
-        Block body = declareAddIntermediate(definition, grouped, context);
+        MethodDefinition method = declareAddIntermediate(definition, grouped);
+        CompilerContext context = method.getCompilerContext();
+        Block body = method.getBody();
 
         Variable block = context.getVariable("block");
         Variable scratchState = context.declareVariable(singleStateClass, "scratchState");
@@ -521,7 +521,7 @@ public class AccumulatorCompiler
         block.append(state.invoke("ensureCapacity", void.class, groupIdsBlock.invoke("getGroupCount", long.class)));
     }
 
-    private static Block declareAddIntermediate(ClassDefinition definition, boolean grouped, CompilerContext context)
+    private static MethodDefinition declareAddIntermediate(ClassDefinition definition, boolean grouped)
     {
         ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
         if (grouped) {
@@ -530,12 +530,10 @@ public class AccumulatorCompiler
         parameters.add(arg("block", com.facebook.presto.spi.block.Block.class));
 
         return definition.declareMethod(
-                context,
                 a(PUBLIC),
                 "addIntermediate",
                 type(void.class),
-                parameters.build())
-                .getBody();
+                parameters.build());
     }
 
     private static void generateAddIntermediateAsIntermediateInput(
@@ -546,9 +544,9 @@ public class AccumulatorCompiler
             CallSiteBinder callSiteBinder,
             boolean grouped)
     {
-        CompilerContext context = new CompilerContext();
-
-        Block body = declareAddIntermediate(definition, grouped, context);
+        MethodDefinition method = declareAddIntermediate(definition, grouped);
+        CompilerContext context = method.getCompilerContext();
+        Block body = method.getBody();
 
         if (grouped) {
             generateEnsureCapacity(context, stateField, body);

@@ -35,7 +35,8 @@ public class CompilerContext
     private final LabelNode variableStartLabel = new LabelNode("VariableStart");
     private final LabelNode variableEndLabel = new LabelNode("VariableEnd");
 
-    public CompilerContext()
+    // This can only be constructed by a method definition
+    CompilerContext()
     {
     }
 
