@@ -41,7 +41,6 @@ public class StorageModule
         binder.bind(StorageService.class).to(FileStorageService.class).in(Scopes.SINGLETON);
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardRecoveryManager.class).in(Scopes.SINGLETON);
-        binder.bind(ShardRecoveryStats.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(ShardRecoveryStats.class).as(generatedNameOf(ShardRecoveryStats.class, connectorId));
+        newExporter(binder).export(ShardRecoveryManager.class).as(generatedNameOf(ShardRecoveryManager.class, connectorId));
     }
 }

@@ -20,8 +20,9 @@ import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import java.util.concurrent.TimeUnit;
+import javax.annotation.concurrent.ThreadSafe;
 
+@ThreadSafe
 public class ShardRecoveryStats
 {
     private final CounterStat activeShardRecovery = new CounterStat();
@@ -30,9 +31,9 @@ public class ShardRecoveryStats
     private final CounterStat shardRecoveryFailure = new CounterStat();
     private final CounterStat shardRecoveryBackupNotFound = new CounterStat();
 
-    private final DistributionStat shardRecoveryDataSize = new DistributionStat();
+    private final DistributionStat shardRecoveryShardSizeBytes = new DistributionStat();
     private final DistributionStat shardRecoveryTimeInMilliSeconds = new DistributionStat();
-    private final DistributionStat shardRecoveryDataRateBytesPerSeconds = new DistributionStat();
+    private final DistributionStat shardRecoveryBytesPerSecond = new DistributionStat();
 
     public void incrementBackgroundShardRecovery()
     {
@@ -59,19 +60,11 @@ public class ShardRecoveryStats
         shardRecoverySuccess.update(1);
     }
 
-    public void addShardRecoveryDataRate(DataSize rate)
+    public void addShardRecoveryDataRate(DataSize rate, DataSize size, Duration duration)
     {
-        shardRecoveryDataRateBytesPerSeconds.add(Math.round(rate.getValue()));
-    }
-
-    public void addShardRecoveryDataSize(DataSize size)
-    {
-        shardRecoveryDataSize.add(Math.round(size.getValue()));
-    }
-
-    public void addShardRecoveryTime(Duration duration)
-    {
-        shardRecoveryTimeInMilliSeconds.add(Math.round(duration.convertTo(TimeUnit.MILLISECONDS).getValue()));
+        shardRecoveryBytesPerSecond.add(Math.round(rate.toBytes()));
+        shardRecoveryShardSizeBytes.add(size.toBytes());
+        shardRecoveryTimeInMilliSeconds.add(duration.toMillis());
     }
 
     @Managed
@@ -111,8 +104,22 @@ public class ShardRecoveryStats
 
     @Managed
     @Nested
-    public DistributionStat getShardRecoveryDataRateBytesPerSeconds()
+    public DistributionStat getShardRecoveryBytesPerSecond()
     {
-        return shardRecoveryDataRateBytesPerSeconds;
+        return shardRecoveryBytesPerSecond;
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getShardRecoveryTimeInMilliSeconds()
+    {
+        return shardRecoveryTimeInMilliSeconds;
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getShardRecoveryShardSizeBytes()
+    {
+        return shardRecoveryShardSizeBytes;
     }
 }

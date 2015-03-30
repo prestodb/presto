@@ -26,6 +26,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Flatten;
+import org.weakref.jmx.Managed;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -78,19 +80,19 @@ public class ShardRecoveryManager
     private final ShardRecoveryStats shardRecoveryStats;
 
     @Inject
-    public ShardRecoveryManager(StorageService storageService, NodeManager nodeManager, ShardManager shardManager, ShardRecoveryStats shardRecoveryStats, StorageManagerConfig storageManagerConfig)
+    public ShardRecoveryManager(StorageService storageService, NodeManager nodeManager, ShardManager shardManager, StorageManagerConfig storageManagerConfig)
     {
-        this(storageService, nodeManager, shardManager, shardRecoveryStats, storageManagerConfig.getMissingShardDiscoveryInterval(), storageManagerConfig.getRecoveryThreads());
+        this(storageService, nodeManager, shardManager, storageManagerConfig.getMissingShardDiscoveryInterval(), storageManagerConfig.getRecoveryThreads());
     }
 
-    public ShardRecoveryManager(StorageService storageService, NodeManager nodeManager, ShardManager shardManager, ShardRecoveryStats shardRecoveryStats, Duration missingShardDiscoveryInterval, int recoveryThreads)
+    public ShardRecoveryManager(StorageService storageService, NodeManager nodeManager, ShardManager shardManager, Duration missingShardDiscoveryInterval, int recoveryThreads)
     {
         this.storageService = checkNotNull(storageService, "storageService is null");
         this.nodeIdentifier = checkNotNull(nodeManager, "nodeManager is null").getCurrentNode().getNodeIdentifier();
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
-        this.shardRecoveryStats = checkNotNull(shardRecoveryStats, "shardRecoveryStats is null");
         this.missingShardDiscoveryInterval = checkNotNull(missingShardDiscoveryInterval, "missingShardDiscoveryInterval is null");
         this.shardQueue = new MissingShardsQueue(new PrioritizedFifoExecutor<>(executorService, recoveryThreads, new MissingShardComparator()));
+        this.shardRecoveryStats = new ShardRecoveryStats();
     }
 
     @PostConstruct
@@ -188,9 +190,7 @@ public class ShardRecoveryManager
         Duration duration = nanosSince(start);
         DataSize size = new DataSize(stagingFile.length(), BYTE);
         DataSize rate = dataRate(size, duration).convertToMostSuccinctDataSize();
-        shardRecoveryStats.addShardRecoveryDataRate(rate);
-        shardRecoveryStats.addShardRecoveryDataSize(size);
-        shardRecoveryStats.addShardRecoveryTime(duration);
+        shardRecoveryStats.addShardRecoveryDataRate(rate, size, duration);
 
         log.info("Copied shard %s from backup in %s (%s at %s/s)", shardUuid, duration, size, rate);
 
@@ -204,7 +204,7 @@ public class ShardRecoveryManager
         }
         catch (IOException e) {
             shardRecoveryStats.incrementShardRecoveryFailure();
-            throw new PrestoException(RAPTOR_RECOVERY_ERROR, "Failed to move shard: " + shardUuid, e);
+            throw new PrestoException(RAPTOR_RECOVERY_ERROR, format("Failed to move shard: %s", shardUuid), e);
         }
 
         if (!storageFile.exists() || storageFile.length() != backupFile.length()) {
@@ -214,7 +214,7 @@ public class ShardRecoveryManager
 
         if (storageFile.length() != backupFile.length()) {
             shardRecoveryStats.incrementShardRecoveryFailure();
-            log.info("Files do not match after recovery. Deleting local file: " + shardUuid);
+            log.info("Files do not match after recovery. Deleting local file: %s", shardUuid);
             storageFile.delete();
         }
         else {
@@ -242,7 +242,6 @@ public class ShardRecoveryManager
         boolean isActive();
     }
 
-    @VisibleForTesting
     private class MissingShardRecovery
             implements MissingShardRunnable
     {
@@ -369,5 +368,12 @@ public class ShardRecoveryManager
     private static File temporarySuffix(File file)
     {
         return new File(file.getPath() + ".tmp-" + UUID.randomUUID());
+    }
+
+    @Managed
+    @Flatten
+    public ShardRecoveryStats getShardRecoveryStats()
+    {
+        return shardRecoveryStats;
     }
 }
