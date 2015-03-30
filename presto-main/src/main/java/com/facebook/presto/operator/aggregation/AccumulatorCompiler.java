@@ -20,7 +20,7 @@ import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
-import com.facebook.presto.byteCode.NamedParameterDefinition;
+import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.byteCode.control.IfStatement;
@@ -49,7 +49,7 @@ import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PRIVATE;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
+import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.OpCode.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
@@ -203,7 +203,7 @@ public class AccumulatorCompiler
             CallSiteBinder callSiteBinder,
             boolean grouped)
     {
-        ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
+        ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         if (grouped) {
             parameters.add(arg("groupIdsBlock", GroupByIdBlock.class));
         }
@@ -523,7 +523,7 @@ public class AccumulatorCompiler
 
     private static MethodDefinition declareAddIntermediate(ClassDefinition definition, boolean grouped)
     {
-        ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
+        ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         if (grouped) {
             parameters.add(arg("groupIdsBlock", GroupByIdBlock.class));
         }

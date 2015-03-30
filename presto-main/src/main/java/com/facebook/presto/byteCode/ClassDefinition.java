@@ -73,7 +73,7 @@ public class ClassDefinition
         this.superClass = superClass;
         this.interfaces.addAll(ImmutableList.copyOf(interfaces));
 
-        classInitializer = new MethodDefinition(this, a(STATIC), "<clinit>", ParameterizedType.type(void.class), ImmutableList.<NamedParameterDefinition>of());
+        classInitializer = new MethodDefinition(this, a(STATIC), "<clinit>", ParameterizedType.type(void.class), ImmutableList.<Parameter>of());
     }
 
     public Set<Access> getAccess()
@@ -215,14 +215,14 @@ public class ClassDefinition
 
     public MethodDefinition declareConstructor(
             EnumSet<Access> access,
-            NamedParameterDefinition... parameters)
+            Parameter... parameters)
     {
         return declareMethod(access, "<init>", ParameterizedType.type(void.class), ImmutableList.copyOf(parameters));
     }
 
     public MethodDefinition declareConstructor(
             EnumSet<Access> access,
-            Iterable<NamedParameterDefinition> parameters)
+            Iterable<Parameter> parameters)
     {
         return declareMethod(access, "<init>", ParameterizedType.type(void.class), ImmutableList.copyOf(parameters));
     }
@@ -255,7 +255,7 @@ public class ClassDefinition
             EnumSet<Access> access,
             String name,
             ParameterizedType returnType,
-            NamedParameterDefinition... parameters)
+            Parameter... parameters)
     {
         return declareMethod(access, name, returnType, ImmutableList.copyOf(parameters));
     }
@@ -264,7 +264,7 @@ public class ClassDefinition
             EnumSet<Access> access,
             String name,
             ParameterizedType returnType,
-            Iterable<NamedParameterDefinition> parameters)
+            Iterable<Parameter> parameters)
     {
         MethodDefinition methodDefinition = new MethodDefinition(this, access, name, returnType, parameters);
         methods.add(methodDefinition);

@@ -44,7 +44,7 @@ public class MethodDefinition
     private final String name;
     private final List<AnnotationDefinition> annotations = new ArrayList<>();
     private final ParameterizedType returnType;
-    private final List<NamedParameterDefinition> parameters;
+    private final List<Parameter> parameters;
     private final List<ParameterizedType> parameterTypes;
     private final List<List<AnnotationDefinition>> parameterAnnotations;
     private final List<ParameterizedType> exceptions = new ArrayList<>();
@@ -58,7 +58,7 @@ public class MethodDefinition
             EnumSet<Access> access,
             String name,
             ParameterizedType returnType,
-            NamedParameterDefinition... parameters
+            Parameter... parameters
     )
     {
         this(declaringClass, access, name, returnType, ImmutableList.copyOf(parameters));
@@ -69,7 +69,7 @@ public class MethodDefinition
             EnumSet<Access> access,
             String name,
             ParameterizedType returnType,
-            Iterable<NamedParameterDefinition> parameters
+            Iterable<Parameter> parameters
     )
     {
         this.declaringClass = declaringClass;
@@ -85,14 +85,14 @@ public class MethodDefinition
             this.returnType = type(void.class);
         }
         this.parameters = ImmutableList.copyOf(parameters);
-        this.parameterTypes = Lists.transform(this.parameters, NamedParameterDefinition::getType);
+        this.parameterTypes = Lists.transform(this.parameters, Parameter::getType);
         this.parameterAnnotations = ImmutableList.copyOf(transform(parameters, input -> new ArrayList<>()));
 
         if (!access.contains(STATIC)) {
             compilerContext.declareThisVariable(declaringClass.getType());
         }
         int argId = 0;
-        for (NamedParameterDefinition parameter : parameters) {
+        for (Parameter parameter : parameters) {
             String parameterName = parameter.getName();
             if (parameterName == null) {
                 parameterName = "arg" + argId;
@@ -132,7 +132,7 @@ public class MethodDefinition
         return returnType;
     }
 
-    public List<NamedParameterDefinition> getParameters()
+    public List<Parameter> getParameters()
     {
         return parameters;
     }
@@ -273,7 +273,7 @@ public class MethodDefinition
         Joiner.on(' ').appendTo(sb, access).append(' ');
         sb.append(returnType.getJavaClassName()).append(' ');
         sb.append(name).append('(');
-        Joiner.on(", ").appendTo(sb, transform(parameters, NamedParameterDefinition::getSourceString)).append(')');
+        Joiner.on(", ").appendTo(sb, transform(parameters, Parameter::getSourceString)).append(')');
         return sb.toString();
     }
 

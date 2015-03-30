@@ -16,32 +16,32 @@ package com.facebook.presto.byteCode;
 import javax.annotation.concurrent.Immutable;
 
 @Immutable
-public class NamedParameterDefinition
+public class Parameter
 {
-    public static NamedParameterDefinition arg(Class<?> type)
+    public static Parameter arg(Class<?> type)
     {
-        return new NamedParameterDefinition(null, ParameterizedType.type(type));
+        return new Parameter(null, ParameterizedType.type(type));
     }
 
-    public static NamedParameterDefinition arg(String name, Class<?> type)
+    public static Parameter arg(String name, Class<?> type)
     {
-        return new NamedParameterDefinition(name, ParameterizedType.type(type));
+        return new Parameter(name, ParameterizedType.type(type));
     }
 
-    public static NamedParameterDefinition arg(ParameterizedType type)
+    public static Parameter arg(ParameterizedType type)
     {
-        return new NamedParameterDefinition(null, type);
+        return new Parameter(null, type);
     }
 
-    public static NamedParameterDefinition arg(String name, ParameterizedType type)
+    public static Parameter arg(String name, ParameterizedType type)
     {
-        return new NamedParameterDefinition(name, type);
+        return new Parameter(name, type);
     }
 
     private final ParameterizedType type;
     private final String name;
 
-    NamedParameterDefinition(String name, ParameterizedType type)
+    Parameter(String name, ParameterizedType type)
     {
         this.name = name;
         this.type = type;
