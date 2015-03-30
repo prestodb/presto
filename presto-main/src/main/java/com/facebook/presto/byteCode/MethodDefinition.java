@@ -27,6 +27,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.toAccessModifier;
@@ -74,7 +75,6 @@ public class MethodDefinition
     {
         this.declaringClass = declaringClass;
         body = new Block();
-        compilerContext = new CompilerContext();
 
         this.access = access;
         this.name = name;
@@ -88,18 +88,11 @@ public class MethodDefinition
         this.parameterTypes = Lists.transform(this.parameters, Parameter::getType);
         this.parameterAnnotations = ImmutableList.copyOf(transform(parameters, input -> new ArrayList<>()));
 
+        Optional<ParameterizedType> thisType = Optional.empty();
         if (!access.contains(STATIC)) {
-            compilerContext.declareThisVariable(declaringClass.getType());
+            thisType = Optional.of(declaringClass.getType());
         }
-        int argId = 0;
-        for (Parameter parameter : parameters) {
-            String parameterName = parameter.getName();
-            if (parameterName == null) {
-                parameterName = "arg" + argId;
-            }
-            compilerContext.declareVariable(parameter.getType(), parameterName);
-            argId++;
-        }
+        compilerContext = new CompilerContext(thisType, parameters);
     }
 
     public ClassDefinition getDeclaringClass()
