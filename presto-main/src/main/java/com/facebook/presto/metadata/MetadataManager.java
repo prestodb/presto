@@ -311,13 +311,12 @@ public class MetadataManager
     }
 
     @Override
-    public TableHandle createTable(Session session, String catalogName, TableMetadata tableMetadata)
+    public void createTable(Session session, String catalogName, TableMetadata tableMetadata)
     {
         ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(catalogName);
         checkArgument(connectorMetadata != null, "Catalog %s does not exist", catalogName);
 
-        ConnectorTableHandle handle = connectorMetadata.getMetadata().createTable(session.toConnectorSession(connectorMetadata.getCatalog()), tableMetadata.getMetadata());
-        return new TableHandle(connectorMetadata.getConnectorId(), handle);
+        connectorMetadata.getMetadata().createTable(session.toConnectorSession(connectorMetadata.getCatalog()), tableMetadata.getMetadata());
     }
 
     @Override

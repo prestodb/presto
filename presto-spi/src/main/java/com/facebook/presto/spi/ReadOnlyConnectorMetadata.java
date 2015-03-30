@@ -26,7 +26,7 @@ public abstract class ReadOnlyConnectorMetadata
         implements ConnectorMetadata
 {
     @Override
-    public final ConnectorTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public final void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }
