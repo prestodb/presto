@@ -18,7 +18,7 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.MethodDefinition;
-import com.facebook.presto.byteCode.NamedParameterDefinition;
+import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.ForLoop;
@@ -46,7 +46,7 @@ import java.util.TreeSet;
 
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
+import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.OpCode.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.generateWrite;
@@ -201,7 +201,7 @@ public class PageProcessorCompiler
                 a(PUBLIC),
                 "filter",
                 type(boolean.class),
-                ImmutableList.<NamedParameterDefinition>builder()
+                ImmutableList.<Parameter>builder()
                         .add(arg("session", ConnectorSession.class))
                         .addAll(toBlockParameters(getInputChannels(filter)))
                         .add(arg("position", int.class))
@@ -239,7 +239,7 @@ public class PageProcessorCompiler
                 a(PUBLIC),
                 methodName,
                 type(void.class),
-                ImmutableList.<NamedParameterDefinition>builder()
+                ImmutableList.<Parameter>builder()
                         .add(arg("session", ConnectorSession.class))
                         .addAll(toBlockParameters(getInputChannels(projection)))
                         .add(arg("position", int.class))
@@ -283,9 +283,9 @@ public class PageProcessorCompiler
         return getInputChannels(ImmutableList.of(expression));
     }
 
-    private static List<NamedParameterDefinition> toBlockParameters(List<Integer> inputChannels)
+    private static List<Parameter> toBlockParameters(List<Integer> inputChannels)
     {
-        ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
+        ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         for (int channel : inputChannels) {
             parameters.add(arg("block_" + channel, com.facebook.presto.spi.block.Block.class));
         }

@@ -18,7 +18,7 @@ import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.MethodDefinition;
-import com.facebook.presto.byteCode.NamedParameterDefinition;
+import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.metadata.FunctionInfo;
@@ -49,7 +49,7 @@ import static com.facebook.presto.byteCode.Access.PRIVATE;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
+import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.metadata.Signature.internalFunction;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
@@ -130,7 +130,7 @@ public final class Greatest
 
         definition.declareDefaultConstructor(a(PRIVATE));
 
-        ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
+        ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         for (int i = 0; i < nativeContainerTypes.size(); i++) {
             Class<?> nativeContainerType = nativeContainerTypes.get(i);
             parameters.add(arg("arg" + i, nativeContainerType));
