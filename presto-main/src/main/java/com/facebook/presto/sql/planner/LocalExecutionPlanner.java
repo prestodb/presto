@@ -32,9 +32,9 @@ import com.facebook.presto.operator.GenericCursorProcessor;
 import com.facebook.presto.operator.GenericPageProcessor;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
+import com.facebook.presto.operator.HashPartitionMaskOperator.HashPartitionMaskOperatorFactory;
 import com.facebook.presto.operator.HashSemiJoinOperator.HashSemiJoinOperatorFactory;
 import com.facebook.presto.operator.InMemoryExchange;
-import com.facebook.presto.operator.InMemoryExchangeSourceOperator.InMemoryExchangeSourceOperatorFactory;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.LookupSourceSupplier;
@@ -80,6 +80,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -146,8 +147,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.SystemSessionProperties.getTaskAggregationConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskJoinConcurrency;
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
+import static com.facebook.presto.operator.InMemoryExchangeSourceOperator.InMemoryExchangeSourceOperatorFactory.createBroadcastDistribution;
+import static com.facebook.presto.operator.InMemoryExchangeSourceOperator.InMemoryExchangeSourceOperatorFactory.createRandomDistribution;
 import static com.facebook.presto.operator.TableCommitOperator.TableCommitOperatorFactory;
 import static com.facebook.presto.operator.TableCommitOperator.TableCommitter;
 import static com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
@@ -673,13 +677,61 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitAggregation(AggregationNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, context);
-
             if (node.getGroupBy().isEmpty()) {
+                PhysicalOperation source = node.getSource().accept(this, context);
                 return planGlobalAggregation(context.getNextOperatorId(), node, source);
             }
 
-            return planGroupByAggregation(node, source, context);
+            int aggregationConcurrency = getTaskAggregationConcurrency(session, defaultConcurrency);
+            if (node.getStep() == Step.PARTIAL || !context.isAllowLocalParallel() || context.getDriverInstanceCount() > 1 || aggregationConcurrency <= 1) {
+                PhysicalOperation source = node.getSource().accept(this, context);
+                return planGroupByAggregation(node, source, context, Optional.empty());
+            }
+
+            // create context for parallel operators
+            LocalExecutionPlanContext parallelContext = context.createSubContext();
+            parallelContext.setDriverInstanceCount(aggregationConcurrency);
+
+            // create context for source operators
+            LocalExecutionPlanContext sourceContext = parallelContext.createSubContext();
+            parallelContext.setInputDriver(false);
+
+            // plan aggregation source
+            PhysicalOperation source = node.getSource().accept(this, sourceContext);
+
+            // add a broadcast exchange which copies every page into all parallel workers
+            InMemoryExchange exchange = new InMemoryExchange(source.getTypes(), aggregationConcurrency);
+
+            // finish source operator
+            List<OperatorFactory> factories = ImmutableList.<OperatorFactory>builder()
+                    .addAll(source.getOperatorFactories())
+                    .add(exchange.createSinkFactory(sourceContext.getNextOperatorId()))
+                    .build();
+            exchange.noMoreSinkFactories();
+            parallelContext.addDriverFactory(new DriverFactory(sourceContext.isInputDriver(), false, factories));
+
+            // add broadcast exchange as first parallel operator
+            OperatorFactory exchangeSource = createBroadcastDistribution(parallelContext.getNextOperatorId(), exchange);
+            source = new PhysicalOperation(exchangeSource, source.getLayout());
+
+            // mask each parallel driver to only see one partition of groups
+            HashPartitionMaskOperatorFactory hashPartitionMask = new HashPartitionMaskOperatorFactory(
+                    parallelContext.getNextOperatorId(),
+                    aggregationConcurrency,
+                    exchangeSource.getTypes(),
+                    getChannelsForSymbols(ImmutableList.copyOf(node.getMasks().values()), source.getLayout()),
+                    getChannelsForSymbols(ImmutableList.copyOf(node.getGroupBy()), source.getLayout()),
+                    node.getHashSymbol().map(channelGetter(source)));
+            int defaultMaskChannel = hashPartitionMask.getDefaultMaskChannel();
+            source = new PhysicalOperation(hashPartitionMask, source.getLayout(), source);
+
+            // plan aggregation
+            PhysicalOperation operation = planGroupByAggregation(node, source, parallelContext, Optional.of(defaultMaskChannel));
+
+            // merge parallel tasks back into a single stream
+            operation = addInMemoryExchange(context, operation, parallelContext);
+
+            return operation;
         }
 
         @Override
@@ -1406,7 +1458,7 @@ public class LocalExecutionPlanner
                     .build();
 
             // add sub-context to current context
-            context.addDriverFactory(new DriverFactory(sourceContext.isInputDriver(), false, factories));
+            context.addDriverFactory(new DriverFactory(sourceContext.isInputDriver(), false, factories, sourceContext.getDriverInstanceCount()));
 
             exchange.noMoreSinkFactories();
 
@@ -1414,7 +1466,7 @@ public class LocalExecutionPlanner
             context.setInputDriver(false);
 
             // add exchange source as first operator in the current context
-            OperatorFactory factory = new InMemoryExchangeSourceOperatorFactory(context.getNextOperatorId(), exchange);
+            OperatorFactory factory = createRandomDistribution(context.getNextOperatorId(), exchange);
             return new PhysicalOperation(factory, source.getLayout());
         }
 
@@ -1468,7 +1520,7 @@ public class LocalExecutionPlanner
             // the main driver is not an input... the union sources are the input for the plan
             context.setInputDriver(false);
 
-            return new PhysicalOperation(new InMemoryExchangeSourceOperatorFactory(context.getNextOperatorId(), inMemoryExchange), makeLayout(node));
+            return new PhysicalOperation(createRandomDistribution(context.getNextOperatorId(), inMemoryExchange), makeLayout(node));
         }
 
         @Override
@@ -1489,7 +1541,14 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
         }
 
-        private AccumulatorFactory buildAccumulatorFactory(PhysicalOperation source, Signature function, FunctionCall call, @Nullable Symbol mask, Optional<Symbol> sampleWeight, double confidence)
+        private AccumulatorFactory buildAccumulatorFactory(
+                PhysicalOperation source,
+                Signature function,
+                FunctionCall call,
+                @Nullable Symbol mask,
+                Optional<Integer> defaultMaskChannel,
+                Optional<Symbol> sampleWeight,
+                double confidence)
         {
             List<Integer> arguments = new ArrayList<>();
             for (Expression argument : call.getArguments()) {
@@ -1497,7 +1556,7 @@ public class LocalExecutionPlanner
                 arguments.add(source.getLayout().get(argumentSymbol));
             }
 
-            Optional<Integer> maskChannel = Optional.empty();
+            Optional<Integer> maskChannel = defaultMaskChannel;
 
             if (mask != null) {
                 maskChannel = Optional.of(source.getLayout().get(mask));
@@ -1519,7 +1578,13 @@ public class LocalExecutionPlanner
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
 
-                accumulatorFactories.add(buildAccumulatorFactory(source, node.getFunctions().get(symbol), entry.getValue(), node.getMasks().get(entry.getKey()), node.getSampleWeight(), node.getConfidence()));
+                accumulatorFactories.add(buildAccumulatorFactory(source,
+                        node.getFunctions().get(symbol),
+                        entry.getValue(),
+                        node.getMasks().get(entry.getKey()),
+                        Optional.<Integer>empty(),
+                        node.getSampleWeight(),
+                        node.getConfidence()));
                 outputMappings.put(symbol, outputChannel); // one aggregation per channel
                 outputChannel++;
             }
@@ -1528,7 +1593,7 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
 
-        private PhysicalOperation planGroupByAggregation(AggregationNode node, PhysicalOperation source, LocalExecutionPlanContext context)
+        private PhysicalOperation planGroupByAggregation(AggregationNode node, PhysicalOperation source, LocalExecutionPlanContext context, Optional<Integer> defaultMaskChannel)
         {
             List<Symbol> groupBySymbols = node.getGroupBy();
 
@@ -1537,7 +1602,7 @@ public class LocalExecutionPlanner
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
 
-                accumulatorFactories.add(buildAccumulatorFactory(source, node.getFunctions().get(symbol), entry.getValue(), node.getMasks().get(entry.getKey()), node.getSampleWeight(), node.getConfidence()));
+                accumulatorFactories.add(buildAccumulatorFactory(source, node.getFunctions().get(symbol), entry.getValue(), node.getMasks().get(entry.getKey()), defaultMaskChannel, node.getSampleWeight(), node.getConfidence()));
                 aggregationOutputSymbols.add(symbol);
             }
 
@@ -1573,6 +1638,7 @@ public class LocalExecutionPlanner
                     groupByChannels,
                     node.getStep(),
                     accumulatorFactories,
+                    defaultMaskChannel,
                     hashChannel,
                     10_000,
                     maxPartialAggregationMemorySize);

@@ -43,7 +43,7 @@ public final class RaptorQueryRunner
     public static QueryRunner createRaptorQueryRunner(Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 4);
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 2);
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");

@@ -55,6 +55,7 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantString;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.invokeStatic;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.not;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.countInputChannels;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
@@ -503,6 +504,15 @@ public class AccumulatorCompiler
                 .append(scratchState)
                 .append(invoke(callSiteBinder.bind(combineFunction), "combine"));
 
+        if (grouped) {
+            // skip rows with null group id
+            IfStatement ifStatement = new IfStatement("if (!groupIdsBlock.isNull(position))")
+                    .condition(not(scope.getVariable("groupIdsBlock").invoke("isNull", boolean.class, position)))
+                    .ifTrue(loopBody);
+
+            loopBody = new Block().append(ifStatement);
+        }
+
         body.append(generateBlockNonNullPositionForLoop(scope, position, loopBody))
                 .ret();
     }
@@ -556,6 +566,15 @@ public class AccumulatorCompiler
         Variable positionVariable = scope.declareVariable(int.class, "position");
 
         Block loopBody = generateInvokeInputFunction(scope, stateField, positionVariable, null, ImmutableList.of(scope.getVariable("block")), parameterMetadatas, intermediateInputFunction, callSiteBinder, grouped);
+
+        if (grouped) {
+            // skip rows with null group id
+            IfStatement ifStatement = new IfStatement("if (!groupIdsBlock.isNull(position))")
+                    .condition(not(scope.getVariable("groupIdsBlock").invoke("isNull", boolean.class, positionVariable)))
+                    .ifTrue(loopBody);
+
+            loopBody = new Block().append(ifStatement);
+        }
 
         body.append(generateBlockNonNullPositionForLoop(scope, positionVariable, loopBody))
                 .ret();

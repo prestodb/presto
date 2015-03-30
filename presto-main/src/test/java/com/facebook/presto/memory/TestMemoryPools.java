@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.memory;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.TaskContext;
@@ -38,7 +39,10 @@ public class TestMemoryPools
     public void testBlocking()
             throws Exception
     {
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(TEST_SESSION);
+        Session session = TEST_SESSION
+                .withSystemProperty("task_default_concurrency", "1");
+
+        LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
 
         // add tpch
         InMemoryNodeManager nodeManager = localQueryRunner.getNodeManager();
@@ -50,7 +54,7 @@ public class TestMemoryPools
 
         QueryContext queryContext = new QueryContext(true, new DataSize(10, MEGABYTE), pool, localQueryRunner.getExecutor());
         LocalQueryRunner.MaterializedOutputFactory outputFactory = new LocalQueryRunner.MaterializedOutputFactory();
-        TaskContext taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), TEST_SESSION, new DataSize(10, MEGABYTE), new DataSize(0, BYTE));
+        TaskContext taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), session, new DataSize(10, MEGABYTE), new DataSize(0, BYTE));
         Driver driver = Iterables.getOnlyElement(localQueryRunner.createDrivers("SELECT COUNT(*), clerk FROM orders GROUP BY clerk", outputFactory, taskContext));
 
         // run driver, until it blocks

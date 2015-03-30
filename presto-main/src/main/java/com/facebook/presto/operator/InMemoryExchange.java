@@ -36,8 +36,9 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 @ThreadSafe
 public class InMemoryExchange
 {
+    private static final DataSize DEFAULT_MAX_BUFFERED_BYTES = new DataSize(32, MEGABYTE);
     private final List<Type> types;
-    private final Queue<Page> buffer;
+    private final List<Queue<PageReference>> buffers;
     private final long maxBufferedBytes;
 
     @GuardedBy("this")
@@ -63,13 +64,23 @@ public class InMemoryExchange
 
     public InMemoryExchange(List<Type> types)
     {
-        this(types, new DataSize(32, MEGABYTE));
+        this(types, 1, DEFAULT_MAX_BUFFERED_BYTES);
     }
 
-    public InMemoryExchange(List<Type> types, DataSize maxBufferedBytes)
+    public InMemoryExchange(List<Type> types, int bufferCount)
+    {
+        this(types, bufferCount, DEFAULT_MAX_BUFFERED_BYTES);
+    }
+
+    public InMemoryExchange(List<Type> types, int bufferCount, DataSize maxBufferedBytes)
     {
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.buffer = new ConcurrentLinkedQueue<>();
+
+        ImmutableList.Builder<Queue<PageReference>> buffers = ImmutableList.builder();
+        for (int i = 0; i < bufferCount; i++) {
+            buffers.add(new ConcurrentLinkedQueue<>());
+        }
+        this.buffers = buffers.build();
 
         checkArgument(maxBufferedBytes.toBytes() > 0, "maxBufferedBytes must be greater than zero");
         this.maxBufferedBytes = maxBufferedBytes.toBytes();
@@ -78,6 +89,11 @@ public class InMemoryExchange
     public List<Type> getTypes()
     {
         return types;
+    }
+
+    public int getBufferCount()
+    {
+        return buffers.size();
     }
 
     public synchronized OperatorFactory createSinkFactory(int operatorId)
@@ -131,9 +147,9 @@ public class InMemoryExchange
         notifyBlockedWriters();
     }
 
-    public synchronized boolean isFinished()
+    public synchronized boolean isFinished(int bufferIndex)
     {
-        return finishing && buffer.isEmpty();
+        return finishing && buffers.get(bufferIndex).isEmpty();
     }
 
     public synchronized void addPage(Page page)
@@ -141,7 +157,10 @@ public class InMemoryExchange
         if (finishing) {
             return;
         }
-        buffer.add(page);
+        PageReference pageReference = new PageReference(page, buffers.size());
+        for (Queue<PageReference> buffer : buffers) {
+            buffer.add(pageReference);
+        }
         bufferBytes += page.getSizeInBytes();
         // TODO: record memory usage using OperatorContext.setMemoryReservation()
         notifyBlockedReaders();
@@ -155,9 +174,9 @@ public class InMemoryExchange
         }
     }
 
-    public synchronized ListenableFuture<?> waitForReading()
+    public synchronized ListenableFuture<?> waitForReading(int bufferIndex)
     {
-        if (finishing || !buffer.isEmpty()) {
+        if (finishing || !buffers.get(bufferIndex).isEmpty()) {
             return NOT_BLOCKED;
         }
         if (readerFuture == null) {
@@ -166,14 +185,19 @@ public class InMemoryExchange
         return readerFuture;
     }
 
-    public synchronized Page removePage()
+    public synchronized Page removePage(int bufferIndex)
     {
-        Page page = buffer.poll();
-        if (page != null) {
-            bufferBytes -= page.getSizeInBytes();
+        PageReference pageReference = buffers.get(bufferIndex).poll();
+        if (pageReference == null) {
+            return null;
         }
-        if (bufferBytes < maxBufferedBytes) {
-            notifyBlockedWriters();
+
+        Page page = pageReference.removePage();
+        if (!pageReference.isReferenced()) {
+            bufferBytes -= page.getSizeInBytes();
+            if (bufferBytes < maxBufferedBytes) {
+                notifyBlockedWriters();
+            }
         }
         return page;
     }
@@ -195,6 +219,30 @@ public class InMemoryExchange
             writerFuture = SettableFuture.create();
         }
         return writerFuture;
+    }
+
+    private static class PageReference
+    {
+        private final Page page;
+        private int referenceCount;
+
+        public PageReference(Page page, int referenceCount)
+        {
+            this.page = page;
+            this.referenceCount = referenceCount;
+        }
+
+        public Page removePage()
+        {
+            checkArgument(referenceCount > 0);
+            referenceCount--;
+            return page;
+        }
+
+        public boolean isReferenced()
+        {
+            return referenceCount > 0;
+        }
     }
 
     private class InMemoryExchangeSinkOperatorFactory

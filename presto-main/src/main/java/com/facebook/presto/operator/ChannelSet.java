@@ -69,7 +69,7 @@ public class ChannelSet
         public ChannelSetBuilder(Type type, Optional<Integer> hashChannel, int expectedPositions, OperatorContext operatorContext)
         {
             List<Type> types = ImmutableList.of(type);
-            this.hash = createGroupByHash(types, new int[] {0}, hashChannel, expectedPositions);
+            this.hash = createGroupByHash(types, new int[] {0}, Optional.<Integer>empty(), hashChannel, expectedPositions);
             this.operatorContext = operatorContext;
             this.nullBlockPage = new Page(type.createBlockBuilder(new BlockBuilderStatus(), 1, UNKNOWN.getFixedSize()).appendNull().build());
         }
