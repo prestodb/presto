@@ -45,7 +45,7 @@ class OrByteCodeExpression
     {
         LabelNode trueLabel = new LabelNode("true");
         LabelNode endLabel = new LabelNode("end");
-        return new Block(null)
+        return new Block()
                 .append(left)
                 .ifTrueGoto(trueLabel)
                 .append(right)

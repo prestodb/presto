@@ -49,7 +49,7 @@ class NegateByteCodeExpression
     @Override
     public ByteCodeNode getByteCode(MethodGenerationContext generationContext)
     {
-        return new Block(null)
+        return new Block()
                 .append(value)
                 .append(negateOpCode);
     }

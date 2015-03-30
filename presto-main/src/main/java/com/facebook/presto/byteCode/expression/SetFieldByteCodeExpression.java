@@ -96,12 +96,12 @@ class SetFieldByteCodeExpression
     public ByteCodeNode getByteCode(MethodGenerationContext generationContext)
     {
         if (instance == null) {
-            return new Block(null)
+            return new Block()
                     .append(value.getByteCode(generationContext))
                     .putStaticField(declaringClass, name, fieldType);
         }
 
-        return new Block(null)
+        return new Block()
                 .append(instance.getByteCode(generationContext))
                 .append(value.getByteCode(generationContext))
                 .putField(declaringClass, name, fieldType);

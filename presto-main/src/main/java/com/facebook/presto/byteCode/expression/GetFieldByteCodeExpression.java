@@ -85,7 +85,7 @@ class GetFieldByteCodeExpression
             return getStaticInstruction(declaringClass, name, getType());
         }
 
-        return new Block(null)
+        return new Block()
                 .append(instance.getByteCode(generationContext))
                 .getField(declaringClass, name, getType());
     }
