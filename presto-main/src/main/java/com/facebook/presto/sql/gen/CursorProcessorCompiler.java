@@ -69,8 +69,7 @@ public class CursorProcessorCompiler
 
     private void generateProcessMethod(ClassDefinition classDefinition, int projections)
     {
-        CompilerContext context = new CompilerContext();
-        MethodDefinition method = classDefinition.declareMethod(context,
+        MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
                 "process",
                 type(int.class),
@@ -79,6 +78,7 @@ public class CursorProcessorCompiler
                 arg("count", int.class),
                 arg("pageBuilder", PageBuilder.class));
 
+        CompilerContext context = method.getCompilerContext();
         Variable sessionVariable = context.getVariable("session");
         Variable cursorVariable = context.getVariable("cursor");
         Variable countVariable = context.getVariable("count");
@@ -168,9 +168,7 @@ public class CursorProcessorCompiler
 
     private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter)
     {
-        CompilerContext context = new CompilerContext();
         MethodDefinition method = classDefinition.declareMethod(
-                context,
                 a(PUBLIC),
                 "filter",
                 type(boolean.class),
@@ -179,6 +177,7 @@ public class CursorProcessorCompiler
 
         method.comment("Filter: %s", filter);
 
+        CompilerContext context = method.getCompilerContext();
         Variable wasNullVariable = context.declareVariable(type(boolean.class), "wasNull");
         Variable cursorVariable = context.getVariable("cursor");
 
@@ -201,8 +200,7 @@ public class CursorProcessorCompiler
 
     private void generateProjectMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String methodName, RowExpression projection)
     {
-        CompilerContext context = new CompilerContext();
-        MethodDefinition method = classDefinition.declareMethod(context,
+        MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
                 methodName,
                 type(void.class),
@@ -212,6 +210,7 @@ public class CursorProcessorCompiler
 
         method.comment("Projection: %s", projection.toString());
 
+        CompilerContext context = method.getCompilerContext();
         Variable outputVariable = context.getVariable("output");
 
         Variable cursorVariable = context.getVariable("cursor");

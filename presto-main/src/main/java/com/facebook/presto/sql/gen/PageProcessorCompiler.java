@@ -77,8 +77,7 @@ public class PageProcessorCompiler
 
     private void generateProcessMethod(ClassDefinition classDefinition, RowExpression filter, List<RowExpression> projections)
     {
-        CompilerContext context = new CompilerContext();
-        MethodDefinition method = classDefinition.declareMethod(context,
+        MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
                 "process",
                 type(int.class),
@@ -87,6 +86,7 @@ public class PageProcessorCompiler
                 arg("start", int.class),
                 arg("end", int.class),
                 arg("pageBuilder", PageBuilder.class));
+        CompilerContext context = method.getCompilerContext();
 
         Variable sessionVariable = context.getVariable("session");
         Variable pageVariable = context.getVariable("page");
@@ -197,8 +197,7 @@ public class PageProcessorCompiler
 
     private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter)
     {
-        CompilerContext context = new CompilerContext();
-        MethodDefinition method = classDefinition.declareMethod(context,
+        MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
                 "filter",
                 type(boolean.class),
@@ -210,6 +209,7 @@ public class PageProcessorCompiler
 
         method.comment("Filter: %s", filter.toString());
 
+        CompilerContext context = method.getCompilerContext();
         Variable positionVariable = context.getVariable("position");
         Variable wasNullVariable = context.declareVariable(type(boolean.class), "wasNull");
 
@@ -235,8 +235,7 @@ public class PageProcessorCompiler
 
     private void generateProjectMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String methodName, RowExpression projection)
     {
-        CompilerContext context = new CompilerContext();
-        MethodDefinition method = classDefinition.declareMethod(context,
+        MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
                 methodName,
                 type(void.class),
@@ -249,6 +248,7 @@ public class PageProcessorCompiler
 
         method.comment("Projection: %s", projection.toString());
 
+        CompilerContext context = method.getCompilerContext();
         Variable positionVariable = context.getVariable("position");
         Variable outputVariable = context.getVariable("output");
 

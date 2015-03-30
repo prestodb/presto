@@ -16,12 +16,16 @@ package com.facebook.presto.byteCode.expression;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.ClassInfoLoader;
+import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.DumpByteCodeVisitor;
 import com.facebook.presto.byteCode.DynamicClassLoader;
+import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.SmartClassWriter;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.ClassWriter;
+
+import java.util.function.Function;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
@@ -50,10 +54,16 @@ public final class ByteCodeExpressionAssertions
     public static void assertByteCodeNode(ByteCodeNode node, ParameterizedType returnType, Object expected)
             throws Exception
     {
-        assertEquals(execute(node, returnType), expected);
+        assertEquals(execute(context -> node, returnType), expected);
     }
 
-    public static Object execute(ByteCodeNode node, ParameterizedType returnType)
+    public static void assertByteCodeNode(Function<CompilerContext, ByteCodeNode> nodeGenerator, ParameterizedType returnType, Object expected)
+            throws Exception
+    {
+        assertEquals(execute(nodeGenerator, returnType), expected);
+    }
+
+    public static Object execute(Function<CompilerContext, ByteCodeNode> nodeGenerator, ParameterizedType returnType)
             throws Exception
     {
         ClassDefinition classDefinition = new ClassDefinition(
@@ -61,9 +71,9 @@ public final class ByteCodeExpressionAssertions
                 makeClassName("Test"),
                 type(Object.class));
 
-        classDefinition.declareMethod(a(PUBLIC, STATIC), "test", returnType)
-                .getBody()
-                .append(node);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC, STATIC), "test", returnType);
+        ByteCodeNode node = nodeGenerator.apply(method.getCompilerContext());
+        method.getBody().append(node);
 
         if (DUMP_BYTE_CODE_TREE) {
             DumpByteCodeVisitor dumpByteCode = new DumpByteCodeVisitor(System.out);

@@ -163,11 +163,14 @@ public class JoinCompiler
             List<FieldDefinition> joinChannelFields,
             FieldDefinition hashChannelField)
     {
-        CompilerContext compilerContext = new CompilerContext();
-        Block constructor = classDefinition.declareConstructor(compilerContext,
+        MethodDefinition constructorDefinition = classDefinition.declareConstructor(
                 a(PUBLIC),
                 arg("channels", type(List.class, type(List.class, com.facebook.presto.spi.block.Block.class))),
-                arg("hashChannel", type(Optional.class, Integer.class)))
+                arg("hashChannel", type(Optional.class, Integer.class)));
+
+        CompilerContext compilerContext = constructorDefinition.getCompilerContext();
+
+        Block constructor = constructorDefinition
                 .getBody()
                 .comment("super();")
                 .append(compilerContext.getThis())
@@ -219,16 +222,16 @@ public class JoinCompiler
 
     private void generateAppendToMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> types, List<FieldDefinition> channelFields)
     {
-        CompilerContext context = new CompilerContext();
-        Block appendToBody = classDefinition.declareMethod(context,
+        MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
                 "appendTo",
                 type(void.class),
                 arg("blockIndex", int.class),
                 arg("blockPosition", int.class),
                 arg("pageBuilder", PageBuilder.class),
-                arg("outputChannelOffset", int.class))
-                .getBody();
+                arg("outputChannelOffset", int.class));
+        CompilerContext context = method.getCompilerContext();
+        Block appendToBody = method.getBody();
 
         for (int index = 0; index < channelFields.size(); index++) {
             Type type = types.get(index);
@@ -257,14 +260,14 @@ public class JoinCompiler
 
     private void generateHashPositionMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> joinChannelTypes, List<FieldDefinition> joinChannelFields, FieldDefinition hashChannelField)
     {
-        CompilerContext compilerContext = new CompilerContext();
-        MethodDefinition hashPositionMethod = classDefinition.declareMethod(compilerContext,
+        MethodDefinition hashPositionMethod = classDefinition.declareMethod(
                 a(PUBLIC),
                 "hashPosition",
                 type(int.class),
                 arg("blockIndex", int.class),
                 arg("blockPosition", int.class));
 
+        CompilerContext compilerContext = hashPositionMethod.getCompilerContext();
         Variable thisVariable = hashPositionMethod.getThis();
         ByteCodeExpression hashChannel = thisVariable.getField(hashChannelField);
         ByteCodeExpression bigintType = constantType(callSiteBinder, BigintType.BIGINT);
@@ -317,14 +320,14 @@ public class JoinCompiler
 
     private void generateHashRowMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> joinChannelTypes)
     {
-        CompilerContext compilerContext = new CompilerContext();
-        MethodDefinition hashPositionMethod = classDefinition.declareMethod(compilerContext,
+        MethodDefinition hashPositionMethod = classDefinition.declareMethod(
                 a(PUBLIC),
                 "hashRow",
                 type(int.class),
                 arg("position", int.class),
                 arg("blocks", com.facebook.presto.spi.block.Block[].class));
 
+        CompilerContext compilerContext = hashPositionMethod.getCompilerContext();
         Variable resultVariable = hashPositionMethod.getCompilerContext().declareVariable(int.class, "result");
         hashPositionMethod.getBody().push(0).putVariable(resultVariable);
 
@@ -365,8 +368,7 @@ public class JoinCompiler
             CallSiteBinder callSiteBinder,
             List<Type> joinChannelTypes)
     {
-        CompilerContext compilerContext = new CompilerContext();
-        MethodDefinition hashPositionMethod = classDefinition.declareMethod(compilerContext,
+        MethodDefinition hashPositionMethod = classDefinition.declareMethod(
                 a(PUBLIC),
                 "rowEqualsRow",
                 type(boolean.class),
@@ -375,6 +377,7 @@ public class JoinCompiler
                 arg("rightPosition", int.class),
                 arg("rightBlocks", com.facebook.presto.spi.block.Block[].class));
 
+        CompilerContext compilerContext = hashPositionMethod.getCompilerContext();
         for (int index = 0; index < joinChannelTypes.size(); index++) {
             ByteCodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
 
@@ -413,8 +416,7 @@ public class JoinCompiler
             List<Type> joinChannelTypes,
             List<FieldDefinition> joinChannelFields)
     {
-        CompilerContext compilerContext = new CompilerContext();
-        MethodDefinition hashPositionMethod = classDefinition.declareMethod(compilerContext,
+        MethodDefinition hashPositionMethod = classDefinition.declareMethod(
                 a(PUBLIC),
                 "positionEqualsRow",
                 type(boolean.class),
@@ -423,6 +425,7 @@ public class JoinCompiler
                 arg("rightPosition", int.class),
                 arg("rightBlocks", com.facebook.presto.spi.block.Block[].class));
 
+        CompilerContext compilerContext = hashPositionMethod.getCompilerContext();
         for (int index = 0; index < joinChannelTypes.size(); index++) {
             ByteCodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
 
@@ -463,8 +466,7 @@ public class JoinCompiler
             List<Type> joinChannelTypes,
             List<FieldDefinition> joinChannelFields)
     {
-        CompilerContext compilerContext = new CompilerContext();
-        MethodDefinition hashPositionMethod = classDefinition.declareMethod(compilerContext,
+        MethodDefinition hashPositionMethod = classDefinition.declareMethod(
                 a(PUBLIC),
                 "positionEqualsPosition",
                 type(boolean.class),
@@ -472,6 +474,7 @@ public class JoinCompiler
                 arg("leftBlockPosition", int.class),
                 arg("rightBlockIndex", int.class),
                 arg("rightBlockPosition", int.class));
+        CompilerContext compilerContext = hashPositionMethod.getCompilerContext();
 
         Variable thisVariable = hashPositionMethod.getThis();
         for (int index = 0; index < joinChannelTypes.size(); index++) {
