@@ -213,7 +213,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public ConnectorTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         Long newTableId = dbi.inTransaction((handle, status) -> runIgnoringConstraintViolation(() -> {
             MetadataDao dao = handle.attach(MetadataDao.class);
@@ -233,18 +233,6 @@ public class RaptorMetadata
         if (newTableId == null) {
             throw new PrestoException(ALREADY_EXISTS, "Table already exists: " + tableMetadata.getTable());
         }
-
-        RaptorColumnHandle sampleWeightColumnHandle = null;
-        if (tableMetadata.isSampled()) {
-            sampleWeightColumnHandle = new RaptorColumnHandle(connectorId, SAMPLE_WEIGHT_COLUMN_NAME, tableMetadata.getColumns().size() + 1, BIGINT);
-        }
-
-        return new RaptorTableHandle(
-                connectorId,
-                tableMetadata.getTable().getSchemaName(),
-                tableMetadata.getTable().getTableName(),
-                newTableId,
-                sampleWeightColumnHandle);
     }
 
     @Override

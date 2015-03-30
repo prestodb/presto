@@ -110,7 +110,7 @@ public interface Metadata
      * Creates a table using the specified table metadata.
      */
     @NotNull
-    TableHandle createTable(Session session, String catalogName, TableMetadata tableMetadata);
+    void createTable(Session session, String catalogName, TableMetadata tableMetadata);
 
     /**
      * Rename the specified table.
