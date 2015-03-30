@@ -40,8 +40,6 @@ public class CompilerContext
     private final LabelNode variableStartLabel = new LabelNode("VariableStart");
     private final LabelNode variableEndLabel = new LabelNode("VariableEnd");
 
-    private Integer currentLine;
-
     public CompilerContext()
     {
     }
@@ -117,21 +115,6 @@ public class CompilerContext
     public IterationScope peekIterationScope(int level)
     {
         return Iterators.get(iterationScopes.iterator(), level - 1, null);
-    }
-
-    public boolean hasVisitedLine(Integer line)
-    {
-        return this.currentLine != null && line.intValue() == this.currentLine.intValue();
-    }
-
-    public void cleanLineNumber()
-    {
-        this.currentLine = null;
-    }
-
-    public void visitLine(int currentLine)
-    {
-        this.currentLine = currentLine;
     }
 
     public LabelNode getVariableStartLabel()

@@ -15,4 +15,15 @@ package com.facebook.presto.byteCode;
 
 public class MethodGenerationContext
 {
+    private int currentLineNumber = -1;
+
+    public boolean updateLineNumber(int lineNumber)
+    {
+        if (lineNumber == currentLineNumber) {
+            return false;
+        }
+
+        currentLineNumber = lineNumber;
+        return true;
+    }
 }
