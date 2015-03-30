@@ -84,7 +84,7 @@ public class Variable
         @Override
         public ByteCodeNode getByteCode(MethodGenerationContext generationContext)
         {
-            return new Block(null)
+            return new Block()
                     .append(value)
                     .putVariable(variable);
         }

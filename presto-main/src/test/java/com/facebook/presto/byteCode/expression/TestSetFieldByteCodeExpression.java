@@ -49,7 +49,7 @@ public class TestSetFieldByteCodeExpression
     {
         assertEquals(setX.toString(), "point.x = 42;");
 
-        Block block = new Block(context)
+        Block block = new Block()
                 .append(context.getVariable("point").set(newInstance(Point.class, constantInt(3), constantInt(7))))
                 .append(setX)
                 .append(context.getVariable("point").ret());

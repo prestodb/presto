@@ -15,7 +15,6 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.metadata.FunctionInfo;
@@ -39,7 +38,6 @@ public class IsDistinctFromCodeGenerator
     {
         Preconditions.checkArgument(arguments.size() == 2);
 
-        CompilerContext context = generatorContext.getContext();
         Variable wasNull = generatorContext.wasNull();
 
         RowExpression left = arguments.get(0);
@@ -56,11 +54,11 @@ public class IsDistinctFromCodeGenerator
                 .getCallSiteBinder()
                 .bind(operator.getMethodHandle());
 
-        ByteCodeNode equalsCall = new Block(context)
+        ByteCodeNode equalsCall = new Block()
                 .comment("equals(%s, %s)", leftType, rightType)
                 .append(invoke(binding, operator.getSignature()));
 
-        Block block = new Block(context)
+        Block block = new Block()
                 .comment("IS DISTINCT FROM")
                 .comment("left")
                 .append(generatorContext.generate(left))
@@ -74,7 +72,7 @@ public class IsDistinctFromCodeGenerator
                                 .pop(rightType.getJavaType())
                                 .append(wasNull)
                                 .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class))
-                        .ifFalse(new Block(context)
+                        .ifFalse(new Block()
                                 .comment("right")
                                 .append(generatorContext.generate(right))
                                 .append(new IfStatement()

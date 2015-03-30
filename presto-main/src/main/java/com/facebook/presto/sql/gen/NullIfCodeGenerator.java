@@ -44,7 +44,7 @@ public class NullIfCodeGenerator
         LabelNode notMatch = new LabelNode("notMatch");
 
         // push first arg on the stack
-        Block block = new Block(context)
+        Block block = new Block()
                 .comment("check if first arg is null")
                 .append(generatorContext.generate(first))
                 .append(ByteCodeUtils.ifWasNullPopAndGoto(context, notMatch, void.class));
@@ -61,15 +61,15 @@ public class NullIfCodeGenerator
         ByteCodeNode equalsCall = generatorContext.generateCall(
                 equalsFunction,
                 ImmutableList.of(
-                        cast(generatorContext, new Block(context).dup(firstType.getJavaType()), firstType, commonType),
+                        cast(generatorContext, new Block().dup(firstType.getJavaType()), firstType, commonType),
                         cast(generatorContext, generatorContext.generate(second), secondType, commonType)));
 
-        Block conditionBlock = new Block(context)
+        Block conditionBlock = new Block()
                 .append(equalsCall)
                 .append(ByteCodeUtils.ifWasNullClearPopAndGoto(context, notMatch, void.class, boolean.class));
 
         // if first and second are equal, return null
-        Block trueBlock = new Block(context)
+        Block trueBlock = new Block()
                 .append(generatorContext.wasNull().set(constantTrue()))
                 .pop(first.getType().getJavaType())
                 .pushJavaDefault(first.getType().getJavaType());

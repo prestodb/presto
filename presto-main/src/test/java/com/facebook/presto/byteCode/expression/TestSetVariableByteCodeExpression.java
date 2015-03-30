@@ -38,7 +38,7 @@ public class TestSetVariableByteCodeExpression
 
         assertEquals(setPoint.toString(), "point = new Point(3, 7);");
 
-        Block block = new Block(context)
+        Block block = new Block()
                 .append(setPoint)
                 .append(point.ret());
 

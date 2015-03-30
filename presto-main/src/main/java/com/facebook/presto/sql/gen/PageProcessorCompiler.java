@@ -117,17 +117,17 @@ public class PageProcessorCompiler
         //
         LabelNode done = new LabelNode("done");
 
-        Block loopBody = new Block(context);
+        Block loopBody = new Block();
 
         ForLoop loop = new ForLoop()
                 .initialize(NOP)
-                .condition(new Block(context)
+                .condition(new Block()
                                 .comment("position < end")
                                 .getVariable(positionVariable)
                                 .getVariable(endVariable)
                                 .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class)
                 )
-                .update(new Block(context)
+                .update(new Block()
                         .comment("position++")
                         .incrementVariable(positionVariable, (byte) 1))
                 .body(loopBody);
@@ -294,7 +294,7 @@ public class PageProcessorCompiler
 
     private static ByteCodeNode pushBlockVariables(CompilerContext context, List<Integer> inputs)
     {
-        Block block = new Block(context);
+        Block block = new Block();
         for (int channel : inputs) {
             block.append(context.getVariable("block_" + channel));
         }
