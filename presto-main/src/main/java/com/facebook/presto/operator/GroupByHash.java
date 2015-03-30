@@ -24,12 +24,12 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public interface GroupByHash
 {
-    static GroupByHash createGroupByHash(List<? extends Type> hashTypes, int[] hashChannels, Optional<Integer> inputHashChannel, int expectedSize)
+    static GroupByHash createGroupByHash(List<? extends Type> hashTypes, int[] hashChannels, Optional<Integer> maskChannel, Optional<Integer> inputHashChannel, int expectedSize)
     {
         if (hashTypes.size() == 1 && hashTypes.get(0).equals(BIGINT) && hashChannels.length == 1) {
-            return new BigintGroupByHash(hashChannels[0], inputHashChannel.isPresent(), expectedSize);
+            return new BigintGroupByHash(hashChannels[0], maskChannel, inputHashChannel.isPresent(), expectedSize);
         }
-        return new MultiChannelGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize);
+        return new MultiChannelGroupByHash(hashTypes, hashChannels, maskChannel, inputHashChannel, expectedSize);
     }
 
     long getEstimatedSize();

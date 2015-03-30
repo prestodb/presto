@@ -32,6 +32,7 @@ import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -53,6 +54,7 @@ public class MultiChannelGroupByHash
     private final List<ObjectArrayList<Block>> channelBuilders;
     private final HashGenerator hashGenerator;
     private final Optional<Integer> precomputedHashChannel;
+    private final int maskChannel;
     private PageBuilder currentPageBuilder;
 
     private long completedPagesMemorySize;
@@ -66,7 +68,7 @@ public class MultiChannelGroupByHash
 
     private int nextGroupId;
 
-    public MultiChannelGroupByHash(List<? extends Type> hashTypes, int[] hashChannels, Optional<Integer> inputHashChannel, int expectedSize)
+    public MultiChannelGroupByHash(List<? extends Type> hashTypes, int[] hashChannels, Optional<Integer> maskChannel, Optional<Integer> inputHashChannel, int expectedSize)
     {
         checkNotNull(hashTypes, "hashTypes is null");
         checkArgument(hashTypes.size() == hashChannels.length, "hashTypes and hashChannels have different sizes");
@@ -75,6 +77,7 @@ public class MultiChannelGroupByHash
 
         this.types = inputHashChannel.isPresent() ? ImmutableList.copyOf(Iterables.concat(hashTypes, ImmutableList.of(BIGINT))) : ImmutableList.copyOf(hashTypes);
         this.channels = checkNotNull(hashChannels, "hashChannels is null").clone();
+        this.maskChannel = checkNotNull(maskChannel, "maskChannel is null").orElse(-1);
         this.hashGenerator = inputHashChannel.isPresent() ? new PrecomputedHashGenerator(inputHashChannel.get()) : new InterpretedHashGenerator(ImmutableList.copyOf(hashTypes), hashChannels);
 
         // For each hashed channel, create an appendable list to hold the blocks (builders).  As we
@@ -150,9 +153,19 @@ public class MultiChannelGroupByHash
     {
         Block[] hashBlocks = extractHashColumns(page);
 
+        Block maskBlock = null;
+        if (maskChannel >= 0) {
+            maskBlock = page.getBlock(maskChannel);
+        }
+
         // get the group id for each position
         int positionCount = page.getPositionCount();
         for (int position = 0; position < positionCount; position++) {
+            // skip masked rows
+            if (maskBlock != null && !BOOLEAN.getBoolean(maskBlock, position)) {
+                continue;
+            }
+
             // get the group for the current row
             putIfAbsent(position, page, hashBlocks);
         }
@@ -166,11 +179,22 @@ public class MultiChannelGroupByHash
         // we know the exact size required for the block
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(positionCount);
 
+        Block maskBlock = null;
+        if (maskChannel >= 0) {
+            maskBlock = page.getBlock(maskChannel);
+        }
+
         // extract the hash columns
         Block[] hashBlocks = extractHashColumns(page);
 
         // get the group id for each position
         for (int position = 0; position < positionCount; position++) {
+            // skip masked rows
+            if (maskBlock != null && !BOOLEAN.getBoolean(maskBlock, position)) {
+                blockBuilder.appendNull();
+                continue;
+            }
+
             // get the group for the current row
             int groupId = putIfAbsent(position, page, hashBlocks);
 

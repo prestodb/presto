@@ -37,7 +37,7 @@ public class MarkDistinctHash
 
     public MarkDistinctHash(List<Type> types, int[] channels, Optional<Integer> hashChannel, int expectedDistinctValues)
     {
-        this.groupByHash = createGroupByHash(types, channels, hashChannel, expectedDistinctValues);
+        this.groupByHash = createGroupByHash(types, channels, Optional.<Integer>empty(), hashChannel, expectedDistinctValues);
     }
 
     public long getEstimatedSize()

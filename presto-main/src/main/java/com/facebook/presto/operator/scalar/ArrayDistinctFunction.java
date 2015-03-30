@@ -94,8 +94,8 @@ public final class ArrayDistinctFunction
             return array;
         }
 
-        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), new int[] {0}, Optional.empty(), elementsBlock.getPositionCount());
-        groupByHash.addPage(new Page(elementsBlock));
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), new int[] {0}, Optional.<Integer>empty(), Optional.empty(), elementsBlock.getPositionCount());
+        groupByHash.getGroupIds(new Page(elementsBlock));
 
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
         for (int i = 0; i < groupByHash.getGroupCount(); i++) {

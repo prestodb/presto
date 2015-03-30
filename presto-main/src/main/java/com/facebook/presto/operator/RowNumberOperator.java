@@ -135,7 +135,7 @@ public class RowNumberOperator
         }
         else {
             int[] channels = Ints.toArray(partitionChannels);
-            this.groupByHash = Optional.of(createGroupByHash(partitionTypes, channels, hashChannel, expectedPositions));
+            this.groupByHash = Optional.of(createGroupByHash(partitionTypes, channels, Optional.<Integer>empty(), hashChannel, expectedPositions));
         }
         this.types = toTypes(sourceTypes, outputChannels);
     }

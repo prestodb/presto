@@ -53,7 +53,7 @@ public class KeyValuePairs
 
         this.keyType = keyType;
         this.valueType = valueType;
-        keysHash = createGroupByHash(ImmutableList.of(keyType), new int[] {0}, Optional.empty(), EXPECTED_ENTRIES);
+        keysHash = createGroupByHash(ImmutableList.of(keyType), new int[] {0}, Optional.empty(), Optional.empty(), EXPECTED_ENTRIES);
         BlockBuilderStatus keyBlockBuilderStatus = new BlockBuilderStatus();
         keyBlockBuilder = this.keyType.createBlockBuilder(keyBlockBuilderStatus, EXPECTED_ENTRIES, expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
         valueBlockBuilder = this.valueType.createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ENTRIES, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
@@ -67,7 +67,7 @@ public class KeyValuePairs
 
         this.keyType = keyType;
         this.valueType = valueType;
-        keysHash = createGroupByHash(ImmutableList.of(keyType), new int[] {0}, Optional.empty(), EXPECTED_ENTRIES);
+        keysHash = createGroupByHash(ImmutableList.of(keyType), new int[] {0}, Optional.empty(), Optional.empty(), EXPECTED_ENTRIES);
         BlockBuilderStatus keyBlockBuilderStatus = new BlockBuilderStatus();
         keyBlockBuilder = this.keyType.createBlockBuilder(keyBlockBuilderStatus, EXPECTED_ENTRIES, expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
         valueBlockBuilder = this.valueType.createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ENTRIES, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
