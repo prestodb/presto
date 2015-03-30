@@ -254,7 +254,7 @@ public class AggregationMetadata
             this.sqlType = sqlType;
         }
 
-        public static ParameterMetadata fromAnnotations(Annotation[] annotations, String methodName, TypeManager typeManager)
+        public static ParameterMetadata fromAnnotations(Annotation[] annotations, String methodName, TypeManager typeManager, boolean sampleWeightAllowed)
         {
             List<Annotation> baseTypes = Arrays.asList(annotations).stream()
                     .filter(annotation -> annotation instanceof SqlType || annotation instanceof BlockIndex || annotation instanceof SampleWeight)
@@ -279,6 +279,7 @@ public class AggregationMetadata
                 return new ParameterMetadata(BLOCK_INDEX);
             }
             else if (annotation instanceof SampleWeight) {
+                checkArgument(sampleWeightAllowed, "@SampleWeight only allowed in approximate aggregations");
                 return new ParameterMetadata(SAMPLE_WEIGHT);
             }
             else {

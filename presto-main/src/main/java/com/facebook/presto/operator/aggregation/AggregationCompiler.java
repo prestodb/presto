@@ -161,7 +161,7 @@ public class AggregationCompiler
         Annotation[][] annotations = method.getParameterAnnotations();
         // Start at 1 because 0 is the STATE
         for (int i = 1; i < annotations.length; i++) {
-            builder.add(fromAnnotations(annotations[i], method.getDeclaringClass() + "." + method.getName(), typeManager));
+            builder.add(fromAnnotations(annotations[i], method.getDeclaringClass() + "." + method.getName(), typeManager, sampleWeightAllowed));
         }
         return builder.build();
     }
