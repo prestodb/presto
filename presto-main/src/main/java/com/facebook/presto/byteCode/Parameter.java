@@ -17,20 +17,11 @@ import javax.annotation.concurrent.Immutable;
 
 @Immutable
 public class Parameter
+        extends Variable
 {
-    public static Parameter arg(Class<?> type)
-    {
-        return new Parameter(null, ParameterizedType.type(type));
-    }
-
     public static Parameter arg(String name, Class<?> type)
     {
         return new Parameter(name, ParameterizedType.type(type));
-    }
-
-    public static Parameter arg(ParameterizedType type)
-    {
-        return new Parameter(null, type);
     }
 
     public static Parameter arg(String name, ParameterizedType type)
@@ -38,37 +29,12 @@ public class Parameter
         return new Parameter(name, type);
     }
 
-    private final ParameterizedType type;
-    private final String name;
-
     Parameter(String name, ParameterizedType type)
     {
-        this.name = name;
-        this.type = type;
+        super(name, type);
     }
 
-    public String getName()
-    {
-        return name;
-    }
-
-    public ParameterizedType getType()
-    {
-        return type;
-    }
-
-    @Override
-    public String toString()
-    {
-        StringBuilder sb = new StringBuilder();
-        sb.append("NamedParameterDefinition");
-        sb.append("{name='").append(name).append('\'');
-        sb.append(", type=").append(type);
-        sb.append('}');
-        return sb.toString();
-    }
-
-    public String getSourceString()
+    String getSourceString()
     {
         return getType().getJavaClassName() + " " + getName();
     }

@@ -20,6 +20,7 @@ import org.objectweb.asm.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
@@ -32,27 +33,29 @@ public class CompilerContext
     private final Map<String, Variable> variables = new TreeMap<>();
     private final List<Variable> allVariables = new ArrayList<>();
 
+    private final Variable thisVariable;
+
     private final LabelNode variableStartLabel = new LabelNode("VariableStart");
     private final LabelNode variableEndLabel = new LabelNode("VariableEnd");
 
     private int nextTempVariableId;
 
     // This can only be constructed by a method definition
-    CompilerContext()
+    CompilerContext(Optional<ParameterizedType> thisType, Iterable<Parameter> parameters)
     {
-    }
-
-    void declareThisVariable(ParameterizedType type)
-    {
-        if (variables.containsKey("this")) {
-            return;
+        if (thisType.isPresent()) {
+            thisVariable = new Variable("this", thisType.get());
+            variables.put("this", thisVariable);
+            allVariables.add(thisVariable);
+        }
+        else {
+            thisVariable = null;
         }
 
-        checkState(variables.isEmpty(), "The 'this' variable must be declared first");
-        Variable variable = new Variable("this", type);
-
-        variables.put("this", variable);
-        allVariables.add(variable);
+        for (Parameter parameter : parameters) {
+            variables.put(parameter.getName(), parameter);
+            allVariables.add(parameter);
+        }
     }
 
     public List<Variable> getVariables()
@@ -73,7 +76,8 @@ public class CompilerContext
 
     public Variable getThis()
     {
-        return getVariable("this");
+        checkState(thisVariable != null, "Static methods do not have a 'this' variable");
+        return thisVariable;
     }
 
     public Variable getVariable(String name)
