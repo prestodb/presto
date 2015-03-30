@@ -237,7 +237,7 @@ public class DumpByteCodeVisitor
     public Void visitLoadVariable(ByteCodeNode parent, LoadVariableInstruction loadVariableInstruction)
     {
         Variable variable = loadVariableInstruction.getVariable();
-        printLine("load %s(#%d)", variable.getName(), variable.getSlot());
+        printLine("load %s", variable.getName());
         return null;
     }
 
@@ -245,7 +245,7 @@ public class DumpByteCodeVisitor
     public Void visitStoreVariable(ByteCodeNode parent, StoreVariableInstruction storeVariableInstruction)
     {
         Variable variable = storeVariableInstruction.getVariable();
-        printLine("store %s(#%d)", variable.getName(), variable.getSlot());
+        printLine("store %s)", variable.getName());
         return null;
     }
 
@@ -254,7 +254,7 @@ public class DumpByteCodeVisitor
     {
         Variable variable = incrementVariableInstruction.getVariable();
         byte increment = incrementVariableInstruction.getIncrement();
-        printLine("increment %s(#%d) %s", variable.getName(), variable.getSlot(), increment);
+        printLine("increment %s %s", variable.getName(), increment);
         return null;
     }
 

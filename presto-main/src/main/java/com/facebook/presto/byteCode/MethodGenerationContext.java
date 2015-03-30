@@ -13,9 +13,36 @@
  */
 package com.facebook.presto.byteCode;
 
+import com.google.common.collect.ImmutableMap;
+import org.objectweb.asm.Type;
+
+import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkArgument;
+
 public class MethodGenerationContext
 {
+    private final Map<Variable, Integer> variableSlots;
     private int currentLineNumber = -1;
+
+    public MethodGenerationContext(Iterable<Variable> variables)
+    {
+        ImmutableMap.Builder<Variable, Integer> variableSlots = ImmutableMap.builder();
+        int nextSlot = 0;
+        for (Variable variable : variables) {
+            checkArgument(!"this".equals(variable.getName()) || nextSlot == 0, "The 'this' variable must be in slot 0");
+            variableSlots.put(variable, nextSlot);
+            nextSlot += Type.getType(variable.getType().getType()).getSize();
+        }
+        this.variableSlots = variableSlots.build();
+    }
+
+    public int getVariableSlot(Variable variable)
+    {
+        Integer slot = variableSlots.get(variable);
+        checkArgument(slot != null, "Variable '%s' has not been assigned a slot", variable);
+        return slot;
+    }
 
     public boolean updateLineNumber(int lineNumber)
     {

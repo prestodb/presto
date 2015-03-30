@@ -47,7 +47,7 @@ public class LocalVariableNode
                 variable.getType().getGenericSignature(),
                 start.getLabel(),
                 end.getLabel(),
-                variable.getSlot());
+                generationContext.getVariableSlot(variable));
     }
 
     @Override

@@ -251,7 +251,7 @@ public class MethodDefinition
         methodVisitor.visitCode();
 
         // visit instructions
-        MethodGenerationContext generationContext = new MethodGenerationContext();
+        MethodGenerationContext generationContext = new MethodGenerationContext(compilerContext.getVariables());
         body.accept(methodVisitor, generationContext);
         if (addReturn) {
             new InsnNode(RETURN).accept(methodVisitor);
