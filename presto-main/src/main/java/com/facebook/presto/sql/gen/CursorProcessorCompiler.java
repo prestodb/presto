@@ -18,6 +18,7 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.MethodDefinition;
+import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.byteCode.control.IfStatement;
@@ -69,21 +70,14 @@ public class CursorProcessorCompiler
 
     private void generateProcessMethod(ClassDefinition classDefinition, int projections)
     {
-        MethodDefinition method = classDefinition.declareMethod(
-                a(PUBLIC),
-                "process",
-                type(int.class),
-                arg("session", ConnectorSession.class),
-                arg("cursor", RecordCursor.class),
-                arg("count", int.class),
-                arg("pageBuilder", PageBuilder.class));
+        Parameter session = arg("session", ConnectorSession.class);
+        Parameter cursor = arg("cursor", RecordCursor.class);
+        Parameter count = arg("count", int.class);
+        Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(int.class), session, cursor, count, pageBuilder);
 
         CompilerContext context = method.getCompilerContext();
-        Variable sessionVariable = context.getVariable("session");
-        Variable cursorVariable = context.getVariable("cursor");
-        Variable countVariable = context.getVariable("count");
-        Variable pageBuilderVariable = context.getVariable("pageBuilder");
-
+        Variable thisVariable = method.getThis();
         Variable completedPositionsVariable = context.declareVariable(int.class, "completedPositions");
 
         method.getBody()
@@ -99,7 +93,7 @@ public class CursorProcessorCompiler
                 .condition(new Block()
                                 .comment("completedPositions < count")
                                 .getVariable(completedPositionsVariable)
-                                .getVariable(countVariable)
+                                .getVariable(count)
                                 .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class)
                 )
                 .update(new Block()
@@ -110,12 +104,12 @@ public class CursorProcessorCompiler
         Block forLoopBody = new Block()
                 .comment("if (pageBuilder.isFull()) break;")
                 .append(new Block()
-                        .getVariable(pageBuilderVariable)
+                        .getVariable(pageBuilder)
                         .invokeVirtual(PageBuilder.class, "isFull", boolean.class)
                         .ifTrueGoto(done))
                 .comment("if (!cursor.advanceNextPosition()) break;")
                 .append(new Block()
-                        .getVariable(cursorVariable)
+                        .getVariable(cursor)
                         .invokeInterface(RecordCursor.class, "advanceNextPosition", boolean.class)
                         .ifFalseGoto(done));
 
@@ -125,25 +119,25 @@ public class CursorProcessorCompiler
         IfStatement ifStatement = new IfStatement();
         ifStatement.condition()
                 .append(method.getThis())
-                .getVariable(sessionVariable)
-                .getVariable(cursorVariable)
+                .getVariable(session)
+                .getVariable(cursor)
                 .invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), type(ConnectorSession.class), type(RecordCursor.class));
 
         // pageBuilder.declarePosition();
         ifStatement.ifTrue()
-                .getVariable(pageBuilderVariable)
+                .getVariable(pageBuilder)
                 .invokeVirtual(PageBuilder.class, "declarePosition", void.class);
 
         // this.project_43(session, cursor, pageBuilder.getBlockBuilder(42)));
         for (int projectionIndex = 0; projectionIndex < projections; projectionIndex++) {
             ifStatement.ifTrue()
                     .append(method.getThis())
-                    .getVariable(sessionVariable)
-                    .getVariable(cursorVariable);
+                    .getVariable(session)
+                    .getVariable(cursor);
 
             // pageBuilder.getBlockBuilder(0)
             ifStatement.ifTrue()
-                    .getVariable(pageBuilderVariable)
+                    .getVariable(pageBuilder)
                     .push(projectionIndex)
                     .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
 
@@ -168,20 +162,16 @@ public class CursorProcessorCompiler
 
     private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter)
     {
-        MethodDefinition method = classDefinition.declareMethod(
-                a(PUBLIC),
-                "filter",
-                type(boolean.class),
-                arg("session", ConnectorSession.class),
-                arg("cursor", RecordCursor.class));
+        Parameter session = arg("session", ConnectorSession.class);
+        Parameter cursor = arg("cursor", RecordCursor.class);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "filter", type(boolean.class), session, cursor);
 
         method.comment("Filter: %s", filter);
 
         CompilerContext context = method.getCompilerContext();
         Variable wasNullVariable = context.declareVariable(type(boolean.class), "wasNull");
-        Variable cursorVariable = context.getVariable("cursor");
 
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(cursorVariable, wasNullVariable), metadata.getFunctionRegistry());
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(cursor, wasNullVariable), metadata.getFunctionRegistry());
 
         LabelNode end = new LabelNode("end");
         method.getBody()
@@ -200,29 +190,23 @@ public class CursorProcessorCompiler
 
     private void generateProjectMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String methodName, RowExpression projection)
     {
-        MethodDefinition method = classDefinition.declareMethod(
-                a(PUBLIC),
-                methodName,
-                type(void.class),
-                arg("session", ConnectorSession.class),
-                arg("cursor", RecordCursor.class),
-                arg("output", BlockBuilder.class));
+        Parameter session = arg("session", ConnectorSession.class);
+        Parameter cursor = arg("cursor", RecordCursor.class);
+        Parameter output = arg("output", BlockBuilder.class);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), methodName, type(void.class), session, cursor, output);
 
         method.comment("Projection: %s", projection.toString());
 
         CompilerContext context = method.getCompilerContext();
-        Variable outputVariable = context.getVariable("output");
-
-        Variable cursorVariable = context.getVariable("cursor");
         Variable wasNullVariable = context.declareVariable(type(boolean.class), "wasNull");
 
         Block body = method.getBody()
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false);
 
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(cursorVariable, wasNullVariable), metadata.getFunctionRegistry());
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(cursor, wasNullVariable), metadata.getFunctionRegistry());
 
-        body.getVariable(outputVariable)
+        body.getVariable(output)
                 .comment("evaluate projection: " + projection.toString())
                 .append(projection.accept(visitor, context))
                 .append(generateWrite(callSiteBinder, context, wasNullVariable, projection.getType()))

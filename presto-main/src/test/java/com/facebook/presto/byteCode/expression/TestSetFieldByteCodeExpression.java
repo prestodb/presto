@@ -54,9 +54,9 @@ public class TestSetFieldByteCodeExpression
             assertEquals(setExpression.toString(), "point.x = 42;");
 
             return new Block()
-                    .append(context.getVariable("point").set(newInstance(Point.class, constantInt(3), constantInt(7))))
+                    .append(point.set(newInstance(Point.class, constantInt(3), constantInt(7))))
                     .append(setExpression)
-                    .append(context.getVariable("point").ret());
+                    .append(point.ret());
         };
 
         assertByteCodeNode(nodeGenerator, type(Point.class), new Point(42, 7));

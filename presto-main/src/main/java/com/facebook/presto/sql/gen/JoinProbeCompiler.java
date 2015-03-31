@@ -15,10 +15,10 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
+import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
@@ -106,20 +106,15 @@ public class JoinProbeCompiler
 
         classDefinition.declareDefaultConstructor(a(PUBLIC));
 
-        MethodDefinition method = classDefinition.declareMethod(
-                a(PUBLIC),
-                "createJoinProbe",
-                type(JoinProbe.class),
-                arg("lookupSource", LookupSource.class),
-                arg("page", Page.class));
-
-        CompilerContext context = method.getCompilerContext();
+        Parameter lookupSource = arg("lookupSource", LookupSource.class);
+        Parameter page = arg("page", Page.class);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "createJoinProbe", type(JoinProbe.class), lookupSource, page);
 
         method.getBody()
                 .newObject(joinProbeClass)
                 .dup()
-                .append(context.getVariable("lookupSource"))
-                .append(context.getVariable("page"))
+                .append(lookupSource)
+                .append(page)
                 .invokeConstructor(joinProbeClass, LookupSource.class, Page.class)
                 .retObject();
 
@@ -198,13 +193,11 @@ public class JoinProbeCompiler
             FieldDefinition positionField,
             FieldDefinition positionCountField)
     {
-        MethodDefinition constructorDefinition = classDefinition.declareConstructor(
-                a(PUBLIC),
-                arg("lookupSource", LookupSource.class),
-                arg("page", Page.class));
+        Parameter lookupSource = arg("lookupSource", LookupSource.class);
+        Parameter page = arg("page", Page.class);
+        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), lookupSource, page);
 
-        CompilerContext context = constructorDefinition.getCompilerContext();
-        Variable thisVariable = context.getThis();
+        Variable thisVariable = constructorDefinition.getThis();
 
         Block constructor = constructorDefinition
                 .getBody()
@@ -213,16 +206,16 @@ public class JoinProbeCompiler
                 .invokeConstructor(Object.class);
 
         constructor.comment("this.lookupSource = lookupSource;")
-                .append(thisVariable.setField(lookupSourceField, context.getVariable("lookupSource")));
+                .append(thisVariable.setField(lookupSourceField, lookupSource));
 
         constructor.comment("this.positionCount = page.getPositionCount();")
-                .append(thisVariable.setField(positionCountField, context.getVariable("page").invoke("getPositionCount", int.class)));
+                .append(thisVariable.setField(positionCountField, page.invoke("getPositionCount", int.class)));
 
         constructor.comment("Set block fields");
         for (int index = 0; index < blockFields.size(); index++) {
             constructor.append(thisVariable.setField(
                     blockFields.get(index),
-                    context.getVariable("page").invoke("getBlock", com.facebook.presto.spi.block.Block.class, constantInt(index))));
+                    page.invoke("getBlock", com.facebook.presto.spi.block.Block.class, constantInt(index))));
         }
 
         constructor.comment("Set probe channel fields");
@@ -248,9 +241,8 @@ public class JoinProbeCompiler
                     .putObjectArrayElement();
         }
 
-        ByteCodeExpression page = newInstance(Page.class, thisVariable.getField(probeBlocksArrayField));
         constructor.comment("this.probePage = new Page(probeBlocks)")
-                .append(thisVariable.setField(probePageField, page));
+                .append(thisVariable.setField(probePageField, newInstance(Page.class, thisVariable.getField(probeBlocksArrayField))));
 
         if (probeHashChannel.isPresent()) {
             Integer index = probeHashChannel.get();
@@ -283,13 +275,12 @@ public class JoinProbeCompiler
             List<Type> types, List<FieldDefinition> blockFields,
             FieldDefinition positionField)
     {
+        Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
         MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
                 "appendTo",
                 type(void.class),
-                arg("pageBuilder", PageBuilder.class));
-
-        CompilerContext context = method.getCompilerContext();
+                pageBuilder);
 
         Variable thisVariable = method.getThis();
         for (int index = 0; index < blockFields.size(); index++) {
@@ -299,7 +290,7 @@ public class JoinProbeCompiler
                     .append(constantType(callSiteBinder, type).invoke("appendTo", void.class,
                             thisVariable.getField(blockFields.get(index)),
                             thisVariable.getField(positionField),
-                            context.getVariable("pageBuilder").invoke("getBlockBuilder", BlockBuilder.class, constantInt(index))));
+                            pageBuilder.invoke("getBlockBuilder", BlockBuilder.class, constantInt(index))));
         }
         method.getBody()
                 .ret();
