@@ -61,6 +61,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
@@ -72,6 +73,7 @@ import static com.facebook.presto.hive.HiveUtil.schemaTableName;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -165,7 +167,7 @@ public class HiveSplitManager
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.directoryLister = checkNotNull(directoryLister, "directoryLister is null");
         this.timeZone = checkNotNull(timeZone, "timeZone is null");
-        this.executor = checkNotNull(executor, "executor is null");
+        this.executor = new ErrorCodedExecutor(executor);
         checkArgument(maxOutstandingSplits >= 1, "maxOutstandingSplits must be at least 1");
         this.maxOutstandingSplits = maxOutstandingSplits;
         this.maxSplitIteratorThreads = maxSplitIteratorThreads;
@@ -512,5 +514,27 @@ public class HiveSplitManager
                 return builder.build();
             }
         };
+    }
+
+    private static class ErrorCodedExecutor
+            implements Executor
+    {
+        private final Executor delegate;
+
+        private ErrorCodedExecutor(Executor delegate)
+        {
+            this.delegate = checkNotNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public void execute(Runnable command)
+        {
+            try {
+                delegate.execute(command);
+            }
+            catch (RejectedExecutionException e) {
+                throw new PrestoException(SERVER_SHUTTING_DOWN, "Server is shutting down", e);
+            }
+        }
     }
 }
