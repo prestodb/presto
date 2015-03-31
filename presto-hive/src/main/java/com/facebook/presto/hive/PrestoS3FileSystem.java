@@ -37,10 +37,12 @@ import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.services.s3.transfer.Upload;
+import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.Iterators;
 import com.google.common.primitives.Ints;
+import com.google.common.base.Strings;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -147,7 +149,12 @@ public class PrestoS3FileSystem
         configuration.setSocketTimeout(Ints.checkedCast(socketTimeout.toMillis()));
         configuration.setMaxConnections(maxConnections);
 
+        if (Strings.isNullOrEmpty(conf.get("fs.s3n.awsAccessKeyId")) ||  Strings.isNullOrEmpty(conf.get("fs.s3n.awsSecretAccessKey"))) {
+        this.s3 = new AmazonS3Client(new InstanceProfileCredentialsProvider(), configuration);
+        }
+        else {
         this.s3 = new AmazonS3Client(getAwsCredentials(uri, conf), configuration);
+        }
 
         transferConfig.setMultipartUploadThreshold(minFileSize);
         transferConfig.setMinimumUploadPartSize(minPartSize);
