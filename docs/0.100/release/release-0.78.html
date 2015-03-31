@@ -1,0 +1,127 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.23. Release 0.78 &mdash; Presto 0.100 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.100',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.100 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.24. Release 0.77" href="release-0.77.html" />
+    <link rel="prev" title="10.22. Release 0.79" href="release-0.79.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.100 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.23. Release 0.78</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.79.html">10.22. Release 0.79</a>
+    </span>
+    <span class="right">
+        <a href="release-0.77.html">10.24. Release 0.77</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-78">
+<h1>10.23. Release 0.78</h1>
+<div class="section" id="array-and-map-types-in-hive-connector">
+<h2>ARRAY and MAP Types in Hive Connector</h2>
+<p>The Hive connector now returns arrays and maps instead of json encoded strings,
+for columns whose underlying type is array or map. Please note that this is a backwards
+incompatible change, and the <a class="reference internal" href="../functions/json.html"><em>JSON Functions</em></a> will no longer work on these columns,
+unless you <a class="reference internal" href="../functions/conversion.html#cast" title="cast"><tt class="xref py py-func docutils literal"><span class="pre">cast()</span></tt></a> them to the <tt class="docutils literal"><span class="pre">json</span></tt> type.</p>
+</div>
+<div class="section" id="session-properties">
+<h2>Session Properties</h2>
+<p>The Presto session can now contain properties, which can be used by the Presto
+engine or connectors to customize the query execution. There is a separate
+namespace for the Presto engine and each catalog. A property for a catalog is
+simplify prefixed with the catalog name followed by <tt class="docutils literal"><span class="pre">.</span></tt> (dot). A connector
+can retrieve the properties for the catalog using
+<tt class="docutils literal"><span class="pre">ConnectorSession.getProperties()</span></tt>.</p>
+<p>Session properties can be set using the <tt class="docutils literal"><span class="pre">--session</span></tt> command line argument to
+the Presto CLI. For example:</p>
+<div class="highlight-none"><div class="highlight"><pre>presto-cli --session color=red --session size=large
+</pre></div>
+</div>
+<p>For JDBC, the properties can be set by unwrapping the <tt class="docutils literal"><span class="pre">Connection</span></tt> as follows:</p>
+<div class="highlight-java"><div class="highlight"><pre><span class="n">connection</span><span class="o">.</span><span class="na">unwrap</span><span class="o">(</span><span class="n">PrestoConnection</span><span class="o">.</span><span class="na">class</span><span class="o">).</span><span class="na">setSessionProperty</span><span class="o">(</span><span class="s">&quot;name&quot;</span><span class="o">,</span> <span class="s">&quot;value&quot;</span><span class="o">);</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This feature is a work in progress and will change in a future release.
+Specifically, we are planning to require preregistration of properties so
+the user can list available session properties and so the engine can verify
+property values. Additionally, the Presto grammar will be extended to
+allow setting properties via a query.</p>
+</div>
+</div>
+<div class="section" id="hive-changes">
+<h2>Hive Changes</h2>
+<ul class="simple">
+<li>Add <tt class="docutils literal"><span class="pre">storage_format</span></tt> session property to override format used for creating tables.</li>
+<li>Add write support for <tt class="docutils literal"><span class="pre">VARBINARY</span></tt>, <tt class="docutils literal"><span class="pre">DATE</span></tt> and <tt class="docutils literal"><span class="pre">TIMESTAMP</span></tt>.</li>
+<li>Add support for partition keys of type <tt class="docutils literal"><span class="pre">TIMESTAMP</span></tt>.</li>
+<li>Add support for partition keys with null values (<tt class="docutils literal"><span class="pre">__HIVE_DEFAULT_PARTITION__</span></tt>).</li>
+<li>Fix <tt class="docutils literal"><span class="pre">hive.storage-format</span></tt> option (see <a class="reference internal" href="release-0.76.html"><em>Release 0.76</em></a>).</li>
+</ul>
+</div>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Fix expression optimizer, so that it runs in linear time instead of exponential time.</li>
+<li>Add <a class="reference internal" href="../functions/array.html#cardinality" title="cardinality"><tt class="xref py py-func docutils literal"><span class="pre">cardinality()</span></tt></a> for maps.</li>
+<li>Fix race condition in SqlTask creation which can cause queries to hang.</li>
+<li>Fix <tt class="docutils literal"><span class="pre">node-scheduler.multiple-tasks-per-node-enabled</span></tt> option.</li>
+<li>Fix an exception when planning a query with a UNION under a JOIN.</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.79.html">10.22. Release 0.79</a>
+    </span>
+    <span class="right">
+        <a href="release-0.77.html">10.24. Release 0.77</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

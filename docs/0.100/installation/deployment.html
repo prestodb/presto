@@ -1,0 +1,282 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>2.1. Deploying Presto &mdash; Presto 0.100 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.100',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.100 Documentation" href="../index.html" />
+    <link rel="up" title="2. Installation" href="../installation.html" />
+    <link rel="next" title="2.2. Command Line Interface" href="cli.html" />
+    <link rel="prev" title="2. Installation" href="../installation.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.100 Documentation</span></a></h1>
+    <h2 class="heading"><span>2.1. Deploying Presto</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../installation.html">2. Installation</a>
+    </span>
+    <span class="right">
+        <a href="cli.html">2.2. Command Line Interface</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="deploying-presto">
+<h1>2.1. Deploying Presto</h1>
+<div class="section" id="installing-presto">
+<h2>Installing Presto</h2>
+<p>Download the Presto server tarball, <a class="reference external" href="https://repo1.maven.org/maven2/com/facebook/presto/presto-server/0.100/presto-server-0.100.tar.gz">presto-server-0.100.tar.gz</a>, and unpack it.
+The tarball will contain a single top-level directory,
+<tt class="docutils literal"><span class="pre">presto-server-0.100</span></tt>, which we will call the <em>installation</em> directory.</p>
+<p>Presto needs a <em>data</em> directory for storing logs, local metadata, etc.
+We recommend creating a data directory outside of the installation directory,
+which allows it to be easily preserved when upgrading Presto.</p>
+</div>
+<div class="section" id="configuring-presto">
+<h2>Configuring Presto</h2>
+<p>Create an <tt class="docutils literal"><span class="pre">etc</span></tt> directory inside the installation directory.
+This will hold the following configuration:</p>
+<ul class="simple">
+<li>Node Properties: environmental configuration specific to each node</li>
+<li>JVM Config: command line options for the Java Virtual Machine</li>
+<li>Config Properties: configuration for the Presto server</li>
+<li>Catalog Properties: configuration for <a class="reference internal" href="../connector.html"><em>Connectors</em></a> (data sources)</li>
+</ul>
+<div class="section" id="node-properties">
+<span id="presto-node-properties"></span><h3>Node Properties</h3>
+<p>The node properties file, <tt class="docutils literal"><span class="pre">etc/node.properties</span></tt>, contains configuration
+specific to each node. A <em>node</em> is a single installed instance of Presto
+on a machine. This file is typically created by the deployment system when
+Presto is first installed. The following is a minimal <tt class="docutils literal"><span class="pre">etc/node.properties</span></tt>:</p>
+<div class="highlight-none"><div class="highlight"><pre>node.environment=production
+node.id=ffffffff-ffff-ffff-ffff-ffffffffffff
+node.data-dir=/var/presto/data
+</pre></div>
+</div>
+<p>The above properties are described below:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">node.environment</span></tt>:
+The name of the environment. All Presto nodes in a cluster must
+have the same environment name.</li>
+<li><tt class="docutils literal"><span class="pre">node.id</span></tt>:
+The unique identifier for this installation of Presto. This must be
+unique for every node. This identifier should remain consistent across
+reboots or upgrades of Presto. If running multiple installations of
+Presto on a single machine (i.e. multiple nodes on the same machine),
+each installation must have a unique identifier.</li>
+<li><tt class="docutils literal"><span class="pre">node.data-dir</span></tt>:
+The location (filesystem path) of the data directory. Presto will store
+logs and other data here.</li>
+</ul>
+</div>
+<div class="section" id="jvm-config">
+<span id="presto-jvm-config"></span><h3>JVM Config</h3>
+<p>The JVM config file, <tt class="docutils literal"><span class="pre">etc/jvm.config</span></tt>, contains a list of command line
+options used for launching the Java Virtual Machine. The format of the file
+is a list of options, one per line. These options are not interpreted by
+the shell, so options containing spaces or other special characters should
+not be quoted (as demonstrated by the <tt class="docutils literal"><span class="pre">OnOutOfMemoryError</span></tt> option in the
+example below).</p>
+<p>The following provides a good starting point for creating <tt class="docutils literal"><span class="pre">etc/jvm.config</span></tt>:</p>
+<div class="highlight-none"><div class="highlight"><pre>-server
+-Xmx16G
+-XX:+UseConcMarkSweepGC
+-XX:+ExplicitGCInvokesConcurrent
+-XX:+AggressiveOpts
+-XX:+HeapDumpOnOutOfMemoryError
+-XX:OnOutOfMemoryError=kill -9 %p
+</pre></div>
+</div>
+<p>Because an <tt class="docutils literal"><span class="pre">OutOfMemoryError</span></tt> will typically leave the JVM in an
+inconsistent state, we write a heap dump (for debugging) and forcibly
+terminate the process when this occurs.</p>
+</div>
+<div class="section" id="config-properties">
+<span id="id1"></span><h3>Config Properties</h3>
+<p>The config properties file, <tt class="docutils literal"><span class="pre">etc/config.properties</span></tt>, contains the
+configuration for the Presto server. Every Presto server can function
+as both a coordinator and a worker, but dedicating a single machine
+to only perform coordination work provides the best performance on
+larger clusters.</p>
+<p>The following is a minimal configuration for the coordinator:</p>
+<div class="highlight-none"><div class="highlight"><pre>coordinator=true
+node-scheduler.include-coordinator=false
+http-server.http.port=8080
+task.max-memory=1GB
+discovery-server.enabled=true
+discovery.uri=http://example.net:8080
+</pre></div>
+</div>
+<p>And this is a minimal configuration for the workers:</p>
+<div class="highlight-none"><div class="highlight"><pre>coordinator=false
+http-server.http.port=8080
+task.max-memory=1GB
+discovery.uri=http://example.net:8080
+</pre></div>
+</div>
+<p>Alternatively, if you are setting up a single machine for testing that
+will function as both a coordinator and worker, use this configuration:</p>
+<div class="highlight-none"><div class="highlight"><pre>coordinator=true
+node-scheduler.include-coordinator=true
+http-server.http.port=8080
+task.max-memory=1GB
+discovery-server.enabled=true
+discovery.uri=http://example.net:8080
+</pre></div>
+</div>
+<p>These properties require some explanation:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">coordinator</span></tt>:
+Allow this Presto instance to function as a coordinator
+(accept queries from clients and manage query execution).</li>
+<li><tt class="docutils literal"><span class="pre">node-scheduler.include-coordinator</span></tt>:
+Allow scheduling work on the coordinator.
+For larger clusters, processing work on the coordinator
+can impact query performance because the machine&#8217;s resources are not
+available for the critical task of scheduling, managing and monitoring
+query execution.</li>
+<li><tt class="docutils literal"><span class="pre">http-server.http.port</span></tt>:
+Specifies the port for the HTTP server. Presto uses HTTP for all
+communication, internal and external.</li>
+<li><tt class="docutils literal"><span class="pre">task.max-memory=1GB</span></tt>:
+The maximum amount of memory used by a single task
+(a fragment of a query plan running on a specific node).
+In particular, this limits the number of groups in a <tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt>,
+the size of the right-hand table in a <tt class="docutils literal"><span class="pre">JOIN</span></tt>, the number of rows
+in an <tt class="docutils literal"><span class="pre">ORDER</span> <span class="pre">BY</span></tt> or the number of rows processed by a window function.
+This value should be tuned based on the number of concurrent queries and
+the size and complexity of queries.  Setting it too low will limit the
+queries that can be run, while setting it too high will cause the JVM
+to run out of memory.</li>
+<li><tt class="docutils literal"><span class="pre">discovery-server.enabled</span></tt>:
+Presto uses the Discovery service to find all the nodes in the cluster.
+Every Presto instance will register itself with the Discovery service
+on startup. In order to simplify deployment and avoid running an additional
+service, the Presto coordinator can run an embedded version of the
+Discovery service. It shares the HTTP server with Presto and thus uses
+the same port.</li>
+<li><tt class="docutils literal"><span class="pre">discovery.uri</span></tt>:
+The URI to the Discovery server. Because we have enabled the embedded
+version of Discovery in the Presto coordinator, this should be the
+URI of the Presto coordinator. Replace <tt class="docutils literal"><span class="pre">example.net:8080</span></tt> to match
+the host and port of the Presto coordinator. This URI must not end
+in a slash.</li>
+<li><tt class="docutils literal"><span class="pre">query.queue-config-file</span></tt>:
+Specifies the file to read the <a class="reference internal" href="../admin/queue.html"><em>Queue Configuration</em></a> from.</li>
+</ul>
+</div>
+<div class="section" id="log-levels">
+<h3>Log Levels</h3>
+<p>The optional log levels file, <tt class="docutils literal"><span class="pre">etc/log.properties</span></tt>, allows setting the
+minimum log level for named logger hierarchies. Every logger has a name,
+which is typically the fully qualified name of the class that uses the logger.
+Loggers have a hierarchy based on the dots in the name (like Java packages).
+For example, consider the following log levels file:</p>
+<div class="highlight-none"><div class="highlight"><pre>com.facebook.presto=INFO
+</pre></div>
+</div>
+<p>This would set the minimum level to <tt class="docutils literal"><span class="pre">INFO</span></tt> for both
+<tt class="docutils literal"><span class="pre">com.facebook.presto.server</span></tt> and <tt class="docutils literal"><span class="pre">com.facebook.presto.hive</span></tt>.
+The default minimum level is <tt class="docutils literal"><span class="pre">INFO</span></tt>
+(thus the above example does not actually change anything).
+There are four levels: <tt class="docutils literal"><span class="pre">DEBUG</span></tt>, <tt class="docutils literal"><span class="pre">INFO</span></tt>, <tt class="docutils literal"><span class="pre">WARN</span></tt> and <tt class="docutils literal"><span class="pre">ERROR</span></tt>.</p>
+</div>
+<div class="section" id="catalog-properties">
+<h3>Catalog Properties</h3>
+<p>Presto accesses data via <em>connectors</em>, which are mounted in catalogs.
+The connector provides all of the schemas and tables inside of the catalog.
+For example, the Hive connector maps each Hive database to a schema,
+so if the Hive connector is mounted as the <tt class="docutils literal"><span class="pre">hive</span></tt> catalog, and Hive
+contains a table <tt class="docutils literal"><span class="pre">clicks</span></tt> in database <tt class="docutils literal"><span class="pre">web</span></tt>, that table would be accessed
+in Presto as <tt class="docutils literal"><span class="pre">hive.web.clicks</span></tt>.</p>
+<p>Catalogs are registered by creating a catalog properties file
+in the <tt class="docutils literal"><span class="pre">etc/catalog</span></tt> directory.
+For example, create <tt class="docutils literal"><span class="pre">etc/catalog/jmx.properties</span></tt> with the following
+contents to mount the <tt class="docutils literal"><span class="pre">jmx</span></tt> connector as the <tt class="docutils literal"><span class="pre">jmx</span></tt> catalog:</p>
+<div class="highlight-none"><div class="highlight"><pre>connector.name=jmx
+</pre></div>
+</div>
+<p>See <a class="reference internal" href="../connector.html"><em>Connectors</em></a> for more information about configuring connectors.</p>
+</div>
+</div>
+<div class="section" id="running-presto">
+<span id="id2"></span><h2>Running Presto</h2>
+<p>The installation directory contains the launcher script in <tt class="docutils literal"><span class="pre">bin/launcher</span></tt>.
+Presto can be started as a daemon by running running the following:</p>
+<div class="highlight-none"><div class="highlight"><pre>bin/launcher start
+</pre></div>
+</div>
+<p>Alternatively, it can be run in the foreground, with the logs and other
+output being written to stdout/stderr (both streams should be captured
+if using a supervision system like daemontools):</p>
+<div class="highlight-none"><div class="highlight"><pre>bin/launcher run
+</pre></div>
+</div>
+<p>Run the launcher with <tt class="docutils literal"><span class="pre">--help</span></tt> to see the supported commands and
+command line options. In particular, the <tt class="docutils literal"><span class="pre">--verbose</span></tt> option is
+very useful for debugging the installation.</p>
+<p>After launching, you can find the log files in <tt class="docutils literal"><span class="pre">var/log</span></tt>:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">launcher.log</span></tt>:
+This log is created by the launcher and is connected to the stdout
+and stderr streams of the server. It will contain a few log messages
+that occur while the server logging is being initialized and any
+errors or diagnostics produced by the JVM.</li>
+<li><tt class="docutils literal"><span class="pre">server.log</span></tt>:
+This is the main log file used by Presto. It will typically contain
+the relevant information if the server fails during initialization.
+It is automatically rotated and compressed.</li>
+<li><tt class="docutils literal"><span class="pre">http-request.log</span></tt>:
+This is the HTTP request log which contains every HTTP request
+received by the server. It is automatically rotated and compressed.</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../installation.html">2. Installation</a>
+    </span>
+    <span class="right">
+        <a href="cli.html">2.2. Command Line Interface</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
