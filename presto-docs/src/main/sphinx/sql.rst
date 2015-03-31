@@ -9,6 +9,7 @@ This chapter describes the SQL syntax used in Presto.
 
     sql/alter-table
     sql/create-table
+    sql/create-table-as
     sql/create-view
     sql/describe
     sql/drop-table
