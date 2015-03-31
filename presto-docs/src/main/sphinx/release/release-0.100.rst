@@ -22,3 +22,6 @@ General Changes
 * Rename config property ``task.shard.max-threads`` to ``task.max-worker-threads``.
   This property sets the number of threads used to concurrently process splits.
   The old property name is deprecated and will be removed in a future release.
+* Fix referencing ``NULL`` values in :ref:`row_type`.
+* Make :ref:`map_type` comparable.
+* Fix leak of tasks blocked during query teardown.
