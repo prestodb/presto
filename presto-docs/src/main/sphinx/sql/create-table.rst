@@ -7,19 +7,24 @@ Synopsis
 
 .. code-block:: none
 
-    CREATE TABLE table_name AS query
+    CREATE TABLE table_name (
+      column_name data_type [, ...]
+    )
 
 Description
 -----------
 
-Create a new table containing the result of a :doc:`select` query.
+Create a new, empty table with the specified columns.
+Use :doc:`create-table-as` to create a table with data.
 
 Examples
 --------
 
-Create a new table ``orders_by_date`` that summarizes ``orders``::
+Create a new table ``orders``::
 
-    CREATE TABLE orders_by_date AS
-    SELECT orderdate, sum(totalprice) AS price
-    FROM orders
-    GROUP BY orderdate
+    CREATE TABLE orders (
+      orderkey bigint,
+      orderstatus varchar,
+      totalprice double,
+      orderdate date
+    )
