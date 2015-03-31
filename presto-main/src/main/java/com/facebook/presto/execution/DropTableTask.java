@@ -40,10 +40,12 @@ public class DropTableTask
         QualifiedTableName tableName = createQualifiedTableName(session, statement.getTableName());
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-        if (!tableHandle.isPresent()) {
+        if (!tableHandle.isPresent() && !statement.isExistsPredicate()) {
             throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
         }
 
-        metadata.dropTable(tableHandle.get());
+        if (tableHandle.isPresent()) {
+            metadata.dropTable(tableHandle.get());
+        }
     }
 }
