@@ -25,6 +25,8 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.ObjectMapperProvider;
@@ -45,7 +47,7 @@ public class ArrayToJsonCast
         extends ParametricOperator
 {
     public static final ArrayToJsonCast ARRAY_TO_JSON = new ArrayToJsonCast();
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()));
+    private static final Supplier<ObjectMapper> OBJECT_MAPPER = Suppliers.memoize(() -> new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer())));
     private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayToJsonCast.class, "toJson", Type.class, ConnectorSession.class, Slice.class);
 
     private ArrayToJsonCast()
@@ -69,7 +71,7 @@ public class ArrayToJsonCast
     {
         Object object = arrayType.getObjectValue(session, createBlock(arrayType, array), 0);
         try {
-            return Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(object));
+            return Slices.utf8Slice(OBJECT_MAPPER.get().writeValueAsString(object));
         }
         catch (JsonProcessingException e) {
             throw Throwables.propagate(e);

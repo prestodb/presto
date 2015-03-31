@@ -29,6 +29,8 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.ObjectMapperProvider;
@@ -51,7 +53,7 @@ public class MapToJsonCast
         extends ParametricOperator
 {
     public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()).addSerializer(Map.class, new MapSerializer()));
+    private static final Supplier<ObjectMapper> OBJECT_MAPPER = Suppliers.memoize(() -> new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()).addSerializer(Map.class, new MapSerializer())));
     private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", Type.class, Type.class, ConnectorSession.class, Slice.class);
 
     private MapToJsonCast()
@@ -78,7 +80,7 @@ public class MapToJsonCast
         MapType mapType = new MapType(keyType, valueType);
         Object object = mapType.getObjectValue(session, createBlock(mapType, slice), 0);
         try {
-            return Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(object));
+            return Slices.utf8Slice(OBJECT_MAPPER.get().writeValueAsString(object));
         }
         catch (JsonProcessingException e) {
             throw Throwables.propagate(e);
