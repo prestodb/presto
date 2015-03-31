@@ -173,7 +173,7 @@ public class TestSqlStageExecution
 
         // The stage scheduler will block and this will cause a timeout exception
         try {
-            future1.get(1, TimeUnit.SECONDS);
+            future1.get(2, TimeUnit.SECONDS);
         }
         catch (TimeoutException e) {
             // expected
@@ -512,7 +512,7 @@ public class TestSqlStageExecution
             @Override
             public int getQueuedPartitionedSplitCount()
             {
-                return 0;
+                return getPartitionedSplitCount();
             }
         }
     }
