@@ -15,7 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
@@ -71,7 +71,7 @@ public class SwitchCodeGenerator
             // repeat with next sequence of constant expressions
          */
 
-        CompilerContext context = generatorContext.getContext();
+        Scope scope = generatorContext.getScope();
 
         // process value, else, and all when clauses
         RowExpression value = arguments.get(0);
@@ -96,10 +96,10 @@ public class SwitchCodeGenerator
 
         // evaluate the value and store it in a variable
         LabelNode nullValue = new LabelNode("nullCondition");
-        Variable tempVariable = context.createTempVariable(valueType);
+        Variable tempVariable = scope.createTempVariable(valueType);
         Block block = new Block()
                 .append(valueBytecode)
-                .append(ByteCodeUtils.ifWasNullClearPopAndGoto(context, nullValue, void.class, valueType))
+                .append(ByteCodeUtils.ifWasNullClearPopAndGoto(scope, nullValue, void.class, valueType))
                 .putVariable(tempVariable);
 
         ByteCodeNode getTempVariableNode = VariableInstruction.loadVariable(tempVariable);

@@ -15,7 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.Variable;
@@ -132,45 +132,45 @@ public class OrderingCompiler
         Parameter leftPosition = arg("leftPosition", int.class);
         Parameter rightPosition = arg("rightPosition", int.class);
         MethodDefinition compareToMethod = classDefinition.declareMethod(a(PUBLIC), "compareTo", type(int.class), pagesIndex, leftPosition, rightPosition);
-        CompilerContext context = compareToMethod.getCompilerContext();
+        Scope scope = compareToMethod.getScope();
 
-        Variable valueAddresses = context.declareVariable(LongArrayList.class, "valueAddresses");
+        Variable valueAddresses = scope.declareVariable(LongArrayList.class, "valueAddresses");
         compareToMethod
                 .getBody()
                 .comment("LongArrayList valueAddresses = pagesIndex.valueAddresses")
                 .append(valueAddresses.set(pagesIndex.invoke("getValueAddresses", LongArrayList.class)));
 
-        Variable leftPageAddress = context.declareVariable(long.class, "leftPageAddress");
+        Variable leftPageAddress = scope.declareVariable(long.class, "leftPageAddress");
         compareToMethod
                 .getBody()
                 .comment("long leftPageAddress = valueAddresses.getLong(leftPosition)")
                 .append(leftPageAddress.set(valueAddresses.invoke("getLong", long.class, leftPosition)));
 
-        Variable leftBlockIndex = context.declareVariable(int.class, "leftBlockIndex");
+        Variable leftBlockIndex = scope.declareVariable(int.class, "leftBlockIndex");
         compareToMethod
                 .getBody()
                 .comment("int leftBlockIndex = decodeSliceIndex(leftPageAddress)")
                 .append(leftBlockIndex.set(invokeStatic(SyntheticAddress.class, "decodeSliceIndex", int.class, leftPageAddress)));
 
-        Variable leftBlockPosition = context.declareVariable(int.class, "leftBlockPosition");
+        Variable leftBlockPosition = scope.declareVariable(int.class, "leftBlockPosition");
         compareToMethod
                 .getBody()
                 .comment("int leftBlockPosition = decodePosition(leftPageAddress)")
                 .append(leftBlockPosition.set(invokeStatic(SyntheticAddress.class, "decodePosition", int.class, leftPageAddress)));
 
-        Variable rightPageAddress = context.declareVariable(long.class, "rightPageAddress");
+        Variable rightPageAddress = scope.declareVariable(long.class, "rightPageAddress");
         compareToMethod
                 .getBody()
                 .comment("long rightPageAddress = valueAddresses.getLong(rightPosition);")
                 .append(rightPageAddress.set(valueAddresses.invoke("getLong", long.class, rightPosition)));
 
-        Variable rightBlockIndex = context.declareVariable(int.class, "rightBlockIndex");
+        Variable rightBlockIndex = scope.declareVariable(int.class, "rightBlockIndex");
         compareToMethod
                 .getBody()
                 .comment("int rightBlockIndex = decodeSliceIndex(rightPageAddress)")
                 .append(rightBlockIndex.set(invokeStatic(SyntheticAddress.class, "decodeSliceIndex", int.class, rightPageAddress)));
 
-        Variable rightBlockPosition = context.declareVariable(int.class, "rightBlockPosition");
+        Variable rightBlockPosition = scope.declareVariable(int.class, "rightBlockPosition");
         compareToMethod
                 .getBody()
                 .comment("int rightBlockPosition = decodePosition(rightPageAddress)")

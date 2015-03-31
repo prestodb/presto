@@ -15,7 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.metadata.FunctionInfo;
@@ -36,7 +36,7 @@ public class NullIfCodeGenerator
     @Override
     public ByteCodeNode generateExpression(Signature signature, ByteCodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
     {
-        CompilerContext context = generatorContext.getContext();
+        Scope scope = generatorContext.getScope();
 
         RowExpression first = arguments.get(0);
         RowExpression second = arguments.get(1);
@@ -47,7 +47,7 @@ public class NullIfCodeGenerator
         Block block = new Block()
                 .comment("check if first arg is null")
                 .append(generatorContext.generate(first))
-                .append(ByteCodeUtils.ifWasNullPopAndGoto(context, notMatch, void.class));
+                .append(ByteCodeUtils.ifWasNullPopAndGoto(scope, notMatch, void.class));
 
         Type firstType = first.getType();
         Type secondType = second.getType();
@@ -66,7 +66,7 @@ public class NullIfCodeGenerator
 
         Block conditionBlock = new Block()
                 .append(equalsCall)
-                .append(ByteCodeUtils.ifWasNullClearPopAndGoto(context, notMatch, void.class, boolean.class));
+                .append(ByteCodeUtils.ifWasNullClearPopAndGoto(scope, notMatch, void.class, boolean.class));
 
         // if first and second are equal, return null
         Block trueBlock = new Block()

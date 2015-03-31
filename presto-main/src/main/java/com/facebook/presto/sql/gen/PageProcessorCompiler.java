@@ -16,7 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.ParameterizedType;
@@ -84,9 +84,9 @@ public class PageProcessorCompiler
         Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(int.class), session, page, start, end, pageBuilder);
 
-        CompilerContext context = method.getCompilerContext();
+        Scope scope = method.getScope();
         Variable thisVariable = method.getThis();
-        Variable position = context.declareVariable(int.class, "position");
+        Variable position = scope.declareVariable(int.class, "position");
 
         method.getBody()
                 .comment("int position = start;")
@@ -95,7 +95,7 @@ public class PageProcessorCompiler
 
         List<Integer> allInputChannels = getInputChannels(Iterables.concat(projections, ImmutableList.of(filter)));
         for (int channel : allInputChannels) {
-            Variable blockVariable = context.declareVariable(com.facebook.presto.spi.block.Block.class, "block_" + channel);
+            Variable blockVariable = scope.declareVariable(com.facebook.presto.spi.block.Block.class, "block_" + channel);
             method.getBody()
                     .comment("Block %s = page.getBlock(%s);", blockVariable.getName(), channel)
                     .getVariable(page)
@@ -134,7 +134,7 @@ public class PageProcessorCompiler
         filterBlock.condition()
                 .append(thisVariable)
                 .getVariable(session)
-                .append(pushBlockVariables(context, getInputChannels(filter)))
+                .append(pushBlockVariables(scope, getInputChannels(filter)))
                 .getVariable(position)
                 .invokeVirtual(classDefinition.getType(),
                         "filter",
@@ -153,9 +153,9 @@ public class PageProcessorCompiler
             List<Integer> inputChannels = getInputChannels(projections.get(projectionIndex));
 
             filterBlock.ifTrue()
-                    .append(method.getThis())
+                    .append(thisVariable)
                     .append(session)
-                    .append(pushBlockVariables(context, inputChannels))
+                    .append(pushBlockVariables(scope, inputChannels))
                     .getVariable(position);
 
             filterBlock.ifTrue()
@@ -204,14 +204,14 @@ public class PageProcessorCompiler
 
         method.comment("Filter: %s", filter.toString());
 
-        CompilerContext context = method.getCompilerContext();
-        Variable wasNullVariable = context.declareVariable(type(boolean.class), "wasNull");
+        Scope scope = method.getScope();
+        Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
         ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(
                 callSiteBinder,
                 fieldReferenceCompiler(callSiteBinder, position, wasNullVariable),
                 metadata.getFunctionRegistry());
-        ByteCodeNode body = filter.accept(visitor, context);
+        ByteCodeNode body = filter.accept(visitor, scope);
 
         LabelNode end = new LabelNode("end");
         method
@@ -246,8 +246,8 @@ public class PageProcessorCompiler
 
         method.comment("Projection: %s", projection.toString());
 
-        CompilerContext context = method.getCompilerContext();
-        Variable wasNullVariable = context.declareVariable(type(boolean.class), "wasNull");
+        Scope scope = method.getScope();
+        Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
         Block body = method.getBody()
                 .comment("boolean wasNull = false;")
@@ -257,8 +257,8 @@ public class PageProcessorCompiler
 
         body.getVariable(output)
                 .comment("evaluate projection: " + projection.toString())
-                .append(projection.accept(visitor, context))
-                .append(generateWrite(callSiteBinder, context, wasNullVariable, projection.getType()))
+                .append(projection.accept(visitor, scope))
+                .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
                 .ret();
     }
 
@@ -287,25 +287,25 @@ public class PageProcessorCompiler
         return parameters.build();
     }
 
-    private static ByteCodeNode pushBlockVariables(CompilerContext context, List<Integer> inputs)
+    private static ByteCodeNode pushBlockVariables(Scope scope, List<Integer> inputs)
     {
         Block block = new Block();
         for (int channel : inputs) {
-            block.append(context.getVariable("block_" + channel));
+            block.append(scope.getVariable("block_" + channel));
         }
         return block;
     }
 
-    private RowExpressionVisitor<CompilerContext, ByteCodeNode> fieldReferenceCompiler(final CallSiteBinder callSiteBinder, final Variable positionVariable, final Variable wasNullVariable)
+    private RowExpressionVisitor<Scope, ByteCodeNode> fieldReferenceCompiler(final CallSiteBinder callSiteBinder, final Variable positionVariable, final Variable wasNullVariable)
     {
-        return new RowExpressionVisitor<CompilerContext, ByteCodeNode>()
+        return new RowExpressionVisitor<Scope, ByteCodeNode>()
         {
             @Override
-            public ByteCodeNode visitInputReference(InputReferenceExpression node, CompilerContext context)
+            public ByteCodeNode visitInputReference(InputReferenceExpression node, Scope scope)
             {
                 int field = node.getField();
                 Type type = node.getType();
-                Variable block = context.getVariable("block_" + field);
+                Variable block = scope.getVariable("block_" + field);
 
                 Class<?> javaType = type.getJavaType();
                 IfStatement ifStatement = new IfStatement();
@@ -331,13 +331,13 @@ public class PageProcessorCompiler
             }
 
             @Override
-            public ByteCodeNode visitCall(CallExpression call, CompilerContext context)
+            public ByteCodeNode visitCall(CallExpression call, Scope scope)
             {
                 throw new UnsupportedOperationException("not yet implemented");
             }
 
             @Override
-            public ByteCodeNode visitConstant(ConstantExpression literal, CompilerContext context)
+            public ByteCodeNode visitConstant(ConstantExpression literal, Scope scope)
             {
                 throw new UnsupportedOperationException("not yet implemented");
             }

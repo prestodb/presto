@@ -15,7 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.Parameter;
@@ -140,17 +140,17 @@ public final class ArrayConstructor
         }
 
         MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "arrayConstructor", type(Slice.class), parameters.build());
-        CompilerContext context = method.getCompilerContext();
+        Scope scope = method.getScope();
         Block body = method.getBody();
 
-        Variable elementTypeVariable = context.declareVariable(Type.class, "elementTypeVariable");
+        Variable elementTypeVariable = scope.declareVariable(Type.class, "elementTypeVariable");
         CallSiteBinder binder = new CallSiteBinder();
 
         body.comment("elementTypeVariable = elementType;")
                 .append(constantType(binder, elementType))
                 .putVariable(elementTypeVariable);
 
-        Variable valuesVariable = context.declareVariable(List.class, "values");
+        Variable valuesVariable = scope.declareVariable(List.class, "values");
         body.comment("List<Object> values = new ArrayList();")
                 .newObject(ArrayList.class)
                 .dup()
@@ -160,10 +160,10 @@ public final class ArrayConstructor
         for (int i = 0; i < stackTypes.size(); i++) {
             body.comment("values.add(arg" + i + ");")
                     .getVariable(valuesVariable)
-                    .append(context.getVariable("arg" + i));
+                    .append(scope.getVariable("arg" + i));
             Class<?> stackType = stackTypes.get(i);
             if (stackType.isPrimitive()) {
-                body.append(ByteCodeUtils.boxPrimitiveIfNecessary(context, stackType));
+                body.append(ByteCodeUtils.boxPrimitiveIfNecessary(scope, stackType));
             }
             body.invokeInterface(List.class, "add", boolean.class, Object.class);
         }

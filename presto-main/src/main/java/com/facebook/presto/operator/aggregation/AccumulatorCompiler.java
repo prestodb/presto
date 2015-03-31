@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
@@ -211,22 +211,22 @@ public class AccumulatorCompiler
         parameters.add(page);
 
         MethodDefinition method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), parameters.build());
-        CompilerContext context = method.getCompilerContext();
+        Scope scope = method.getScope();
         Block body = method.getBody();
         Variable thisVariable = method.getThis();
 
         if (grouped) {
-            generateEnsureCapacity(context, stateField, body);
+            generateEnsureCapacity(scope, stateField, body);
         }
 
         List<Variable> parameterVariables = new ArrayList<>();
         for (int i = 0; i < countInputChannels(parameterMetadatas); i++) {
-            parameterVariables.add(context.declareVariable(com.facebook.presto.spi.block.Block.class, "block" + i));
+            parameterVariables.add(scope.declareVariable(com.facebook.presto.spi.block.Block.class, "block" + i));
         }
-        Variable masksBlock = context.declareVariable(com.facebook.presto.spi.block.Block.class, "masksBlock");
+        Variable masksBlock = scope.declareVariable(com.facebook.presto.spi.block.Block.class, "masksBlock");
         Variable sampleWeightsBlock = null;
         if (sampleWeightChannelField != null) {
-            sampleWeightsBlock = context.declareVariable(com.facebook.presto.spi.block.Block.class, "sampleWeightsBlock");
+            sampleWeightsBlock = scope.declareVariable(com.facebook.presto.spi.block.Block.class, "sampleWeightsBlock");
         }
         body.comment("masksBlock = maskChannel.map(page.blockGetter()).orElse(null);")
                 .append(thisVariable.getField(maskChannelField))
@@ -261,7 +261,7 @@ public class AccumulatorCompiler
                     .invokeVirtual(Page.class, "getBlock", com.facebook.presto.spi.block.Block.class, int.class)
                     .putVariable(parameterVariables.get(i));
         }
-        Block block = generateInputForLoop(stateField, parameterMetadatas, inputFunction, context, parameterVariables, masksBlock, sampleWeightsBlock, callSiteBinder, grouped);
+        Block block = generateInputForLoop(stateField, parameterMetadatas, inputFunction, scope, parameterVariables, masksBlock, sampleWeightsBlock, callSiteBinder, grouped);
 
         body.append(block);
         body.ret();
@@ -271,7 +271,7 @@ public class AccumulatorCompiler
             FieldDefinition stateField,
             List<ParameterMetadata> parameterMetadatas,
             MethodHandle inputFunction,
-            CompilerContext context,
+            Scope scope,
             List<Variable> parameterVariables,
             Variable masksBlock,
             @Nullable Variable sampleWeightsBlock,
@@ -279,13 +279,13 @@ public class AccumulatorCompiler
             boolean grouped)
     {
         // For-loop over rows
-        Variable page = context.getVariable("page");
-        Variable positionVariable = context.declareVariable(int.class, "position");
+        Variable page = scope.getVariable("page");
+        Variable positionVariable = scope.declareVariable(int.class, "position");
         Variable sampleWeightVariable = null;
         if (sampleWeightsBlock != null) {
-            sampleWeightVariable = context.declareVariable(long.class, "sampleWeight");
+            sampleWeightVariable = scope.declareVariable(long.class, "sampleWeight");
         }
-        Variable rowsVariable = context.declareVariable(int.class, "rows");
+        Variable rowsVariable = scope.declareVariable(int.class, "rows");
 
         Block block = new Block()
                 .append(page)
@@ -296,7 +296,7 @@ public class AccumulatorCompiler
             block.initializeVariable(sampleWeightVariable);
         }
 
-        ByteCodeNode loopBody = generateInvokeInputFunction(context, stateField, positionVariable, sampleWeightVariable, parameterVariables, parameterMetadatas, inputFunction, callSiteBinder, grouped);
+        ByteCodeNode loopBody = generateInvokeInputFunction(scope, stateField, positionVariable, sampleWeightVariable, parameterVariables, parameterMetadatas, inputFunction, callSiteBinder, grouped);
 
         //  Wrap with null checks
         List<Boolean> nullable = new ArrayList<>();
@@ -368,7 +368,7 @@ public class AccumulatorCompiler
     }
 
     private static Block generateInvokeInputFunction(
-            CompilerContext context,
+            Scope scope,
             FieldDefinition stateField,
             Variable position,
             @Nullable Variable sampleWeight,
@@ -381,7 +381,7 @@ public class AccumulatorCompiler
         Block block = new Block();
 
         if (grouped) {
-            generateSetGroupIdFromGroupIdsBlock(context, stateField, block);
+            generateSetGroupIdFromGroupIdsBlock(scope, stateField, block);
         }
 
         block.comment("Call input function with unpacked Block arguments");
@@ -392,7 +392,7 @@ public class AccumulatorCompiler
             ParameterMetadata parameterMetadata = parameterMetadatas.get(i);
             switch (parameterMetadata.getParameterType()) {
                 case STATE:
-                    block.append(context.getThis().getField(stateField));
+                    block.append(scope.getThis().getField(stateField));
                     break;
                 case BLOCK_INDEX:
                     block.getVariable(position);
@@ -408,7 +408,7 @@ public class AccumulatorCompiler
                 case INPUT_CHANNEL:
                     Block getBlockByteCode = new Block()
                             .getVariable(parameterVariables.get(inputChannel));
-                    pushStackType(context, block, parameterMetadata.getSqlType(), getBlockByteCode, parameters[i], callSiteBinder);
+                    pushStackType(scope, block, parameterMetadata.getSqlType(), getBlockByteCode, parameters[i], callSiteBinder);
                     inputChannel++;
                     break;
                 default:
@@ -421,9 +421,9 @@ public class AccumulatorCompiler
     }
 
     // Assumes that there is a variable named 'position' in the block, which is the current index
-    private static void pushStackType(CompilerContext context, Block block, Type sqlType, Block getBlockByteCode, Class<?> parameter, CallSiteBinder callSiteBinder)
+    private static void pushStackType(Scope scope, Block block, Type sqlType, Block getBlockByteCode, Class<?> parameter, CallSiteBinder callSiteBinder)
     {
-        Variable position = context.getVariable("position");
+        Variable position = scope.getVariable("position");
         if (parameter == com.facebook.presto.spi.block.Block.class) {
             block.append(getBlockByteCode);
         }
@@ -471,13 +471,13 @@ public class AccumulatorCompiler
             boolean grouped)
     {
         MethodDefinition method = declareAddIntermediate(definition, grouped);
-        CompilerContext context = method.getCompilerContext();
+        Scope scope = method.getScope();
         Block body = method.getBody();
         Variable thisVariable = method.getThis();
 
-        Variable block = context.getVariable("block");
-        Variable scratchState = context.declareVariable(singleStateClass, "scratchState");
-        Variable position = context.declareVariable(int.class, "position");
+        Variable block = scope.getVariable("block");
+        Variable scratchState = scope.declareVariable(singleStateClass, "scratchState");
+        Variable position = scope.declareVariable(int.class, "position");
 
         body.comment("scratchState = stateFactory.createSingleState();")
                 .append(thisVariable.getField(stateFactoryField))
@@ -486,13 +486,13 @@ public class AccumulatorCompiler
                 .putVariable(scratchState);
 
         if (grouped) {
-            generateEnsureCapacity(context, stateField, body);
+            generateEnsureCapacity(scope, stateField, body);
         }
 
         Block loopBody = new Block();
 
         if (grouped) {
-            Variable groupIdsBlock = context.getVariable("groupIdsBlock");
+            Variable groupIdsBlock = scope.getVariable("groupIdsBlock");
             loopBody.append(thisVariable.getField(stateField).invoke("setGroupId", void.class, groupIdsBlock.invoke("getGroupId", long.class, position)));
         }
 
@@ -503,22 +503,22 @@ public class AccumulatorCompiler
                 .append(scratchState)
                 .append(invoke(callSiteBinder.bind(combineFunction), "combine"));
 
-        body.append(generateBlockNonNullPositionForLoop(context, position, loopBody))
+        body.append(generateBlockNonNullPositionForLoop(scope, position, loopBody))
                 .ret();
     }
 
-    private static void generateSetGroupIdFromGroupIdsBlock(CompilerContext context, FieldDefinition stateField, Block block)
+    private static void generateSetGroupIdFromGroupIdsBlock(Scope scope, FieldDefinition stateField, Block block)
     {
-        Variable groupIdsBlock = context.getVariable("groupIdsBlock");
-        Variable position = context.getVariable("position");
-        ByteCodeExpression state = context.getThis().getField(stateField);
+        Variable groupIdsBlock = scope.getVariable("groupIdsBlock");
+        Variable position = scope.getVariable("position");
+        ByteCodeExpression state = scope.getThis().getField(stateField);
         block.append(state.invoke("setGroupId", void.class, groupIdsBlock.invoke("getGroupId", long.class, position)));
     }
 
-    private static void generateEnsureCapacity(CompilerContext context, FieldDefinition stateField, Block block)
+    private static void generateEnsureCapacity(Scope scope, FieldDefinition stateField, Block block)
     {
-        Variable groupIdsBlock = context.getVariable("groupIdsBlock");
-        ByteCodeExpression state = context.getThis().getField(stateField);
+        Variable groupIdsBlock = scope.getVariable("groupIdsBlock");
+        ByteCodeExpression state = scope.getThis().getField(stateField);
         block.append(state.invoke("ensureCapacity", void.class, groupIdsBlock.invoke("getGroupCount", long.class)));
     }
 
@@ -546,27 +546,27 @@ public class AccumulatorCompiler
             boolean grouped)
     {
         MethodDefinition method = declareAddIntermediate(definition, grouped);
-        CompilerContext context = method.getCompilerContext();
+        Scope scope = method.getScope();
         Block body = method.getBody();
 
         if (grouped) {
-            generateEnsureCapacity(context, stateField, body);
+            generateEnsureCapacity(scope, stateField, body);
         }
 
-        Variable positionVariable = context.declareVariable(int.class, "position");
+        Variable positionVariable = scope.declareVariable(int.class, "position");
 
-        Block loopBody = generateInvokeInputFunction(context, stateField, positionVariable, null, ImmutableList.of(context.getVariable("block")), parameterMetadatas, intermediateInputFunction, callSiteBinder, grouped);
+        Block loopBody = generateInvokeInputFunction(scope, stateField, positionVariable, null, ImmutableList.of(scope.getVariable("block")), parameterMetadatas, intermediateInputFunction, callSiteBinder, grouped);
 
-        body.append(generateBlockNonNullPositionForLoop(context, positionVariable, loopBody))
+        body.append(generateBlockNonNullPositionForLoop(scope, positionVariable, loopBody))
                 .ret();
     }
 
     // Generates a for-loop with a local variable named "position" defined, with the current position in the block,
     // loopBody will only be executed for non-null positions in the Block
-    private static Block generateBlockNonNullPositionForLoop(CompilerContext context, Variable positionVariable, Block loopBody)
+    private static Block generateBlockNonNullPositionForLoop(Scope scope, Variable positionVariable, Block loopBody)
     {
-        Variable rowsVariable = context.declareVariable(int.class, "rows");
-        Variable blockVariable = context.getVariable("block");
+        Variable rowsVariable = scope.declareVariable(int.class, "rows");
+        Variable blockVariable = scope.getVariable("block");
 
         Block block = new Block()
                 .append(blockVariable)

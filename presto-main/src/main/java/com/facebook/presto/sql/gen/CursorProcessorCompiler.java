@@ -16,7 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.Variable;
@@ -76,9 +76,9 @@ public class CursorProcessorCompiler
         Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(int.class), session, cursor, count, pageBuilder);
 
-        CompilerContext context = method.getCompilerContext();
+        Scope scope = method.getScope();
         Variable thisVariable = method.getThis();
-        Variable completedPositionsVariable = context.declareVariable(int.class, "completedPositions");
+        Variable completedPositionsVariable = scope.declareVariable(int.class, "completedPositions");
 
         method.getBody()
                 .comment("int completedPositions = 0;")
@@ -168,8 +168,8 @@ public class CursorProcessorCompiler
 
         method.comment("Filter: %s", filter);
 
-        CompilerContext context = method.getCompilerContext();
-        Variable wasNullVariable = context.declareVariable(type(boolean.class), "wasNull");
+        Scope scope = method.getScope();
+        Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
         ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(cursor, wasNullVariable), metadata.getFunctionRegistry());
 
@@ -178,7 +178,7 @@ public class CursorProcessorCompiler
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false)
                 .comment("evaluate filter: " + filter)
-                .append(filter.accept(visitor, context))
+                .append(filter.accept(visitor, scope))
                 .comment("if (wasNull) return false;")
                 .getVariable(wasNullVariable)
                 .ifFalseGoto(end)
@@ -197,8 +197,8 @@ public class CursorProcessorCompiler
 
         method.comment("Projection: %s", projection.toString());
 
-        CompilerContext context = method.getCompilerContext();
-        Variable wasNullVariable = context.declareVariable(type(boolean.class), "wasNull");
+        Scope scope = method.getScope();
+        Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
         Block body = method.getBody()
                 .comment("boolean wasNull = false;")
@@ -208,17 +208,17 @@ public class CursorProcessorCompiler
 
         body.getVariable(output)
                 .comment("evaluate projection: " + projection.toString())
-                .append(projection.accept(visitor, context))
-                .append(generateWrite(callSiteBinder, context, wasNullVariable, projection.getType()))
+                .append(projection.accept(visitor, scope))
+                .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
                 .ret();
     }
 
-    private RowExpressionVisitor<CompilerContext, ByteCodeNode> fieldReferenceCompiler(final Variable cursorVariable, final Variable wasNullVariable)
+    private RowExpressionVisitor<Scope, ByteCodeNode> fieldReferenceCompiler(final Variable cursorVariable, final Variable wasNullVariable)
     {
-        return new RowExpressionVisitor<CompilerContext, ByteCodeNode>()
+        return new RowExpressionVisitor<Scope, ByteCodeNode>()
         {
             @Override
-            public ByteCodeNode visitInputReference(InputReferenceExpression node, CompilerContext context)
+            public ByteCodeNode visitInputReference(InputReferenceExpression node, Scope scope)
             {
                 int field = node.getField();
                 Type type = node.getType();
@@ -245,13 +245,13 @@ public class CursorProcessorCompiler
             }
 
             @Override
-            public ByteCodeNode visitCall(CallExpression call, CompilerContext context)
+            public ByteCodeNode visitCall(CallExpression call, Scope scope)
             {
                 throw new UnsupportedOperationException("not yet implemented");
             }
 
             @Override
-            public ByteCodeNode visitConstant(ConstantExpression literal, CompilerContext context)
+            public ByteCodeNode visitConstant(ConstantExpression literal, Scope scope)
             {
                 throw new UnsupportedOperationException("not yet implemented");
             }

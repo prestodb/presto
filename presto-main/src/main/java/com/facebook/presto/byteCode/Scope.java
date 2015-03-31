@@ -28,7 +28,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class CompilerContext
+public class Scope
 {
     private final Map<String, Variable> variables = new TreeMap<>();
     private final List<Variable> allVariables = new ArrayList<>();
@@ -41,7 +41,7 @@ public class CompilerContext
     private int nextTempVariableId;
 
     // This can only be constructed by a method definition
-    CompilerContext(Optional<ParameterizedType> thisType, Iterable<Parameter> parameters)
+    Scope(Optional<ParameterizedType> thisType, Iterable<Parameter> parameters)
     {
         if (thisType.isPresent()) {
             thisVariable = new Variable("this", thisType.get());
