@@ -67,7 +67,8 @@ public class JoinNode
         INNER("InnerJoin"),
         LEFT("LeftJoin"),
         RIGHT("RightJoin"),
-        CROSS("CrossJoin");
+        CROSS("CrossJoin"),
+        FULL("FullJoin");
 
         private final String joinLabel;
 
@@ -91,6 +92,8 @@ public class JoinNode
                     return Type.LEFT;
                 case RIGHT:
                     return Type.RIGHT;
+                case FULL:
+                    return Type.FULL;
                 case CROSS:
                 case IMPLICIT:
                     return Type.CROSS;

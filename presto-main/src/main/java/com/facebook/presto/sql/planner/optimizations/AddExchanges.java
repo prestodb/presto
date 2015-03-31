@@ -656,9 +656,11 @@ public class AddExchanges
             PlanWithProperties left;
             PlanWithProperties right;
 
-            if (distributedJoins) {
-                 left  = node.getLeft().accept(this, PreferredProperties.hashPartitioned(leftSymbols));
-                 right = node.getRight().accept(this, PreferredProperties.hashPartitioned(rightSymbols));
+            if (distributedJoins || node.getType() == JoinNode.Type.FULL) {
+                // The implementation of full outer join only works if the data is hash partitioned. See LookupJoinOperators#buildSideOuterJoinUnvisitedPositions
+
+                left  = node.getLeft().accept(this, PreferredProperties.hashPartitioned(leftSymbols));
+                right = node.getRight().accept(this, PreferredProperties.hashPartitioned(rightSymbols));
 
                 // force partitioning
                 if (!left.getProperties().isHashPartitionedOn(leftSymbols)) {

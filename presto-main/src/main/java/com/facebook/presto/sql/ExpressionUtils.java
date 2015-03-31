@@ -163,19 +163,27 @@ public final class ExpressionUtils
                 .collect(toImmutableList()));
     }
 
-    public static Function<Expression, Expression> expressionOrNullSymbols(final Predicate<Symbol> nullSymbolScope)
+    public static Function<Expression, Expression> expressionOrNullSymbols(final Predicate<Symbol>... nullSymbolScopes)
     {
         return expression -> {
-            Iterable<Symbol> symbols = filter(DependencyExtractor.extractUnique(expression), nullSymbolScope);
-            if (Iterables.isEmpty(symbols)) {
-                return expression;
+            ImmutableList.Builder<Expression> resultDisjunct = ImmutableList.builder();
+            resultDisjunct.add(expression);
+
+            for (Predicate<Symbol> nullSymbolScope : nullSymbolScopes) {
+                Iterable<Symbol> symbols = filter(DependencyExtractor.extractUnique(expression), nullSymbolScope);
+                if (Iterables.isEmpty(symbols)) {
+                    continue;
+                }
+
+                ImmutableList.Builder<Expression> nullConjuncts = ImmutableList.builder();
+                for (Symbol symbol : symbols) {
+                    nullConjuncts.add(new IsNullPredicate(new QualifiedNameReference(symbol.toQualifiedName())));
+                }
+
+                resultDisjunct.add(and(nullConjuncts.build()));
             }
 
-            ImmutableList.Builder<Expression> nullConjuncts = ImmutableList.builder();
-            for (Symbol symbol : symbols) {
-                nullConjuncts.add(new IsNullPredicate(new QualifiedNameReference(symbol.toQualifiedName())));
-            }
-            return or(expression, and(nullConjuncts.build()));
+            return or(resultDisjunct.build());
         };
     }
 
