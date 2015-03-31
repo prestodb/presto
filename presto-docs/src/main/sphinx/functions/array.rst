@@ -21,6 +21,14 @@ The ``||`` operator is used to concatenate an array with an array or an element 
 Array Functions
 ---------------
 
+.. function:: array_distinct(x) -> array
+
+    Remove duplicate values from the array ``x``.
+
+.. function:: array_sort(x) -> array
+
+    Sorts and returns the array ``x``. The elements of ``x`` must be orderable.
+
 .. function:: cardinality(x) -> bigint
 
     Returns the cardinality (size) of the array ``x``.
@@ -34,11 +42,3 @@ Array Functions
 .. function:: contains(x, y) -> boolean
 
     Returns true if the array ``x`` contains the element ``y``.
-
-.. function:: array_distinct(x) -> array
-
-    Remove duplicate values from the array ``x``.
-
-.. function:: array_sort(x) -> array
-
-    Sorts and returns the array ``x``. The elements of ``x`` must be orderable.
