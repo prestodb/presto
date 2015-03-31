@@ -139,7 +139,7 @@ public class AggregationCompiler
                             throw Throwables.propagate(e);
                         }
 
-                        GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
+                        AccumulatorFactoryBinder factory = new LazyAccumulatorFactoryBinder(metadata, classLoader);
                         builder.add(new InternalAggregationFunction(name, inputTypes, intermediateType, outputType, aggregationAnnotation.decomposable(), aggregationAnnotation.approximate(), factory));
                     }
                 }
