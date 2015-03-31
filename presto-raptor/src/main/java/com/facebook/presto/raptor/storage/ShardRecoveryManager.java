@@ -57,7 +57,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.Duration.nanosSince;
-import static java.lang.String.format;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -209,7 +208,7 @@ public class ShardRecoveryManager
 
         if (!storageFile.exists() || storageFile.length() != backupFile.length()) {
             stats.incrementShardRecoveryFailure();
-            throw new PrestoException(RAPTOR_RECOVERY_ERROR, format("File not recovered correctly: %s", shardUuid));
+            throw new PrestoException(RAPTOR_RECOVERY_ERROR, "File not recovered correctly: " + shardUuid);
         }
 
         if (storageFile.length() != backupFile.length()) {
