@@ -301,7 +301,7 @@ public class TestHashJoinOperator
         List<Page> probeInput = rowPagesBuilderProbe
                 .addSequencePage(15, 20, 1020, 2020)
                 .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.outerJoin(
+        OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
                 rowPagesBuilderProbe.getTypes(),
@@ -365,7 +365,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.outerJoin(
+        OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
                 rowPagesBuilderProbe.getTypes(),
@@ -418,7 +418,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.outerJoin(
+        OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
                 rowPagesBuilderProbe.getTypes(),
@@ -471,7 +471,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.outerJoin(
+        OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
                 rowPagesBuilderProbe.getTypes(),

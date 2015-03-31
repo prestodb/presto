@@ -13,15 +13,19 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.operator.LookupJoinOperators.JoinType;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import it.unimi.dsi.fastutil.longs.LongIterator;
 
 import java.io.Closeable;
 import java.util.List;
 
+import static com.facebook.presto.operator.LookupJoinOperators.JoinType.FULL_OUTER;
+import static com.facebook.presto.operator.LookupJoinOperators.JoinType.INNER;
 import static com.facebook.presto.util.MoreFutures.tryGetUnchecked;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -33,8 +37,9 @@ public class LookupJoinOperator
 
     private final OperatorContext operatorContext;
     private final JoinProbeFactory joinProbeFactory;
-    private final boolean enableOuterJoin;
+    private final JoinType joinType;
     private final List<Type> types;
+    private final List<Type> probeTypes;
     private final PageBuilder pageBuilder;
 
     private LookupSource lookupSource;
@@ -43,11 +48,13 @@ public class LookupJoinOperator
     private boolean finishing;
     private long joinPosition = -1;
 
+    private LongIterator unvisitedJoinPositions;
+
     public LookupJoinOperator(
             OperatorContext operatorContext,
             LookupSourceSupplier lookupSourceSupplier,
             List<Type> probeTypes,
-            boolean enableOuterJoin,
+            JoinType joinType,
             JoinProbeFactory joinProbeFactory)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
@@ -58,12 +65,13 @@ public class LookupJoinOperator
 
         this.lookupSourceFuture = lookupSourceSupplier.getLookupSource(operatorContext);
         this.joinProbeFactory = joinProbeFactory;
-        this.enableOuterJoin = enableOuterJoin;
+        this.joinType = joinType;
 
         this.types = ImmutableList.<Type>builder()
                 .addAll(probeTypes)
                 .addAll(lookupSourceSupplier.getTypes())
                 .build();
+        this.probeTypes = probeTypes;
         this.pageBuilder = new PageBuilder(types);
     }
 
@@ -88,7 +96,11 @@ public class LookupJoinOperator
     @Override
     public boolean isFinished()
     {
-        boolean finished = finishing && probe == null && pageBuilder.isEmpty();
+        boolean finished =
+                finishing &&
+                probe == null &&
+                pageBuilder.isEmpty() &&
+                (joinType != FULL_OUTER || (unvisitedJoinPositions != null && !unvisitedJoinPositions.hasNext()));
 
         // if finished drop references so memory is freed early
         if (finished) {
@@ -139,6 +151,14 @@ public class LookupJoinOperator
     @Override
     public Page getOutput()
     {
+        // If needsInput was never called, lookupSource has not been initialized so far.
+        if (lookupSource == null) {
+            lookupSource = tryGetUnchecked(lookupSourceFuture);
+            if (lookupSource == null) {
+                return null;
+            }
+        }
+
         // join probe page with the lookup source
         if (probe != null) {
             while (joinCurrentPosition()) {
@@ -149,6 +169,10 @@ public class LookupJoinOperator
                     break;
                 }
             }
+        }
+
+        if (joinType == FULL_OUTER && finishing && probe == null) {
+            buildSideOuterJoinUnvisitedPositions();
         }
 
         // only flush full pages unless we are done
@@ -205,7 +229,7 @@ public class LookupJoinOperator
 
     private boolean outerJoinCurrentPosition()
     {
-        if (enableOuterJoin && joinPosition < 0) {
+        if (joinType != INNER && joinPosition < 0) {
             // write probe columns
             pageBuilder.declarePosition();
             probe.appendTo(pageBuilder);
@@ -221,5 +245,29 @@ public class LookupJoinOperator
             }
         }
         return true;
+    }
+
+    private void buildSideOuterJoinUnvisitedPositions()
+    {
+        if (unvisitedJoinPositions == null) {
+            unvisitedJoinPositions = lookupSource.getUnvisitedJoinPositions();
+        }
+
+        while (unvisitedJoinPositions.hasNext()) {
+            long buildSideOuterJoinPosition = unvisitedJoinPositions.nextLong();
+            pageBuilder.declarePosition();
+
+            // write nulls into probe columns
+            for (int probeChannel = 0; probeChannel < probeTypes.size(); probeChannel++) {
+                pageBuilder.getBlockBuilder(probeChannel).appendNull();
+            }
+
+            // write build columns
+            lookupSource.appendTo(buildSideOuterJoinPosition, pageBuilder, probeTypes.size());
+
+            if (pageBuilder.isFull()) {
+                return;
+            }
+        }
     }
 }

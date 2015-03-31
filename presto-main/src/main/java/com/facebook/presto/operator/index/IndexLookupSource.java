@@ -17,6 +17,7 @@ import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
+import it.unimi.dsi.fastutil.longs.LongIterator;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -78,6 +79,12 @@ public class IndexLookupSource
         checkState(nextPosition != UNLOADED_INDEX_KEY);
         // INVARIANT: currentPosition is -1 or a valid currentPosition greater than or equal to zero
         return nextPosition;
+    }
+
+    @Override
+    public LongIterator getUnvisitedJoinPositions()
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

@@ -164,6 +164,9 @@ public class IndexJoinOptimizer
                         }
                         break;
 
+                    case FULL:
+                        break;
+
                     default:
                         throw new IllegalArgumentException("Unknown type: " + node.getType());
                 }

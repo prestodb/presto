@@ -28,6 +28,7 @@ import com.facebook.presto.operator.JoinProbe;
 import com.facebook.presto.operator.JoinProbeFactory;
 import com.facebook.presto.operator.LookupJoinOperator;
 import com.facebook.presto.operator.LookupJoinOperatorFactory;
+import com.facebook.presto.operator.LookupJoinOperators.JoinType;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.LookupSourceSupplier;
 import com.facebook.presto.operator.OperatorFactory;
@@ -83,11 +84,11 @@ public class JoinProbeCompiler
             List<? extends Type> probeTypes,
             List<Integer> probeJoinChannel,
             Optional<Integer> probeHashChannel,
-            boolean enableOuterJoin)
+            JoinType joinType)
     {
         try {
-            HashJoinOperatorFactoryFactory operatorFactoryFactory = joinProbeFactories.get(new JoinOperatorCacheKey(probeTypes, probeJoinChannel, probeHashChannel, enableOuterJoin));
-            return operatorFactoryFactory.createHashJoinOperatorFactory(operatorId, lookupSourceSupplier, probeTypes, probeJoinChannel, enableOuterJoin);
+            HashJoinOperatorFactoryFactory operatorFactoryFactory = joinProbeFactories.get(new JoinOperatorCacheKey(probeTypes, probeJoinChannel, probeHashChannel, joinType));
+            return operatorFactoryFactory.createHashJoinOperatorFactory(operatorId, lookupSourceSupplier, probeTypes, probeJoinChannel, joinType);
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
             throw Throwables.propagate(e.getCause());
@@ -422,18 +423,18 @@ public class JoinProbeCompiler
     {
         private final List<Type> types;
         private final List<Integer> probeChannels;
-        private final boolean enableOuterJoin;
+        private final JoinType joinType;
         private final Optional<Integer> probeHashChannel;
 
         private JoinOperatorCacheKey(List<? extends Type> types,
                 List<Integer> probeChannels,
                 Optional<Integer> probeHashChannel,
-                boolean enableOuterJoin)
+                JoinType joinType)
         {
             this.probeHashChannel = probeHashChannel;
             this.types = ImmutableList.copyOf(types);
             this.probeChannels = ImmutableList.copyOf(probeChannels);
-            this.enableOuterJoin = enableOuterJoin;
+            this.joinType = joinType;
         }
 
         private List<Type> getTypes()
@@ -454,7 +455,7 @@ public class JoinProbeCompiler
         @Override
         public int hashCode()
         {
-            return Objects.hash(types, probeChannels, enableOuterJoin);
+            return Objects.hash(types, probeChannels, joinType);
         }
 
         @Override
@@ -470,7 +471,7 @@ public class JoinProbeCompiler
             return Objects.equals(this.types, other.types) &&
                     Objects.equals(this.probeChannels, other.probeChannels) &&
                     Objects.equals(this.probeHashChannel, other.probeHashChannel) &&
-                    Objects.equals(this.enableOuterJoin, other.enableOuterJoin);
+                    Objects.equals(this.joinType, other.joinType);
         }
     }
 
@@ -484,7 +485,7 @@ public class JoinProbeCompiler
             this.joinProbeFactory = joinProbeFactory;
 
             try {
-                constructor = operatorFactoryClass.getConstructor(int.class, LookupSourceSupplier.class, List.class, boolean.class, JoinProbeFactory.class);
+                constructor = operatorFactoryClass.getConstructor(int.class, LookupSourceSupplier.class, List.class, JoinType.class, JoinProbeFactory.class);
             }
             catch (NoSuchMethodException e) {
                 throw Throwables.propagate(e);
@@ -496,10 +497,10 @@ public class JoinProbeCompiler
                 LookupSourceSupplier lookupSourceSupplier,
                 List<? extends Type> probeTypes,
                 List<Integer> probeJoinChannel,
-                boolean enableOuterJoin)
+                JoinType joinType)
         {
             try {
-                return constructor.newInstance(operatorId, lookupSourceSupplier, probeTypes, enableOuterJoin, joinProbeFactory);
+                return constructor.newInstance(operatorId, lookupSourceSupplier, probeTypes, joinType, joinProbeFactory);
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);

@@ -83,7 +83,6 @@ import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.EnumSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -413,10 +412,6 @@ public class TupleAnalyzer
     @Override
     protected TupleDescriptor visitJoin(Join node, AnalysisContext context)
     {
-        if (EnumSet.of(Join.Type.FULL).contains(node.getType())) {
-            throw new SemanticException(NOT_SUPPORTED, node, "Full outer joins are not supported");
-        }
-
         JoinCriteria criteria = node.getCriteria().orElse(null);
         if (criteria instanceof NaturalJoin) {
             throw new SemanticException(NOT_SUPPORTED, node, "Natural join not supported");

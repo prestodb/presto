@@ -253,6 +253,12 @@ public class EffectivePredicateExtractor
                         .addAll(transform(extractConjuncts(leftPredicate), expressionOrNullSymbols(in(node.getLeft().getOutputSymbols()))))
                         .addAll(transform(joinConjuncts, expressionOrNullSymbols(in(node.getLeft().getOutputSymbols()))))
                         .build());
+            case FULL:
+                return combineConjuncts(ImmutableList.<Expression>builder()
+                        .addAll(transform(extractConjuncts(leftPredicate), expressionOrNullSymbols(in(node.getLeft().getOutputSymbols()))))
+                        .addAll(transform(extractConjuncts(rightPredicate), expressionOrNullSymbols(in(node.getRight().getOutputSymbols()))))
+                        .addAll(transform(joinConjuncts, expressionOrNullSymbols(in(node.getLeft().getOutputSymbols()), in(node.getRight().getOutputSymbols()))))
+                        .build());
             default:
                 throw new UnsupportedOperationException("Unknown join type: " + node.getType());
         }

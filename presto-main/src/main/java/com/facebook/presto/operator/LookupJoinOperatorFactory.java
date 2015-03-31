@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.operator.LookupJoinOperators.JoinType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
@@ -26,7 +27,7 @@ public class LookupJoinOperatorFactory
     private final int operatorId;
     private final LookupSourceSupplier lookupSourceSupplier;
     private final List<Type> probeTypes;
-    private final boolean enableOuterJoin;
+    private final JoinType joinType;
     private final List<Type> types;
     private final JoinProbeFactory joinProbeFactory;
     private boolean closed;
@@ -34,13 +35,13 @@ public class LookupJoinOperatorFactory
     public LookupJoinOperatorFactory(int operatorId,
             LookupSourceSupplier lookupSourceSupplier,
             List<Type> probeTypes,
-            boolean enableOuterJoin,
+            JoinType joinType,
             JoinProbeFactory joinProbeFactory)
     {
         this.operatorId = operatorId;
         this.lookupSourceSupplier = lookupSourceSupplier;
         this.probeTypes = probeTypes;
-        this.enableOuterJoin = enableOuterJoin;
+        this.joinType = joinType;
 
         this.joinProbeFactory = joinProbeFactory;
 
@@ -61,7 +62,7 @@ public class LookupJoinOperatorFactory
     {
         checkState(!closed, "Factory is already closed");
         OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, LookupJoinOperator.class.getSimpleName());
-        return new LookupJoinOperator(operatorContext, lookupSourceSupplier, probeTypes, enableOuterJoin, joinProbeFactory);
+        return new LookupJoinOperator(operatorContext, lookupSourceSupplier, probeTypes, joinType, joinProbeFactory);
     }
 
     @Override
