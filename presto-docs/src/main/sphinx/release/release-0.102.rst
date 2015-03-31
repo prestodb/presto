@@ -21,6 +21,7 @@ General Changes
 
 * Support returning booleans as numbers in JDBC driver
 * Add :func:`from_utf8` and :func:`to_utf8` functions.
+* Add ``task_writer_count`` session property to set ``task.writer-count``.
 
 Hive Changes
 ------------
