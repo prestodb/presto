@@ -18,28 +18,28 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
-import com.google.common.base.Preconditions;
+import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.SystemTable;
 
 import javax.inject.Inject;
+
+import java.util.Set;
 
 public class SystemConnector
         implements Connector
 {
-    public static final String CONNECTOR_ID = "system";
+    public static final String NAME = "system";
 
-    private final SystemTablesMetadata metadata;
-    private final SystemSplitManager splitManager;
-    private final SystemRecordSetProvider recordSetProvider;
+    private final ConnectorMetadata metadata;
+    private final ConnectorSplitManager splitManager;
+    private final ConnectorRecordSetProvider recordSetProvider;
 
     @Inject
-    public SystemConnector(
-            SystemTablesMetadata metadata,
-            SystemSplitManager splitManager,
-            SystemRecordSetProvider recordSetProvider)
+    public SystemConnector(NodeManager nodeManager, Set<SystemTable> tables)
     {
-        this.metadata = Preconditions.checkNotNull(metadata, "metadata is null");
-        this.splitManager = Preconditions.checkNotNull(splitManager, "splitManager is null");
-        this.recordSetProvider = Preconditions.checkNotNull(recordSetProvider, "recordSetProvider is null");
+        metadata = new SystemTablesMetadata(tables);
+        splitManager = new SystemSplitManager(nodeManager, tables);
+        recordSetProvider = new SystemRecordSetProvider(tables);
     }
 
     @Override

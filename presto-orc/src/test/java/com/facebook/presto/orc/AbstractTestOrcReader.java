@@ -180,6 +180,20 @@ public abstract class AbstractTestOrcReader
     }
 
     @Test
+    public void testDoubleNaNInfinity()
+            throws Exception
+    {
+        tester.testRoundTrip(javaDoubleObjectInspector, ImmutableList.of(Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY), DOUBLE);
+    }
+
+    @Test
+    public void testStringUnicode()
+            throws Exception
+    {
+        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), 30_000), VARCHAR);
+    }
+
+    @Test
     public void testStringDirectSequence()
             throws Exception
     {

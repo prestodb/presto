@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.spi;
 
+import java.util.Set;
+
+import static java.util.Collections.emptySet;
+
 public interface Connector
 {
     ConnectorHandleResolver getHandleResolver();
@@ -59,5 +63,13 @@ public interface Connector
     default ConnectorIndexResolver getIndexResolver()
     {
         throw new UnsupportedOperationException();
+    }
+
+    /**
+     * @return the set of system tables provided by this connector
+     */
+    default Set<SystemTable> getSystemTables()
+    {
+        return emptySet();
     }
 }

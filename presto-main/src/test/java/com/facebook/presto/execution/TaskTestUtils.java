@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.connector.system.SystemRecordSetProvider;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.ColumnHandle;
@@ -84,7 +83,7 @@ public final class TaskTestUtils
     {
         MetadataManager metadata = new MetadataManager();
 
-        PageSourceManager pageSourceManager = new PageSourceManager(new SystemRecordSetProvider());
+        PageSourceManager pageSourceManager = new PageSourceManager();
         pageSourceManager.addConnectorPageSourceProvider("test", new TestingPageSourceProvider());
         return new LocalExecutionPlanner(
                 metadata,

@@ -24,7 +24,8 @@ public final class Presto
     {
         Console console = singleCommand(Console.class).parse(args);
 
-        if (console.helpOption.showHelpIfRequested()) {
+        if (console.helpOption.showHelpIfRequested() ||
+                console.versionOption.showVersionIfRequested()) {
             return;
         }
 

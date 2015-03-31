@@ -16,6 +16,8 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.metadata.ColumnStatistics;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
@@ -24,6 +26,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.notNull;
@@ -266,15 +270,22 @@ public final class TestingOrcPredicate
                 return false;
             }
 
+            List<Slice> slices = chunk.stream()
+                    .filter(Objects::nonNull)
+                    .map(Slices::utf8Slice)
+                    .collect(Collectors.toList());
+
             // statistics can be missing for any reason
             if (columnStatistics.getStringStatistics() != null) {
                 // verify min
-                if (!columnStatistics.getStringStatistics().getMin().equals(Ordering.natural().nullsLast().min(chunk))) {
+                Slice chunkMin = Ordering.natural().nullsLast().min(slices);
+                if (columnStatistics.getStringStatistics().getMin().compareTo(chunkMin) > 0) {
                     return false;
                 }
 
                 // verify max
-                if (!columnStatistics.getStringStatistics().getMax().equals(Ordering.natural().nullsFirst().max(chunk))) {
+                Slice chunkMax = Ordering.natural().nullsFirst().max(slices);
+                if (columnStatistics.getStringStatistics().getMax().compareTo(chunkMax) < 0) {
                     return false;
                 }
             }

@@ -22,27 +22,24 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.split.MappedRecordSet;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Maps;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.Set;
 
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Maps.uniqueIndex;
 
 public class SystemRecordSetProvider
         implements ConnectorRecordSetProvider
 {
-    private final ConcurrentMap<SchemaTableName, SystemTable> tables = new ConcurrentHashMap<>();
+    private final Map<SchemaTableName, SystemTable> tables;
 
-    public void addTable(SystemTable systemTable)
+    public SystemRecordSetProvider(Set<SystemTable> tables)
     {
-        checkNotNull(systemTable, "systemTable is null");
-        SchemaTableName tableName = systemTable.getTableMetadata().getTable();
-        checkArgument(tables.putIfAbsent(tableName, systemTable) == null, "Table %s is already registered", tableName);
+        this.tables = uniqueIndex(tables, table -> table.getTableMetadata().getTable());
     }
 
     @Override
@@ -54,7 +51,7 @@ public class SystemRecordSetProvider
 
         SystemTable systemTable = tables.get(tableName);
         checkArgument(systemTable != null, "Table %s does not exist", tableName);
-        Map<String, ColumnMetadata> columnsByName = Maps.uniqueIndex(systemTable.getTableMetadata().getColumns(), ColumnMetadata::getName);
+        Map<String, ColumnMetadata> columnsByName = uniqueIndex(systemTable.getTableMetadata().getColumns(), ColumnMetadata::getName);
 
         ImmutableList.Builder<Integer> userToSystemFieldIndex = ImmutableList.builder();
         for (ConnectorColumnHandle column : columns) {

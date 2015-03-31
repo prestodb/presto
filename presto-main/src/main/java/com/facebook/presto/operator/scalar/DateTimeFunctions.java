@@ -877,7 +877,7 @@ public final class DateTimeFunctions
                         builder.appendDayOfMonth(1);
                         break;
                     case 'f': // %f Microseconds (000000..999999)
-                        builder.appendMillisOfSecond(6);
+                        builder.appendFractionOfSecond(6, 6);
                         break;
                     case 'H': // %H Hour (00..23)
                         builder.appendHourOfDay(2);

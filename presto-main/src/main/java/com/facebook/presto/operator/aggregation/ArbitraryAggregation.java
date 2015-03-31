@@ -67,7 +67,7 @@ public class ArbitraryAggregation
         Type valueType = types.get("T");
         Signature signature = new Signature(NAME, valueType.getTypeSignature(), valueType.getTypeSignature());
         InternalAggregationFunction aggregation = generateAggregation(valueType);
-        return new FunctionInfo(signature, getDescription(), aggregation.getIntermediateType().getTypeSignature(), aggregation, false);
+        return new FunctionInfo(signature, getDescription(), aggregation);
     }
 
     private static InternalAggregationFunction generateAggregation(Type valueType)

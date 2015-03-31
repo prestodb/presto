@@ -488,6 +488,11 @@ public class TupleAnalyzer
             if (!(optimizedExpression instanceof Expression)) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Join clause must be a boolean expression");
             }
+            // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
+            // to re-analyze coercions that might be necessary
+            analyzer = new ExpressionAnalyzer(analysis, session, metadata, sqlParser, experimentalSyntaxEnabled);
+            analyzer.analyze((Expression) optimizedExpression, output, context);
+            analysis.addCoercions(analyzer.getExpressionCoercions());
 
             for (Expression conjunct : ExpressionUtils.extractConjuncts((Expression) optimizedExpression)) {
                 if (!(conjunct instanceof ComparisonExpression)) {

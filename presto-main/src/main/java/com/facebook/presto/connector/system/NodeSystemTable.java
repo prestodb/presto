@@ -16,7 +16,6 @@ package com.facebook.presto.connector.system;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.PrestoNode;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
@@ -24,35 +23,30 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
-
-import java.util.List;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.transform;
 
-public class NodesSystemTable
+public class NodeSystemTable
         implements SystemTable
 {
-    public static final SchemaTableName NODES_TABLE_NAME = new SchemaTableName("sys", "node");
+    public static final SchemaTableName NODES_TABLE_NAME = new SchemaTableName("runtime", "nodes");
 
     public static final ConnectorTableMetadata NODES_TABLE = tableMetadataBuilder(NODES_TABLE_NAME)
             .column("node_id", VARCHAR)
             .column("http_uri", VARCHAR)
             .column("node_version", VARCHAR)
-            .column("is_active", BOOLEAN)
+            .column("active", BOOLEAN)
             .build();
 
     private final InternalNodeManager nodeManager;
 
     @Inject
-    public NodesSystemTable(InternalNodeManager nodeManager)
+    public NodeSystemTable(InternalNodeManager nodeManager)
     {
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
     }
@@ -67,12 +61,6 @@ public class NodesSystemTable
     public ConnectorTableMetadata getTableMetadata()
     {
         return NODES_TABLE;
-    }
-
-    @Override
-    public List<Type> getColumnTypes()
-    {
-        return ImmutableList.copyOf(transform(NODES_TABLE.getColumns(), ColumnMetadata::getType));
     }
 
     @Override

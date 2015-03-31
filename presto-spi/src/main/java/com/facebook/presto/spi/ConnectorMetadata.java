@@ -77,7 +77,7 @@ public interface ConnectorMetadata
     /**
      * Creates a table using the specified table metadata.
      */
-    ConnectorTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
+    void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
     /**
      * Drops the specified table

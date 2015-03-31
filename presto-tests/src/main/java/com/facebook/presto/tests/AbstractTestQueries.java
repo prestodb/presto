@@ -833,6 +833,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinCoercion()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM orders t join (SELECT * FROM orders LIMIT 1) t2 ON sin(t2.custkey) = 0");
+    }
+
+    @Test
     public void testGroupByNoAggregations()
             throws Exception
     {
@@ -2582,7 +2589,7 @@ public abstract class AbstractTestQueries
     public void testNodeRoster()
             throws Exception
     {
-        List<MaterializedRow> result = computeActual("SELECT * FROM sys.node").getMaterializedRows();
+        List<MaterializedRow> result = computeActual("SELECT * FROM system.runtime.nodes").getMaterializedRows();
         assertEquals(result.size(), getNodeCount());
     }
 
@@ -2590,7 +2597,7 @@ public abstract class AbstractTestQueries
     public void testCountOnInternalTables()
             throws Exception
     {
-        List<MaterializedRow> rows = computeActual("SELECT count(*) FROM sys.node").getMaterializedRows();
+        List<MaterializedRow> rows = computeActual("SELECT count(*) FROM system.runtime.nodes").getMaterializedRows();
         assertEquals(((Long) rows.get(0).getField(0)).longValue(), getNodeCount());
     }
 
@@ -2690,7 +2697,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS");
         ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertTrue(schemaNames.containsAll(ImmutableSet.of(getSession().getSchema(), INFORMATION_SCHEMA, "sys")));
+        assertTrue(schemaNames.containsAll(ImmutableSet.of(getSession().getSchema(), INFORMATION_SCHEMA)));
     }
 
     @Test
@@ -2699,7 +2706,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", getSession().getCatalog()));
         ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertTrue(schemaNames.containsAll(ImmutableSet.of(getSession().getSchema(), INFORMATION_SCHEMA, "sys")));
+        assertTrue(schemaNames.containsAll(ImmutableSet.of(getSession().getSchema(), INFORMATION_SCHEMA)));
     }
 
     @Test

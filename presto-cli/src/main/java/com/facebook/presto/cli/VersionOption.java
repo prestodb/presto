@@ -11,29 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.cli;
 
-import com.facebook.presto.spi.type.Type;
+import io.airlift.command.Option;
 
-import java.util.List;
+import static com.google.common.base.MoreObjects.firstNonNull;
 
-import static java.util.stream.Collectors.toList;
-
-public interface SystemTable
-        extends RecordSet
+public class VersionOption
 {
-    /**
-     * True if table is distributed across all nodes.
-     */
-    boolean isDistributed();
+    @Option(name = "--version", description = "Display version information and exit")
+    public Boolean version = false;
 
-    ConnectorTableMetadata getTableMetadata();
-
-    @Override
-    default List<Type> getColumnTypes()
+    public boolean showVersionIfRequested()
     {
-        return getTableMetadata().getColumns().stream()
-                .map(ColumnMetadata::getType)
-                .collect(toList());
+        if (version) {
+            String clientVersion = Presto.class.getPackage().getImplementationVersion();
+            System.out.println("Presto CLI " + firstNonNull(clientVersion, "(version unknown)"));
+        }
+        return version;
     }
 }

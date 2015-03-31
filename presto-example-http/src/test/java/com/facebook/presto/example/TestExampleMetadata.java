@@ -16,6 +16,7 @@ package com.facebook.presto.example;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
@@ -145,7 +146,7 @@ public class TestExampleMetadata
         // directly.
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test(expectedExceptions = PrestoException.class)
     public void testCreateTable()
     {
         metadata.createTable(SESSION, new ConnectorTableMetadata(
@@ -153,7 +154,7 @@ public class TestExampleMetadata
                 ImmutableList.of(new ColumnMetadata("text", VARCHAR, 0, false))));
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test(expectedExceptions = PrestoException.class)
     public void testDropTableTable()
     {
         metadata.dropTable(NUMBERS_TABLE_HANDLE);

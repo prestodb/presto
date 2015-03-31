@@ -14,8 +14,6 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -33,6 +31,7 @@ import java.util.Objects;
 
 import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
+import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -41,6 +40,7 @@ public class ArrayType
         extends AbstractVariableWidthType
 {
     private final Type elementType;
+    private static final String ARRAY_NULL_ELEMENT_MSG = "ARRAY comparison not supported for arrays with null elements";
 
     public ArrayType(Type elementType)
     {
@@ -90,7 +90,7 @@ public class ArrayType
         Block array = readStructuralBlock(value);
         List<Integer> hashArray = new ArrayList<>(array.getPositionCount());
         for (int i = 0; i < array.getPositionCount(); i++) {
-            checkElementNotNull(array.isNull(i));
+            checkElementNotNull(array.isNull(i), ARRAY_NULL_ELEMENT_MSG);
             hashArray.add(elementType.hash(array, i));
         }
         return Objects.hash(hashArray);
@@ -107,8 +107,8 @@ public class ArrayType
         int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
         int index = 0;
         while (index < len) {
-            checkElementNotNull(leftArray.isNull(index));
-            checkElementNotNull(rightArray.isNull(index));
+            checkElementNotNull(leftArray.isNull(index), ARRAY_NULL_ELEMENT_MSG);
+            checkElementNotNull(rightArray.isNull(index), ARRAY_NULL_ELEMENT_MSG);
             int comparison = elementType.compareTo(leftArray, index, rightArray, index);
             if (comparison != 0) {
                 return comparison;
@@ -121,13 +121,6 @@ public class ArrayType
         }
 
         return 0;
-    }
-
-    private static void checkElementNotNull(boolean isNull)
-    {
-        if (isNull) {
-            throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "ARRAY comparison not supported for arrays with null elements");
-        }
     }
 
     @Override

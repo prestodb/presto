@@ -22,12 +22,12 @@ import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.util.List;
 import java.util.Map;
@@ -71,7 +71,8 @@ public class TupleDomainOrcPredicate<C>
         return effectivePredicate.overlaps(stripeDomain);
     }
 
-    private static Domain getDomain(Type type, long rowCount, ColumnStatistics columnStatistics)
+    @VisibleForTesting
+    public static Domain getDomain(Type type, long rowCount, ColumnStatistics columnStatistics)
     {
         Class<?> boxedJavaType = Primitives.wrap(type.getJavaType());
         if (rowCount == 0) {
@@ -103,8 +104,7 @@ public class TupleDomainOrcPredicate<C>
                 return Domain.create(SortedRangeSet.singleValue(false), hasNullValue);
             }
         }
-        else if (false && type.getTypeSignature().getBase().equals(StandardTypes.DATE) && columnStatistics.getDateStatistics() != null) {
-            // todo enable after testing
+        else if (type.getTypeSignature().getBase().equals(StandardTypes.DATE) && columnStatistics.getDateStatistics() != null) {
             return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);
         }
         else if (boxedJavaType == Long.class && columnStatistics.getIntegerStatistics() != null) {
@@ -114,7 +114,7 @@ public class TupleDomainOrcPredicate<C>
             return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDoubleStatistics());
         }
         else if (boxedJavaType == Slice.class && columnStatistics.getStringStatistics() != null) {
-            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getStringStatistics(), Slices::utf8Slice);
+            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getStringStatistics());
         }
         return Domain.create(SortedRangeSet.all(boxedJavaType), hasNullValue);
     }

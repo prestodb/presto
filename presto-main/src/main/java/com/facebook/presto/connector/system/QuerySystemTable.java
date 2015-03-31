@@ -16,32 +16,27 @@ package com.facebook.presto.connector.system;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryStats;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 
-import java.util.List;
-
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.collect.Iterables.transform;
 
 public class QuerySystemTable
         implements SystemTable
 {
-    public static final SchemaTableName QUERY_TABLE_NAME = new SchemaTableName("sys", "query");
+    public static final SchemaTableName QUERY_TABLE_NAME = new SchemaTableName("runtime", "queries");
 
     public static final ConnectorTableMetadata QUERY_TABLE = tableMetadataBuilder(QUERY_TABLE_NAME)
             .column("node_id", VARCHAR)
@@ -54,10 +49,10 @@ public class QuerySystemTable
             .column("analysis_time_ms", BIGINT)
             .column("distributed_planning_time_ms", BIGINT)
 
-            .column("created", BIGINT)
-            .column("started", BIGINT)
-            .column("last_heartbeat", BIGINT)
-            .column("end", BIGINT)
+            .column("created", TIMESTAMP)
+            .column("started", TIMESTAMP)
+            .column("last_heartbeat", TIMESTAMP)
+            .column("end", TIMESTAMP)
             .build();
 
     private final QueryManager queryManager;
@@ -80,12 +75,6 @@ public class QuerySystemTable
     public ConnectorTableMetadata getTableMetadata()
     {
         return QUERY_TABLE;
-    }
-
-    @Override
-    public List<Type> getColumnTypes()
-    {
-        return ImmutableList.copyOf(transform(QUERY_TABLE.getColumns(), ColumnMetadata::getType));
     }
 
     @Override
@@ -113,7 +102,7 @@ public class QuerySystemTable
         return table.build().cursor();
     }
 
-    private Long toMillis(Duration duration)
+    private static Long toMillis(Duration duration)
     {
         if (duration == null) {
             return null;
@@ -121,7 +110,7 @@ public class QuerySystemTable
         return duration.toMillis();
     }
 
-    private Long toTimeStamp(DateTime dateTime)
+    private static Long toTimeStamp(DateTime dateTime)
     {
         if (dateTime == null) {
             return null;

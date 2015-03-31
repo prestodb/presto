@@ -79,7 +79,6 @@ class ColumnarBinaryHiveRecordCursor<K>
         extends HiveRecordCursor
 {
     private final RecordReader<K, BytesRefArrayWritable> recordReader;
-    private final DateTimeZone sessionTimeZone;
     private final K key;
     private final BytesRefArrayWritable value;
 
@@ -120,7 +119,6 @@ class ColumnarBinaryHiveRecordCursor<K>
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
-            DateTimeZone sessionTimeZone,
             TypeManager typeManager)
     {
         checkNotNull(recordReader, "recordReader is null");
@@ -128,13 +126,11 @@ class ColumnarBinaryHiveRecordCursor<K>
         checkNotNull(splitSchema, "splitSchema is null");
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(columns, "columns is null");
-        checkNotNull(sessionTimeZone, "sessionTimeZone is null");
 
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;
         this.key = recordReader.createKey();
         this.value = recordReader.createValue();
-        this.sessionTimeZone = sessionTimeZone;
 
         int size = columns.size();
 
@@ -325,7 +321,7 @@ class ColumnarBinaryHiveRecordCursor<K>
 
         if (!types[fieldId].equals(BIGINT) && !types[fieldId].equals(DATE) && !types[fieldId].equals(TIMESTAMP)) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
-            throw new IllegalArgumentException(String.format("Expected field to be %s, %s or %s , actual %s (field %s)", BIGINT, DATE, TIMESTAMP, types[fieldId], fieldId));
+            throw new IllegalArgumentException(format("Expected field to be %s, %s or %s , actual %s (field %s)", BIGINT, DATE, TIMESTAMP, types[fieldId], fieldId));
         }
         if (!loaded[fieldId]) {
             parseLongColumn(fieldId);
@@ -409,7 +405,7 @@ class ColumnarBinaryHiveRecordCursor<K>
             }
         }
         else {
-            throw new RuntimeException(String.format("%s is not a valid LONG type", hiveTypes[column]));
+            throw new RuntimeException(format("%s is not a valid LONG type", hiveTypes[column]));
         }
     }
 
@@ -485,7 +481,7 @@ class ColumnarBinaryHiveRecordCursor<K>
                 doubles[column] = Double.longBitsToDouble(Long.reverseBytes(longBits));
             }
             else {
-                throw new RuntimeException(String.format("%s is not a valid DOUBLE type", hiveTypes[column]));
+                throw new RuntimeException(format("%s is not a valid DOUBLE type", hiveTypes[column]));
             }
         }
     }
@@ -498,7 +494,7 @@ class ColumnarBinaryHiveRecordCursor<K>
         Type type = types[fieldId];
         if (!type.equals(VARCHAR) && !type.equals(VARBINARY) && !isStructuralType(hiveTypes[fieldId])) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
-            throw new IllegalArgumentException(String.format("Expected field to be VARCHAR or VARBINARY, actual %s (field %s)", type, fieldId));
+            throw new IllegalArgumentException(format("Expected field to be VARCHAR or VARBINARY, actual %s (field %s)", type, fieldId));
         }
 
         if (!loaded[fieldId]) {
@@ -550,7 +546,7 @@ class ColumnarBinaryHiveRecordCursor<K>
                 ByteArrayRef byteArrayRef = new ByteArrayRef();
                 byteArrayRef.setData(bytes);
                 lazyObject.init(byteArrayRef, start, length);
-                slices[column] = getBlockSlice(sessionTimeZone, lazyObject.getObject(), fieldInspectors[column]);
+                slices[column] = getBlockSlice(lazyObject.getObject(), fieldInspectors[column]);
             }
             else {
                 // TODO: zero length BINARY is not supported. See https://issues.apache.org/jira/browse/HIVE-2483
@@ -605,7 +601,7 @@ class ColumnarBinaryHiveRecordCursor<K>
     {
         if (!types[fieldId].equals(type)) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
-            throw new IllegalArgumentException(String.format("Expected field to be %s, actual %s (field %s)", type, types[fieldId], fieldId));
+            throw new IllegalArgumentException(format("Expected field to be %s, actual %s (field %s)", type, types[fieldId], fieldId));
         }
     }
 

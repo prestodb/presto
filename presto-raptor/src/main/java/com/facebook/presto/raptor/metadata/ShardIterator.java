@@ -18,8 +18,8 @@ import com.facebook.presto.raptor.util.CloseableIterator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
+import org.skife.jdbi.v2.IDBI;
+import org.skife.jdbi.v2.exceptions.DBIException;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -27,43 +27,45 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Wrapper;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
+import static com.facebook.presto.raptor.util.ArrayUtil.intArrayFromBytes;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
+import static java.util.stream.Collectors.toSet;
 
 final class ShardIterator
         extends AbstractIterator<ShardNodes>
         implements CloseableIterator<ShardNodes>
 {
-    private static final Logger log = Logger.get(ShardIterator.class);
+    private final Map<Integer, String> nodeMap = new HashMap<>();
 
+    private final ShardManagerDao dao;
     private final Connection connection;
     private final PreparedStatement statement;
     private final ResultSet resultSet;
 
-    private boolean done;
-    private UUID currentShardId;
-    private ImmutableSet.Builder<String> nodes = ImmutableSet.builder();
-
-    public ShardIterator(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate, Connection connection)
+    public ShardIterator(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate, IDBI dbi)
     {
         ShardPredicate predicate = ShardPredicate.create(effectivePredicate);
 
-        String sql = "" +
-                "SELECT shard_uuid, node_identifier\n" +
-                "FROM " + shardIndexTable(tableId) + " t\n" +
-                "LEFT JOIN shard_nodes sn ON (t.shard_id = sn.shard_id)\n" +
-                "LEFT JOIN nodes n ON (sn.node_id = n.node_id)\n" +
-                "WHERE " + predicate.getPredicate() + "\n" +
-                "ORDER BY shard_uuid";
+        String sql = format(
+                "SELECT shard_uuid, node_ids FROM %s WHERE %s",
+                shardIndexTable(tableId),
+                predicate.getPredicate());
 
-        log.debug("Executing shard query:\n%s", sql);
+        dao = dbi.onDemand(ShardManagerDao.class);
+        fetchNodes();
 
-        this.connection = checkNotNull(connection, "connection is null");
         try {
+            connection = dbi.open().getConnection();
             statement = connection.prepareStatement(sql);
             enableStreamingResults(statement);
             predicate.bind(statement);
@@ -103,35 +105,50 @@ final class ShardIterator
     private ShardNodes compute()
             throws SQLException
     {
-        if (done) {
+        if (!resultSet.next()) {
             return endOfData();
         }
 
-        while (resultSet.next()) {
-            UUID shardId = uuidFromBytes(resultSet.getBytes("shard_uuid"));
-            String nodeId = resultSet.getString("node_identifier");
+        UUID shardUuid = uuidFromBytes(resultSet.getBytes("shard_uuid"));
+        List<Integer> nodeIds = intArrayFromBytes(resultSet.getBytes("node_ids"));
 
-            ShardNodes value = null;
-            if ((currentShardId != null) && !shardId.equals(currentShardId)) {
-                value = new ShardNodes(currentShardId, nodes.build());
-                nodes = ImmutableSet.builder();
-            }
+        Function<Integer, String> fetchNode = id -> fetchNode(id, shardUuid);
+        Set<String> nodeIdentifiers = nodeIds.stream()
+                .map(id -> nodeMap.computeIfAbsent(id, fetchNode))
+                .collect(toSet());
 
-            currentShardId = shardId;
-            if (nodeId != null) {
-                nodes.add(nodeId);
-            }
+        return new ShardNodes(shardUuid, nodeIdentifiers);
+    }
 
-            if (value != null) {
-                return value;
+    private String fetchNode(int id, UUID shardUuid)
+    {
+        String node = fetchNode(id);
+        if (node == null) {
+            throw new PrestoException(RAPTOR_ERROR, format("Missing node ID [%s] for shard: %s", id, shardUuid));
+        }
+        return node;
+    }
+
+    private String fetchNode(int id)
+    {
+        try {
+            return dao.getNodeIdentifier(id);
+        }
+        catch (DBIException e) {
+            throw new PrestoException(RAPTOR_ERROR, e);
+        }
+    }
+
+    private void fetchNodes()
+    {
+        try {
+            for (Node node : dao.getNodes()) {
+                nodeMap.put(node.getNodeId(), node.getNodeIdentifier());
             }
         }
-        done = true;
-
-        if (currentShardId != null) {
-            return new ShardNodes(currentShardId, nodes.build());
+        catch (DBIException e) {
+            throw new PrestoException(RAPTOR_ERROR, e);
         }
-        return endOfData();
     }
 
     private static void enableStreamingResults(Statement statement)

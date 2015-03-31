@@ -87,7 +87,8 @@ public class TestRaptorMetadata
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
 
-        ConnectorTableHandle tableHandle = metadata.createTable(SESSION, getOrdersTable());
+        metadata.createTable(SESSION, getOrdersTable());
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
         assertInstanceOf(tableHandle, RaptorTableHandle.class);
         assertEquals(((RaptorTableHandle) tableHandle).getTableId(), 1);
 

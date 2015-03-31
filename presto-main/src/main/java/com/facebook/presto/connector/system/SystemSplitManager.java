@@ -30,34 +30,26 @@ import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-import javax.inject.Inject;
-
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Maps.uniqueIndex;
 
 public class SystemSplitManager
         implements ConnectorSplitManager
 {
     private final NodeManager nodeManager;
-    private final ConcurrentMap<SchemaTableName, SystemTable> tables = new ConcurrentHashMap<>();
+    private final Map<SchemaTableName, SystemTable> tables;
 
-    @Inject
-    public SystemSplitManager(NodeManager nodeManager)
+    public SystemSplitManager(NodeManager nodeManager, Set<SystemTable> tables)
     {
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
-    }
-
-    public void addTable(SystemTable systemTable)
-    {
-        checkNotNull(systemTable, "systemTable is null");
-        SchemaTableName tableName = systemTable.getTableMetadata().getTable();
-        checkArgument(tables.putIfAbsent(tableName, systemTable) == null, "Table %s is already registered", tableName);
+        this.tables = uniqueIndex(tables, table -> table.getTableMetadata().getTable());
     }
 
     @Override
@@ -75,7 +67,7 @@ public class SystemSplitManager
     {
         checkNotNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
-            return new FixedSplitSource(SystemTablesManager.CONNECTOR_ID, ImmutableList.<ConnectorSplit>of());
+            return new FixedSplitSource(SystemConnector.NAME, ImmutableList.<ConnectorSplit>of());
         }
 
         ConnectorPartition partition = Iterables.getOnlyElement(partitions);
@@ -89,12 +81,12 @@ public class SystemSplitManager
             for (Node node : nodeManager.getActiveNodes()) {
                 splits.add(new SystemSplit(systemPartition.getTableHandle(), node.getHostAndPort()));
             }
-            return new FixedSplitSource(SystemTablesManager.CONNECTOR_ID, splits.build());
+            return new FixedSplitSource(SystemConnector.NAME, splits.build());
         }
 
         HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
         ConnectorSplit split = new SystemSplit(systemPartition.getTableHandle(), address);
-        return new FixedSplitSource(SystemTablesManager.CONNECTOR_ID, ImmutableList.of(split));
+        return new FixedSplitSource(SystemConnector.NAME, ImmutableList.of(split));
     }
 
     public static class SystemPartition

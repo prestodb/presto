@@ -14,11 +14,20 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Doubles;
+import io.airlift.slice.Slice;
 
 import java.util.concurrent.ThreadLocalRandom;
+
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.util.Failures.checkCondition;
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Character.MAX_RADIX;
+import static java.lang.Character.MIN_RADIX;
+import static java.lang.String.format;
 
 public final class MathFunctions
 {
@@ -110,6 +119,14 @@ public final class MathFunctions
     public static double cosh(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.cosh(num);
+    }
+
+    @Description("converts an angle in radians to degrees")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double degrees(@SqlType(StandardTypes.DOUBLE) double radians)
+    {
+        return Math.toDegrees(radians);
     }
 
     @Description("Euler's number")
@@ -206,6 +223,14 @@ public final class MathFunctions
     public static double pow(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.DOUBLE) double exponent)
     {
         return Math.pow(num, exponent);
+    }
+
+    @Description("converts an angle in degrees to radians")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double radians(@SqlType(StandardTypes.DOUBLE) double degrees)
+    {
+        return Math.toRadians(degrees);
     }
 
     @Description("a pseudo-random value")
@@ -326,5 +351,34 @@ public final class MathFunctions
     public static double infinity()
     {
         return Double.POSITIVE_INFINITY;
+    }
+
+    @Description("convert a number to a string in the given base")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice toBase(@SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long radix)
+    {
+        checkRadix(radix);
+        return utf8Slice(Long.toString(value, (int) radix));
+    }
+
+    @Description("convert a string in the given base to a number")
+    @ScalarFunction
+    @SqlType(StandardTypes.BIGINT)
+    public static long fromBase(@SqlType(StandardTypes.VARCHAR) Slice value, @SqlType(StandardTypes.BIGINT) long radix)
+    {
+        checkRadix(radix);
+        try {
+            return Long.parseLong(value.toStringUtf8(), (int) radix);
+        }
+        catch (NumberFormatException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Not a valid base-%d number: %s", radix, value.toStringUtf8()), e);
+        }
+    }
+
+    private static void checkRadix(long radix)
+    {
+        checkCondition(radix >= MIN_RADIX && radix <= MAX_RADIX,
+                INVALID_FUNCTION_ARGUMENT, "Radix must be between %d and %d", MIN_RADIX, MAX_RADIX);
     }
 }

@@ -30,7 +30,6 @@ import org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryFactory;
 import org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryObject;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.io.WritableUtils;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -60,13 +59,6 @@ public class RcBinaryBlockLoader
         implements RcFileBlockLoader
 {
     private static final byte HIVE_EMPTY_STRING_BYTE = (byte) 0xbf;
-
-    private final DateTimeZone sessionTimeZone;
-
-    public RcBinaryBlockLoader(DateTimeZone sessionTimeZone)
-    {
-        this.sessionTimeZone = sessionTimeZone;
-    }
 
     @Override
     public LazyBlockLoader<LazyFixedWidthBlock> fixedWidthBlockLoader(RcFileColumnsBatch batch, int fieldId, HiveType hiveType)
@@ -108,7 +100,7 @@ public class RcBinaryBlockLoader
             return new LazySliceBlockLoader(batch, fieldId);
         }
         if (isStructuralType(hiveType)) {
-            return new LazyJsonSliceBlockLoader(batch, fieldId, fieldInspector, sessionTimeZone);
+            return new LazyJsonSliceBlockLoader(batch, fieldId, fieldInspector);
         }
         throw new UnsupportedOperationException("Unsupported column type: " + hiveType);
     }
@@ -674,15 +666,13 @@ public class RcBinaryBlockLoader
         private final RcFileColumnsBatch batch;
         private final int fieldId;
         private final ObjectInspector fieldInspector;
-        private final DateTimeZone sessionTimeZone;
         private boolean loaded;
 
-        private LazyJsonSliceBlockLoader(RcFileColumnsBatch batch, int fieldId, ObjectInspector fieldInspector, DateTimeZone sessionTimeZone)
+        private LazyJsonSliceBlockLoader(RcFileColumnsBatch batch, int fieldId, ObjectInspector fieldInspector)
         {
             this.batch = batch;
             this.fieldId = fieldId;
             this.fieldInspector = fieldInspector;
-            this.sessionTimeZone = sessionTimeZone;
         }
 
         @Override
@@ -710,7 +700,7 @@ public class RcBinaryBlockLoader
                         ByteArrayRef byteArrayRef = new ByteArrayRef();
                         byteArrayRef.setData(bytes);
                         lazyObject.init(byteArrayRef, start, length);
-                        vector[i] = getBlockSlice(sessionTimeZone, lazyObject.getObject(), fieldInspector);
+                        vector[i] = getBlockSlice(lazyObject.getObject(), fieldInspector);
                     }
                 }
 

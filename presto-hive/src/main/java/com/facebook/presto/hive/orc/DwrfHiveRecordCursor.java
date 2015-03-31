@@ -90,7 +90,6 @@ public class DwrfHiveRecordCursor
         extends HiveRecordCursor
 {
     private final RecordReader recordReader;
-    private final DateTimeZone sessionTimeZone;
 
     @SuppressWarnings("FieldCanBeLocal") // include names for debugging
     private final String[] names;
@@ -123,7 +122,6 @@ public class DwrfHiveRecordCursor
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
-            DateTimeZone sessionTimeZone,
             TypeManager typeManager)
     {
         checkNotNull(recordReader, "recordReader is null");
@@ -132,11 +130,9 @@ public class DwrfHiveRecordCursor
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(columns, "columns is null");
         checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
-        checkNotNull(sessionTimeZone, "sessionTimeZone is null");
 
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;
-        this.sessionTimeZone = sessionTimeZone;
 
         int size = columns.size();
 
@@ -433,7 +429,7 @@ public class DwrfHiveRecordCursor
 
         HiveType type = hiveTypes[column];
         if (isStructuralType(type)) {
-            slices[column] = getBlockSlice(sessionTimeZone, lazyObject, fieldInspectors[column]);
+            slices[column] = getBlockSlice(lazyObject, fieldInspectors[column]);
         }
         else if (type.equals(HIVE_STRING)) {
             Text text = checkWritable(value, Text.class);
