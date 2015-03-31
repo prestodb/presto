@@ -39,7 +39,7 @@ import static org.objectweb.asm.Opcodes.RETURN;
 @NotThreadSafe
 public class MethodDefinition
 {
-    private final CompilerContext compilerContext;
+    private final Scope scope;
     private final ClassDefinition declaringClass;
     private final EnumSet<Access> access;
     private final String name;
@@ -92,7 +92,7 @@ public class MethodDefinition
         if (!access.contains(STATIC)) {
             thisType = Optional.of(declaringClass.getType());
         }
-        compilerContext = new CompilerContext(thisType, parameters);
+        scope = new Scope(thisType, parameters);
     }
 
     public ClassDefinition getDeclaringClass()
@@ -157,14 +157,14 @@ public class MethodDefinition
         return comment;
     }
 
-    public CompilerContext getCompilerContext()
+    public Scope getScope()
     {
-        return compilerContext;
+        return scope;
     }
 
     public Variable getThis()
     {
-        return compilerContext.getThis();
+        return scope.getThis();
     }
 
     public String getMethodDescriptor()
@@ -244,7 +244,7 @@ public class MethodDefinition
         methodVisitor.visitCode();
 
         // visit instructions
-        MethodGenerationContext generationContext = new MethodGenerationContext(compilerContext.getVariables());
+        MethodGenerationContext generationContext = new MethodGenerationContext(scope.getVariables());
         body.accept(methodVisitor, generationContext);
         if (addReturn) {
             new InsnNode(RETURN).accept(methodVisitor);

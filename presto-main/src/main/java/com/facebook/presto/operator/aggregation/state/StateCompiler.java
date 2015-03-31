@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
@@ -213,7 +213,7 @@ public class StateCompiler
             deserializerBody.append(state.cast(setter.getDeclaringClass()).invoke(setter, invokeStatic(blockGetter, block, index)));
         }
         else {
-            Variable slice = method.getCompilerContext().declareVariable(Slice.class, "slice");
+            Variable slice = method.getScope().declareVariable(Slice.class, "slice");
             deserializerBody.append(slice.set(block.invoke("getSlice", Slice.class, index, constantInt(0), block.invoke("getLength", int.class, index))));
 
             for (StateField field : fields) {
@@ -240,7 +240,7 @@ public class StateCompiler
             serializerBody.append(invokeStatic(append, out, state.cast(getter.getDeclaringClass()).invoke(getter)));
         }
         else {
-            Variable slice = method.getCompilerContext().declareVariable(Slice.class, "slice");
+            Variable slice = method.getScope().declareVariable(Slice.class, "slice");
             ByteCodeExpression size = constantInt(serializedSizeOf(clazz));
             serializerBody.append(slice.set(invokeStatic(Slices.class, "allocate", Slice.class, size)));
 
@@ -447,7 +447,7 @@ public class StateCompiler
         MethodDefinition getEstimatedSize = definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class));
         Block body = getEstimatedSize.getBody();
 
-        Variable size = getEstimatedSize.getCompilerContext().declareVariable(long.class, "size");
+        Variable size = getEstimatedSize.getScope().declareVariable(long.class, "size");
 
         // initialize size to 0L
         body.append(size.set(constantLong(0)));
@@ -508,9 +508,9 @@ public class StateCompiler
                         value))
                 .ret();
 
-        CompilerContext ensureCapacityContext = ensureCapacity.getCompilerContext();
+        Scope ensureCapacityScope = ensureCapacity.getScope();
         ensureCapacity.getBody()
-                .append(ensureCapacity.getThis().getField(field).invoke("ensureCapacity", void.class, ensureCapacityContext.getVariable("size")));
+                .append(ensureCapacity.getThis().getField(field).invoke("ensureCapacity", void.class, ensureCapacityScope.getVariable("size")));
 
         // Initialize field in constructor
         constructor.getBody()

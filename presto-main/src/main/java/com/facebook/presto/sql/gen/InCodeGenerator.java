@@ -15,7 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.control.LookupSwitch;
@@ -96,7 +96,7 @@ public class InCodeGenerator
 
         LabelNode defaultLabel = new LabelNode("default");
 
-        CompilerContext context = generatorContext.getContext();
+        Scope scope = generatorContext.getScope();
 
         ByteCodeNode switchBlock;
         if (constantValues.size() < 1000) {
@@ -107,7 +107,7 @@ public class InCodeGenerator
                 switchBuilder.addCase(bucket.getKey(), label);
                 Collection<ByteCodeNode> testValues = bucket.getValue();
 
-                Block caseBlock = buildInCase(generatorContext, context, type, label, match, defaultLabel, testValues, false);
+                Block caseBlock = buildInCase(generatorContext, scope, type, label, match, defaultLabel, testValues, false);
                 switchCaseBlocks
                         .append(caseBlock.setDescription("case " + bucket.getKey()));
             }
@@ -144,12 +144,12 @@ public class InCodeGenerator
                             .ifTrue(jump(match)));
         }
 
-        Block defaultCaseBlock = buildInCase(generatorContext, context, type, defaultLabel, match, noMatch, defaultBucket.build(), true).setDescription("default");
+        Block defaultCaseBlock = buildInCase(generatorContext, scope, type, defaultLabel, match, noMatch, defaultBucket.build(), true).setDescription("default");
 
         Block block = new Block()
                 .comment("IN")
                 .append(value)
-                .append(ifWasNullPopAndGoto(context, end, boolean.class, javaType))
+                .append(ifWasNullPopAndGoto(scope, end, boolean.class, javaType))
                 .append(switchBlock)
                 .append(defaultCaseBlock);
 
@@ -176,7 +176,7 @@ public class InCodeGenerator
     }
 
     private Block buildInCase(ByteCodeGeneratorContext generatorContext,
-            CompilerContext context,
+            Scope scope,
             Type type,
             LabelNode caseLabel,
             LabelNode matchLabel,
@@ -186,7 +186,7 @@ public class InCodeGenerator
     {
         Variable caseWasNull = null;
         if (checkForNulls) {
-            caseWasNull = context.createTempVariable(boolean.class);
+            caseWasNull = scope.createTempVariable(boolean.class);
         }
 
         Block caseBlock = new Block()
@@ -227,7 +227,7 @@ public class InCodeGenerator
                 test.condition()
                         .append(wasNull)
                         .putVariable(caseWasNull)
-                        .append(ifWasNullPopAndGoto(context, elseLabel, void.class, type.getJavaType(), type.getJavaType()));
+                        .append(ifWasNullPopAndGoto(scope, elseLabel, void.class, type.getJavaType(), type.getJavaType()));
             }
             test.condition()
                     .append(invoke(equalsFunction, operator.getSignature()));

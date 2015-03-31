@@ -15,7 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
@@ -39,15 +39,15 @@ import static com.facebook.presto.sql.relational.Signatures.NULL_IF;
 import static com.facebook.presto.sql.relational.Signatures.SWITCH;
 
 public class ByteCodeExpressionVisitor
-        implements RowExpressionVisitor<CompilerContext, ByteCodeNode>
+        implements RowExpressionVisitor<Scope, ByteCodeNode>
 {
     private final CallSiteBinder callSiteBinder;
-    private final RowExpressionVisitor<CompilerContext, ByteCodeNode> fieldReferenceCompiler;
+    private final RowExpressionVisitor<Scope, ByteCodeNode> fieldReferenceCompiler;
     private final FunctionRegistry registry;
 
     public ByteCodeExpressionVisitor(
             CallSiteBinder callSiteBinder,
-            RowExpressionVisitor<CompilerContext, ByteCodeNode> fieldReferenceCompiler,
+            RowExpressionVisitor<Scope, ByteCodeNode> fieldReferenceCompiler,
             FunctionRegistry registry)
     {
         this.callSiteBinder = callSiteBinder;
@@ -56,7 +56,7 @@ public class ByteCodeExpressionVisitor
     }
 
     @Override
-    public ByteCodeNode visitCall(CallExpression call, final CompilerContext context)
+    public ByteCodeNode visitCall(CallExpression call, final Scope scope)
     {
         ByteCodeGenerator generator;
         // special-cased in function registry
@@ -104,7 +104,7 @@ public class ByteCodeExpressionVisitor
 
         ByteCodeGeneratorContext generatorContext = new ByteCodeGeneratorContext(
                 this,
-                context,
+                scope,
                 callSiteBinder,
                 registry);
 
@@ -112,7 +112,7 @@ public class ByteCodeExpressionVisitor
     }
 
     @Override
-    public ByteCodeNode visitConstant(ConstantExpression constant, CompilerContext context)
+    public ByteCodeNode visitConstant(ConstantExpression constant, Scope scope)
     {
         Object value = constant.getValue();
         Class<?> javaType = constant.getType().getJavaType();
@@ -120,7 +120,7 @@ public class ByteCodeExpressionVisitor
         Block block = new Block();
         if (value == null) {
             return block.comment("constant null")
-                    .append(context.getVariable("wasNull").set(constantTrue()))
+                    .append(scope.getVariable("wasNull").set(constantTrue()))
                     .pushJavaDefault(javaType);
         }
 
@@ -158,8 +158,8 @@ public class ByteCodeExpressionVisitor
     }
 
     @Override
-    public ByteCodeNode visitInputReference(InputReferenceExpression node, CompilerContext context)
+    public ByteCodeNode visitInputReference(InputReferenceExpression node, Scope scope)
     {
-        return fieldReferenceCompiler.visitInputReference(node, context);
+        return fieldReferenceCompiler.visitInputReference(node, scope);
     }
 }

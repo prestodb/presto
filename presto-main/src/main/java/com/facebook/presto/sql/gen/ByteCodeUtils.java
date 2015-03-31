@@ -15,7 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
@@ -48,28 +48,28 @@ public final class ByteCodeUtils
     {
     }
 
-    public static ByteCodeNode ifWasNullPopAndGoto(CompilerContext context, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
+    public static ByteCodeNode ifWasNullPopAndGoto(Scope scope, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
     {
-        return handleNullValue(context, label, returnType, ImmutableList.copyOf(stackArgsToPop), false);
+        return handleNullValue(scope, label, returnType, ImmutableList.copyOf(stackArgsToPop), false);
     }
 
-    public static ByteCodeNode ifWasNullPopAndGoto(CompilerContext context, LabelNode label, Class<?> returnType, Iterable<? extends Class<?>> stackArgsToPop)
+    public static ByteCodeNode ifWasNullPopAndGoto(Scope scope, LabelNode label, Class<?> returnType, Iterable<? extends Class<?>> stackArgsToPop)
     {
-        return handleNullValue(context, label, returnType, ImmutableList.copyOf(stackArgsToPop), false);
+        return handleNullValue(scope, label, returnType, ImmutableList.copyOf(stackArgsToPop), false);
     }
 
-    public static ByteCodeNode ifWasNullClearPopAndGoto(CompilerContext context, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
+    public static ByteCodeNode ifWasNullClearPopAndGoto(Scope scope, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
     {
-        return handleNullValue(context, label, returnType, ImmutableList.copyOf(stackArgsToPop), true);
+        return handleNullValue(scope, label, returnType, ImmutableList.copyOf(stackArgsToPop), true);
     }
 
-    public static ByteCodeNode handleNullValue(CompilerContext context,
+    public static ByteCodeNode handleNullValue(Scope scope,
             LabelNode label,
             Class<?> returnType,
             List<Class<?>> stackArgsToPop,
             boolean clearNullFlag)
     {
-        Variable wasNull = context.getVariable("wasNull");
+        Variable wasNull = scope.getVariable("wasNull");
 
         Block nullCheck = new Block()
                 .setDescription("ifWasNullGoto")
@@ -153,7 +153,7 @@ public final class ByteCodeUtils
                 binding.getType().returnType());
     }
 
-    public static ByteCodeNode generateInvocation(CompilerContext context, FunctionInfo function, List<ByteCodeNode> arguments, Binding binding)
+    public static ByteCodeNode generateInvocation(Scope scope, FunctionInfo function, List<ByteCodeNode> arguments, Binding binding)
     {
         MethodType methodType = binding.getType();
 
@@ -171,16 +171,16 @@ public final class ByteCodeUtils
         for (Class<?> type : methodType.parameterArray()) {
             stackTypes.add(type);
             if (type == ConnectorSession.class) {
-                block.append(context.getVariable("session"));
+                block.append(scope.getVariable("session"));
             }
             else {
                 block.append(arguments.get(index));
                 if (!function.getNullableArguments().get(index)) {
-                    block.append(ifWasNullPopAndGoto(context, end, unboxedReturnType, Lists.reverse(stackTypes)));
+                    block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
                 }
                 else {
-                    block.append(boxPrimitiveIfNecessary(context, type));
-                    block.append(context.getVariable("wasNull").set(constantFalse()));
+                    block.append(boxPrimitiveIfNecessary(scope, type));
+                    block.append(scope.getVariable("wasNull").set(constantFalse()));
                 }
                 index++;
             }
@@ -188,19 +188,19 @@ public final class ByteCodeUtils
         block.append(invoke(binding, function.getSignature()));
 
         if (function.isNullable()) {
-            block.append(unboxPrimitiveIfNecessary(context, returnType));
+            block.append(unboxPrimitiveIfNecessary(scope, returnType));
         }
         block.visitLabel(end);
 
         return block;
     }
 
-    public static Block unboxPrimitiveIfNecessary(CompilerContext context, Class<?> boxedType)
+    public static Block unboxPrimitiveIfNecessary(Scope scope, Class<?> boxedType)
     {
         Block block = new Block();
         LabelNode end = new LabelNode("end");
         Class<?> unboxedType = Primitives.unwrap(boxedType);
-        Variable wasNull = context.getVariable("wasNull");
+        Variable wasNull = scope.getVariable("wasNull");
 
         if (unboxedType.isPrimitive() && unboxedType != void.class) {
             LabelNode notNull = new LabelNode("notNull");
@@ -224,7 +224,7 @@ public final class ByteCodeUtils
         return block;
     }
 
-    public static ByteCodeNode boxPrimitiveIfNecessary(CompilerContext context, Class<?> type)
+    public static ByteCodeNode boxPrimitiveIfNecessary(Scope scope, Class<?> type)
     {
         if (!Primitives.isWrapperType(type)) {
             return NOP;
@@ -252,7 +252,7 @@ public final class ByteCodeUtils
             throw new UnsupportedOperationException("not yet implemented: " + type);
         }
 
-        Block condition = new Block().append(context.getVariable("wasNull"));
+        Block condition = new Block().append(scope.getVariable("wasNull"));
 
         Block wasNull = new Block()
                 .pop(expectedCurrentStackType)
@@ -275,7 +275,7 @@ public final class ByteCodeUtils
         return invoke(binding, signature.getName());
     }
 
-    public static ByteCodeNode generateWrite(CallSiteBinder callSiteBinder, CompilerContext context, Variable wasNullVariable, Type type)
+    public static ByteCodeNode generateWrite(CallSiteBinder callSiteBinder, Scope scope, Variable wasNullVariable, Type type)
     {
         if (type.getJavaType() == void.class) {
             return new Block().comment("output.appendNull();")
@@ -291,8 +291,8 @@ public final class ByteCodeUtils
         // use temp variables to re-shuffle the stack to the right shape before Type.writeXXX is called
         // Unfortunately, because of the assumptions made by try_cast, we can't get around it yet.
         // TODO: clean up once try_cast is fixed
-        Variable tempValue = context.createTempVariable(type.getJavaType());
-        Variable tempOutput = context.createTempVariable(BlockBuilder.class);
+        Variable tempValue = scope.createTempVariable(type.getJavaType());
+        Variable tempOutput = scope.createTempVariable(BlockBuilder.class);
         return new Block()
                 .comment("if (wasNull)")
                 .append(new IfStatement()

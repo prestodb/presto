@@ -16,7 +16,7 @@ package com.facebook.presto.byteCode.expression;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.ClassInfoLoader;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.DumpByteCodeVisitor;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.MethodDefinition;
@@ -57,13 +57,13 @@ public final class ByteCodeExpressionAssertions
         assertEquals(execute(context -> node, returnType), expected);
     }
 
-    public static void assertByteCodeNode(Function<CompilerContext, ByteCodeNode> nodeGenerator, ParameterizedType returnType, Object expected)
+    public static void assertByteCodeNode(Function<Scope, ByteCodeNode> nodeGenerator, ParameterizedType returnType, Object expected)
             throws Exception
     {
         assertEquals(execute(nodeGenerator, returnType), expected);
     }
 
-    public static Object execute(Function<CompilerContext, ByteCodeNode> nodeGenerator, ParameterizedType returnType)
+    public static Object execute(Function<Scope, ByteCodeNode> nodeGenerator, ParameterizedType returnType)
             throws Exception
     {
         ClassDefinition classDefinition = new ClassDefinition(
@@ -72,7 +72,7 @@ public final class ByteCodeExpressionAssertions
                 type(Object.class));
 
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC, STATIC), "test", returnType);
-        ByteCodeNode node = nodeGenerator.apply(method.getCompilerContext());
+        ByteCodeNode node = nodeGenerator.apply(method.getScope());
         method.getBody().append(node);
 
         if (DUMP_BYTE_CODE_TREE) {

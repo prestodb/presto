@@ -15,7 +15,7 @@ package com.facebook.presto.byteCode.expression;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import org.testng.annotations.Test;
 
@@ -47,8 +47,8 @@ public class TestSetFieldByteCodeExpression
     public static void assertSetPoint(Function<ByteCodeExpression, ByteCodeExpression> setX)
             throws Exception
     {
-        Function<CompilerContext, ByteCodeNode> nodeGenerator = context -> {
-            Variable point = context.declareVariable(Point.class, "point");
+        Function<Scope, ByteCodeNode> nodeGenerator = scope -> {
+            Variable point = scope.declareVariable(Point.class, "point");
 
             ByteCodeExpression setExpression = setX.apply(point);
             assertEquals(setExpression.toString(), "point.x = 42;");

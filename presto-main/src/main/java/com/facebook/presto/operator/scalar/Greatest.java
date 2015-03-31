@@ -15,7 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.Parameter;
@@ -137,10 +137,10 @@ public final class Greatest
         }
 
         MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "greatest", type(nativeContainerTypes.get(0)), parameters.build());
-        CompilerContext context = method.getCompilerContext();
+        Scope scope = method.getScope();
         Block body = method.getBody();
 
-        Variable typeVariable = context.declareVariable(Type.class, "typeVariable");
+        Variable typeVariable = scope.declareVariable(Type.class, "typeVariable");
         CallSiteBinder binder = new CallSiteBinder();
         body.comment("typeVariable = type;")
                 .append(constantType(binder, type))
@@ -148,8 +148,8 @@ public final class Greatest
 
         for (int i = 0; i < nativeContainerTypes.size(); i++) {
             Class<?> nativeContainerType = nativeContainerTypes.get(i);
-            Variable currentBlock = context.declareVariable(com.facebook.presto.spi.block.Block.class, "block" + i);
-            Variable blockBuilder = context.declareVariable(BlockBuilder.class, "blockBuilder" + i);
+            Variable currentBlock = scope.declareVariable(com.facebook.presto.spi.block.Block.class, "block" + i);
+            Variable blockBuilder = scope.declareVariable(BlockBuilder.class, "blockBuilder" + i);
             Block buildBlock = new Block()
                     .comment("blockBuilder%d = typeVariable.createBlockBuilder(new BlockBuilderStatus(), 1, EXPECTED_ELEMENT_SIZE);", i)
                     .getVariable(typeVariable)
@@ -180,7 +180,7 @@ public final class Greatest
 
             if (type.getTypeSignature().getBase().equals(StandardTypes.DOUBLE)) {
                 buildBlock
-                        .append(context.getVariable("arg" + i))
+                        .append(scope.getVariable("arg" + i))
                         .invokeStatic(Greatest.class, "checkNotNaN", void.class, double.class);
             }
 
@@ -188,7 +188,7 @@ public final class Greatest
                     .comment("typeVariable.%s(blockBuilder%d, arg%d);", writeMethodName, i, i)
                     .getVariable(typeVariable)
                     .getVariable(blockBuilder)
-                    .append(context.getVariable("arg" + i))
+                    .append(scope.getVariable("arg" + i))
                     .invokeInterface(Type.class, writeMethodName, void.class, BlockBuilder.class, nativeContainerType);
 
             buildBlock.append(writeBlock);
@@ -202,13 +202,13 @@ public final class Greatest
             body.append(buildBlock);
         }
 
-        Variable greatestVariable = context.declareVariable(nativeContainerTypes.get(0), "greatest");
-        Variable greatestBlockVariable = context.declareVariable(com.facebook.presto.spi.block.Block.class, "greatestBlock");
+        Variable greatestVariable = scope.declareVariable(nativeContainerTypes.get(0), "greatest");
+        Variable greatestBlockVariable = scope.declareVariable(com.facebook.presto.spi.block.Block.class, "greatestBlock");
 
         body.comment("greatest = arg0; greatestBlock = block0;")
-                .append(context.getVariable("arg0"))
+                .append(scope.getVariable("arg0"))
                 .putVariable(greatestVariable)
-                .append(context.getVariable("block0"))
+                .append(scope.getVariable("block0"))
                 .putVariable(greatestBlockVariable);
 
         for (int i = 1; i < nativeContainerTypes.size(); i++) {
@@ -218,16 +218,16 @@ public final class Greatest
                     .getVariable(typeVariable)
                     .getVariable(greatestBlockVariable)
                     .push(0)
-                    .append(context.getVariable("block" + i))
+                    .append(scope.getVariable("block" + i))
                     .push(0)
                     .invokeInterface(Type.class, "compareTo", int.class, com.facebook.presto.spi.block.Block.class, int.class, com.facebook.presto.spi.block.Block.class, int.class)
                     .push(0)
                     .invokeStatic(CompilerOperations.class, "greaterThan", boolean.class, int.class, int.class);
 
             ifStatement.ifFalse()
-                    .append(context.getVariable("arg" + i))
+                    .append(scope.getVariable("arg" + i))
                     .putVariable(greatestVariable)
-                    .append(context.getVariable("block" + i))
+                    .append(scope.getVariable("block" + i))
                     .putVariable(greatestBlockVariable);
 
             body.append(ifStatement);

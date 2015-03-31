@@ -16,7 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
@@ -282,7 +282,7 @@ public class JoinCompiler
                 .getBody()
                 .append(ifStatement);
 
-        Variable resultVariable = hashPositionMethod.getCompilerContext().declareVariable(int.class, "result");
+        Variable resultVariable = hashPositionMethod.getScope().declareVariable(int.class, "result");
         hashPositionMethod.getBody().push(0).putVariable(resultVariable);
 
         for (int index = 0; index < joinChannelTypes.size(); index++) {
@@ -316,7 +316,7 @@ public class JoinCompiler
         Parameter blocks = arg("blocks", com.facebook.presto.spi.block.Block[].class);
         MethodDefinition hashPositionMethod = classDefinition.declareMethod(a(PUBLIC), "hashRow", type(int.class), position, blocks);
 
-        Variable resultVariable = hashPositionMethod.getCompilerContext().declareVariable(int.class, "result");
+        Variable resultVariable = hashPositionMethod.getScope().declareVariable(int.class, "result");
         hashPositionMethod.getBody().push(0).putVariable(resultVariable);
 
         for (int index = 0; index < joinChannelTypes.size(); index++) {
@@ -363,7 +363,7 @@ public class JoinCompiler
                 arg("rightPosition", int.class),
                 arg("rightBlocks", com.facebook.presto.spi.block.Block[].class));
 
-        CompilerContext compilerContext = hashPositionMethod.getCompilerContext();
+        Scope compilerContext = hashPositionMethod.getScope();
         for (int index = 0; index < joinChannelTypes.size(); index++) {
             ByteCodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
 
