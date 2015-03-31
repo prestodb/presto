@@ -20,6 +20,7 @@ public final class SystemSessionProperties
     private static final String DISTRIBUTED_JOIN = "distributed_join";
     private static final String HASH_PARTITION_COUNT = "hash_partition_count";
     private static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
+    private static final String TASK_WRITER_COUNT = "task_writer_count";
 
     private SystemSessionProperties() {}
 
@@ -70,5 +71,10 @@ public final class SystemSessionProperties
     public static boolean preferStreamingOperators(Session session, boolean defaultValue)
     {
         return isEnabled(PREFER_STREAMING_OPERATORS, session, defaultValue);
+    }
+
+    public static int getTaskWriterCount(Session session, int defaultValue)
+    {
+        return getNumber(TASK_WRITER_COUNT, session, defaultValue);
     }
 }
