@@ -51,6 +51,7 @@ public class HiveClientConfig
     private boolean forceLocalScheduling;
     private boolean allowDropTable;
     private boolean allowRenameTable;
+    private boolean allowCreateTable;
 
     private boolean allowCorruptWritesForTesting;
 
@@ -213,6 +214,19 @@ public class HiveClientConfig
     public HiveClientConfig setAllowRenameTable(boolean allowRenameTable)
     {
         this.allowRenameTable = allowRenameTable;
+        return this;
+    }
+
+    public boolean getAllowCreateTable()
+    {
+        return this.allowCreateTable;
+    }
+
+    @Config("hive.allow-create-table")
+    @ConfigDescription("Allow hive connector to create table")
+    public HiveClientConfig setAllowCreateTable(boolean allowCreateTable)
+    {
+        this.allowCreateTable = allowCreateTable;
         return this;
     }
 

@@ -20,7 +20,7 @@ import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -656,7 +656,7 @@ public class TestSqlParser
             throws Exception
     {
         assertStatement("CREATE TABLE foo AS SELECT * FROM t",
-                new CreateTable(QualifiedName.of("foo"),
+                new CreateTableAsSelect(QualifiedName.of("foo"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")))));
     }
 

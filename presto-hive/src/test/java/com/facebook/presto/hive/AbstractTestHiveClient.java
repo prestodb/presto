@@ -301,6 +301,7 @@ public abstract class AbstractTestHiveClient
                 true,
                 true,
                 true,
+                true,
                 hiveClientConfig.getHiveStorageFormat(),
                 new TypeRegistry());
         splitManager = new HiveSplitManager(

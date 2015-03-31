@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -90,6 +91,7 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
@@ -142,7 +144,14 @@ class AstBuilder
     @Override
     public Node visitCreateTableAsSelect(@NotNull SqlBaseParser.CreateTableAsSelectContext context)
     {
-        return new CreateTable(getQualifiedName(context.qualifiedName()), (Query) visit(context.query()));
+        return new CreateTableAsSelect(getQualifiedName(context.qualifiedName()), (Query) visit(context.query()));
+    }
+
+    @Override
+    public Node visitCreateTable(@NotNull SqlBaseParser.CreateTableContext context)
+    {
+        return new CreateTable(getQualifiedName(context.qualifiedName()),
+                                visit(context.columnDef(), TableElement.class));
     }
 
     @Override
@@ -866,6 +875,12 @@ class AstBuilder
                 visit(context.partition, Expression.class),
                 visit(context.sortItem(), SortItem.class),
                 visitIfPresent(context.windowFrame(), WindowFrame.class));
+    }
+
+    @Override
+    public Node visitTableElement(@NotNull SqlBaseParser.TableElementContext context)
+    {
+        return new TableElement(context.identifier().getText(), getType(context.type()));
     }
 
     @Override

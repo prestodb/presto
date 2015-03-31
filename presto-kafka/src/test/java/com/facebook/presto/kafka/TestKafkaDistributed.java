@@ -120,4 +120,14 @@ public class TestKafkaDistributed
             throws Exception
     {
     }
+
+    //
+    // Kafka connector does not create table.
+    //
+
+    @Override
+    public void testCreateTable()
+            throws Exception
+    {
+    }
 }

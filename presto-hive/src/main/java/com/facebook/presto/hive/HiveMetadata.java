@@ -32,7 +32,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Function;
 import com.google.common.base.StandardSystemProperty;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
@@ -74,6 +73,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.toList;
 import static java.util.UUID.randomUUID;
 import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
 
@@ -84,6 +84,7 @@ public class HiveMetadata
 
     private final String connectorId;
     private final boolean allowDropTable;
+    private final boolean allowCreateTable;
     private final boolean allowRenameTable;
     private final boolean allowCorruptWritesForTesting;
     private final HiveMetastore metastore;
@@ -108,6 +109,7 @@ public class HiveMetadata
                 DateTimeZone.forTimeZone(hiveClientConfig.getTimeZone()),
                 hiveClientConfig.getAllowDropTable(),
                 hiveClientConfig.getAllowRenameTable(),
+                hiveClientConfig.getAllowCreateTable(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
                 hiveClientConfig.getHiveStorageFormat(),
                 typeManager);
@@ -120,6 +122,7 @@ public class HiveMetadata
             DateTimeZone timeZone,
             boolean allowDropTable,
             boolean allowRenameTable,
+            boolean allowCreateTable,
             boolean allowCorruptWritesForTesting,
             HiveStorageFormat hiveStorageFormat,
             TypeManager typeManager)
@@ -128,6 +131,7 @@ public class HiveMetadata
 
         this.allowDropTable = allowDropTable;
         this.allowRenameTable = allowRenameTable;
+        this.allowCreateTable = allowCreateTable;
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
         this.metastore = checkNotNull(metastore, "metastore is null");
@@ -299,7 +303,56 @@ public class HiveMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        throw new UnsupportedOperationException();
+        if (!allowCreateTable) {
+            throw new PrestoException(PERMISSION_DENIED, "Creating tables is disabled in this Hive catalog");
+        }
+
+        checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
+
+        SchemaTableName schemaTableName = tableMetadata.getTable();
+        String schemaName = schemaTableName.getSchemaName();
+        String tableName = schemaTableName.getTableName();
+
+        ImmutableList.Builder<String> columnNamesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
+
+        getColumnInfo(tableMetadata, columnNamesBuilder, columnTypesBuilder);
+
+        List<String> columnNames = columnNamesBuilder.build();
+        List<Type> columnTypes = columnTypesBuilder.build();
+
+        ImmutableList.Builder<FieldSchema> partitionKeysBuilder = ImmutableList.builder();
+        ImmutableList.Builder<FieldSchema> columnsBuilder = ImmutableList.builder();
+
+        buildColumns(columnNames, columnTypes, columnsBuilder, partitionKeysBuilder, tableMetadata);
+
+        Path targetPath = getTargetPath(schemaName, tableName, schemaTableName);
+
+        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(session, this.hiveStorageFormat);
+        SerDeInfo serdeInfo = new SerDeInfo();
+        serdeInfo.setName(tableName);
+        serdeInfo.setSerializationLib(hiveStorageFormat.getSerDe());
+
+        StorageDescriptor sd = new StorageDescriptor();
+        sd.setLocation(targetPath.toString());
+
+        sd.setCols(columnsBuilder.build());
+        sd.setSerdeInfo(serdeInfo);
+        sd.setInputFormat(hiveStorageFormat.getInputFormat());
+        sd.setOutputFormat(hiveStorageFormat.getOutputFormat());
+
+        Table table = new Table();
+        table.setDbName(schemaName);
+        table.setTableName(tableName);
+        table.setOwner(tableMetadata.getOwner());
+        table.setTableType(TableType.MANAGED_TABLE.toString());
+        String tableComment = "Created by Presto";
+        table.setParameters(ImmutableMap.of("comment", tableComment));
+        table.setPartitionKeys(partitionKeysBuilder.build());
+        table.setSd(sd);
+
+        metastore.createTable(table);
+        return new HiveTableHandle(connectorId, schemaName, tableName, session);
     }
 
     @Override
@@ -335,35 +388,26 @@ public class HiveMetadata
         }
     }
 
-    @Override
-    public HiveOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    private void getColumnInfo(ConnectorTableMetadata tableMetadata,
+                                ImmutableList.Builder<String> columnNamesBuilder,
+                                ImmutableList.Builder<Type> columnTypesBuilder)
     {
-        verifyJvmTimeZone();
-
-        checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
-
-        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(session, this.hiveStorageFormat);
-
-        ImmutableList.Builder<String> columnNames = ImmutableList.builder();
-        ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             // TODO: also verify that the OutputFormat supports the type
             if (!HiveRecordSink.isTypeSupported(column.getType())) {
                 throw new PrestoException(NOT_SUPPORTED, format("Cannot create table with unsupported type: %s", column.getType().getDisplayName()));
             }
-            columnNames.add(column.getName());
-            columnTypes.add(column.getType());
+            columnNamesBuilder.add(column.getName());
+            columnTypesBuilder.add(column.getType());
         }
         if (tableMetadata.isSampled()) {
-            columnNames.add(SAMPLE_WEIGHT_COLUMN_NAME);
-            columnTypes.add(BIGINT);
+            columnNamesBuilder.add(SAMPLE_WEIGHT_COLUMN_NAME);
+            columnTypesBuilder.add(BIGINT);
         }
+    }
 
-        // get the root directory for the database
-        SchemaTableName table = tableMetadata.getTable();
-        String schemaName = table.getSchemaName();
-        String tableName = table.getTableName();
-
+    private Path getTargetPath(String schemaName, String tableName, SchemaTableName schemaTableName)
+    {
         String location = getDatabase(schemaName).getLocationUri();
         if (isNullOrEmpty(location)) {
             throw new RuntimeException(format("Database '%s' location is not set", schemaName));
@@ -380,16 +424,57 @@ public class HiveMetadata
         // verify the target directory for the table
         Path targetPath = new Path(databasePath, tableName);
         if (pathExists(targetPath)) {
-            throw new RuntimeException(format("Target directory for table '%s' already exists: %s", table, targetPath));
+            throw new RuntimeException(format("Target directory for table '%s' already exists: %s", schemaTableName, targetPath));
         }
+        return targetPath;
+    }
+
+    private void buildColumns(List<String> columnNames,
+                                List<Type> columnTypes,
+                                ImmutableList.Builder<FieldSchema> columnsBuilder,
+                                ImmutableList.Builder<FieldSchema> partitionKeysBuilder,
+                                ConnectorTableMetadata tableMetadata)
+    {
+        List<String> types = columnTypes.stream()
+                .map(HiveType::toHiveType).map(HiveType::getHiveTypeName).collect(toList());
+        for (int i = 0; i < columnNames.size(); i++) {
+            if (tableMetadata.getColumns().get(i).isPartitionKey()) {
+                partitionKeysBuilder.add(new FieldSchema(columnNames.get(i), types.get(i), null));
+            }
+            else {
+                columnsBuilder.add(new FieldSchema(columnNames.get(i), types.get(i), null));
+            }
+        }
+    }
+
+    @Override
+    public HiveOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        verifyJvmTimeZone();
+
+        checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
+
+        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(session, this.hiveStorageFormat);
+
+        ImmutableList.Builder<String> columnNamesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
+
+        // get the root directory for the database
+        SchemaTableName schemaTableName = tableMetadata.getTable();
+        String schemaName = schemaTableName.getSchemaName();
+        String tableName = schemaTableName.getTableName();
+
+        getColumnInfo(tableMetadata, columnNamesBuilder, columnTypesBuilder);
+
+        Path targetPath = getTargetPath(schemaName, tableName, schemaTableName);
 
         if (!useTemporaryDirectory(targetPath)) {
             return new HiveOutputTableHandle(
                     connectorId,
                     schemaName,
                     tableName,
-                    columnNames.build(),
-                    columnTypes.build(),
+                    columnNamesBuilder.build(),
+                    columnTypesBuilder.build(),
                     tableMetadata.getOwner(),
                     targetPath.toString(),
                     targetPath.toString(),
@@ -410,8 +495,8 @@ public class HiveMetadata
                 connectorId,
                 schemaName,
                 tableName,
-                columnNames.build(),
-                columnTypes.build(),
+                columnNamesBuilder.build(),
+                columnTypesBuilder.build(),
                 tableMetadata.getOwner(),
                 targetPath.toString(),
                 temporaryPath.toString(),
@@ -438,22 +523,20 @@ public class HiveMetadata
         }
 
         // create the table in the metastore
-        List<String> types = FluentIterable.from(handle.getColumnTypes())
-                .transform(HiveType::toHiveType)
-                .transform(HiveType::getHiveTypeName)
-                .toList();
+        List<String> types = handle.getColumnTypes().stream()
+                .map(HiveType::toHiveType).map(HiveType::getHiveTypeName).collect(toList());
 
         boolean sampled = false;
-        ImmutableList.Builder<FieldSchema> columns = ImmutableList.builder();
+        ImmutableList.Builder<FieldSchema> columnsBuilder = ImmutableList.builder();
         for (int i = 0; i < handle.getColumnNames().size(); i++) {
             String name = handle.getColumnNames().get(i);
             String type = types.get(i);
             if (name.equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
-                columns.add(new FieldSchema(name, type, "Presto sample weight column"));
+                columnsBuilder.add(new FieldSchema(name, type, "Presto sample weight column"));
                 sampled = true;
             }
             else {
-                columns.add(new FieldSchema(name, type, null));
+                columnsBuilder.add(new FieldSchema(name, type, null));
             }
         }
 
@@ -466,7 +549,7 @@ public class HiveMetadata
 
         StorageDescriptor sd = new StorageDescriptor();
         sd.setLocation(targetPath.toString());
-        sd.setCols(columns.build());
+        sd.setCols(columnsBuilder.build());
         sd.setSerdeInfo(serdeInfo);
         sd.setInputFormat(hiveStorageFormat.getInputFormat());
         sd.setOutputFormat(hiveStorageFormat.getOutputFormat());

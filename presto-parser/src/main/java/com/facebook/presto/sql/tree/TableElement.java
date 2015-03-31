@@ -13,46 +13,37 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.collect.ImmutableList;
-
-import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class CreateTable
+public final class TableElement
         extends Statement
 {
-    private final QualifiedName table;
-    private final List<TableElement> columnDefList;
+    private final String name;
+    private final String type;
 
-    public CreateTable(QualifiedName table, List<TableElement> columnDefList)
+    public TableElement(String name, String type)
     {
-        this.table = checkNotNull(table, "table is null");
-        this.columnDefList = ImmutableList.copyOf(checkNotNull(columnDefList, "columnDefList is null"));
+        this.name = checkNotNull(name, "name is null");
+        this.type = checkNotNull(type, "type is null");
     }
 
-    public QualifiedName getTable()
+    public String getName()
     {
-        return table;
+        return name;
     }
 
-    public List<TableElement> getTableElement()
+    public String getType()
     {
-        return columnDefList;
+        return type;
     }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitCreateTable(this, context);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(table, columnDefList);
+        return visitor.visitTableElement(this, context);
     }
 
     @Override
@@ -61,20 +52,26 @@ public class CreateTable
         if (this == obj) {
             return true;
         }
-        if ((obj == null) || (getClass() != obj.getClass())) {
+        if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        CreateTable o = (CreateTable) obj;
-        return Objects.equals(table, o.table)
-                && Objects.equals(columnDefList, o.columnDefList);
+        TableElement o = (TableElement) obj;
+        return Objects.equals(this.name, o.name) &&
+                Objects.equals(this.type, o.type);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(name, type);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("table", table)
-                .add("columnDefList", columnDefList)
+                .add("name", name)
+                .add("type", type)
                 .toString();
     }
 }
