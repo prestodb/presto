@@ -392,7 +392,7 @@ public class HiveSplitManager
                 recursiveDfsWalkerEnabled).get();
     }
 
-    private Iterable<HivePartitionMetadata> getPartitionMetadata(final Table table, final SchemaTableName tableName, List<HivePartition> partitions)
+    private Iterable<HivePartitionMetadata> getPartitionMetadata(Table table, SchemaTableName tableName, List<HivePartition> partitions)
             throws NoSuchObjectException
     {
         if (partitions.isEmpty()) {
@@ -489,7 +489,7 @@ public class HiveSplitManager
     /**
      * Partition the given list in exponentially (power of 2) increasing batch sizes starting at 1 up to maxBatchSize
      */
-    private static <T> Iterable<List<T>> partitionExponentially(final List<T> values, final int minBatchSize, final int maxBatchSize)
+    private static <T> Iterable<List<T>> partitionExponentially(List<T> values, int minBatchSize, int maxBatchSize)
     {
         return () -> new AbstractIterator<List<T>>()
         {
