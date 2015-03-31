@@ -19,6 +19,7 @@ import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
+import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
@@ -199,18 +200,11 @@ public class StateCompiler
 
     private static <T> void generateDeserialize(ClassDefinition definition, Class<T> clazz, List<StateField> fields)
     {
-        MethodDefinition method = definition.declareMethod(
-                a(PUBLIC),
-                "deserialize",
-                type(void.class),
-                arg("block", com.facebook.presto.spi.block.Block.class),
-                arg("index", int.class),
-                arg("state", Object.class));
+        Parameter block = arg("block", com.facebook.presto.spi.block.Block.class);
+        Parameter index = arg("index", int.class);
+        Parameter state = arg("state", Object.class);
+        MethodDefinition method = definition.declareMethod(a(PUBLIC), "deserialize", type(void.class), block, index, state);
 
-        CompilerContext compilerContext = method.getCompilerContext();
-        Variable block = compilerContext.getVariable("block");
-        Variable index = compilerContext.getVariable("index");
-        Variable state = compilerContext.getVariable("state");
         Block deserializerBody = method.getBody();
 
         if (fields.size() == 1) {
@@ -219,7 +213,7 @@ public class StateCompiler
             deserializerBody.append(state.cast(setter.getDeclaringClass()).invoke(setter, invokeStatic(blockGetter, block, index)));
         }
         else {
-            Variable slice = compilerContext.declareVariable(Slice.class, "slice");
+            Variable slice = method.getCompilerContext().declareVariable(Slice.class, "slice");
             deserializerBody.append(slice.set(block.invoke("getSlice", Slice.class, index, constantInt(0), block.invoke("getLength", int.class, index))));
 
             for (StateField field : fields) {
@@ -234,17 +228,11 @@ public class StateCompiler
 
     private static <T> void generateSerialize(ClassDefinition definition, Class<T> clazz, List<StateField> fields)
     {
-        MethodDefinition method = definition.declareMethod(
-                a(PUBLIC),
-                "serialize",
-                type(void.class),
-                arg("state", Object.class),
-                arg("out", BlockBuilder.class));
+        Parameter state = arg("state", Object.class);
+        Parameter out = arg("out", BlockBuilder.class);
+        MethodDefinition method = definition.declareMethod(a(PUBLIC), "serialize", type(void.class), state, out);
 
-        CompilerContext compilerContext = method.getCompilerContext();
         Block serializerBody = method.getBody();
-        Variable state = compilerContext.getVariable("state");
-        Variable out = compilerContext.getVariable("out");
 
         if (fields.size() == 1) {
             Method getter = getGetter(clazz, fields.get(0));
@@ -252,7 +240,7 @@ public class StateCompiler
             serializerBody.append(invokeStatic(append, out, state.cast(getter.getDeclaringClass()).invoke(getter)));
         }
         else {
-            Variable slice = compilerContext.declareVariable(Slice.class, "slice");
+            Variable slice = method.getCompilerContext().declareVariable(Slice.class, "slice");
             ByteCodeExpression size = constantInt(serializedSizeOf(clazz));
             serializerBody.append(slice.set(invokeStatic(Slices.class, "allocate", Slice.class, size)));
 
@@ -481,15 +469,14 @@ public class StateCompiler
 
         // Generate getter
         MethodDefinition getter = definition.declareMethod(a(PUBLIC), stateField.getGetterName(), type(stateField.getType()));
-        CompilerContext getterContext = getter.getCompilerContext();
         getter.getBody()
-                .append(getterContext.getThis().getField(field).ret());
+                .append(getter.getThis().getField(field).ret());
 
         // Generate setter
-        MethodDefinition setter = definition.declareMethod(a(PUBLIC), stateField.getSetterName(), type(void.class), arg("value", stateField.getType()));
-        CompilerContext setterContext = setter.getCompilerContext();
+        Parameter value = arg("value", stateField.getType());
+        MethodDefinition setter = definition.declareMethod(a(PUBLIC), stateField.getSetterName(), type(void.class), value);
         setter.getBody()
-                .append(setterContext.getThis().setField(field, setterContext.getVariable("value")))
+                .append(setter.getThis().setField(field, value))
                 .ret();
 
         constructor.getBody()
@@ -503,33 +490,31 @@ public class StateCompiler
 
         // Generate getter
         MethodDefinition getter = definition.declareMethod(a(PUBLIC), stateField.getGetterName(), type(stateField.getType()));
-        CompilerContext getterContext = getter.getCompilerContext();
         getter.getBody()
-                .append(getterContext.getThis().getField(field).invoke(
+                .append(getter.getThis().getField(field).invoke(
                         "get",
                         stateField.getType(),
-                        getterContext.getThis().invoke("getGroupId", long.class))
+                        getter.getThis().invoke("getGroupId", long.class))
                         .ret());
 
         // Generate setter
-        MethodDefinition setter = definition.declareMethod(a(PUBLIC), stateField.getSetterName(), type(void.class), arg("value", stateField.getType()));
-        CompilerContext setterContext = setter.getCompilerContext();
+        Parameter value = arg("value", stateField.getType());
+        MethodDefinition setter = definition.declareMethod(a(PUBLIC), stateField.getSetterName(), type(void.class), value);
         setter.getBody()
-                .append(setterContext.getThis().getField(field).invoke(
+                .append(setter.getThis().getField(field).invoke(
                         "set",
                         void.class,
-                        setterContext.getThis().invoke("getGroupId", long.class),
-                        setterContext.getVariable("value")))
+                        setter.getThis().invoke("getGroupId", long.class),
+                        value))
                 .ret();
 
         CompilerContext ensureCapacityContext = ensureCapacity.getCompilerContext();
         ensureCapacity.getBody()
-                .append(ensureCapacityContext.getThis().getField(field).invoke("ensureCapacity", void.class, ensureCapacityContext.getVariable("size")));
+                .append(ensureCapacity.getThis().getField(field).invoke("ensureCapacity", void.class, ensureCapacityContext.getVariable("size")));
 
         // Initialize field in constructor
-        CompilerContext constructorContext = constructor.getCompilerContext();
         constructor.getBody()
-                .append(constructorContext.getThis().setField(field, newInstance(field.getType(), stateField.initialValueExpression())));
+                .append(constructor.getThis().setField(field, newInstance(field.getType(), stateField.initialValueExpression())));
 
         return field;
     }

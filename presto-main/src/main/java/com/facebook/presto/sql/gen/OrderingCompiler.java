@@ -17,6 +17,7 @@ import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.MethodDefinition;
+import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.byteCode.instruction.LabelNode;
@@ -127,26 +128,23 @@ public class OrderingCompiler
 
     private void generateCompareTo(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
-        MethodDefinition compareToMethod = classDefinition.declareMethod(
-                a(PUBLIC),
-                "compareTo",
-                type(int.class),
-                arg("pagesIndex", PagesIndex.class),
-                arg("leftPosition", int.class),
-                arg("rightPosition", int.class));
+        Parameter pagesIndex = arg("pagesIndex", PagesIndex.class);
+        Parameter leftPosition = arg("leftPosition", int.class);
+        Parameter rightPosition = arg("rightPosition", int.class);
+        MethodDefinition compareToMethod = classDefinition.declareMethod(a(PUBLIC), "compareTo", type(int.class), pagesIndex, leftPosition, rightPosition);
         CompilerContext context = compareToMethod.getCompilerContext();
 
         Variable valueAddresses = context.declareVariable(LongArrayList.class, "valueAddresses");
         compareToMethod
                 .getBody()
                 .comment("LongArrayList valueAddresses = pagesIndex.valueAddresses")
-                .append(valueAddresses.set(context.getVariable("pagesIndex").invoke("getValueAddresses", LongArrayList.class)));
+                .append(valueAddresses.set(pagesIndex.invoke("getValueAddresses", LongArrayList.class)));
 
         Variable leftPageAddress = context.declareVariable(long.class, "leftPageAddress");
         compareToMethod
                 .getBody()
                 .comment("long leftPageAddress = valueAddresses.getLong(leftPosition)")
-                .append(leftPageAddress.set(valueAddresses.invoke("getLong", long.class, context.getVariable("leftPosition"))));
+                .append(leftPageAddress.set(valueAddresses.invoke("getLong", long.class, leftPosition)));
 
         Variable leftBlockIndex = context.declareVariable(int.class, "leftBlockIndex");
         compareToMethod
@@ -164,7 +162,7 @@ public class OrderingCompiler
         compareToMethod
                 .getBody()
                 .comment("long rightPageAddress = valueAddresses.getLong(rightPosition);")
-                .append(rightPageAddress.set(valueAddresses.invoke("getLong", long.class, context.getVariable("rightPosition"))));
+                .append(rightPageAddress.set(valueAddresses.invoke("getLong", long.class, rightPosition)));
 
         Variable rightBlockIndex = context.declareVariable(int.class, "rightBlockIndex");
         compareToMethod
@@ -187,12 +185,12 @@ public class OrderingCompiler
 
             Type sortType = sortTypes.get(i);
 
-            ByteCodeExpression leftBlock = context.getVariable("pagesIndex")
+            ByteCodeExpression leftBlock = pagesIndex
                     .invoke("getChannel", ObjectArrayList.class, constantInt(sortChannel))
                     .invoke("get", Object.class, leftBlockIndex)
                     .cast(com.facebook.presto.spi.block.Block.class);
 
-            ByteCodeExpression rightBlock = context.getVariable("pagesIndex")
+            ByteCodeExpression rightBlock = pagesIndex
                     .invoke("getChannel", ObjectArrayList.class, constantInt(sortChannel))
                     .invoke("get", Object.class, rightBlockIndex)
                     .cast(com.facebook.presto.spi.block.Block.class);

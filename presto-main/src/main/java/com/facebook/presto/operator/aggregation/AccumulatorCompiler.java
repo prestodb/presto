@@ -207,13 +207,13 @@ public class AccumulatorCompiler
         if (grouped) {
             parameters.add(arg("groupIdsBlock", GroupByIdBlock.class));
         }
-        parameters.add(arg("page", Page.class));
+        Parameter page = arg("page", Page.class);
+        parameters.add(page);
 
         MethodDefinition method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), parameters.build());
         CompilerContext context = method.getCompilerContext();
-        Variable thisVariable = context.getThis();
-        Variable page = context.getVariable("page");
         Block body = method.getBody();
+        Variable thisVariable = method.getThis();
 
         if (grouped) {
             generateEnsureCapacity(context, stateField, body);
@@ -473,13 +473,14 @@ public class AccumulatorCompiler
         MethodDefinition method = declareAddIntermediate(definition, grouped);
         CompilerContext context = method.getCompilerContext();
         Block body = method.getBody();
+        Variable thisVariable = method.getThis();
 
         Variable block = context.getVariable("block");
         Variable scratchState = context.declareVariable(singleStateClass, "scratchState");
         Variable position = context.declareVariable(int.class, "position");
 
         body.comment("scratchState = stateFactory.createSingleState();")
-                .append(context.getThis().getField(stateFactoryField))
+                .append(thisVariable.getField(stateFactoryField))
                 .invokeInterface(AccumulatorStateFactory.class, "createSingleState", Object.class)
                 .checkCast(scratchState.getType())
                 .putVariable(scratchState);
@@ -492,13 +493,13 @@ public class AccumulatorCompiler
 
         if (grouped) {
             Variable groupIdsBlock = context.getVariable("groupIdsBlock");
-            loopBody.append(context.getThis().getField(stateField).invoke("setGroupId", void.class, groupIdsBlock.invoke("getGroupId", long.class, position)));
+            loopBody.append(thisVariable.getField(stateField).invoke("setGroupId", void.class, groupIdsBlock.invoke("getGroupId", long.class, position)));
         }
 
-        loopBody.append(context.getThis().getField(stateSerializerField).invoke("deserialize", void.class, block, position, scratchState.cast(Object.class)));
+        loopBody.append(thisVariable.getField(stateSerializerField).invoke("deserialize", void.class, block, position, scratchState.cast(Object.class)));
 
         loopBody.comment("combine(state, scratchState)")
-                .append(context.getThis().getField(stateField))
+                .append(thisVariable.getField(stateField))
                 .append(scratchState)
                 .append(invoke(callSiteBinder.bind(combineFunction), "combine"));
 
@@ -593,18 +594,11 @@ public class AccumulatorCompiler
 
     private static void generateGroupedEvaluateIntermediate(ClassDefinition definition, FieldDefinition stateSerializerField, FieldDefinition stateField)
     {
-        MethodDefinition method = definition.declareMethod(
-                a(PUBLIC),
-                "evaluateIntermediate",
-                type(void.class),
-                arg("groupId", int.class),
-                arg("out", BlockBuilder.class));
+        Parameter groupId = arg("groupId", int.class);
+        Parameter out = arg("out", BlockBuilder.class);
+        MethodDefinition method = definition.declareMethod(a(PUBLIC), "evaluateIntermediate", type(void.class), groupId, out);
 
-        CompilerContext context = method.getCompilerContext();
         Variable thisVariable = method.getThis();
-        Variable groupId = context.getVariable("groupId");
-        Variable out = context.getVariable("out");
-
         ByteCodeExpression state = thisVariable.getField(stateField);
         ByteCodeExpression stateSerializer = thisVariable.getField(stateSerializerField);
 
@@ -616,15 +610,14 @@ public class AccumulatorCompiler
 
     private static void generateEvaluateIntermediate(ClassDefinition definition, FieldDefinition stateSerializerField, FieldDefinition stateField)
     {
+        Parameter out = arg("out", BlockBuilder.class);
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC),
                 "evaluateIntermediate",
                 type(void.class),
-                arg("out", BlockBuilder.class));
+                out);
 
-        CompilerContext context = method.getCompilerContext();
         Variable thisVariable = method.getThis();
-        Variable out = context.getVariable("out");
         ByteCodeExpression stateSerializer = thisVariable.getField(stateSerializerField);
         ByteCodeExpression state = thisVariable.getField(stateField);
 
@@ -642,18 +635,12 @@ public class AccumulatorCompiler
             boolean approximate,
             CallSiteBinder callSiteBinder)
     {
-        MethodDefinition method = definition.declareMethod(
-                a(PUBLIC),
-                "evaluateFinal",
-                type(void.class),
-                arg("groupId", int.class),
-                arg("out", BlockBuilder.class));
+        Parameter groupId = arg("groupId", int.class);
+        Parameter out = arg("out", BlockBuilder.class);
+        MethodDefinition method = definition.declareMethod(a(PUBLIC), "evaluateFinal", type(void.class), groupId, out);
 
         Block body = method.getBody();
-        CompilerContext context = method.getCompilerContext();
         Variable thisVariable = method.getThis();
-        Variable groupId = context.getVariable("groupId");
-        Variable out = context.getVariable("out");
 
         ByteCodeExpression state = thisVariable.getField(stateField);
 
@@ -687,16 +674,15 @@ public class AccumulatorCompiler
             boolean approximate,
             CallSiteBinder callSiteBinder)
     {
+        Parameter out = arg("out", BlockBuilder.class);
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC),
                 "evaluateFinal",
                 type(void.class),
-                arg("out", BlockBuilder.class));
+                out);
 
         Block body = method.getBody();
-        CompilerContext context = method.getCompilerContext();
         Variable thisVariable = method.getThis();
-        Variable out = context.getVariable("out");
 
         ByteCodeExpression state = thisVariable.getField(stateField);
 
@@ -729,24 +715,23 @@ public class AccumulatorCompiler
             FieldDefinition stateField,
             boolean grouped)
     {
+        Parameter stateSerializer = arg("stateSerializer", AccumulatorStateSerializer.class);
+        Parameter stateFactory = arg("stateFactory", AccumulatorStateFactory.class);
+        Parameter inputChannels = arg("inputChannels", type(List.class, Integer.class));
+        Parameter maskChannel = arg("maskChannel", type(Optional.class, Integer.class));
+        Parameter sampleWeightChannel = arg("sampleWeightChannel", type(Optional.class, Integer.class));
+        Parameter confidence = arg("confidence", double.class);
         MethodDefinition method = definition.declareConstructor(
                 a(PUBLIC),
-                arg("stateSerializer", AccumulatorStateSerializer.class),
-                arg("stateFactory", AccumulatorStateFactory.class),
-                arg("inputChannels", type(List.class, Integer.class)),
-                arg("maskChannel", type(Optional.class, Integer.class)),
-                arg("sampleWeightChannel", type(Optional.class, Integer.class)),
-                arg("confidence", double.class));
+                stateSerializer,
+                stateFactory,
+                inputChannels,
+                maskChannel,
+                sampleWeightChannel,
+                confidence);
 
         Block body = method.getBody();
-        CompilerContext context = method.getCompilerContext();
         Variable thisVariable = method.getThis();
-        Variable stateSerializer = context.getVariable("stateSerializer");
-        Variable stateFactory = context.getVariable("stateFactory");
-        Variable inputChannels = context.getVariable("inputChannels");
-        Variable maskChannel = context.getVariable("maskChannel");
-        Variable sampleWeightChannel = context.getVariable("sampleWeightChannel");
-        Variable confidence = context.getVariable("confidence");
 
         body.comment("super();")
                 .append(thisVariable)
