@@ -55,6 +55,9 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
@@ -458,7 +461,7 @@ public class HiveMetadata
         if (handle.hasTemporaryPath()) {
             if (pathExists(targetPath)) {
                 SchemaTableName table = new SchemaTableName(handle.getSchemaName(), handle.getTableName());
-                throw new RuntimeException(format("Unable to commit creation of table '%s': target directory already exists: %s", table, targetPath));
+                throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format("Unable to commit creation of table '%s': target directory already exists: %s", table, targetPath));
             }
             // rename the temporary directory to the target
             rename(new Path(handle.getTemporaryPath()), targetPath);
@@ -519,21 +522,21 @@ public class HiveMetadata
     {
         String location = getDatabase(schemaName).getLocationUri();
         if (isNullOrEmpty(location)) {
-            throw new RuntimeException(format("Database '%s' location is not set", schemaName));
+            throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName));
         }
 
         Path databasePath = new Path(location);
         if (!pathExists(databasePath)) {
-            throw new RuntimeException(format("Database '%s' location does not exist: %s", schemaName, databasePath));
+            throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location does not exist: %s", schemaName, databasePath));
         }
         if (!isDirectory(databasePath)) {
-            throw new RuntimeException(format("Database '%s' location is not a directory: %s", schemaName, databasePath));
+            throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not a directory: %s", schemaName, databasePath));
         }
 
         // verify the target directory for the table
         Path targetPath = new Path(databasePath, tableName);
         if (pathExists(targetPath)) {
-            throw new RuntimeException(format("Target directory for table '%s' already exists: %s", schemaTableName, targetPath));
+            throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s' already exists: %s", schemaTableName, targetPath));
         }
         return targetPath;
     }
@@ -555,7 +558,7 @@ public class HiveMetadata
             return !(hdfsEnvironment.getFileSystem(path) instanceof PrestoS3FileSystem);
         }
         catch (IOException e) {
-            throw new RuntimeException("Failed checking path: " + path, e);
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
     }
 
@@ -565,7 +568,7 @@ public class HiveMetadata
             return hdfsEnvironment.getFileSystem(path).exists(path);
         }
         catch (IOException e) {
-            throw new RuntimeException("Failed checking path: " + path, e);
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
     }
 
@@ -575,7 +578,7 @@ public class HiveMetadata
             return hdfsEnvironment.getFileSystem(path).isDirectory(path);
         }
         catch (IOException e) {
-            throw new RuntimeException("Failed checking path: " + path, e);
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
     }
 
@@ -587,7 +590,7 @@ public class HiveMetadata
             }
         }
         catch (IOException e) {
-            throw new RuntimeException("Failed to create directory: " + path, e);
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to create directory: " + path, e);
         }
     }
 
@@ -599,7 +602,7 @@ public class HiveMetadata
             }
         }
         catch (IOException e) {
-            throw new RuntimeException(format("Failed to rename %s to %s", source, target), e);
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Failed to rename %s to %s", source, target), e);
         }
     }
 
