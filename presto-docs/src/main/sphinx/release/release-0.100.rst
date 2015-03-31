@@ -15,6 +15,7 @@ General Changes
 ---------------
 
 * Fix ``%f`` specifier in :func:`date_format` and :func:`date_parse`.
+* Add ``WITH ORDINALITY`` support to ``UNNEST``.
 * Add :func:`array_distinct` function.
 * Add :func:`split` function.
 * Add :func:`degrees` and :func:`radians` functions.
@@ -25,3 +26,4 @@ General Changes
 * Fix referencing ``NULL`` values in :ref:`row_type`.
 * Make :ref:`map_type` comparable.
 * Fix leak of tasks blocked during query teardown.
+* Improve query queue config validation.
