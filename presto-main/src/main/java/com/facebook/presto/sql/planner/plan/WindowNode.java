@@ -45,6 +45,7 @@ public class WindowNode
     private final Frame frame;
     private final Map<Symbol, FunctionCall> windowFunctions;
     private final Map<Symbol, Signature> functionHandles;
+    private final boolean inputAlreadyPartitioned;
 
     private final Optional<Symbol> hashSymbol;
 
@@ -58,7 +59,8 @@ public class WindowNode
             @JsonProperty("frame") Frame frame,
             @JsonProperty("windowFunctions") Map<Symbol, FunctionCall> windowFunctions,
             @JsonProperty("signatures") Map<Symbol, Signature> signatures,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
+            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
+            @JsonProperty("inputAlreadyPartitioned") boolean isInputAlreadyPartitioned)
     {
         super(id);
 
@@ -80,6 +82,7 @@ public class WindowNode
         this.windowFunctions = ImmutableMap.copyOf(windowFunctions);
         this.functionHandles = ImmutableMap.copyOf(signatures);
         this.hashSymbol = hashSymbol;
+        this.inputAlreadyPartitioned = isInputAlreadyPartitioned;
     }
 
     @Override
@@ -140,6 +143,12 @@ public class WindowNode
     public Optional<Symbol> getHashSymbol()
     {
         return hashSymbol;
+    }
+
+    @JsonProperty
+    public boolean isInputAlreadyPartitioned()
+    {
+        return inputAlreadyPartitioned;
     }
 
     @Override

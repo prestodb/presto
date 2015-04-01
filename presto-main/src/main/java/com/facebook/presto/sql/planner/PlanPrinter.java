@@ -304,7 +304,9 @@ public class PlanPrinter
 
             List<String> args = new ArrayList<>();
             if (!partitionBy.isEmpty()) {
-                args.add(format("partition by (%s)", Joiner.on(", ").join(partitionBy)));
+                args.add(format("partition by (%s)%s",
+                        Joiner.on(", ").join(partitionBy),
+                        node.isInputAlreadyPartitioned() ? " STREAMING" : ""));
             }
             if (!orderBy.isEmpty()) {
                 args.add(format("order by (%s)", Joiner.on(", ").join(orderBy)));
