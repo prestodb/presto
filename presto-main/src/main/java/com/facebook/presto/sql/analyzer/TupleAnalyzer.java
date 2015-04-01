@@ -523,7 +523,7 @@ public class TupleAnalyzer
                 // analyze the clauses to record the types of all subexpressions and resolve names against the left/right underlying tuples
                 ExpressionAnalysis leftExpressionAnalysis = analyzeExpression(leftExpression, left, context);
                 ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right, context);
-                addCoercionForJoinCriteria(node, leftExpression, rightExpression);
+
                 analysis.addJoinInPredicates(node, new Analysis.JoinInPredicates(leftExpressionAnalysis.getSubqueryInPredicates(), rightExpressionAnalysis.getSubqueryInPredicates()));
             }
 
@@ -543,15 +543,13 @@ public class TupleAnalyzer
         Type rightType = analysis.getType(rightExpression);
         Optional<Type> superType = FunctionRegistry.getCommonSuperType(leftType, rightType);
         if (!superType.isPresent()) {
-            throw new SemanticException(TYPE_MISMATCH, node, "Can not compare between %s and %s", leftType, rightType);
+            throw new SemanticException(TYPE_MISMATCH, node, "Join criteria has incompatible types: %s, %s", leftType.getDisplayName(), rightType.getDisplayName());
         }
         if (!leftType.equals(superType.get())) {
             analysis.addCoercion(leftExpression, superType.get());
-            analysis.replaceType(leftExpression, superType.get());
         }
         if (!rightType.equals(superType.get())) {
             analysis.addCoercion(rightExpression, superType.get());
-            analysis.replaceType(rightExpression, superType.get());
         }
     }
 

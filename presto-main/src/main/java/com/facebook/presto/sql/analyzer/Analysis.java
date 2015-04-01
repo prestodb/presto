@@ -290,11 +290,6 @@ public class Analysis
         this.types.putAll(types);
     }
 
-    public void replaceType(Expression expression, Type type)
-    {
-        this.types.put(expression, type);
-    }
-
     public void addRowFieldReferences(IdentityHashMap<Expression, Boolean> rowFieldReferences)
     {
         this.rowFieldReferences.putAll(rowFieldReferences);
