@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.TaskContext;
@@ -80,7 +79,7 @@ public class MockRemoteTaskFactory
                         new PlanNodeId("test"),
                         new TableHandle("test", new TestingTableHandle()),
                         ImmutableList.of(symbol),
-                        ImmutableMap.of(symbol, new ColumnHandle("test", new TestingColumnHandle("column"))),
+                        ImmutableMap.of(symbol, new TestingColumnHandle("column")),
                         null,
                         Optional.empty()),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),

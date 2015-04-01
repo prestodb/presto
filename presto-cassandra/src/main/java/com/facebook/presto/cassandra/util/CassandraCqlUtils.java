@@ -19,7 +19,7 @@ import com.datastax.driver.core.querybuilder.Select.Selection;
 import com.facebook.presto.cassandra.CassandraColumnHandle;
 import com.facebook.presto.cassandra.CassandraTableHandle;
 import com.facebook.presto.cassandra.CassandraType;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.core.io.JsonStringEncoder;
 import io.airlift.slice.Slice;
 
@@ -97,14 +97,14 @@ public final class CassandraCqlUtils
         return '"' + new String(JsonStringEncoder.getInstance().quoteAsUTF8(string)) + '"';
     }
 
-    public static void appendSelectColumns(StringBuilder stringBuilder, List<? extends ConnectorColumnHandle> columns)
+    public static void appendSelectColumns(StringBuilder stringBuilder, List<? extends ColumnHandle> columns)
     {
         appendSelectColumns(stringBuilder, columns, true);
     }
 
-    private static void appendSelectColumns(StringBuilder stringBuilder, List<? extends ConnectorColumnHandle> columns, boolean first)
+    private static void appendSelectColumns(StringBuilder stringBuilder, List<? extends ColumnHandle> columns, boolean first)
     {
-        for (ConnectorColumnHandle column : columns) {
+        for (ColumnHandle column : columns) {
             if (first) {
                 first = false;
             }

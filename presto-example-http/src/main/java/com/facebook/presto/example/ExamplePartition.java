@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.TupleDomain;
 
@@ -49,7 +49,7 @@ public class ExamplePartition
     }
 
     @Override
-    public TupleDomain<ConnectorColumnHandle> getTupleDomain()
+    public TupleDomain<ColumnHandle> getTupleDomain()
     {
         return TupleDomain.all();
     }

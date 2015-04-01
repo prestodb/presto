@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -47,7 +47,7 @@ public class KafkaHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorColumnHandle columnHandle)
+    public boolean canHandle(ColumnHandle columnHandle)
     {
         return columnHandle != null && columnHandle instanceof KafkaColumnHandle && connectorId.equals(((KafkaColumnHandle) columnHandle).getConnectorId());
     }
@@ -65,7 +65,7 @@ public class KafkaHandleResolver
     }
 
     @Override
-    public Class<? extends ConnectorColumnHandle> getColumnHandleClass()
+    public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         return KafkaColumnHandle.class;
     }
@@ -86,7 +86,7 @@ public class KafkaHandleResolver
         return kafkaTableHandle;
     }
 
-    KafkaColumnHandle convertColumnHandle(ConnectorColumnHandle columnHandle)
+    KafkaColumnHandle convertColumnHandle(ColumnHandle columnHandle)
     {
         checkNotNull(columnHandle, "columnHandle is null");
         checkArgument(columnHandle instanceof KafkaColumnHandle, "columnHandle is not an instance of KafkaColumnHandle");

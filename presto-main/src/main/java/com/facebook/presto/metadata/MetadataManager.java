@@ -16,7 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -38,7 +38,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
@@ -219,9 +218,7 @@ public class MetadataManager
     @Override
     public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
     {
-        Map<String, ConnectorColumnHandle> columns = lookupConnectorFor(tableHandle).getColumnHandles(tableHandle.getConnectorHandle());
-
-        return Maps.transformValues(columns, handle -> new ColumnHandle(tableHandle.getConnectorId(), handle));
+        return lookupConnectorFor(tableHandle).getColumnHandles(tableHandle.getConnectorHandle());
     }
 
     @Override
@@ -230,7 +227,7 @@ public class MetadataManager
         checkNotNull(tableHandle, "tableHandle is null");
         checkNotNull(columnHandle, "columnHandle is null");
 
-        return lookupConnectorFor(tableHandle).getColumnMetadata(tableHandle.getConnectorHandle(), columnHandle.getConnectorHandle());
+        return lookupConnectorFor(tableHandle).getColumnMetadata(tableHandle.getConnectorHandle(), columnHandle);
     }
 
     @Override
@@ -253,13 +250,9 @@ public class MetadataManager
     public Optional<ColumnHandle> getSampleWeightColumnHandle(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
-        ConnectorColumnHandle handle = lookupConnectorFor(tableHandle).getSampleWeightColumnHandle(tableHandle.getConnectorHandle());
+        ColumnHandle handle = lookupConnectorFor(tableHandle).getSampleWeightColumnHandle(tableHandle.getConnectorHandle());
 
-        if (handle == null) {
-            return Optional.empty();
-        }
-
-        return Optional.of(new ColumnHandle(tableHandle.getConnectorId(), handle));
+        return Optional.ofNullable(handle);
     }
 
     @Override

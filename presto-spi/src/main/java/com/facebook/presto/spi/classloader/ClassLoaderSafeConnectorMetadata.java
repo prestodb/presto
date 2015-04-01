@@ -14,7 +14,7 @@
 package com.facebook.presto.spi.classloader;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -76,7 +76,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getSampleWeightColumnHandle(tableHandle);
@@ -92,7 +92,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getColumnHandles(tableHandle);
@@ -100,7 +100,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getColumnMetadata(tableHandle, columnHandle);

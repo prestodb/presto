@@ -28,9 +28,9 @@ import static java.util.Objects.requireNonNull;
 public class ConnectorPartitionResult
 {
     private final List<ConnectorPartition> partitions;
-    private final TupleDomain<ConnectorColumnHandle> undeterminedTupleDomain;
+    private final TupleDomain<ColumnHandle> undeterminedTupleDomain;
 
-    public ConnectorPartitionResult(List<ConnectorPartition> partitions, TupleDomain<ConnectorColumnHandle> undeterminedTupleDomain)
+    public ConnectorPartitionResult(List<ConnectorPartition> partitions, TupleDomain<ColumnHandle> undeterminedTupleDomain)
     {
         this.partitions = requireNonNull(partitions, "partitions is null");
         this.undeterminedTupleDomain = requireNonNull(undeterminedTupleDomain, "undeterminedTupleDomain is null");
@@ -41,7 +41,7 @@ public class ConnectorPartitionResult
         return partitions;
     }
 
-    public TupleDomain<ConnectorColumnHandle> getUndeterminedTupleDomain()
+    public TupleDomain<ColumnHandle> getUndeterminedTupleDomain()
     {
         return undeterminedTupleDomain;
     }

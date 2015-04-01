@@ -14,7 +14,7 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
@@ -43,7 +43,7 @@ public class SystemRecordSetProvider
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
         SchemaTableName tableName = checkType(split, SystemSplit.class, "split").getTableHandle().getSchemaTableName();
 
@@ -54,7 +54,7 @@ public class SystemRecordSetProvider
         Map<String, ColumnMetadata> columnsByName = uniqueIndex(systemTable.getTableMetadata().getColumns(), ColumnMetadata::getName);
 
         ImmutableList.Builder<Integer> userToSystemFieldIndex = ImmutableList.builder();
-        for (ConnectorColumnHandle column : columns) {
+        for (ColumnHandle column : columns) {
             String columnName = checkType(column, SystemColumnHandle.class, "column").getColumnName();
 
             ColumnMetadata columnMetadata = columnsByName.get(columnName);

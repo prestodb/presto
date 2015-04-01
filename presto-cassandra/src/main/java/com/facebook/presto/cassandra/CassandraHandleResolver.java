@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -42,7 +42,7 @@ public class CassandraHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorColumnHandle columnHandle)
+    public boolean canHandle(ColumnHandle columnHandle)
     {
         return columnHandle instanceof CassandraColumnHandle && ((CassandraColumnHandle) columnHandle).getConnectorId().equals(connectorId);
     }
@@ -66,7 +66,7 @@ public class CassandraHandleResolver
     }
 
     @Override
-    public Class<? extends ConnectorColumnHandle> getColumnHandleClass()
+    public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         return CassandraColumnHandle.class;
     }

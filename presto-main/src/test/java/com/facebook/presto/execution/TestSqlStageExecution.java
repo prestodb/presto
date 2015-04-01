@@ -19,7 +19,6 @@ import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.SharedBuffer.BufferState;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TestSqlTaskManager.MockLocationFactory;
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.PrestoNode;
@@ -331,7 +330,7 @@ public class TestSqlStageExecution
                         tableScanNodeId,
                         new TableHandle("test", new TestingTableHandle()),
                         ImmutableList.of(symbol),
-                        ImmutableMap.of(symbol, new ColumnHandle("test", new TestingColumnHandle("column"))),
+                        ImmutableMap.of(symbol, new TestingColumnHandle("column")),
                         null,
                         Optional.empty()),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),

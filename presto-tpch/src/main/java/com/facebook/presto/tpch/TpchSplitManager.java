@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -52,7 +52,7 @@ public class TpchSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain)
     {
         ImmutableList<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new TpchPartition((TpchTableHandle) table));
         return new ConnectorPartitionResult(partitions, tupleDomain);
@@ -108,7 +108,7 @@ public class TpchSplitManager
         }
 
         @Override
-        public TupleDomain<ConnectorColumnHandle> getTupleDomain()
+        public TupleDomain<ColumnHandle> getTupleDomain()
         {
             return TupleDomain.all();
         }

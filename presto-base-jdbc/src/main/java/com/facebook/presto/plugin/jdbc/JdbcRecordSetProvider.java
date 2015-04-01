@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
@@ -38,12 +38,12 @@ public class JdbcRecordSetProvider
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
         JdbcSplit jdbcSplit = checkType(split, JdbcSplit.class, "split");
 
         ImmutableList.Builder<JdbcColumnHandle> handles = ImmutableList.builder();
-        for (ConnectorColumnHandle handle : columns) {
+        for (ColumnHandle handle : columns) {
             handles.add(checkType(handle, JdbcColumnHandle.class, "columnHandle"));
         }
 

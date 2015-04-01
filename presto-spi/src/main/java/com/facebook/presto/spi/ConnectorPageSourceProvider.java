@@ -17,5 +17,5 @@ import java.util.List;
 
 public interface ConnectorPageSourceProvider
 {
-    ConnectorPageSource createPageSource(ConnectorSplit split, List<ConnectorColumnHandle> columns);
+    ConnectorPageSource createPageSource(ConnectorSplit split, List<ColumnHandle> columns);
 }

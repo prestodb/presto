@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSession;
@@ -66,7 +66,7 @@ public class HivePageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ConnectorColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ColumnHandle> columns)
     {
         HiveSplit hiveSplit = checkType(split, HiveSplit.class, "split");
 

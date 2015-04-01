@@ -17,7 +17,7 @@ import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardNodes;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.util.CloseableIterator;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -69,7 +69,7 @@ public class RaptorSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
         RaptorTableHandle handle = checkType(tableHandle, RaptorTableHandle.class, "table");
         ConnectorPartition partition = new RaptorPartition(handle.getTableId(), tupleDomain);
@@ -101,12 +101,12 @@ public class RaptorSplitManager
     }
 
     @SuppressWarnings("unchecked")
-    private static TupleDomain<RaptorColumnHandle> toRaptorTupleDomain(TupleDomain<ConnectorColumnHandle> tupleDomain)
+    private static TupleDomain<RaptorColumnHandle> toRaptorTupleDomain(TupleDomain<ColumnHandle> tupleDomain)
     {
-        return tupleDomain.transform(new TupleDomain.Function<ConnectorColumnHandle, RaptorColumnHandle>()
+        return tupleDomain.transform(new TupleDomain.Function<ColumnHandle, RaptorColumnHandle>()
         {
             @Override
-            public RaptorColumnHandle apply(ConnectorColumnHandle handle)
+            public RaptorColumnHandle apply(ColumnHandle handle)
             {
                 return checkType(handle, RaptorColumnHandle.class, "columnHandle");
             }

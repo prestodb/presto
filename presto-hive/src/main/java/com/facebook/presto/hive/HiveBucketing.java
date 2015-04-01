@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -65,7 +65,7 @@ final class HiveBucketing
 
     private HiveBucketing() {}
 
-    public static Optional<HiveBucket> getHiveBucket(Table table, Map<ConnectorColumnHandle, ?> bindings)
+    public static Optional<HiveBucket> getHiveBucket(Table table, Map<ColumnHandle, ?> bindings)
     {
         if (!table.getSd().isSetBucketCols() || table.getSd().getBucketCols().isEmpty() ||
                 !table.getSd().isSetNumBuckets() || (table.getSd().getNumBuckets() <= 0) ||
@@ -94,7 +94,7 @@ final class HiveBucketing
 
         // Get bindings for bucket columns
         Map<String, Object> bucketBindings = new HashMap<>();
-        for (Entry<ConnectorColumnHandle, ?> entry : bindings.entrySet()) {
+        for (Entry<ColumnHandle, ?> entry : bindings.entrySet()) {
             HiveColumnHandle colHandle = (HiveColumnHandle) entry.getKey();
             if (bucketColumns.contains(colHandle.getName())) {
                 bucketBindings.put(colHandle.getName(), entry.getValue());

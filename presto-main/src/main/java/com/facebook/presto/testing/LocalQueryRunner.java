@@ -24,7 +24,7 @@ import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;

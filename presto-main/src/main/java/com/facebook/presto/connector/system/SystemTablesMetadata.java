@@ -14,7 +14,7 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -96,13 +96,13 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         SystemTableHandle systemTableHandle = checkTableHandle(tableHandle);
         ConnectorTableMetadata tableMetadata = tables.get(systemTableHandle.getSchemaTableName());
@@ -115,7 +115,7 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
         SystemTableHandle systemTableHandle = checkTableHandle(tableHandle);
 

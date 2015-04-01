@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tpch.testing;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchMetadata;
@@ -32,7 +32,7 @@ public class SampledTpchMetadata
     }
 
     @Override
-    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return new TpchColumnHandle(SAMPLE_WEIGHT_COLUMN_NAME, SAMPLE_WEIGHT_COLUMN_INDEX, BIGINT);
     }

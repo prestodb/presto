@@ -13,18 +13,14 @@
  */
 package com.facebook.presto.index;
 
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.metadata.ResolvedIndex;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
-import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.TupleDomain;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 
 import java.util.List;
 import java.util.Optional;
@@ -32,7 +28,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.facebook.presto.metadata.Util.toConnectorDomain;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -52,8 +47,7 @@ public class IndexManager
             return Optional.empty();
         }
 
-        Set<ConnectorColumnHandle> columns = ImmutableSet.copyOf(Iterables.transform(indexableColumns, ColumnHandle::getConnectorHandle));
-        ConnectorResolvedIndex resolved = resolver.resolveIndex(tableHandle.getConnectorHandle(), columns, toConnectorDomain(tupleDomain));
+        ConnectorResolvedIndex resolved = resolver.resolveIndex(tableHandle.getConnectorHandle(), indexableColumns, tupleDomain);
 
         if (resolved == null) {
             return Optional.empty();
@@ -65,7 +59,7 @@ public class IndexManager
     public ConnectorIndex getIndex(IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
     {
         return getResolver(indexHandle)
-                .getIndex(indexHandle.getConnectorHandle(), Lists.transform(lookupSchema, ColumnHandle::getConnectorHandle), Lists.transform(outputSchema, ColumnHandle::getConnectorHandle));
+                .getIndex(indexHandle.getConnectorHandle(), lookupSchema, outputSchema);
     }
 
     private ConnectorIndexResolver getResolver(IndexHandle handle)

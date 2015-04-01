@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.TupleDomain;

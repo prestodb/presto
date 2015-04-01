@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -29,7 +29,7 @@ public class RemoteSplitHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorColumnHandle columnHandle)
+    public boolean canHandle(ColumnHandle columnHandle)
     {
         return false;
     }
@@ -47,7 +47,7 @@ public class RemoteSplitHandleResolver
     }
 
     @Override
-    public Class<? extends ConnectorColumnHandle> getColumnHandleClass()
+    public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         throw new UnsupportedOperationException();
     }

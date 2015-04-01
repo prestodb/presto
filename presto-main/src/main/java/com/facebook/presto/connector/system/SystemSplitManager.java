@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -53,7 +53,7 @@ public class SystemSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain)
     {
         checkNotNull(tupleDomain, "tupleDomain is null");
         SystemTableHandle systemTableHandle = checkType(table, SystemTableHandle.class, "table");
@@ -111,7 +111,7 @@ public class SystemSplitManager
         }
 
         @Override
-        public TupleDomain<ConnectorColumnHandle> getTupleDomain()
+        public TupleDomain<ColumnHandle> getTupleDomain()
         {
             return TupleDomain.all();
         }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -40,7 +40,7 @@ public interface JdbcClient
 
     List<JdbcColumnHandle> getColumns(JdbcTableHandle tableHandle);
 
-    ConnectorPartitionResult getPartitions(JdbcTableHandle jdbcTableHandle, TupleDomain<ConnectorColumnHandle> tupleDomain);
+    ConnectorPartitionResult getPartitions(JdbcTableHandle jdbcTableHandle, TupleDomain<ColumnHandle> tupleDomain);
 
     ConnectorSplitSource getPartitionSplits(JdbcPartition jdbcPartition);
 

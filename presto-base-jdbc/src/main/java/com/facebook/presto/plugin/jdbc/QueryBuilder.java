@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.TupleDomain;
@@ -42,7 +42,7 @@ public class QueryBuilder
         this.quote = checkNotNull(quote, "quote is null");
     }
 
-    public String buildSql(String catalog, String schema, String table, List<JdbcColumnHandle> columns, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    public String buildSql(String catalog, String schema, String table, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain)
     {
         StringBuilder sql = new StringBuilder();
 
@@ -70,7 +70,7 @@ public class QueryBuilder
         return sql.toString();
     }
 
-    private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain)
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (JdbcColumnHandle column : columns) {

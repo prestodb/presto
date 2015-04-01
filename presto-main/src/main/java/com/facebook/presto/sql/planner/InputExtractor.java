@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.execution.Column;
 import com.facebook.presto.execution.Input;
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;

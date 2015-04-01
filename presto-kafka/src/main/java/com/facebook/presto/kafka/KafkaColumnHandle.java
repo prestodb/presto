@@ -14,7 +14,7 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -29,7 +29,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * Kafka specific connector column handle.
  */
 public final class KafkaColumnHandle
-        implements ConnectorColumnHandle, Comparable<KafkaColumnHandle>
+        implements ColumnHandle, Comparable<KafkaColumnHandle>
 {
     private final String connectorId;
     private final int ordinalPosition;

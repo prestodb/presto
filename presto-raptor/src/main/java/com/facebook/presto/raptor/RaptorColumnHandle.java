@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -24,7 +24,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class RaptorColumnHandle
-        implements ConnectorColumnHandle
+        implements ColumnHandle
 {
     // This is intentionally not named "$sampleWeight" because column names are lowercase and case insensitive
     public static final String SAMPLE_WEIGHT_COLUMN_NAME = "$sample_weight";

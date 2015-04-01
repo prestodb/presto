@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
@@ -35,7 +35,7 @@ public class RecordPageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ConnectorColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ColumnHandle> columns)
     {
         return new RecordPageSource(recordSetProvider.getRecordSet(split, columns));
     }

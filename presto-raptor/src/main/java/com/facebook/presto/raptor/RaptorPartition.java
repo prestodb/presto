@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.TupleDomain;
 
@@ -24,9 +24,9 @@ public class RaptorPartition
         implements ConnectorPartition
 {
     private final long tableId;
-    private final TupleDomain<ConnectorColumnHandle> effectivePredicate;
+    private final TupleDomain<ColumnHandle> effectivePredicate;
 
-    public RaptorPartition(long tableId, TupleDomain<ConnectorColumnHandle> effectivePredicate)
+    public RaptorPartition(long tableId, TupleDomain<ColumnHandle> effectivePredicate)
     {
         this.tableId = tableId;
         this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
@@ -39,12 +39,12 @@ public class RaptorPartition
     }
 
     @Override
-    public TupleDomain<ConnectorColumnHandle> getTupleDomain()
+    public TupleDomain<ColumnHandle> getTupleDomain()
     {
         return TupleDomain.all();
     }
 
-    public TupleDomain<ConnectorColumnHandle> getEffectivePredicate()
+    public TupleDomain<ColumnHandle> getEffectivePredicate()
     {
         return effectivePredicate;
     }

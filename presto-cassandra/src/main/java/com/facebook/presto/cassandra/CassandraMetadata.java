@@ -15,7 +15,7 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -146,21 +146,21 @@ public class CassandraMetadata
     }
 
     @Override
-    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return getColumnHandles(tableHandle, true).get(SAMPLE_WEIGHT_COLUMN_NAME);
     }
 
     @Override
-    public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
         return getColumnHandles(tableHandle, false);
     }
 
-    private Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle, boolean includeSampleWeight)
+    private Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle, boolean includeSampleWeight)
     {
         CassandraTable table = schemaProvider.getTable((CassandraTableHandle) tableHandle);
-        ImmutableMap.Builder<String, ConnectorColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (CassandraColumnHandle columnHandle : table.getColumns()) {
             if (includeSampleWeight || !columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
                 columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(ENGLISH), columnHandle);
@@ -194,7 +194,7 @@ public class CassandraMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         checkType(tableHandle, CassandraTableHandle.class, "tableHandle");
         return checkType(columnHandle, CassandraColumnHandle.class, "columnHandle").getColumnMetadata();

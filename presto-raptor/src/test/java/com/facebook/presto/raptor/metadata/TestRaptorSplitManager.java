@@ -26,7 +26,7 @@ import com.facebook.presto.raptor.storage.FileStorageService;
 import com.facebook.presto.raptor.storage.ShardRecoveryManager;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.storage.StorageService;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSession;
@@ -147,14 +147,14 @@ public class TestRaptorSplitManager
     public void testSanity()
             throws InterruptedException
     {
-        ConnectorPartitionResult partitionResult = raptorSplitManager.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
+        ConnectorPartitionResult partitionResult = raptorSplitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         assertEquals(partitionResult.getPartitions().size(), 1);
         assertTrue(partitionResult.getUndeterminedTupleDomain().isAll());
 
         List<ConnectorPartition> partitions = partitionResult.getPartitions();
         ConnectorPartition partition = Iterables.getOnlyElement(partitions);
-        TupleDomain<ConnectorColumnHandle> columnUnionedTupleDomain = TupleDomain.columnWiseUnion(partition.getTupleDomain(), partition.getTupleDomain());
-        assertEquals(columnUnionedTupleDomain, TupleDomain.<ConnectorColumnHandle>all());
+        TupleDomain<ColumnHandle> columnUnionedTupleDomain = TupleDomain.columnWiseUnion(partition.getTupleDomain(), partition.getTupleDomain());
+        assertEquals(columnUnionedTupleDomain, TupleDomain.<ColumnHandle>all());
 
         ConnectorSplitSource splitSource = raptorSplitManager.getPartitionSplits(tableHandle, partitions);
         int splitCount = 0;
@@ -170,7 +170,7 @@ public class TestRaptorSplitManager
     {
         deleteShardNodes();
 
-        ConnectorPartitionResult result = raptorSplitManager.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
+        ConnectorPartitionResult result = raptorSplitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
 
         raptorSplitManager.getPartitionSplits(tableHandle, result.getPartitions()).getNextBatch(1000);
     }
@@ -186,7 +186,7 @@ public class TestRaptorSplitManager
 
         deleteShardNodes();
 
-        ConnectorPartitionResult result = raptorSplitManagerWithBackup.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
+        ConnectorPartitionResult result = raptorSplitManagerWithBackup.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         ConnectorSplitSource partitionSplit = raptorSplitManagerWithBackup.getPartitionSplits(tableHandle, result.getPartitions());
         assertEquals(Iterables.getOnlyElement(Iterables.getOnlyElement(partitionSplit.getNextBatch(1)).getAddresses()), node.getHostAndPort());
     }
@@ -198,7 +198,7 @@ public class TestRaptorSplitManager
         deleteShardNodes();
 
         RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), new InMemoryNodeManager(), shardManager, storageManagerWithBackup);
-        ConnectorPartitionResult result = raptorSplitManagerWithBackup.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
+        ConnectorPartitionResult result = raptorSplitManagerWithBackup.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         raptorSplitManagerWithBackup.getPartitionSplits(tableHandle, result.getPartitions()).getNextBatch(1000);
     }
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableMap;
@@ -49,6 +49,6 @@ public class TestJdbcHandleResolver
 
     private static JdbcSplit createSplit(String connectorId)
     {
-        return new JdbcSplit(connectorId, "catalog", "schema", "table", "connectionUrl", ImmutableMap.<String, String>of(), TupleDomain.<ConnectorColumnHandle>all());
+        return new JdbcSplit(connectorId, "catalog", "schema", "table", "connectionUrl", ImmutableMap.<String, String>of(), TupleDomain.<ColumnHandle>all());
     }
 }

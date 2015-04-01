@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Preconditions;
-
-import static com.facebook.presto.metadata.Util.fromConnectorDomain;
 
 public final class ResolvedIndex
 {
@@ -30,7 +29,7 @@ public final class ResolvedIndex
         Preconditions.checkNotNull(index, "index is null");
 
         indexHandle = new IndexHandle(connectorId, index.getIndexHandle());
-        undeterminedTupleDomain = fromConnectorDomain(connectorId, index.getUnresolvedTupleDomain());
+        undeterminedTupleDomain = index.getUnresolvedTupleDomain();
     }
 
     public IndexHandle getIndexHandle()

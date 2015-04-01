@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.classloader;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -44,7 +44,7 @@ public class ClassLoaderSafeConnectorHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorColumnHandle columnHandle)
+    public boolean canHandle(ColumnHandle columnHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.canHandle(columnHandle);
@@ -92,7 +92,7 @@ public class ClassLoaderSafeConnectorHandleResolver
     }
 
     @Override
-    public Class<? extends ConnectorColumnHandle> getColumnHandleClass()
+    public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getColumnHandleClass();

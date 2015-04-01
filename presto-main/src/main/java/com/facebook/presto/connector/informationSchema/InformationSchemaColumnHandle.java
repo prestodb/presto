@@ -14,7 +14,7 @@
 package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -24,7 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 
 public class InformationSchemaColumnHandle
-        implements ConnectorColumnHandle
+        implements ColumnHandle
 {
     private final String columnName;
 
@@ -65,9 +65,9 @@ public class InformationSchemaColumnHandle
         return "information_schema:" + columnName;
     }
 
-    public static Map<String, ConnectorColumnHandle> toInformationSchemaColumnHandles(ConnectorTableMetadata tableMetadata)
+    public static Map<String, ColumnHandle> toInformationSchemaColumnHandles(ConnectorTableMetadata tableMetadata)
     {
-        ImmutableMap.Builder<String, ConnectorColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
             columnHandles.put(columnMetadata.getName(), new InformationSchemaColumnHandle(columnMetadata.getName()));
         }

@@ -18,7 +18,6 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import com.facebook.presto.index.IndexManager;
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
@@ -68,7 +67,7 @@ public final class TaskTestUtils
                     TABLE_SCAN_NODE_ID,
                     new TableHandle("test", new TestingTableHandle()),
                     ImmutableList.of(SYMBOL),
-                    ImmutableMap.of(SYMBOL, new ColumnHandle("test", new TestingColumnHandle("column"))),
+                    ImmutableMap.of(SYMBOL, new TestingColumnHandle("column")),
                     null,
                     Optional.empty()),
             ImmutableMap.<Symbol, Type>of(SYMBOL, VARCHAR),

@@ -14,7 +14,7 @@
 package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -24,7 +24,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class JmxColumnHandle
-        implements ConnectorColumnHandle
+        implements ColumnHandle
 {
     private final String connectorId;
     private final String columnName;

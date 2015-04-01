@@ -24,7 +24,7 @@ public interface ConnectorSplitManager
      * data stream produced by this connector. Connectors are encouraged to take advantage of
      * this information to perform connector-specific optimizations.
      */
-    ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain);
+    ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain);
 
     /**
      * Gets the Splits for the specified Partitions in the indicated table.

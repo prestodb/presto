@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.PartitionResult;
 import com.facebook.presto.metadata.TableHandle;
@@ -33,7 +33,6 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.facebook.presto.metadata.Util.toConnectorDomain;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -52,10 +51,10 @@ public class SplitManager
 
         ConnectorPartitionResult result;
         if (domain.isNone()) {
-            result = new ConnectorPartitionResult(ImmutableList.<ConnectorPartition>of(), toConnectorDomain(domain));
+            result = new ConnectorPartitionResult(ImmutableList.<ConnectorPartition>of(), domain);
         }
         else {
-            result = getConnectorSplitManager(table).getPartitions(table.getConnectorHandle(), toConnectorDomain(domain));
+            result = getConnectorSplitManager(table).getPartitions(table.getConnectorHandle(), domain);
         }
 
         return new PartitionResult(table.getConnectorId(), result);

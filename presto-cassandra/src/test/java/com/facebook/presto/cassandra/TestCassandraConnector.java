@@ -15,7 +15,7 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPartitionResult;
@@ -161,10 +161,10 @@ public class TestCassandraConnector
     {
         ConnectorTableHandle tableHandle = getTableHandle(table);
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
-        List<ConnectorColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
 
         long rowNumber = 0;
@@ -262,11 +262,11 @@ public class TestCassandraConnector
         return splits.build();
     }
 
-    private static ImmutableMap<String, Integer> indexColumns(List<ConnectorColumnHandle> columnHandles)
+    private static ImmutableMap<String, Integer> indexColumns(List<ColumnHandle> columnHandles)
     {
         ImmutableMap.Builder<String, Integer> index = ImmutableMap.builder();
         int i = 0;
-        for (ConnectorColumnHandle columnHandle : columnHandles) {
+        for (ColumnHandle columnHandle : columnHandles) {
             String name = checkType(columnHandle, CassandraColumnHandle.class, "columnHandle").getName();
             index.put(name, i);
             i++;

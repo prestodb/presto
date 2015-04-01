@@ -16,7 +16,7 @@ package com.facebook.presto.util;
 import com.facebook.presto.execution.Column;
 import com.facebook.presto.execution.Input;
 import com.facebook.presto.execution.SimpleDomain;
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;

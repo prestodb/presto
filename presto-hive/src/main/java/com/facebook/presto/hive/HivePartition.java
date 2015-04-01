@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SerializableNativeValue;
@@ -35,7 +35,7 @@ public class HivePartition
     private final SchemaTableName tableName;
     private final TupleDomain<HiveColumnHandle> effectivePredicate;
     private final String partitionId;
-    private final Map<ConnectorColumnHandle, SerializableNativeValue> keys;
+    private final Map<ColumnHandle, SerializableNativeValue> keys;
     private final Optional<HiveBucket> bucket;
 
     public HivePartition(SchemaTableName tableName, TupleDomain<HiveColumnHandle> effectivePredicate)
@@ -55,7 +55,7 @@ public class HivePartition
     public HivePartition(SchemaTableName tableName,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             String partitionId,
-            Map<ConnectorColumnHandle, SerializableNativeValue> keys,
+            Map<ColumnHandle, SerializableNativeValue> keys,
             Optional<HiveBucket> bucket)
     {
         this.tableName = checkNotNull(tableName, "tableName is null");
@@ -82,12 +82,12 @@ public class HivePartition
     }
 
     @Override
-    public TupleDomain<ConnectorColumnHandle> getTupleDomain()
+    public TupleDomain<ColumnHandle> getTupleDomain()
     {
         return TupleDomain.withNullableFixedValues(keys);
     }
 
-    public Map<ConnectorColumnHandle, SerializableNativeValue> getKeys()
+    public Map<ColumnHandle, SerializableNativeValue> getKeys()
     {
         return keys;
     }

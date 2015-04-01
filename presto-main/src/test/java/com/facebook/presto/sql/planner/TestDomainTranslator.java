@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.Domain;
@@ -77,23 +77,23 @@ public class TestDomainTranslator
     private static final Metadata METADATA = new MetadataManager();
 
     private static final Symbol A = new Symbol("a");
-    private static final ColumnHandle ACH = newColumnHandle("a");
+    private static final ColumnHandle ACH = new TestingColumnHandle("a");
     private static final Symbol B = new Symbol("b");
-    private static final ColumnHandle BCH = newColumnHandle("b");
+    private static final ColumnHandle BCH = new TestingColumnHandle("b");
     private static final Symbol C = new Symbol("c");
-    private static final ColumnHandle CCH = newColumnHandle("c");
+    private static final ColumnHandle CCH = new TestingColumnHandle("c");
     private static final Symbol D = new Symbol("d");
-    private static final ColumnHandle DCH = newColumnHandle("d");
+    private static final ColumnHandle DCH = new TestingColumnHandle("d");
     private static final Symbol E = new Symbol("e");
-    private static final ColumnHandle ECH = newColumnHandle("e");
+    private static final ColumnHandle ECH = new TestingColumnHandle("e");
     private static final Symbol F = new Symbol("f");
-    private static final ColumnHandle FCH = newColumnHandle("f");
+    private static final ColumnHandle FCH = new TestingColumnHandle("f");
     private static final Symbol G = new Symbol("g");
-    private static final ColumnHandle GCH = newColumnHandle("g");
+    private static final ColumnHandle GCH = new TestingColumnHandle("g");
     private static final Symbol H = new Symbol("h");
-    private static final ColumnHandle HCH = newColumnHandle("h");
+    private static final ColumnHandle HCH = new TestingColumnHandle("h");
     private static final Symbol I = new Symbol("i");
-    private static final ColumnHandle ICH = newColumnHandle("i");
+    private static final ColumnHandle ICH = new TestingColumnHandle("i");
 
     private static final Map<Symbol, Type> TYPES = ImmutableMap.<Symbol, Type>builder()
             .put(A, BIGINT)
@@ -948,11 +948,6 @@ public class TestDomainTranslator
     private static Expression toPredicate(TupleDomain<ColumnHandle> tupleDomain)
     {
         return DomainTranslator.toPredicate(tupleDomain, COLUMN_HANDLES.inverse(), TYPES);
-    }
-
-    private static ColumnHandle newColumnHandle(String name)
-    {
-        return new ColumnHandle("test", new TestingColumnHandle(name));
     }
 
     private static Expression unprocessableExpression1(Symbol symbol)

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -41,7 +41,7 @@ public class JdbcHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorColumnHandle columnHandle)
+    public boolean canHandle(ColumnHandle columnHandle)
     {
         return columnHandle instanceof JdbcColumnHandle && ((JdbcColumnHandle) columnHandle).getConnectorId().equals(connectorId);
     }
@@ -65,7 +65,7 @@ public class JdbcHandleResolver
     }
 
     @Override
-    public Class<? extends ConnectorColumnHandle> getColumnHandleClass()
+    public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         return JdbcColumnHandle.class;
     }

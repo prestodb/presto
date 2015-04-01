@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tpch.testing;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
@@ -45,24 +45,24 @@ public class SampledTpchRecordSetProvider
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
         int sampleWeightField = -1;
         for (int i = 0; i < columns.size(); i++) {
-            ConnectorColumnHandle column = columns.get(i);
+            ColumnHandle column = columns.get(i);
             if (column instanceof TpchColumnHandle && ((TpchColumnHandle) column).getColumnName().equals(SampledTpchMetadata.SAMPLE_WEIGHT_COLUMN_NAME)) {
                 sampleWeightField = i;
                 break;
             }
         }
-        List<? extends ConnectorColumnHandle> delegatedColumns = new ArrayList<>(columns);
+        List<? extends ColumnHandle> delegatedColumns = new ArrayList<>(columns);
         if (sampleWeightField > -1) {
             delegatedColumns.remove(sampleWeightField);
             RecordSet recordSet;
             if (delegatedColumns.isEmpty()) {
                 // Pick a random column, so that we can figure out how many rows there are
                 TpchSplit tpchSplit = (TpchSplit) split;
-                ConnectorColumnHandle column = Iterables.getFirst(metadata.getColumnHandles(tpchSplit.getTableHandle()).values(), null);
+                ColumnHandle column = Iterables.getFirst(metadata.getColumnHandles(tpchSplit.getTableHandle()).values(), null);
                 checkNotNull(column, "Could not find any columns");
                 recordSet = new EmptyRecordSet(super.getRecordSet(split, ImmutableList.of(column)));
             }

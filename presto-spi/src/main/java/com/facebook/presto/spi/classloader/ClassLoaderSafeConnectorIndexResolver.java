@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.classloader;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
@@ -39,7 +39,7 @@ public class ClassLoaderSafeConnectorIndexResolver
     }
 
     @Override
-    public ConnectorResolvedIndex resolveIndex(ConnectorTableHandle tableHandle, Set<ConnectorColumnHandle> indexableColumns, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    public ConnectorResolvedIndex resolveIndex(ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.resolveIndex(tableHandle, indexableColumns, tupleDomain);
@@ -47,7 +47,7 @@ public class ClassLoaderSafeConnectorIndexResolver
     }
 
     @Override
-    public ConnectorIndex getIndex(ConnectorIndexHandle indexHandle, List<ConnectorColumnHandle> lookupSchema, List<ConnectorColumnHandle> outputSchema)
+    public ConnectorIndex getIndex(ConnectorIndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getIndex(indexHandle, lookupSchema, outputSchema);

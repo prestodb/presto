@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -51,12 +51,12 @@ public class InformationSchemaSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain)
     {
         checkNotNull(tupleDomain, "tupleDomain is null");
         InformationSchemaTableHandle informationSchemaTableHandle = checkType(table, InformationSchemaTableHandle.class, "table");
 
-        Map<ConnectorColumnHandle, SerializableNativeValue> bindings = tupleDomain.extractNullableFixedValues();
+        Map<ColumnHandle, SerializableNativeValue> bindings = tupleDomain.extractNullableFixedValues();
 
         List<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new InformationSchemaPartition(informationSchemaTableHandle, bindings));
         // We don't strip out the bindings that we have created from the undeterminedTupleDomain b/c the current InformationSchema
@@ -78,7 +78,7 @@ public class InformationSchemaSplitManager
         List<HostAddress> localAddress = ImmutableList.of(nodeManager.getCurrentNode().getHostAndPort());
 
         ImmutableMap.Builder<String, SerializableNativeValue> filters = ImmutableMap.builder();
-        for (Entry<ConnectorColumnHandle, SerializableNativeValue> entry : informationSchemaPartition.getFilters().entrySet()) {
+        for (Entry<ColumnHandle, SerializableNativeValue> entry : informationSchemaPartition.getFilters().entrySet()) {
             InformationSchemaColumnHandle informationSchemaColumnHandle = (InformationSchemaColumnHandle) entry.getKey();
             filters.put(informationSchemaColumnHandle.getColumnName(), entry.getValue());
         }
@@ -92,9 +92,9 @@ public class InformationSchemaSplitManager
             implements ConnectorPartition
     {
         private final InformationSchemaTableHandle table;
-        private final Map<ConnectorColumnHandle, SerializableNativeValue> filters;
+        private final Map<ColumnHandle, SerializableNativeValue> filters;
 
-        public InformationSchemaPartition(InformationSchemaTableHandle table, Map<ConnectorColumnHandle, SerializableNativeValue> filters)
+        public InformationSchemaPartition(InformationSchemaTableHandle table, Map<ColumnHandle, SerializableNativeValue> filters)
         {
             this.table = checkNotNull(table, "table is null");
             this.filters = ImmutableMap.copyOf(checkNotNull(filters, "filters is null"));
@@ -112,12 +112,12 @@ public class InformationSchemaSplitManager
         }
 
         @Override
-        public TupleDomain<ConnectorColumnHandle> getTupleDomain()
+        public TupleDomain<ColumnHandle> getTupleDomain()
         {
             return TupleDomain.withNullableFixedValues(filters);
         }
 
-        public Map<ConnectorColumnHandle, SerializableNativeValue> getFilters()
+        public Map<ColumnHandle, SerializableNativeValue> getFilters()
         {
             return filters;
         }

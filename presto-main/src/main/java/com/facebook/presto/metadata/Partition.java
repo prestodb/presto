@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.TupleDomain;
 
-import static com.facebook.presto.metadata.Util.fromConnectorDomain;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Partition
@@ -29,7 +29,7 @@ public class Partition
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.connectorPartition = checkNotNull(connectorPartition, "partition is null");
-        this.columnHandleTupleDomain = fromConnectorDomain(connectorId, connectorPartition.getTupleDomain());
+        this.columnHandleTupleDomain = connectorPartition.getTupleDomain();
     }
 
     public ConnectorPartition getConnectorPartition()

@@ -18,7 +18,7 @@ import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.RaptorTableHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -95,7 +95,7 @@ public class TestRaptorMetadata
         ConnectorTableMetadata table = metadata.getTableMetadata(tableHandle);
         assertTableEqual(table, getOrdersTable());
 
-        ConnectorColumnHandle columnHandle = metadata.getColumnHandles(tableHandle).get("orderkey");
+        ColumnHandle columnHandle = metadata.getColumnHandles(tableHandle).get("orderkey");
         assertInstanceOf(columnHandle, RaptorColumnHandle.class);
         assertEquals(((RaptorColumnHandle) columnHandle).getColumnId(), 1);
 

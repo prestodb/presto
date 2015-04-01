@@ -15,7 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -222,7 +222,7 @@ public class HiveMetadata
     }
 
     @Override
-    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         SchemaTableName tableName = schemaTableName(tableHandle);
         try {
@@ -246,12 +246,12 @@ public class HiveMetadata
     }
 
     @Override
-    public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
         SchemaTableName tableName = schemaTableName(tableHandle);
         try {
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            ImmutableMap.Builder<String, ConnectorColumnHandle> columnHandles = ImmutableMap.builder();
+            ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
             for (HiveColumnHandle columnHandle : hiveColumnHandles(typeManager, connectorId, table, false)) {
                 columnHandles.put(columnHandle.getName(), columnHandle);
             }
@@ -293,7 +293,7 @@ public class HiveMetadata
      * NOTE: This method does not return column comment
      */
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         checkType(tableHandle, HiveTableHandle.class, "tableHandle");
         return checkType(columnHandle, HiveColumnHandle.class, "columnHandle").getColumnMetadata(typeManager);
