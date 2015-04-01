@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.command.Command;
 import io.airlift.command.HelpOption;
+import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import jline.console.history.FileHistory;
@@ -83,6 +84,7 @@ public class Console
     public void run()
     {
         ClientSession session = clientOptions.toClientSession();
+        KerberosConfig kerberosConfig = clientOptions.toKerberosConfig();
         boolean hasQuery = !Strings.isNullOrEmpty(clientOptions.execute);
         boolean isFromFile = !Strings.isNullOrEmpty(clientOptions.file);
 
@@ -110,7 +112,15 @@ public class Console
             }
         }
 
-        try (QueryRunner queryRunner = QueryRunner.create(session, Optional.ofNullable(clientOptions.socksProxy))) {
+        try (QueryRunner queryRunner = QueryRunner.create(
+                session,
+                Optional.ofNullable(clientOptions.socksProxy),
+                Optional.ofNullable(clientOptions.keystorePath),
+                Optional.ofNullable(clientOptions.keystorePassword),
+                Optional.ofNullable(clientOptions.krb5Principal),
+                Optional.ofNullable(clientOptions.krb5RemoteServiceName),
+                clientOptions.authenticationEnabled,
+                kerberosConfig)) {
             if (hasQuery) {
                 executeCommand(queryRunner, query, clientOptions.outputFormat);
             }
