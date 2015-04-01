@@ -69,11 +69,6 @@ public final class SystemSessionProperties
 
     public static int getTaskWriterCount(Session session, int defaultValue)
     {
-        String writerCount = session.getSystemProperties().get(TASK_WRITER_COUNT);
-        if (writerCount == null) {
-            return defaultValue;
-        }
-
-        return Integer.valueOf(writerCount);
+        return getNumber(WRITER_COUNT, session, defaultValue);
     }
 }
