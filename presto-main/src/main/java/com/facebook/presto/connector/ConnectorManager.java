@@ -38,13 +38,16 @@ import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.RecordPageSinkProvider;
 import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
+import io.airlift.log.Logger;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -54,6 +57,8 @@ public class ConnectorManager
 {
     public static final String INFORMATION_SCHEMA_CONNECTOR_PREFIX = "$info_schema@";
     public static final String SYSTEM_TABLES_CONNECTOR_PREFIX = "$system@";
+
+    private static final Logger log = Logger.get(ConnectorManager.class);
 
     private final MetadataManager metadataManager;
     private final SplitManager splitManager;
@@ -67,6 +72,8 @@ public class ConnectorManager
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
 
     private final ConcurrentMap<String, Connector> connectors = new ConcurrentHashMap<>();
+
+    private final AtomicBoolean stopped = new AtomicBoolean();
 
     @Inject
     public ConnectorManager(MetadataManager metadataManager,
@@ -88,14 +95,34 @@ public class ConnectorManager
         this.connectorFactories.putAll(connectorFactories);
     }
 
+    @PreDestroy
+    public void stop()
+    {
+        if (stopped.compareAndSet(false, true)) {
+            return;
+        }
+
+        for (Map.Entry<String, Connector> entry : connectors.entrySet()) {
+            Connector connector = entry.getValue();
+            try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connector.getClass().getClassLoader())) {
+                connector.shutdown();
+            }
+            catch (Throwable t) {
+                log.error(t, "Error shutting down connector: %s", entry.getKey());
+            }
+        }
+    }
+
     public void addConnectorFactory(ConnectorFactory connectorFactory)
     {
+        checkState(!stopped.get(), "ConnectorManager is stopped");
         ConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(connectorFactory.getName(), connectorFactory);
         checkArgument(existingConnectorFactory == null, "Connector %s is already registered", connectorFactory.getName());
     }
 
     public synchronized void createConnection(String catalogName, String connectorName, Map<String, String> properties)
     {
+        checkState(!stopped.get(), "ConnectorManager is stopped");
         checkNotNull(catalogName, "catalogName is null");
         checkNotNull(connectorName, "connectorName is null");
         checkNotNull(properties, "properties is null");
@@ -109,6 +136,7 @@ public class ConnectorManager
 
     public synchronized void createConnection(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
+        checkState(!stopped.get(), "ConnectorManager is stopped");
         checkNotNull(catalogName, "catalogName is null");
         checkNotNull(properties, "properties is null");
         checkNotNull(connectorFactory, "connectorFactory is null");
@@ -123,6 +151,7 @@ public class ConnectorManager
 
     public synchronized void createConnection(String catalogName, Connector connector)
     {
+        checkState(!stopped.get(), "ConnectorManager is stopped");
         checkNotNull(catalogName, "catalogName is null");
         checkNotNull(connector, "connector is null");
 
@@ -131,6 +160,7 @@ public class ConnectorManager
 
     private synchronized void addConnector(String catalogName, String connectorId, Connector connector)
     {
+        checkState(!stopped.get(), "ConnectorManager is stopped");
         checkState(!connectors.containsKey(connectorId), "A connector %s already exists", connectorId);
         connectors.put(connectorId, connector);
 

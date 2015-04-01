@@ -21,6 +21,8 @@ import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.SystemTable;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.log.Logger;
 
 import java.util.Set;
 
@@ -29,6 +31,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class HiveConnector
         implements Connector
 {
+    private static final Logger log = Logger.get(HiveConnector.class);
+
+    private final LifeCycleManager lifeCycleManager;
     private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
@@ -37,6 +42,7 @@ public class HiveConnector
     private final Set<SystemTable> systemTables;
 
     public HiveConnector(
+            LifeCycleManager lifeCycleManager,
             ConnectorMetadata metadata,
             ConnectorSplitManager splitManager,
             ConnectorPageSourceProvider pageSourceProvider,
@@ -44,6 +50,7 @@ public class HiveConnector
             ConnectorHandleResolver handleResolver,
             Set<SystemTable> systemTables)
     {
+        this.lifeCycleManager = checkNotNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
         this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceProvider is null");
@@ -86,5 +93,16 @@ public class HiveConnector
     public Set<SystemTable> getSystemTables()
     {
         return systemTables;
+    }
+
+    @Override
+    public final void shutdown()
+    {
+        try {
+            lifeCycleManager.stop();
+        }
+        catch (Exception e) {
+            log.error(e, "Error shutting down connector");
+        }
     }
 }

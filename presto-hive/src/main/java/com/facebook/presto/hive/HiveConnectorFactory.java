@@ -34,6 +34,7 @@ import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.NodeModule;
@@ -103,6 +104,7 @@ public class HiveConnectorFactory
                     .setOptionalConfigurationProperties(optionalConfig)
                     .initialize();
 
+            LifeCycleManager lifeCycleManager = injector.getInstance(LifeCycleManager.class);
             ConnectorMetadata metadata = injector.getInstance(ConnectorMetadata.class);
             ConnectorSplitManager splitManager = injector.getInstance(ConnectorSplitManager.class);
             ConnectorPageSourceProvider connectorPageSource = injector.getInstance(ConnectorPageSourceProvider.class);
@@ -110,6 +112,7 @@ public class HiveConnectorFactory
             ConnectorHandleResolver handleResolver = injector.getInstance(ConnectorHandleResolver.class);
 
             return new HiveConnector(
+                    lifeCycleManager,
                     new ClassLoaderSafeConnectorMetadata(metadata, classLoader),
                     new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader),
                     new ClassLoaderSafeConnectorPageSourceProvider(connectorPageSource, classLoader),
