@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -56,7 +56,7 @@ public class JmxRecordSetProvider
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
         JmxTableHandle tableHandle = checkType(split, JmxSplit.class, "split").getTableHandle();
 
@@ -64,7 +64,7 @@ public class JmxRecordSetProvider
         checkArgument(!columns.isEmpty(), "must provide at least one column");
 
         ImmutableMap.Builder<String, Type> builder = ImmutableMap.builder();
-        for (ConnectorColumnHandle column : columns) {
+        for (ColumnHandle column : columns) {
             JmxColumnHandle jmxColumnHandle = checkType(column, JmxColumnHandle.class, "column");
             builder.put(jmxColumnHandle.getColumnName(), jmxColumnHandle.getColumnType());
         }

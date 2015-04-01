@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.TupleDomain;
@@ -68,7 +67,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.metadata.Util.toConnectorDomain;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
@@ -111,12 +109,12 @@ public class TestEffectivePredicateExtractor
             throws Exception
     {
         scanAssignments = ImmutableMap.<Symbol, ColumnHandle>builder()
-                .put(A, newColumnHandle("a"))
-                .put(B, newColumnHandle("b"))
-                .put(C, newColumnHandle("c"))
-                .put(D, newColumnHandle("d"))
-                .put(E, newColumnHandle("e"))
-                .put(F, newColumnHandle("f"))
+                .put(A, new TestingColumnHandle("a"))
+                .put(B, new TestingColumnHandle("b"))
+                .put(C, new TestingColumnHandle("c"))
+                .put(D, new TestingColumnHandle("d"))
+                .put(E, new TestingColumnHandle("e"))
+                .put(F, new TestingColumnHandle("f"))
                 .build();
 
         Map<Symbol, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(A, B, C, D, E, F)));
@@ -428,9 +426,9 @@ public class TestEffectivePredicateExtractor
             }
 
             @Override
-            public TupleDomain<ConnectorColumnHandle> getTupleDomain()
+            public TupleDomain<ColumnHandle> getTupleDomain()
             {
-                return toConnectorDomain(tupleDomain);
+                return tupleDomain;
             }
         });
     }
@@ -636,11 +634,6 @@ public class TestEffectivePredicateExtractor
         // Currently, only pull predicates through the source plan
         Assert.assertEquals(normalizeConjuncts(effectivePredicate),
                 normalizeConjuncts(and(greaterThan(AE, number(10)), lessThan(AE, number(100)))));
-    }
-
-    private static ColumnHandle newColumnHandle(String name)
-    {
-        return new ColumnHandle("test", new TestingColumnHandle(name));
     }
 
     private static PlanNodeId newId()

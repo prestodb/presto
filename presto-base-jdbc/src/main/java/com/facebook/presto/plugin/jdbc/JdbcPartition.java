@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.TupleDomain;
 
@@ -24,9 +24,9 @@ public class JdbcPartition
         implements ConnectorPartition
 {
     private final JdbcTableHandle jdbcTableHandle;
-    private final TupleDomain<ConnectorColumnHandle> domain;
+    private final TupleDomain<ColumnHandle> domain;
 
-    public JdbcPartition(JdbcTableHandle jdbcTableHandle, TupleDomain<ConnectorColumnHandle> domain)
+    public JdbcPartition(JdbcTableHandle jdbcTableHandle, TupleDomain<ColumnHandle> domain)
     {
         this.jdbcTableHandle = checkNotNull(jdbcTableHandle, "jdbcTableHandle is null");
         this.domain = checkNotNull(domain, "domain is null");
@@ -44,7 +44,7 @@ public class JdbcPartition
     }
 
     @Override
-    public TupleDomain<ConnectorColumnHandle> getTupleDomain()
+    public TupleDomain<ColumnHandle> getTupleDomain()
     {
         return domain;
     }

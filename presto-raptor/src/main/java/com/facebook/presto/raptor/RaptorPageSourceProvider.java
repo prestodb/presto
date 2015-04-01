@@ -14,7 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.storage.StorageManager;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -42,7 +42,7 @@ public class RaptorPageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ConnectorColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ColumnHandle> columns)
     {
         RaptorSplit raptorSplit = checkType(split, RaptorSplit.class, "split");
 
@@ -54,7 +54,7 @@ public class RaptorPageSourceProvider
         return storageManager.getPageSource(shardUuid, columnIds, columnTypes, raptorSplit.getEffectivePredicate());
     }
 
-    private static Function<ConnectorColumnHandle, RaptorColumnHandle> toRaptorColumnHandle()
+    private static Function<ColumnHandle, RaptorColumnHandle> toRaptorColumnHandle()
     {
         return handle -> checkType(handle, RaptorColumnHandle.class, "columnHandle");
     }

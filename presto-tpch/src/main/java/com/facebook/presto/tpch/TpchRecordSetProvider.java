@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
@@ -33,7 +33,7 @@ public class TpchRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     @Override
-    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
         TpchSplit tpchSplit = checkType(split, TpchSplit.class, "split");
 
@@ -46,13 +46,13 @@ public class TpchRecordSetProvider
 
     public <E extends TpchEntity> RecordSet getRecordSet(
             TpchTable<E> table,
-            List<? extends ConnectorColumnHandle> columns,
+            List<? extends ColumnHandle> columns,
             double scaleFactor,
             int partNumber,
             int totalParts)
     {
         ImmutableList.Builder<TpchColumn<E>> builder = ImmutableList.builder();
-        for (ConnectorColumnHandle column : columns) {
+        for (ColumnHandle column : columns) {
             String columnName = checkType(column, TpchColumnHandle.class, "column").getColumnName();
             if (columnName.equalsIgnoreCase(TpchMetadata.ROW_NUMBER_COLUMN_NAME)) {
                 builder.add(new RowNumberTpchColumn<E>());

@@ -18,7 +18,7 @@ import com.facebook.presto.hive.orc.DwrfRecordCursorProvider;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
@@ -56,10 +56,10 @@ public final class HiveTestUtils
             .add(new GenericHiveRecordCursorProvider())
             .build();
 
-    public static List<Type> getTypes(List<? extends ConnectorColumnHandle> columnHandles)
+    public static List<Type> getTypes(List<? extends ColumnHandle> columnHandles)
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (ConnectorColumnHandle columnHandle : columnHandles) {
+        for (ColumnHandle columnHandle : columnHandles) {
             types.add(TYPE_MANAGER.getType(((HiveColumnHandle) columnHandle).getTypeSignature()));
         }
         return types.build();

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tests.tpch;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
@@ -58,13 +58,13 @@ public class TpchIndexResolver
     }
 
     @Override
-    public ConnectorResolvedIndex resolveIndex(ConnectorTableHandle tableHandle, Set<ConnectorColumnHandle> indexableColumns, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    public ConnectorResolvedIndex resolveIndex(ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         TpchTableHandle tpchTableHandle = checkType(tableHandle, TpchTableHandle.class, "tableHandle");
 
         // Keep the fixed values that don't overlap with the indexableColumns
         // Note: technically we could more efficiently utilize the overlapped columns, but this way is simpler for now
-        Map<ConnectorColumnHandle, Comparable<?>> fixedValues = Maps.filterKeys(tupleDomain.extractFixedValues(), not(in(indexableColumns)));
+        Map<ColumnHandle, Comparable<?>> fixedValues = Maps.filterKeys(tupleDomain.extractFixedValues(), not(in(indexableColumns)));
 
         // determine all columns available for index lookup
         ImmutableSet.Builder<String> builder = ImmutableSet.builder();
@@ -77,7 +77,7 @@ public class TpchIndexResolver
             return null;
         }
 
-        TupleDomain<ConnectorColumnHandle> filteredTupleDomain = tupleDomain;
+        TupleDomain<ColumnHandle> filteredTupleDomain = tupleDomain;
         if (!tupleDomain.isNone()) {
             filteredTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(fixedValues.keySet()))));
         }
@@ -85,20 +85,20 @@ public class TpchIndexResolver
     }
 
     @Override
-    public ConnectorIndex getIndex(ConnectorIndexHandle indexHandle, List<ConnectorColumnHandle> lookupSchema, List<ConnectorColumnHandle> outputSchema)
+    public ConnectorIndex getIndex(ConnectorIndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
     {
         TpchIndexHandle tpchIndexHandle = checkType(indexHandle, TpchIndexHandle.class, "indexHandle");
 
-        Map<ConnectorColumnHandle, Comparable<?>> fixedValues = tpchIndexHandle.getFixedValues().extractFixedValues();
+        Map<ColumnHandle, Comparable<?>> fixedValues = tpchIndexHandle.getFixedValues().extractFixedValues();
         checkArgument(!any(lookupSchema, in(fixedValues.keySet())), "Lookup columnHandles are not expected to overlap with the fixed value predicates");
 
         // Establish an order for the fixedValues
-        List<ConnectorColumnHandle> fixedValueColumns = ImmutableList.copyOf(fixedValues.keySet());
+        List<ColumnHandle> fixedValueColumns = ImmutableList.copyOf(fixedValues.keySet());
 
         // Extract the fixedValues as their raw values and types
         ImmutableList.Builder<Object> valueBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
-        for (ConnectorColumnHandle fixedValueColumn : fixedValueColumns) {
+        for (ColumnHandle fixedValueColumn : fixedValueColumns) {
             valueBuilder.add(fixedValues.get(fixedValueColumn));
             typeBuilder.add(((TpchColumnHandle) fixedValueColumn).getType());
         }
@@ -106,7 +106,7 @@ public class TpchIndexResolver
         final List<Type> rawFixedTypes = typeBuilder.build();
 
         // Establish the schema after we append the fixed values to the lookup keys.
-        List<ConnectorColumnHandle> finalLookupSchema = ImmutableList.<ConnectorColumnHandle>builder()
+        List<ColumnHandle> finalLookupSchema = ImmutableList.<ColumnHandle>builder()
                 .addAll(lookupSchema)
                 .addAll(fixedValueColumns)
                 .build();
@@ -151,17 +151,17 @@ public class TpchIndexResolver
         return builder.build();
     }
 
-    private static List<String> handleToNames(List<ConnectorColumnHandle> columnHandles)
+    private static List<String> handleToNames(List<ColumnHandle> columnHandles)
     {
         return Lists.transform(columnHandles, columnNameGetter());
     }
 
-    private static Function<ConnectorColumnHandle, String> columnNameGetter()
+    private static Function<ColumnHandle, String> columnNameGetter()
     {
-        return new Function<ConnectorColumnHandle, String>()
+        return new Function<ColumnHandle, String>()
         {
             @Override
-            public String apply(ConnectorColumnHandle columnHandle)
+            public String apply(ColumnHandle columnHandle)
             {
                 return checkType(columnHandle, TpchColumnHandle.class, "columnHandle").getColumnName();
             }

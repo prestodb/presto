@@ -14,7 +14,6 @@
 package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.Metadata;
@@ -27,7 +26,7 @@ import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -82,12 +81,12 @@ public class InformationSchemaPageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ConnectorColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ColumnHandle> columns)
     {
         InternalTable table = getInternalTable(split, columns);
 
         List<Integer> channels = new ArrayList<>();
-        for (ConnectorColumnHandle column : columns) {
+        for (ColumnHandle column : columns) {
             String columnName = checkType(column, InformationSchemaColumnHandle.class, "column").getColumnName();
             int columnIndex = table.getColumnIndex(columnName);
             channels.add(columnIndex);
@@ -104,7 +103,7 @@ public class InformationSchemaPageSourceProvider
         return new FixedPageSource(pages.build());
     }
 
-    private InternalTable getInternalTable(ConnectorSplit connectorSplit, List<ConnectorColumnHandle> columns)
+    private InternalTable getInternalTable(ConnectorSplit connectorSplit, List<ColumnHandle> columns)
     {
         InformationSchemaSplit split = checkType(connectorSplit, InformationSchemaSplit.class, "split");
 

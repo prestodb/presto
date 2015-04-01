@@ -17,7 +17,7 @@ public interface ConnectorHandleResolver
 {
     boolean canHandle(ConnectorTableHandle tableHandle);
 
-    boolean canHandle(ConnectorColumnHandle columnHandle);
+    boolean canHandle(ColumnHandle columnHandle);
 
     boolean canHandle(ConnectorSplit split);
 
@@ -38,7 +38,7 @@ public interface ConnectorHandleResolver
 
     Class<? extends ConnectorTableHandle> getTableHandleClass();
 
-    Class<? extends ConnectorColumnHandle> getColumnHandleClass();
+    Class<? extends ColumnHandle> getColumnHandleClass();
 
     Class<? extends ConnectorSplit> getSplitClass();
 

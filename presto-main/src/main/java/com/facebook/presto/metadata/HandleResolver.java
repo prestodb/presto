@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -61,7 +61,7 @@ public class HandleResolver
         throw new IllegalArgumentException("No connector for table handle: " + tableHandle);
     }
 
-    public String getId(ConnectorColumnHandle columnHandle)
+    public String getId(ColumnHandle columnHandle)
     {
         for (Entry<String, ConnectorHandleResolver> entry : handleIdResolvers.entrySet()) {
             if (entry.getValue().canHandle(columnHandle)) {
@@ -116,7 +116,7 @@ public class HandleResolver
         return resolverFor(id).getTableHandleClass();
     }
 
-    public Class<? extends ConnectorColumnHandle> getColumnHandleClass(String id)
+    public Class<? extends ColumnHandle> getColumnHandleClass(String id)
     {
         return resolverFor(id).getColumnHandleClass();
     }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -40,7 +40,7 @@ public class ExampleHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorColumnHandle columnHandle)
+    public boolean canHandle(ColumnHandle columnHandle)
     {
         return columnHandle instanceof ExampleColumnHandle && ((ExampleColumnHandle) columnHandle).getConnectorId().equals(connectorId);
     }
@@ -58,7 +58,7 @@ public class ExampleHandleResolver
     }
 
     @Override
-    public Class<? extends ConnectorColumnHandle> getColumnHandleClass()
+    public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         return ExampleColumnHandle.class;
     }

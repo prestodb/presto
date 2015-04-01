@@ -14,7 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.HiveMetastore;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -182,7 +182,7 @@ public class HiveSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ConnectorColumnHandle> effectivePredicate)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> effectivePredicate)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkNotNull(effectivePredicate, "effectivePredicate is null");
@@ -207,7 +207,7 @@ public class HiveSplitManager
         // do a final pass to filter based on fields that could not be used to filter the partitions
         ImmutableList.Builder<ConnectorPartition> partitions = ImmutableList.builder();
         for (String partitionName : partitionNames) {
-            Optional<Map<ConnectorColumnHandle, SerializableNativeValue>> values = parseValuesAndFilterPartition(partitionName, partitionColumns, effectivePredicate);
+            Optional<Map<ColumnHandle, SerializableNativeValue>> values = parseValuesAndFilterPartition(partitionName, partitionColumns, effectivePredicate);
 
             if (values.isPresent()) {
                 partitions.add(new HivePartition(tableName, compactEffectivePredicate, partitionName, values.get(), bucket));
@@ -215,15 +215,15 @@ public class HiveSplitManager
         }
 
         // All partition key domains will be fully evaluated, so we don't need to include those
-        TupleDomain<ConnectorColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains(), not(Predicates.<ConnectorColumnHandle>in(partitionColumns))));
+        TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains(), not(Predicates.<ColumnHandle>in(partitionColumns))));
         return new ConnectorPartitionResult(partitions.build(), remainingTupleDomain);
     }
 
-    private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ConnectorColumnHandle> effectivePredicate)
+    private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate)
     {
         ImmutableMap.Builder<HiveColumnHandle, Domain> builder = ImmutableMap.builder();
-        for (Map.Entry<ConnectorColumnHandle, Domain> entry : effectivePredicate.getDomains().entrySet()) {
-            HiveColumnHandle hiveColumnHandle = checkType(entry.getKey(), HiveColumnHandle.class, "ColumnHandle");
+        for (Map.Entry<ColumnHandle, Domain> entry : effectivePredicate.getDomains().entrySet()) {
+            HiveColumnHandle hiveColumnHandle = checkType(entry.getKey(), HiveColumnHandle.class, "ConnectorColumnHandle");
 
             SortedRangeSet ranges = entry.getValue().getRanges();
             if (!ranges.isNone()) {
@@ -236,11 +236,11 @@ public class HiveSplitManager
         return TupleDomain.withColumnDomains(builder.build());
     }
 
-    private Optional<Map<ConnectorColumnHandle, SerializableNativeValue>> parseValuesAndFilterPartition(String partitionName, List<HiveColumnHandle> partitionColumns, TupleDomain<ConnectorColumnHandle> predicate)
+    private Optional<Map<ColumnHandle, SerializableNativeValue>> parseValuesAndFilterPartition(String partitionName, List<HiveColumnHandle> partitionColumns, TupleDomain<ColumnHandle> predicate)
     {
         List<String> partitionValues = extractPartitionKeyValues(partitionName);
 
-        ImmutableMap.Builder<ConnectorColumnHandle, SerializableNativeValue> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<ColumnHandle, SerializableNativeValue> builder = ImmutableMap.builder();
         for (int i = 0; i < partitionColumns.size(); i++) {
             HiveColumnHandle column = partitionColumns.get(i);
             SerializableNativeValue parsedValue = parsePartitionValue(partitionName, partitionValues.get(i), column.getHiveType(), timeZone);
@@ -277,7 +277,7 @@ public class HiveSplitManager
         }
     }
 
-    private List<String> getFilteredPartitionNames(SchemaTableName tableName, List<HiveColumnHandle> partitionKeys, TupleDomain<ConnectorColumnHandle> effectivePredicate)
+    private List<String> getFilteredPartitionNames(SchemaTableName tableName, List<HiveColumnHandle> partitionKeys, TupleDomain<ColumnHandle> effectivePredicate)
     {
         List<String> filter = new ArrayList<>();
         for (HiveColumnHandle partitionKey : partitionKeys) {

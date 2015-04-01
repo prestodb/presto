@@ -19,7 +19,7 @@ import java.util.Set;
 public interface ConnectorIndexResolver
 {
     // TODO: should we allow partial index resolutions? (e.g. only index on colA when asking for an index on colA and colB)
-    ConnectorResolvedIndex resolveIndex(ConnectorTableHandle tableHandle, Set<ConnectorColumnHandle> indexableColumns, TupleDomain<ConnectorColumnHandle> tupleDomain);
+    ConnectorResolvedIndex resolveIndex(ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain);
 
-    ConnectorIndex getIndex(ConnectorIndexHandle indexHandle, List<ConnectorColumnHandle> lookupSchema, List<ConnectorColumnHandle> outputSchema);
+    ConnectorIndex getIndex(ConnectorIndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema);
 }

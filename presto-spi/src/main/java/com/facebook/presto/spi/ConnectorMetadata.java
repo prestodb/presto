@@ -48,7 +48,7 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if the table handle is no longer valid
      */
-    ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle);
+    ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle);
 
     /**
      * Returns true if this catalog supports creation of sampled tables
@@ -60,14 +60,14 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if table handle is no longer valid
      */
-    Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle);
+    Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle);
 
     /**
      * Gets the metadata for the specified table column.
      *
      * @throws RuntimeException if table or column handles are no longer valid
      */
-    ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle);
+    ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle);
 
     /**
      * Gets the metadata for all columns that match the specified table prefix.

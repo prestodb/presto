@@ -15,7 +15,7 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -34,7 +34,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class CassandraColumnHandle
-        implements ConnectorColumnHandle
+        implements ColumnHandle
 {
     public static final String SAMPLE_WEIGHT_COLUMN_NAME = "presto_sample_weight";
 
@@ -201,24 +201,24 @@ public class CassandraColumnHandle
         return helper.toString();
     }
 
-    public static Function<ConnectorColumnHandle, CassandraColumnHandle> cassandraColumnHandle()
+    public static Function<ColumnHandle, CassandraColumnHandle> cassandraColumnHandle()
     {
-        return new Function<ConnectorColumnHandle, CassandraColumnHandle>()
+        return new Function<ColumnHandle, CassandraColumnHandle>()
         {
             @Override
-            public CassandraColumnHandle apply(ConnectorColumnHandle columnHandle)
+            public CassandraColumnHandle apply(ColumnHandle columnHandle)
             {
                 return checkType(columnHandle, CassandraColumnHandle.class, "columnHandle");
             }
         };
     }
 
-    public static Function<ConnectorColumnHandle, ColumnMetadata> columnMetadataGetter()
+    public static Function<ColumnHandle, ColumnMetadata> columnMetadataGetter()
     {
-        return new Function<ConnectorColumnHandle, ColumnMetadata>()
+        return new Function<ColumnHandle, ColumnMetadata>()
         {
             @Override
-            public ColumnMetadata apply(ConnectorColumnHandle columnHandle)
+            public ColumnMetadata apply(ColumnHandle columnHandle)
             {
                 checkNotNull(columnHandle, "columnHandle is null");
                 checkArgument(columnHandle instanceof CassandraColumnHandle,

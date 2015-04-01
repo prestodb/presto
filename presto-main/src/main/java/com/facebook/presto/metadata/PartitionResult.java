@@ -13,14 +13,13 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 
 import java.util.List;
-
-import static com.facebook.presto.metadata.Util.fromConnectorDomain;
 
 public class PartitionResult
 {
@@ -33,7 +32,7 @@ public class PartitionResult
         Preconditions.checkNotNull(connectorPartitionResult, "connectorPartitionResult is null");
 
         partitions = Lists.transform(connectorPartitionResult.getPartitions(), partition -> new Partition(connectorId, partition));
-        undeterminedTupleDomain = fromConnectorDomain(connectorId, connectorPartitionResult.getUndeterminedTupleDomain());
+        undeterminedTupleDomain = connectorPartitionResult.getUndeterminedTupleDomain();
     }
 
     public List<Partition> getPartitions()
