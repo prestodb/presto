@@ -53,3 +53,7 @@ All of the regular expression functions use the `Java pattern`_ syntax.
     replacement by escaping it with a backslash (``\$``).
 
     .. _Capturing groups: http://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html#cg
+
+.. function:: regexp_split(string, pattern) -> array<varchar>
+
+    Splits ``string`` using the regular expression ``pattern`` and returns an array.

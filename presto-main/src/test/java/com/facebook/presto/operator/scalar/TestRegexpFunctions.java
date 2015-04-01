@@ -82,6 +82,17 @@ public class TestRegexpFunctions
         assertInvalidFunction("REGEXP_EXTRACT_ALL('hello', '(.)', 2)", "Pattern has 1 groups. Cannot access group 2");
     }
 
+    @Test
+    public void testRegexpSplit()
+    {
+        assertFunction("REGEXP_SPLIT('a.b:c;d', '[\\.:;]')", ImmutableList.of("a", "b", "c", "d"));
+        assertFunction("REGEXP_SPLIT('a.b:c;d', '\\.')", ImmutableList.of("a", "b:c;d"));
+        assertFunction("REGEXP_SPLIT('a.b:c;d', ':')", ImmutableList.of("a.b", "c;d"));
+        assertFunction("REGEXP_SPLIT('a,b,c', ',')", ImmutableList.of("a", "b", "c"));
+        assertFunction("REGEXP_SPLIT('a1b2c3d', '\\d')", ImmutableList.of("a", "b", "c", "d"));
+        assertFunction("REGEXP_SPLIT('a1b2346c3d', '\\d+')", ImmutableList.of("a", "b", "c", "d"));
+    }
+
     private void assertFunction(String projection, Object expected)
     {
         functionAssertions.assertFunction(projection, expected);
