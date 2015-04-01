@@ -16,8 +16,6 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricOperator;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -29,6 +27,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
+import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -39,7 +38,7 @@ public class ArrayNotEqualOperator
 {
     public static final ArrayNotEqualOperator ARRAY_NOT_EQUAL = new ArrayNotEqualOperator();
     private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BOOLEAN);
-    public static final MethodHandle METHOD_HANDLE = methodHandle(ArrayNotEqualOperator.class, "notEqual", Type.class, Slice.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayNotEqualOperator.class, "notEqual", MethodHandle.class, Type.class, Slice.class, Slice.class);
 
     private ArrayNotEqualOperator()
     {
@@ -49,18 +48,16 @@ public class ArrayNotEqualOperator
     @Override
     public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type type = types.get("T");
-        type = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(type.getTypeSignature()), ImmutableList.of());
+        Type elementType = types.get("T");
+        Type type = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(elementType.getTypeSignature()), ImmutableList.of());
         TypeSignature typeSignature = type.getTypeSignature();
-        return operatorInfo(NOT_EQUAL, RETURN_TYPE, ImmutableList.of(typeSignature, typeSignature), METHOD_HANDLE.bindTo(type), false, ImmutableList.of(false, false));
+        MethodHandle equalsFunction = functionRegistry.resolveOperator(EQUAL, ImmutableList.of(elementType, elementType)).getMethodHandle();
+        MethodHandle method = METHOD_HANDLE.bindTo(equalsFunction).bindTo(elementType);
+        return operatorInfo(NOT_EQUAL, RETURN_TYPE, ImmutableList.of(typeSignature, typeSignature), method, false, ImmutableList.of(false, false));
     }
 
-    public static boolean notEqual(Type type, Slice left, Slice right)
+    public static boolean notEqual(MethodHandle equalsFunction, Type type, Slice left, Slice right)
     {
-        BlockBuilder leftBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, left.length());
-        BlockBuilder rightBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, right.length());
-        leftBlockBuilder.writeBytes(left, 0, left.length());
-        rightBlockBuilder.writeBytes(right, 0, right.length());
-        return !type.equalTo(leftBlockBuilder.closeEntry().build(), 0, rightBlockBuilder.closeEntry().build(), 0);
+        return !ArrayEqualOperator.equals(equalsFunction, type, left, right);
     }
 }

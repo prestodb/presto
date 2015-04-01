@@ -84,6 +84,14 @@ public class BenchmarkSuite
                 new StatisticsBenchmark.DoubleStdDevBenchmark(localQueryRunner),
                 new StatisticsBenchmark.DoubleStdDevPopBenchmark(localQueryRunner),
 
+                // array comparison benchmarks
+                new ArrayComparisonBenchmark.ArrayEqualsBenchmark(localQueryRunner),
+                new ArrayComparisonBenchmark.ArrayLessThanBenchmark(localQueryRunner),
+                new ArrayComparisonBenchmark.ArrayGreaterThanBenchmark(localQueryRunner),
+                new ArrayComparisonBenchmark.ArrayNotEqualBenchmark(localQueryRunner),
+                new ArrayComparisonBenchmark.ArrayLessThanOrEqualBenchmark(localQueryRunner),
+                new ArrayComparisonBenchmark.ArrayGreaterThanOrEqualBenchmark(localQueryRunner),
+
                 new SqlApproximateCountDistinctLongBenchmark(localQueryRunner),
                 new SqlApproximateCountDistinctDoubleBenchmark(localQueryRunner),
                 new SqlApproximateCountDistinctVarBinaryBenchmark(localQueryRunner)

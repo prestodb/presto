@@ -16,12 +16,13 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricOperator;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -31,7 +32,12 @@ import java.util.Map;
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.OperatorType.GREATER_THAN;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
+import static com.facebook.presto.type.TypeUtils.castValue;
+import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
+import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class ArrayGreaterThanOperator
@@ -39,7 +45,7 @@ public class ArrayGreaterThanOperator
 {
     public static final ArrayGreaterThanOperator ARRAY_GREATER_THAN = new ArrayGreaterThanOperator();
     private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BOOLEAN);
-    public static final MethodHandle METHOD_HANDLE = methodHandle(ArrayGreaterThanOperator.class, "greaterThan", Type.class, Slice.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayGreaterThanOperator.class, "greaterThan", MethodHandle.class, Type.class, Slice.class, Slice.class);
 
     private ArrayGreaterThanOperator()
     {
@@ -49,18 +55,43 @@ public class ArrayGreaterThanOperator
     @Override
     public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type type = types.get("T");
-        type = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(type.getTypeSignature()), ImmutableList.of());
+        Type elementType = types.get("T");
+        Type type = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(elementType.getTypeSignature()), ImmutableList.of());
         TypeSignature typeSignature = type.getTypeSignature();
-        return operatorInfo(GREATER_THAN, RETURN_TYPE, ImmutableList.of(typeSignature, typeSignature), METHOD_HANDLE.bindTo(type), false, ImmutableList.of(false, false));
+        MethodHandle greaterThanFunction = functionRegistry.resolveOperator(GREATER_THAN, ImmutableList.of(elementType, elementType)).getMethodHandle();
+        MethodHandle method = METHOD_HANDLE.bindTo(greaterThanFunction).bindTo(elementType);
+        return operatorInfo(GREATER_THAN, RETURN_TYPE, ImmutableList.of(typeSignature, typeSignature), method, false, ImmutableList.of(false, false));
     }
 
-    public static boolean greaterThan(Type type, Slice left, Slice right)
+    public static boolean greaterThan(MethodHandle greaterThanFunction, Type type, Slice left, Slice right)
     {
-        BlockBuilder leftBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, left.length());
-        BlockBuilder rightBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, right.length());
-        leftBlockBuilder.writeBytes(left, 0, left.length());
-        rightBlockBuilder.writeBytes(right, 0, right.length());
-        return type.compareTo(leftBlockBuilder.closeEntry().build(), 0, rightBlockBuilder.closeEntry().build(), 0) > 0;
+        Block leftArray = readStructuralBlock(left);
+        Block rightArray = readStructuralBlock(right);
+
+        int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
+        int index = 0;
+        while (index < len) {
+            checkElementNotNull(leftArray.isNull(index), ARRAY_NULL_ELEMENT_MSG);
+            checkElementNotNull(rightArray.isNull(index), ARRAY_NULL_ELEMENT_MSG);
+            Object leftElement = castValue(type, leftArray, index);
+            Object rightElement = castValue(type, rightArray, index);
+            try {
+                if ((boolean) greaterThanFunction.invoke(leftElement, rightElement)) {
+                    return true;
+                }
+                if ((boolean) greaterThanFunction.invoke(rightElement, leftElement)) {
+                    return false;
+                }
+            }
+            catch (Throwable t) {
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+
+                throw new PrestoException(INTERNAL_ERROR, t);
+            }
+            index++;
+        }
+
+        return leftArray.getPositionCount() > rightArray.getPositionCount();
     }
 }
