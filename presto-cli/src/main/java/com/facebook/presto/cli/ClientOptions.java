@@ -18,7 +18,9 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.command.Option;
+import io.airlift.http.client.spnego.KerberosConfig;
 
+import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.CharsetEncoder;
@@ -39,6 +41,30 @@ public class ClientOptions
 {
     @Option(name = "--server", title = "server", description = "Presto server location (default: localhost:8080)")
     public String server = "localhost:8080";
+
+    @Option(name = "--enable-authentication", title = "enable-authentication", description = "Enable client authentication")
+    public boolean enabledAuthentication;
+
+    @Option(name = "--krb5-remote-service-name", title = "krb5-remote-service-name", description = "Remote peer's kerberos service name (default: presto.coordinator.https)")
+    public String krb5RemoteServiceName;
+
+    @Option(name = "--krb5-config-path", title = "krb5-config-path", description = "Kerberos config file path (default: /etc/krb5.conf)")
+    public String krb5ConfigPath = "/etc/krb5.conf";
+
+    @Option(name = "--krb5-keytab-path", title = "krb5-keytab-path", description = "Kerberos key table path")
+    public String krb5KeytabPath = "/etc/krb5.keytab";
+
+    @Option(name = "--krb5-credential-cache-path", title = "krb5-credential-cache-path", description = "Kerberos credential cache path")
+    public String krb5CredentialCachePath;
+
+    @Option(name = "--krb5-principal", title = "krb5-principal", description = "Kerberos principal to be used")
+    public String krb5Principal;
+
+    @Option(name = "--keystore-path", title = "keystore-path", description = "Keystore path")
+    public String keystorePath;
+
+    @Option(name = "--keystore-password", title = "keystore-password", description = "Keystore password")
+    public String keystorePassword;
 
     @Option(name = "--user", title = "user", description = "Username")
     public String user = System.getProperty("user.name");
@@ -93,6 +119,24 @@ public class ClientOptions
                 Locale.getDefault(),
                 toProperties(sessionProperties),
                 debug);
+    }
+
+    public KerberosConfig toKerberosConfig()
+    {
+        KerberosConfig config = new KerberosConfig()
+                .setConfig(new File(krb5ConfigPath))
+                .setKeytab(new File(krb5KeytabPath));
+        if (krb5CredentialCachePath == null) {
+            krb5CredentialCachePath = System.getenv("KRB5CCNAME");
+            //TODO: support memory credential cache
+            if (krb5CredentialCachePath != null && krb5CredentialCachePath.startsWith("FILE:")) {
+                krb5CredentialCachePath = krb5CredentialCachePath.substring(5);
+            }
+        }
+        if (krb5CredentialCachePath != null) {
+            config.setCredentialCache(new File(krb5CredentialCachePath));
+        }
+        return config;
     }
 
     public static URI parseServer(String server)
