@@ -36,10 +36,12 @@ public class StorageManagerConfig
     private File backupDirectory;
     private Duration shardRecoveryTimeout = new Duration(30, TimeUnit.SECONDS);
     private Duration missingShardDiscoveryInterval = new Duration(5, TimeUnit.MINUTES);
+    private Duration compactionInterval = new Duration(1, TimeUnit.HOURS);
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxReadSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
     private int recoveryThreads = 10;
+    private int compactionThreads = 5;
 
     private long maxShardRows = 1_000_000;
     private DataSize maxShardSize = new DataSize(256, MEGABYTE);
@@ -138,6 +140,19 @@ public class StorageManagerConfig
         return this;
     }
 
+    public Duration getCompactionInterval()
+    {
+        return compactionInterval;
+    }
+
+    @Config("storage.compaction-interval")
+    @ConfigDescription("How often to check for local shards that need compaction")
+    public StorageManagerConfig setCompactionInterval(Duration compactionInterval)
+    {
+        this.compactionInterval = compactionInterval;
+        return this;
+    }
+
     @Min(1)
     public int getRecoveryThreads()
     {
@@ -150,6 +165,20 @@ public class StorageManagerConfig
     {
         this.recoveryThreads = recoveryThreads;
         return this;
+    }
+
+    @Config("storage.max-compaction-threads")
+    @ConfigDescription("Maximum number of threads to use for compaction")
+    public StorageManagerConfig setCompactionThreads(int compactionThreads)
+    {
+        this.compactionThreads = compactionThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getCompactionThreads()
+    {
+        return compactionThreads;
     }
 
     @Min(1)

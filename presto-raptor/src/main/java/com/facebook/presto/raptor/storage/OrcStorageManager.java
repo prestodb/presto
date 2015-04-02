@@ -323,6 +323,13 @@ public class OrcStorageManager
         }
 
         @Override
+        public void appendRow(Row row)
+        {
+            createWriterIfNecessary();
+            writer.appendRow(row);
+        }
+
+        @Override
         public boolean isFull()
         {
             if (writer == null) {

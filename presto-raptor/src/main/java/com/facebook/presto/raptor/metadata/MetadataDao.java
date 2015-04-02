@@ -30,6 +30,7 @@ public interface MetadataDao
             "  catalog_name VARCHAR(255) NOT NULL,\n" +
             "  schema_name VARCHAR(255) NOT NULL,\n" +
             "  table_name VARCHAR(255) NOT NULL,\n" +
+            "  temporal_column_id BIGINT DEFAULT NULL,\n" +
             "  UNIQUE (catalog_name, schema_name, table_name)\n" +
             ")")
     void createTableTables();
@@ -56,6 +57,9 @@ public interface MetadataDao
             "  PRIMARY KEY (catalog_name, schema_name, table_name)\n" +
             ")")
     void createTableViews();
+
+    @SqlQuery("SELECT table_id FROM tables")
+    List<Long> listTableIds();
 
     @SqlQuery("SELECT table_id FROM tables\n" +
             "WHERE catalog_name = :catalogName\n" +
@@ -198,4 +202,9 @@ public interface MetadataDao
             @Bind("catalogName") String catalogName,
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
+
+    @SqlQuery("SELECT temporal_column_id\n" +
+            "FROM tables\n" +
+            "WHERE table_id = :tableId")
+    Long getTemporalColumnId(@Bind("tableId") long tableId);
 }
