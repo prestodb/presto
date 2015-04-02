@@ -9,6 +9,7 @@ General Changes
 * Add `IF EXISTS` support to :doc:`/sql/drop-table` and :doc:`/sql/drop-view`.
 * Add :func:`array_agg` function.
 * Add :func:`array_intersect` function.
+* Add :func:`array_position` function.
 * Add :func:`regexp_split` function.
 * Fix analysis of ``UNION`` queries for tables with hidden columns.
 
