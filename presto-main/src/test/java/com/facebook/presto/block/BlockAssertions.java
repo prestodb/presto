@@ -26,8 +26,10 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Locale.ENGLISH;
@@ -227,6 +229,28 @@ public final class BlockAssertions
 
         for (int i = start; i < end; i++) {
             DOUBLE.writeDouble(builder, (double) i);
+        }
+
+        return builder.build();
+    }
+
+    public static Block createDateSequenceBlock(int start, int end)
+    {
+        BlockBuilder builder = DATE.createFixedSizeBlockBuilder(end - start);
+
+        for (int i = start; i < end; i++) {
+            DATE.writeLong(builder, i);
+        }
+
+        return builder.build();
+    }
+
+    public static Block createTimestampSequenceBlock(int start, int end)
+    {
+        BlockBuilder builder = TIMESTAMP.createFixedSizeBlockBuilder(end - start);
+
+        for (int i = start; i < end; i++) {
+            TIMESTAMP.writeLong(builder, i);
         }
 
         return builder.build();
