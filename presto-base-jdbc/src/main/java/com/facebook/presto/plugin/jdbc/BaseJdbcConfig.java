@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 
 import javax.validation.constraints.NotNull;
 
@@ -22,6 +23,7 @@ public class BaseJdbcConfig
     private String connectionUrl;
     private String connectionUser;
     private String connectionPassword;
+    private boolean allowDropTable;
 
     @NotNull
     public String getConnectionUrl()
@@ -57,6 +59,19 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setConnectionPassword(String connectionPassword)
     {
         this.connectionPassword = connectionPassword;
+        return this;
+    }
+
+    public boolean getAllowDropTable()
+    {
+        return this.allowDropTable;
+    }
+
+    @Config("allow-drop-table")
+    @ConfigDescription("Allow connector to drop tables")
+    public BaseJdbcConfig setAllowDropTable(boolean allowDropTable)
+    {
+        this.allowDropTable = allowDropTable;
         return this;
     }
 }
