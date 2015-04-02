@@ -221,6 +221,24 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testArrayPosition()
+            throws Exception
+    {
+        assertFunction("ARRAY_POSITION(ARRAY [10, 20, 30, 40], 30)", BIGINT, 3);
+        assertFunction("ARRAY_POSITION(cast(cast('[]' as json) as array<bigint>), 30)", BIGINT, 0);
+        assertFunction("ARRAY_POSITION(ARRAY [cast(NULL as bigint)], 30)", BIGINT, 0);
+        assertFunction("ARRAY_POSITION(ARRAY [cast(NULL as bigint), NULL, NULL], 30)", BIGINT, 0);
+        assertFunction("ARRAY_POSITION(ARRAY [NULL, NULL, 30, NULL], 30)", BIGINT, 3);
+
+        assertFunction("ARRAY_POSITION(ARRAY [1.1, 2.1, 3.1, 4.1], 3.1)", BIGINT, 3);
+        assertFunction("ARRAY_POSITION(ARRAY [false, false, true, true], true)", BIGINT, 3);
+        assertFunction("ARRAY_POSITION(ARRAY ['10', '20', '30', '40'], '30')", BIGINT, 3);
+
+        assertFunction("ARRAY_POSITION(ARRAY [DATE '2000-01-01', DATE '2000-01-02', DATE '2000-01-03', DATE '2000-01-04'], DATE '2000-01-03')", BIGINT, 3);
+        assertFunction("ARRAY_POSITION(ARRAY [ARRAY [1, 11], ARRAY [2, 12], ARRAY [3, 13], ARRAY [4, 14]], ARRAY [3, 13])", BIGINT, 3);
+    }
+
+    @Test
     public void testSubscript()
             throws Exception
     {
