@@ -162,7 +162,7 @@ public class TestJdbcMetadata
                 ImmutableList.of(new ColumnMetadata("text", VARCHAR, 0, false))));
     }
 
-    @Test(expectedExceptions = PrestoException.class)
+    @Test
     public void testDropTableTable()
     {
         metadata.dropTable(tableHandle);

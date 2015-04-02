@@ -352,6 +352,21 @@ public class BaseJdbcClient
     }
 
     @Override
+    public void dropTable(JdbcTableHandle handle)
+    {
+        StringBuilder sql = new StringBuilder()
+                .append("DROP TABLE ")
+                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()));
+
+        try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
+            execute(connection, sql.toString());
+        }
+        catch (SQLException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    @Override
     public String buildInsertSql(JdbcOutputTableHandle handle)
     {
         String vars = Joiner.on(',').join(nCopies(handle.getColumnNames().size(), "?"));
