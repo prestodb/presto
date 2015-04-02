@@ -54,7 +54,6 @@ public class HdfsConfigurationUpdater
     private final DataSize s3MultipartMinPartSize;
     private final File s3StagingDirectory;
     private final List<String> resourcePaths;
-    private final boolean verifyChecksum;
 
     @Inject
     public HdfsConfigurationUpdater(HiveClientConfig hiveClientConfig)
@@ -81,12 +80,6 @@ public class HdfsConfigurationUpdater
         this.s3MultipartMinPartSize = hiveClientConfig.getS3MultipartMinPartSize();
         this.s3StagingDirectory = hiveClientConfig.getS3StagingDirectory();
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
-        this.verifyChecksum = hiveClientConfig.isVerifyChecksum();
-    }
-
-    public boolean verifyChecksum()
-    {
-        return verifyChecksum;
     }
 
     public void updateConfiguration(Configuration config)
