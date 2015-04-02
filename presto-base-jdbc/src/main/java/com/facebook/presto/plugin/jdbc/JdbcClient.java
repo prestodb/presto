@@ -53,6 +53,8 @@ public interface JdbcClient
 
     void commitCreateTable(JdbcOutputTableHandle handle, Collection<Slice> fragments);
 
+    void dropTable(JdbcTableHandle jdbcTableHandle);
+
     String buildInsertSql(JdbcOutputTableHandle handle);
 
     Connection getConnection(JdbcOutputTableHandle handle)
