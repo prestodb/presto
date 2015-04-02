@@ -17,6 +17,10 @@ General Aggregate Functions
 
     Returns an arbitrary non-null value of ``x``, if one exists.
 
+.. function:: array_agg(x) -> array<[same as input]>
+
+    Returns an array created from the input ``x`` elements.
+
 .. function:: avg(x) -> double
 
     Returns the average (arithmetic mean) of all input values.
