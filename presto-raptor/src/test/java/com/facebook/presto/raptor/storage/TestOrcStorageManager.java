@@ -49,6 +49,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -97,6 +98,7 @@ public class TestOrcStorageManager
     private static final DataSize MAX_BUFFER_SIZE = new DataSize(256, MEGABYTE);
     private static final int MAX_SHARD_ROWS = 100;
     private static final DataSize MAX_FILE_SIZE = new DataSize(1, MEGABYTE);
+    private static final Duration MISSING_SHARD_DISCOVERY = new Duration(5, TimeUnit.MINUTES);
 
     private final NodeManager nodeManager = new InMemoryNodeManager();
     private Handle dummyHandle;
@@ -415,15 +417,25 @@ public class TestOrcStorageManager
                 .row(123, "hello")
                 .row(456, "bye")
                 .build();
-        long dataSize = 0;
-        for (Page page : pages) {
-            dataSize += page.getSizeInBytes();
-        }
 
-        OrcStorageManager manager = createOrcStorageManager(storageService, recoveryManager, 20, new DataSize(dataSize, BYTE));
+        // Set maxFileSize to 1 byte, so adding any page makes the StoragePageSink full
+        OrcStorageManager manager = createOrcStorageManager(storageService, recoveryManager, 20, new DataSize(1, BYTE));
         StoragePageSink sink = manager.createStoragePageSink(columnIds, columnTypes);
         sink.appendPages(pages);
         assertTrue(sink.isFull());
+    }
+
+    public static OrcStorageManager createOrcStorageManager(IDBI dbi, File temporary)
+            throws IOException
+    {
+        File directory = new File(temporary, "data");
+        File backupDirectory = new File(temporary, "backup");
+        StorageService storageService = new FileStorageService(directory, Optional.of(backupDirectory));
+        storageService.start();
+
+        ShardManager shardManager = new DatabaseShardManager(dbi);
+        ShardRecoveryManager recoveryManager = new ShardRecoveryManager(storageService, new InMemoryNodeManager(), shardManager, MISSING_SHARD_DISCOVERY, 10);
+        return createOrcStorageManager(storageService, recoveryManager, MAX_SHARD_ROWS, MAX_FILE_SIZE);
     }
 
     public static OrcStorageManager createOrcStorageManager(StorageService storageService, ShardRecoveryManager recoveryManager)

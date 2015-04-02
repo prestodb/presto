@@ -15,7 +15,6 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
@@ -45,6 +44,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
+import static com.facebook.presto.raptor.storage.Row.extractRow;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Functions.toStringFunction;
@@ -75,7 +75,7 @@ public class OrcFileWriter
     private final RecordWriter recordWriter;
     private final SettableStructObjectInspector tableInspector;
     private final List<StructField> structFields;
-    private final Object row;
+    private final Object orcRow;
 
     private long rowCount;
     private long uncompressedSize;
@@ -99,17 +99,16 @@ public class OrcFileWriter
 
         tableInspector = getStandardStructObjectInspector(columnNames, getJavaObjectInspectors(storageTypes));
         structFields = ImmutableList.copyOf(tableInspector.getAllStructFieldRefs());
-        row = tableInspector.create();
+        orcRow = tableInspector.create();
     }
 
     public void appendPages(List<Page> pages)
     {
         for (Page page : pages) {
             for (int position = 0; position < page.getPositionCount(); position++) {
-                appendRow(page, position);
+                appendRow(extractRow(page, position, columnTypes));
             }
         }
-        updateDataSize(pages);
     }
 
     public void appendPages(List<Page> inputPages, int[] pageIndexes, int[] positionIndexes)
@@ -117,32 +116,25 @@ public class OrcFileWriter
         checkArgument(pageIndexes.length == positionIndexes.length, "pageIndexes and positionIndexes do not match");
         for (int i = 0; i < pageIndexes.length; i++) {
             Page page = inputPages.get(pageIndexes[i]);
-            appendRow(page, positionIndexes[i]);
-        }
-        updateDataSize(inputPages);
-    }
-
-    private void updateDataSize(List<Page> pages)
-    {
-        for (Page page : pages) {
-            uncompressedSize += page.getSizeInBytes();
+            appendRow(extractRow(page, positionIndexes[i], columnTypes));
         }
     }
 
-    private void appendRow(Page page, int position)
+    public void appendRow(Row row)
     {
-        checkArgument(page.getChannelCount() == columnTypes.size(), "channelCount does not match");
-        for (int channel = 0; channel < page.getChannelCount(); channel++) {
-            Object value = getValue(position, page.getBlock(channel), columnTypes.get(channel));
-            tableInspector.setStructFieldData(row, structFields.get(channel), value);
+        List<Object> columns = row.getColumns();
+        checkArgument(columns.size() == columnTypes.size());
+        for (int channel = 0; channel < columns.size(); channel++) {
+            tableInspector.setStructFieldData(orcRow, structFields.get(channel), columns.get(channel));
         }
         try {
-            recordWriter.write(serializer.serialize(row, tableInspector));
+            recordWriter.write(serializer.serialize(orcRow, tableInspector));
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to write record", e);
         }
         rowCount++;
+        uncompressedSize += row.getSizeInBytes();
     }
 
     @Override
@@ -262,28 +254,5 @@ public class OrcFileWriter
             }
         }
         throw new PrestoException(NOT_SUPPORTED, "No storage type for type: " + type);
-    }
-
-    private static Object getValue(int position, Block block, Type type)
-    {
-        if (block.isNull(position)) {
-            return null;
-        }
-        if (type.getJavaType() == boolean.class) {
-            return type.getBoolean(block, position);
-        }
-        if (type.getJavaType() == long.class) {
-            return type.getLong(block, position);
-        }
-        if (type.getJavaType() == double.class) {
-            return type.getDouble(block, position);
-        }
-        if (type.getJavaType() == Slice.class) {
-            if (type.equals(VarcharType.VARCHAR)) {
-                return new String(type.getSlice(block, position).getBytes());
-            }
-            return type.getSlice(block, position).getBytes();
-        }
-        throw new AssertionError("unimplemented type: " + type);
     }
 }

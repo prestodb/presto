@@ -112,6 +112,11 @@ public class TableColumn
         return new ColumnMetadata(columnName, dataType, ordinalPosition, false);
     }
 
+    public ColumnInfo toColumnInfo()
+    {
+        return new ColumnInfo(columnId, dataType);
+    }
+
     public static class Mapper
             implements ResultSetMapper<TableColumn>
     {
