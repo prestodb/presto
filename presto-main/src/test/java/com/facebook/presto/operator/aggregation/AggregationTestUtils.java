@@ -391,19 +391,14 @@ public final class AggregationTestUtils
         Page[] newPages = new Page[pages.length];
         for (int i = 0; i < pages.length; i++) {
             Page page = pages[i];
-            if (page.getPositionCount() == 0) {
-                newPages[i] = page;
+            Block[] newBlocks = new Block[page.getChannelCount() + offset];
+            for (int channel = 0; channel < offset; channel++) {
+                newBlocks[channel] = createNullRLEBlock(page.getPositionCount());
             }
-            else {
-                Block[] newBlocks = new Block[page.getChannelCount() + offset];
-                for (int channel = 0; channel < offset; channel++) {
-                    newBlocks[channel] = createNullRLEBlock(page.getPositionCount());
-                }
-                for (int channel = 0; channel < page.getBlocks().length; channel++) {
-                    newBlocks[channel + offset] = page.getBlocks()[channel];
-                }
-                newPages[i] = new Page(page.getPositionCount(), newBlocks);
+            for (int channel = 0; channel < page.getBlocks().length; channel++) {
+                newBlocks[channel + offset] = page.getBlocks()[channel];
             }
+            newPages[i] = new Page(page.getPositionCount(), newBlocks);
         }
         return newPages;
     }
