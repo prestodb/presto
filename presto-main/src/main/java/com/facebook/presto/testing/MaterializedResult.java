@@ -245,6 +245,12 @@ public class MaterializedResult
             this.types = ImmutableList.copyOf(types);
         }
 
+        public Builder rows(List<MaterializedRow> rows)
+        {
+            this.rows.addAll(rows);
+            return this;
+        }
+
         public Builder row(Object... values)
         {
             rows.add(new MaterializedRow(DEFAULT_PRECISION, values));
