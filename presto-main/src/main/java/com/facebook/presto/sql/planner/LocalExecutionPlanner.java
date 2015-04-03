@@ -18,6 +18,7 @@ import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
@@ -530,7 +531,9 @@ public class LocalExecutionPlanner
                 }
                 Symbol symbol = entry.getKey();
                 Signature signature = node.getSignatures().get(symbol);
-                windowFunctionsBuilder.add(metadata.getExactFunction(signature).bindWindowFunction(arguments.build()));
+                FunctionInfo functionInfo = metadata.getExactFunction(signature);
+                Type type = metadata.getType(functionInfo.getReturnType());
+                windowFunctionsBuilder.add(functionInfo.bindWindowFunction(type, arguments.build()));
                 windowFunctionOutputSymbolsBuilder.add(symbol);
             }
 
