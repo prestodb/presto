@@ -116,9 +116,9 @@ selectItem
 
 relation
     : left=relation
-      ( CROSS JOIN right=relation
-      | joinType JOIN right=relation joinCriteria
-      | NATURAL joinType JOIN right=relation
+      ( CROSS JOIN right=sampledRelation
+      | joinType JOIN rightRelation=relation joinCriteria
+      | NATURAL joinType JOIN right=sampledRelation
       )                                           #joinRelation
     | sampledRelation                             #relationDefault
     ;

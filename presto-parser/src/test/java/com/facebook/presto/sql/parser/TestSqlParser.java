@@ -18,6 +18,7 @@ import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
+import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -38,8 +39,10 @@ import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import com.facebook.presto.sql.tree.IntervalLiteral.Sign;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
+import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -758,6 +761,46 @@ public class TestSqlParser
                         ImmutableList.of(
                                 new ExplainType(ExplainType.Type.LOGICAL),
                                 new ExplainFormat(ExplainFormat.Type.TEXT))));
+    }
+
+    @Test
+    public void testJoinPrecedence()
+    {
+        assertStatement("SELECT * FROM a CROSS JOIN b LEFT JOIN c ON true",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Join(
+                                Join.Type.LEFT,
+                                new Join(
+                                        Join.Type.CROSS,
+                                        new Table(QualifiedName.of("a")),
+                                        new Table(QualifiedName.of("b")),
+                                        Optional.empty()
+                                ),
+                                new Table(QualifiedName.of("c")),
+                                Optional.of(new JoinOn(BooleanLiteral.TRUE_LITERAL)))));
+        assertStatement("SELECT * FROM a CROSS JOIN b NATURAL JOIN c CROSS JOIN d NATURAL JOIN e",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Join(
+                                Join.Type.INNER,
+                                new Join(
+                                        Join.Type.CROSS,
+                                        new Join(
+                                                Join.Type.INNER,
+                                                new Join(
+                                                        Join.Type.CROSS,
+                                                        new Table(QualifiedName.of("a")),
+                                                        new Table(QualifiedName.of("b")),
+                                                        Optional.empty()
+                                                ),
+                                                new Table(QualifiedName.of("c")),
+                                                Optional.of(new NaturalJoin())),
+                                        new Table(QualifiedName.of("d")),
+                                        Optional.empty()
+                                ),
+                                new Table(QualifiedName.of("e")),
+                                Optional.of(new NaturalJoin()))));
     }
 
     @Test
