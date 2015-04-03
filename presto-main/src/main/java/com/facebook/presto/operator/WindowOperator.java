@@ -27,6 +27,7 @@ import it.unimi.dsi.fastutil.ints.IntComparator;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
@@ -36,6 +37,7 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
@@ -81,7 +83,12 @@ public class WindowOperator
 
             this.expectedPositions = expectedPositions;
 
-            this.types = toTypes(sourceTypes, outputChannels, toWindowFunctions(windowFunctionDefinitions));
+            this.types = Stream.concat(
+                    outputChannels.stream()
+                            .map(sourceTypes::get),
+                    windowFunctionDefinitions.stream()
+                            .map(WindowFunctionDefinition::getType))
+                    .collect(toImmutableList());
         }
 
         @Override
@@ -163,13 +170,20 @@ public class WindowOperator
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.outputChannels = Ints.toArray(checkNotNull(outputChannels, "outputChannels is null"));
-        this.windowFunctions = toWindowFunctions(checkNotNull(windowFunctionDefinitions, "windowFunctionDefinitions is null"));
+        this.windowFunctions = checkNotNull(windowFunctionDefinitions, "windowFunctionDefinitions is null").stream()
+                .map(WindowFunctionDefinition::createWindowFunction)
+                .collect(toImmutableList());
         this.partitionChannels = ImmutableList.copyOf(checkNotNull(partitionChannels, "partitionChannels is null"));
         this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
         this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder, "sortOrder is null"));
         this.frameInfo = checkNotNull(frameInfo, "frameInfo is null");
 
-        this.types = toTypes(sourceTypes, outputChannels, windowFunctions);
+        this.types = Stream.concat(
+                outputChannels.stream()
+                        .map(sourceTypes::get),
+                windowFunctions.stream()
+                        .map(WindowFunction::getType))
+                .collect(toImmutableList());
 
         this.pagesIndex = new PagesIndex(sourceTypes, expectedPositions);
         this.pageBuilder = new PageBuilder(this.types);
@@ -413,26 +427,5 @@ public class WindowOperator
         long value = pagesIndex.getLong(channel, currentPosition);
         checkCondition(value >= 0, INVALID_WINDOW_FRAME, "Window frame %s offset must not be negative");
         return value;
-    }
-
-    private static List<Type> toTypes(List<? extends Type> sourceTypes, List<Integer> outputChannels, List<WindowFunction> windowFunctions)
-    {
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (int channel : outputChannels) {
-            types.add(sourceTypes.get(channel));
-        }
-        for (WindowFunction function : windowFunctions) {
-            types.add(function.getType());
-        }
-        return types.build();
-    }
-
-    private static List<WindowFunction> toWindowFunctions(List<WindowFunctionDefinition> windowFunctionDefinitions)
-    {
-        ImmutableList.Builder<WindowFunction> builder = ImmutableList.builder();
-        for (WindowFunctionDefinition windowFunctionDefinition : windowFunctionDefinitions) {
-            builder.add(windowFunctionDefinition.createWindowFunction());
-        }
-        return builder.build();
     }
 }
