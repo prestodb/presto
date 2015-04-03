@@ -23,14 +23,25 @@ public class BenchmarkQueryResult
 {
     private final Suite suite;
     private final BenchmarkQuery benchmarkQuery;
+    private final String status;
+    private final String errorMessage;
     private final Stat wallTimeNanos;
     private final Stat processCpuTimeNanos;
     private final Stat queryCpuTimeNanos;
 
-    public BenchmarkQueryResult(Suite suite, BenchmarkQuery benchmarkQuery, Stat wallTimeNanos, Stat processCpuTimeNanos, Stat queryCpuTimeNanos)
+    public BenchmarkQueryResult(
+            Suite suite,
+            BenchmarkQuery benchmarkQuery,
+            String status,
+            String errorMessage,
+            Stat wallTimeNanos,
+            Stat processCpuTimeNanos,
+            Stat queryCpuTimeNanos)
     {
         this.suite = checkNotNull(suite, "suite is null");
         this.benchmarkQuery = checkNotNull(benchmarkQuery, "benchmarkQuery is null");
+        this.status = checkNotNull(status, "status is null");
+        this.errorMessage = checkNotNull(errorMessage, "error is null");
         this.wallTimeNanos = checkNotNull(wallTimeNanos, "wallTimeNanos is null");
         this.processCpuTimeNanos = checkNotNull(processCpuTimeNanos, "processCpuTimeNanos is null");
         this.queryCpuTimeNanos = checkNotNull(queryCpuTimeNanos, "queryCpuTimeNanos is null");
@@ -61,6 +72,21 @@ public class BenchmarkQueryResult
         return queryCpuTimeNanos;
     }
 
+    public String getStatus()
+    {
+        return status;
+    }
+
+    public String getErrorMessage()
+    {
+        return errorMessage;
+    }
+
+    public String getErrorMessageShort()
+    {
+        return errorMessage.split("\\r?\\n")[0];
+    }
+
     @Override
     public String toString()
     {
@@ -76,6 +102,8 @@ public class BenchmarkQueryResult
                 .add("queryCpuTimeMedian", new Duration(queryCpuTimeNanos.getMedian(), NANOSECONDS).convertToMostSuccinctTimeUnit())
                 .add("queryCpuTimeMean", new Duration(queryCpuTimeNanos.getMean(), NANOSECONDS).convertToMostSuccinctTimeUnit())
                 .add("queryCpuTimeStd", new Duration(queryCpuTimeNanos.getStandardDeviation(), NANOSECONDS).convertToMostSuccinctTimeUnit())
+                .add("status", getStatus())
+                .add("error", getErrorMessageShort())
                 .toString();
     }
 }
