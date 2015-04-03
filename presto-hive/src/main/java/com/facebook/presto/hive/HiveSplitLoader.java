@@ -11,15 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.util;
+package com.facebook.presto.hive;
 
-import org.apache.hadoop.fs.BlockLocation;
-import org.apache.hadoop.fs.FileStatus;
-
-public interface FileStatusCallback
+interface HiveSplitLoader
 {
-    /**
-     * Called once for each FileStatus encountered in the path traversal
-     */
-    void process(FileStatus fileStatus, BlockLocation[] blockLocations);
+    void start(HiveSplitSource splitSource);
+
+    void resume();
+
+    void stop();
 }

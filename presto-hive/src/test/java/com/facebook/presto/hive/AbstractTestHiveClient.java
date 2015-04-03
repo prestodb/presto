@@ -315,7 +315,6 @@ public abstract class AbstractTestHiveClient
                 timeZone,
                 newDirectExecutorService(),
                 maxOutstandingSplits,
-                maxThreads,
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxSplitSize(),
