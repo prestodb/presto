@@ -211,7 +211,7 @@ public class BackgroundHiveSplitLoader
 
                 hiveSplitSource.addToQueue(createHiveSplits(
                         files.getPartitionName(),
-                        file,
+                        file.getPath().toString(),
                         file.getBlockLocations(),
                         0,
                         file.getLen(),
@@ -256,7 +256,7 @@ public class BackgroundHiveSplitLoader
                 FileStatus file = targetFilesystem.getFileStatus(split.getPath());
                 hiveSplitSource.addToQueue(createHiveSplits(
                         partitionName,
-                        file,
+                        file.getPath().toString(),
                         targetFilesystem.getFileBlockLocations(file, split.getStart(), split.getLength()),
                         split.getStart(),
                         split.getLength(),
@@ -282,7 +282,7 @@ public class BackgroundHiveSplitLoader
 
                 hiveSplitSource.addToQueue(createHiveSplits(
                         partitionName,
-                        file,
+                        file.getPath().toString(),
                         blockLocations,
                         0,
                         file.getLen(),
@@ -337,7 +337,7 @@ public class BackgroundHiveSplitLoader
 
     private List<HiveSplit> createHiveSplits(
             String partitionName,
-            FileStatus file,
+            String path,
             BlockLocation[] blockLocations,
             long start,
             long length,
@@ -377,7 +377,7 @@ public class BackgroundHiveSplitLoader
                             table.getDbName(),
                             table.getTableName(),
                             partitionName,
-                            file.getPath().toString(),
+                            path,
                             blockLocation.getOffset() + chunkOffset,
                             chunkLength,
                             schema,
@@ -404,7 +404,7 @@ public class BackgroundHiveSplitLoader
                     table.getDbName(),
                     table.getTableName(),
                     partitionName,
-                    file.getPath().toString(),
+                    path,
                     start,
                     length,
                     schema,
