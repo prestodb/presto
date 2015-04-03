@@ -104,7 +104,6 @@ public class HiveSplitManager
     private final DateTimeZone timeZone;
     private final Executor executor;
     private final int maxOutstandingSplits;
-    private final int maxSplitIteratorThreads;
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
     private final DataSize maxSplitSize;
@@ -132,7 +131,6 @@ public class HiveSplitManager
                 DateTimeZone.forTimeZone(hiveClientConfig.getTimeZone()),
                 new BoundedExecutor(executorService, hiveClientConfig.getMaxGlobalSplitIteratorThreads()),
                 hiveClientConfig.getMaxOutstandingSplits(),
-                hiveClientConfig.getMaxSplitIteratorThreads(),
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxSplitSize(),
@@ -152,7 +150,6 @@ public class HiveSplitManager
             DateTimeZone timeZone,
             Executor executor,
             int maxOutstandingSplits,
-            int maxSplitIteratorThreads,
             int minPartitionBatchSize,
             int maxPartitionBatchSize,
             DataSize maxSplitSize,
@@ -171,7 +168,6 @@ public class HiveSplitManager
         this.executor = new ErrorCodedExecutor(executor);
         checkArgument(maxOutstandingSplits >= 1, "maxOutstandingSplits must be at least 1");
         this.maxOutstandingSplits = maxOutstandingSplits;
-        this.maxSplitIteratorThreads = maxSplitIteratorThreads;
         this.minPartitionBatchSize = minPartitionBatchSize;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.maxSplitSize = checkNotNull(maxSplitSize, "maxSplitSize is null");
@@ -374,23 +370,27 @@ public class HiveSplitManager
             throw new TableNotFoundException(tableName);
         }
 
-        return new HiveSplitSourceProvider(connectorId,
+        HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
+                connectorId,
                 table,
                 hivePartitions,
                 bucket,
                 maxSplitSize,
-                maxOutstandingSplits,
-                maxSplitIteratorThreads,
+                hiveTableHandle.getSession(),
                 hdfsEnvironment,
                 namenodeStats,
                 directoryLister,
                 executor,
                 maxPartitionBatchSize,
-                hiveTableHandle.getSession(),
                 maxInitialSplitSize,
                 maxInitialSplits,
                 forceLocalScheduling,
-                recursiveDfsWalkerEnabled).get();
+                recursiveDfsWalkerEnabled);
+
+        HiveSplitSource splitSource = new HiveSplitSource(connectorId, maxOutstandingSplits, hiveSplitLoader);
+        hiveSplitLoader.start(splitSource);
+
+        return splitSource;
     }
 
     private Iterable<HivePartitionMetadata> getPartitionMetadata(Table table, SchemaTableName tableName, List<HivePartition> partitions)

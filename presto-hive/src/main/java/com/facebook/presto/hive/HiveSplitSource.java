@@ -13,19 +13,15 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.util.SuspendingExecutor;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 
-import javax.annotation.concurrent.GuardedBy;
-
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -62,17 +58,14 @@ class HiveSplitSource
     private final AtomicInteger outstandingSplitCount = new AtomicInteger();
     private final AtomicReference<Throwable> throwable = new AtomicReference<>();
     private final int maxOutstandingSplits;
-    private final SuspendingExecutor suspendingExecutor;
+    private final HiveSplitLoader splitLoader;
     private volatile boolean closed;
 
-    @GuardedBy("this")
-    private Future<?> producerFuture;
-
-    HiveSplitSource(String connectorId, int maxOutstandingSplits, SuspendingExecutor suspendingExecutor)
+    HiveSplitSource(String connectorId, int maxOutstandingSplits, HiveSplitLoader splitLoader)
     {
         this.connectorId = connectorId;
         this.maxOutstandingSplits = maxOutstandingSplits;
-        this.suspendingExecutor = suspendingExecutor;
+        this.splitLoader = splitLoader;
     }
 
     int getOutstandingSplitCount()
@@ -90,17 +83,21 @@ class HiveSplitSource
     void addToQueue(ConnectorSplit split)
     {
         if (throwable.get() == null) {
+            outstandingSplitCount.incrementAndGet();
             queue.add(split);
-            if (outstandingSplitCount.incrementAndGet() >= maxOutstandingSplits) {
-                suspendingExecutor.suspend();
-            }
         }
+    }
+
+    boolean isQueueFull()
+    {
+        return outstandingSplitCount.get() >= maxOutstandingSplits;
     }
 
     void finished()
     {
         if (throwable.get() == null) {
             queue.add(FINISHED_MARKER);
+            splitLoader.stop();
         }
     }
 
@@ -112,7 +109,7 @@ class HiveSplitSource
             queue.add(FINISHED_MARKER);
 
             // no need to process any more jobs
-            suspendingExecutor.suspend();
+            splitLoader.stop();
         }
     }
 
@@ -155,7 +152,7 @@ class HiveSplitSource
         // decrement the outstanding split count by the number of splits we took
         if (outstandingSplitCount.addAndGet(-splits.size()) < maxOutstandingSplits) {
             // we are below the low water mark (and there isn't a failure) so resume scanning hdfs
-            suspendingExecutor.resume();
+            splitLoader.resume();
         }
 
         return splits;
@@ -177,25 +174,9 @@ class HiveSplitSource
     public void close()
     {
         queue.add(FINISHED_MARKER);
-        suspendingExecutor.suspend();
+        splitLoader.stop();
 
-        synchronized (this) {
-            closed = true;
-
-            if (producerFuture != null) {
-                producerFuture.cancel(true);
-            }
-        }
-    }
-
-    public synchronized void setProducerFuture(Future<?> future)
-    {
-        producerFuture = future;
-
-        // someone may have called close before calling this method
-        if (closed) {
-            producerFuture.cancel(true);
-        }
+        closed = true;
     }
 
     private static RuntimeException propagatePrestoException(Throwable throwable)
