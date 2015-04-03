@@ -355,7 +355,7 @@ public class ShardRecoveryManager
         }
     }
 
-    private static DataSize dataRate(DataSize size, Duration duration)
+    static DataSize dataRate(DataSize size, Duration duration)
     {
         double rate = size.toBytes() / duration.getValue(SECONDS);
         if (Double.isNaN(rate) || Double.isInfinite(rate)) {
