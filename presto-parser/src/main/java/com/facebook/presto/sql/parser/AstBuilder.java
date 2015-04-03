@@ -453,29 +453,34 @@ class AstBuilder
     public Node visitJoinRelation(@NotNull SqlBaseParser.JoinRelationContext context)
     {
         Relation left = (Relation) visit(context.left);
-        Relation right = (Relation) visit(context.right);
+        Relation right;
 
         if (context.CROSS() != null) {
+            right = (Relation) visit(context.right);
             return new Join(Join.Type.CROSS, left, right, Optional.<JoinCriteria>empty());
         }
 
         JoinCriteria criteria;
         if (context.NATURAL() != null) {
+            right = (Relation) visit(context.right);
             criteria = new NaturalJoin();
         }
-        else if (context.joinCriteria().ON() != null) {
-            criteria = new JoinOn((Expression) visit(context.joinCriteria().booleanExpression()));
-        }
-        else if (context.joinCriteria().USING() != null) {
-            List<String> columns = context.joinCriteria()
-                    .identifier().stream()
-                    .map(ParseTree::getText)
-                    .collect(Collectors.toList());
-
-            criteria = new JoinUsing(columns);
-        }
         else {
-            throw new IllegalArgumentException("Unsupported join criteria");
+            right = (Relation) visit(context.rightRelation);
+            if (context.joinCriteria().ON() != null) {
+                criteria = new JoinOn((Expression) visit(context.joinCriteria().booleanExpression()));
+            }
+            else if (context.joinCriteria().USING() != null) {
+                List<String> columns = context.joinCriteria()
+                        .identifier().stream()
+                        .map(ParseTree::getText)
+                        .collect(Collectors.toList());
+
+                criteria = new JoinUsing(columns);
+            }
+            else {
+                throw new IllegalArgumentException("Unsupported join criteria");
+            }
         }
 
         Join.Type joinType;
