@@ -37,6 +37,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.failResult;
+import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.passResult;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -45,6 +47,7 @@ import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.Long.parseLong;
+import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class BenchmarkQueryRunner
@@ -93,9 +96,12 @@ public class BenchmarkQueryRunner
         failures = 0;
         for (int i = 0; i < warm; ) {
             try {
-                execute(session, query.getSql());
+                execute(session, query.getName(), query.getSql());
                 i++;
                 failures = 0;
+            }
+            catch (BenchmarkDriverExecutionException e) {
+                return failResult(suite, query, e.getCause().getMessage());
             }
             catch (Exception e) {
                 handleFailure(e);
@@ -110,7 +116,7 @@ public class BenchmarkQueryRunner
                 long startCpuTime = getTotalCpuTime();
                 long startWallTime = System.nanoTime();
 
-                StatementStats statementStats = execute(session, query.getSql());
+                StatementStats statementStats = execute(session, query.getName(), query.getSql());
 
                 long endWallTime = System.nanoTime();
                 long endCpuTime = getTotalCpuTime();
@@ -122,18 +128,20 @@ public class BenchmarkQueryRunner
                 i++;
                 failures = 0;
             }
+            catch (BenchmarkDriverExecutionException e) {
+                return failResult(suite, query, e.getCause().getMessage());
+            }
             catch (Exception e) {
                 handleFailure(e);
             }
         }
 
-        return new BenchmarkQueryResult(
+        return passResult(
                 suite,
                 query,
                 new Stat(wallTimeNanos),
                 new Stat(processCpuTimeNanos),
                 new Stat(queryCpuTimeNanos));
-
     }
 
     public List<String> getSchemas(ClientSession session)
@@ -179,7 +187,7 @@ public class BenchmarkQueryRunner
         }
     }
 
-    private StatementStats execute(ClientSession session, String query)
+    private StatementStats execute(ClientSession session, String name, String query)
     {
         // start query
         StatementClient client = new StatementClient(httpClient, queryResultsCodec, session, query);
@@ -205,7 +213,7 @@ public class BenchmarkQueryRunner
                 cause = resultsError.getFailureInfo().toException();
             }
 
-            throw new IllegalStateException(String.format("Query failed: %s%n", resultsError.getMessage()), cause);
+            throw new BenchmarkDriverExecutionException(format("Query %s failed: %s", name, resultsError.getMessage()), cause);
         }
 
         return client.finalResults().getStats();

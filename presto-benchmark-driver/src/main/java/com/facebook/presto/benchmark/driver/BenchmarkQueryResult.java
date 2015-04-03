@@ -21,16 +21,44 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class BenchmarkQueryResult
 {
+    public enum Status
+    {
+        PASS, FAIL
+    }
+
+    private static final Stat FAIL_STAT = new Stat(new double[0]);
+
+    public static BenchmarkQueryResult passResult(Suite suite, BenchmarkQuery benchmarkQuery, Stat wallTimeNanos, Stat processCpuTimeNanos, Stat queryCpuTimeNanos)
+    {
+        return new BenchmarkQueryResult(suite, benchmarkQuery, Status.PASS, null, wallTimeNanos, processCpuTimeNanos, queryCpuTimeNanos);
+    }
+
+    public static BenchmarkQueryResult failResult(Suite suite, BenchmarkQuery benchmarkQuery, String errorMessage)
+    {
+        return new BenchmarkQueryResult(suite, benchmarkQuery, Status.FAIL, errorMessage, FAIL_STAT, FAIL_STAT, FAIL_STAT);
+    }
+
     private final Suite suite;
     private final BenchmarkQuery benchmarkQuery;
+    private final Status status;
+    private final String errorMessage;
     private final Stat wallTimeNanos;
     private final Stat processCpuTimeNanos;
     private final Stat queryCpuTimeNanos;
 
-    public BenchmarkQueryResult(Suite suite, BenchmarkQuery benchmarkQuery, Stat wallTimeNanos, Stat processCpuTimeNanos, Stat queryCpuTimeNanos)
+    private BenchmarkQueryResult(
+            Suite suite,
+            BenchmarkQuery benchmarkQuery,
+            Status status,
+            String errorMessage,
+            Stat wallTimeNanos,
+            Stat processCpuTimeNanos,
+            Stat queryCpuTimeNanos)
     {
         this.suite = checkNotNull(suite, "suite is null");
         this.benchmarkQuery = checkNotNull(benchmarkQuery, "benchmarkQuery is null");
+        this.status = checkNotNull(status, "status is null");
+        this.errorMessage = checkNotNull(errorMessage, "error is null");
         this.wallTimeNanos = checkNotNull(wallTimeNanos, "wallTimeNanos is null");
         this.processCpuTimeNanos = checkNotNull(processCpuTimeNanos, "processCpuTimeNanos is null");
         this.queryCpuTimeNanos = checkNotNull(queryCpuTimeNanos, "queryCpuTimeNanos is null");
@@ -44,6 +72,16 @@ public class BenchmarkQueryResult
     public BenchmarkQuery getBenchmarkQuery()
     {
         return benchmarkQuery;
+    }
+
+    public Status getStatus()
+    {
+        return status;
+    }
+
+    public String getErrorMessage()
+    {
+        return errorMessage;
     }
 
     public Stat getWallTimeNanos()
@@ -67,6 +105,7 @@ public class BenchmarkQueryResult
         return MoreObjects.toStringHelper(this)
                 .add("suite", suite.getName())
                 .add("benchmarkQuery", benchmarkQuery.getName())
+                .add("status", status)
                 .add("wallTimeMedian", new Duration(wallTimeNanos.getMedian(), NANOSECONDS).convertToMostSuccinctTimeUnit())
                 .add("wallTimeMean", new Duration(wallTimeNanos.getMean(), NANOSECONDS).convertToMostSuccinctTimeUnit())
                 .add("wallTimeStd", new Duration(wallTimeNanos.getStandardDeviation(), NANOSECONDS).convertToMostSuccinctTimeUnit())
@@ -76,6 +115,7 @@ public class BenchmarkQueryResult
                 .add("queryCpuTimeMedian", new Duration(queryCpuTimeNanos.getMedian(), NANOSECONDS).convertToMostSuccinctTimeUnit())
                 .add("queryCpuTimeMean", new Duration(queryCpuTimeNanos.getMean(), NANOSECONDS).convertToMostSuccinctTimeUnit())
                 .add("queryCpuTimeStd", new Duration(queryCpuTimeNanos.getStandardDeviation(), NANOSECONDS).convertToMostSuccinctTimeUnit())
+                .add("error", errorMessage)
                 .toString();
     }
 }
