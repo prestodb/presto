@@ -14,6 +14,7 @@
 package com.facebook.presto.benchmark.driver;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 
 import java.util.LinkedHashMap;
@@ -22,8 +23,11 @@ import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
+import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.Status.FAIL;
+import static com.google.common.base.CharMatcher.anyOf;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -70,6 +74,8 @@ public class BenchmarkResultsPrinter
                 .add("queryCpuTimeP50")
                 .add("queryCpuTimeMean")
                 .add("queryCpuTimeStd")
+                .add("status")
+                .add("error")
                 .build());
     }
 
@@ -79,6 +85,12 @@ public class BenchmarkResultsPrinter
         Map<String, String> tags = new LinkedHashMap<>();
         tags.putAll(result.getBenchmarkQuery().getTags());
         tags.putAll(benchmarkSchema.getTags());
+
+        String errorMessage = "";
+        if (result.getStatus() == FAIL) {
+            // only print first line of error message
+            errorMessage = getFirst(Splitter.on(anyOf("\r\n")).trimResults().split(result.getErrorMessage()), "");
+        }
 
         printRow(ImmutableList.builder()
                 .add(result.getSuite().getName())
@@ -93,6 +105,8 @@ public class BenchmarkResultsPrinter
                 .add(NANOSECONDS.toMillis((long) result.getQueryCpuTimeNanos().getMedian()))
                 .add(NANOSECONDS.toMillis((long) result.getQueryCpuTimeNanos().getMean()))
                 .add(NANOSECONDS.toMillis((long) result.getQueryCpuTimeNanos().getStandardDeviation()))
+                .add(result.getStatus().toString().toLowerCase())
+                .add(errorMessage)
                 .build());
     }
 
