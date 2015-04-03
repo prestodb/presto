@@ -84,10 +84,10 @@ public class BackgroundHiveSplitLoader
     private final AtomicInteger outstandingTasks = new AtomicInteger();
     private final Queue<HivePartitionMetadata> partitions = new ConcurrentLinkedQueue<>();
     private final Deque<HiveFileIterator> fileIterators = new ConcurrentLinkedDeque<>();
+    private final AtomicInteger remainingInitialSplits;
 
     private HiveSplitSource hiveSplitSource;
     private volatile boolean stopped;
-    private long remainingInitialSplits;
 
     public BackgroundHiveSplitLoader(
             String connectorId,
@@ -116,7 +116,7 @@ public class BackgroundHiveSplitLoader
         this.namenodeStats = namenodeStats;
         this.directoryLister = directoryLister;
         this.maxInitialSplitSize = maxInitialSplitSize;
-        this.remainingInitialSplits = maxInitialSplits;
+        this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
         this.forceLocalScheduling = forceLocalScheduling;
         this.executor = executor;
@@ -359,7 +359,7 @@ public class BackgroundHiveSplitLoader
 
                 long maxBytes = maxSplitSize.toBytes();
 
-                if (remainingInitialSplits > 0) {
+                if (remainingInitialSplits.get() > 0) {
                     maxBytes = maxInitialSplitSize.toBytes();
                 }
 
@@ -388,7 +388,7 @@ public class BackgroundHiveSplitLoader
                             effectivePredicate));
 
                     chunkOffset += chunkLength;
-                    remainingInitialSplits--;
+                    remainingInitialSplits.decrementAndGet();
                 }
                 checkState(chunkOffset == blockLocation.getLength(), "Error splitting blocks");
             }
