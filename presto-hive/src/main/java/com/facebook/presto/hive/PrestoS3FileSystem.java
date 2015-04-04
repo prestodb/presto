@@ -21,6 +21,7 @@ import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
+import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
@@ -74,6 +75,7 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.Random;
 
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -103,6 +105,7 @@ public class PrestoS3FileSystem
     public static final String S3_MULTIPART_MIN_FILE_SIZE = "presto.s3.multipart.min-file-size";
     public static final String S3_MULTIPART_MIN_PART_SIZE = "presto.s3.multipart.min-part-size";
     public static final String S3_USE_INSTANCE_CREDENTIALS = "presto.s3.use-instance-credentials";
+    public static final String S3_ROLE_ARN = "presto.s3.aws-role-arn";
 
     private static final Logger log = Logger.get(PrestoS3FileSystem.class);
 
@@ -118,6 +121,7 @@ public class PrestoS3FileSystem
     private Duration maxBackoffTime;
     private Duration maxRetryTime;
     private boolean useInstanceCredentials;
+    private String s3RoleArn;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -144,6 +148,7 @@ public class PrestoS3FileSystem
         long minFileSize = conf.getLong(S3_MULTIPART_MIN_FILE_SIZE, defaults.getS3MultipartMinFileSize().toBytes());
         long minPartSize = conf.getLong(S3_MULTIPART_MIN_PART_SIZE, defaults.getS3MultipartMinPartSize().toBytes());
         this.useInstanceCredentials = conf.getBoolean(S3_USE_INSTANCE_CREDENTIALS, defaults.isS3UseInstanceCredentials());
+        this.s3RoleArn = conf.get(S3_ROLE_ARN, defaults.getS3AwsRoleArn());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -452,6 +457,13 @@ public class PrestoS3FileSystem
 
     private AmazonS3Client createAmazonS3Client(URI uri, Configuration hadoopConfig, ClientConfiguration clientConfig)
     {
+        if (this.s3RoleArn != null) {
+            Random randomGenerator = new Random();
+            STSAssumeRoleSessionCredentialsProvider roleSessionProvider =
+                new STSAssumeRoleSessionCredentialsProvider(this.s3RoleArn, "RoleSessionName-" + randomGenerator.nextInt(100));
+            return new AmazonS3Client(roleSessionProvider, clientConfig);
+        }
+
         // first try credentials from URI or static properties
         try {
             return new AmazonS3Client(getAwsCredentials(uri, hadoopConfig), clientConfig);

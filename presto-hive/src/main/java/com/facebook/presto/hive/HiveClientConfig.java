@@ -81,6 +81,7 @@ public class HiveClientConfig
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
     private DataSize s3MultipartMinFileSize = new DataSize(16, MEGABYTE);
     private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
+    private String s3AwsRoleArn;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
 
@@ -679,6 +680,18 @@ public class HiveClientConfig
     public HiveClientConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
     {
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        return this;
+    }
+
+    public String getS3AwsRoleArn()
+    {
+        return s3AwsRoleArn;
+    }
+
+    @Config("hive.s3.aws-role-arn")
+    public HiveClientConfig setS3AwsRoleArn(String s3AwsRoleArn)
+    {
+        this.s3AwsRoleArn = s3AwsRoleArn;
         return this;
     }
 }
