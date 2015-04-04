@@ -96,7 +96,7 @@ public final class ByteCodeUtils
         }
 
         String comment = format("if wasNull then %s", Joiner.on(", ").skipNulls().join(clearComment, popComment, loadDefaultComment, "goto " + label.getLabel()));
-        return new IfStatement(context, comment, nullCheck, isNull, NOP);
+        return new IfStatement(comment, nullCheck, isNull, NOP);
     }
 
     public static ByteCodeNode boxPrimitive(CompilerContext context, Class<?> type)
@@ -253,7 +253,7 @@ public final class ByteCodeUtils
                 .pushNull()
                 .checkCast(type);
 
-        return IfStatement.ifStatementBuilder(context).condition(condition).ifTrue(wasNull).ifFalse(notNull).build();
+        return IfStatement.ifStatementBuilder().condition(condition).ifTrue(wasNull).ifFalse(notNull).build();
     }
 
     public static ByteCodeNode invoke(CompilerContext context, Binding binding, String name)
@@ -287,7 +287,7 @@ public final class ByteCodeUtils
         Variable tempOutput = context.createTempVariable(BlockBuilder.class);
         return new Block(context)
                 .comment("if (wasNull)")
-                .append(new IfStatement.IfStatementBuilder(context)
+                .append(new IfStatement.IfStatementBuilder()
                         .condition(new Block(context).getVariable(wasNullVariable))
                         .ifTrue(new Block(context)
                                 .comment("output.appendNull();")

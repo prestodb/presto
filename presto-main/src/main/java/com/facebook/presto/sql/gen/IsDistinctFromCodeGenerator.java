@@ -61,7 +61,7 @@ public class IsDistinctFromCodeGenerator
                 .comment("IS DISTINCT FROM")
                 .comment("left")
                 .append(generatorContext.generate(left))
-                .append(new IfStatement(context,
+                .append(new IfStatement(
                         new Block(context).getVariable("wasNull"),
                         new Block(context)
                                 .pop(leftType.getJavaType())
@@ -74,7 +74,7 @@ public class IsDistinctFromCodeGenerator
                         new Block(context)
                                 .comment("right")
                                 .append(generatorContext.generate(right))
-                                .append(new IfStatement(context,
+                                .append(new IfStatement(
                                         new Block(context).getVariable("wasNull"),
                                         new Block(context)
                                                 .pop(leftType.getJavaType())

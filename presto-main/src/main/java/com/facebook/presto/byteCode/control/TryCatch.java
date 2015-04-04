@@ -16,7 +16,6 @@ package com.facebook.presto.byteCode.control;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
-import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.instruction.LabelNode;
@@ -30,15 +29,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class TryCatch
         implements FlowControl
 {
-    private final CompilerContext context;
     private final String comment;
     private final ByteCodeNode tryNode;
     private final ByteCodeNode catchNode;
     private final String exceptionName;
 
-    public TryCatch(CompilerContext context, String comment, ByteCodeNode tryNode, ByteCodeNode catchNode, ParameterizedType exceptionType)
+    public TryCatch(String comment, ByteCodeNode tryNode, ByteCodeNode catchNode, ParameterizedType exceptionType)
     {
-        this.context = checkNotNull(context, "context is null");
         this.comment = comment;
         this.tryNode = checkNotNull(tryNode, "tryNode is null");
         this.catchNode = checkNotNull(catchNode, "catchNode is null");
@@ -74,7 +71,7 @@ public class TryCatch
         LabelNode handler = new LabelNode("handler");
         LabelNode done = new LabelNode("done");
 
-        Block block = new Block(context);
+        Block block = new Block();
 
         // try block
         block.visitLabel(tryStart)

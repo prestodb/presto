@@ -96,7 +96,7 @@ public class CursorProcessorCompiler
         // for loop loop body
         //
         LabelNode done = new LabelNode("done");
-        ForLoopBuilder forLoop = ForLoop.forLoopBuilder(context)
+        ForLoopBuilder forLoop = ForLoop.forLoopBuilder()
                 .initialize(NOP)
                 .condition(new Block(context)
                                 .comment("completedPositions < count")
@@ -124,7 +124,7 @@ public class CursorProcessorCompiler
         forLoop.body(forLoopBody);
 
         // if (filter(cursor))
-        IfStatementBuilder ifStatement = new IfStatementBuilder(context);
+        IfStatementBuilder ifStatement = new IfStatementBuilder();
         ifStatement.condition(new Block(context)
                 .pushThis()
                 .getVariable(sessionVariable)
@@ -260,7 +260,7 @@ public class CursorProcessorCompiler
                 String methodName = "get" + Primitives.wrap(javaType).getSimpleName();
                 isNotNull.invokeInterface(RecordCursor.class, methodName, javaType, int.class);
 
-                return new IfStatement(context, isNullCheck, isNull, isNotNull);
+                return new IfStatement(isNullCheck, isNull, isNotNull);
             }
 
             @Override

@@ -230,7 +230,7 @@ public final class Greatest
                     .getVariable("block" + i)
                     .putVariable(greatestBlockVariable);
 
-            IfStatement.IfStatementBuilder builder = ifStatementBuilder(context);
+            IfStatement.IfStatementBuilder builder = ifStatementBuilder();
             builder.comment("if (type.compareTo(greatestBlock, 0, block" + i + ", 0) < 0)")
                     .condition(condition)
                     .ifTrue(NOP)

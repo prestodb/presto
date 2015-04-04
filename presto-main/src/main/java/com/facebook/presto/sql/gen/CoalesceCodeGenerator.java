@@ -55,7 +55,7 @@ public class CoalesceCodeGenerator
                     .putVariable("wasNull", false)
                     .append(nullValue);
 
-            nullValue = new IfStatement(context, condition, nullBlock, NOP);
+            nullValue = new IfStatement(condition, nullBlock, NOP);
         }
 
         return nullValue;

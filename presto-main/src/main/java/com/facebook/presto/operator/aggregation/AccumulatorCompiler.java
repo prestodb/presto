@@ -311,7 +311,7 @@ public class AccumulatorCompiler
         checkState(nullable.size() == parameterVariables.size(), "Number of parameters does not match");
         for (int i = 0; i < parameterVariables.size(); i++) {
             if (!nullable.get(i)) {
-                IfStatementBuilder builder = ifStatementBuilder(context);
+                IfStatementBuilder builder = ifStatementBuilder();
                 Variable variableDefinition = parameterVariables.get(i);
                 builder.comment("if(!%s.isNull(position))", variableDefinition.getName())
                         .condition(new Block(context)
@@ -330,7 +330,7 @@ public class AccumulatorCompiler
         }
         // Otherwise just check the mask
         else {
-            IfStatementBuilder builder = ifStatementBuilder(context);
+            IfStatementBuilder builder = ifStatementBuilder();
             builder.comment("if(testMask(%s, position))", masksBlock.getName())
                     .condition(new Block(context)
                             .getVariable(masksBlock)
@@ -341,7 +341,7 @@ public class AccumulatorCompiler
             loopBody = new Block(context).append(builder.build());
         }
 
-        block.append(new ForLoop.ForLoopBuilder(context)
+        block.append(new ForLoop.ForLoopBuilder()
                 .initialize(new Block(context).putVariable(positionVariable, 0))
                 .condition(new Block(context)
                         .getVariable(positionVariable)
@@ -364,7 +364,7 @@ public class AccumulatorCompiler
                 .invokeStatic(ApproximateUtils.class, "computeSampleWeight", long.class, com.facebook.presto.spi.block.Block.class, com.facebook.presto.spi.block.Block.class, int.class)
                 .putVariable(sampleWeight);
 
-        IfStatementBuilder builder = ifStatementBuilder(context);
+        IfStatementBuilder builder = ifStatementBuilder();
         builder.comment("if(sampleWeight > 0)")
                 .condition(new Block(context)
                         .getVariable(sampleWeight)
@@ -592,7 +592,7 @@ public class AccumulatorCompiler
                 .invokeInterface(com.facebook.presto.spi.block.Block.class, "getPositionCount", int.class)
                 .putVariable(rowsVariable);
 
-        IfStatementBuilder builder = ifStatementBuilder(context);
+        IfStatementBuilder builder = ifStatementBuilder();
         builder.comment("if(!block.isNull(position))")
                 .condition(new Block(context)
                         .getVariable("block")
@@ -601,7 +601,7 @@ public class AccumulatorCompiler
                 .ifTrue(NOP)
                 .ifFalse(loopBody);
 
-        block.append(new ForLoop.ForLoopBuilder(context)
+        block.append(new ForLoop.ForLoopBuilder()
                 .initialize(new Block(context).putVariable(positionVariable, 0))
                 .condition(new Block(context)
                         .getVariable(positionVariable)

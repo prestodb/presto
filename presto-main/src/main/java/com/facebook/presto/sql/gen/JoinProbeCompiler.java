@@ -345,7 +345,6 @@ public class JoinProbeCompiler
                 type(long.class))
                 .getBody()
                 .append(new IfStatement(
-                        context,
                         context.getVariable("this").invoke("currentRowContainsNull", boolean.class),
                         constantLong(-1).ret(),
                         null

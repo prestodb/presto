@@ -229,7 +229,7 @@ public final class Least
                     .getVariable("block" + i)
                     .putVariable(leastBlockVariable);
 
-            IfStatement.IfStatementBuilder builder = ifStatementBuilder(context);
+            IfStatement.IfStatementBuilder builder = ifStatementBuilder();
             builder.comment("if (type.compareTo(leastBlock, 0, block" + i + ", 0) < 0)")
                     .condition(condition)
                     .ifTrue(NOP)

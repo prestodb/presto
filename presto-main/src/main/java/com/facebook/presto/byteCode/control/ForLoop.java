@@ -15,9 +15,7 @@ package com.facebook.presto.byteCode.control;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.ByteCodeNodeFactory;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
-import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.google.common.collect.ImmutableList;
@@ -26,21 +24,17 @@ import org.objectweb.asm.MethodVisitor;
 import java.util.List;
 
 import static com.facebook.presto.byteCode.ByteCodeNodes.buildBlock;
-import static com.facebook.presto.byteCode.ExpectedType.BOOLEAN;
-import static com.facebook.presto.byteCode.ExpectedType.VOID;
 
 public class ForLoop
         implements FlowControl
 {
-    public static ForLoopBuilder forLoopBuilder(CompilerContext context)
+    public static ForLoopBuilder forLoopBuilder()
     {
-        return new ForLoopBuilder(context);
+        return new ForLoopBuilder();
     }
 
     public static class ForLoopBuilder
     {
-        private final CompilerContext context;
-
         private final LabelNode continueLabel = new LabelNode("continue");
         private final LabelNode endLabel = new LabelNode("end");
 
@@ -50,12 +44,6 @@ public class ForLoop
         private ByteCodeNode update;
         private ByteCodeNode body;
 
-        public ForLoopBuilder(CompilerContext context)
-        {
-            this.context = context;
-            context.pushIterationScope(continueLabel, endLabel);
-        }
-
         public ForLoopBuilder comment(String format, Object... args)
         {
             this.comment = String.format(format, args);
@@ -64,61 +52,35 @@ public class ForLoop
 
         public ForLoopBuilder initialize(ByteCodeNode initialize)
         {
-            this.initialize = buildBlock(context, initialize, "initialize");
-            return this;
-        }
-
-        public ForLoopBuilder initialize(ByteCodeNodeFactory initialize)
-        {
-            this.initialize = buildBlock(context, initialize, VOID, "initialize");
+            this.initialize = buildBlock(initialize, "initialize");
             return this;
         }
 
         public ForLoopBuilder condition(ByteCodeNode condition)
         {
-            this.condition = buildBlock(context, condition, "condition");
-            return this;
-        }
-
-        public ForLoopBuilder condition(ByteCodeNodeFactory condition)
-        {
-            this.condition = buildBlock(context, condition, BOOLEAN, "condition");
+            this.condition = buildBlock(condition, "condition");
             return this;
         }
 
         public ForLoopBuilder update(ByteCodeNode update)
         {
-            this.update = buildBlock(context, update, "update");
-            return this;
-        }
-
-        public ForLoopBuilder update(ByteCodeNodeFactory update)
-        {
-            this.update = buildBlock(context, update, VOID, "update");
+            this.update = buildBlock(update, "update");
             return this;
         }
 
         public ForLoopBuilder body(ByteCodeNode body)
         {
-            this.body = buildBlock(context, body, "body");
-            return this;
-        }
-
-        public ForLoopBuilder body(ByteCodeNodeFactory body)
-        {
-            this.body = buildBlock(context, body, VOID, "body");
+            this.body = buildBlock(body, "body");
             return this;
         }
 
         public ForLoop build()
         {
-            ForLoop forLoop = new ForLoop(context, comment, initialize, condition, update, body, continueLabel, endLabel);
-            context.popIterationScope();
+            ForLoop forLoop = new ForLoop(comment, initialize, condition, update, body, continueLabel, endLabel);
             return forLoop;
         }
     }
 
-    private final CompilerContext context;
     private final String comment;
     private final ByteCodeNode initialize;
     private final ByteCodeNode condition;
@@ -129,8 +91,7 @@ public class ForLoop
     private final LabelNode continueLabel;
     private final LabelNode endLabel;
 
-    private ForLoop(CompilerContext context,
-            String comment,
+    private ForLoop(String comment,
             ByteCodeNode initialize,
             ByteCodeNode condition,
             ByteCodeNode update,
@@ -138,7 +99,6 @@ public class ForLoop
             LabelNode continueLabel,
             LabelNode endLabel)
     {
-        this.context = context;
         this.comment = comment;
         this.initialize = initialize;
         this.condition = condition;
@@ -177,7 +137,7 @@ public class ForLoop
     @Override
     public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
-        Block block = new Block(context)
+        Block block = new Block()
                 .append(initialize)
                 .visitLabel(beginLabel)
                 .append(condition)
