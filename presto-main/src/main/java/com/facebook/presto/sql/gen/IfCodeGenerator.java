@@ -39,7 +39,7 @@ public class IfCodeGenerator
                 .invokeStatic(CompilerOperations.class, "and", boolean.class, boolean.class, boolean.class)
                 .putVariable("wasNull", false);
 
-        return new IfStatement(context.getContext(),
+        return new IfStatement(
                 condition,
                 context.generate(arguments.get(1)),
                 context.generate(arguments.get(2)));

@@ -15,9 +15,7 @@ package com.facebook.presto.byteCode.control;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.ByteCodeNodeFactory;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
-import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.google.common.collect.ImmutableList;
@@ -26,34 +24,24 @@ import org.objectweb.asm.MethodVisitor;
 import java.util.List;
 
 import static com.facebook.presto.byteCode.ByteCodeNodes.buildBlock;
-import static com.facebook.presto.byteCode.ExpectedType.BOOLEAN;
-import static com.facebook.presto.byteCode.ExpectedType.VOID;
 
 public class WhileLoop
         implements FlowControl
 {
     @SuppressWarnings("UnusedDeclaration")
-    public static WhileLoopBuilder whileLoopBuilder(CompilerContext context)
+    public static WhileLoopBuilder whileLoopBuilder()
     {
-        return new WhileLoopBuilder(context);
+        return new WhileLoopBuilder();
     }
 
     public static class WhileLoopBuilder
     {
-        private final CompilerContext context;
-
         private final LabelNode beginLabel = new LabelNode("begin");
         private final LabelNode endLabel = new LabelNode("end");
 
         private String comment;
         private ByteCodeNode condition;
         private ByteCodeNode body;
-
-        public WhileLoopBuilder(CompilerContext context)
-        {
-            this.context = context;
-            context.pushIterationScope(beginLabel, endLabel);
-        }
 
         public WhileLoopBuilder comment(String format, Object... args)
         {
@@ -63,37 +51,23 @@ public class WhileLoop
 
         public WhileLoopBuilder condition(ByteCodeNode condition)
         {
-            this.condition = buildBlock(context, condition, "condition");
-            return this;
-        }
-
-        public WhileLoopBuilder condition(ByteCodeNodeFactory condition)
-        {
-            this.condition = buildBlock(context, condition, BOOLEAN, "condition");
+            this.condition = buildBlock(condition, "condition");
             return this;
         }
 
         public WhileLoopBuilder body(ByteCodeNode body)
         {
-            this.body = buildBlock(context, body, "body");
-            return this;
-        }
-
-        public WhileLoopBuilder body(ByteCodeNodeFactory body)
-        {
-            this.body = buildBlock(context, body, VOID, "body");
+            this.body = buildBlock(body, "body");
             return this;
         }
 
         public WhileLoop build()
         {
-            WhileLoop whileLoop = new WhileLoop(context, comment, condition, body, beginLabel, endLabel);
-            context.popIterationScope();
+            WhileLoop whileLoop = new WhileLoop(comment, condition, body, beginLabel, endLabel);
             return whileLoop;
         }
     }
 
-    private final CompilerContext context;
     private final String comment;
     private final ByteCodeNode condition;
     private final ByteCodeNode body;
@@ -101,9 +75,8 @@ public class WhileLoop
     private final LabelNode beginLabel;
     private final LabelNode endLabel;
 
-    private WhileLoop(CompilerContext context, String comment, ByteCodeNode condition, ByteCodeNode body, LabelNode beginLabel, LabelNode endLabel)
+    private WhileLoop(String comment, ByteCodeNode condition, ByteCodeNode body, LabelNode beginLabel, LabelNode endLabel)
     {
-        this.context = context;
         this.comment = comment;
         this.condition = condition;
         this.body = body;
@@ -130,7 +103,7 @@ public class WhileLoop
     @Override
     public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
-        Block block = new Block(context)
+        Block block = new Block()
                 .visitLabel(beginLabel)
                 .append(condition)
                 .ifZeroGoto(endLabel)

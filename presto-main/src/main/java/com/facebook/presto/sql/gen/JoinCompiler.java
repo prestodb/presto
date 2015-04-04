@@ -195,9 +195,9 @@ public class JoinCompiler
         constructor.comment("Set hashChannel");
         Variable hashChannel = compilerContext.getVariable("hashChannel");
         constructor.append(new IfStatement(
-                compilerContext,
                 hashChannel.invoke("isPresent", boolean.class),
-                compilerContext.getVariable("this").setField(hashChannelField, compilerContext.getVariable("channels").invoke("get", Object.class, hashChannel.invoke("get", Object.class).cast(Integer.class).cast(int.class))),
+                compilerContext.getVariable("this").setField(hashChannelField,
+                        compilerContext.getVariable("channels").invoke("get", Object.class, hashChannel.invoke("get", Object.class).cast(Integer.class).cast(int.class))),
                 compilerContext.getVariable("this").setField(hashChannelField, constantNull(hashChannelField.getType()))
         ));
         constructor.ret();
@@ -268,7 +268,7 @@ public class JoinCompiler
         Variable blockIndex = compilerContext.getVariable("blockIndex");
         Variable blockPosition = compilerContext.getVariable("blockPosition");
 
-        IfStatementBuilder ifStatementBuilder = new IfStatementBuilder(compilerContext);
+        IfStatementBuilder ifStatementBuilder = new IfStatementBuilder();
         ifStatementBuilder.condition(notEqual(hashChannel, constantNull(hashChannelField.getType())));
         ifStatementBuilder.ifTrue(
                 bigintType.invoke(
@@ -351,7 +351,7 @@ public class JoinCompiler
 
     private static ByteCodeNode typeHashCode(CompilerContext compilerContext, ByteCodeExpression type, ByteCodeExpression blockRef, ByteCodeExpression blockPosition)
     {
-        IfStatementBuilder ifStatementBuilder = new IfStatementBuilder(compilerContext);
+        IfStatementBuilder ifStatementBuilder = new IfStatementBuilder();
 
         ifStatementBuilder.condition(new Block(compilerContext).append(blockRef.invoke("isNull", boolean.class, blockPosition)));
 
@@ -520,7 +520,7 @@ public class JoinCompiler
             ByteCodeExpression rightBlock,
             ByteCodeExpression rightBlockPosition)
     {
-        IfStatementBuilder ifStatementBuilder = new IfStatementBuilder(compilerContext);
+        IfStatementBuilder ifStatementBuilder = new IfStatementBuilder();
         ifStatementBuilder.condition(new Block(compilerContext)
                 .append(leftBlock.invoke("isNull", boolean.class, leftBlockPosition))
                 .append(rightBlock.invoke("isNull", boolean.class, rightBlockPosition))

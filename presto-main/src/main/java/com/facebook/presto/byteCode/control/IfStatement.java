@@ -15,9 +15,7 @@ package com.facebook.presto.byteCode.control;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.ByteCodeNodeFactory;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
-import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.google.common.collect.ImmutableList;
@@ -26,29 +24,24 @@ import org.objectweb.asm.MethodVisitor;
 import java.util.List;
 
 import static com.facebook.presto.byteCode.ByteCodeNodes.buildBlock;
-import static com.facebook.presto.byteCode.ExpectedType.BOOLEAN;
-import static com.facebook.presto.byteCode.ExpectedType.VOID;
 
 public class IfStatement
         implements FlowControl
 {
-    public static IfStatementBuilder ifStatementBuilder(CompilerContext context)
+    public static IfStatementBuilder ifStatementBuilder()
     {
-        return new IfStatementBuilder(context);
+        return new IfStatementBuilder();
     }
 
     public static class IfStatementBuilder
     {
-        private final CompilerContext context;
-
         private String comment;
         private ByteCodeNode condition;
         private ByteCodeNode ifTrue;
         private ByteCodeNode ifFalse;
 
-        public IfStatementBuilder(CompilerContext context)
+        public IfStatementBuilder()
         {
-            this.context = context;
         }
 
         public IfStatementBuilder comment(String format, Object... args)
@@ -59,48 +52,29 @@ public class IfStatement
 
         public IfStatementBuilder condition(ByteCodeNode condition)
         {
-            this.condition = buildBlock(context, condition, "condition");
-            return this;
-        }
-
-        public IfStatementBuilder condition(ByteCodeNodeFactory condition)
-        {
-            this.condition = buildBlock(context, condition, BOOLEAN, "condition");
+            this.condition = buildBlock(condition, "condition");
             return this;
         }
 
         public IfStatementBuilder ifTrue(ByteCodeNode ifTrue)
         {
-            this.ifTrue = buildBlock(context, ifTrue, "ifTrue");
-            return this;
-        }
-
-        public IfStatementBuilder ifTrue(ByteCodeNodeFactory ifTrue)
-        {
-            this.ifTrue = buildBlock(context, ifTrue, VOID, "ifTrue");
+            this.ifTrue = buildBlock(ifTrue, "ifTrue");
             return this;
         }
 
         public IfStatementBuilder ifFalse(ByteCodeNode ifFalse)
         {
-            this.ifFalse = buildBlock(context, ifFalse, "ifFalse");
-            return this;
-        }
-
-        public IfStatementBuilder ifFalse(ByteCodeNodeFactory ifFalse)
-        {
-            this.ifFalse = buildBlock(context, ifFalse, VOID, "ifFalse");
+            this.ifFalse = buildBlock(ifFalse, "ifFalse");
             return this;
         }
 
         public IfStatement build()
         {
-            IfStatement ifStatement = new IfStatement(context, comment, condition, ifTrue, ifFalse);
+            IfStatement ifStatement = new IfStatement(comment, condition, ifTrue, ifFalse);
             return ifStatement;
         }
     }
 
-    private final CompilerContext context;
     private final String comment;
     private final ByteCodeNode condition;
     private final ByteCodeNode ifTrue;
@@ -109,14 +83,13 @@ public class IfStatement
     private final LabelNode falseLabel = new LabelNode("false");
     private final LabelNode outLabel = new LabelNode("out");
 
-    public IfStatement(CompilerContext context, ByteCodeNode condition, ByteCodeNode ifTrue, ByteCodeNode ifFalse)
+    public IfStatement(ByteCodeNode condition, ByteCodeNode ifTrue, ByteCodeNode ifFalse)
     {
-        this(context, null, condition, ifTrue, ifFalse);
+        this(null, condition, ifTrue, ifFalse);
     }
 
-    public IfStatement(CompilerContext context, String comment, ByteCodeNode condition, ByteCodeNode ifTrue, ByteCodeNode ifFalse)
+    public IfStatement(String comment, ByteCodeNode condition, ByteCodeNode ifTrue, ByteCodeNode ifFalse)
     {
-        this.context = context;
         this.comment = comment;
         this.condition = condition;
         this.ifTrue = ifTrue;
@@ -147,7 +120,7 @@ public class IfStatement
     @Override
     public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
-        Block block = new Block(context);
+        Block block = new Block();
 
         block.append(condition)
                 .ifZeroGoto(falseLabel)

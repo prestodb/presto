@@ -17,38 +17,14 @@ public final class ByteCodeNodes
 {
     private ByteCodeNodes() {}
 
-    public static Block buildBlock(CompilerContext context, ByteCodeNode node)
-    {
-        return buildBlock(context, node, null);
-    }
-
-    public static Block buildBlock(CompilerContext context, ByteCodeNode node, String description)
+    public static Block buildBlock(ByteCodeNode node, String description)
     {
         Block block;
         if (node instanceof Block) {
             block = (Block) node;
         }
         else {
-            block = new Block(context).append(node);
-        }
-        block.setDescription(description);
-        return block;
-    }
-
-    public static Block buildBlock(CompilerContext context, ByteCodeNodeFactory factory, ExpectedType expectedType)
-    {
-        return buildBlock(context, factory, expectedType, null);
-    }
-
-    public static Block buildBlock(CompilerContext context, ByteCodeNodeFactory factory, ExpectedType expectedType, String description)
-    {
-        ByteCodeNode node = factory.build(context, expectedType);
-        Block block;
-        if (node instanceof Block) {
-            block = (Block) node;
-        }
-        else {
-            block = new Block(context).append(node);
+            block = new Block().append(node);
         }
         block.setDescription(description);
         return block;

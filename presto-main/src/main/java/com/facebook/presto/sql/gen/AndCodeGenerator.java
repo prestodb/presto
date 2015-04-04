@@ -45,7 +45,7 @@ public class AndCodeGenerator
 
         block.append(left);
 
-        IfStatement.IfStatementBuilder ifLeftIsNull = ifStatementBuilder(generator.getContext())
+        IfStatement.IfStatementBuilder ifLeftIsNull = ifStatementBuilder()
                 .comment("if left wasNull...")
                 .condition(new Block(context).getVariable("wasNull"));
 
@@ -74,7 +74,7 @@ public class AndCodeGenerator
         // eval right!
         block.append(right);
 
-        IfStatement.IfStatementBuilder ifRightIsNull = ifStatementBuilder(context)
+        IfStatement.IfStatementBuilder ifRightIsNull = ifStatementBuilder()
                 .comment("if right wasNull...")
                 .condition(new Block(context).getVariable("wasNull"));
 

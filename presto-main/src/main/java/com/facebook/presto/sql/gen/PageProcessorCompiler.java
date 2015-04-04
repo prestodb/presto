@@ -121,7 +121,7 @@ public class PageProcessorCompiler
 
         Block loopBody = new Block(context);
 
-        ForLoopBuilder loop = ForLoop.forLoopBuilder(context)
+        ForLoopBuilder loop = ForLoop.forLoopBuilder()
                 .initialize(NOP)
                 .condition(new Block(context)
                                 .comment("position < end")
@@ -140,7 +140,7 @@ public class PageProcessorCompiler
                 .ifTrueGoto(done);
 
         // if (filter(cursor))
-        IfStatementBuilder filterBlock = new IfStatementBuilder(context);
+        IfStatementBuilder filterBlock = new IfStatementBuilder();
 
         Block trueBlock = new Block(context);
         filterBlock.condition(new Block(context)
@@ -331,7 +331,7 @@ public class PageProcessorCompiler
                         .getVariable(positionVariable)
                         .invokeInterface(Type.class, methodName, javaType, com.facebook.presto.spi.block.Block.class, int.class);
 
-                return new IfStatement(context, isNullCheck, isNull, isNotNull);
+                return new IfStatement(isNullCheck, isNull, isNotNull);
             }
 
             @Override

@@ -73,7 +73,7 @@ public class NullIfCodeGenerator
                 .pushJavaDefault(first.getType().getJavaType());
 
         // else return first (which is still on the stack
-        block.append(new IfStatement(context, conditionBlock, trueBlock, notMatch));
+        block.append(new IfStatement(conditionBlock, trueBlock, notMatch));
 
         return block;
     }

@@ -15,12 +15,9 @@ package com.facebook.presto.byteCode;
 
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterators;
 import org.objectweb.asm.Type;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -34,8 +31,6 @@ public class CompilerContext
     private final List<Variable> allVariables = new ArrayList<>();
 
     private int nextSlot;
-
-    private final Deque<IterationScope> iterationScopes = new ArrayDeque<>();
 
     private final LabelNode variableStartLabel = new LabelNode("VariableStart");
     private final LabelNode variableEndLabel = new LabelNode("VariableEnd");
@@ -99,22 +94,6 @@ public class CompilerContext
         variables.put(variableName, variable);
 
         return variable;
-    }
-
-    public void pushIterationScope(LabelNode begin, LabelNode end)
-    {
-        iterationScopes.push(new IterationScope(begin, end));
-    }
-
-    public void popIterationScope()
-    {
-        iterationScopes.pop();
-    }
-
-    // level 1 is the top of the stack
-    public IterationScope peekIterationScope(int level)
-    {
-        return Iterators.get(iterationScopes.iterator(), level - 1, null);
     }
 
     public LabelNode getVariableStartLabel()

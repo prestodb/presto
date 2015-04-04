@@ -133,7 +133,7 @@ public class InCodeGenerator
 
             switchBlock = new Block(context)
                     .comment("inListSet.contains(<stackValue>)")
-                    .append(new IfStatement(context,
+                    .append(new IfStatement(
                             new Block(context)
                                     .comment("value (+boxing if necessary)")
                                     .dup(javaType)
@@ -218,7 +218,7 @@ public class InCodeGenerator
         ByteCodeNode elseNode = elseBlock;
         for (ByteCodeNode testNode : testValues) {
             LabelNode testLabel = new LabelNode("test");
-            IfStatement.IfStatementBuilder test = ifStatementBuilder(context);
+            IfStatement.IfStatementBuilder test = ifStatementBuilder();
 
             Block condition = new Block(context)
                     .visitLabel(testLabel)

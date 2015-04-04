@@ -15,9 +15,7 @@ package com.facebook.presto.byteCode.control;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.ByteCodeNodeFactory;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
-import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.google.common.collect.ImmutableList;
@@ -26,21 +24,17 @@ import org.objectweb.asm.MethodVisitor;
 import java.util.List;
 
 import static com.facebook.presto.byteCode.ByteCodeNodes.buildBlock;
-import static com.facebook.presto.byteCode.ExpectedType.BOOLEAN;
-import static com.facebook.presto.byteCode.ExpectedType.VOID;
 
 public class DoWhileLoop
         implements FlowControl
 {
-    public static DoWhileLoopBuilder doWhileLoopBuilder(CompilerContext context)
+    public static DoWhileLoopBuilder doWhileLoopBuilder()
     {
-        return new DoWhileLoopBuilder(context);
+        return new DoWhileLoopBuilder();
     }
 
     public static class DoWhileLoopBuilder
     {
-        private final CompilerContext context;
-
         private final LabelNode continueLabel = new LabelNode("continue");
         private final LabelNode endLabel = new LabelNode("end");
 
@@ -48,39 +42,31 @@ public class DoWhileLoop
         private Block body;
         private Block condition;
 
-        public DoWhileLoopBuilder(CompilerContext context)
-        {
-            this.context = context;
-            context.pushIterationScope(continueLabel, endLabel);
-        }
-
         public DoWhileLoopBuilder comment(String format, Object... args)
         {
             this.comment = String.format(format, args);
             return this;
         }
 
-        public DoWhileLoopBuilder body(ByteCodeNodeFactory body)
+        public DoWhileLoopBuilder body(ByteCodeNode body)
         {
-            this.body = buildBlock(context, body, VOID, "body");
+            this.body = buildBlock(body, "body");
             return this;
         }
 
-        public DoWhileLoopBuilder condition(ByteCodeNodeFactory condition)
+        public DoWhileLoopBuilder condition(ByteCodeNode condition)
         {
-            this.condition = buildBlock(context, condition, BOOLEAN, "condition");
+            this.condition = buildBlock(condition, "condition");
             return this;
         }
 
         public DoWhileLoop build()
         {
-            DoWhileLoop doWhileLoop = new DoWhileLoop(context, comment, body, condition, continueLabel, endLabel);
-            context.popIterationScope();
+            DoWhileLoop doWhileLoop = new DoWhileLoop(comment, body, condition, continueLabel, endLabel);
             return doWhileLoop;
         }
     }
 
-    private final CompilerContext context;
     private final String comment;
     private final Block body;
     private final Block condition;
@@ -89,9 +75,8 @@ public class DoWhileLoop
     private final LabelNode continueLabel;
     private final LabelNode endLabel;
 
-    private DoWhileLoop(CompilerContext context, String comment, Block body, Block condition, LabelNode continueLabel, LabelNode endLabel)
+    private DoWhileLoop(String comment, Block body, Block condition, LabelNode continueLabel, LabelNode endLabel)
     {
-        this.context = context;
         this.comment = comment;
         this.body = body;
         this.condition = condition;
@@ -109,7 +94,7 @@ public class DoWhileLoop
     @Override
     public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
-        Block block = new Block(context)
+        Block block = new Block()
                 .visitLabel(beginLabel)
                 .append(body)
                 .visitLabel(continueLabel)
