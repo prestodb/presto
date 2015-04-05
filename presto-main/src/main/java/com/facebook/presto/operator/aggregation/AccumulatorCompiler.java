@@ -335,15 +335,14 @@ public class AccumulatorCompiler
                     .ifTrue(loopBody);
         }
 
-        block.append(new ForLoop.ForLoopBuilder()
+        block.append(new ForLoop()
                 .initialize(new Block(context).putVariable(positionVariable, 0))
                 .condition(new Block(context)
                         .getVariable(positionVariable)
                         .getVariable(rowsVariable)
                         .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
                 .update(new Block(context).incrementVariable(positionVariable, (byte) 1))
-                .body(loopBody)
-                .build());
+                .body(loopBody));
 
         return block;
     }
@@ -592,15 +591,14 @@ public class AccumulatorCompiler
                         .invokeInterface(com.facebook.presto.spi.block.Block.class, "isNull", boolean.class, int.class))
                 .ifFalse(loopBody);
 
-        block.append(new ForLoop.ForLoopBuilder()
+        block.append(new ForLoop()
                 .initialize(new Block(context).putVariable(positionVariable, 0))
                 .condition(new Block(context)
                         .getVariable(positionVariable)
                         .getVariable(rowsVariable)
                         .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
                 .update(new Block(context).incrementVariable(positionVariable, (byte) 1))
-                .body(ifStatement)
-                .build());
+                .body(ifStatement));
 
         return block;
     }
