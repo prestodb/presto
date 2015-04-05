@@ -295,7 +295,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long diffDate(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice unit, @SqlType(StandardTypes.DATE) long date1, @SqlType(StandardTypes.DATE) long date2)
     {
-        return getDateField(UTC_CHRONOLOGY, unit).getDifference(DAYS.toMillis(date2), DAYS.toMillis(date1));
+        return getDateField(UTC_CHRONOLOGY, unit).getDifferenceAsLong(DAYS.toMillis(date2), DAYS.toMillis(date1));
     }
 
     @Description("difference of the given times in the given unit")
@@ -304,7 +304,7 @@ public final class DateTimeFunctions
     public static long diffTime(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice unit, @SqlType(StandardTypes.TIME) long time1, @SqlType(StandardTypes.TIME) long time2)
     {
         ISOChronology chronology = getChronology(session.getTimeZoneKey());
-        return getTimeField(chronology, unit).getDifference(time2, time1);
+        return getTimeField(chronology, unit).getDifferenceAsLong(time2, time1);
     }
 
     @Description("difference of the given times in the given unit")
@@ -315,7 +315,7 @@ public final class DateTimeFunctions
             @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone1,
             @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone2)
     {
-        return getTimeField(unpackChronology(timeWithTimeZone1), unit).getDifference(unpackMillisUtc(timeWithTimeZone2), unpackMillisUtc(timeWithTimeZone1));
+        return getTimeField(unpackChronology(timeWithTimeZone1), unit).getDifferenceAsLong(unpackMillisUtc(timeWithTimeZone2), unpackMillisUtc(timeWithTimeZone1));
     }
 
     @Description("difference of the given times in the given unit")
@@ -327,7 +327,7 @@ public final class DateTimeFunctions
             @SqlType(StandardTypes.TIMESTAMP) long timestamp1,
             @SqlType(StandardTypes.TIMESTAMP) long timestamp2)
     {
-        return getTimestampField(getChronology(session.getTimeZoneKey()), unit).getDifference(timestamp2, timestamp1);
+        return getTimestampField(getChronology(session.getTimeZoneKey()), unit).getDifferenceAsLong(timestamp2, timestamp1);
     }
 
     @Description("difference of the given times in the given unit")
@@ -338,7 +338,7 @@ public final class DateTimeFunctions
             @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone1,
             @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone2)
     {
-        return getTimestampField(unpackChronology(timestampWithTimeZone1), unit).getDifference(unpackMillisUtc(timestampWithTimeZone2), unpackMillisUtc(timestampWithTimeZone1));
+        return getTimestampField(unpackChronology(timestampWithTimeZone1), unit).getDifferenceAsLong(unpackMillisUtc(timestampWithTimeZone2), unpackMillisUtc(timestampWithTimeZone1));
     }
 
     private static DateTimeField getDateField(ISOChronology chronology, Slice unit)

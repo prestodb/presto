@@ -475,7 +475,7 @@ public class TestDateTimeFunctions
     {
         DateTime baseDateTime = new DateTime(1960, 5, 3, 7, 2, 9, 678, DATE_TIME_ZONE);
         String baseDateTimeLiteral = "TIMESTAMP '1960-05-03 07:02:09.678'";
-
+        assertFunction("date_diff('millisecond', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")",TIMESTAMP.getMillis() - baseDateTime.getMillis());
         assertFunction("date_diff('second', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", secondsBetween(baseDateTime, TIMESTAMP).getSeconds());
         assertFunction("date_diff('minute', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", minutesBetween(baseDateTime, TIMESTAMP).getMinutes());
         assertFunction("date_diff('hour', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", hoursBetween(baseDateTime, TIMESTAMP).getHours());
@@ -488,6 +488,7 @@ public class TestDateTimeFunctions
         DateTime weirdBaseDateTime = new DateTime(1960, 5, 3, 7, 2, 9, 678, WEIRD_ZONE);
         String weirdBaseDateTimeLiteral = "TIMESTAMP '1960-05-03 07:02:09.678 +07:09'";
 
+        assertFunction("date_diff('millisecond', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIMESTAMP_LITERAL + ")", WEIRD_TIMESTAMP.getMillis() - weirdBaseDateTime.getMillis());
         assertFunction("date_diff('second', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIMESTAMP_LITERAL + ")", secondsBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getSeconds());
         assertFunction("date_diff('minute', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIMESTAMP_LITERAL + ")", minutesBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getMinutes());
         assertFunction("date_diff('hour', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIMESTAMP_LITERAL + ")", hoursBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getHours());
@@ -517,7 +518,7 @@ public class TestDateTimeFunctions
     {
         DateTime baseDateTime = new DateTime(1970, 1, 1, 7, 2, 9, 678, DATE_TIME_ZONE);
         String baseDateTimeLiteral = "TIME '07:02:09.678'";
-
+        assertFunction("date_diff('millisecond', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", TIME.getMillis() - baseDateTime.getMillis());
         assertFunction("date_diff('second', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", secondsBetween(baseDateTime, TIME).getSeconds());
         assertFunction("date_diff('minute', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", minutesBetween(baseDateTime, TIME).getMinutes());
         assertFunction("date_diff('hour', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", hoursBetween(baseDateTime, TIME).getHours());
@@ -525,7 +526,7 @@ public class TestDateTimeFunctions
         DateTime weirdBaseDateTime = new DateTime(1970, 1, 1, 7, 2, 9, 678, WEIRD_ZONE);
         String weirdBaseDateTimeLiteral = "TIME '07:02:09.678 +07:09'";
 
-        assertFunction("date_diff('second', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", secondsBetween(weirdBaseDateTime, WEIRD_TIME).getSeconds());
+        assertFunction("date_diff('millisecond', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", WEIRD_TIME.getMillis() - weirdBaseDateTime.getMillis());
         assertFunction("date_diff('minute', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", minutesBetween(weirdBaseDateTime, WEIRD_TIME).getMinutes());
         assertFunction("date_diff('hour', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", hoursBetween(weirdBaseDateTime, WEIRD_TIME).getHours());
     }
