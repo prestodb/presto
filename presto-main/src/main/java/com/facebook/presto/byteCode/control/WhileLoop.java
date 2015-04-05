@@ -23,65 +23,26 @@ import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.ByteCodeNodes.buildBlock;
+import static com.google.common.base.Preconditions.checkState;
 
 public class WhileLoop
         implements FlowControl
 {
-    @SuppressWarnings("UnusedDeclaration")
-    public static WhileLoopBuilder whileLoopBuilder()
-    {
-        return new WhileLoopBuilder();
-    }
-
-    public static class WhileLoopBuilder
-    {
-        private final LabelNode beginLabel = new LabelNode("begin");
-        private final LabelNode endLabel = new LabelNode("end");
-
-        private String comment;
-        private ByteCodeNode condition;
-        private ByteCodeNode body;
-
-        public WhileLoopBuilder comment(String format, Object... args)
-        {
-            this.comment = String.format(format, args);
-            return this;
-        }
-
-        public WhileLoopBuilder condition(ByteCodeNode condition)
-        {
-            this.condition = buildBlock(condition, "condition");
-            return this;
-        }
-
-        public WhileLoopBuilder body(ByteCodeNode body)
-        {
-            this.body = buildBlock(body, "body");
-            return this;
-        }
-
-        public WhileLoop build()
-        {
-            WhileLoop whileLoop = new WhileLoop(comment, condition, body, beginLabel, endLabel);
-            return whileLoop;
-        }
-    }
-
     private final String comment;
-    private final ByteCodeNode condition;
-    private final ByteCodeNode body;
+    private final Block condition = new Block();
+    private final Block body = new Block();
 
-    private final LabelNode beginLabel;
-    private final LabelNode endLabel;
+    private final LabelNode continueLabel = new LabelNode("continue");
+    private final LabelNode endLabel = new LabelNode("end");
 
-    private WhileLoop(String comment, ByteCodeNode condition, ByteCodeNode body, LabelNode beginLabel, LabelNode endLabel)
+    public WhileLoop()
     {
-        this.comment = comment;
-        this.condition = condition;
-        this.body = body;
-        this.beginLabel = beginLabel;
-        this.endLabel = endLabel;
+        this.comment = null;
+    }
+
+    public WhileLoop(String format, Object... args)
+    {
+        this.comment = String.format(format, args);
     }
 
     @Override
@@ -90,25 +51,51 @@ public class WhileLoop
         return comment;
     }
 
-    public ByteCodeNode getCondition()
+    public LabelNode getContinueLabel()
+    {
+        return continueLabel;
+    }
+
+    public LabelNode getEndLabel()
+    {
+        return endLabel;
+    }
+
+    public Block condition()
     {
         return condition;
     }
 
-    public ByteCodeNode getBody()
+    public WhileLoop condition(ByteCodeNode node)
+    {
+        checkState(condition.isEmpty(), "condition already set");
+        condition.append(node);
+        return this;
+    }
+
+    public Block body()
     {
         return body;
+    }
+
+    public WhileLoop body(ByteCodeNode node)
+    {
+        checkState(body.isEmpty(), "body already set");
+        body.append(node);
+        return this;
     }
 
     @Override
     public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
+        checkState(condition.isEmpty(), "WhileLoop does not have a condition set");
+
         Block block = new Block()
-                .visitLabel(beginLabel)
+                .visitLabel(continueLabel)
                 .append(condition)
                 .ifZeroGoto(endLabel)
                 .append(body)
-                .gotoLabel(beginLabel)
+                .gotoLabel(continueLabel)
                 .visitLabel(endLabel);
 
         block.accept(visitor, generationContext);
