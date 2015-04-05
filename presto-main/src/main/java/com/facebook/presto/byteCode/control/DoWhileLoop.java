@@ -23,66 +23,27 @@ import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.ByteCodeNodes.buildBlock;
+import static com.google.common.base.Preconditions.checkState;
 
 public class DoWhileLoop
         implements FlowControl
 {
-    public static DoWhileLoopBuilder doWhileLoopBuilder()
-    {
-        return new DoWhileLoopBuilder();
-    }
-
-    public static class DoWhileLoopBuilder
-    {
-        private final LabelNode continueLabel = new LabelNode("continue");
-        private final LabelNode endLabel = new LabelNode("end");
-
-        private String comment;
-        private Block body;
-        private Block condition;
-
-        public DoWhileLoopBuilder comment(String format, Object... args)
-        {
-            this.comment = String.format(format, args);
-            return this;
-        }
-
-        public DoWhileLoopBuilder body(ByteCodeNode body)
-        {
-            this.body = buildBlock(body, "body");
-            return this;
-        }
-
-        public DoWhileLoopBuilder condition(ByteCodeNode condition)
-        {
-            this.condition = buildBlock(condition, "condition");
-            return this;
-        }
-
-        public DoWhileLoop build()
-        {
-            DoWhileLoop doWhileLoop = new DoWhileLoop(comment, body, condition, continueLabel, endLabel);
-            return doWhileLoop;
-        }
-    }
-
     private final String comment;
-    private final Block body;
-    private final Block condition;
+    private final Block body = new Block();
+    private final Block condition = new Block();
 
     private final LabelNode beginLabel = new LabelNode("begin");
-    private final LabelNode continueLabel;
-    private final LabelNode endLabel;
+    private final LabelNode continueLabel = new LabelNode("continue");
+    private final LabelNode endLabel = new LabelNode("end");
 
-    private DoWhileLoop(String comment, Block body, Block condition, LabelNode continueLabel, LabelNode endLabel)
+    public DoWhileLoop()
     {
-        this.comment = comment;
-        this.body = body;
-        this.condition = condition;
+        this.comment = null;
+    }
 
-        this.continueLabel = continueLabel;
-        this.endLabel = endLabel;
+    public DoWhileLoop(String format, Object... args)
+    {
+        this.comment = String.format(format, args);
     }
 
     @Override
@@ -91,15 +52,55 @@ public class DoWhileLoop
         return comment;
     }
 
+    public LabelNode getContinueLabel()
+    {
+        return continueLabel;
+    }
+
+    public LabelNode getEndLabel()
+    {
+        return endLabel;
+    }
+
+    public Block body()
+    {
+        return body;
+    }
+
+    public DoWhileLoop body(ByteCodeNode node)
+    {
+        checkState(body.isEmpty(), "body already set");
+        body.append(node);
+        return this;
+    }
+
+    public Block condition()
+    {
+        return condition;
+    }
+
+    public DoWhileLoop condition(ByteCodeNode node)
+    {
+        checkState(condition.isEmpty(), "condition already set");
+        condition.append(node);
+        return this;
+    }
+
     @Override
     public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
+        checkState(condition.isEmpty(), "DoWhileLoop does not have a condition set");
+
         Block block = new Block()
                 .visitLabel(beginLabel)
-                .append(body)
+                .append(new Block()
+                        .setDescription("body")
+                        .append(body))
                 .visitLabel(continueLabel)
-                .append(condition)
-                .ifZeroGoto(endLabel)
+                .append(new Block()
+                        .setDescription("condition")
+                        .append(condition))
+                .ifFalseGoto(endLabel)
                 .gotoLabel(beginLabel)
                 .visitLabel(endLabel);
 

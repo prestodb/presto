@@ -371,7 +371,13 @@ public class DumpByteCodeVisitor
             printLine();
             printLine("// %s", doWhileLoop.getComment());
         }
-        return super.visitDoWhile(parent, doWhileLoop);
+        printLine("while {");
+        indentLevel++;
+        visitNestedNode("body", doWhileLoop.body(), doWhileLoop);
+        visitNestedNode("condition", doWhileLoop.condition(), doWhileLoop);
+        indentLevel--;
+        printLine("}");
+        return null;
     }
 
     @Override
