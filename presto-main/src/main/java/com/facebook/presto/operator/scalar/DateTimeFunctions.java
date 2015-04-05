@@ -480,7 +480,7 @@ public final class DateTimeFunctions
 
         return Slices.copiedBuffer(formatter.print(timestamp), UTF_8);
     }
-
+o
     @ScalarFunction
     @SqlType(StandardTypes.TIMESTAMP)
     public static long dateParse(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice dateTime, @SqlType(StandardTypes.VARCHAR) Slice formatString) {
