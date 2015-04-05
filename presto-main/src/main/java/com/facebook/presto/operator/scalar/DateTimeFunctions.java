@@ -61,7 +61,6 @@ public final class DateTimeFunctions
     };
 
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(UTC);
-    private static final DateTimeField MILLISECOND_OF_SECOND = UTC_CHRONOLOGY.millisOfSecond();
     private static final DateTimeField SECOND_OF_MINUTE = UTC_CHRONOLOGY.secondOfMinute();
     private static final DateTimeField DAY_OF_WEEK = UTC_CHRONOLOGY.dayOfWeek();
     private static final DateTimeField DAY_OF_MONTH = UTC_CHRONOLOGY.dayOfMonth();
@@ -484,61 +483,16 @@ public final class DateTimeFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long dateParse(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice dateTime, @SqlType(StandardTypes.VARCHAR) Slice formatString)
-    {
+    public static long dateParse(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice dateTime, @SqlType(StandardTypes.VARCHAR) Slice formatString) {
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
                 .withChronology(getChronology(session.getTimeZoneKey()))
                 .withLocale(session.getLocale());
 
         try {
             return formatter.parseMillis(dateTime.toString(UTF_8));
-        }
-        catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
-    }
-    @Description("millisecond of the second of the given timestamp")
-    @ScalarFunction("millisecond")
-    @SqlType(StandardTypes.BIGINT)
-    public static long millisecondFromTimestamp(@SqlType(StandardTypes.TIMESTAMP) long timestamp)
-    {
-        // Time is effectively UTC so no need for a custom chronology
-        return MILLISECOND_OF_SECOND.get(timestamp);
-    }
-
-    @Description("millisecond of the second of the given timestamp")
-    @ScalarFunction("millisecond")
-    @SqlType(StandardTypes.BIGINT)
-    public static long millisecondFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
-    {
-        // Time is effectively UTC so no need for a custom chronology
-        return MILLISECOND_OF_SECOND.get(unpackMillisUtc(timestampWithTimeZone));
-    }
-
-    @Description("millisecond of the second of the given time")
-    @ScalarFunction("millisecond")
-    @SqlType(StandardTypes.BIGINT)
-    public static long millisecondFromTime(@SqlType(StandardTypes.TIME) long time)
-    {
-        // Time is effectively UTC so no need for a custom chronology
-        return MILLISECOND_OF_SECOND.get(time);
-    }
-
-    @Description("millisecond of the second of the given time")
-    @ScalarFunction("millisecond")
-    @SqlType(StandardTypes.BIGINT)
-    public static long millisecondFromTimeWithTimeZone(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time)
-    {
-        // Time is effectively UTC so no need for a custom chronology
-        return MILLISECOND_OF_SECOND.get(unpackMillisUtc(time));
-    }
-
-    @Description("millisecond of the second of the given interval")
-    @ScalarFunction("millisecond")
-    @SqlType(StandardTypes.BIGINT)
-    public static long millisecondFromInterval(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long milliseconds)
-    {
-        return (milliseconds % MILLISECONDS_IN_SECOND);
     }
 
     @Description("second of the minute of the given timestamp")
