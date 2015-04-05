@@ -157,16 +157,28 @@ public class DumpByteCodeVisitor
     @Override
     public Void visitBlock(ByteCodeNode parent, Block block)
     {
+        // only indent if we have a block description or more than one child node
+        boolean indented;
         if (block.getDescription() != null) {
             line().add(block.getDescription()).add("{").print();
+            indentLevel++;
+            indented = true;
+        }
+        else if (block.getChildNodes().size() > 1) {
+            printLine("{");
+            indentLevel++;
+            indented = true;
         }
         else {
-            printLine("{");
+            indented = false;
         }
-        indentLevel++;
+
         visitBlockContents(block);
-        indentLevel--;
-        printLine("}");
+        if (indented) {
+            indentLevel--;
+            printLine("}");
+        }
+
         return null;
     }
 
