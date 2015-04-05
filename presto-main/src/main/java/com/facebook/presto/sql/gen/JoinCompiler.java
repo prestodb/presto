@@ -23,7 +23,6 @@ import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.OpCode;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
-import com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.operator.InMemoryJoinHash;
@@ -194,12 +193,14 @@ public class JoinCompiler
 
         constructor.comment("Set hashChannel");
         Variable hashChannel = compilerContext.getVariable("hashChannel");
-        constructor.append(new IfStatement(
-                hashChannel.invoke("isPresent", boolean.class),
-                compilerContext.getVariable("this").setField(hashChannelField,
-                        compilerContext.getVariable("channels").invoke("get", Object.class, hashChannel.invoke("get", Object.class).cast(Integer.class).cast(int.class))),
-                compilerContext.getVariable("this").setField(hashChannelField, constantNull(hashChannelField.getType()))
-        ));
+        constructor.append(new IfStatement()
+                .condition(hashChannel.invoke("isPresent", boolean.class))
+                .ifTrue(compilerContext.getVariable("this").setField(
+                        hashChannelField,
+                        compilerContext.getVariable("channels").invoke("get", Object.class, hashChannel.invoke("get", Object.class).cast(Integer.class).cast(int.class))))
+                .ifFalse(compilerContext.getVariable("this").setField(
+                        hashChannelField,
+                        constantNull(hashChannelField.getType()))));
         constructor.ret();
     }
 
@@ -268,9 +269,9 @@ public class JoinCompiler
         Variable blockIndex = compilerContext.getVariable("blockIndex");
         Variable blockPosition = compilerContext.getVariable("blockPosition");
 
-        IfStatementBuilder ifStatementBuilder = new IfStatementBuilder();
-        ifStatementBuilder.condition(notEqual(hashChannel, constantNull(hashChannelField.getType())));
-        ifStatementBuilder.ifTrue(
+        IfStatement ifStatement = new IfStatement();
+        ifStatement.condition(notEqual(hashChannel, constantNull(hashChannelField.getType())));
+        ifStatement.ifTrue(
                 bigintType.invoke(
                         "getLong",
                         long.class,
@@ -282,7 +283,7 @@ public class JoinCompiler
 
         hashPositionMethod
                 .getBody()
-                .append(ifStatementBuilder.build());
+                .append(ifStatement);
 
         Variable resultVariable = hashPositionMethod.getCompilerContext().declareVariable(int.class, "result");
         hashPositionMethod.getBody().push(0).putVariable(resultVariable);
@@ -301,7 +302,7 @@ public class JoinCompiler
                     .getVariable(resultVariable)
                     .push(31)
                     .append(OpCode.IMUL)
-                    .append(typeHashCode(compilerContext, type, block, compilerContext.getVariable("blockPosition")))
+                    .append(typeHashCode(type, block, compilerContext.getVariable("blockPosition")))
                     .append(OpCode.IADD)
                     .putVariable(resultVariable);
         }
@@ -338,7 +339,7 @@ public class JoinCompiler
                     .getVariable(resultVariable)
                     .push(31)
                     .append(OpCode.IMUL)
-                    .append(typeHashCode(compilerContext, type, block, compilerContext.getVariable("position")))
+                    .append(typeHashCode(type, block, compilerContext.getVariable("position")))
                     .append(OpCode.IADD)
                     .putVariable(resultVariable);
         }
@@ -349,17 +350,12 @@ public class JoinCompiler
                 .retInt();
     }
 
-    private static ByteCodeNode typeHashCode(CompilerContext compilerContext, ByteCodeExpression type, ByteCodeExpression blockRef, ByteCodeExpression blockPosition)
+    private static ByteCodeNode typeHashCode(ByteCodeExpression type, ByteCodeExpression blockRef, ByteCodeExpression blockPosition)
     {
-        IfStatementBuilder ifStatementBuilder = new IfStatementBuilder();
-
-        ifStatementBuilder.condition(new Block(compilerContext).append(blockRef.invoke("isNull", boolean.class, blockPosition)));
-
-        ifStatementBuilder.ifTrue(new Block(compilerContext).push(0));
-
-        ifStatementBuilder.ifFalse(new Block(compilerContext).append(type.invoke("hash", int.class, blockRef, blockPosition)));
-
-        return ifStatementBuilder.build();
+        return new IfStatement()
+            .condition(blockRef.invoke("isNull", boolean.class, blockPosition))
+            .ifTrue(constantInt(0))
+            .ifFalse(type.invoke("hash", int.class, blockRef, blockPosition));
     }
 
     private void generateRowEqualsRowMethod(
@@ -391,7 +387,7 @@ public class JoinCompiler
             LabelNode checkNextField = new LabelNode("checkNextField");
             hashPositionMethod
                     .getBody()
-                    .append(typeEquals(compilerContext,
+                    .append(typeEquals(
                             type,
                             leftBlock,
                             compilerContext.getVariable("leftPosition"),
@@ -441,7 +437,7 @@ public class JoinCompiler
             LabelNode checkNextField = new LabelNode("checkNextField");
             hashPositionMethod
                     .getBody()
-                    .append(typeEquals(compilerContext,
+                    .append(typeEquals(
                             type,
                             leftBlock,
                             compilerContext.getVariable("leftBlockPosition"),
@@ -494,7 +490,7 @@ public class JoinCompiler
             LabelNode checkNextField = new LabelNode("checkNextField");
             hashPositionMethod
                     .getBody()
-                    .append(typeEquals(compilerContext,
+                    .append(typeEquals(
                             type,
                             leftBlock,
                             compilerContext.getVariable("leftBlockPosition"),
@@ -513,27 +509,26 @@ public class JoinCompiler
     }
 
     private static ByteCodeNode typeEquals(
-            CompilerContext compilerContext,
             ByteCodeExpression type,
             ByteCodeExpression leftBlock,
             ByteCodeExpression leftBlockPosition,
             ByteCodeExpression rightBlock,
             ByteCodeExpression rightBlockPosition)
     {
-        IfStatementBuilder ifStatementBuilder = new IfStatementBuilder();
-        ifStatementBuilder.condition(new Block(compilerContext)
+        IfStatement ifStatement = new IfStatement();
+        ifStatement.condition()
                 .append(leftBlock.invoke("isNull", boolean.class, leftBlockPosition))
                 .append(rightBlock.invoke("isNull", boolean.class, rightBlockPosition))
-                .append(OpCode.IOR));
+                .append(OpCode.IOR);
 
-        ifStatementBuilder.ifTrue(new Block(compilerContext)
+        ifStatement.ifTrue()
                 .append(leftBlock.invoke("isNull", boolean.class, leftBlockPosition))
                 .append(rightBlock.invoke("isNull", boolean.class, rightBlockPosition))
-                .append(OpCode.IAND));
+                .append(OpCode.IAND);
 
-        ifStatementBuilder.ifFalse(new Block(compilerContext).append(type.invoke("equalTo", boolean.class, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition)));
+        ifStatement.ifFalse().append(type.invoke("equalTo", boolean.class, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition));
 
-        return ifStatementBuilder.build();
+        return ifStatement;
     }
 
     public static class LookupSourceFactory

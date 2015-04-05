@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.DynamicClassLoader;
@@ -22,6 +23,7 @@ import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.NamedParameterDefinition;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.ForLoop;
+import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
@@ -49,8 +51,6 @@ import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.OpCode.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
-import static com.facebook.presto.byteCode.control.IfStatement.ifStatementBuilder;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_INPUT_CHANNEL;
@@ -296,7 +296,7 @@ public class AccumulatorCompiler
             block.initializeVariable(sampleWeightVariable);
         }
 
-        Block loopBody = generateInvokeInputFunction(context, stateField, positionVariable, sampleWeightVariable, parameterVariables, parameterMetadatas, inputFunction, callSiteBinder, grouped);
+        ByteCodeNode loopBody = generateInvokeInputFunction(context, stateField, positionVariable, sampleWeightVariable, parameterVariables, parameterMetadatas, inputFunction, callSiteBinder, grouped);
 
         //  Wrap with null checks
         List<Boolean> nullable = new ArrayList<>();
@@ -311,16 +311,13 @@ public class AccumulatorCompiler
         checkState(nullable.size() == parameterVariables.size(), "Number of parameters does not match");
         for (int i = 0; i < parameterVariables.size(); i++) {
             if (!nullable.get(i)) {
-                IfStatementBuilder builder = ifStatementBuilder();
                 Variable variableDefinition = parameterVariables.get(i);
-                builder.comment("if(!%s.isNull(position))", variableDefinition.getName())
+                loopBody = new IfStatement("if(!%s.isNull(position))", variableDefinition.getName())
                         .condition(new Block(context)
                                 .getVariable(variableDefinition)
                                 .getVariable(positionVariable)
                                 .invokeInterface(com.facebook.presto.spi.block.Block.class, "isNull", boolean.class, int.class))
-                        .ifTrue(NOP)
                         .ifFalse(loopBody);
-                loopBody = new Block(context).append(builder.build());
             }
         }
 
@@ -330,15 +327,12 @@ public class AccumulatorCompiler
         }
         // Otherwise just check the mask
         else {
-            IfStatementBuilder builder = ifStatementBuilder();
-            builder.comment("if(testMask(%s, position))", masksBlock.getName())
+            loopBody = new IfStatement("if(testMask(%s, position))", masksBlock.getName())
                     .condition(new Block(context)
                             .getVariable(masksBlock)
                             .getVariable(positionVariable)
                             .invokeStatic(CompilerOperations.class, "testMask", boolean.class, com.facebook.presto.spi.block.Block.class, int.class))
-                    .ifTrue(loopBody)
-                    .ifFalse(NOP);
-            loopBody = new Block(context).append(builder.build());
+                    .ifTrue(loopBody);
         }
 
         block.append(new ForLoop.ForLoopBuilder()
@@ -354,7 +348,7 @@ public class AccumulatorCompiler
         return block;
     }
 
-    private static Block generateComputeSampleWeightAndCheckGreaterThanZero(CompilerContext context, Block body, Variable sampleWeight, Variable masks, Variable sampleWeights, Variable position)
+    private static ByteCodeNode generateComputeSampleWeightAndCheckGreaterThanZero(CompilerContext context, ByteCodeNode body, Variable sampleWeight, Variable masks, Variable sampleWeights, Variable position)
     {
         Block block = new Block(context)
                 .comment("sampleWeight = computeSampleWeight(masks, sampleWeights, position);")
@@ -364,15 +358,14 @@ public class AccumulatorCompiler
                 .invokeStatic(ApproximateUtils.class, "computeSampleWeight", long.class, com.facebook.presto.spi.block.Block.class, com.facebook.presto.spi.block.Block.class, int.class)
                 .putVariable(sampleWeight);
 
-        IfStatementBuilder builder = ifStatementBuilder();
-        builder.comment("if(sampleWeight > 0)")
+        block.append(new IfStatement("if(sampleWeight > 0)")
                 .condition(new Block(context)
                         .getVariable(sampleWeight)
                         .invokeStatic(CompilerOperations.class, "longGreaterThanZero", boolean.class, long.class))
                 .ifTrue(body)
-                .ifFalse(NOP);
+                .ifFalse(NOP));
 
-        return block.append(builder.build());
+        return block;
     }
 
     private static Block generateInvokeInputFunction(
@@ -592,13 +585,11 @@ public class AccumulatorCompiler
                 .invokeInterface(com.facebook.presto.spi.block.Block.class, "getPositionCount", int.class)
                 .putVariable(rowsVariable);
 
-        IfStatementBuilder builder = ifStatementBuilder();
-        builder.comment("if(!block.isNull(position))")
+        IfStatement ifStatement = new IfStatement("if(!block.isNull(position))")
                 .condition(new Block(context)
                         .getVariable("block")
                         .getVariable(positionVariable)
                         .invokeInterface(com.facebook.presto.spi.block.Block.class, "isNull", boolean.class, int.class))
-                .ifTrue(NOP)
                 .ifFalse(loopBody);
 
         block.append(new ForLoop.ForLoopBuilder()
@@ -608,7 +599,7 @@ public class AccumulatorCompiler
                         .getVariable(rowsVariable)
                         .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
                 .update(new Block(context).incrementVariable(positionVariable, (byte) 1))
-                .body(builder.build())
+                .body(ifStatement)
                 .build());
 
         return block;

@@ -61,26 +61,26 @@ public class IsDistinctFromCodeGenerator
                 .comment("IS DISTINCT FROM")
                 .comment("left")
                 .append(generatorContext.generate(left))
-                .append(new IfStatement(
-                        new Block(context).getVariable("wasNull"),
-                        new Block(context)
+                .append(new IfStatement()
+                        .condition(new Block(context).getVariable("wasNull"))
+                        .ifTrue(new Block(context)
                                 .pop(leftType.getJavaType())
                                 .putVariable("wasNull", false)
                                 .comment("right is not null")
                                 .append(generatorContext.generate(right))
                                 .pop(rightType.getJavaType())
                                 .getVariable("wasNull")
-                                .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class),
-                        new Block(context)
+                                .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class))
+                        .ifFalse(new Block(context)
                                 .comment("right")
                                 .append(generatorContext.generate(right))
-                                .append(new IfStatement(
-                                        new Block(context).getVariable("wasNull"),
-                                        new Block(context)
+                                .append(new IfStatement()
+                                        .condition(new Block(context).getVariable("wasNull"))
+                                        .ifTrue(new Block(context)
                                                 .pop(leftType.getJavaType())
                                                 .pop(rightType.getJavaType())
-                                                .push(true),
-                                        new Block(context)
+                                                .push(true))
+                                        .ifFalse(new Block(context)
                                                 .append(equalsCall)
                                                 .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)))))
                 .putVariable("wasNull", false);

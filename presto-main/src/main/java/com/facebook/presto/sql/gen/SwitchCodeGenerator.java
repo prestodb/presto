@@ -126,11 +126,10 @@ public class SwitchCodeGenerator
                     .append(equalsCall)
                     .putVariable("wasNull", false);
 
-            elseValue = new IfStatement(
-                    "when",
-                    condition,
-                    generatorContext.generate(result),
-                    elseValue);
+            elseValue = new IfStatement("when")
+                    .condition(condition)
+                    .ifTrue(generatorContext.generate(result))
+                    .ifFalse(elseValue);
         }
 
         return block.append(elseValue);

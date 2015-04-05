@@ -25,8 +25,6 @@ import com.google.common.collect.Lists;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.byteCode.OpCode.NOP;
-
 public class CoalesceCodeGenerator
         implements ByteCodeGenerator
 {
@@ -40,22 +38,24 @@ public class CoalesceCodeGenerator
 
         CompilerContext context = generatorContext.getContext();
         ByteCodeNode nullValue = new Block(context)
-                .putVariable("wasNull", true)
+                .putVariable(context.getVariable("wasNull"), true)
                 .pushJavaDefault(returnType.getJavaType());
 
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
         for (ByteCodeNode operand : Lists.reverse(operands)) {
-            Block condition = new Block(context)
+            IfStatement ifStatement = new IfStatement();
+
+            ifStatement.condition()
                     .append(operand)
-                    .getVariable("wasNull");
+                    .append(context.getVariable("wasNull"));
 
             // if value was null, pop the null value, clear the null flag, and process the next operand
-            Block nullBlock = new Block(context)
+            ifStatement.ifTrue()
                     .pop(returnType.getJavaType())
-                    .putVariable("wasNull", false)
+                    .putVariable(context.getVariable("wasNull"), false)
                     .append(nullValue);
 
-            nullValue = new IfStatement(condition, nullBlock, NOP);
+            nullValue = ifStatement;
         }
 
         return nullValue;

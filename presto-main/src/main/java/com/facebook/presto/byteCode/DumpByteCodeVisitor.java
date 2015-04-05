@@ -318,10 +318,12 @@ public class DumpByteCodeVisitor
         }
         printLine("if {");
         indentLevel++;
-        ifStatement.getCondition().accept(ifStatement, this);
-        ifStatement.getIfTrue().accept(ifStatement, this);
-        if (ifStatement.getIfFalse() != null) {
-            ifStatement.getIfFalse().accept(ifStatement, this);
+        visitNestedNode("condition", ifStatement.condition(), ifStatement);
+        if (ifStatement.ifTrue() != null) {
+            visitNestedNode("ifTrue", ifStatement.ifTrue(), ifStatement);
+        }
+        if (ifStatement.ifFalse() != null) {
+            visitNestedNode("ifFalse", ifStatement.ifFalse(), ifStatement);
         }
         indentLevel--;
         printLine("}");
@@ -542,6 +544,15 @@ public class DumpByteCodeVisitor
             builder.append("    ");
         }
         return builder.toString();
+    }
+
+    private void visitNestedNode(String description, ByteCodeNode node, ByteCodeNode parent)
+    {
+        printLine(description + " {");
+        indentLevel++;
+        node.accept(parent, this);
+        indentLevel--;
+        printLine("}");
     }
 
     private Line line()

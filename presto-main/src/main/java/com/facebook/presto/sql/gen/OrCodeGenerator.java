@@ -25,8 +25,6 @@ import com.google.common.base.Preconditions;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.control.IfStatement.ifStatementBuilder;
-
 public class OrCodeGenerator
         implements ByteCodeGenerator
 {
@@ -45,8 +43,7 @@ public class OrCodeGenerator
 
         block.append(left);
 
-        IfStatement.IfStatementBuilder ifLeftIsNull = ifStatementBuilder()
-                .comment("if left wasNull...")
+        IfStatement ifLeftIsNull = new IfStatement("if left wasNull...")
                 .condition(new Block(context).getVariable("wasNull"));
 
         LabelNode end = new LabelNode("end");
@@ -66,7 +63,7 @@ public class OrCodeGenerator
                 .visitLabel(leftIsFalse)
                 .push(false));
 
-        block.append(ifLeftIsNull.build());
+        block.append(ifLeftIsNull);
 
         // At this point we know the left expression was either NULL or FALSE.  The stack contains a single boolean
         // value for this expression which indicates if the left value was NULL.
@@ -74,17 +71,16 @@ public class OrCodeGenerator
         // eval right!
         block.append(right);
 
-        IfStatement.IfStatementBuilder ifRightIsNull = ifStatementBuilder()
-                .comment("if right wasNull...")
+        IfStatement ifRightIsNull = new IfStatement("if right wasNull...")
                 .condition(new Block(context).getVariable("wasNull"));
 
         // this leaves a single boolean on the stack which is ignored since the value in NULL
-        ifRightIsNull.ifTrue(new Block(context)
+        ifRightIsNull.ifTrue()
                 .comment("right was null, pop the right value off the stack; wasNull flag remains set to TRUE")
-                .pop(arguments.get(1).getType().getJavaType()));
+                .pop(arguments.get(1).getType().getJavaType());
 
         LabelNode rightIsTrue = new LabelNode("rightIsTrue");
-        ifRightIsNull.ifFalse(new Block(context)
+        ifRightIsNull.ifFalse()
                 .comment("if right is true, pop left null flag off stack, push true and goto end")
                 .ifFalseGoto(rightIsTrue)
                 .pop(boolean.class)
@@ -92,10 +88,10 @@ public class OrCodeGenerator
                 .gotoLabel(end)
                 .comment("right was false; store left null flag (on stack) in wasNull variable, and push false")
                 .visitLabel(rightIsTrue)
-                .putVariable("wasNull")
-                .push(false));
+                .putVariable(context.getVariable("wasNull"))
+                .push(false);
 
-        block.append(ifRightIsNull.build())
+        block.append(ifRightIsNull)
                 .visitLabel(end);
 
         return block;

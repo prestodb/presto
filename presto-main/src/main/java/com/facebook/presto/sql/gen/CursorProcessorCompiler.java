@@ -44,7 +44,6 @@ import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.OpCode.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.control.ForLoop.ForLoopBuilder;
-import static com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.generateWrite;
 import static java.lang.String.format;
 
@@ -124,40 +123,41 @@ public class CursorProcessorCompiler
         forLoop.body(forLoopBody);
 
         // if (filter(cursor))
-        IfStatementBuilder ifStatement = new IfStatementBuilder();
-        ifStatement.condition(new Block(context)
-                .pushThis()
+        IfStatement ifStatement = new IfStatement();
+        ifStatement.condition()
+                .append(context.getVariable("this"))
                 .getVariable(sessionVariable)
                 .getVariable(cursorVariable)
-                .invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), type(ConnectorSession.class), type(RecordCursor.class)));
-
-        Block trueBlock = new Block(context);
-        ifStatement.ifTrue(trueBlock);
+                .invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), type(ConnectorSession.class), type(RecordCursor.class));
 
         // pageBuilder.declarePosition();
-        trueBlock.getVariable(pageBuilderVariable)
+        ifStatement.ifTrue()
+                .getVariable(pageBuilderVariable)
                 .invokeVirtual(PageBuilder.class, "declarePosition", void.class);
 
         // this.project_43(session, cursor, pageBuilder.getBlockBuilder(42)));
         for (int projectionIndex = 0; projectionIndex < projections; projectionIndex++) {
-            trueBlock.pushThis()
+            ifStatement.ifTrue()
+                    .append(context.getVariable("this"))
                     .getVariable(sessionVariable)
                     .getVariable(cursorVariable);
 
             // pageBuilder.getBlockBuilder(0)
-            trueBlock.getVariable(pageBuilderVariable)
+            ifStatement.ifTrue()
+                    .getVariable(pageBuilderVariable)
                     .push(projectionIndex)
                     .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
 
             // project(block..., blockBuilder)
-            trueBlock.invokeVirtual(classDefinition.getType(),
+            ifStatement.ifTrue()
+                    .invokeVirtual(classDefinition.getType(),
                     "project_" + projectionIndex,
                     type(void.class),
                     type(ConnectorSession.class),
                     type(RecordCursor.class),
                     type(BlockBuilder.class));
         }
-        forLoopBody.append(ifStatement.build());
+        forLoopBody.append(ifStatement);
 
         method.getBody()
                 .append(forLoop.build())
@@ -243,24 +243,23 @@ public class CursorProcessorCompiler
 
                 Class<?> javaType = type.getJavaType();
 
-                Block isNullCheck = new Block(context)
+                IfStatement ifStatement = new IfStatement();
+                ifStatement.condition()
                         .setDescription(format("cursor.get%s(%d)", type, field))
                         .getVariable(cursorVariable)
                         .push(field)
                         .invokeInterface(RecordCursor.class, "isNull", boolean.class, int.class);
 
-                Block isNull = new Block(context)
+                ifStatement.ifTrue()
                         .putVariable(wasNullVariable, true)
                         .pushJavaDefault(javaType);
 
-                Block isNotNull = new Block(context)
+                ifStatement.ifFalse()
                         .getVariable(cursorVariable)
-                        .push(field);
+                        .push(field)
+                        .invokeInterface(RecordCursor.class, "get" + Primitives.wrap(javaType).getSimpleName(), javaType, int.class);
 
-                String methodName = "get" + Primitives.wrap(javaType).getSimpleName();
-                isNotNull.invokeInterface(RecordCursor.class, methodName, javaType, int.class);
-
-                return new IfStatement(isNullCheck, isNull, isNotNull);
+                return ifStatement;
             }
 
             @Override

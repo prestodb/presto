@@ -35,8 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.byteCode.OpCode.NOP;
-import static com.facebook.presto.byteCode.control.IfStatement.ifStatementBuilder;
 import static com.facebook.presto.byteCode.control.LookupSwitch.lookupSwitchBuilder;
 import static com.facebook.presto.byteCode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.ifWasNullPopAndGoto;
@@ -133,17 +131,16 @@ public class InCodeGenerator
 
             switchBlock = new Block(context)
                     .comment("inListSet.contains(<stackValue>)")
-                    .append(new IfStatement(
-                            new Block(context)
+                    .append(new IfStatement()
+                            .condition(new Block()
                                     .comment("value (+boxing if necessary)")
                                     .dup(javaType)
                                     .append(ByteCodeUtils.boxPrimitive(context, javaType))
                                     .comment("set")
                                     .append(loadConstant(context, constant))
                                     // TODO: use invokeVirtual on the set instead. This requires swapping the two elements in the stack
-                                    .invokeStatic(CompilerOperations.class, "in", boolean.class, Object.class, Set.class),
-                            jump(match),
-                            NOP));
+                                    .invokeStatic(CompilerOperations.class, "in", boolean.class, Object.class, Set.class))
+                            .ifTrue(jump(match)));
         }
 
         Block defaultCaseBlock = buildInCase(generatorContext, context, type, defaultLabel, match, noMatch, defaultBucket.build(), true).setDescription("default");
@@ -218,25 +215,26 @@ public class InCodeGenerator
         ByteCodeNode elseNode = elseBlock;
         for (ByteCodeNode testNode : testValues) {
             LabelNode testLabel = new LabelNode("test");
-            IfStatement.IfStatementBuilder test = ifStatementBuilder();
+            IfStatement test = new IfStatement();
 
-            Block condition = new Block(context)
+            test.condition()
                     .visitLabel(testLabel)
                     .dup(type.getJavaType())
                     .append(testNode);
 
             if (checkForNulls) {
-                condition.getVariable("wasNull")
+                test.condition()
+                        .append(context.getVariable("wasNull"))
                         .putVariable(caseWasNull)
                         .append(ifWasNullPopAndGoto(context, elseLabel, void.class, type.getJavaType(), type.getJavaType()));
             }
-            condition.append(invoke(generatorContext.getContext(), equalsFunction, operator.getSignature()));
-            test.condition(condition);
+            test.condition()
+                    .append(invoke(generatorContext.getContext(), equalsFunction, operator.getSignature()));
 
-            test.ifTrue(new Block(context).gotoLabel(matchLabel));
+            test.ifTrue().gotoLabel(matchLabel);
             test.ifFalse(elseNode);
 
-            elseNode = test.build();
+            elseNode = test;
             elseLabel = testLabel;
         }
         caseBlock.append(elseNode);

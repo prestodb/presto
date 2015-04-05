@@ -50,7 +50,6 @@ import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.OpCode.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.control.ForLoop.ForLoopBuilder;
-import static com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.loadConstant;
 import static java.lang.String.format;
@@ -140,11 +139,9 @@ public class PageProcessorCompiler
                 .ifTrueGoto(done);
 
         // if (filter(cursor))
-        IfStatementBuilder filterBlock = new IfStatementBuilder();
-
-        Block trueBlock = new Block(context);
-        filterBlock.condition(new Block(context)
-                .pushThis()
+        IfStatement filterBlock = new IfStatement();
+        filterBlock.condition()
+                .append(context.getVariable("this"))
                 .getVariable(sessionVariable)
                 .append(pushBlockVariables(context, getInputChannels(filter)))
                 .getVariable(positionVariable)
@@ -155,26 +152,29 @@ public class PageProcessorCompiler
                                 .add(type(ConnectorSession.class))
                                 .addAll(nCopies(getInputChannels(filter).size(), type(com.facebook.presto.spi.block.Block.class)))
                                 .add(type(int.class))
-                                .build()))
-                .ifTrue(trueBlock);
+                                .build());
 
-        trueBlock.getVariable(pageBuilderVariable)
+        filterBlock.ifTrue()
+                .getVariable(pageBuilderVariable)
                 .invokeVirtual(PageBuilder.class, "declarePosition", void.class);
 
         for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
             List<Integer> inputChannels = getInputChannels(projections.get(projectionIndex));
 
-            trueBlock.pushThis()
+            filterBlock.ifTrue()
+                    .append(context.getVariable("this"))
                     .getVariable(sessionVariable)
                     .append(pushBlockVariables(context, inputChannels))
                     .getVariable(positionVariable);
 
-            trueBlock.comment("pageBuilder.getBlockBuilder(" + projectionIndex + ")")
+            filterBlock.ifTrue()
+                    .comment("pageBuilder.getBlockBuilder(" + projectionIndex + ")")
                     .getVariable(pageBuilderVariable)
                     .push(projectionIndex)
                     .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
 
-            trueBlock.comment("project_" + projectionIndex + "(session, block_" + inputChannels + ", position, blockBuilder)")
+            filterBlock.ifTrue()
+                    .comment("project_" + projectionIndex + "(session, block_" + inputChannels + ", position, blockBuilder)")
                     .invokeVirtual(classDefinition.getType(),
                             "project_" + projectionIndex,
                             type(void.class),
@@ -186,7 +186,7 @@ public class PageProcessorCompiler
                                     .build());
         }
 
-        loopBody.append(filterBlock.build());
+        loopBody.append(filterBlock);
 
         method.getBody()
                 .append(loop.build())
@@ -313,25 +313,26 @@ public class PageProcessorCompiler
                 Type type = node.getType();
 
                 Class<?> javaType = type.getJavaType();
-                Block isNullCheck = new Block(context)
+                IfStatement ifStatement = new IfStatement();
+                ifStatement.condition()
                         .setDescription(format("block_%d.get%s()", field, type))
-                        .getVariable("block_" + field)
+                        .append(context.getVariable("block_" + field))
                         .getVariable(positionVariable)
                         .invokeInterface(com.facebook.presto.spi.block.Block.class, "isNull", boolean.class, int.class);
 
-                Block isNull = new Block(context)
+                ifStatement.ifTrue()
                         .putVariable(wasNullVariable, true)
                         .pushJavaDefault(javaType);
 
                 String methodName = "get" + Primitives.wrap(javaType).getSimpleName();
 
-                Block isNotNull = new Block(context)
+                ifStatement.ifFalse()
                         .append(loadConstant(context, callSiteBinder.bind(type, Type.class)))
-                        .getVariable("block_" + field)
+                        .append(context.getVariable("block_" + field))
                         .getVariable(positionVariable)
                         .invokeInterface(Type.class, methodName, javaType, com.facebook.presto.spi.block.Block.class, int.class);
 
-                return new IfStatement(isNullCheck, isNull, isNotNull);
+                return ifStatement;
             }
 
             @Override
