@@ -43,7 +43,6 @@ import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.OpCode.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.byteCode.control.ForLoop.ForLoopBuilder;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.generateWrite;
 import static java.lang.String.format;
 
@@ -95,7 +94,7 @@ public class CursorProcessorCompiler
         // for loop loop body
         //
         LabelNode done = new LabelNode("done");
-        ForLoopBuilder forLoop = ForLoop.forLoopBuilder()
+        ForLoop forLoop = new ForLoop()
                 .initialize(NOP)
                 .condition(new Block(context)
                                 .comment("completedPositions < count")
@@ -160,7 +159,7 @@ public class CursorProcessorCompiler
         forLoopBody.append(ifStatement);
 
         method.getBody()
-                .append(forLoop.build())
+                .append(forLoop)
                 .visitLabel(done)
                 .comment("return completedPositions;")
                 .getVariable(completedPositionsVariable)

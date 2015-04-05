@@ -23,89 +23,29 @@ import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.ByteCodeNodes.buildBlock;
+import static com.google.common.base.Preconditions.checkState;
 
 public class ForLoop
         implements FlowControl
 {
-    public static ForLoopBuilder forLoopBuilder()
-    {
-        return new ForLoopBuilder();
-    }
-
-    public static class ForLoopBuilder
-    {
-        private final LabelNode continueLabel = new LabelNode("continue");
-        private final LabelNode endLabel = new LabelNode("end");
-
-        private String comment;
-        private ByteCodeNode initialize;
-        private ByteCodeNode condition;
-        private ByteCodeNode update;
-        private ByteCodeNode body;
-
-        public ForLoopBuilder comment(String format, Object... args)
-        {
-            this.comment = String.format(format, args);
-            return this;
-        }
-
-        public ForLoopBuilder initialize(ByteCodeNode initialize)
-        {
-            this.initialize = buildBlock(initialize, "initialize");
-            return this;
-        }
-
-        public ForLoopBuilder condition(ByteCodeNode condition)
-        {
-            this.condition = buildBlock(condition, "condition");
-            return this;
-        }
-
-        public ForLoopBuilder update(ByteCodeNode update)
-        {
-            this.update = buildBlock(update, "update");
-            return this;
-        }
-
-        public ForLoopBuilder body(ByteCodeNode body)
-        {
-            this.body = buildBlock(body, "body");
-            return this;
-        }
-
-        public ForLoop build()
-        {
-            ForLoop forLoop = new ForLoop(comment, initialize, condition, update, body, continueLabel, endLabel);
-            return forLoop;
-        }
-    }
-
     private final String comment;
-    private final ByteCodeNode initialize;
-    private final ByteCodeNode condition;
-    private final ByteCodeNode update;
-    private final ByteCodeNode body;
+    private final Block initialize = new Block();
+    private final Block condition = new Block();
+    private final Block update = new Block();
+    private final Block body = new Block();
 
     private final LabelNode beginLabel = new LabelNode("beginLabel");
-    private final LabelNode continueLabel;
-    private final LabelNode endLabel;
+    private final LabelNode continueLabel = new LabelNode("continue");
+    private final LabelNode endLabel = new LabelNode("end");
 
-    private ForLoop(String comment,
-            ByteCodeNode initialize,
-            ByteCodeNode condition,
-            ByteCodeNode update,
-            ByteCodeNode body,
-            LabelNode continueLabel,
-            LabelNode endLabel)
+    public ForLoop()
     {
-        this.comment = comment;
-        this.initialize = initialize;
-        this.condition = condition;
-        this.update = update;
-        this.body = body;
-        this.continueLabel = continueLabel;
-        this.endLabel = endLabel;
+        this.comment = null;
+    }
+
+    public ForLoop(String format, Object... args)
+    {
+        this.comment = String.format(format, args);
     }
 
     @Override
@@ -114,41 +54,89 @@ public class ForLoop
         return comment;
     }
 
-    public ByteCodeNode getInitialize()
+    public LabelNode getContinueLabel()
+    {
+        return continueLabel;
+    }
+
+    public LabelNode getEndLabel()
+    {
+        return endLabel;
+    }
+
+    public Block initialize()
     {
         return initialize;
     }
 
-    public ByteCodeNode getCondition()
+    public ForLoop initialize(ByteCodeNode node)
+    {
+        checkState(initialize.isEmpty(), "initialize already set");
+        initialize.append(node);
+        return this;
+    }
+
+    public Block condition()
     {
         return condition;
     }
 
-    public ByteCodeNode getUpdate()
+    public ForLoop condition(ByteCodeNode node)
+    {
+        checkState(condition.isEmpty(), "condition already set");
+        condition.append(node);
+        return this;
+    }
+
+    public Block update()
     {
         return update;
     }
 
-    public ByteCodeNode getBody()
+    public ForLoop update(ByteCodeNode node)
+    {
+        checkState(update.isEmpty(), "update already set");
+        update.append(node);
+        return this;
+    }
+
+    public Block body()
     {
         return body;
+    }
+
+    public ForLoop body(ByteCodeNode node)
+    {
+        checkState(body.isEmpty(), "body already set");
+        body.append(node);
+        return this;
     }
 
     @Override
     public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
-        Block block = new Block()
-                .append(initialize)
-                .visitLabel(beginLabel)
-                .append(condition)
-                .ifZeroGoto(endLabel);
+        checkState(!condition.isEmpty(), "ForLoop does not have a condition set");
 
-        if (body != null) {
-            block.append(body);
-        }
+        Block block = new Block();
+
+        block.append(new Block()
+                .setDescription("initialize")
+                .append(initialize));
+
+        block.visitLabel(beginLabel)
+                .append(new Block()
+                        .setDescription("condition")
+                        .append(condition))
+                .ifFalseGoto(endLabel);
+
+        block.append(new Block()
+                .setDescription("body")
+                .append(body));
 
         block.visitLabel(continueLabel)
-                .append(update)
+                .append(new Block()
+                        .setDescription("update")
+                        .append(update))
                 .gotoLabel(beginLabel)
                 .visitLabel(endLabel);
 

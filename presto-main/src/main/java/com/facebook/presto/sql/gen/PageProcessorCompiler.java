@@ -49,7 +49,6 @@ import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.OpCode.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.byteCode.control.ForLoop.ForLoopBuilder;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.loadConstant;
 import static java.lang.String.format;
@@ -120,7 +119,7 @@ public class PageProcessorCompiler
 
         Block loopBody = new Block(context);
 
-        ForLoopBuilder loop = ForLoop.forLoopBuilder()
+        ForLoop loop = new ForLoop()
                 .initialize(NOP)
                 .condition(new Block(context)
                                 .comment("position < end")
@@ -189,7 +188,7 @@ public class PageProcessorCompiler
         loopBody.append(filterBlock);
 
         method.getBody()
-                .append(loop.build())
+                .append(loop)
                 .visitLabel(done)
                 .comment("return position;")
                 .getVariable(positionVariable)

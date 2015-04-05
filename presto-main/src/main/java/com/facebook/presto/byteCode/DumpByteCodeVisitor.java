@@ -339,10 +339,10 @@ public class DumpByteCodeVisitor
         }
         printLine("for {");
         indentLevel++;
-        forLoop.getInitialize().accept(forLoop, this);
-        forLoop.getCondition().accept(forLoop, this);
-        forLoop.getUpdate().accept(forLoop, this);
-        forLoop.getBody().accept(forLoop, this);
+        visitNestedNode("initialize", forLoop.initialize(), forLoop);
+        visitNestedNode("condition", forLoop.condition(), forLoop);
+        visitNestedNode("update", forLoop.update(), forLoop);
+        visitNestedNode("body", forLoop.body(), forLoop);
         indentLevel--;
         printLine("}");
         return null;
