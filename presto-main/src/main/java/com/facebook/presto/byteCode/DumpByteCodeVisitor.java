@@ -357,8 +357,8 @@ public class DumpByteCodeVisitor
         }
         printLine("while {");
         indentLevel++;
-        whileLoop.getCondition().accept(whileLoop, this);
-        whileLoop.getBody().accept(whileLoop, this);
+        visitNestedNode("condition", whileLoop.condition(), whileLoop);
+        visitNestedNode("body", whileLoop.body(), whileLoop);
         indentLevel--;
         printLine("}");
         return null;
