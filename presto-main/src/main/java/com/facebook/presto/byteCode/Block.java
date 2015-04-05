@@ -92,9 +92,7 @@ public class Block
 
     public Block append(ByteCodeNode node)
     {
-        if (node != OpCode.NOP && !(node instanceof Block && ((Block) node).isEmpty())) {
-            nodes.add(node);
-        }
+        nodes.add(node);
         return this;
     }
 
