@@ -344,11 +344,9 @@ public class JoinProbeCompiler
                 "getCurrentJoinPosition",
                 type(long.class))
                 .getBody()
-                .append(new IfStatement(
-                        context.getVariable("this").invoke("currentRowContainsNull", boolean.class),
-                        constantLong(-1).ret(),
-                        null
-                ));
+                .append(new IfStatement()
+                        .condition(context.getVariable("this").invoke("currentRowContainsNull", boolean.class))
+                        .ifTrue(constantLong(-1).ret()));
 
         ByteCodeExpression position = context.getVariable("this").getField(positionField);
         ByteCodeExpression page = context.getVariable("this").getField(probePageField);

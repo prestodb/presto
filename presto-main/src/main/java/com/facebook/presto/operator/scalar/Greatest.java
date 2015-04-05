@@ -49,9 +49,7 @@ import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
-import static com.facebook.presto.byteCode.OpCode.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.byteCode.control.IfStatement.ifStatementBuilder;
 import static com.facebook.presto.metadata.Signature.internalFunction;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
@@ -214,29 +212,25 @@ public final class Greatest
                 .putVariable(greatestBlockVariable);
 
         for (int i = 1; i < nativeContainerTypes.size(); i++) {
-            Block condition = new Block(context)
+            IfStatement ifStatement = new IfStatement("if (type.compareTo(greatestBlock, 0, block" + i + ", 0) < 0)");
+
+            ifStatement.condition()
                     .getVariable(typeVariable)
                     .getVariable(greatestBlockVariable)
                     .push(0)
-                    .getVariable("block" + i)
+                    .append(context.getVariable("block" + i))
                     .push(0)
                     .invokeInterface(Type.class, "compareTo", int.class, com.facebook.presto.spi.block.Block.class, int.class, com.facebook.presto.spi.block.Block.class, int.class)
                     .push(0)
                     .invokeStatic(CompilerOperations.class, "greaterThan", boolean.class, int.class, int.class);
 
-            Block ifFalse = new Block(context)
-                    .getVariable("arg" + i)
+            ifStatement.ifFalse()
+                    .append(context.getVariable("arg" + i))
                     .putVariable(greatestVariable)
-                    .getVariable("block" + i)
+                    .append(context.getVariable("block" + i))
                     .putVariable(greatestBlockVariable);
 
-            IfStatement.IfStatementBuilder builder = ifStatementBuilder();
-            builder.comment("if (type.compareTo(greatestBlock, 0, block" + i + ", 0) < 0)")
-                    .condition(condition)
-                    .ifTrue(NOP)
-                    .ifFalse(ifFalse);
-
-            body.append(builder.build());
+            body.append(ifStatement);
         }
 
         body.comment("return greatest;")

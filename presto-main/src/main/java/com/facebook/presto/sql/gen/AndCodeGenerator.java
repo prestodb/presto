@@ -25,8 +25,6 @@ import com.google.common.base.Preconditions;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.control.IfStatement.ifStatementBuilder;
-
 public class AndCodeGenerator
         implements ByteCodeGenerator
 {
@@ -45,28 +43,27 @@ public class AndCodeGenerator
 
         block.append(left);
 
-        IfStatement.IfStatementBuilder ifLeftIsNull = ifStatementBuilder()
-                .comment("if left wasNull...")
+        IfStatement ifLeftIsNull = new IfStatement("if left wasNull...")
                 .condition(new Block(context).getVariable("wasNull"));
 
         LabelNode end = new LabelNode("end");
-        ifLeftIsNull.ifTrue(new Block(context)
+        ifLeftIsNull.ifTrue()
                 .comment("clear the null flag, pop left value off stack, and push left null flag on the stack (true)")
-                .putVariable("wasNull", false)
+                .putVariable(context.getVariable("wasNull"), false)
                 .pop(arguments.get(0).getType().getJavaType()) // discard left value
-                .push(true));
+                .push(true);
 
         LabelNode leftIsTrue = new LabelNode("leftIsTrue");
-        ifLeftIsNull.ifFalse(new Block(context)
+        ifLeftIsNull.ifFalse()
                 .comment("if left is false, push false, and goto end")
                 .ifTrueGoto(leftIsTrue)
                 .push(false)
                 .gotoLabel(end)
                 .comment("left was true; push left null flag on the stack (false)")
                 .visitLabel(leftIsTrue)
-                .push(false));
+                .push(false);
 
-        block.append(ifLeftIsNull.build());
+        block.append(ifLeftIsNull);
 
         // At this point we know the left expression was either NULL or TRUE.  The stack contains a single boolean
         // value for this expression which indicates if the left value was NULL.
@@ -74,17 +71,17 @@ public class AndCodeGenerator
         // eval right!
         block.append(right);
 
-        IfStatement.IfStatementBuilder ifRightIsNull = ifStatementBuilder()
-                .comment("if right wasNull...")
-                .condition(new Block(context).getVariable("wasNull"));
+        IfStatement ifRightIsNull = new IfStatement("if right wasNull...");
+        ifRightIsNull.condition()
+                .append(context.getVariable("wasNull"));
 
         // this leaves a single boolean on the stack which is ignored since the value in NULL
-        ifRightIsNull.ifTrue(new Block(context)
+        ifRightIsNull.ifTrue()
                 .comment("right was null, pop the right value off the stack; wasNull flag remains set to TRUE")
-                .pop(arguments.get(1).getType().getJavaType()));
+                .pop(arguments.get(1).getType().getJavaType());
 
         LabelNode rightIsTrue = new LabelNode("rightIsTrue");
-        ifRightIsNull.ifFalse(new Block(context)
+        ifRightIsNull.ifFalse()
                 .comment("if right is false, pop left null flag off stack, push false and goto end")
                 .ifTrueGoto(rightIsTrue)
                 .pop(boolean.class)
@@ -92,10 +89,10 @@ public class AndCodeGenerator
                 .gotoLabel(end)
                 .comment("right was true; store left null flag (on stack) in wasNull variable, and push true")
                 .visitLabel(rightIsTrue)
-                .putVariable("wasNull")
-                .push(true));
+                .putVariable(context.getVariable("wasNull"))
+                .push(true);
 
-        block.append(ifRightIsNull.build())
+        block.append(ifRightIsNull)
                 .visitLabel(end);
 
         return block;

@@ -95,8 +95,9 @@ public final class ByteCodeUtils
             popComment = format("pop(%s)", Joiner.on(", ").join(stackArgsToPop));
         }
 
-        String comment = format("if wasNull then %s", Joiner.on(", ").skipNulls().join(clearComment, popComment, loadDefaultComment, "goto " + label.getLabel()));
-        return new IfStatement(comment, nullCheck, isNull, NOP);
+        return new IfStatement("if wasNull then %s", Joiner.on(", ").skipNulls().join(clearComment, popComment, loadDefaultComment, "goto " + label.getLabel()))
+                .condition(nullCheck)
+                .ifTrue(isNull);
     }
 
     public static ByteCodeNode boxPrimitive(CompilerContext context, Class<?> type)
@@ -253,7 +254,10 @@ public final class ByteCodeUtils
                 .pushNull()
                 .checkCast(type);
 
-        return IfStatement.ifStatementBuilder().condition(condition).ifTrue(wasNull).ifFalse(notNull).build();
+        return new IfStatement()
+                .condition(condition)
+                .ifTrue(wasNull)
+                .ifFalse(notNull);
     }
 
     public static ByteCodeNode invoke(CompilerContext context, Binding binding, String name)
@@ -287,7 +291,7 @@ public final class ByteCodeUtils
         Variable tempOutput = context.createTempVariable(BlockBuilder.class);
         return new Block(context)
                 .comment("if (wasNull)")
-                .append(new IfStatement.IfStatementBuilder()
+                .append(new IfStatement()
                         .condition(new Block(context).getVariable(wasNullVariable))
                         .ifTrue(new Block(context)
                                 .comment("output.appendNull();")
@@ -301,7 +305,6 @@ public final class ByteCodeUtils
                                 .append(loadConstant(context, callSiteBinder.bind(type, Type.class)))
                                 .getVariable(tempOutput)
                                 .getVariable(tempValue)
-                                .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, type.getJavaType()))
-                        .build());
+                                .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, type.getJavaType())));
     }
 }
