@@ -15,7 +15,6 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.OperatorType;
@@ -201,7 +200,7 @@ public class ExpressionAnalyzer
         @Override
         protected Void visitSubqueryExpression(SubqueryExpression node, Void context)
         {
-            throw new SemanticException(SemanticErrorCode.NOT_SUPPORTED, node, "Scalar subqueries not yet supported");
+            throw new SemanticException(NOT_SUPPORTED, node, "Scalar subqueries not yet supported");
         }
     }
 
@@ -389,7 +388,7 @@ public class ExpressionAnalyzer
             Type firstType = process(node.getFirst(), context);
             Type secondType = process(node.getSecond(), context);
 
-            if (!FunctionRegistry.getCommonSuperType(firstType, secondType).isPresent()) {
+            if (!getCommonSuperType(firstType, secondType).isPresent()) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType);
             }
 
@@ -957,7 +956,7 @@ public class ExpressionAnalyzer
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
-            final Map<Symbol, Type> types,
+            Map<Symbol, Type> types,
             Iterable<? extends Expression> expressions)
     {
         List<Field> fields = DependencyExtractor.extractUnique(expressions).stream()
