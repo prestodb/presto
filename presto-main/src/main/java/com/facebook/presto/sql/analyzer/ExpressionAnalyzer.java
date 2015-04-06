@@ -811,7 +811,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitExpression(Expression node, AnalysisContext context)
         {
-            throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
+            throw new SemanticException(NOT_SUPPORTED, node, "not yet implemented: " + node.getClass().getName());
         }
 
         private Type getOperator(AnalysisContext context, Expression node, OperatorType operatorType, Expression... arguments)
