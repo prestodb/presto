@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.byteCode;
 
-import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.Type;
 
@@ -34,9 +33,6 @@ public class Scope
     private final List<Variable> allVariables = new ArrayList<>();
 
     private final Variable thisVariable;
-
-    private final LabelNode variableStartLabel = new LabelNode("VariableStart");
-    private final LabelNode variableEndLabel = new LabelNode("VariableEnd");
 
     private int nextTempVariableId;
 
@@ -105,22 +101,5 @@ public class Scope
         allVariables.add(variable);
 
         return variable;
-    }
-
-    public LabelNode getVariableStartLabel()
-    {
-        return variableStartLabel;
-    }
-
-    public LabelNode getVariableEndLabel()
-    {
-        return variableEndLabel;
-    }
-
-    public void addLocalVariables(MethodDefinition methodDefinition)
-    {
-        for (Variable variable : variables.values()) {
-            methodDefinition.addLocalVariable(variable, variableStartLabel, variableEndLabel);
-        }
     }
 }

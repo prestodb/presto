@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.byteCode;
 
-import com.facebook.presto.byteCode.debug.LocalVariableNode;
-import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -49,7 +47,6 @@ public class MethodDefinition
     private final List<ParameterizedType> parameterTypes;
     private final List<List<AnnotationDefinition>> parameterAnnotations;
     private final List<ParameterizedType> exceptions = new ArrayList<>();
-    private final List<LocalVariableNode> localVariableNodes = new ArrayList<>();
 
     private final Block body;
     private String comment;
@@ -244,16 +241,13 @@ public class MethodDefinition
         methodVisitor.visitCode();
 
         // visit instructions
-        MethodGenerationContext generationContext = new MethodGenerationContext(scope.getVariables());
+        MethodGenerationContext generationContext = new MethodGenerationContext(methodVisitor);
+        generationContext.enterScope(scope);
         body.accept(methodVisitor, generationContext);
         if (addReturn) {
             new InsnNode(RETURN).accept(methodVisitor);
         }
-
-        // visit local variable declarations
-        for (LocalVariableNode localVariableNode : localVariableNodes) {
-            localVariableNode.accept(methodVisitor, generationContext);
-        }
+        generationContext.exitScope(scope);
 
         // done
         methodVisitor.visitMaxs(-1, -1);
@@ -329,10 +323,5 @@ public class MethodDefinition
         sb.append(")");
         sb.append(returnType);
         return sb.toString();
-    }
-
-    public void addLocalVariable(Variable localVariable, LabelNode start, LabelNode end)
-    {
-        localVariableNodes.add(new LocalVariableNode(localVariable, start, end));
     }
 }
