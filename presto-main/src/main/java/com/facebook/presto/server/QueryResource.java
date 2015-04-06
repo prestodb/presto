@@ -24,6 +24,7 @@ import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -37,6 +38,7 @@ import javax.ws.rs.core.UriInfo;
 import java.net.URI;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 import static com.facebook.presto.server.ResourceUtil.assertRequest;
 import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
@@ -93,13 +95,15 @@ public class QueryResource
     public Response createQuery(
             String statement,
             @Context HttpServletRequest servletRequest,
-            @Context UriInfo uriInfo)
+            @Context UriInfo uriInfo,
+            @HeaderParam("X-Presto-Digest") String digest)
     {
         assertRequest(!isNullOrEmpty(statement), "SQL statement is empty");
 
         Session session = createSessionForRequest(servletRequest);
 
-        QueryInfo queryInfo = queryManager.createQuery(session, statement);
+        Optional<String> queryDigest = Optional.ofNullable(digest);
+        QueryInfo queryInfo = queryManager.createQuery(session, statement, queryDigest);
         URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryInfo.getQueryId().toString()).build();
         return Response.created(pagesUri).entity(queryInfo).build();
     }

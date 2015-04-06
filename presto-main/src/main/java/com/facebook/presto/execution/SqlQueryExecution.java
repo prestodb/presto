@@ -30,6 +30,8 @@ import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
 import com.facebook.presto.sql.planner.InputExtractor;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.PlanDigest;
+import com.facebook.presto.sql.planner.PlanDigestGenerator;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
@@ -86,6 +88,7 @@ public class SqlQueryExecution
 
     public SqlQueryExecution(QueryId queryId,
             String query,
+            Optional<String> queryDigest,
             Session session,
             URI self,
             Statement statement,
@@ -124,9 +127,10 @@ public class SqlQueryExecution
 
             checkNotNull(queryId, "queryId is null");
             checkNotNull(query, "query is null");
+            checkNotNull(queryDigest, "queryDigest is null");
             checkNotNull(session, "session is null");
             checkNotNull(self, "self is null");
-            this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryExecutor);
+            this.stateMachine = new QueryStateMachine(queryId, query, queryDigest, session, self, queryExecutor);
 
             this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled);
         }
@@ -144,7 +148,17 @@ public class SqlQueryExecution
                 }
 
                 // analyze query
-                SubPlan subplan = analyzeQuery();
+                Plan plan = analyzeQuery();
+
+                // check if the digest computed for the plan has matches the one provided
+                // with the query, if so, transition to digest matched state
+                if (stateMachine.evaluateDigest()) {
+                    // digest matched and query execution terminated here.
+                    return;
+                }
+
+                // fragment the plan
+                SubPlan subplan = createSubPlans(plan);
 
                 // plan distribution of query
                 planDistribution(subplan);
@@ -180,43 +194,53 @@ public class SqlQueryExecution
         }
     }
 
-    private SubPlan analyzeQuery()
+    private Plan analyzeQuery()
     {
         try {
-            return doAnalyzeQuery();
+            // time analysis phase
+            long analysisStart = System.nanoTime();
+
+            // analyze query
+            Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, Optional.of(queryExplainer), experimentalSyntaxEnabled);
+            Analysis analysis = analyzer.analyze(statement);
+
+            stateMachine.setUpdateType(analysis.getUpdateType());
+
+            // plan query
+            PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+            LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata);
+            Plan plan = logicalPlanner.plan(analysis);
+
+            // compute cache digest for the generated plan
+            PlanDigestGenerator planDigestGenerator = new PlanDigestGenerator(splitManager);
+            PlanDigest planDigest = planDigestGenerator.generate(plan);
+            stateMachine.setPlanDigest(Optional.of(planDigest));
+
+            // record analysis time
+            stateMachine.recordAnalysisTime(analysisStart);
+
+            return plan;
         }
         catch (StackOverflowError e) {
             throw new PrestoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
         }
     }
 
-    private SubPlan doAnalyzeQuery()
+    private SubPlan createSubPlans(Plan plan)
     {
-        // time analysis phase
-        long analysisStart = System.nanoTime();
+        try {
+            // extract inputs
+            List<Input> inputs = new InputExtractor(metadata).extract(plan.getRoot());
+            stateMachine.setInputs(inputs);
 
-        // analyze query
-        Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, Optional.of(queryExplainer), experimentalSyntaxEnabled);
-        Analysis analysis = analyzer.analyze(statement);
+            // fragment the plan
+            SubPlan subplan = new PlanFragmenter().createSubPlans(plan);
 
-        stateMachine.setUpdateType(analysis.getUpdateType());
-
-        // plan query
-        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata);
-        Plan plan = logicalPlanner.plan(analysis);
-
-        // extract inputs
-        List<Input> inputs = new InputExtractor(metadata).extract(plan.getRoot());
-        stateMachine.setInputs(inputs);
-
-        // fragment the plan
-        SubPlan subplan = new PlanFragmenter().createSubPlans(plan);
-
-        // record analysis time
-        stateMachine.recordAnalysisTime(analysisStart);
-
-        return subplan;
+            return subplan;
+        }
+        catch (StackOverflowError e) {
+            throw new RuntimeException("statement is too large (stack overflow during analysis)", e);
+        }
     }
 
     private void planDistribution(SubPlan subplan)
@@ -422,7 +446,7 @@ public class SqlQueryExecution
         }
 
         @Override
-        public SqlQueryExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement)
+        public SqlQueryExecution createQueryExecution(QueryId queryId, String query, Optional<String> queryDigest, Session session, Statement statement)
         {
             int initialHashPartitions = this.initialHashPartitions;
             if (isBigQueryEnabled(session, false)) {
@@ -432,6 +456,7 @@ public class SqlQueryExecution
 
             SqlQueryExecution queryExecution = new SqlQueryExecution(queryId,
                     query,
+                    queryDigest,
                     session,
                     locationFactory.createQueryLocation(queryId),
                     statement,

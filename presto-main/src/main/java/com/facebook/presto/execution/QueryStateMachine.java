@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.sql.planner.PlanDigest;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -38,6 +39,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 
@@ -60,6 +62,7 @@ public class QueryStateMachine
 
     private final QueryId queryId;
     private final String query;
+    private final Optional<String> queryDigest;
     private final Session session;
     private final URI self;
 
@@ -100,10 +103,14 @@ public class QueryStateMachine
     @GuardedBy("this")
     private Set<Input> inputs = ImmutableSet.of();
 
-    public QueryStateMachine(QueryId queryId, String query, Session session, URI self, Executor executor)
+    @GuardedBy("this")
+    private Optional<PlanDigest> planDigest;
+
+    public QueryStateMachine(QueryId queryId, String query, Optional<String> queryDigest, Session session, URI self, Executor executor)
     {
         this.queryId = checkNotNull(queryId, "queryId is null");
         this.query = checkNotNull(query, "query is null");
+        this.queryDigest = checkNotNull(queryDigest, "queryDigest is null");
         this.session = checkNotNull(session, "session is null");
         this.self = checkNotNull(self, "self is null");
 
@@ -116,6 +123,8 @@ public class QueryStateMachine
                 log.debug("Query %s is %s", QueryStateMachine.this.queryId, newValue);
             }
         });
+
+        this.planDigest = Optional.empty();
     }
 
     public QueryId getQueryId()
@@ -244,6 +253,8 @@ public class QueryStateMachine
                 new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
                 outputPositions);
 
+        String digest = planDigest.map(PlanDigest::getDigestString).orElse("");
+
         return new QueryInfo(queryId,
                 session,
                 state,
@@ -251,6 +262,7 @@ public class QueryStateMachine
                 self,
                 outputFieldNames,
                 query,
+                digest,
                 queryStats,
                 setSessionProperties,
                 resetSessionProperties,
@@ -303,6 +315,16 @@ public class QueryStateMachine
         return queryState.get();
     }
 
+    public synchronized void setPlanDigest(Optional<PlanDigest> planDigest)
+    {
+        this.planDigest = planDigest;
+    }
+
+    public synchronized Optional<PlanDigest> getPlanDigest()
+    {
+        return planDigest;
+    }
+
     public synchronized boolean isDone()
     {
         return queryState.get().isDone();
@@ -321,6 +343,30 @@ public class QueryStateMachine
             queuedTime = Duration.nanosSince(createNanos).convertToMostSuccinctTimeUnit();
         }
         return true;
+    }
+
+    public synchronized boolean evaluateDigest()
+    {
+        if (!queryDigest.isPresent() || !planDigest.isPresent()) {
+            // no digest provided or generated
+            return false;
+        }
+
+        if (queryDigest.get().equals(planDigest.get().getDigestString())) {
+            // computed digest matched the one provided with the query, transitioning to a terminal state
+            boolean changed = queryState.compareAndSet(QueryState.PLANNING, QueryState.DIGEST_MATCHED);
+            if (changed) {
+                totalPlanningTime = Duration.nanosSince(createNanos);
+
+                if (endTime == null) {
+                    endTime = DateTime.now();
+                }
+            }
+
+            return changed;
+        }
+
+        return false;
     }
 
     public synchronized boolean starting()

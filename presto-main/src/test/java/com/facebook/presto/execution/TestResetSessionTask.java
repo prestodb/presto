@@ -22,6 +22,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
@@ -47,7 +48,7 @@ public class TestResetSessionTask
     {
         Session session = TEST_SESSION.withSystemProperty("foo", "bar").withCatalogProperty("catalog", "baz", "blah");
 
-        QueryStateMachine stateMachine = new QueryStateMachine(new QueryId("query"), "reset foo", session, URI.create("fake://uri"), executor);
+        QueryStateMachine stateMachine = new QueryStateMachine(new QueryId("query"), "reset foo", Optional.empty(), session, URI.create("fake://uri"), executor);
         new ResetSessionTask().execute(new ResetSession(QualifiedName.of("catalog", "baz")), session, new MetadataManager(), stateMachine);
 
         Set<String> sessionProperties = stateMachine.getResetSessionProperties();

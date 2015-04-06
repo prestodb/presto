@@ -24,6 +24,7 @@ import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -141,11 +142,12 @@ public class DataDefinitionExecution<T extends Statement>
         public DataDefinitionExecution<?> createQueryExecution(
                 QueryId queryId,
                 String query,
+                Optional<String> queryDigest,
                 Session session,
                 Statement statement)
         {
             URI self = locationFactory.createQueryLocation(queryId);
-            QueryStateMachine stateMachine = new QueryStateMachine(queryId, query, session, self, executor);
+            QueryStateMachine stateMachine = new QueryStateMachine(queryId, query, queryDigest, session, self, executor);
             return createExecution(statement, session, stateMachine);
         }
 

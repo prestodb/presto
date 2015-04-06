@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import io.airlift.units.Duration;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface QueryManager
 {
@@ -29,7 +30,7 @@ public interface QueryManager
 
     QueryInfo getQueryInfo(QueryId queryId);
 
-    QueryInfo createQuery(Session session, String query);
+    QueryInfo createQuery(Session session, String query, Optional<String> queryDigest);
 
     void cancelQuery(QueryId queryId);
 

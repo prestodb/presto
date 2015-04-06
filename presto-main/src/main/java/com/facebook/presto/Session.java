@@ -217,7 +217,7 @@ public final class Session
         return new ConnectorSession(user, timeZoneKey, locale, startTime, catalogProperties.get(checkNotNull(catalog, "catalog is null")));
     }
 
-    public ClientSession toClientSession(URI server, boolean debug)
+    public ClientSession toClientSession(URI server, boolean debug, String digest)
     {
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.putAll(systemProperties);
@@ -237,7 +237,8 @@ public final class Session
                 timeZoneKey.getId(),
                 locale,
                 properties.build(),
-                debug);
+                debug,
+                digest);
     }
 
     @Override

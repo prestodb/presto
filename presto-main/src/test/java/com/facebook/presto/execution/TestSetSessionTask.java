@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -44,7 +45,7 @@ public class TestSetSessionTask
     public void test()
             throws Exception
     {
-        QueryStateMachine stateMachine = new QueryStateMachine(new QueryId("query"), "set foo.bar = 'baz'", TEST_SESSION, URI.create("fake://uri"), executor);
+        QueryStateMachine stateMachine = new QueryStateMachine(new QueryId("query"), "set foo.bar = 'baz'", Optional.empty(), TEST_SESSION, URI.create("fake://uri"), executor);
         new SetSessionTask().execute(new SetSession(QualifiedName.of("foo", "bar"), "baz"), TEST_SESSION, new MetadataManager(), stateMachine);
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();

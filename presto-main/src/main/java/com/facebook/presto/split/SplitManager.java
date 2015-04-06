@@ -25,8 +25,10 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import io.airlift.slice.Slice;
 
 import java.util.List;
 import java.util.Optional;
@@ -69,6 +71,17 @@ public class SplitManager
         ConnectorTableHandle table = handle.getConnectorHandle();
         ConnectorSplitSource source = getConnectorSplitManager(handle).getPartitionSplits(table, Lists.transform(partitions, Partition::getConnectorPartition));
         return new ConnectorAwareSplitSource(handle.getConnectorId(), source);
+    }
+
+    public Optional<Slice> computeDigest(TableHandle table, List<Partition> partitions)
+    {
+        ConnectorSplitManager splitManager = getConnectorSplitManager(table);
+
+        List<ConnectorPartition> connectorPartitions = partitions.stream()
+                .map(Partition::getConnectorPartition)
+                .collect(ImmutableCollectors.toImmutableList());
+
+        return splitManager.computeDigest(table.getConnectorHandle(), connectorPartitions);
     }
 
     private ConnectorSplitManager getConnectorSplitManager(TableHandle handle)

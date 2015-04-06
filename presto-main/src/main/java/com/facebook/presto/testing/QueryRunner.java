@@ -36,6 +36,8 @@ public interface QueryRunner
 
     MaterializedResult execute(Session session, @Language("SQL") String sql);
 
+    MaterializedResult execute(Session session, @Language("SQL") String sql, String digest);
+
     List<QualifiedTableName> listTables(Session session, String catalog, String schema);
 
     boolean tableExists(Session session, String table);
