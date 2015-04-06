@@ -695,7 +695,7 @@ public class ExpressionAnalyzer
                 throw new SemanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract must be DATE, TIME, TIMESTAMP, or INTERVAL (actual %s)", type);
             }
             Extract.Field field = node.getField();
-            if ((field == TIMEZONE_HOUR || field == TIMEZONE_MINUTE) && !(type == TIME_WITH_TIME_ZONE || type == TIMESTAMP_WITH_TIME_ZONE)) {
+            if ((field == TIMEZONE_HOUR || field == TIMEZONE_MINUTE) && !(type.equals(TIME_WITH_TIME_ZONE) || type.equals(TIMESTAMP_WITH_TIME_ZONE))) {
                 throw new SemanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract time zone field must have a time zone (actual %s)", type);
             }
 
@@ -705,13 +705,13 @@ public class ExpressionAnalyzer
 
         private boolean isDateTimeType(Type type)
         {
-            return type == DATE ||
-                    type == TIME ||
-                    type == TIME_WITH_TIME_ZONE ||
-                    type == TIMESTAMP ||
-                    type == TIMESTAMP_WITH_TIME_ZONE ||
-                    type == INTERVAL_DAY_TIME ||
-                    type == INTERVAL_YEAR_MONTH;
+            return type.equals(DATE) ||
+                    type.equals(TIME) ||
+                    type.equals(TIME_WITH_TIME_ZONE) ||
+                    type.equals(TIMESTAMP) ||
+                    type.equals(TIMESTAMP_WITH_TIME_ZONE) ||
+                    type.equals(INTERVAL_DAY_TIME) ||
+                    type.equals(INTERVAL_YEAR_MONTH);
         }
 
         @Override
@@ -728,12 +728,12 @@ public class ExpressionAnalyzer
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
-            if (type == UNKNOWN) {
+            if (type.equals(UNKNOWN)) {
                 throw new SemanticException(TYPE_MISMATCH, node, "UNKNOWN is not a valid type");
             }
 
             Type value = process(node.getExpression(), context);
-            if (value != UNKNOWN) {
+            if (!value.equals(UNKNOWN)) {
                 try {
                     metadata.getFunctionRegistry().getCoercion(value, type);
                 }
