@@ -112,7 +112,7 @@ public class Query
             waitForData();
         }
 
-        if ((!client.isFailed()) && (!client.isGone()) && (!client.isClosed())) {
+        if ((!client.isFailed()) && (!client.isGone()) && (!client.isClosed()) && (!client.isDigestMatched())) {
             QueryResults results = client.isValid() ? client.current() : client.finalResults();
             if (results.getUpdateType() != null) {
                 renderUpdate(out, results);
@@ -138,6 +138,9 @@ public class Query
         }
         else if (client.isFailed()) {
             renderFailure(client.finalResults(), errorChannel);
+        }
+        else if (client.isDigestMatched()) {
+            out.println("Query digest matched (query not executed): " + client.getQueryDigest());
         }
     }
 
@@ -212,6 +215,10 @@ public class Query
     {
         try (OutputHandler handler = createOutputHandler(format, createWriter(out), fieldNames)) {
             handler.processRows(client);
+        }
+
+        if (client.isDebug()) {
+            out.println("--------\nDigest: " + client.getQueryDigest());
         }
     }
 

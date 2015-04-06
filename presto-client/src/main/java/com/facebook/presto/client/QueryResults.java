@@ -63,9 +63,11 @@ public class QueryResults
     private final List<Column> columns;
     private final Iterable<List<Object>> data;
     private final StatementStats stats;
+    private final Boolean digestMatched;
     private final QueryError error;
     private final String updateType;
     private final Long updateCount;
+    private final String queryDigest;
 
     @JsonCreator
     public QueryResults(
@@ -76,11 +78,13 @@ public class QueryResults
             @JsonProperty("columns") List<Column> columns,
             @JsonProperty("data") List<List<Object>> data,
             @JsonProperty("stats") StatementStats stats,
+            @JsonProperty("digestMatched") Boolean digestMatched,
             @JsonProperty("error") QueryError error,
             @JsonProperty("updateType") String updateType,
-            @JsonProperty("updateCount") Long updateCount)
+            @JsonProperty("updateCount") Long updateCount,
+            @JsonProperty("queryDigest") String queryDigest)
     {
-        this(id, infoUri, partialCancelUri, nextUri, columns, fixData(columns, data), stats, error, updateType, updateCount);
+        this(id, infoUri, partialCancelUri, nextUri, columns, fixData(columns, data), stats, digestMatched, error, updateType, updateCount, queryDigest);
     }
 
     public QueryResults(
@@ -91,9 +95,11 @@ public class QueryResults
             List<Column> columns,
             Iterable<List<Object>> data,
             StatementStats stats,
+            Boolean digestMatched,
             QueryError error,
             String updateType,
-            Long updateCount)
+            Long updateCount,
+            String queryDigest)
     {
         this.id = checkNotNull(id, "id is null");
         this.infoUri = checkNotNull(infoUri, "infoUri is null");
@@ -102,9 +108,11 @@ public class QueryResults
         this.columns = (columns != null) ? ImmutableList.copyOf(columns) : null;
         this.data = (data != null) ? unmodifiableIterable(data) : null;
         this.stats = checkNotNull(stats, "stats is null");
+        this.digestMatched = digestMatched;
         this.error = error;
         this.updateType = updateType;
         this.updateCount = updateCount;
+        this.queryDigest = queryDigest;
     }
 
     @NotNull
@@ -158,6 +166,13 @@ public class QueryResults
 
     @Nullable
     @JsonProperty
+    public Boolean isDigestMatched()
+    {
+        return digestMatched;
+    }
+
+    @Nullable
+    @JsonProperty
     public QueryError getError()
     {
         return error;
@@ -177,6 +192,13 @@ public class QueryResults
         return updateCount;
     }
 
+    @Nullable
+    @JsonProperty
+    public String getQueryDigest()
+    {
+        return queryDigest;
+    }
+
     @Override
     public String toString()
     {
@@ -188,9 +210,11 @@ public class QueryResults
                 .add("columns", columns)
                 .add("hasData", data != null)
                 .add("stats", stats)
+                .add("digestMatched", digestMatched)
                 .add("error", error)
                 .add("updateType", updateType)
                 .add("updateCount", updateCount)
+                .add("queryDigest", queryDigest)
                 .toString();
     }
 

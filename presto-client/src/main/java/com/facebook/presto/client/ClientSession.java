@@ -38,6 +38,7 @@ public class ClientSession
     private final Locale locale;
     private final Map<String, String> properties;
     private final boolean debug;
+    private final String digest;
 
     public static ClientSession withCatalogAndSchema(ClientSession session, String catalog, String schema)
     {
@@ -50,7 +51,8 @@ public class ClientSession
                 session.getTimeZoneId(),
                 session.getLocale(),
                 session.getProperties(),
-                session.isDebug());
+                session.isDebug(),
+                session.getDigest());
     }
 
     public static ClientSession withSessionProperties(ClientSession session, Map<String, String> sessionProperties)
@@ -67,7 +69,8 @@ public class ClientSession
                 session.getTimeZoneId(),
                 session.getLocale(),
                 properties,
-                session.isDebug());
+                session.isDebug(),
+                session.getDigest());
     }
 
     public static ClientSession withProperties(ClientSession session, Map<String, String> properties)
@@ -81,10 +84,16 @@ public class ClientSession
                 session.getTimeZoneId(),
                 session.getLocale(),
                 properties,
-                session.isDebug());
+                session.isDebug(),
+                session.getDigest());
     }
 
     public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, boolean debug)
+    {
+        this(server, user, source, catalog, schema, timeZoneId, locale, properties, debug, null);
+    }
+
+    public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, boolean debug, String digest)
     {
         this.server = checkNotNull(server, "server is null");
         this.user = user;
@@ -95,6 +104,7 @@ public class ClientSession
         this.timeZoneId = checkNotNull(timeZoneId, "timeZoneId is null");
         this.debug = debug;
         this.properties = ImmutableMap.copyOf(checkNotNull(properties, "properties is null"));
+        this.digest = digest;
 
         // verify the properties are valid
         CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
@@ -149,6 +159,11 @@ public class ClientSession
     public boolean isDebug()
     {
         return debug;
+    }
+
+    public String getDigest()
+    {
+        return digest;
     }
 
     @Override

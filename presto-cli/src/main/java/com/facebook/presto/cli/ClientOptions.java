@@ -61,6 +61,9 @@ public class ClientOptions
     @Option(name = "--execute", title = "execute", description = "Execute specified statements and exit")
     public String execute;
 
+    @Option(name = "--digest", title = "digest", description = "Use specified query digest")
+    public String digest;
+
     @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode (default: CSV)")
     public OutputFormat outputFormat = OutputFormat.CSV;
 
@@ -92,7 +95,8 @@ public class ClientOptions
                 TimeZone.getDefault().getID(),
                 Locale.getDefault(),
                 toProperties(sessionProperties),
-                debug);
+                debug,
+                digest);
     }
 
     public static URI parseServer(String server)

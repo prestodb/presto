@@ -126,6 +126,10 @@ Parallelism: 2.5
                 pluralize("node", nodes));
         out.println(querySummary);
 
+        if (client.isDebug() && !Strings.isNullOrEmpty(results.getQueryDigest())) {
+            out.println("Digest: " + results.getQueryDigest());
+        }
+
         if (client.isDebug()) {
             out.println(results.getInfoUri() + "?pretty");
         }
