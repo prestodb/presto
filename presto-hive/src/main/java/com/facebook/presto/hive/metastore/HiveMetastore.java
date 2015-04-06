@@ -53,6 +53,9 @@ public interface HiveMetastore
     Map<String, Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
             throws NoSuchObjectException;
 
+    public Map<String, Partition> getCachedPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
+            throws NoSuchObjectException;
+
     Table getTable(String databaseName, String tableName)
             throws NoSuchObjectException;
 }

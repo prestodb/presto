@@ -81,7 +81,9 @@ public class TestHiveClientConfig
                 .setAssumeCanonicalPartitionKeys(false)
                 .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE))
                 .setOrcMaxBufferSize(new DataSize(8, Unit.MEGABYTE))
-                .setOrcStreamBufferSize(new DataSize(8, Unit.MEGABYTE)));
+                .setOrcStreamBufferSize(new DataSize(8, Unit.MEGABYTE))
+                .setMaxNumberOfPartitionsToRetrieveForDigest(10)
+                .setUseTableLastModifiedTimeForDigest(true));
     }
 
     @Test
@@ -132,6 +134,8 @@ public class TestHiveClientConfig
                 .put("hive.orc.max-merge-distance", "22kB")
                 .put("hive.orc.max-buffer-size", "44kB")
                 .put("hive.orc.stream-buffer-size", "55kB")
+                .put("hive.digest.max-partitions-to-retrieve", "50")
+                .put("hive.digest.use-table-last-modified-time", "false")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -178,7 +182,9 @@ public class TestHiveClientConfig
                 .setAssumeCanonicalPartitionKeys(true)
                 .setOrcMaxMergeDistance(new DataSize(22, Unit.KILOBYTE))
                 .setOrcMaxBufferSize(new DataSize(44, Unit.KILOBYTE))
-                .setOrcStreamBufferSize(new DataSize(55, Unit.KILOBYTE));
+                .setOrcStreamBufferSize(new DataSize(55, Unit.KILOBYTE))
+                .setMaxNumberOfPartitionsToRetrieveForDigest(50)
+                .setUseTableLastModifiedTimeForDigest(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

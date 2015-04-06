@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.shaded.com.google.common.base.Strings;
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
@@ -29,6 +30,7 @@ import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
+import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
@@ -39,9 +41,13 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.ProtectMode;
@@ -55,6 +61,7 @@ import org.joda.time.DateTimeZone;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -92,6 +99,7 @@ public class HiveSplitManager
 {
     public static final String PRESTO_OFFLINE = "presto_offline";
     private static final String PARTITION_VALUE_WILDCARD = "";
+    private static final String LAST_UPDATED_TIMESTAMP = "transient_lastDdlTime";
 
     private static final Logger log = Logger.get(HiveSplitManager.class);
 
@@ -112,6 +120,8 @@ public class HiveSplitManager
     private final boolean forceLocalScheduling;
     private final boolean recursiveDfsWalkerEnabled;
     private final boolean assumeCanonicalPartitionKeys;
+    private final boolean useTableLastModifiedTimeForDigest;
+    private final int maxNumberOfPartitionsToRetrieveForDigest;
 
     @Inject
     public HiveSplitManager(
@@ -139,7 +149,9 @@ public class HiveSplitManager
                 hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.isForceLocalScheduling(),
                 hiveClientConfig.isAssumeCanonicalPartitionKeys(),
-                false);
+                false,
+                hiveClientConfig.isUseTableLastModifiedTimeForDigest(),
+                hiveClientConfig.getMaxNumberOfPartitionsToRetrieveForDigest());
     }
 
     public HiveSplitManager(
@@ -159,7 +171,9 @@ public class HiveSplitManager
             int maxInitialSplits,
             boolean forceLocalScheduling,
             boolean assumeCanonicalPartitionKeys,
-            boolean recursiveDfsWalkerEnabled)
+            boolean recursiveDfsWalkerEnabled,
+            boolean useTableLastModifiedTimeForDigest,
+            int maxNumberOfPartitionsToRetrieveForDigest)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
         this.metastore = checkNotNull(metastore, "metastore is null");
@@ -179,6 +193,8 @@ public class HiveSplitManager
         this.forceLocalScheduling = forceLocalScheduling;
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        this.useTableLastModifiedTimeForDigest = useTableLastModifiedTimeForDigest;
+        this.maxNumberOfPartitionsToRetrieveForDigest = maxNumberOfPartitionsToRetrieveForDigest;
     }
 
     @Override
@@ -217,6 +233,76 @@ public class HiveSplitManager
         // All partition key domains will be fully evaluated, so we don't need to include those
         TupleDomain<ConnectorColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains(), not(Predicates.<ConnectorColumnHandle>in(partitionColumns))));
         return new ConnectorPartitionResult(partitions.build(), remainingTupleDomain);
+    }
+
+    @Override
+    public Optional<Slice> computeDigest(ConnectorTableHandle tableHandle, List<ConnectorPartition> connectorPartitions)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkNotNull(connectorPartitions, "connectorPartitions is null");
+
+        SchemaTableName tableName = schemaTableName(tableHandle);
+        List<String> partitionNames = Lists.transform(connectorPartitions, partition -> partition.getPartitionId());
+
+        try {
+            HashFunction hashFunction = Hashing.sha256();
+            Hasher hasher = hashFunction.newHasher();
+
+            if (partitionNames.size() == 1 && partitionNames.get(0).equals(HivePartition.UNPARTITIONED_ID)) {
+                return computeDigestWithTableMetadata(tableName, hasher);
+            }
+
+            Map<String, Partition> partitions = metastore.getCachedPartitionsByNames(tableName.getSchemaName(), tableName.getTableName(), partitionNames);
+            if (partitions.size() < partitionNames.size()) {
+                int numberOfPartitionMissingInCache = partitionNames.size() - partitions.size();
+                if (numberOfPartitionMissingInCache <= maxNumberOfPartitionsToRetrieveForDigest) {
+                    partitions = metastore.getPartitionsByNames(tableName.getSchemaName(), tableName.getTableName(), partitionNames);
+                }
+                else {
+                    return computeDigestWithTableMetadata(tableName, hasher);
+                }
+            }
+
+            List<String> keys = new ArrayList<>(partitions.keySet());
+            Collections.sort(keys);
+
+            for (String partitionName : keys) {
+                Partition partition = partitions.get(partitionName);
+                String lastUpdateTimestamp = partition.getParameters().get(LAST_UPDATED_TIMESTAMP);
+                hasher.putString(lastUpdateTimestamp, Charsets.UTF_8);
+                hasher.putChar('|');
+                hasher.putString(partitionName, Charsets.UTF_8);
+            }
+
+            return Optional.of(Slices.wrappedBuffer(hasher.hash().asBytes()));
+        }
+        catch (NoSuchObjectException e) {
+            throw Throwables.propagate(e);
+        }
+        catch (UnsupportedOperationException e) {
+            log.debug(e.getMessage());
+        }
+
+        return Optional.empty();
+    }
+
+    private Optional<Slice> computeDigestWithTableMetadata(SchemaTableName tableName, Hasher hasher)
+            throws NoSuchObjectException
+    {
+        if (!useTableLastModifiedTimeForDigest) {
+            return Optional.empty();
+        }
+
+        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+        String lastUpdateTimestamp = table.getParameters().get(LAST_UPDATED_TIMESTAMP);
+        if (Strings.isNullOrEmpty(lastUpdateTimestamp)) {
+            return Optional.empty();
+        }
+        hasher.putString(lastUpdateTimestamp, Charsets.UTF_8);
+        hasher.putChar('|');
+        hasher.putString(tableName.getTableName(), Charsets.UTF_8);
+
+        return Optional.of(Slices.wrappedBuffer(hasher.hash().asBytes()));
     }
 
     private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ConnectorColumnHandle> effectivePredicate)
