@@ -147,6 +147,9 @@ class CastByteCodeExpression
             }
         }
         if (sourceType == int.class) {
+            if (targetType == boolean.class) {
+                return block;
+            }
             if (targetType == byte.class) {
                 return block.append(OpCode.I2B);
             }
