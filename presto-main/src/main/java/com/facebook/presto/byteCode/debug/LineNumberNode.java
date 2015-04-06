@@ -39,6 +39,7 @@ public class LineNumberNode
     public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
         if (generationContext.updateLineNumber(lineNumber)) {
+            label.accept(visitor, generationContext);
             visitor.visitLineNumber(lineNumber, label.getLabel());
         }
     }
