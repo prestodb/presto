@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.hive.$internal.com.google.common.primitives.Ints;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.ChunkedSliceInput;
 import io.airlift.slice.ChunkedSliceInput.BufferReference;
 import io.airlift.slice.ChunkedSliceInput.SliceLoader;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.hive.$internal.com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
