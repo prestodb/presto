@@ -74,6 +74,12 @@ public final class StandaloneQueryRunner
     }
 
     @Override
+    public MaterializedResult execute(Session session, @Language("SQL") String sql, String digest)
+    {
+        return prestoClient.execute(session, sql, digest);
+    }
+
+    @Override
     public void close()
     {
         Closeables.closeQuietly(prestoClient);

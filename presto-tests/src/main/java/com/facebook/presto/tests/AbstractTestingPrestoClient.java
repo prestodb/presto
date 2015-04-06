@@ -33,6 +33,7 @@ import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -77,9 +78,14 @@ public abstract class AbstractTestingPrestoClient<T>
 
     public T execute(Session session, @Language("SQL") String sql)
     {
+        return execute(session, sql, null);
+    }
+
+    public T execute(Session session, @Language("SQL") String sql, String digest)
+    {
         ResultsSession<T> resultsSession = getResultSession(session);
 
-        try (StatementClient client = new StatementClient(httpClient, QUERY_RESULTS_CODEC, session.toClientSession(prestoServer.getBaseUrl(), true), sql)) {
+        try (StatementClient client = new StatementClient(httpClient, QUERY_RESULTS_CODEC, session.toClientSession(prestoServer.getBaseUrl(), true, digest), sql)) {
             while (client.isValid()) {
                 QueryResults results = client.current();
 
@@ -87,8 +93,10 @@ public abstract class AbstractTestingPrestoClient<T>
                 client.advance();
             }
 
+            Optional<QueryResults> finalQueryResults = Optional.of(client.finalResults());
+
             if (!client.isFailed()) {
-                return resultsSession.build(client.getSetSessionProperties(), client.getResetSessionProperties());
+                return resultsSession.build(client.getSetSessionProperties(), client.getResetSessionProperties(), finalQueryResults);
             }
 
             QueryError error = client.finalResults().getError();

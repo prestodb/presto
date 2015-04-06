@@ -30,6 +30,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -102,13 +103,17 @@ public class TestingPrestoClient
                 checkState(types.get() != null, "data received without types");
                 rows.addAll(transform(results.getData(), dataToRow(timeZoneKey, types.get())));
             }
+            else if (results.isDigestMatched()) {
+                // no columns nor data expected if query is terminated with digest matched
+                types.set(new ArrayList<>());
+            }
         }
 
         @Override
-        public MaterializedResult build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties)
+        public MaterializedResult build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties, Optional<QueryResults> finalQueryResults)
         {
             checkState(types.get() != null, "never received types for the query");
-            return new MaterializedResult(rows.build(), types.get(), setSessionProperties, resetSessionProperties);
+            return new MaterializedResult(rows.build(), types.get(), setSessionProperties, resetSessionProperties, finalQueryResults);
         }
     }
 
