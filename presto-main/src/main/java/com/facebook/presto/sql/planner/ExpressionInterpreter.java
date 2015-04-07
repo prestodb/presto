@@ -777,7 +777,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitRow(Row node, Object context)
         {
-            throw new UnsupportedOperationException("Row expressions not yet supported");
+            throw new PrestoException(NOT_SUPPORTED, "Row expressions not yet supported");
         }
 
         @Override
