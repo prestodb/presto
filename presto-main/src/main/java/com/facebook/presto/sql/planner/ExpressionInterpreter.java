@@ -465,7 +465,7 @@ public class ExpressionInterpreter
             ComparisonExpression.Type type = node.getType();
 
             Object left = process(node.getLeft(), context);
-            if (left == null && !(type == ComparisonExpression.Type.IS_DISTINCT_FROM)) {
+            if (left == null && type != ComparisonExpression.Type.IS_DISTINCT_FROM) {
                 return null;
             }
 
