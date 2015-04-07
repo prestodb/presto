@@ -590,6 +590,7 @@ public class ExpressionInterpreter
                     if (Boolean.FALSE.equals(right) || Boolean.TRUE.equals(left)) {
                         return right;
                     }
+                    break;
                 }
                 case OR: {
                     // if either left or right is true, result is always true regardless of nulls
@@ -600,6 +601,7 @@ public class ExpressionInterpreter
                     if (Boolean.TRUE.equals(right) || Boolean.FALSE.equals(left)) {
                         return right;
                     }
+                    break;
                 }
             }
 
