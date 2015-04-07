@@ -220,8 +220,7 @@ public class PrestoDatabaseMetaData
     public String getIdentifierQuoteString()
             throws SQLException
     {
-        // TODO: support quoted identifiers
-        return " ";
+        return "\"";
     }
 
     @Override
