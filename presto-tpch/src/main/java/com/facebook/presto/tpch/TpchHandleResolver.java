@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -34,6 +35,12 @@ public class TpchHandleResolver
     public boolean canHandle(ConnectorTableHandle tableHandle)
     {
         return tableHandle instanceof TpchTableHandle && ((TpchTableHandle) tableHandle).getConnectorId().equals(connectorId);
+    }
+
+    @Override
+    public boolean canHandle(ConnectorTableLayoutHandle handle)
+    {
+        return handle instanceof TpchTableLayoutHandle && ((TpchTableLayoutHandle) handle).getConnectorId().equals(connectorId);
     }
 
     @Override
@@ -64,5 +71,11 @@ public class TpchHandleResolver
     public Class<? extends ConnectorSplit> getSplitClass()
     {
         return TpchSplit.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
+    {
+        return TpchTableLayoutHandle.class;
     }
 }
