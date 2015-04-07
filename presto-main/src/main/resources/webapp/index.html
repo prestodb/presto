@@ -9,9 +9,17 @@
     <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet" type="text/css">
 
     <style type="text/css">
-         table td:nth-child(2) {
-             white-space: nowrap;
-         }
+        table td:nth-child(2) {
+            white-space: nowrap;
+        }
+        table {
+            table-layout: fixed;
+            word-wrap: break-word;
+        }
+        table th {
+            overflow: hidden;
+            word-wrap: normal;
+        }
     </style>
 </head>
 
@@ -23,6 +31,18 @@
     </div>
 
     <table id="running" class="table table-striped">
+        <colgroup>
+            <col width="90px">
+            <col width="80px">
+            <col width="auto">
+            <col width="80px">
+            <col width="80px">
+            <col width="90px">
+            <col width="60px">
+            <col width="60px">
+            <col width="60px">
+            <col width="60px">
+        </colgroup>
         <thead>
         <tr>
             <th>Id</th>
@@ -41,6 +61,18 @@
     </table>
 
     <table id="done" class="table table-striped">
+        <colgroup>
+            <col width="90px">
+            <col width="80px">
+            <col width="auto">
+            <col width="80px">
+            <col width="80px">
+            <col width="90px">
+            <col width="80px">
+            <col width="60px">
+            <col width="60px">
+            <col width="60px">
+        </colgroup>
         <thead>
         <tr>
             <th>Id</th>
