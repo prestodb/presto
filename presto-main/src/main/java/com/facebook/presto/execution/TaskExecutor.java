@@ -547,7 +547,7 @@ public class TaskExecutor
             }
 
             if (level < 4) {
-                result = Long.compare(threadUsageNanos.get(), threadUsageNanos.get());
+                result = Long.compare(threadUsageNanos.get(), o.threadUsageNanos.get());
             }
             else {
                 result = Long.compare(lastRun.get(), o.lastRun.get());
