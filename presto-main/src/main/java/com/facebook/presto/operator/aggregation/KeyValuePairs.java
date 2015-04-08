@@ -28,6 +28,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Optional;
 
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
+import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.type.TypeUtils.expectedValueSize;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -108,6 +109,8 @@ public class KeyValuePairs
         long size = INSTANCE_SIZE;
         size += Math.max(EXPECTED_ENTRIES * expectedValueSize(keyType, EXPECTED_ENTRY_SIZE), keyBlockBuilder.getSizeInBytes());
         size += Math.max(EXPECTED_ENTRIES * expectedValueSize(valueType, EXPECTED_ENTRY_SIZE), valueBlockBuilder.getSizeInBytes());
+        // TODO: We need an optimized version of GroupByHash that doesn't allocate a full PageBuilder
+        size += Math.max(DEFAULT_MAX_BLOCK_SIZE_IN_BYTES, keysHash.getEstimatedSize());
         return size;
     }
 
