@@ -184,7 +184,11 @@ public class CursorProcessorCompiler
         Variable wasNullVariable = context.declareVariable(type(boolean.class), "wasNull");
         Variable cursorVariable = context.getVariable("cursor");
 
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(cursorVariable, wasNullVariable), metadata.getFunctionRegistry());
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(
+                callSiteBinder,
+                fieldReferenceCompiler(cursorVariable, wasNullVariable),
+                metadata.getFunctionRegistry(),
+                new FunctionCallCodeGenerator());
 
         LabelNode end = new LabelNode("end");
         method.getBody()
@@ -223,7 +227,11 @@ public class CursorProcessorCompiler
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false);
 
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(cursorVariable, wasNullVariable), metadata.getFunctionRegistry());
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(
+                callSiteBinder,
+                fieldReferenceCompiler(cursorVariable, wasNullVariable),
+                metadata.getFunctionRegistry(),
+                new FunctionCallCodeGenerator());
 
         body.getVariable(outputVariable)
                 .comment("evaluate projection: " + projection.toString())

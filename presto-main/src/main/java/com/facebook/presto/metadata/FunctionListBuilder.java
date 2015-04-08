@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.aggregation.GenericAggregationFunctionFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.operator.scalar.BlockScalarFunction;
 import com.facebook.presto.operator.scalar.JsonPath;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarOperator;
@@ -23,6 +24,7 @@ import com.facebook.presto.operator.window.ReflectionWindowFunctionSupplier;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -30,6 +32,7 @@ import com.facebook.presto.type.SqlType;
 import com.google.common.base.Throwables;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
@@ -41,13 +44,17 @@ import javax.annotation.Nullable;
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.AnnotatedType;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -129,9 +136,17 @@ public class FunctionListBuilder
         return this;
     }
 
-    public FunctionListBuilder scalar(Signature signature, MethodHandle function, boolean deterministic, String description, boolean hidden, boolean nullable, List<Boolean> nullableArguments)
+    public FunctionListBuilder scalar(
+            Signature signature,
+            MethodHandle function,
+            MethodHandle blockFunction,
+            boolean deterministic,
+            String description,
+            boolean hidden,
+            boolean nullable,
+            List<Boolean> nullableArguments)
     {
-        functions.add(new FunctionInfo(signature, description, hidden, function, deterministic, nullable, nullableArguments));
+        functions.add(new FunctionInfo(signature, description, hidden, function, blockFunction, deterministic, nullable, nullableArguments));
         return this;
     }
 
@@ -145,9 +160,20 @@ public class FunctionListBuilder
     public FunctionListBuilder scalar(Class<?> clazz)
     {
         try {
+            ImmutableMap.Builder<Signature, MethodHandle> blockMethodsBuilder = ImmutableMap.builder();
+            for (Method method : clazz.getMethods()) {
+                BlockScalarFunction blockScalarFunction = method.getAnnotation(BlockScalarFunction.class);
+                if (blockScalarFunction != null) {
+                    checkValidBlockMethod(method);
+                    Signature signature = getSignature(blockScalarFunction.value(), method, parameter -> parameter.getType() != ConnectorSession.class && parameter.getType() != int.class);
+                    blockMethodsBuilder.put(signature, lookup().unreflect(method));
+                }
+            }
+            ImmutableMap<Signature, MethodHandle> blockMethods = blockMethodsBuilder.build();
+
             boolean foundOne = false;
             for (Method method : clazz.getMethods()) {
-                foundOne = processScalarFunction(method) || foundOne;
+                foundOne = processScalarFunction(method, blockMethods) || foundOne;
                 foundOne = processScalarOperator(method) || foundOne;
             }
             checkArgument(foundOne, "Expected class %s to contain at least one method annotated with @%s", clazz.getName(), ScalarFunction.class.getSimpleName());
@@ -173,7 +199,7 @@ public class FunctionListBuilder
         return this;
     }
 
-    private boolean processScalarFunction(Method method)
+    private boolean processScalarFunction(Method method, Map<Signature, MethodHandle> blockMethods)
             throws IllegalAccessException
     {
         ScalarFunction scalarFunction = method.getAnnotation(ScalarFunction.class);
@@ -181,25 +207,50 @@ public class FunctionListBuilder
             return false;
         }
         checkValidMethod(method);
-        MethodHandle methodHandle = lookup().unreflect(method);
-        String name = scalarFunction.value();
-        if (name.isEmpty()) {
-            name = camelToSnake(method.getName());
-        }
-        SqlType returnTypeAnnotation = method.getAnnotation(SqlType.class);
-        checkArgument(returnTypeAnnotation != null, "Method %s return type does not have a @SqlType annotation", method);
-        Type returnType = type(typeManager, returnTypeAnnotation);
-        Signature signature = new Signature(name.toLowerCase(ENGLISH), returnType.getTypeSignature(), Lists.transform(parameterTypes(typeManager, method), Type::getTypeSignature));
+        Signature signature = getSignature(scalarFunction.value(), method, parameter -> parameter.getType() != ConnectorSession.class);
 
         verifyMethodSignature(method, signature.getReturnType(), signature.getArgumentTypes(), typeManager);
 
         List<Boolean> nullableArguments = getNullableArguments(method);
 
-        scalar(signature, methodHandle, scalarFunction.deterministic(), getDescription(method), scalarFunction.hidden(), method.isAnnotationPresent(Nullable.class), nullableArguments);
+        MethodHandle methodHandle = lookup().unreflect(method);
+        MethodHandle blockMethodHandle = blockMethods.get(signature);
+
+        scalar(signature,
+                methodHandle,
+                blockMethodHandle,
+                scalarFunction.deterministic(),
+                getDescription(method),
+                scalarFunction.hidden(),
+                method.isAnnotationPresent(Nullable.class),
+                nullableArguments);
+
         for (String alias : scalarFunction.alias()) {
-            scalar(signature.withAlias(alias.toLowerCase(ENGLISH)), methodHandle, scalarFunction.deterministic(), getDescription(method), scalarFunction.hidden(), method.isAnnotationPresent(Nullable.class), nullableArguments);
+            scalar(signature.withAlias(alias.toLowerCase(ENGLISH)),
+                    methodHandle,
+                    blockMethodHandle,
+                    scalarFunction.deterministic(),
+                    getDescription(method),
+                    scalarFunction.hidden(),
+                    method.isAnnotationPresent(Nullable.class),
+                    nullableArguments);
         }
         return true;
+    }
+
+    private Signature getSignature(String name, Method method, Predicate<AnnotatedType> parameterFilter)
+    {
+        if (name.isEmpty()) {
+            name = camelToSnake(method.getName());
+        }
+
+        Type returnType = getSqlType(typeManager, method.getAnnotatedReturnType());
+        List<TypeSignature> parameterTypes = Arrays.stream(method.getAnnotatedParameterTypes())
+                .filter(parameterFilter)
+                .map(parameter -> getSqlType(typeManager, parameter))
+                .map(Type::getTypeSignature)
+                .collect(Collectors.toList());
+        return new Signature(name.toLowerCase(ENGLISH), returnType.getTypeSignature(), parameterTypes);
     }
 
     private static Type type(TypeManager typeManager, SqlType explicitType)
@@ -233,6 +284,13 @@ public class FunctionListBuilder
             types.add(type(typeManager, explicitType));
         }
         return types.build();
+    }
+
+    private static Type getSqlType(TypeManager typeManager, AnnotatedType annotatedType)
+    {
+        SqlType explicitType = annotatedType.getAnnotation(SqlType.class);
+        checkArgument(explicitType != null, "%s does not have a @SqlType annotation", annotatedType);
+        return type(typeManager, explicitType);
     }
 
     private static void verifyMethodSignature(Method method, TypeSignature returnTypeName, List<TypeSignature> argumentTypeNames, TypeManager typeManager)
@@ -365,6 +423,35 @@ public class FunctionListBuilder
             parameterTypes = parameterTypes.subList(1, parameterTypes.size());
         }
         return parameterTypes;
+    }
+
+    private static void checkValidBlockMethod(Method method)
+    {
+        String message = "@BlockScalarFunction method %s is not valid: ";
+
+        checkArgument(Modifier.isStatic(method.getModifiers()), message + "must be static", method);
+
+        checkArgument(SUPPORTED_RETURN_TYPES.contains(Primitives.unwrap(method.getReturnType())), message + "return type not supported", method);
+        if (method.getAnnotation(Nullable.class) != null) {
+            checkArgument(!method.getReturnType().isPrimitive(), message + "annotated with @Nullable but has primitive return type", method);
+        }
+        else {
+            checkArgument(!Primitives.isWrapperType(method.getReturnType()), "not annotated with @Nullable but has boxed primitive return type", method);
+        }
+
+        Class<?>[] parameterTypes = method.getParameterTypes();
+        for (int i = 0; i < parameterTypes.length; i++) {
+            Class<?> type = parameterTypes[i];
+            if (type == ConnectorSession.class) {
+                checkArgument(i == 0, message + "parameter type [%s] not supported", method, type.getName());
+            }
+            else if (type == int.class) {
+                checkArgument(i == 0 || (i == 1 && parameterTypes[0] == ConnectorSession.class), message + "parameter type [%s] not supported", method, type.getName());
+            }
+            else {
+                checkArgument(type == Block.class, message + "parameter type [%s] not supported", method, type.getName());
+            }
+        }
     }
 
     public List<ParametricFunction> getFunctions()

@@ -43,19 +43,22 @@ public class ByteCodeExpressionVisitor
     private final CallSiteBinder callSiteBinder;
     private final RowExpressionVisitor<CompilerContext, ByteCodeNode> fieldReferenceCompiler;
     private final FunctionRegistry registry;
+    private final ByteCodeGenerator functionCallCodeGenerator;
 
     public ByteCodeExpressionVisitor(
             CallSiteBinder callSiteBinder,
             RowExpressionVisitor<CompilerContext, ByteCodeNode> fieldReferenceCompiler,
-            FunctionRegistry registry)
+            FunctionRegistry registry,
+            ByteCodeGenerator functionCallCodeGenerator)
     {
         this.callSiteBinder = callSiteBinder;
         this.fieldReferenceCompiler = fieldReferenceCompiler;
         this.registry = registry;
+        this.functionCallCodeGenerator = functionCallCodeGenerator;
     }
 
     @Override
-    public ByteCodeNode visitCall(CallExpression call, final CompilerContext context)
+    public ByteCodeNode visitCall(CallExpression call, CompilerContext context)
     {
         ByteCodeGenerator generator;
         // special-cased in function registry
@@ -89,7 +92,7 @@ public class ByteCodeExpressionVisitor
                 case IN:
                     generator = new InCodeGenerator();
                     break;
-                // optimized implementations (shortcircuiting behavior)
+                // optimized implementations (short-circuiting behavior)
                 case "AND":
                     generator = new AndCodeGenerator();
                     break;
@@ -97,7 +100,7 @@ public class ByteCodeExpressionVisitor
                     generator = new OrCodeGenerator();
                     break;
                 default:
-                    generator = new FunctionCallCodeGenerator();
+                    generator = functionCallCodeGenerator;
             }
         }
 

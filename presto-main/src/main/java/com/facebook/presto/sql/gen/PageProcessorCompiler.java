@@ -218,7 +218,8 @@ public class PageProcessorCompiler
         ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(
                 callSiteBinder,
                 fieldReferenceCompiler(callSiteBinder, positionVariable, wasNullVariable),
-                metadata.getFunctionRegistry());
+                metadata.getFunctionRegistry(),
+                new PageFunctionCodeGenerator());
         ByteCodeNode body = filter.accept(visitor, context);
 
         LabelNode end = new LabelNode("end");
@@ -260,7 +261,11 @@ public class PageProcessorCompiler
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false);
 
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(callSiteBinder, positionVariable, wasNullVariable), metadata.getFunctionRegistry());
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(
+                callSiteBinder,
+                fieldReferenceCompiler(callSiteBinder, positionVariable, wasNullVariable),
+                metadata.getFunctionRegistry(),
+                new PageFunctionCodeGenerator());
 
         body.getVariable(outputVariable)
                 .comment("evaluate projection: " + projection.toString())

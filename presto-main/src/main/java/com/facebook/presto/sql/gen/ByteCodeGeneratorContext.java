@@ -15,12 +15,14 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.sql.relational.RowExpression;
 
 import java.util.List;
 
+import static com.facebook.presto.sql.gen.ByteCodeUtils.generateBlockInvocation;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.generateInvocation;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -75,5 +77,14 @@ public class ByteCodeGeneratorContext
     {
         Binding binding = callSiteBinder.bind(function.getMethodHandle());
         return generateInvocation(context, function, arguments, binding);
+    }
+
+    /**
+     * Generates a function call with null handling, automatic binding of session and position parameter, etc.
+     */
+    public ByteCodeNode generateBlockCall(FunctionInfo function, List<Variable> arguments)
+    {
+        Binding binding = callSiteBinder.bind(function.getBlockMethodHandle());
+        return generateBlockInvocation(context, function, arguments, binding);
     }
 }
