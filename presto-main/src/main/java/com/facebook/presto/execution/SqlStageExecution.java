@@ -446,6 +446,7 @@ public class SqlStageExecution
 
         currentOutputBuffers = nextOutputBuffers;
         nextOutputBuffers = null;
+        this.notifyAll();
         return currentOutputBuffers;
     }
 
@@ -702,7 +703,7 @@ public class SqlStageExecution
             // otherwise wait for some tasks to complete
             try {
                 // todo this adds latency: replace this wait with an event listener
-                TimeUnit.SECONDS.timedWait(this, 1);
+                TimeUnit.MILLISECONDS.timedWait(this, 100);
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -831,18 +832,21 @@ public class SqlStageExecution
                 return;
             }
             // do we have a new set of output buffers?
-            synchronized (this) {
-                if (nextOutputBuffers != null) {
-                    return;
-                }
+            if (nextOutputBuffers != null) {
+                return;
             }
+
             // do we have new exchange locations?
             if (!getNewExchangeLocations().isEmpty()) {
                 return;
             }
+
             // wait for a state change
+            //
+            // NOTE this must be a wait with a timeout since there is no notification
+            // for new exchanges from the child stages
             try {
-                TimeUnit.SECONDS.timedWait(this, 1);
+                TimeUnit.MILLISECONDS.timedWait(this, 100);
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
