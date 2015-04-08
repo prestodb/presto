@@ -15,7 +15,6 @@ package com.facebook.presto.memory;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskStateMachine;
-import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -37,16 +36,18 @@ public class QueryContext
 {
     private final long maxMemory;
     private final boolean enforceLimit;
+    private final MemoryPool memoryPool;
     private final Executor executor;
     private final List<TaskContext> taskContexts = new CopyOnWriteArrayList<>();
 
     @GuardedBy("this")
     private long reserved;
 
-    public QueryContext(boolean enforceLimit, DataSize maxMemory, Executor executor)
+    public QueryContext(boolean enforceLimit, DataSize maxMemory, MemoryPool memoryPool, Executor executor)
     {
         this.enforceLimit = enforceLimit;
         this.maxMemory = requireNonNull(maxMemory, "maxMemory is null").toBytes();
+        this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.executor = requireNonNull(executor, "executor is null");
     }
 
@@ -57,8 +58,9 @@ public class QueryContext
         if (reserved + bytes > maxMemory && enforceLimit) {
             throw new PrestoException(EXCEEDED_MEMORY_LIMIT, "Query exceeded local memory limit of " + new DataSize(maxMemory, DataSize.Unit.BYTE).convertToMostSuccinctDataSize());
         }
+        ListenableFuture<?> future = memoryPool.reserve(bytes);
         reserved += bytes;
-        return Operator.NOT_BLOCKED;
+        return future;
     }
 
     public synchronized boolean tryReserveMemory(long bytes)
@@ -68,8 +70,11 @@ public class QueryContext
         if (reserved + bytes > maxMemory && enforceLimit) {
             return false;
         }
-        reserved += bytes;
-        return true;
+        if (memoryPool.tryReserve(bytes)) {
+            reserved += bytes;
+            return true;
+        }
+        return false;
     }
 
     public synchronized void freeMemory(long bytes)

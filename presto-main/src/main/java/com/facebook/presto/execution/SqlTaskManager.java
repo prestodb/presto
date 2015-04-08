@@ -17,6 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
@@ -83,6 +84,7 @@ public class SqlTaskManager
             TaskExecutor taskExecutor,
             QueryMonitor queryMonitor,
             NodeInfo nodeInfo,
+            LocalMemoryManager localMemoryManager,
             TaskManagerConfig config,
             MemoryManagerConfig memoryManagerConfig)
     {
@@ -110,7 +112,8 @@ public class SqlTaskManager
             public QueryContext load(QueryId key)
                     throws Exception
             {
-                return new QueryContext(clusterMemoryManagerEnabled, maxQueryMemoryPerNode, taskNotificationExecutor);
+                // TODO: Queries should be assigned to pools dynamically
+                return new QueryContext(clusterMemoryManagerEnabled, maxQueryMemoryPerNode, localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL), taskNotificationExecutor);
             }
         });
 

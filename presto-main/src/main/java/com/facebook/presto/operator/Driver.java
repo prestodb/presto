@@ -366,7 +366,7 @@ public class Driver
                 List<Operator> blockedOperators = new ArrayList<>();
                 List<ListenableFuture<?>> blockedFutures = new ArrayList<>();
                 for (Operator operator : operators) {
-                    ListenableFuture<?> blocked = operator.isBlocked();
+                    ListenableFuture<?> blocked = isBlocked(operator);
                     if (!blocked.isDone()) {
                         blockedOperators.add(operator);
                         blockedFutures.add(blocked);

@@ -251,7 +251,7 @@ public class LocalQueryRunner
         return hashEnabled;
     }
 
-    private static class MaterializedOutputFactory
+    public static class MaterializedOutputFactory
             implements OutputFactory
     {
         private final AtomicReference<MaterializingOperator> materializingOperator = new AtomicReference<>();

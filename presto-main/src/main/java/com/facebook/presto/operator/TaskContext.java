@@ -93,6 +93,7 @@ public class TaskContext
                 if (newValue.isDone()) {
                     executionEndTime.set(DateTime.now());
                     endNanos.set(System.nanoTime());
+                    freeMemory(memoryReservation.get());
                 }
             }
         });
