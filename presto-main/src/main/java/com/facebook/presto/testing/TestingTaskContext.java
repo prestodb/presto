@@ -16,6 +16,7 @@ package com.facebook.presto.testing;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
+import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.TaskContext;
 import io.airlift.units.DataSize;
 
@@ -39,9 +40,8 @@ public final class TestingTaskContext
 
     public static TaskContext createTaskContext(Executor executor, Session session, DataSize maxMemory)
     {
-        return new TaskContext(
+        return new QueryContext(false, new DataSize(10, MEGABYTE), executor).addTaskContext(
                 new TaskStateMachine(new TaskId("query", "stage", "task"), checkNotSameThreadExecutor(executor, "executor is null")),
-                executor,
                 session,
                 checkNotNull(maxMemory, "maxMemory is null"),
                 new DataSize(1, MEGABYTE),
