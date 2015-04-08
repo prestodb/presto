@@ -67,7 +67,7 @@ public class TestConditions
         assertFunction("'monkey' not like null", BOOLEAN, null);
         assertFunction("'monkey' not like 'monkey' escape null", BOOLEAN, null);
 
-        assertInvalidFunction("'monkey' like 'monkey' escape 'foo'", VARCHAR, "Escape must be empty or a single character");
+        assertInvalidFunction("'monkey' like 'monkey' escape 'foo'", "Escape must be empty or a single character");
     }
 
     @Test
@@ -155,7 +155,7 @@ public class TestConditions
     @Test
     public void testInDoesNotShortCircuit()
     {
-        assertInvalidFunction("3 in (2, 4, 3, 5 / 0)", DOUBLE, DIVISION_BY_ZERO);
+        assertInvalidFunction("3 in (2, 4, 3, 5 / 0)", DIVISION_BY_ZERO);
     }
 
     @Test

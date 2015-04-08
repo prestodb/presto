@@ -277,10 +277,10 @@ public class TestJsonFunctions
         assertFunction(format("JSON_SIZE(CAST('%s' AS JSON), '%s')", "[1,2,3]", "$"), BIGINT, 3);
         assertFunction(format("JSON_SIZE(null, '%s')", "$"), BIGINT, null);
         assertFunction(format("JSON_SIZE(CAST('%s' AS JSON), null)", "[1,2,3]"), BIGINT, null);
-        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", ""), BIGINT, "Invalid JSON path: ''");
-        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", "."), BIGINT, "Invalid JSON path: '.'");
-        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", "null"), BIGINT, "Invalid JSON path: 'null'");
-        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", null), BIGINT, "Invalid JSON path: 'null'");
+        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", ""), "Invalid JSON path: ''");
+        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", "."), "Invalid JSON path: '.'");
+        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", "null"), "Invalid JSON path: 'null'");
+        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", null), "Invalid JSON path: 'null'");
     }
 
     @Test

@@ -72,7 +72,7 @@ public class TestRegexpFunctions
         List<String> nullList = new ArrayList<>();
         nullList.add(null);
         assertFunction("REGEXP_EXTRACT_ALL('rat cat\nbat dog', 'ra(.)|blah(.)(.)', 2)", new ArrayType(VARCHAR), nullList);
-        assertInvalidFunction("REGEXP_EXTRACT_ALL('hello', '(.)', 2)", new ArrayType(VARCHAR), "Pattern has 1 groups. Cannot access group 2");
+        assertInvalidFunction("REGEXP_EXTRACT_ALL('hello', '(.)', 2)", "Pattern has 1 groups. Cannot access group 2");
     }
 
     @Test

@@ -225,11 +225,11 @@ public class TestArrayOperators
             throws Exception
     {
         String outOfBounds = "Index out of bounds";
-        assertInvalidFunction("ARRAY [][1]", UNKNOWN, outOfBounds);
-        assertInvalidFunction("ARRAY [null][-1]", UNKNOWN, outOfBounds);
-        assertInvalidFunction("ARRAY [1, 2, 3][0]", UNKNOWN, outOfBounds);
-        assertInvalidFunction("ARRAY [1, 2, 3][-1]", UNKNOWN, outOfBounds);
-        assertInvalidFunction("ARRAY [1, 2, 3][4]", UNKNOWN, outOfBounds);
+        assertInvalidFunction("ARRAY [][1]", outOfBounds);
+        assertInvalidFunction("ARRAY [null][-1]", outOfBounds);
+        assertInvalidFunction("ARRAY [1, 2, 3][0]", outOfBounds);
+        assertInvalidFunction("ARRAY [1, 2, 3][-1]", outOfBounds);
+        assertInvalidFunction("ARRAY [1, 2, 3][4]", outOfBounds);
 
         try {
             assertFunction("ARRAY [1, 2, 3][1.1]", BIGINT, null);

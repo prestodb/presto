@@ -31,9 +31,9 @@ public class TestStringFunctions
         assertFunction("CHR(131210)", VARCHAR, new String(Character.toChars(131210)));
         assertFunction("CHR(0)", VARCHAR, "\0");
 
-        assertInvalidFunction("CHR(-1)", VARCHAR, "Not a valid Unicode code point: -1");
-        assertInvalidFunction("CHR(1234567)", VARCHAR, "Not a valid Unicode code point: 1234567");
-        assertInvalidFunction("CHR(8589934592)", VARCHAR, "Not a valid Unicode code point: 8589934592");
+        assertInvalidFunction("CHR(-1)", "Not a valid Unicode code point: -1");
+        assertInvalidFunction("CHR(1234567)", "Not a valid Unicode code point: 1234567");
+        assertInvalidFunction("CHR(8589934592)", "Not a valid Unicode code point: 8589934592");
     }
 
     @Test
@@ -131,9 +131,9 @@ public class TestStringFunctions
         assertFunction("SPLIT('a.b.c', '.', 2)", new ArrayType(VARCHAR), ImmutableList.of("a", "b.c"));
         assertFunction("SPLIT('a.b.c', '.', 3)", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c"));
         assertFunction("SPLIT('a.b.c', '.', 4)", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c"));
-        assertInvalidFunction("SPLIT('a.b.c', '.', 0)", new ArrayType(VARCHAR), "Limit must be positive");
-        assertInvalidFunction("SPLIT('a.b.c', '.', -1)", new ArrayType(VARCHAR), "Limit must be positive");
-        assertInvalidFunction("SPLIT('a.b.c', '.', 2147483648)", new ArrayType(VARCHAR), "Limit is too large");
+        assertInvalidFunction("SPLIT('a.b.c', '.', 0)", "Limit must be positive");
+        assertInvalidFunction("SPLIT('a.b.c', '.', -1)", "Limit must be positive");
+        assertInvalidFunction("SPLIT('a.b.c', '.', 2147483648)", "Limit is too large");
     }
 
     @Test
@@ -170,8 +170,8 @@ public class TestStringFunctions
         assertFunction("SPLIT_PART('a/b/c', '/', 4)", VARCHAR, null);
         assertFunction("SPLIT_PART('a/b/c/', '/', 4)", VARCHAR, "");
 
-        assertInvalidFunction("SPLIT_PART('abc', '', 0)", VARCHAR, "Index must be greater than zero");
-        assertInvalidFunction("SPLIT_PART('abc', '', -1)", VARCHAR, "Index must be greater than zero");
+        assertInvalidFunction("SPLIT_PART('abc', '', 0)", "Index must be greater than zero");
+        assertInvalidFunction("SPLIT_PART('abc', '', -1)", "Index must be greater than zero");
     }
 
     @Test(expectedExceptions = RuntimeException.class)
