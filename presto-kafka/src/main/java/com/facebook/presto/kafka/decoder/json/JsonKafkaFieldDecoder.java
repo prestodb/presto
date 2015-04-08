@@ -16,12 +16,22 @@ package com.facebook.presto.kafka.decoder.json;
 import com.facebook.presto.kafka.KafkaColumnHandle;
 import com.facebook.presto.kafka.KafkaFieldValueProvider;
 import com.facebook.presto.kafka.decoder.KafkaFieldDecoder;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_CONVERSION_NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -114,5 +124,50 @@ public class JsonKafkaFieldDecoder
             String textValue = value.isValueNode() ? value.asText() : value.toString();
             return isNull() ? EMPTY_SLICE : utf8Slice(textValue);
         }
+    }
+
+    public abstract static class DateTimeJsonKafkaValueProvider
+            extends JsonKafkaValueProvider
+    {
+        protected DateTimeJsonKafkaValueProvider(JsonNode value, KafkaColumnHandle columnHandle)
+        {
+            super(value, columnHandle);
+        }
+
+        @Override
+        public boolean getBoolean()
+        {
+            throw new PrestoException(KAFKA_CONVERSION_NOT_SUPPORTED, "conversion to boolean not supported");
+        }
+
+        @Override
+        public double getDouble()
+        {
+            throw new PrestoException(KAFKA_CONVERSION_NOT_SUPPORTED, "conversion to double not supported");
+        }
+
+        @Override
+        public final long getLong()
+        {
+            long millis = getMillis();
+
+            Type type = columnHandle.getType();
+            if (type.equals(DATE)) {
+                return TimeUnit.MILLISECONDS.toDays(millis);
+            }
+            if (type.equals(TIMESTAMP) || type.equals(TIME)) {
+                return millis;
+            }
+            if (type.equals(TIMESTAMP_WITH_TIME_ZONE) || type.equals(TIME_WITH_TIME_ZONE)) {
+                return packDateTimeWithZone(millis, 0);
+            }
+
+            return millis;
+        }
+
+        /**
+         * @return epoch milliseconds in UTC
+         */
+        protected abstract long getMillis();
     }
 }

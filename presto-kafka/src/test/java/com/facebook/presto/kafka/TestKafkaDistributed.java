@@ -91,6 +91,12 @@ public class TestKafkaDistributed
     {
     }
 
+    @Override
+    public void testSymbolAliasing()
+            throws Exception
+    {
+    }
+
     //
     // Kafka connector does not support views.
     //
