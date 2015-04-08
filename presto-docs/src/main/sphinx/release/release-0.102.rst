@@ -12,3 +12,4 @@ Hive Changes
 
 * Collect more metrics from ``PrestoS3FileSystem``.
 * Retry when seeking in ``PrestoS3FileSystem``.
+* Ignore ``InvalidRange`` error in ``PrestoS3FileSystem``.

@@ -31,7 +31,6 @@ import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.transfer.Transfer;
@@ -62,11 +61,13 @@ import org.apache.hadoop.fs.s3.S3Credentials;
 import org.apache.hadoop.util.Progressable;
 
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.net.URI;
 import java.util.ArrayList;
@@ -87,6 +88,7 @@ import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
 import static org.apache.http.HttpStatus.SC_FORBIDDEN;
 import static org.apache.http.HttpStatus.SC_NOT_FOUND;
+import static org.apache.http.HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE;
 
 public class PrestoS3FileSystem
         extends FileSystem
@@ -496,7 +498,7 @@ public class PrestoS3FileSystem
         private final Duration maxRetryTime;
 
         private boolean closed;
-        private S3ObjectInputStream in;
+        private InputStream in;
         private long streamPosition;
         private long nextReadPosition;
 
@@ -620,13 +622,13 @@ public class PrestoS3FileSystem
                 throws IOException
         {
             if (in == null) {
-                in = getS3Object(path, nextReadPosition).getObjectContent();
+                in = openStream(path, nextReadPosition);
                 streamPosition = nextReadPosition;
                 STATS.connectionOpened();
             }
         }
 
-        private S3Object getS3Object(Path path, long start)
+        private InputStream openStream(Path path, long start)
                 throws IOException
         {
             try {
@@ -636,13 +638,18 @@ public class PrestoS3FileSystem
                         .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
                         .run("getS3Object", () -> {
                             try {
-                                return s3.getObject(new GetObjectRequest(host, keyFromPath(path)).withRange(start, Long.MAX_VALUE));
+                                GetObjectRequest request = new GetObjectRequest(host, keyFromPath(path)).withRange(start, Long.MAX_VALUE);
+                                return s3.getObject(request).getObjectContent();
                             }
                             catch (RuntimeException e) {
                                 STATS.newGetObjectError();
                                 if (e instanceof AmazonS3Exception) {
-                                    if (((AmazonS3Exception) e).getStatusCode() == SC_FORBIDDEN) {
-                                        throw new UnrecoverableS3OperationException(e);
+                                    switch (((AmazonS3Exception) e).getStatusCode()) {
+                                        case SC_REQUESTED_RANGE_NOT_SATISFIABLE:
+                                            // ignore request for start past end of object
+                                            return new ByteArrayInputStream(new byte[0]);
+                                        case SC_FORBIDDEN:
+                                            throw new UnrecoverableS3OperationException(e);
                                     }
                                 }
                                 throw Throwables.propagate(e);
@@ -663,9 +670,14 @@ public class PrestoS3FileSystem
         {
             if (in != null) {
                 try {
-                    in.abort();
+                    if (in instanceof S3ObjectInputStream) {
+                        ((S3ObjectInputStream) in).abort();
+                    }
+                    else {
+                        in.close();
+                    }
                 }
-                catch (AbortedException ignored) {
+                catch (IOException | AbortedException ignored) {
                     // thrown if the current thread is in the interrupted state
                 }
                 in = null;
