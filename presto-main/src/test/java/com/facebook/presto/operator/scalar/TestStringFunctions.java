@@ -97,14 +97,14 @@ public class TestStringFunctions
     @Test
     public void testStringPosition()
     {
-        assertFunction("STRPOS('high', 'ig')", BIGINT,  2);
-        assertFunction("STRPOS('high', 'igx')", BIGINT,  0);
-        assertFunction("STRPOS('Quadratically', 'a')", BIGINT,  3);
-        assertFunction("STRPOS('foobar', 'foobar')", BIGINT,  1);
-        assertFunction("STRPOS('foobar', 'obar')", BIGINT,  3);
-        assertFunction("STRPOS('zoo!', '!')", BIGINT,  4);
-        assertFunction("STRPOS('x', '')", BIGINT,  1);
-        assertFunction("STRPOS('', '')", BIGINT,  1);
+        assertFunction("STRPOS('high', 'ig')", BIGINT, 2);
+        assertFunction("STRPOS('high', 'igx')", BIGINT, 0);
+        assertFunction("STRPOS('Quadratically', 'a')", BIGINT, 3);
+        assertFunction("STRPOS('foobar', 'foobar')", BIGINT, 1);
+        assertFunction("STRPOS('foobar', 'obar')", BIGINT, 3);
+        assertFunction("STRPOS('zoo!', '!')", BIGINT, 4);
+        assertFunction("STRPOS('x', '')", BIGINT, 1);
+        assertFunction("STRPOS('', '')", BIGINT, 1);
     }
 
     @Test
