@@ -16,6 +16,8 @@ package com.facebook.presto.testing;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
+import com.facebook.presto.memory.MemoryPool;
+import com.facebook.presto.memory.MemoryPoolId;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.TaskContext;
 import io.airlift.units.DataSize;
@@ -24,6 +26,7 @@ import java.util.concurrent.Executor;
 
 import static com.facebook.presto.util.Threads.checkNotSameThreadExecutor;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public final class TestingTaskContext
@@ -40,11 +43,18 @@ public final class TestingTaskContext
 
     public static TaskContext createTaskContext(Executor executor, Session session, DataSize maxMemory)
     {
-        return new QueryContext(false, new DataSize(10, MEGABYTE), executor).addTaskContext(
+        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE), false);
+        QueryContext queryContext = new QueryContext(false, new DataSize(10, MEGABYTE), memoryPool, executor);
+        return createTaskContext(queryContext, executor, session, maxMemory, new DataSize(1, MEGABYTE));
+    }
+
+    public static TaskContext createTaskContext(QueryContext queryContext, Executor executor, Session session, DataSize maxMemory, DataSize preallocated)
+    {
+        return queryContext.addTaskContext(
                 new TaskStateMachine(new TaskId("query", "stage", "task"), checkNotSameThreadExecutor(executor, "executor is null")),
                 session,
                 checkNotNull(maxMemory, "maxMemory is null"),
-                new DataSize(1, MEGABYTE),
+                preallocated,
                 true,
                 true);
     }

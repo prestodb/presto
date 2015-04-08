@@ -22,6 +22,7 @@ import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 
 public class TestMemoryManagerConfig
@@ -32,6 +33,7 @@ public class TestMemoryManagerConfig
         assertRecordedDefaults(ConfigAssertions.recordDefaults(MemoryManagerConfig.class)
                 .setMaxQueryMemory(new DataSize(20, GIGABYTE))
                 .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE))
+                .setReservedSystemMemory(new DataSize(Runtime.getRuntime().maxMemory() * 0.2, BYTE))
                 .setClusterMemoryManagerEnabled(false));
     }
 
@@ -41,12 +43,14 @@ public class TestMemoryManagerConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("query.max-memory", "2GB")
                 .put("query.max-memory-per-node", "2GB")
+                .put("resources.reserved-system-memory", "1GB")
                 .put("experimental.cluster-memory-manager-enabled", "true")
                 .build();
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
                 .setMaxQueryMemory(new DataSize(2, GIGABYTE))
                 .setMaxQueryMemoryPerNode(new DataSize(2, GIGABYTE))
+                .setReservedSystemMemory(new DataSize(1, GIGABYTE))
                 .setClusterMemoryManagerEnabled(true);
 
         assertFullMapping(properties, expected);
