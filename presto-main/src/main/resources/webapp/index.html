@@ -12,11 +12,26 @@
          table td:nth-child(2) {
              white-space: nowrap;
          }
+        #fixed {
+            position: fixed;
+            top: 0px;
+            left: 0px;
+            color: red;
+            background-color: pink;
+            padding: 10px;
+            font-size: 20px;
+        }
+        #fixed.hidden {
+            display: none;
+        }
     </style>
 </head>
 
 <body>
 
+<div id="fixed" class="hidden">
+    refresh paused
+</div>
 <div class="container">
     <div class="page-header">
         <h1>Presto</h1>
@@ -250,8 +265,38 @@ function flatten(array)
     return [].concat.apply([], array);
 }
 
-setInterval(function () { redraw(); }, 1000);
+var flipRefresh = (function() {
+    var refreshSuppressed = true;
 
-redraw();
+    var loopRefresh = function loop() {
+        if (refreshSuppressed) {
+            return;
+        }
+        redraw();
+
+        setTimeout(function(){
+            loop();
+        }, 1000);
+    };
+
+    return function() {
+        d3.select("#fixed").classed("hidden", refreshSuppressed);
+        if (refreshSuppressed) {
+            refreshSuppressed = false;
+            loopRefresh();
+        } else {
+            refreshSuppressed = true;
+        }
+    };
+})();
+
+d3.select("body").on("keydown", function() {
+    var e = d3.event;
+    if (e.keyCode === 90) { // z-key
+        flipRefresh();
+    }
+});
+
+flipRefresh();
 
 </script>
