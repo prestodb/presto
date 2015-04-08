@@ -270,10 +270,7 @@ public class TopNOperator
 
             Block[] blocks = page.getBlocks();
             for (int position = 0; position < page.getPositionCount(); position++) {
-                if (globalCandidates.size() < n) {
-                    sizeDelta += addRow(position, blocks);
-                }
-                else if (compare(position, blocks, globalCandidates.peek()) < 0) {
+                if (globalCandidates.size() < n || compare(position, blocks, globalCandidates.peek()) < 0) {
                     sizeDelta += addRow(position, blocks);
                 }
             }
