@@ -35,6 +35,8 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.memory.ClusterMemoryManager;
+import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.CatalogManagerConfig;
 import com.facebook.presto.metadata.HandleJsonModule;
@@ -144,6 +146,9 @@ public class ServerMainModule
         // task execution
         jaxrsBinder(binder).bind(TaskResource.class);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
+        bindConfig(binder).to(MemoryManagerConfig.class);
+        newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
+        binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskManager.class).withGeneratedName();
         binder.bind(TaskExecutor.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskExecutor.class).withGeneratedName();

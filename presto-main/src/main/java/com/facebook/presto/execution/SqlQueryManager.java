@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
+import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -56,6 +57,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 @ThreadSafe
@@ -69,6 +71,7 @@ public class SqlQueryManager
     private final ExecutorService queryExecutor;
     private final ThreadPoolExecutorMBean queryExecutorMBean;
     private final QueryQueueManager queueManager;
+    private final ClusterMemoryManager memoryManager;
 
     private final int maxQueryHistory;
     private final Duration maxQueryAge;
@@ -95,6 +98,7 @@ public class SqlQueryManager
             QueryManagerConfig config,
             QueryMonitor queryMonitor,
             QueryQueueManager queueManager,
+            ClusterMemoryManager memoryManager,
             QueryIdGenerator queryIdGenerator,
             LocationFactory locationFactory,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories)
@@ -108,6 +112,7 @@ public class SqlQueryManager
 
         checkNotNull(config, "config is null");
         this.queueManager = checkNotNull(queueManager, "queueManager is null");
+        this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
 
         this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
@@ -129,6 +134,13 @@ public class SqlQueryManager
                 }
                 catch (Throwable e) {
                     log.warn(e, "Error cancelling abandoned queries");
+                }
+
+                try {
+                    enforceMemoryLimits();
+                }
+                catch (Throwable e) {
+                    log.warn(e, "Error enforcing memory limits");
                 }
 
                 try {
@@ -340,6 +352,16 @@ public class SqlQueryManager
     public ThreadPoolExecutorMBean getManagementExecutor()
     {
         return queryManagementExecutorMBean;
+    }
+
+    /**
+     * Enforce memory limits at the query level
+     */
+    public void enforceMemoryLimits()
+    {
+        memoryManager.process(queries.values().stream()
+                .filter(query -> !query.getQueryInfo().getState().isDone())
+                .collect(toImmutableList()));
     }
 
     /**

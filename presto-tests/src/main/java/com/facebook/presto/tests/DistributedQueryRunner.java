@@ -59,6 +59,12 @@ public class DistributedQueryRunner
     public DistributedQueryRunner(Session defaultSession, int workersCount)
             throws Exception
     {
+        this(defaultSession, workersCount, ImmutableMap.of());
+    }
+
+    public DistributedQueryRunner(Session defaultSession, int workersCount, Map<String, String> extraProperties)
+            throws Exception
+    {
         checkNotNull(defaultSession, "defaultSession is null");
 
         try {
@@ -67,11 +73,11 @@ public class DistributedQueryRunner
             log.info("Created TestingDiscoveryServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
-            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true));
+            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, extraProperties));
             servers.add(coordinator);
 
             for (int i = 1; i < workersCount; i++) {
-                TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false));
+                TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, extraProperties));
                 servers.add(worker);
             }
             this.servers = servers.build();
@@ -97,7 +103,7 @@ public class DistributedQueryRunner
         log.info("Added functions in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
-    private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator)
+    private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator, Map<String, String> extraProperties)
             throws Exception
     {
         long start = System.nanoTime();
@@ -109,6 +115,7 @@ public class DistributedQueryRunner
                 .put("datasources", "system")
                 .put("distributed-index-joins-enabled", "true")
                 .put("optimizer.optimize-hash-generation", "true");
+        properties.putAll(extraProperties);
         if (coordinator) {
             properties.put("node-scheduler.include-coordinator", "false");
             properties.put("distributed-joins-enabled", "true");
