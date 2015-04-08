@@ -254,7 +254,7 @@ public class SqlQueryExecution
         stateMachine.recordDistributedPlanningTime(distributedPlanningStart);
 
         // update state in case output finished before listener was added
-        doUpdateState(outputStage.getStageInfo());
+        doUpdateState(outputStage.getState());
     }
 
     @Override
@@ -318,7 +318,7 @@ public class SqlQueryExecution
         }
     }
 
-    private void doUpdateState(StageInfo outputStageInfo)
+    private void doUpdateState(StageState outputStageState)
     {
         // if already complete, just return
         if (stateMachine.isDone()) {
@@ -326,10 +326,9 @@ public class SqlQueryExecution
         }
 
         // if output stage is done, transition to done
-        StageState outputStageState = outputStageInfo.getState();
         if (outputStageState.isDone()) {
             if (outputStageState.isFailure()) {
-                stateMachine.fail(failureCause(outputStageInfo));
+                stateMachine.fail(failureCause(outputStage.get().getStageInfo()));
             }
             else if (outputStageState == StageState.CANCELED) {
                 stateMachine.fail(new PrestoException(USER_CANCELED, "Query was canceled"));
@@ -340,7 +339,7 @@ public class SqlQueryExecution
         }
         else if (stateMachine.getQueryState() == QueryState.STARTING) {
             // if output stage has at least one task, we are running
-            if (!outputStageInfo.getTasks().isEmpty()) {
+            if (!outputStage.get().getStageInfo().getTasks().isEmpty()) {
                 stateMachine.running();
                 stateMachine.recordExecutionStart();
             }

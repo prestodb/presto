@@ -95,7 +95,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
-public class SqlStageExecution
+public final class SqlStageExecution
         implements StageExecutionNode
 {
     private static final Logger log = Logger.get(SqlStageExecution.class);
@@ -235,7 +235,7 @@ public class SqlStageExecution
                         executor,
                         nodeTaskMap);
 
-                subStage.addStateChangeListener(stageInfo -> doUpdateState());
+                subStage.addStateChangeListener(stageState -> doUpdateState());
 
                 subStages.put(subStageFragmentId, subStage);
             }
@@ -451,17 +451,10 @@ public class SqlStageExecution
     }
 
     @Override
-    public void addStateChangeListener(final StateChangeListener<StageInfo> stateChangeListener)
+    public void addStateChangeListener(StateChangeListener<StageState> stateChangeListener)
     {
         try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
-            stageState.addStateChangeListener(new StateChangeListener<StageState>()
-            {
-                @Override
-                public void stateChanged(StageState newValue)
-                {
-                    stateChangeListener.stateChanged(getStageInfo());
-                }
-            });
+            stageState.addStateChangeListener(stageState -> stateChangeListener.stateChanged(stageState));
         }
     }
 
@@ -892,7 +885,7 @@ public class SqlStageExecution
                     return;
                 }
 
-                List<StageState> subStageStates = ImmutableList.copyOf(transform(transform(subStages.values(), StageExecutionNode::getStageInfo), StageInfo::getState));
+                List<StageState> subStageStates = ImmutableList.copyOf(transform(subStages.values(), StageExecutionNode::getState));
                 if (subStageStates.stream().anyMatch(StageState::isFailure)) {
                     stageState.set(StageState.ABORTED);
                 }
@@ -1032,7 +1025,7 @@ interface StageExecutionNode
 
     Iterable<? extends URI> getTaskLocations();
 
-    void addStateChangeListener(StateChangeListener<StageInfo> stateChangeListener);
+    void addStateChangeListener(StateChangeListener<StageState> stateChangeListener);
 
     void cancelStage(StageId stageId);
 
