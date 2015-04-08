@@ -93,7 +93,7 @@ public class TestMapOperators
                 new SqlTimestamp(100_000, TEST_SESSION.getTimeZoneKey()),
                 100.0));
 
-        assertInvalidFunction("MAP(ARRAY [1], ARRAY [2, 4])", new MapType(new ArrayType(BIGINT), new ArrayType(BIGINT)), "Key and value arrays must be the same length");
+        assertInvalidFunction("MAP(ARRAY [1], ARRAY [2, 4])", "Key and value arrays must be the same length");
     }
 
     @Test
@@ -158,9 +158,9 @@ public class TestMapOperators
         assertFunction("MAP(ARRAY [1.0], ARRAY [null])[1.0]", UNKNOWN, null);
         assertFunction("MAP(ARRAY [TRUE], ARRAY [null])[TRUE]", UNKNOWN, null);
         assertFunction("MAP(ARRAY['puppies'], ARRAY [null])['puppies']", UNKNOWN, null);
-        assertInvalidFunction("MAP(ARRAY [CAST(null as bigint)], ARRAY [1])", new MapType(BIGINT, BIGINT), "map key cannot be null");
-        assertInvalidFunction("MAP(ARRAY [CAST(null as bigint)], ARRAY [CAST(null as bigint)])", new MapType(BIGINT, BIGINT), "map key cannot be null");
-        assertInvalidFunction("MAP(ARRAY [1,null], ARRAY [null,2])", new MapType(BIGINT, BIGINT), "map key cannot be null");
+        assertInvalidFunction("MAP(ARRAY [CAST(null as bigint)], ARRAY [1])", "map key cannot be null");
+        assertInvalidFunction("MAP(ARRAY [CAST(null as bigint)], ARRAY [CAST(null as bigint)])", "map key cannot be null");
+        assertInvalidFunction("MAP(ARRAY [1,null], ARRAY [null,2])", "map key cannot be null");
         assertFunction("MAP(ARRAY [1, 3], ARRAY [2, 4])[3]", BIGINT, 4L);
         assertFunction("MAP(ARRAY [1, 3], ARRAY[2, NULL])[3]", BIGINT, null);
         assertFunction("MAP(ARRAY [1, 3], ARRAY [2.0, 4.0])[1]", DOUBLE, 2.0);

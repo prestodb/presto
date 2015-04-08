@@ -387,7 +387,7 @@ public class TestMathFunctions
         assertFunction("greatest(1.0, 2)", DOUBLE, 2.0);
 
         // invalid
-        assertInvalidFunction("greatest(1.5, 0.0 / 0.0)", DOUBLE, "Invalid argument to greatest(): NaN");
+        assertInvalidFunction("greatest(1.5, 0.0 / 0.0)", "Invalid argument to greatest(): NaN");
     }
 
     @Test
@@ -411,7 +411,7 @@ public class TestMathFunctions
         assertFunction("least(1.0, 2)", DOUBLE, 1.0);
 
         // invalid
-        assertInvalidFunction("least(1.5, 0.0 / 0.0)", DOUBLE, "Invalid argument to least(): NaN");
+        assertInvalidFunction("least(1.5, 0.0 / 0.0)", "Invalid argument to least(): NaN");
     }
 
     @Test
@@ -421,7 +421,7 @@ public class TestMathFunctions
         assertFunction("to_base(2147483648, 16)", VARCHAR, "80000000");
         assertFunction("to_base(255, 2)", VARCHAR, "11111111");
         assertFunction("to_base(-2147483647, 16)", VARCHAR, "-7fffffff");
-        assertInvalidFunction("to_base(255, 1)", VARCHAR, "Radix must be between 2 and 36");
+        assertInvalidFunction("to_base(255, 1)", "Radix must be between 2 and 36");
     }
 
     @Test
@@ -433,8 +433,8 @@ public class TestMathFunctions
         assertFunction("from_base('-7fffffff', 16)", BIGINT, -2147483647);
         assertFunction("from_base('9223372036854775807', 10)", BIGINT, 9223372036854775807L);
         assertFunction("from_base('-9223372036854775808', 10)", BIGINT, -9223372036854775808L);
-        assertInvalidFunction("from_base('Z', 37)", BIGINT, "Radix must be between 2 and 36");
-        assertInvalidFunction("from_base('Z', 35)", BIGINT, "Not a valid base-35 number: Z");
-        assertInvalidFunction("from_base('9223372036854775808', 10)", BIGINT, "Not a valid base-10 number: 9223372036854775808");
+        assertInvalidFunction("from_base('Z', 37)", "Radix must be between 2 and 36");
+        assertInvalidFunction("from_base('Z', 35)", "Not a valid base-35 number: Z");
+        assertInvalidFunction("from_base('9223372036854775808', 10)", "Not a valid base-10 number: 9223372036854775808");
     }
 }

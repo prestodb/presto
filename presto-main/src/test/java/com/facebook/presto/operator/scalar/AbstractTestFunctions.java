@@ -38,10 +38,10 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertFunction(projection, expectedType, expected);
     }
 
-    protected void assertInvalidFunction(String projection, Type expectedType, String message)
+    protected void assertInvalidFunction(String projection, String message)
     {
         try {
-            assertFunction(projection, expectedType, null);
+            evaluateInvalid(projection);
             fail("Expected to throw an INVALID_FUNCTION_ARGUMENT exception with message " + message);
         }
         catch (PrestoException e) {
@@ -50,10 +50,10 @@ public abstract class AbstractTestFunctions
         }
     }
 
-    protected void assertInvalidFunction(String projection, Type expectedType, ErrorCodeSupplier expectedErrorCode)
+    protected void assertInvalidFunction(String projection, ErrorCodeSupplier expectedErrorCode)
     {
         try {
-            assertFunction(projection, expectedType, null);
+            evaluateInvalid(projection);
             fail(format("Expected to throw %s exception", expectedErrorCode.toErrorCode()));
         }
         catch (PrestoException e) {
@@ -64,8 +64,7 @@ public abstract class AbstractTestFunctions
     protected void assertInvalidCast(String projection)
     {
         try {
-            // type isn't necessary as the function is not valid
-            functionAssertions.assertFunction(projection, UNKNOWN, null);
+            evaluateInvalid(projection);
             fail("Expected to throw an INVALID_CAST_ARGUMENT exception");
         }
         catch (PrestoException e) {
@@ -80,5 +79,11 @@ public abstract class AbstractTestFunctions
                 .scalar(clazz)
                 .getFunctions();
         metadata.getFunctionRegistry().addFunctions(functions);
+    }
+
+    private void evaluateInvalid(String projection)
+    {
+        // type isn't necessary as the function is not valid
+        functionAssertions.assertFunction(projection, UNKNOWN, null);
     }
 }
