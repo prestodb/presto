@@ -25,6 +25,10 @@ Array Functions
 
     Remove duplicate values from the array ``x``.
 
+.. function:: array_intersect(x, y) -> array
+
+    Returns an array of the elements in the intersection of ``x`` and ``y``, without duplicates.
+
 .. function:: array_sort(x) -> array
 
     Sorts and returns the array ``x``. The elements of ``x`` must be orderable.
