@@ -176,51 +176,51 @@ public class TestConditions
     public void testSearchCase()
     {
         assertFunction("case " +
-                "when true then 33 " +
-                "end",
+                        "when true then 33 " +
+                        "end",
                 BIGINT,
                 33L);
 
         assertFunction("case " +
-                "when false then 1 " +
-                "else 33 " +
-                "end",
+                        "when false then 1 " +
+                        "else 33 " +
+                        "end",
                 BIGINT,
                 33L);
 
         assertFunction("case " +
-                "when false then 1 " +
-                "when false then 1 " +
-                "when true then 33 " +
-                "else 1 " +
-                "end",
+                        "when false then 1 " +
+                        "when false then 1 " +
+                        "when true then 33 " +
+                        "else 1 " +
+                        "end",
                 BIGINT,
                 33L);
 
         assertFunction("case " +
-                "when false then 1 " +
-                "end",
+                        "when false then 1 " +
+                        "end",
                 BIGINT,
                 null);
 
         assertFunction("case " +
-                "when true then null " +
-                "else 'foo' " +
-                "end",
+                        "when true then null " +
+                        "else 'foo' " +
+                        "end",
                 VARCHAR,
                 null);
 
         assertFunction("case " +
-                "when null then 1 " +
-                "when true then 33 " +
-                "end",
+                        "when null then 1 " +
+                        "when true then 33 " +
+                        "end",
                 BIGINT,
                 33L);
 
         assertFunction("case " +
-                "when false then 1.0 " +
-                "when true then 33 " +
-                "end",
+                        "when false then 1.0 " +
+                        "when true then 33 " +
+                        "end",
                 DOUBLE,
                 33.0);
     }
@@ -229,65 +229,65 @@ public class TestConditions
     public void testSimpleCase()
     {
         assertFunction("case true " +
-                "when true then cast(null as varchar) " +
-                "else 'foo' " +
-                "end",
+                        "when true then cast(null as varchar) " +
+                        "else 'foo' " +
+                        "end",
                 VARCHAR,
                 null);
 
         assertFunction("case true " +
-                "when true then 33 " +
-                "end",
+                        "when true then 33 " +
+                        "end",
                 BIGINT,
                 33L);
 
         assertFunction("case true " +
-                "when false then 1 " +
-                "else 33 " +
-                "end",
+                        "when false then 1 " +
+                        "else 33 " +
+                        "end",
                 BIGINT,
                 33L);
 
         assertFunction("case true " +
-                "when false then 1 " +
-                "when false then 1 " +
-                "when true then 33 " +
-                "else 1 " +
-                "end",
+                        "when false then 1 " +
+                        "when false then 1 " +
+                        "when true then 33 " +
+                        "else 1 " +
+                        "end",
                 BIGINT,
                 33L);
 
         assertFunction("case true " +
-                "when false then 1 " +
-                "end",
+                        "when false then 1 " +
+                        "end",
                 BIGINT,
                 null);
 
         assertFunction("case true " +
-                "when true then null " +
-                "else 'foo' " +
-                "end",
+                        "when true then null " +
+                        "else 'foo' " +
+                        "end",
                 VARCHAR,
                 null);
 
         assertFunction("case true " +
-                "when null then 1 " +
-                "when true then 33 " +
-                "end",
+                        "when null then 1 " +
+                        "when true then 33 " +
+                        "end",
                 BIGINT,
                 33L);
 
         assertFunction("case null " +
-                "when true then 1 " +
-                "else 33 " +
-                "end",
+                        "when true then 1 " +
+                        "else 33 " +
+                        "end",
                 BIGINT,
                 33);
 
         assertFunction("case true " +
-                "when false then 1.0 " +
-                "when true then 33 " +
-                "end",
+                        "when false then 1.0 " +
+                        "when true then 33 " +
+                        "end",
                 DOUBLE,
                 33.0);
     }
