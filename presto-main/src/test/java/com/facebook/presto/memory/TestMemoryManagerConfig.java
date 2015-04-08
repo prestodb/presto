@@ -31,6 +31,7 @@ public class TestMemoryManagerConfig
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(MemoryManagerConfig.class)
                 .setMaxQueryMemory(new DataSize(20, GIGABYTE))
+                .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE))
                 .setClusterMemoryManagerEnabled(false));
     }
 
@@ -39,11 +40,13 @@ public class TestMemoryManagerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("query.max-memory", "2GB")
+                .put("query.max-memory-per-node", "2GB")
                 .put("experimental.cluster-memory-manager-enabled", "true")
                 .build();
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
                 .setMaxQueryMemory(new DataSize(2, GIGABYTE))
+                .setMaxQueryMemoryPerNode(new DataSize(2, GIGABYTE))
                 .setClusterMemoryManagerEnabled(true);
 
         assertFullMapping(properties, expected);

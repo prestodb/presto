@@ -17,6 +17,7 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.spi.Node;
@@ -246,7 +247,8 @@ public class TestSqlTaskManager
                 taskExecutor,
                 new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient(), new NodeInfo("test"), new NodeVersion("testVersion")),
                 new NodeInfo("test"),
-                config);
+                config,
+                new MemoryManagerConfig());
     }
 
     public static class MockExchangeClientSupplier

@@ -19,6 +19,7 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.SharedBuffer.BufferState;
+import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.google.common.base.Functions;
@@ -279,6 +280,7 @@ public class TestSqlTask
                 taskId,
                 "test",
                 location,
+                new QueryContext(false, new DataSize(1, MEGABYTE), taskNotificationExecutor),
                 sqlTaskExecutionFactory,
                 taskNotificationExecutor,
                 Functions.<SqlTask>identity(),

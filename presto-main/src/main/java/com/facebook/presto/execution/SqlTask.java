@@ -17,6 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -44,6 +45,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SqlTask
 {
@@ -54,6 +56,7 @@ public class SqlTask
     private final URI location;
     private final TaskStateMachine taskStateMachine;
     private final SharedBuffer sharedBuffer;
+    private final QueryContext queryContext;
 
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
 
@@ -66,6 +69,7 @@ public class SqlTask
             TaskId taskId,
             String nodeInstanceId,
             URI location,
+            QueryContext queryContext,
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
             final Function<SqlTask, ?> onDone,
@@ -74,6 +78,7 @@ public class SqlTask
         this.taskId = checkNotNull(taskId, "taskId is null");
         this.nodeInstanceId = checkNotNull(nodeInstanceId, "nodeInstanceId is null");
         this.location = checkNotNull(location, "location is null");
+        this.queryContext = requireNonNull(queryContext, "queryContext is null");
         this.sqlTaskExecutionFactory = checkNotNull(sqlTaskExecutionFactory, "sqlTaskExecutionFactory is null");
         checkNotNull(taskNotificationExecutor, "taskNotificationExecutor is null");
         checkNotNull(onDone, "onDone is null");
@@ -221,7 +226,7 @@ public class SqlTask
                 }
                 taskExecution = taskHolder.getTaskExecution();
                 if (taskExecution == null) {
-                    taskExecution = sqlTaskExecutionFactory.create(session, taskStateMachine, sharedBuffer, fragment, sources);
+                    taskExecution = sqlTaskExecutionFactory.create(session, queryContext, taskStateMachine, sharedBuffer, fragment, sources);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                 }
             }

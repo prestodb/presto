@@ -24,28 +24,21 @@ import java.util.Map;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Locale.ENGLISH;
 
-public class TestClusterMemoryManager
+@Test(singleThreaded = true)
+public class TestMemoryManager
 {
+    public static final Session SESSION = Session.builder()
+            .setUser("user")
+            .setSource("test")
+            .setCatalog("tpch")
+            // Use sf1000 to make sure this takes at least one second, so that the memory manager will fail the query
+            .setSchema("sf1000")
+            .setTimeZoneKey(UTC_KEY)
+            .setLocale(ENGLISH)
+            .build();
+
     @Test(timeOut = 240_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded max memory size of 1kB.*")
     public void testQueryMemoryLimit()
-            throws Exception
-    {
-        Session session = Session.builder()
-                .setUser("user")
-                .setSource("test")
-                .setCatalog("tpch")
-                // Use sf1000 to make sure this takes at least one second, so that the memory manager will fail the query
-                .setSchema("sf1000")
-                .setTimeZoneKey(UTC_KEY)
-                .setLocale(ENGLISH)
-                .build();
-
-        try (QueryRunner queryRunner = createQueryRunner(session)) {
-            queryRunner.execute(session, "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
-        }
-    }
-
-    private static DistributedQueryRunner createQueryRunner(Session session)
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
@@ -53,6 +46,28 @@ public class TestClusterMemoryManager
                 .put("query.max-memory", "1kB")
                 .put("task.operator-pre-allocated-memory", "0B")
                 .build();
+        try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
+            queryRunner.execute(SESSION, "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
+        }
+    }
+
+    @Test(timeOut = 240_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded local memory limit of 1kB.*")
+    public void testQueryMemoryPerNodeLimit()
+            throws Exception
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("experimental.cluster-memory-manager-enabled", "true")
+                .put("query.max-memory-per-node", "1kB")
+                .put("task.operator-pre-allocated-memory", "0B")
+                .build();
+        try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
+            queryRunner.execute(SESSION, "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
+        }
+    }
+
+    private static DistributedQueryRunner createQueryRunner(Session session, Map<String, String> properties)
+            throws Exception
+    {
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 2, properties);
 
         try {

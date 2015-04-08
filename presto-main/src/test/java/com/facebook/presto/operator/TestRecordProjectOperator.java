@@ -17,7 +17,6 @@ import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.TestingTaskContext;
 import com.facebook.presto.util.InfiniteRecordSet;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
