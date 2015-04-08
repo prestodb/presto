@@ -598,9 +598,14 @@ public class PrestoS3FileSystem
                 long skip = nextReadPosition - streamPosition;
                 if (skip <= max(in.available(), MAX_SKIP_SIZE.toBytes())) {
                     // already buffered or seek is small enough
-                    if (in.skip(skip) == skip) {
-                        streamPosition = nextReadPosition;
-                        return;
+                    try {
+                        if (in.skip(skip) == skip) {
+                            streamPosition = nextReadPosition;
+                            return;
+                        }
+                    }
+                    catch (IOException ignored) {
+                        // will retry by re-opening the stream
                     }
                 }
             }
