@@ -225,16 +225,21 @@ public class OperatorContext
 
     public synchronized long setMemoryReservation(long newMemoryReservation)
     {
+        return setMemoryReservation(newMemoryReservation, false);
+    }
+
+    public synchronized long setMemoryReservation(long newMemoryReservation, boolean noFail)
+    {
         checkArgument(newMemoryReservation >= 0, "newMemoryReservation is negative");
 
         long delta = newMemoryReservation - memoryReservation.get();
 
         // currently, operator memory is not be released
-        if (delta > 0 && !reserveMemory(delta)) {
+        if (delta > 0 && !reserveMemory(delta) && !noFail) {
             throw new ExceededMemoryLimitException(getMaxMemorySize());
         }
 
-        return newMemoryReservation;
+        return memoryReservation.get();
     }
 
     public void setInfoSupplier(Supplier<Object> infoSupplier)
