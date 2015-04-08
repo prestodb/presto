@@ -6,7 +6,8 @@ General Changes
 ---------------
 
 * Add support for :doc:`/sql/create-table` (in addition to :doc:`/sql/create-table-as`).
-* Add :func:`array_agg` function
+* Add :func:`array_agg` function.
+* Add :func:`array_intersect` function.
 
 Hive Changes
 ------------
