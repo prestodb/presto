@@ -20,6 +20,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -33,6 +34,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.facebook.presto.util.Threads.checkNotSameThreadExecutor;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -181,7 +183,7 @@ public class TaskContext
         return operatorPreAllocatedMemory;
     }
 
-    public synchronized void reserveMemory(long bytes)
+    public synchronized ListenableFuture<?> reserveMemory(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
 
@@ -189,6 +191,18 @@ public class TaskContext
             throw new ExceededMemoryLimitException(getMaxMemorySize());
         }
         memoryReservation.getAndAdd(bytes);
+        return NOT_BLOCKED;
+    }
+
+    public synchronized boolean tryReserveMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+
+        if (memoryReservation.get() + bytes > maxMemory) {
+            return false;
+        }
+        memoryReservation.getAndAdd(bytes);
+        return true;
     }
 
     public synchronized void freeMemory(long bytes)

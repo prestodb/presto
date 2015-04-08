@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.Page;
@@ -299,15 +298,12 @@ public class HashAggregationOperator
             if (memorySize < 0) {
                 memorySize = 0;
             }
-            try {
+            if (partial) {
+                return !operatorContext.trySetMemoryReservation(memorySize);
+            }
+            else {
                 operatorContext.setMemoryReservation(memorySize);
                 return false;
-            }
-            catch (ExceededMemoryLimitException e) {
-                if (partial) {
-                    return true;
-                }
-                throw e;
             }
         }
 
