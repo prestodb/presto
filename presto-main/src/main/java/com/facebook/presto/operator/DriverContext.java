@@ -190,10 +190,20 @@ public class DriverContext
         return pipelineContext.getOperatorPreAllocatedMemory();
     }
 
-    public void reserveMemory(long bytes)
+    public ListenableFuture<?> reserveMemory(long bytes)
     {
-        pipelineContext.reserveMemory(bytes);
+        ListenableFuture<?> future = pipelineContext.reserveMemory(bytes);
         memoryReservation.getAndAdd(bytes);
+        return future;
+    }
+
+    public boolean tryReserveMemory(long bytes)
+    {
+        if (pipelineContext.tryReserveMemory(bytes)) {
+            memoryReservation.getAndAdd(bytes);
+            return true;
+        }
+        return false;
     }
 
     public void freeMemory(long bytes)

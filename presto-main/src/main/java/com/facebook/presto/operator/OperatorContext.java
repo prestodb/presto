@@ -30,6 +30,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -63,6 +64,7 @@ public class OperatorContext
     private final CounterStat outputDataSize = new CounterStat();
     private final CounterStat outputPositions = new CounterStat();
 
+    private final AtomicReference<ListenableFuture<?>> memoryFuture = new AtomicReference<>(NOT_BLOCKED);
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
     private final AtomicLong blockedWallNanos = new AtomicLong();
 
@@ -193,6 +195,11 @@ public class OperatorContext
         finishUserNanos.getAndAdd(nanosBetween(intervalUserStart.get(), currentThreadUserTime()));
     }
 
+    public ListenableFuture<?> isWaitingForMemory()
+    {
+        return memoryFuture.get();
+    }
+
     public DataSize getMaxMemorySize()
     {
         return driverContext.getMaxMemorySize();
@@ -205,12 +212,29 @@ public class OperatorContext
 
     public void reserveMemory(long bytes)
     {
-        driverContext.reserveMemory(bytes);
+        ListenableFuture<?> future = driverContext.reserveMemory(bytes);
+        if (!future.isDone()) {
+            memoryFuture.set(future);
+        }
         long newReservation = memoryReservation.getAndAdd(bytes);
         if (newReservation > maxMemoryReservation) {
             memoryReservation.getAndAdd(-bytes);
             throw new ExceededMemoryLimitException(getMaxMemorySize());
         }
+    }
+
+    public boolean tryReserveMemory(long bytes)
+    {
+        if (!driverContext.tryReserveMemory(bytes)) {
+            return false;
+        }
+
+        long newReservation = memoryReservation.getAndAdd(bytes);
+        if (newReservation > maxMemoryReservation) {
+            memoryReservation.getAndAdd(-bytes);
+            return false;
+        }
+        return true;
     }
 
     public void freeMemory(long bytes)
@@ -232,6 +256,21 @@ public class OperatorContext
         }
         else {
             freeMemory(-delta);
+        }
+    }
+
+    public synchronized boolean trySetMemoryReservation(long newMemoryReservation)
+    {
+        checkArgument(newMemoryReservation >= 0, "newMemoryReservation is negative");
+
+        long delta = newMemoryReservation - memoryReservation.get();
+
+        if (delta > 0) {
+            return tryReserveMemory(delta);
+        }
+        else {
+            freeMemory(-delta);
+            return true;
         }
     }
 

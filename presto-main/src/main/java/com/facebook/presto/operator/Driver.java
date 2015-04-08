@@ -310,6 +310,15 @@ public class Driver
         }
     }
 
+    private ListenableFuture<?> isBlocked(Operator operator)
+    {
+        ListenableFuture<?> blocked = operator.isBlocked();
+        if (blocked.isDone()) {
+            blocked = operator.getOperatorContext().isWaitingForMemory();
+        }
+        return blocked;
+    }
+
     private ListenableFuture<?> processInternal()
     {
         checkLockHeld("Lock must be held to call processInternal");
@@ -322,7 +331,7 @@ public class Driver
             for (int i = 0; i < operators.size() - 1 && !driverContext.isDone(); i++) {
                 // check if current operator is blocked
                 Operator current = operators.get(i);
-                ListenableFuture<?> blocked = current.isBlocked();
+                ListenableFuture<?> blocked = isBlocked(current);
                 if (!blocked.isDone()) {
                     current.getOperatorContext().recordBlocked(blocked);
                     return blocked;
@@ -330,7 +339,7 @@ public class Driver
 
                 // check if next operator is blocked
                 Operator next = operators.get(i + 1);
-                blocked = next.isBlocked();
+                blocked = isBlocked(next);
                 if (!blocked.isDone()) {
                     next.getOperatorContext().recordBlocked(blocked);
                     return blocked;
