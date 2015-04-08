@@ -373,7 +373,7 @@ public class TupleAnalyzer
         TupleDescriptor outputDescriptor = analyzer.process(node.getRelations().get(0), context).withOnlyVisibleFields();
 
         for (Relation relation : Iterables.skip(node.getRelations(), 1)) {
-            TupleDescriptor descriptor = analyzer.process(relation, context);
+            TupleDescriptor descriptor = analyzer.process(relation, context).withOnlyVisibleFields();
             int outputFieldSize = outputDescriptor.getVisibleFields().size();
             int descFieldSize = descriptor.getVisibleFields().size();
             if (outputFieldSize != descFieldSize) {
