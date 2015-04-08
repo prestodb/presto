@@ -98,7 +98,7 @@ public class ConnectorManager
     @PreDestroy
     public void stop()
     {
-        if (stopped.compareAndSet(false, true)) {
+        if (stopped.getAndSet(true)) {
             return;
         }
 
