@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -29,23 +30,27 @@ class ActualProperties
     private final Optional<Set<Symbol>> partitioningColumns; // if missing => partitioned with some unknown scheme
     private final Optional<List<Symbol>> hashingColumns; // if present => hash partitioned on the given columns. partitioningColumns and hashingColumns must contain the same columns
     private final boolean coordinatorOnly;
+    private final List<LocalProperty<Symbol>> localProperties;
 
     public ActualProperties(
             Optional<Set<Symbol>> partitioningColumns,
             Optional<List<Symbol>> hashingColumns,
+            List<? extends LocalProperty<Symbol>> localProperties,
             boolean coordinatorOnly)
     {
         requireNonNull(partitioningColumns, "partitioningColumns is null");
         requireNonNull(hashingColumns, "hashingColumns is null");
+        requireNonNull(localProperties, "localProperties is null");
 
         this.partitioningColumns = partitioningColumns;
         this.hashingColumns = hashingColumns;
+        this.localProperties = ImmutableList.copyOf(localProperties);
         this.coordinatorOnly = coordinatorOnly;
     }
 
     public static ActualProperties unpartitioned()
     {
-        return new ActualProperties(Optional.of(ImmutableSet.of()), Optional.empty(), false);
+        return new ActualProperties(Optional.of(ImmutableSet.of()), Optional.empty(), ImmutableList.of(), false);
     }
 
     public static ActualProperties hashPartitioned(List<Symbol> columns)
@@ -53,22 +58,23 @@ class ActualProperties
         return new ActualProperties(
                 Optional.of(ImmutableSet.copyOf(columns)),
                 Optional.of(ImmutableList.copyOf(columns)),
+                ImmutableList.of(),
                 false);
     }
 
     public static ActualProperties partitioned()
     {
-        return new ActualProperties(Optional.<Set<Symbol>>empty(), Optional.<List<Symbol>>empty(), false);
+        return new ActualProperties(Optional.<Set<Symbol>>empty(), Optional.<List<Symbol>>empty(), ImmutableList.of(), false);
     }
 
     public static ActualProperties partitioned(Collection<Symbol> columns)
     {
-        return new ActualProperties(Optional.<Set<Symbol>>of(ImmutableSet.copyOf(columns)), Optional.<List<Symbol>>empty(), false);
+        return new ActualProperties(Optional.<Set<Symbol>>of(ImmutableSet.copyOf(columns)), Optional.<List<Symbol>>empty(), ImmutableList.of(), false);
     }
 
     public static ActualProperties partitioned(ActualProperties other)
     {
-        return new ActualProperties(other.partitioningColumns, other.hashingColumns, false);
+        return new ActualProperties(other.partitioningColumns, other.hashingColumns, ImmutableList.of(), false);
     }
 
     public boolean isCoordinatorOnly()
@@ -117,6 +123,11 @@ class ActualProperties
         return partitioningColumns.isPresent() && partitioningColumns.get().isEmpty();
     }
 
+    public List<LocalProperty<Symbol>> getLocalProperties()
+    {
+        return localProperties;
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -127,6 +138,7 @@ class ActualProperties
         private Optional<Set<Symbol>> partitioningColumns; // if missing => partitioned with some unknown scheme
         private Optional<List<Symbol>> hashingColumns; // if present => hash partitioned on the given columns. partitioningColumns and hashingColumns must contain the same columns
         private boolean coordinatorOnly;
+        private List<LocalProperty<Symbol>> localProperties = ImmutableList.of();
 
         public Builder unpartitioned()
         {
@@ -175,9 +187,15 @@ class ActualProperties
             return this;
         }
 
+        public Builder local(List<? extends LocalProperty<Symbol>> localProperties)
+        {
+            this.localProperties = ImmutableList.copyOf(localProperties);
+            return this;
+        }
+
         public ActualProperties build()
         {
-            return new ActualProperties(partitioningColumns, hashingColumns, coordinatorOnly);
+            return new ActualProperties(partitioningColumns, hashingColumns, localProperties, coordinatorOnly);
         }
     }
 }

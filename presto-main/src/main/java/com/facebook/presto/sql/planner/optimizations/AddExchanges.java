@@ -19,6 +19,8 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.GroupingProperty;
+import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -595,6 +597,13 @@ public class AddExchanges
 
         private PreferredProperties determineChildPreferences(PreferredProperties preferencesFromParent, List<Symbol> partitioningColumns, List<Symbol> groupingColumns)
         {
+            // if the child plan can be grouped first by our requirements and then by our parent's,
+            // it can satisfy both in one shot
+            List<LocalProperty<Symbol>> local = ImmutableList.<LocalProperty<Symbol>>builder()
+                    .add(new GroupingProperty<>(groupingColumns))
+                    .addAll(preferencesFromParent.getLocalProperties())
+                    .build();
+
             // if the child plan is partitioned by the common columns between our requirements and
             // our parent's, it can satisfy both in one shot
             Set<Symbol> partitioning = Sets.intersection(
@@ -607,7 +616,7 @@ public class AddExchanges
                 partitioning = ImmutableSet.copyOf(partitioningColumns);
             }
 
-            return PreferredProperties.partitioned(partitioning);
+            return PreferredProperties.partitionedWithLocal(partitioning, local);
         }
 
         private PlanWithProperties planChild(PlanNode node, PreferredProperties preferred)
