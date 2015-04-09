@@ -42,20 +42,19 @@ public final class InMemoryJoinHash
     private final int mask;
     private final int[] key;
     private final int[] positionLinks;
+    private final long size;
     private final List<Type> hashTypes;
 
-    public InMemoryJoinHash(LongArrayList addresses, List<Type> hashTypes, PagesHashStrategy pagesHashStrategy, OperatorContext operatorContext)
+    public InMemoryJoinHash(LongArrayList addresses, List<Type> hashTypes, PagesHashStrategy pagesHashStrategy)
     {
         this.addresses = checkNotNull(addresses, "addresses is null");
         this.hashTypes = ImmutableList.copyOf(checkNotNull(hashTypes, "hashTypes is null"));
         this.pagesHashStrategy = checkNotNull(pagesHashStrategy, "pagesHashStrategy is null");
         this.channelCount = pagesHashStrategy.getChannelCount();
 
-        checkNotNull(operatorContext, "operatorContext is null");
-
         // reserve memory for the arrays
         int hashSize = HashCommon.arraySize(addresses.size(), 0.75f);
-        operatorContext.reserveMemory(sizeOfIntArray(hashSize) + sizeOfIntArray(addresses.size()));
+        size = sizeOfIntArray(hashSize) + sizeOfIntArray(addresses.size());
 
         mask = hashSize - 1;
         key = new int[hashSize];
@@ -91,6 +90,12 @@ public final class InMemoryJoinHash
     public final int getChannelCount()
     {
         return channelCount;
+    }
+
+    @Override
+    public long getInMemorySizeInBytes()
+    {
+        return size;
     }
 
     @Override

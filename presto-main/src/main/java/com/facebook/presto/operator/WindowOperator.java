@@ -171,8 +171,8 @@ public class WindowOperator
                 .collect(toImmutableList());
 
         this.pagesIndex = new PagesIndex(sourceTypes, expectedPositions);
-        this.partitionHashStrategy = pagesIndex.createPagesHashStrategy(partitionChannels, operatorContext, Optional.empty());
-        this.peerGroupHashStrategy = pagesIndex.createPagesHashStrategy(sortChannels, operatorContext, Optional.empty());
+        this.partitionHashStrategy = pagesIndex.createPagesHashStrategy(partitionChannels, Optional.empty());
+        this.peerGroupHashStrategy = pagesIndex.createPagesHashStrategy(sortChannels, Optional.empty());
 
         this.pageBuilder = new PageBuilder(this.types);
     }

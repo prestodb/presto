@@ -277,12 +277,12 @@ public class PagesIndex
         return orderingCompiler.compilePagesIndexOrdering(sortTypes, sortChannels, sortOrders);
     }
 
-    public LookupSource createLookupSource(List<Integer> joinChannels, OperatorContext operatorContext)
+    public LookupSource createLookupSource(List<Integer> joinChannels)
     {
-        return createLookupSource(joinChannels, operatorContext, Optional.empty());
+        return createLookupSource(joinChannels, Optional.empty());
     }
 
-    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, OperatorContext operatorContext, Optional<Integer> hashChannel)
+    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, Optional<Integer> hashChannel)
     {
         try {
             return joinCompiler.compilePagesHashStrategyFactory(types, joinChannels)
@@ -296,7 +296,7 @@ public class PagesIndex
         return new SimplePagesHashStrategy(types, ImmutableList.<List<Block>>copyOf(channels), joinChannels, hashChannel);
     }
 
-    public LookupSource createLookupSource(List<Integer> joinChannels, OperatorContext operatorContext, Optional<Integer> hashChannel)
+    public LookupSource createLookupSource(List<Integer> joinChannels, Optional<Integer> hashChannel)
     {
         try {
             LookupSourceFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels);
@@ -309,8 +309,7 @@ public class PagesIndex
                     valueAddresses,
                     joinChannelTypes.build(),
                     ImmutableList.<List<Block>>copyOf(channels),
-                    hashChannel,
-                    operatorContext);
+                    hashChannel);
 
             return lookupSource;
         }
@@ -329,7 +328,7 @@ public class PagesIndex
         for (Integer channel : joinChannels) {
             hashTypes.add(types.get(channel));
         }
-        return new InMemoryJoinHash(valueAddresses, hashTypes.build(), hashStrategy, operatorContext);
+        return new InMemoryJoinHash(valueAddresses, hashTypes.build(), hashStrategy);
     }
 
     @Override

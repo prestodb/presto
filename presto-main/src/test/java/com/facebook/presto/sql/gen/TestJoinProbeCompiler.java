@@ -20,9 +20,7 @@ import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.JoinProbe;
 import com.facebook.presto.operator.JoinProbeFactory;
 import com.facebook.presto.operator.LookupSource;
-import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.operator.ValuesOperator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -82,7 +80,6 @@ public class TestJoinProbeCompiler
             throws Exception
     {
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
 
         ImmutableList<Type> types = ImmutableList.<Type>of(VARCHAR);
         LookupSourceFactory lookupSourceFactoryFactory = joinCompiler.compileLookupSourceFactory(types, Ints.asList(0));
@@ -112,7 +109,7 @@ public class TestJoinProbeCompiler
             hashChannel = Optional.of(1);
             channels = ImmutableList.of(channel, hashChannelBuilder.build());
         }
-        LookupSource lookupSource = lookupSourceFactoryFactory.createLookupSource(addresses, types, channels, hashChannel, operatorContext);
+        LookupSource lookupSource = lookupSourceFactoryFactory.createLookupSource(addresses, types, channels, hashChannel);
 
         JoinProbeCompiler joinProbeCompiler = new JoinProbeCompiler();
         JoinProbeFactory probeFactory = joinProbeCompiler.internalCompileJoinProbe(types, Ints.asList(0), hashChannel);
