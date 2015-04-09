@@ -5,6 +5,8 @@
     <link rel="shortcut icon" href="favicon.ico"/>
 
     <script src="vendor/d3/d3-3.3.4.js"></script>
+    <script src="vendor/react/react.js"></script>
+    <script src="vendor/react/JSXTransformer.js"></script>
 
     <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet" type="text/css">
 
@@ -30,260 +32,180 @@
         <h1>Presto</h1>
     </div>
 
-    <table id="running" class="table table-striped">
-        <colgroup>
-            <col width="90px">
-            <col width="80px">
-            <col width="auto">
-            <col width="80px">
-            <col width="80px">
-            <col width="90px">
-            <col width="60px">
-            <col width="60px">
-            <col width="60px">
-            <col width="60px">
-        </colgroup>
-        <thead>
-        <tr>
-            <th>Id</th>
-            <th>Elapsed</th>
-            <th>Query</th>
-            <th>Source</th>
-            <th>User</th>
-            <th>State</th>
-            <th>Progress</th>
-            <th>Queued</th>
-            <th>Running</th>
-            <th>Done</th>
-        </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
-
-    <table id="done" class="table table-striped">
-        <colgroup>
-            <col width="90px">
-            <col width="80px">
-            <col width="auto">
-            <col width="80px">
-            <col width="80px">
-            <col width="90px">
-            <col width="80px">
-            <col width="60px">
-            <col width="60px">
-            <col width="60px">
-        </colgroup>
-        <thead>
-        <tr>
-            <th>Id</th>
-            <th>Elapsed</th>
-            <th>Query</th>
-            <th>Source</th>
-            <th>User</th>
-            <th>State</th>
-            <th>Error</th>
-            <th>Done</th>
-            <th>Total</th>
-            <th>Completion</th>
-        </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+    <div id="queries"></div>
 </div>
 
-</body>
-
-<script>
-
-function redraw()
-{
-    d3.json('/v1/query', function (queries)
+<script type="text/jsx">
+var Query = React.createClass({
+    shortErrorType: function(errorType)
     {
+        switch (errorType) {
+            case "USER_ERROR":
+                return "USER";
+            case "INTERNAL_ERROR":
+                return "INTERNAL";
+            case "INSUFFICIENT_RESOURCES":
+                return "RESOURCES";
+        }
+        return errorType;
+    },
+    included: function(field)
+    {
+        return this.props.excludedFields.indexOf(field) == -1;
+    },
+    stateClass: function(state)
+    {
+        switch (state) {
+            case "FINISHED":
+                return "success";
+            case "FAILED":
+                return "danger";
+            case "CANCELED":
+                return "warning";
+            default:
+                return "info";
+        }
+    },
+    handleClick: function(e) {
+        if (e.ctrlKey || e.metaKey || e.which == 2) {
+            window.open("query.html?" + this.props.query.queryId);
+        } else {
+            window.location = "query.html?" + this.props.query.queryId;
+        }
+    },
+    render: function()
+    {
+        var query = this.props.query;
+
+        var fields = [];
+        fields.push(<td>{query.queryId}</td>);
+        fields.push(<td>{query.elapsedTime}</td>);
+        fields.push(<td>{query.query}</td>);
+        fields.push(<td>{query.session.source}</td>);
+        fields.push(<td>{query.session.user}</td>);
+        fields.push(<td>{query.state}</td>);
+        var progress = "N/A";
+        if (query.scheduled) {
+            progress = d3.format("%")(query.totalDrivers == 0 ? 0 : query.completedDrivers / query.totalDrivers);
+        }
+        if (this.included("progress")) {
+            fields.push(<td>{progress}</td>);
+        }
+        if (this.included("errorType")) {
+            fields.push(<td>{this.shortErrorType(query.errorType)}</td>);
+        }
+        if (this.included("queuedDrivers")) {
+            fields.push(<td>{query.queuedDrivers}</td>)
+        }
+        if (this.included("runningDrivers")) {
+            fields.push(<td>{query.runningDrivers}</td>)
+        }
+        if (this.included("completedDrivers")) {
+            fields.push(<td>{query.completedDrivers}</td>)
+        }
+        if (this.included("totalDrivers")) {
+            fields.push(<td>{query.totalDrivers}</td>)
+        }
+        if (this.included("completion")) {
+            fields.push(<td>{d3.format("%")(query.totalDrivers == 0 ? 0 : query.completedDrivers / query.totalDrivers)}</td>);
+        }
+        return (
+                <tr className={this.stateClass(query.state)} onClick={this.handleClick}>
+                    {fields}
+                </tr>
+        );
+    }
+});
+
+var QueryList = React.createClass({
+    render: function()
+    {
+        var queryNodes = this.props.queries.map(function (query) {
+            return (
+                    <Query query={query} excludedFields={this.props.excludedFields} />
+            );
+        }.bind(this));
+        var columnWidths = this.props.widths.map(function (width) {
+            return (
+                    <col width={width} />
+            );
+        });
+        var columnHeaders = this.props.headers.map(function (header) {
+            return (
+                    <th>{header}</th>
+            );
+        });
+        return (
+                <table className="table table-striped">
+                    <colgroup>
+                        {columnWidths}
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            {columnHeaders}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {queryNodes}
+                    </tbody>
+                </table>
+        );
+    }
+});
+
+var QueryPane = React.createClass({
+    loadQueriesFromServer: function(finishCallback)
+    {
+        d3.json('/v1/query', function (queries) {
+            this.replaceState({queries: queries});
+            finishCallback();
+        }.bind(this));
+    },
+    getInitialState: function() {
+        return {queries: []};
+    },
+    refreshLoop: function() {
+        this.loadQueriesFromServer(function() {
+            setTimeout(this.refreshLoop, 1000);
+        }.bind(this));
+    },
+    componentDidMount: function() {
+        this.refreshLoop();
+    },
+    render: function() {
         var runningQueries = [];
         var doneQueries = [];
-        if (queries) {
-            runningQueries = queries.filter(function (query)
-            {
+        if (this.state.queries) {
+            runningQueries = this.state.queries.filter(function (query) {
                 return query.state != 'FINISHED' && query.state != 'FAILED' && query.state != 'CANCELED';
             });
 
-            doneQueries = queries.filter(function (query)
-            {
+            doneQueries = this.state.queries.filter(function (query) {
                 return query.state == 'FINISHED' || query.state == 'FAILED' || query.state == 'CANCELED';
             });
         }
-
-        renderRunningQueries(runningQueries);
-        renderDoneQueries(doneQueries);
-    });
-}
-
-function renderDoneQueries(queries)
-{
-    var tbody = d3.select("#done").select("tbody");
-
-    var rows = tbody.selectAll("tr")
-            .data(queries, function (query) { return query.queryId; });
-
-    rows.enter()
-            .append("tr")
-            .attr("class", function (query) {
-                          switch (query.state) {
-                          case "FINISHED":
-                              return "success";
-                          case "FAILED":
-                              return "danger";
-                          case "CANCELED":
-                              return "warning";
-                          default:
-                              return "info";
-                      }
-                  })
-            .on("click", function(query) {
-                    var e = d3.event;
-                    if (e.ctrlKey || e.metaKey || e.which == 2) {
-                        window.open("query.html?" + query.queryId);
-                    } else {
-                        window.location = "query.html?" + query.queryId;
-                    }
-             });
-
-    rows.exit()
-            .remove();
-
-    rows.selectAll("td")
-            .data(function (queryInfo) {
-                      var splits = queryInfo.totalDrivers;
-                      var completedSplits = queryInfo.completedDrivers;
-
-                      var query = queryInfo.query;
-                      if (query.length > 200) {
-                          query = query.substring(0, 200) + "...";
-                      }
-
-                      return [
-                          queryInfo.queryId,
-                          queryInfo.elapsedTime,
-                          query,
-                          queryInfo.session.source,
-                          queryInfo.session.user,
-                          queryInfo.state,
-                          shortErrorType(queryInfo.errorType),
-                          completedSplits,
-                          splits,
-                          d3.format("%")(splits == 0 ? 0 : completedSplits / splits)
-                      ]
-                  })
-            .enter()
-            .append("td")
-            .text(function (d)
-                  {
-                      return d;
-                  });
-
-    tbody.selectAll("tr")
-            .sort(function (a, b) { return d3.descending(a.endTime, b.endTime); });
-}
-
-function renderRunningQueries(queries)
-{
-    var tbody = d3.select("#running").select("tbody");
-
-    var rows = tbody.selectAll("tr")
-            .data(queries, function (query) { return query.queryId; })
-
-    rows.exit()
-            .remove();
-
-    rows.enter()
-            .append("tr")
-            .attr("class", "info")
-            .on("click", function(query) {
-                    var e = d3.event;
-                    if (e.ctrlKey || e.metaKey || e.which == 2) {
-                        window.open("query.html?" + query.queryId);
-                    } else {
-                        window.location = "query.html?" + query.queryId;
-                    }
-             });
-
-    var cells = rows.selectAll("td")
-            .data(function (queryInfo)
-                  {
-                      var splits = queryInfo.totalDrivers;
-                      var completedSplits = queryInfo.completedDrivers;
-
-                      var runningSplits = queryInfo.runningDrivers;
-                      var queuedSplits = queryInfo.queuedDrivers;
-
-                      var query = queryInfo.query;
-                      if (query.length > 200) {
-                          query = query.substring(0, 200) + "...";
-                      }
-
-                      var progress = "N/A";
-                      if (queryInfo.scheduled) {
-                          progress = d3.format("%")(splits == 0 ? 0 : completedSplits / splits);
-                      }
-
-                      return [
-                          queryInfo.queryId,
-                          queryInfo.elapsedTime,
-                          query,
-                          queryInfo.session.source,
-                          queryInfo.session.user,
-                          queryInfo.state,
-                          progress,
-                          queuedSplits,
-                          runningSplits,
-                          completedSplits
-                      ]
-                  });
-
-    cells.text(function (d) { return d; });
-
-    cells.enter()
-            .append("td")
-            .text(function (d) { return d; });
-
-    tbody.selectAll("tr")
-            .sort(function (a, b) { return d3.descending(a.createTime, b.createTime); });
-}
-
-function allStages(stage)
-{
-    if (stage == undefined) {
-        return [];
+        runningQueries.sort(function(a, b) { return d3.descending(a.createTime, b.createTime); });
+        doneQueries.sort(function(a, b) { return d3.descending(a.endTime, b.endTime); });
+        return (
+                <div>
+                    <QueryList queries={runningQueries}
+                               excludedFields={["errorType", "totalDrivers", "completion"]}
+                               headers={["Id", "Elapsed", "Query", "Source", "User", "State", "Done"]}
+                               widths={["90px", "80px", "auto", "80px", "80px", "90px", "60px", "60px", "60px", "60px"]}
+                            />
+                    <QueryList queries={doneQueries}
+                               excludedFields={["progress", "queuedDrivers", "runningDrivers"]}
+                               headers={["Id", "Elapsed", "Query", "Source", "User", "State", "Error", "Done", "Total", "Completion"]}
+                               widths={["90px", "80px", "auto", "80px", "80px", "90px", "80px", "60px", "60px", "60px"]}
+                            />
+                </div>
+        );
     }
-
-    if (stage.subStages.length == 0) {
-        return [stage];
-    }
-
-    var substages = stage.subStages.map(function (substage) { return allStages(substage); });
-    return [stage].concat(flatten(substages));
-}
-
-function shortErrorType(errorType)
-{
-    switch (errorType) {
-        case "USER_ERROR":
-            return "USER";
-        case "INTERNAL_ERROR":
-            return "INTERNAL";
-        case "INSUFFICIENT_RESOURCES":
-            return "RESOURCES";
-    }
-    return errorType;
-}
-
-function flatten(array)
-{
-    return [].concat.apply([], array);
-}
-
-setInterval(function () { redraw(); }, 1000);
-
-redraw();
-
+});
+React.render(
+        <QueryPane />,
+        document.getElementById('queries')
+);
 </script>
+
+</body>
