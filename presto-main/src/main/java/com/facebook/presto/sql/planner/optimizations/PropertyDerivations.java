@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.spi.GroupingProperty;
+import com.facebook.presto.spi.LocalProperty;
+import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -47,6 +50,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 
 class PropertyDerivations
 {
@@ -88,7 +93,19 @@ class PropertyDerivations
         @Override
         public ActualProperties visitWindow(WindowNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.builder();
+            localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
+            for (Symbol column : node.getOrderBy()) {
+                localProperties.add(new SortingProperty<>(column, node.getOrderings().get(column)));
+            }
+
+            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+
+            return ActualProperties.builder()
+                    .partitioned(properties)
+                    .coordinatorOnly(properties)
+                    .local(localProperties.build())
+                    .build();
         }
 
         @Override
@@ -100,34 +117,76 @@ class PropertyDerivations
                 return ActualProperties.builder()
                         .unpartitioned()
                         .coordinatorOnly(properties)
+                        .local(LocalProperties.grouped(node.getGroupBy()))
                         .build();
             }
 
-            return ActualProperties.partitioned(properties);
+            return ActualProperties.builder()
+                    .partitioned(properties)
+                    .local(LocalProperties.grouped(node.getGroupBy()))
+                    .build();
         }
 
         @Override
         public ActualProperties visitRowNumber(RowNumberNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+
+            return ActualProperties.builder()
+                    .partitioned(properties)
+                    .coordinatorOnly(properties)
+                    .local(LocalProperties.grouped(node.getPartitionBy()))
+                    .build();
         }
 
         @Override
         public ActualProperties visitTopNRowNumber(TopNRowNumberNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+
+            ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.builder();
+            localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
+            for (Symbol column : node.getOrderBy()) {
+                localProperties.add(new SortingProperty<>(column, node.getOrderings().get(column)));
+            }
+
+            return ActualProperties.builder()
+                    .partitioned(properties)
+                    .coordinatorOnly(properties)
+                    .local(localProperties.build())
+                    .build();
         }
 
         @Override
         public ActualProperties visitTopN(TopNNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+
+            List<SortingProperty<Symbol>> localProperties = node.getOrderBy().stream()
+                    .map(column -> new SortingProperty<>(column, node.getOrderings().get(column)))
+                    .collect(toImmutableList());
+
+            return ActualProperties.builder()
+                    .partitioned(properties)
+                    .coordinatorOnly(properties)
+                    .local(localProperties)
+                    .build();
         }
 
         @Override
         public ActualProperties visitSort(SortNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+
+            List<SortingProperty<Symbol>> localProperties = node.getOrderBy().stream()
+                    .map(column -> new SortingProperty<>(column, node.getOrderings().get(column)))
+                    .collect(toImmutableList());
+
+            return ActualProperties.builder()
+                    .partitioned(properties)
+                    .coordinatorOnly(properties)
+                    .local(localProperties)
+                    .build();
         }
 
         @Override
@@ -139,7 +198,13 @@ class PropertyDerivations
         @Override
         public ActualProperties visitDistinctLimit(DistinctLimitNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+
+            return ActualProperties.builder()
+                    .partitioned(properties)
+                    .coordinatorOnly(properties)
+                    .local(LocalProperties.grouped(node.getDistinctSymbols()))
+                    .build();
         }
 
         @Override
@@ -200,24 +265,37 @@ class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
+            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments());
+
+            ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.<LocalProperty<Symbol>>builder();
+            for (LocalProperty<Symbol> property : properties.getLocalProperties()) {
+                Optional<LocalProperty<Symbol>> translated = property.translate(column -> Optional.ofNullable(identities.get(column)));
+                if (!translated.isPresent()) {
+                    break;
+                }
+                localProperties.add(translated.get());
+            }
+
             if (properties.isHashPartitioned()) {
-                Optional<List<Symbol>> translated = translate(properties.getHashPartitioningColumns().get(), computeIdentityTranslations(node.getAssignments()));
+                Optional<List<Symbol>> translated = translate(properties.getHashPartitioningColumns().get(), identities);
 
                 if (translated.isPresent()) {
                     return ActualProperties.builder()
                             .coordinatorOnly(properties)
                             .hashPartitioned(translated.get())
+                            .local(localProperties.build())
                             .build();
                 }
             }
 
             if (properties.hasKnownPartitioningScheme()) {
-                Optional<List<Symbol>> translated = translate(properties.getPartitioningColumns().get(), computeIdentityTranslations(node.getAssignments()));
+                Optional<List<Symbol>> translated = translate(properties.getPartitioningColumns().get(), identities);
 
                 if (translated.isPresent()) {
                     return ActualProperties.builder()
                             .coordinatorOnly(properties)
                             .partitioned(ImmutableSet.copyOf(translated.get()))
+                            .local(localProperties.build())
                             .build();
                 }
             }
@@ -225,6 +303,7 @@ class PropertyDerivations
             return ActualProperties.builder()
                     .coordinatorOnly(properties)
                     .partitioned()
+                    .local(localProperties.build())
                     .build();
         }
 
