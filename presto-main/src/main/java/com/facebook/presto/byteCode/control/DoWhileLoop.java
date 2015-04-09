@@ -89,7 +89,7 @@ public class DoWhileLoop
     @Override
     public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
-        checkState(condition.isEmpty(), "DoWhileLoop does not have a condition set");
+        checkState(!condition.isEmpty(), "DoWhileLoop does not have a condition set");
 
         Block block = new Block()
                 .visitLabel(beginLabel)

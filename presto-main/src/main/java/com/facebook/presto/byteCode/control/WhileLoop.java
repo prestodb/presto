@@ -88,7 +88,7 @@ public class WhileLoop
     @Override
     public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
-        checkState(condition.isEmpty(), "WhileLoop does not have a condition set");
+        checkState(!condition.isEmpty(), "WhileLoop does not have a condition set");
 
         Block block = new Block()
                 .visitLabel(continueLabel)
