@@ -169,8 +169,8 @@ public class PrePartitionedWindowOperator
                 .collect(toImmutableList());
 
         this.pagesIndex = new PagesIndex(sourceTypes, expectedPositions);
-        this.partitionHashStrategy = pagesIndex.createPagesHashStrategy(partitionChannels, operatorContext, Optional.<Integer>empty());
-        this.peerGroupHashStrategy = pagesIndex.createPagesHashStrategy(sortChannels, operatorContext, Optional.<Integer>empty());
+        this.partitionHashStrategy = pagesIndex.createPagesHashStrategy(partitionChannels, Optional.<Integer>empty());
+        this.peerGroupHashStrategy = pagesIndex.createPagesHashStrategy(sortChannels, Optional.<Integer>empty());
 
         this.pageBuilder = new PageBuilder(this.types);
     }

@@ -23,6 +23,8 @@ public interface LookupSource
 {
     int getChannelCount();
 
+    long getInMemorySizeInBytes();
+
     long getJoinPosition(int position, Page page, int rawHash);
 
     long getJoinPosition(int position, Page page);

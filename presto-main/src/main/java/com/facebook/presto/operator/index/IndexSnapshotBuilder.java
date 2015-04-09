@@ -15,9 +15,7 @@ package com.facebook.presto.operator.index;
 
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.LookupSource;
-import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.UnloadedIndexKeyRecordSet.UnloadedIndexKeyRecordCursor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -25,7 +23,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,7 +42,6 @@ public class IndexSnapshotBuilder
     private final List<Integer> missingKeysChannels;
 
     private final long maxMemoryInBytes;
-    private final OperatorContext bogusOperatorContext;
     private PagesIndex outputPagesIndex;
     private PagesIndex missingKeysIndex;
     private LookupSource missingKeys;
@@ -83,16 +79,9 @@ public class IndexSnapshotBuilder
         this.missingKeysTypes = missingKeysTypes.build();
         this.missingKeysChannels = missingKeysChannels.build();
 
-        // create a bogus operator context with unlimited memory for the pages index
-        boolean cpuTimerEnabled = driverContext.getPipelineContext().getTaskContext().isCpuTimerEnabled();
-        this.bogusOperatorContext = new TaskContext(driverContext.getTaskId(), driverContext.getExecutor(), driverContext.getSession(), new DataSize(Long.MAX_VALUE, Unit.BYTE), cpuTimerEnabled)
-                .addPipelineContext(true, true)
-                .addDriverContext()
-                .addOperatorContext(0, "operator");
-
         this.outputPagesIndex = new PagesIndex(outputTypes, expectedPositions);
         this.missingKeysIndex = new PagesIndex(missingKeysTypes.build(), expectedPositions);
-        this.missingKeys = missingKeysIndex.createLookupSource(this.missingKeysChannels, bogusOperatorContext);
+        this.missingKeys = missingKeysIndex.createLookupSource(this.missingKeysChannels);
     }
 
     public List<Type> getOutputTypes()
@@ -126,11 +115,10 @@ public class IndexSnapshotBuilder
         checkState(!isMemoryExceeded(), "Max memory exceeded");
         for (Page page : pages) {
             outputPagesIndex.addPage(page);
-            bogusOperatorContext.setMemoryReservation(outputPagesIndex.getEstimatedSize().toBytes());
         }
         pages.clear();
 
-        LookupSource lookupSource = outputPagesIndex.createLookupSource(keyOutputChannels, bogusOperatorContext, keyOutputHashChannel);
+        LookupSource lookupSource = outputPagesIndex.createLookupSource(keyOutputChannels, keyOutputHashChannel);
 
         // Build a page containing the keys that produced no output rows, so in future requests can skip these keys
         PageBuilder missingKeysPageBuilder = new PageBuilder(missingKeysIndex.getTypes());
@@ -158,7 +146,7 @@ public class IndexSnapshotBuilder
         // only update missing keys if we have new missing keys
         if (!missingKeysPageBuilder.isEmpty()) {
             missingKeysIndex.addPage(missingKeysPage);
-            missingKeys = missingKeysIndex.createLookupSource(missingKeysChannels, bogusOperatorContext);
+            missingKeys = missingKeysIndex.createLookupSource(missingKeysChannels);
         }
 
         return new IndexSnapshot(lookupSource, missingKeys);

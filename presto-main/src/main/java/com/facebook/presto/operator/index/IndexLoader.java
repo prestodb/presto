@@ -366,6 +366,12 @@ public class IndexLoader
         }
 
         @Override
+        public long getInMemorySizeInBytes()
+        {
+            return 0;
+        }
+
+        @Override
         public long getJoinPosition(int position, Page page, int rawHash)
         {
             return IndexSnapshot.UNLOADED_INDEX_KEY;
