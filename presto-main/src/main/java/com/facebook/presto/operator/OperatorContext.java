@@ -205,14 +205,25 @@ public class OperatorContext
 
     public boolean reserveMemory(long bytes)
     {
+        return reserveMemory(bytes, false);
+    }
+
+    public boolean reserveMemory(long bytes, boolean noFail)
+    {
         long newReservation = memoryReservation.getAndAdd(bytes);
         if (newReservation > maxMemoryReservation) {
             memoryReservation.getAndAdd(-bytes);
+            if (!noFail) {
+                throw new ExceededMemoryLimitException(getMaxMemorySize());
+            }
             return false;
         }
         boolean result = driverContext.reserveMemory(bytes);
         if (!result) {
             memoryReservation.getAndAdd(-bytes);
+            if (!noFail) {
+                throw new ExceededMemoryLimitException(getMaxMemorySize());
+            }
         }
         return result;
     }
@@ -235,8 +246,8 @@ public class OperatorContext
         long delta = newMemoryReservation - memoryReservation.get();
 
         // currently, operator memory is not be released
-        if (delta > 0 && !reserveMemory(delta) && !noFail) {
-            throw new ExceededMemoryLimitException(getMaxMemorySize());
+        if (delta > 0) {
+            reserveMemory(delta, noFail);
         }
 
         return memoryReservation.get();
