@@ -180,7 +180,7 @@ final class UnicodeUtil
     }
 
     /**
-     * Test if the {@code string\ is empty.
+     * Test if the {@code string} is empty.
      */
     static boolean isEmpty(final Slice string)
     {

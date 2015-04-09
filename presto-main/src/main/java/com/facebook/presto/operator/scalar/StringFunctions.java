@@ -214,8 +214,8 @@ public final class StringFunctions
             return Slices.EMPTY_SLICE;
         }
         // Find start and end withing UTF-8 bytes
-        final int indexStart = UnicodeUtil.findUtf8IndexOfCodePointPosition(string, (int) start);
-        final int indexEnd = UnicodeUtil.findUtf8IndexOfCodePointPosition(string, (int) (start + length));
+        final int indexStart = UnicodeUtil.findUtf8IndexOfCodePointPosition(string, Ints.checkedCast(start));
+        final int indexEnd = UnicodeUtil.findUtf8IndexOfCodePointPosition(string, Ints.checkedCast(start + length));
 
         return string.slice(indexStart, indexEnd - indexStart);
     }

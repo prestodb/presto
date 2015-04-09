@@ -77,7 +77,7 @@ public class TestStringFunctions
     @Test
     public void testReplace()
     {
-//        assertFunction("REPLACE('aaa', 'a', 'aa')", "aaaaaa");
+        assertFunction("REPLACE('aaa', 'a', 'aa')", "aaaaaa");
         assertFunction("REPLACE('abcdefabcdef', 'cd', 'XX')", "abXXefabXXef");
         assertFunction("REPLACE('abcdefabcdef', 'cd')", "abefabef");
         assertFunction("REPLACE('123123tech', '123')", "tech");
