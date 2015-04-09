@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.spi.Page;
@@ -95,12 +94,11 @@ public class AggregationOperator
         checkNotNull(accumulatorFactories, "accumulatorFactories is null");
 
         this.types = toTypes(step, accumulatorFactories);
-        MemoryManager memoryManager = new MemoryManager(operatorContext);
 
         // wrapper each function with an aggregator
         ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
         for (AccumulatorFactory accumulatorFactory : accumulatorFactories) {
-            builder.add(new Aggregator(accumulatorFactory, step, memoryManager));
+            builder.add(new Aggregator(accumulatorFactory, step));
         }
         aggregates = builder.build();
     }
@@ -143,9 +141,13 @@ public class AggregationOperator
         checkState(needsInput(), "Operator is already finishing");
         checkNotNull(page, "page is null");
 
+        long memorySize = 0;
         for (Aggregator aggregate : aggregates) {
             aggregate.processPage(page);
+            memorySize += aggregate.getEstimatedSize();
         }
+        memorySize -= operatorContext.getOperatorPreAllocatedMemory().toBytes();
+        operatorContext.setMemoryReservation(Math.max(0, memorySize));
     }
 
     @Override
@@ -175,7 +177,7 @@ public class AggregationOperator
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (AccumulatorFactory accumulatorFactory : accumulatorFactories) {
-            types.add(new Aggregator(accumulatorFactory, step, null).getType());
+            types.add(new Aggregator(accumulatorFactory, step).getType());
         }
         return types.build();
     }
@@ -184,10 +186,9 @@ public class AggregationOperator
     {
         private final Accumulator aggregation;
         private final Step step;
-        private final MemoryManager memoryManager;
         private final int intermediateChannel;
 
-        private Aggregator(AccumulatorFactory accumulatorFactory, Step step, MemoryManager memoryManager)
+        private Aggregator(AccumulatorFactory accumulatorFactory, Step step)
         {
             if (step == Step.FINAL) {
                 checkArgument(accumulatorFactory.getInputChannels().size() == 1, "expected 1 input channel for intermediate aggregation");
@@ -199,7 +200,6 @@ public class AggregationOperator
                 aggregation = accumulatorFactory.createAccumulator();
             }
             this.step = step;
-            this.memoryManager = memoryManager;
         }
 
         public Type getType()
@@ -220,9 +220,6 @@ public class AggregationOperator
             else {
                 aggregation.addInput(page);
             }
-            if (!memoryManager.canUse(aggregation.getEstimatedSize())) {
-                throw new ExceededMemoryLimitException(memoryManager.getMaxMemorySize());
-            }
         }
 
         public void evaluate(BlockBuilder blockBuilder)
@@ -233,6 +230,11 @@ public class AggregationOperator
             else {
                 aggregation.evaluateFinal(blockBuilder);
             }
+        }
+
+        public long getEstimatedSize()
+        {
+            return aggregation.getEstimatedSize();
         }
     }
 }
