@@ -93,12 +93,10 @@ public final class StringFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice replace(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice search, @SqlType(StandardTypes.VARCHAR) Slice replace)
     {
-        //
         // Empty search returns original string
         if (UnicodeUtil.isEmpty(search)) {
             return string;
         }
-        //
         // Allocate a reasonable buffer
         Slice buffer = Slices.allocate(string.length());
 
@@ -106,10 +104,8 @@ public final class StringFunctions
         int indexBuffer = 0;
         while (index < string.length()) {
             final int matchIndex = UnicodeUtil.findUtf8IndexOfString(string, index, string.length(), search);
-            //
             // Found a match?
             if (matchIndex < 0) {
-                //
                 // No match found so copy the rest of string
                 final int bytesToCopy = string.length() - index;
                 buffer = Slices.ensureSize(buffer, indexBuffer + bytesToCopy);
@@ -121,19 +117,16 @@ public final class StringFunctions
 
             final int bytesToCopy = matchIndex - index;
             buffer = Slices.ensureSize(buffer, indexBuffer + bytesToCopy + replace.length());
-            //
             // Non empty match?
             if (bytesToCopy > 0) {
                 buffer.setBytes(indexBuffer, string, index, bytesToCopy);
                 indexBuffer += bytesToCopy;
             }
-            //
             // Non empty replace?
             if (!UnicodeUtil.isEmpty(replace)) {
                 buffer.setBytes(indexBuffer, replace);
                 indexBuffer += replace.length();
             }
-            //
             // Continue searching after match
             index = matchIndex + search.length();
         }
@@ -220,7 +213,6 @@ public final class StringFunctions
         if (start >= stringLength) {
             return Slices.EMPTY_SLICE;
         }
-        //
         // Find start and end withing UTF-8 bytes
         final int indexStart = UnicodeUtil.findUtf8IndexOfCodePointPosition(string, (int) start);
         final int indexEnd = UnicodeUtil.findUtf8IndexOfCodePointPosition(string, (int) (start + length));
@@ -248,12 +240,10 @@ public final class StringFunctions
         int index = 0;
         while (index < string.length()) {
             final int splitIndex = UnicodeUtil.findUtf8IndexOfString(string, index, string.length(), delimiter);
-            //
             // Found split?
             if (splitIndex < 0) {
                 break;
             }
-            //
             // Non empty split?
             if (splitIndex > index) {
                 if (parts.size() == limit - 1) {
@@ -262,11 +252,9 @@ public final class StringFunctions
 
                 parts.add(string.slice(index, splitIndex - index));
             }
-            //
             // Continue searching after delimiter
             index = splitIndex + delimiter.length();
         }
-        //
         // Non-empty rest of string?
         if (index < string.length()) {
             parts.add(string.slice(index, string.length() - index));
@@ -282,7 +270,6 @@ public final class StringFunctions
     public static Slice splitPart(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter, @SqlType(StandardTypes.BIGINT) long index)
     {
         checkCondition(index > 0, INVALID_FUNCTION_ARGUMENT, "Index must be greater than zero");
-        //
         // Empty delimiter? Then every character will be a split
         if (UnicodeUtil.isEmpty(delimiter)) {
             final int stringLength = UnicodeUtil.countCodePoints(string);
@@ -301,17 +288,14 @@ public final class StringFunctions
         int p = 0;
         while (p < string.length()) {
             final int matchIndex = UnicodeUtil.findUtf8IndexOfString(string, p, string.length(), delimiter);
-            //
             // No match
             if (matchIndex < 0) {
                 break;
             }
-            //
             // Reached the requested part?
             if (++matchCount == index) {
                 return string.slice(p, matchIndex - p);
             }
-            //
             // Continue searching after the delimiter
             p = matchIndex + delimiter.length();
         }

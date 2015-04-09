@@ -46,7 +46,6 @@ final class UnicodeUtil
      */
     static int countCodePoints(final Slice string, int end)
     {
-        //
         // Quick exit if empty string
         if (end == 0) {
             return 0;
@@ -54,36 +53,28 @@ final class UnicodeUtil
 
         int count = 0;
         int i = 0;
-        //
         // Length rounded to 8 bytes
         final int length8 = end & 0x7FFFFFF8;
         for (; i < length8; i += 8) {
-            //
             // Fetch 8 bytes as long
             long i64 = string.getLong(i);
-            //
             // Count bytes which are NOT the start of a code point
             i64 = ((i64 & TOP_MASK64) >>> 7) & (~i64 >>> 6);
             count += (i64 * ONE_MULTIPLIER64) >>> 56;
         }
-        //
         // Enough bytes left for 32 bits?
         if (i + 4 < end) {
-            //
             // Fetch 4 bytes as integer
             int i32 = string.getInt(i);
-            //
             // Count bytes which are NOT the start of a code point
             i32 = ((i32 & TOP_MASK32) >>> 7) & (~i32 >>> 6);
             count += (i32 * ONE_MULTIPLIER32) >>> 24;
 
             i += 4;
         }
-        //
         // Do the rest one by one
         for (; i < end; i++) {
             int i8 = string.getByte(i) & 0xff;
-            //
             // Count bytes which are NOT the start of a code point
             count += (i8 >>> 7) & (~i8 >>> 6);
         }
@@ -97,7 +88,6 @@ final class UnicodeUtil
      */
     static int findUtf8IndexOfCodePointPosition(final Slice string, final int codePointPosition)
     {
-        //
         // Quick exit if we are sure that the position is after the end
         if (string.length() <= codePointPosition) {
             return string.length();
@@ -105,43 +95,33 @@ final class UnicodeUtil
 
         int correctIndex = codePointPosition;
         int i = 0;
-        //
         // Length rounded to 8 bytes
         final int length8 = string.length() & 0x7FFFFFF8;
-        //
         // While we have enough bytes left and we need at least 8 characters process 8 bytes at once
         while (i < length8 && correctIndex >= i + 8) {
-            //
             // Fetch 8 bytes as long
             long i64 = string.getLong(i);
-            //
             // Count bytes which are NOT the start of a code point
             i64 = ((i64 & TOP_MASK64) >>> 7) & (~i64 >>> 6);
             correctIndex += ((i64 * ONE_MULTIPLIER64) >>> 56);
 
             i += 8;
         }
-        //
         // Length rounded to 4 bytes
         final int length4 = string.length() & 0x7FFFFFFC;
-        //
         // While we have enough bytes left and we need at least 4 characters process 4 bytes at once
         while (i < length4 && correctIndex >= i + 4) {
-            //
             // Fetch 4 bytes as integer
             int i32 = string.getInt(i);
-            //
             // Count bytes which are NOT the start of a code point
             i32 = ((i32 & TOP_MASK32) >>> 7) & (~i32 >>> 6);
             correctIndex += ((i32 * ONE_MULTIPLIER32) >>> 24);
 
             i += 4;
         }
-        //
         // Do the rest one by one, always check the last byte to find the end of the code point
         while (i < string.length()) {
             int i8 = string.getByte(i) & 0xff;
-            //
             // Count bytes which are NOT the start of a code point
             correctIndex += ((i8 >>> 7) & (~i8 >>> 6));
             if (i == correctIndex) {
@@ -161,7 +141,6 @@ final class UnicodeUtil
     static int findUtf8IndexOfString(final Slice string, final int start, final int end, final Slice substring)
     {
         for (int i = start; i <= (end - substring.length()); i++) {
-            //
             // TODO If slice provides indexOfByte with start, we could optimize searching
             if (string.equals(i, substring.length(), substring, 0, substring.length())) {
                 return i;
@@ -181,7 +160,6 @@ final class UnicodeUtil
             return 1;
         }
         else if (ch < 0xc0) {
-            //
             // 10xxxxxx -- illegal as start
             throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "illegal start 0x" + Integer.toHexString(ch) + " of code point");
         }
@@ -197,7 +175,6 @@ final class UnicodeUtil
             // 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
             return 4;
         }
-        //
         // According to RFC3629 limited to 4 bytes so 5 and 6 bytes are illegal
         throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "illegal start 0x" + Integer.toHexString(ch) + " of code point");
     }
