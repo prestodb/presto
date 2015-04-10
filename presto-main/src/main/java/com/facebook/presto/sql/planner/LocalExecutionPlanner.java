@@ -65,8 +65,8 @@ import com.facebook.presto.operator.index.IndexBuildDriverFactoryProvider;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.operator.index.IndexLookupSourceSupplier;
 import com.facebook.presto.operator.index.IndexSourceOperator;
-import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.operator.window.FrameInfo;
+import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
@@ -794,7 +794,9 @@ public class LocalExecutionPlanner
                     concat(singleton(rewrittenFilter), rewrittenProjections));
 
             RowExpression translatedFilter = SqlToRowExpressionTranslator.translate(rewrittenFilter, expressionTypes, metadata, session, true);
-            List<RowExpression> translatedProjections = SqlToRowExpressionTranslator.translate(rewrittenProjections, expressionTypes, metadata, session, true);
+            List<RowExpression> translatedProjections = rewrittenProjections.stream()
+                    .map(expression -> SqlToRowExpressionTranslator.translate(expression, expressionTypes, metadata, session, true))
+                    .collect(toImmutableList());
 
             try {
                 if (columns != null) {
