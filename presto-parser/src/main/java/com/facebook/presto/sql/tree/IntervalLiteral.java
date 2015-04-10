@@ -23,22 +23,20 @@ public class IntervalLiteral
 {
     public enum Sign
     {
-        POSITIVE
-                {
-                    @Override
-                    public int multiplier()
-                    {
-                        return 1;
-                    }
-                },
-        NEGATIVE
-                {
-                    @Override
-                    public int multiplier()
-                    {
-                        return -1;
-                    }
-                };
+        POSITIVE {
+            @Override
+            public int multiplier()
+            {
+                return 1;
+            }
+        },
+        NEGATIVE {
+            @Override
+            public int multiplier()
+            {
+                return -1;
+            }
+        };
 
         public abstract int multiplier();
     }
