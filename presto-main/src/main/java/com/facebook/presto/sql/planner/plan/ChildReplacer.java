@@ -69,6 +69,19 @@ public class ChildReplacer
     }
 
     @Override
+    public PlanNode visitExchange(ExchangeNode node, List<PlanNode> newChildren)
+    {
+        return new ExchangeNode(
+                node.getId(),
+                node.getType(),
+                node.getPartitionKeys(),
+                node.getHashSymbol(),
+                newChildren,
+                node.getOutputSymbols(),
+                node.getInputs());
+    }
+
+    @Override
     public PlanNode visitTopN(TopNNode node, List<PlanNode> newChildren)
     {
         return new TopNNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getCount(), node.getOrderBy(), node.getOrderings(), node.isPartial());

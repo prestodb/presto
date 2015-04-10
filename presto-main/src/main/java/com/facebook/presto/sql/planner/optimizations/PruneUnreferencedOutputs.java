@@ -333,14 +333,16 @@ public class PruneUnreferencedOutputs
                     .filter(in(requiredTableScanOutputs))
                     .toList();
 
-            Set<Symbol> requiredAssignmentSymbols = requiredTableScanOutputs;
-            if (!node.getPartitionsDomainSummary().isNone()) {
-                Set<Symbol> requiredPartitionDomainSymbols = Maps.filterValues(node.getAssignments(), in(node.getPartitionsDomainSummary().getDomains().keySet())).keySet();
-                requiredAssignmentSymbols = Sets.union(requiredTableScanOutputs, requiredPartitionDomainSymbols);
-            }
-            Map<Symbol, ColumnHandle> newAssignments = Maps.filterKeys(node.getAssignments(), in(requiredAssignmentSymbols));
+            Map<Symbol, ColumnHandle> newAssignments = Maps.filterKeys(node.getAssignments(), in(requiredTableScanOutputs));
 
-            return new TableScanNode(node.getId(), node.getTable(), newOutputSymbols, newAssignments, node.getOriginalConstraint(), node.getSummarizedPartition());
+            return new TableScanNode(
+                    node.getId(),
+                    node.getTable(),
+                    newOutputSymbols,
+                    newAssignments,
+                    node.getLayout(),
+                    node.getCurrentConstraint(),
+                    node.getOriginalConstraint());
         }
 
         @Override

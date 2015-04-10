@@ -15,8 +15,9 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.index.IndexManager;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ResolvedIndex;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -33,6 +34,7 @@ import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Functions;
@@ -43,6 +45,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Map;
@@ -55,15 +58,18 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
+import static java.util.Objects.requireNonNull;
 
 public class IndexJoinOptimizer
         extends PlanOptimizer
 {
     private final IndexManager indexManager;
+    private final Metadata metadata;
 
-    public IndexJoinOptimizer(IndexManager indexManager)
+    public IndexJoinOptimizer(Metadata metadata, IndexManager indexManager)
     {
-        this.indexManager = checkNotNull(indexManager, "indexManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.indexManager = requireNonNull(indexManager, "indexManager is null");
     }
 
     @Override
@@ -75,7 +81,7 @@ public class IndexJoinOptimizer
         checkNotNull(symbolAllocator, "symbolAllocator is null");
         checkNotNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(symbolAllocator, idAllocator, indexManager), plan, null);
+        return PlanRewriter.rewriteWith(new Rewriter(symbolAllocator, idAllocator, indexManager, metadata, session), plan, null);
     }
 
     private static class Rewriter
@@ -84,12 +90,16 @@ public class IndexJoinOptimizer
         private final IndexManager indexManager;
         private final SymbolAllocator symbolAllocator;
         private final PlanNodeIdAllocator idAllocator;
+        private final Metadata metadata;
+        private final Session session;
 
-        private Rewriter(SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, IndexManager indexManager)
+        private Rewriter(SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, IndexManager indexManager, Metadata metadata, Session session)
         {
-            this.symbolAllocator = checkNotNull(symbolAllocator, "symbolAllocator is null");
-            this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
-            this.indexManager = checkNotNull(indexManager, "indexManager is null");
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+            this.indexManager = requireNonNull(indexManager, "indexManager is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.session = requireNonNull(session, "session is null");
         }
 
         @Override
@@ -107,7 +117,9 @@ public class IndexJoinOptimizer
                         ImmutableSet.copyOf(leftJoinSymbols),
                         indexManager,
                         symbolAllocator,
-                        idAllocator);
+                        idAllocator,
+                        metadata,
+                        session);
                 if (leftIndexCandidate.isPresent()) {
                     // Sanity check that we can trace the path for the index lookup key
                     Map<Symbol, Symbol> trace = IndexKeyTracer.trace(leftIndexCandidate.get(), ImmutableSet.copyOf(leftJoinSymbols));
@@ -119,7 +131,9 @@ public class IndexJoinOptimizer
                         ImmutableSet.copyOf(rightJoinSymbols),
                         indexManager,
                         symbolAllocator,
-                        idAllocator);
+                        idAllocator,
+                        metadata,
+                        session);
                 if (rightIndexCandidate.isPresent()) {
                     // Sanity check that we can trace the path for the index lookup key
                     Map<Symbol, Symbol> trace = IndexKeyTracer.trace(rightIndexCandidate.get(), ImmutableSet.copyOf(rightJoinSymbols));
@@ -186,12 +200,16 @@ public class IndexJoinOptimizer
         private final IndexManager indexManager;
         private final SymbolAllocator symbolAllocator;
         private final PlanNodeIdAllocator idAllocator;
+        private final Metadata metadata;
+        private final Session session;
 
-        private IndexSourceRewriter(IndexManager indexManager, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+        private IndexSourceRewriter(IndexManager indexManager, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
         {
+            this.metadata = requireNonNull(metadata, "metadata is null");
             this.symbolAllocator = checkNotNull(symbolAllocator, "symbolAllocator is null");
             this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
             this.indexManager = checkNotNull(indexManager, "indexManager is null");
+            this.session = requireNonNull(session, "session is null");
         }
 
         public static Optional<PlanNode> rewriteWithIndex(
@@ -199,10 +217,12 @@ public class IndexJoinOptimizer
                 Set<Symbol> lookupSymbols,
                 IndexManager indexManager,
                 SymbolAllocator symbolAllocator,
-                PlanNodeIdAllocator idAllocator)
+                PlanNodeIdAllocator idAllocator,
+                Metadata metadata,
+                Session session)
         {
             AtomicBoolean success = new AtomicBoolean();
-            IndexSourceRewriter indexSourceRewriter = new IndexSourceRewriter(indexManager, symbolAllocator, idAllocator);
+            IndexSourceRewriter indexSourceRewriter = new IndexSourceRewriter(indexManager, symbolAllocator, idAllocator, metadata, session);
             PlanNode rewritten = PlanRewriter.rewriteWith(indexSourceRewriter, planNode, new Context(lookupSymbols, success));
             if (success.get()) {
                 return Optional.of(rewritten);
@@ -220,15 +240,27 @@ public class IndexJoinOptimizer
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Context> context)
         {
-            checkState(node.getOutputSymbols().containsAll(context.get().getLookupSymbols()));
+            return planTableScan(node, BooleanLiteral.TRUE_LITERAL, context.get());
+        }
 
-            Set<ColumnHandle> lookupColumns = FluentIterable.from(context.get().getLookupSymbols())
+        @NotNull
+        private PlanNode planTableScan(TableScanNode node, Expression predicate, Context context)
+        {
+            TupleDomain<ColumnHandle> constraint = node.getCurrentConstraint().intersect(
+                    DomainTranslator.fromPredicate(
+                            metadata,
+                            session,
+                            predicate,
+                            symbolAllocator.getTypes(),
+                            node.getAssignments()).getTupleDomain());
+
+            checkState(node.getOutputSymbols().containsAll(context.getLookupSymbols()));
+
+            Set<ColumnHandle> lookupColumns = FluentIterable.from(context.getLookupSymbols())
                     .transform(Functions.forMap(node.getAssignments()))
                     .toSet();
 
-            checkState(node.getGeneratedPartitions().isPresent(), "Predicate should have generated partitions before this optimizer");
-            TupleDomain<ColumnHandle> tupleDomain = node.getGeneratedPartitions().get().getTupleDomainInput();
-            Optional<ResolvedIndex> optionalResolvedIndex = indexManager.resolveIndex(node.getTable(), lookupColumns, tupleDomain);
+            Optional<ResolvedIndex> optionalResolvedIndex = indexManager.resolveIndex(node.getTable(), lookupColumns, constraint);
             if (!optionalResolvedIndex.isPresent()) {
                 // No index available, so give up by returning something
                 return node;
@@ -242,16 +274,16 @@ public class IndexJoinOptimizer
                     idAllocator.getNextId(),
                     resolvedIndex.getIndexHandle(),
                     node.getTable(),
-                    context.get().getLookupSymbols(),
+                    context.getLookupSymbols(),
                     node.getOutputSymbols(),
                     node.getAssignments(),
-                    tupleDomain);
+                    constraint);
 
             if (!unresolvedExpression.equals(TRUE_LITERAL)) {
                 // todo it is likely we end up with redundant filters here because the predicate push down has already been run... the fix is to run predicate push down again
                 source = new FilterNode(idAllocator.getNextId(), source, unresolvedExpression);
             }
-            context.get().markSuccess();
+            context.markSuccess();
             return source;
         }
 
@@ -275,6 +307,15 @@ public class IndexJoinOptimizer
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Context> context)
         {
+            if (node.getSource() instanceof TableScanNode) {
+                TableScanNode tableScan = (TableScanNode) node.getSource();
+
+                return new FilterNode(
+                        node.getId(),
+                        planTableScan(tableScan, node.getPredicate(), context.get()),
+                        node.getPredicate());
+            }
+
             return context.defaultRewrite(node, new Context(context.get().getLookupSymbols(), context.get().getSuccess()));
         }
 

@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.metadata.Partition;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.spi.ConnectorPartition;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.SortOrder;
@@ -71,7 +69,6 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.or;
-import static com.facebook.presto.sql.planner.plan.TableScanNode.GeneratedPartitions;
 
 @Test(singleThreaded = true)
 public class TestEffectivePredicateExtractor
@@ -123,8 +120,9 @@ public class TestEffectivePredicateExtractor
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                null,
-                Optional.empty()
+                Optional.empty(),
+                TupleDomain.all(),
+                null
         );
 
         expressionNormalizer = new ExpressionIdentityNormalizer();
@@ -300,137 +298,64 @@ public class TestEffectivePredicateExtractor
     public void testTableScan()
             throws Exception
     {
-        // Effective predicate is True if there are no generated partitions
+        // Effective predicate is True if there is no effective predicate
         Map<Symbol, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(A, B, C, D)));
         PlanNode node = new TableScanNode(
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                null,
-                Optional.empty());
+                Optional.empty(),
+                TupleDomain.all(),
+                null);
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         Assert.assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
 
-        // tupleDomainInput with no matching partitions
         node = new TableScanNode(
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                null,
-                Optional.<GeneratedPartitions>of(new GeneratedPartitions(
-                        TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(scanAssignments.get(A), Domain.singleValue(1L))),
-                        ImmutableList.<Partition>of())));
+                Optional.empty(),
+                TupleDomain.none(),
+                null);
         effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         Assert.assertEquals(effectivePredicate, BooleanLiteral.FALSE_LITERAL);
 
-        // tupleDomainInput with non-descriptive partitions
         node = new TableScanNode(
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                null,
-                Optional.<GeneratedPartitions>of(new GeneratedPartitions(
-                        TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(scanAssignments.get(A), Domain.singleValue(1L))),
-                        ImmutableList.of(new Partition("test", new TestingPartition())))));
+                Optional.empty(),
+                TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(A), Domain.singleValue(1L))),
+                null);
         effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         Assert.assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(number(1L), AE)));
 
-        // tupleDomainInput with descriptive partitions
         node = new TableScanNode(
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                null,
-                Optional.<GeneratedPartitions>of(new GeneratedPartitions(
-                        TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(scanAssignments.get(A), Domain.singleValue(1L))),
-                        ImmutableList.<Partition>of(tupleDomainPartition("test",
-                                TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(
-                                        scanAssignments.get(A), Domain.singleValue(1L),
-                                        scanAssignments.get(B), Domain.singleValue(2L))))))));
+                Optional.empty(),
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        scanAssignments.get(A), Domain.singleValue(1L),
+                        scanAssignments.get(B), Domain.singleValue(2L))),
+                null);
         effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         Assert.assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(number(2L), BE), equals(number(1L), AE)));
 
-        // generic tupleDomainInput with no matching partitions
         node = new TableScanNode(
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                null,
-                Optional.<GeneratedPartitions>of(new GeneratedPartitions(
-                        TupleDomain.<ColumnHandle>all(),
-                        ImmutableList.<Partition>of())));
-        effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
-        Assert.assertEquals(effectivePredicate, BooleanLiteral.FALSE_LITERAL);
-
-        // generic tupleDomainInput with non-descriptive partitions
-        node = new TableScanNode(
-                newId(),
-                DUAL_TABLE_HANDLE,
-                ImmutableList.copyOf(assignments.keySet()),
-                assignments,
-                null,
-                Optional.<GeneratedPartitions>of(new GeneratedPartitions(
-                        TupleDomain.<ColumnHandle>all(),
-                        ImmutableList.of(new Partition("test", new TestingPartition())))));
+                Optional.empty(),
+                TupleDomain.all(),
+                null);
         effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         Assert.assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
-
-        // generic tupleDomainInput with descriptive partitions
-        node = new TableScanNode(
-                newId(),
-                DUAL_TABLE_HANDLE,
-                ImmutableList.copyOf(assignments.keySet()),
-                assignments,
-                null,
-                Optional.<GeneratedPartitions>of(new GeneratedPartitions(
-                        TupleDomain.<ColumnHandle>all(),
-                        ImmutableList.of(tupleDomainPartition("test",
-                                TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(
-                                        scanAssignments.get(A), Domain.singleValue(1L),
-                                        scanAssignments.get(B), Domain.singleValue(2L))))))));
-        effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
-        Assert.assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(number(2L), BE), equals(number(1L), AE)));
-
-        // Make sure only output symbols are produced
-        node = new TableScanNode(
-                newId(),
-                DUAL_TABLE_HANDLE,
-                ImmutableList.of(A),
-                assignments,
-                null,
-                Optional.<GeneratedPartitions>of(new GeneratedPartitions(
-                        TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(
-                                scanAssignments.get(A), Domain.singleValue(1L),
-                                scanAssignments.get(D), Domain.singleValue(3L))),
-                        ImmutableList.of(tupleDomainPartition("test",
-                                TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>of(
-                                        scanAssignments.get(A), Domain.singleValue(1L),
-                                        scanAssignments.get(C), Domain.singleValue(2L))))))));
-        effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
-        Assert.assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(number(1L), AE)));
-    }
-
-    private static Partition tupleDomainPartition(String connectorId, final TupleDomain<ColumnHandle> tupleDomain)
-    {
-        return new Partition(connectorId, new ConnectorPartition()
-        {
-            @Override
-            public String getPartitionId()
-            {
-                throw new UnsupportedOperationException("not yet implemented");
-            }
-
-            @Override
-            public TupleDomain<ColumnHandle> getTupleDomain()
-            {
-                return tupleDomain;
-            }
-        });
     }
 
     @Test
@@ -468,8 +393,9 @@ public class TestEffectivePredicateExtractor
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
-                null,
-                Optional.empty()
+                Optional.empty(),
+                TupleDomain.all(),
+                null
         );
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
@@ -478,8 +404,9 @@ public class TestEffectivePredicateExtractor
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
-                null,
-                Optional.empty()
+                Optional.empty(),
+                TupleDomain.all(),
+                null
         );
 
         PlanNode node = new JoinNode(newId(),
@@ -523,8 +450,9 @@ public class TestEffectivePredicateExtractor
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
-                null,
-                Optional.empty()
+                Optional.empty(),
+                TupleDomain.all(),
+                null
         );
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
@@ -533,8 +461,9 @@ public class TestEffectivePredicateExtractor
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
-                null,
-                Optional.empty()
+                Optional.empty(),
+                TupleDomain.all(),
+                null
         );
 
         PlanNode node = new JoinNode(newId(),
@@ -578,8 +507,9 @@ public class TestEffectivePredicateExtractor
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(leftAssignments.keySet()),
                 leftAssignments,
-                null,
-                Optional.empty()
+                Optional.empty(),
+                TupleDomain.all(),
+                null
         );
 
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
@@ -588,8 +518,9 @@ public class TestEffectivePredicateExtractor
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(rightAssignments.keySet()),
                 rightAssignments,
-                null,
-                Optional.empty()
+                Optional.empty(),
+                TupleDomain.all(),
+                null
         );
 
         PlanNode node = new JoinNode(newId(),
@@ -718,7 +649,7 @@ public class TestEffectivePredicateExtractor
 
     /**
      * Normalizes Expression nodes (and all sub-expressions) by identity.
-     * <p/>
+     * <p>
      * Identity equality of Expression nodes is necessary for EqualityInference to generate stable rewrites
      * (as specified by Ordering.arbitrary())
      */

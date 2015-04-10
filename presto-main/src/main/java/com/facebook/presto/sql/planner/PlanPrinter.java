@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Marker;
@@ -357,25 +357,36 @@ public class PlanPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Integer indent)
         {
-            TupleDomain<ColumnHandle> partitionsDomainSummary = node.getPartitionsDomainSummary();
-            print(indent, "- TableScan[%s, original constraint=%s] => [%s]", node.getTable(), node.getOriginalConstraint(), formatOutputs(node.getOutputSymbols()));
+            TableHandle table = node.getTable();
+            print(indent, "- TableScan[%s, original constraint=%s] => [%s]", table, node.getOriginalConstraint(), formatOutputs(node.getOutputSymbols()));
 
-            Set<Symbol> outputs = ImmutableSet.copyOf(node.getOutputSymbols());
-            for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                boolean isOutputSymbol = outputs.contains(entry.getKey());
-                boolean isInOriginalConstraint = node.getOriginalConstraint() == null ? false : DependencyExtractor.extractUnique(node.getOriginalConstraint()).contains(entry.getKey());
-                boolean isInDomainSummary = !partitionsDomainSummary.isNone() && partitionsDomainSummary.getDomains().keySet().contains(entry.getValue());
+            TupleDomain<ColumnHandle> constraint = node.getCurrentConstraint();
+            if (constraint.isNone()) {
+                print(indent + 2, ":: NONE");
+            }
+            else {
+                // first, print output columns and their constraints
+                for (Map.Entry<Symbol, ColumnHandle> assignment : node.getAssignments().entrySet()) {
+                    ColumnHandle column = assignment.getValue();
+                    print(indent + 2, "%s := %s", assignment.getKey(), column);
+                    printConstraint(indent + 3, table, column, constraint);
+                }
 
-                if (isOutputSymbol || isInOriginalConstraint || isInDomainSummary) {
-                    print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
-                    if (isInDomainSummary) {
-                        print(indent + 3, ":: %s", formatDomain(node.getTable(), entry.getValue(), simplifyDomain(partitionsDomainSummary.getDomains().get(entry.getValue()))));
-                    }
-                    else if (partitionsDomainSummary.isNone()) {
-                        print(indent + 3, ":: NONE");
-                    }
+                // then, print constraints for columns that are not in the output
+                if (!constraint.isAll()) {
+                    Set<ColumnHandle> outputs = ImmutableSet.copyOf(node.getAssignments().values());
+
+                    constraint.getDomains()
+                            .entrySet().stream()
+                            .filter(entry -> !outputs.contains(entry.getKey()))
+                            .forEach(entry -> {
+                                ColumnHandle column = entry.getKey();
+                                print(indent + 2, "%s", column);
+                                printConstraint(indent + 3, table, column, constraint);
+                            });
                 }
             }
+
             return null;
         }
 
@@ -523,6 +534,13 @@ public class PlanPrinter
         private String formatOutputs(Iterable<Symbol> symbols)
         {
             return Joiner.on(", ").join(Iterables.transform(symbols, input -> input + ":" + types.get(input)));
+        }
+    }
+
+    private void printConstraint(int indent, TableHandle table, ColumnHandle column, TupleDomain<ColumnHandle> constraint)
+    {
+        if (!constraint.isAll() && constraint.getDomains().containsKey(column)) {
+            print(indent, ":: %s", formatDomain(table, column, simplifyDomain(constraint.getDomains().get(column))));
         }
     }
 

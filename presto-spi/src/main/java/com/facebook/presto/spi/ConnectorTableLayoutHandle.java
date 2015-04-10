@@ -13,16 +13,6 @@
  */
 package com.facebook.presto.spi;
 
-@Deprecated
-public interface ConnectorPartition
+public interface ConnectorTableLayoutHandle
 {
-    /**
-     * Get the unique id of this partition within the scope of the table.
-     */
-    String getPartitionId();
-
-    /**
-     * Gets the TupleDomain that provides a bound on the tuples within this Partition.
-     */
-    TupleDomain<ColumnHandle> getTupleDomain();
 }

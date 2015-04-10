@@ -13,23 +13,14 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.metadata.Partition;
-import com.facebook.presto.metadata.PartitionResult;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.spi.ConnectorPartition;
-import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.metadata.LegacyTableLayoutHandle;
+import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.FixedSplitSource;
-import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 
-import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -45,35 +36,29 @@ public class SplitManager
         checkState(splitManagers.putIfAbsent(connectorId, connectorSplitManager) == null, "SplitManager for connector '%s' is already registered", connectorId);
     }
 
-    public PartitionResult getPartitions(TableHandle table, Optional<TupleDomain<ColumnHandle>> tupleDomain)
+    public SplitSource getSplits(TableLayoutHandle layout)
     {
-        TupleDomain<ColumnHandle> domain = tupleDomain.orElse(TupleDomain.all());
+        String connectorId = layout.getConnectorId();
+        ConnectorSplitManager splitManager = getConnectorSplitManager(connectorId);
 
-        ConnectorPartitionResult result;
-        if (domain.isNone()) {
-            result = new ConnectorPartitionResult(ImmutableList.<ConnectorPartition>of(), domain);
+        ConnectorSplitSource source;
+        if (layout.getConnectorHandle() instanceof LegacyTableLayoutHandle) {
+            LegacyTableLayoutHandle handle = (LegacyTableLayoutHandle) layout.getConnectorHandle();
+            if (handle.getPartitions().isEmpty()) {
+                return new ConnectorAwareSplitSource(connectorId, new FixedSplitSource(connectorId, ImmutableList.<ConnectorSplit>of()));
+            }
+
+            source = splitManager.getPartitionSplits(handle.getTable(), handle.getPartitions());
         }
         else {
-            result = getConnectorSplitManager(table).getPartitions(table.getConnectorHandle(), domain);
+            source = splitManager.getSplits(layout.getConnectorHandle());
         }
 
-        return new PartitionResult(table.getConnectorId(), result);
+        return new ConnectorAwareSplitSource(connectorId, source);
     }
 
-    public SplitSource getPartitionSplits(TableHandle handle, List<Partition> partitions)
+    public ConnectorSplitManager getConnectorSplitManager(String connectorId)
     {
-        if (partitions.isEmpty()) {
-            return new ConnectorAwareSplitSource(handle.getConnectorId(), new FixedSplitSource(handle.getConnectorId(), ImmutableList.<ConnectorSplit>of()));
-        }
-        ConnectorTableHandle table = handle.getConnectorHandle();
-        ConnectorSplitSource source = getConnectorSplitManager(handle).getPartitionSplits(table, Lists.transform(partitions, Partition::getConnectorPartition));
-        return new ConnectorAwareSplitSource(handle.getConnectorId(), source);
-    }
-
-    private ConnectorSplitManager getConnectorSplitManager(TableHandle handle)
-    {
-        String connectorId = handle.getConnectorId();
-
         ConnectorSplitManager result = splitManagers.get(connectorId);
         checkArgument(result != null, "No split manager for connector '%s'", connectorId);
 

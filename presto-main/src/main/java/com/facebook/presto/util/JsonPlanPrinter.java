@@ -153,24 +153,25 @@ public final class JsonPlanPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Void context)
         {
-            TupleDomain<ColumnHandle> partitionsDomainSummary = node.getPartitionsDomainSummary();
             TableMetadata tableMetadata = metadata.getTableMetadata(node.getTable());
 
             ImmutableList.Builder<Column> columnBuilder = ImmutableList.builder();
 
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
                 ColumnMetadata columnMetadata = metadata.getColumnMetadata(node.getTable(), entry.getValue());
+                TupleDomain<ColumnHandle> constraint = node.getCurrentConstraint();
                 Domain domain = null;
-                if (!partitionsDomainSummary.isNone() && partitionsDomainSummary.getDomains().containsKey(entry.getValue())) {
-                    domain = partitionsDomainSummary.getDomains().get(entry.getValue());
-                }
-                else if (partitionsDomainSummary.isNone()) {
+                if (constraint.isNone()) {
                     domain = Domain.none(columnMetadata.getType().getJavaType());
+                }
+                else if (constraint.getDomains().containsKey(entry.getValue())) {
+                    domain = constraint.getDomains().get(entry.getValue());
                 }
                 Column column = new Column(
                         columnMetadata.getName(),
                         columnMetadata.getType().toString(),
-                        Optional.ofNullable(SimpleDomain.fromDomain(domain)));
+                        Optional.empty());
+                        Optional.ofNullable(SimpleDomain.fromDomain(domain));
                 columnBuilder.add(column);
             }
             Input input = new Input(

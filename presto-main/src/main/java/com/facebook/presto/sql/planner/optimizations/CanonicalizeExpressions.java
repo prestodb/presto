@@ -95,7 +95,14 @@ public class CanonicalizeExpressions
             if (node.getOriginalConstraint() != null) {
                 originalConstraint = canonicalizeExpression(node.getOriginalConstraint());
             }
-            return new TableScanNode(node.getId(), node.getTable(), node.getOutputSymbols(), node.getAssignments(), originalConstraint, node.getGeneratedPartitions());
+            return new TableScanNode(
+                    node.getId(),
+                    node.getTable(),
+                    node.getOutputSymbols(),
+                    node.getAssignments(),
+                    node.getLayout(),
+                    node.getCurrentConstraint(),
+                    originalConstraint);
         }
     }
 
