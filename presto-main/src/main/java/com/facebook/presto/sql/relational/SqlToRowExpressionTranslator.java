@@ -144,7 +144,7 @@ public final class SqlToRowExpressionTranslator
         return result;
     }
 
-    private static class Visitor
+    public static class Visitor
             extends AstVisitor<RowExpression, Void>
     {
         private final FunctionKind functionKind;
@@ -152,7 +152,7 @@ public final class SqlToRowExpressionTranslator
         private final TypeManager typeManager;
         private final TimeZoneKey timeZoneKey;
 
-        private Visitor(FunctionKind functionKind, IdentityHashMap<Expression, Type> types, TypeManager typeManager, TimeZoneKey timeZoneKey)
+        protected Visitor(FunctionKind functionKind, IdentityHashMap<Expression, Type> types, TypeManager typeManager, TimeZoneKey timeZoneKey)
         {
             this.functionKind = functionKind;
             this.types = types;
