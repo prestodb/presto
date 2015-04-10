@@ -110,7 +110,6 @@ public final class StringFunctions
                 final int bytesToCopy = string.length() - index;
                 buffer = Slices.ensureSize(buffer, indexBuffer + bytesToCopy);
                 buffer.setBytes(indexBuffer, string, index, bytesToCopy);
-                indexBuffer += bytesToCopy;
 
                 break;
             }
@@ -131,7 +130,7 @@ public final class StringFunctions
             index = matchIndex + search.length();
         }
 
-        return Slices.copyOf(buffer, 0, indexBuffer);
+        return buffer;
     }
 
     @Description("reverses the given string")
