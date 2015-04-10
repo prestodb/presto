@@ -13,21 +13,26 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.SessionTestUtils;
-import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import java.util.IdentityHashMap;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestSqlToRowExpressionTranslator
 {
+    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
+    private static final FunctionRegistry FUNCTION_REGISTRY = new FunctionRegistry(TYPE_MANAGER, true);
+
     @Test(timeOut = 10_000)
     public void testPossibleExponentialOptimizationTime()
     {
@@ -38,6 +43,6 @@ public class TestSqlToRowExpressionTranslator
             expression = new CoalesceExpression(expression);
             types.put(expression, BIGINT);
         }
-        SqlToRowExpressionTranslator.translate(expression, types, new MetadataManager(), SessionTestUtils.TEST_SESSION, true);
+        SqlToRowExpressionTranslator.translate(expression, types,  FUNCTION_REGISTRY, TYPE_MANAGER, TEST_SESSION, true);
     }
 }

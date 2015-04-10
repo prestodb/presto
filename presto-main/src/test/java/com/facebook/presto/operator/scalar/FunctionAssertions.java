@@ -513,9 +513,7 @@ public final class FunctionAssertions
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter));
 
         try {
-            PageProcessor processor = compiler.compilePageProcessor(
-                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session, false),
-                    ImmutableList.<RowExpression>of());
+            PageProcessor processor = compiler.compilePageProcessor(toRowExpression(filter, expressionTypes), ImmutableList.of());
 
             return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, processor, ImmutableList.<Type>of());
         }
@@ -535,10 +533,8 @@ public final class FunctionAssertions
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection));
 
         try {
-            List<RowExpression> projections = ImmutableList.of(SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata, session, false));
-            PageProcessor processor = compiler.compilePageProcessor(
-                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session, false),
-                    projections);
+            List<RowExpression> projections = ImmutableList.of(toRowExpression(projection, expressionTypes));
+            PageProcessor processor = compiler.compilePageProcessor(toRowExpression(filter, expressionTypes), projections);
 
             return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, processor, ImmutableList.of(expressionTypes.get(projection)));
         }
@@ -559,13 +555,13 @@ public final class FunctionAssertions
 
         try {
             CursorProcessor cursorProcessor = compiler.compileCursorProcessor(
-                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session, false),
-                    ImmutableList.of(SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata, session, false)),
+                    toRowExpression(filter, expressionTypes),
+                    ImmutableList.of(toRowExpression(projection, expressionTypes)),
                     SOURCE_ID);
 
             PageProcessor pageProcessor = compiler.compilePageProcessor(
-                    SqlToRowExpressionTranslator.translate(filter, expressionTypes, metadata, session, false),
-                    ImmutableList.of(SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata, session, false)));
+                    toRowExpression(filter, expressionTypes),
+                    ImmutableList.of(toRowExpression(projection, expressionTypes)));
 
             return new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                     0,
@@ -582,6 +578,11 @@ public final class FunctionAssertions
             }
             throw new RuntimeException("Error compiling " + projection + ": " + e.getMessage(), e);
         }
+    }
+
+    private RowExpression toRowExpression(Expression projection, IdentityHashMap<Expression, Type> expressionTypes)
+    {
+        return SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false);
     }
 
     private static Page getAtMostOnePage(Operator operator, Page sourcePage)
