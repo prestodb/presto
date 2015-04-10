@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.sql.tree;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 /**
  * A reference to an execution engine channel.
  * <p>
@@ -28,12 +26,10 @@ public class InputReference
 
     public InputReference(int channel)
     {
-        checkNotNull(channel, "channel is null");
-
         this.channel = channel;
     }
 
-    public Integer getChannel()
+    public int getChannel()
     {
         return channel;
     }
