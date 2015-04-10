@@ -793,9 +793,9 @@ public class LocalExecutionPlanner
                     sourceTypes,
                     concat(singleton(rewrittenFilter), rewrittenProjections));
 
-            RowExpression translatedFilter = SqlToRowExpressionTranslator.translate(rewrittenFilter, expressionTypes, metadata, session, true);
+            RowExpression translatedFilter = toRowExpression(rewrittenFilter, expressionTypes);
             List<RowExpression> translatedProjections = rewrittenProjections.stream()
-                    .map(expression -> SqlToRowExpressionTranslator.translate(expression, expressionTypes, metadata, session, true))
+                    .map(expression -> toRowExpression(expression, expressionTypes))
                     .collect(toImmutableList());
 
             try {
@@ -882,6 +882,11 @@ public class LocalExecutionPlanner
                         toTypes(projectionFunctions));
                 return new PhysicalOperation(operatorFactory, outputMappings, source);
             }
+        }
+
+        private RowExpression toRowExpression(Expression expression, IdentityHashMap<Expression, Type> types)
+        {
+            return SqlToRowExpressionTranslator.translate(expression, types, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, true);
         }
 
         private Map<Integer, Type> getInputTypes(Map<Symbol, Integer> layout, List<Type> types)
