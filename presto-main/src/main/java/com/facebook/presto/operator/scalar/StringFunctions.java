@@ -93,9 +93,30 @@ public final class StringFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice replace(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice search, @SqlType(StandardTypes.VARCHAR) Slice replace)
     {
-        // Empty search returns original string
+        // Empty search?
         if (UnicodeUtil.isEmpty(search)) {
-            return string;
+            // With empty `search` we insert `replace` in front of every character and and the end
+            final Slice buffer = Slices.allocate((UnicodeUtil.countCodePoints(string) + 1) * replace.length() + string.length());
+            // Always start with replace
+            buffer.setBytes(0, replace);
+            int indexBuffer = replace.length();
+            // After every code point insert `replace`
+            // TODO Same issue as with reverse
+            int index = 0;
+            while (index < string.length()) {
+                final int startByte = string.getUnsignedByte(index);
+                final int codePointLength = UnicodeUtil.lengthOfCodePoint(startByte);
+                // Append current code point
+                buffer.setBytes(indexBuffer, string, index, codePointLength);
+                indexBuffer += codePointLength;
+                // Append `replace`
+                buffer.setBytes(indexBuffer, replace);
+                indexBuffer += replace.length();
+                // Advance pointer to current code point
+                index += codePointLength;
+            }
+
+            return buffer;
         }
         // Allocate a reasonable buffer
         Slice buffer = Slices.allocate(string.length());
@@ -110,6 +131,7 @@ public final class StringFunctions
                 final int bytesToCopy = string.length() - index;
                 buffer = Slices.ensureSize(buffer, indexBuffer + bytesToCopy);
                 buffer.setBytes(indexBuffer, string, index, bytesToCopy);
+                indexBuffer += bytesToCopy;
 
                 break;
             }
@@ -130,7 +152,7 @@ public final class StringFunctions
             index = matchIndex + search.length();
         }
 
-        return buffer;
+        return buffer.slice(0, indexBuffer);
     }
 
     @Description("reverses the given string")
@@ -277,7 +299,7 @@ public final class StringFunctions
                 return null;
             }
 
-            final int indexStart = UnicodeUtil.findUtf8IndexOfCodePointPosition(string, (int) index - 1);
+            final int indexStart = UnicodeUtil.findUtf8IndexOfCodePointPosition(string, Ints.checkedCast(index - 1));
             // TODO Illegal start bytes could end in IOOB. Discuss this in review if it is ok.
             return string.slice(indexStart, UnicodeUtil.lengthOfCodePoint(string.getUnsignedByte(indexStart)));
         }

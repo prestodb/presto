@@ -88,6 +88,8 @@ public class TestStringFunctions
         assertFunction("REPLACE('foo', '')", "foo");
         assertFunction("REPLACE('foo', '', '')", "foo");
         assertFunction("REPLACE('foo', 'foo', '')", "");
+        assertFunction("REPLACE('abc', '', 'xx')", "xxaxxbxxcxx");
+        assertFunction("REPLACE('', '', 'xx')", "xx");
         assertFunction("REPLACE('', '')", "");
         assertFunction("REPLACE('', '', '')", "");
         assertFunction("REPLACE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', '\u2014')", "\u4FE1\u5FF5\u2014\u7231\u2014\u5E0C\u671B");
