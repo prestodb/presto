@@ -319,7 +319,7 @@ public class AddExchanges
             List<Symbol> rightSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
 
             PlanNode rightNode;
-            if (distributedJoins) {
+            if (distributedJoins || isJoinOnPartitionKeys(left, leftSymbols, right, rightSymbols)) {
                 left = enforce(left, Requirements.of(PartitioningProperties.partitioned(leftSymbols, leftHashSymbol)));
                 rightNode = enforce(right, Requirements.of(PartitioningProperties.partitioned(rightSymbols, rightHashSymbol))).getNode();
             }
@@ -343,6 +343,13 @@ public class AddExchanges
                             node.getLeftHashSymbol(),
                             node.getRightHashSymbol()),
                     left.getProperties());
+        }
+
+        private boolean isJoinOnPartitionKeys(PlanWithProperties left, List<Symbol> leftSymbols, PlanWithProperties right, List<Symbol> rightSymbols)
+        {
+            return left.getProperties().isPartitioned() && right.getProperties().isPartitioned() &&
+                    left.getProperties().isPartitionedOnKeys(leftSymbols) &&
+                    right.getProperties().isPartitionedOnKeys(rightSymbols);
         }
 
         @Override
