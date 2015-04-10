@@ -15,6 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
+import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 
 /**
@@ -140,11 +141,48 @@ final class UnicodeUtil
      */
     static int findUtf8IndexOfString(final Slice string, final int start, final int end, final Slice substring)
     {
-        for (int i = start; i <= (end - substring.length()); i++) {
-            // TODO If slice provides indexOfByte with start, we could optimize searching
-            if (string.equals(i, substring.length(), substring, 0, substring.length())) {
+        if (substring.length() == 0) {
+            return 0;
+        }
+
+        final int lastValidIndex = end - substring.length();
+        // Do we have enough characters
+        if (substring.length() < SizeOf.SIZE_OF_INT || string.length() < SizeOf.SIZE_OF_LONG) {
+            // Use the slow compare
+            for (int i = start; i <= lastValidIndex; i++) {
+                if (string.equals(i, substring.length(), substring, 0, substring.length())) {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+        // Using first four bytes for faster search. We are not using eight bytes for long
+        // because we want more strings to get use of fast search.
+        final int head = substring.getInt(0);
+        // Take the first byte of head for faster skipping
+        // Working as long as presto requires LITTLE_ENDIAN (see PrestoJvmRequirements)
+        int firstByteMask = head & 0xff;
+        firstByteMask |= firstByteMask << 8;
+        firstByteMask |= firstByteMask << 16;
+
+        for (int i = start; i <= lastValidIndex; ) {
+            // Read four bytes in sequence
+            final int value = string.getInt(i);
+            // Compare all bytes of value with first byte of search string
+            final int valueXor = value ^ firstByteMask;
+            final int hasZeroBytes = (valueXor - 0x01010101) & ~valueXor & 0x80808080;
+            // If valueXor doest not have any zero byte then there is no match and we can advance
+            if (hasZeroBytes == 0) {
+                i += SizeOf.SIZE_OF_INT;
+                continue;
+            }
+            // Try fast match of head and the rest
+            if (value == head && string.equals(i, substring.length(), substring, 0, substring.length())) {
                 return i;
             }
+
+            i++;
         }
 
         return -1;
