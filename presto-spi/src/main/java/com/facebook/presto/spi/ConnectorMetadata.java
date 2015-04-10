@@ -32,6 +32,21 @@ public interface ConnectorMetadata
     ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName);
 
     /**
+     * Return a list of table layouts that satisfy the given constraint.
+     *
+     * For each layout, connectors must return an "unenforced constraint" representing the part of the constraint summary that isn't guaranteed by the layout.
+     */
+    default List<ConnectorTableLayoutResult> getTableLayouts(ConnectorTableHandle table, Constraint<ColumnHandle> constraint)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
+    }
+
+    default ConnectorTableLayout getTableLayout(ConnectorTableLayoutHandle handle)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
+    }
+
+    /**
      * Return the metadata for the specified table handle.
      *
      * @throws RuntimeException if table handle is no longer valid

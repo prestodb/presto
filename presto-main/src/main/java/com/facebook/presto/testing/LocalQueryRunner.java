@@ -29,12 +29,12 @@ import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Partition;
-import com.facebook.presto.metadata.PartitionResult;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.TableLayoutHandle;
+import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
@@ -54,6 +54,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
@@ -141,8 +142,8 @@ public class LocalQueryRunner
         this.indexManager = new IndexManager();
         this.pageSinkManager = new PageSinkManager();
 
-        this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry);
         this.splitManager = new SplitManager();
+        this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry, splitManager);
         this.pageSourceManager = new PageSourceManager();
 
         this.compiler = new ExpressionCompiler(metadata);
@@ -390,7 +391,9 @@ public class LocalQueryRunner
         List<TaskSource> sources = new ArrayList<>();
         long sequenceId = 0;
         for (TableScanNode tableScan : findTableScanNodes(subplan.getFragment().getRoot())) {
-            SplitSource splitSource = splitManager.getPartitionSplits(tableScan.getTable(), getPartitions(tableScan));
+            TableLayoutHandle layout = tableScan.getLayout().get();
+
+            SplitSource splitSource = splitManager.getSplits(layout);
 
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
             while (!splitSource.isFinished()) {
@@ -431,17 +434,6 @@ public class LocalQueryRunner
         return ImmutableList.copyOf(drivers);
     }
 
-    private List<Partition> getPartitions(TableScanNode node)
-    {
-        if (node.getGeneratedPartitions().isPresent()) {
-            return node.getGeneratedPartitions().get().getPartitions();
-        }
-
-        // Otherwise return all partitions
-        PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), Optional.empty());
-        return matchingPartitions.getPartitions();
-    }
-
     public OperatorFactory createTableScanOperator(int operatorId, String tableName, String... columnNames)
     {
         return createTableScanOperator(defaultSession, operatorId, tableName, columnNames);
@@ -472,7 +464,8 @@ public class LocalQueryRunner
         List<Type> columnTypes = columnTypesBuilder.build();
 
         // get the split for this table
-        Split split = getLocalQuerySplit(tableHandle);
+        List<TableLayoutResult> layouts = metadata.getLayouts(tableHandle, Optional.empty(), Constraint.alwaysTrue());
+        Split split = getLocalQuerySplit(layouts.get(0).getLayout().getHandle());
 
         return new OperatorFactory()
         {
@@ -510,11 +503,10 @@ public class LocalQueryRunner
                 ImmutableList.copyOf(Iterables.concat(columnTypes, ImmutableList.of(BIGINT))));
     }
 
-    private Split getLocalQuerySplit(TableHandle tableHandle)
+    private Split getLocalQuerySplit(TableLayoutHandle handle)
     {
         try {
-            List<Partition> partitions = splitManager.getPartitions(tableHandle, Optional.empty()).getPartitions();
-            SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitions);
+            SplitSource splitSource = splitManager.getSplits(handle);
             Split split = Iterables.getOnlyElement(splitSource.getNextBatch(1000));
             while (!splitSource.isFinished()) {
                 checkState(splitSource.getNextBatch(1000).isEmpty(), "Expected only one split for a local query");

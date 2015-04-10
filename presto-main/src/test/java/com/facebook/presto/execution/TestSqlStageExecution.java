@@ -28,6 +28,7 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.ConnectorAwareSplitSource;
 import com.facebook.presto.split.SplitSource;
@@ -331,8 +332,9 @@ public class TestSqlStageExecution
                         new TableHandle("test", new TestingTableHandle()),
                         ImmutableList.of(symbol),
                         ImmutableMap.of(symbol, new TestingColumnHandle("column")),
-                        null,
-                        Optional.empty()),
+                        Optional.empty(),
+                        TupleDomain.all(),
+                        null),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
                 ImmutableList.of(symbol),
                 PlanDistribution.SOURCE,

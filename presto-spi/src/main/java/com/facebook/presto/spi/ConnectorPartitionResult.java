@@ -25,6 +25,7 @@ import static java.util.Objects.requireNonNull;
  * 2) The TupleDomain that represents the values that the connector was not able to pre-evaluate
  * when generating the partitions and will need to be double-checked by the final execution plan.
  */
+@Deprecated
 public class ConnectorPartitionResult
 {
     private final List<ConnectorPartition> partitions;

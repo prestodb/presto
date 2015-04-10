@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.Partition;
-import com.facebook.presto.metadata.PartitionResult;
 import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
@@ -47,7 +45,6 @@ import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
-import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -89,19 +86,9 @@ public class DistributedExecutionPlanner
         public Optional<SplitSource> visitTableScan(TableScanNode node, Void context)
         {
             // get dataSource for table
-            SplitSource splitSource = splitManager.getPartitionSplits(node.getTable(), getPartitions(node));
+            SplitSource splitSource = splitManager.getSplits(node.getLayout().get());
 
             return Optional.of(splitSource);
-        }
-
-        private List<Partition> getPartitions(TableScanNode node)
-        {
-            if (node.getGeneratedPartitions().isPresent()) {
-                return node.getGeneratedPartitions().get().getPartitions();
-            }
-
-            PartitionResult allPartitions = splitManager.getPartitions(node.getTable(), Optional.empty());
-            return allPartitions.getPartitions();
         }
 
         @Override

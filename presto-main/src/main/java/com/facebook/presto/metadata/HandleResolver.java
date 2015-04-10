@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 import javax.inject.Inject;
 
@@ -59,6 +60,26 @@ public class HandleResolver
             }
         }
         throw new IllegalArgumentException("No connector for table handle: " + tableHandle);
+    }
+
+    public String getId(ConnectorTableLayoutHandle handle)
+    {
+        if (handle instanceof LegacyTableLayoutHandle) {
+            LegacyTableLayoutHandle legacyHandle = (LegacyTableLayoutHandle) handle;
+            for (Entry<String, ConnectorHandleResolver> entry : handleIdResolvers.entrySet()) {
+                if (entry.getValue().canHandle(legacyHandle.getTable())) {
+                    return entry.getKey();
+                }
+            }
+        }
+        else {
+            for (Entry<String, ConnectorHandleResolver> entry : handleIdResolvers.entrySet()) {
+                if (entry.getValue().canHandle(handle)) {
+                    return entry.getKey();
+                }
+            }
+        }
+        throw new IllegalArgumentException("No connector for table handle: " + handle);
     }
 
     public String getId(ColumnHandle columnHandle)
@@ -114,6 +135,16 @@ public class HandleResolver
     public Class<? extends ConnectorTableHandle> getTableHandleClass(String id)
     {
         return resolverFor(id).getTableHandleClass();
+    }
+
+    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass(String id)
+    {
+        try {
+            return resolverFor(id).getTableLayoutHandleClass();
+        }
+        catch (UnsupportedOperationException e) {
+            return LegacyTableLayoutHandle.class;
+        }
     }
 
     public Class<? extends ColumnHandle> getColumnHandleClass(String id)

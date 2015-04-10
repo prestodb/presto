@@ -193,7 +193,14 @@ public class UnaliasSymbolReferences
             if (node.getOriginalConstraint() != null) {
                 originalConstraint = canonicalize(node.getOriginalConstraint());
             }
-            return new TableScanNode(node.getId(), node.getTable(), canonicalize(node.getOutputSymbols()), builder.build(), originalConstraint, node.getSummarizedPartition());
+            return new TableScanNode(
+                    node.getId(),
+                    node.getTable(),
+                    canonicalize(node.getOutputSymbols()),
+                    builder.build(),
+                    node.getLayout(),
+                    node.getCurrentConstraint(),
+                    originalConstraint);
         }
 
         @Override

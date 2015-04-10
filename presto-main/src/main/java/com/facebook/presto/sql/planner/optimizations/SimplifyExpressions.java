@@ -105,7 +105,14 @@ public class SimplifyExpressions
             if (node.getOriginalConstraint() != null) {
                 originalConstraint = simplifyExpression(node.getOriginalConstraint());
             }
-            return new TableScanNode(node.getId(), node.getTable(), node.getOutputSymbols(), node.getAssignments(), originalConstraint, node.getSummarizedPartition());
+            return new TableScanNode(
+                    node.getId(),
+                    node.getTable(),
+                    node.getOutputSymbols(),
+                    node.getAssignments(),
+                    node.getLayout(),
+                    node.getCurrentConstraint(),
+                    originalConstraint);
         }
 
         private Expression simplifyExpression(Expression input)

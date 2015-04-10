@@ -18,10 +18,18 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.DomainTranslator;
+import com.facebook.presto.sql.planner.ExpressionInterpreter;
+import com.facebook.presto.sql.planner.LookupSymbolResolver;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -29,6 +37,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ChildReplacer;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
@@ -46,9 +55,12 @@ import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -60,6 +72,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -68,6 +81,11 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
+import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.stripDeterministicConjuncts;
+import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.optimizations.PropertyDerivations.deriveProperties;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -78,13 +96,15 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class AddExchanges
         extends PlanOptimizer
 {
+    private final SqlParser parser;
     private final Metadata metadata;
     private final boolean distributedIndexJoins;
     private final boolean distributedJoins;
 
-    public AddExchanges(Metadata metadata, boolean distributedIndexJoins, boolean distributedJoins)
+    public AddExchanges(Metadata metadata, SqlParser parser, boolean distributedIndexJoins, boolean distributedJoins)
     {
         this.metadata = metadata;
+        this.parser = parser;
         this.distributedIndexJoins = distributedIndexJoins;
         this.distributedJoins = distributedJoins;
     }
@@ -93,7 +113,7 @@ public class AddExchanges
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         boolean distributedJoinEnabled = SystemSessionProperties.isDistributedJoinEnabled(session, distributedJoins);
-        PlanWithProperties result = plan.accept(new Rewriter(symbolAllocator, idAllocator, session, distributedIndexJoins, distributedJoinEnabled), PreferredProperties.any());
+        PlanWithProperties result = plan.accept(new Rewriter(symbolAllocator, idAllocator, symbolAllocator, session, distributedIndexJoins, distributedJoinEnabled), PreferredProperties.any());
         return result.getNode();
     }
 
@@ -102,14 +122,16 @@ public class AddExchanges
     {
         private final SymbolAllocator allocator;
         private final PlanNodeIdAllocator idAllocator;
+        private final SymbolAllocator symbolAllocator;
         private final Session session;
         private final boolean distributedIndexJoins;
         private final boolean distributedJoins;
 
-        public Rewriter(SymbolAllocator allocator, PlanNodeIdAllocator idAllocator, Session session, boolean distributedIndexJoins, boolean distributedJoins)
+        public Rewriter(SymbolAllocator allocator, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session, boolean distributedIndexJoins, boolean distributedJoins)
         {
             this.allocator = allocator;
             this.idAllocator = idAllocator;
+            this.symbolAllocator = symbolAllocator;
             this.session = session;
             this.distributedIndexJoins = distributedIndexJoins;
             this.distributedJoins = distributedJoins;
@@ -413,9 +435,104 @@ public class AddExchanges
         }
 
         @Override
+        public PlanWithProperties visitFilter(FilterNode node, PreferredProperties preferred)
+        {
+            if (node.getSource() instanceof TableScanNode) {
+                return planTableScan((TableScanNode) node.getSource(), node.getPredicate(), preferred);
+            }
+
+            return rebaseAndDeriveProperties(node, planChild(node, preferred));
+        }
+
+        @Override
         public PlanWithProperties visitTableScan(TableScanNode node, PreferredProperties preferred)
         {
-            return new PlanWithProperties(node, ActualProperties.partitioned());
+            return planTableScan(node, BooleanLiteral.TRUE_LITERAL, preferred);
+        }
+
+        private PlanWithProperties planTableScan(TableScanNode node, Expression predicate, PreferredProperties preferred)
+        {
+            // don't include non-deterministic predicates
+            Expression deterministicPredicate = stripNonDeterministicConjuncts(predicate);
+
+            DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
+                    metadata,
+                    session,
+                    deterministicPredicate,
+                    symbolAllocator.getTypes(),
+                    node.getAssignments());
+
+            TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain().intersect(node.getCurrentConstraint());
+
+            List<TableLayoutResult> layouts = metadata.getLayouts(
+                    node.getTable(),
+                    Optional.empty(),
+                    new Constraint<>(simplifiedConstraint, bindings -> !shouldPrune(deterministicPredicate, node.getAssignments(), bindings)));
+
+            if (layouts.isEmpty()) {
+                return new PlanWithProperties(
+                        new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()),
+                        ActualProperties.unpartitioned());
+            }
+
+            TableLayoutResult layout = pickLayout(layouts, preferred);
+
+            Expression originalConstraint = node.getOriginalConstraint();
+            if (originalConstraint == null) {
+                originalConstraint = predicate;
+            }
+
+            TableScanNode tableScan = new TableScanNode(
+                    node.getId(),
+                    node.getTable(),
+                    node.getOutputSymbols(),
+                    node.getAssignments(),
+                    Optional.of(layout.getLayout().getHandle()),
+                    simplifiedConstraint.intersect(layout.getLayout().getPredicate()),
+                    originalConstraint);
+
+            PlanWithProperties result = new PlanWithProperties(tableScan, deriveProperties(tableScan, ImmutableList.of()));
+
+            Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
+            Expression resultingPredicate = combineConjuncts(
+                    DomainTranslator.toPredicate(
+                            layout.getUnenforcedConstraint(),
+                            assignments,
+                            symbolAllocator.getTypes()),
+                    stripDeterministicConjuncts(predicate),
+                    decomposedPredicate.getRemainingExpression());
+
+            if (!BooleanLiteral.TRUE_LITERAL.equals(resultingPredicate)) {
+                return withDerivedProperties(
+                        new FilterNode(idAllocator.getNextId(), result.getNode(), resultingPredicate),
+                        deriveProperties(tableScan, ImmutableList.of()));
+            }
+
+            return result;
+        }
+
+        private TableLayoutResult pickLayout(List<TableLayoutResult> layouts, PreferredProperties preferred)
+        {
+            // TODO: for now, pick first available layout
+            return layouts.get(0);
+        }
+
+        private boolean shouldPrune(Expression predicate, Map<Symbol, ColumnHandle> assignments, Map<ColumnHandle, ?> bindings)
+        {
+            List<Expression> conjuncts = extractConjuncts(predicate);
+            IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, parser, symbolAllocator.getTypes(), predicate);
+
+            LookupSymbolResolver inputs = new LookupSymbolResolver(assignments, bindings);
+
+            // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
+            for (Expression expression : conjuncts) {
+                ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
+                Object optimized = optimizer.optimize(inputs);
+                if (Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         @Override

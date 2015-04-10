@@ -20,15 +20,23 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorPartition;
+import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayout;
+import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeDeserializer;
@@ -56,13 +64,16 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.QualifiedTableName.convertFromSchemaTableName;
+import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
@@ -80,24 +91,26 @@ public class MetadataManager
     private final FunctionRegistry functions;
     private final TypeManager typeManager;
     private final JsonCodec<ViewDefinition> viewCodec;
+    private final SplitManager splitManager;
 
     @VisibleForTesting
     public MetadataManager()
     {
-        this(new FeaturesConfig(), new TypeRegistry());
+        this(new FeaturesConfig(), new TypeRegistry(), new SplitManager());
     }
 
-    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager)
+    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, SplitManager splitManager)
     {
-        this(featuresConfig, typeManager, createTestingViewCodec());
+        this(featuresConfig, typeManager, createTestingViewCodec(), splitManager);
     }
 
     @Inject
-    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, JsonCodec<ViewDefinition> viewCodec)
+    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, JsonCodec<ViewDefinition> viewCodec, SplitManager splitManager)
     {
         functions = new FunctionRegistry(typeManager, featuresConfig.isExperimentalSyntaxEnabled());
         this.typeManager = checkNotNull(typeManager, "types is null");
         this.viewCodec = checkNotNull(viewCodec, "viewCodec is null");
+        this.splitManager = checkNotNull(splitManager, "splitManager is null");
     }
 
     public synchronized void addConnectorMetadata(String connectorId, String catalogName, ConnectorMetadata connectorMetadata)
@@ -208,6 +221,69 @@ public class MetadataManager
     }
 
     @Override
+    public List<TableLayoutResult> getLayouts(TableHandle table, Optional<Set<ColumnHandle>> requiredColumns, Constraint<ColumnHandle> constraint)
+    {
+        if (constraint.getSummary().isNone()) {
+            return ImmutableList.of();
+        }
+
+        TupleDomain<ColumnHandle> summary = constraint.getSummary();
+        String connectorId = table.getConnectorId();
+        ConnectorTableHandle connectorTable = table.getConnectorHandle();
+        Predicate<Map<ColumnHandle, ?>> predicate = constraint.predicate();
+
+        List<ConnectorTableLayoutResult> layouts;
+        try {
+            ConnectorMetadata metadata = getConnectorMetadata(connectorId);
+            layouts = metadata.getTableLayouts(connectorTable, new Constraint<>(summary, bindings -> predicate.test(bindings)));
+        }
+        catch (UnsupportedOperationException e) {
+            ConnectorSplitManager connectorSplitManager = splitManager.getConnectorSplitManager(connectorId);
+            ConnectorPartitionResult result = connectorSplitManager.getPartitions(connectorTable, summary);
+
+            List<ConnectorPartition> partitions = result.getPartitions().stream()
+                    .filter(partition -> predicate.test(partition.getTupleDomain().extractFixedValues()))
+                    .collect(toImmutableList());
+
+            List<TupleDomain<ColumnHandle>> partitionDomains = partitions.stream()
+                    .map(ConnectorPartition::getTupleDomain)
+                    .collect(toImmutableList());
+
+            TupleDomain<ColumnHandle> effectivePredicate = TupleDomain.none();
+            if (!partitionDomains.isEmpty()) {
+                effectivePredicate = TupleDomain.columnWiseUnion(partitionDomains);
+            }
+
+            ConnectorTableLayout layout = new ConnectorTableLayout(new LegacyTableLayoutHandle(connectorTable, partitions), Optional.empty(), effectivePredicate, Optional.empty(), Optional.of(partitionDomains), ImmutableList.of());
+            layouts = ImmutableList.of(new ConnectorTableLayoutResult(layout, result.getUndeterminedTupleDomain()));
+        }
+
+        return layouts.stream()
+                .map(entry -> new TableLayoutResult(fromConnectorLayout(connectorId, entry.getTableLayout()), entry.getUnenforcedConstraint()))
+                .collect(toImmutableList());
+    }
+
+    public TableLayout getLayout(TableLayoutHandle handle)
+    {
+        if (handle.getConnectorHandle() instanceof LegacyTableLayoutHandle) {
+            LegacyTableLayoutHandle legacyHandle = (LegacyTableLayoutHandle) handle.getConnectorHandle();
+            List<TupleDomain<ColumnHandle>> partitionDomains = legacyHandle.getPartitions().stream()
+                    .map(ConnectorPartition::getTupleDomain)
+                    .collect(toImmutableList());
+
+            TupleDomain<ColumnHandle> predicate = TupleDomain.none();
+            if (!partitionDomains.isEmpty()) {
+                predicate = TupleDomain.columnWiseUnion(partitionDomains);
+            }
+            return new TableLayout(handle, new ConnectorTableLayout(legacyHandle, Optional.empty(), predicate, Optional.empty(), Optional.of(partitionDomains), ImmutableList.of()));
+        }
+
+        String connectorId = handle.getConnectorId();
+        ConnectorMetadata metadata = getConnectorMetadata(connectorId);
+        return fromConnectorLayout(connectorId, metadata.getTableLayout(handle.getConnectorHandle()));
+    }
+
+    @Override
     public TableMetadata getTableMetadata(TableHandle tableHandle)
     {
         ConnectorTableMetadata tableMetadata = lookupConnectorFor(tableHandle).getTableMetadata(tableHandle.getConnectorHandle());
@@ -298,7 +374,6 @@ public class MetadataManager
 
                 tableColumns.put(tableName, columns.build());
             }
-
         }
         return ImmutableMap.copyOf(tableColumns);
     }
@@ -531,7 +606,7 @@ public class MetadataManager
 
         private ConnectorMetadataEntry(String connectorId, ConnectorMetadata metadata)
         {
-            this.connectorId =  checkNotNull(connectorId, "connectorId is null");
+            this.connectorId = checkNotNull(connectorId, "connectorId is null");
             this.metadata = checkNotNull(metadata, "metadata is null");
         }
 

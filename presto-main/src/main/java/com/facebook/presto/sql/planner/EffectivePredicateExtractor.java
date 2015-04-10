@@ -63,7 +63,7 @@ import static com.google.common.collect.Iterables.transform;
 
 /**
  * Computes the effective predicate at the top of the specified PlanNode
- * <p/>
+ * <p>
  * Note: non-deterministic predicates can not be pulled up (so they will be ignored)
  */
 public class EffectivePredicateExtractor
@@ -163,24 +163,10 @@ public class EffectivePredicateExtractor
     @Override
     public Expression visitTableScan(TableScanNode node, Void context)
     {
-        if (!node.getGeneratedPartitions().isPresent()) {
-            return BooleanLiteral.TRUE_LITERAL;
-        }
-
-        // The effective predicate can be computed from the intersection of the aggregate partition TupleDomain summary (generated from Partitions)
-        // and the TupleDomain that was initially used to generate those Partitions. We do this because we need to select the more restrictive of the two.
-        // Note: the TupleDomain used to generate the partitions may contain columns/predicates that are unknown to the partition TupleDomain summary,
-        // but those are guaranteed to be part of a FilterNode directly above this table scan, so it's ok to include.
-        TupleDomain<ColumnHandle> tupleDomain = node.getPartitionsDomainSummary().intersect(node.getGeneratedPartitions().get().getTupleDomainInput());
-
-        // A TupleDomain that has too many disjunctions will produce an Expression that will be very expensive to evaluate at runtime.
-        // For the time being, we will just summarize the TupleDomain by the span over each of its columns (which is ok since we only need to generate
-        // an effective predicate here).
-        // In the future, we can do further optimizations here that will simplify the TupleDomain, but still improve the specificity compared to just a simple span (e.g. range clustering).
-        tupleDomain = spanTupleDomain(tupleDomain);
-
-        Expression partitionPredicate = DomainTranslator.toPredicate(tupleDomain, ImmutableBiMap.copyOf(node.getAssignments()).inverse(), symbolTypes);
-        return pullExpressionThroughSymbols(partitionPredicate, node.getOutputSymbols());
+        return DomainTranslator.toPredicate(
+                spanTupleDomain(node.getCurrentConstraint()),
+                ImmutableBiMap.copyOf(node.getAssignments()).inverse(),
+                symbolTypes);
     }
 
     private static TupleDomain<ColumnHandle> spanTupleDomain(TupleDomain<ColumnHandle> tupleDomain)

@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
@@ -68,8 +69,9 @@ public final class TaskTestUtils
                     new TableHandle("test", new TestingTableHandle()),
                     ImmutableList.of(SYMBOL),
                     ImmutableMap.of(SYMBOL, new TestingColumnHandle("column")),
-                    null,
-                    Optional.empty()),
+                    Optional.empty(),
+                    TupleDomain.all(),
+                    null),
             ImmutableMap.<Symbol, Type>of(SYMBOL, VARCHAR),
             ImmutableList.of(SYMBOL),
             PlanDistribution.SOURCE,

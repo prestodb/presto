@@ -11,24 +11,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner;
+package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.TupleDomain;
 
-public class TestingPartition
-        implements ConnectorPartition
+public class TableLayoutResult
 {
-    @Override
-    public String getPartitionId()
+    private final TableLayout layout;
+    private final TupleDomain<ColumnHandle> unenforcedConstraint;
+
+    public TableLayoutResult(TableLayout layout, TupleDomain<ColumnHandle> unenforcedConstraint)
     {
-        return "partition";
+        this.layout = layout;
+        this.unenforcedConstraint = unenforcedConstraint;
     }
 
-    @Override
-    public TupleDomain<ColumnHandle> getTupleDomain()
+    public TableLayout getLayout()
     {
-        return TupleDomain.all();
+        return layout;
+    }
+
+    public TupleDomain<ColumnHandle> getUnenforcedConstraint()
+    {
+        return unenforcedConstraint;
     }
 }

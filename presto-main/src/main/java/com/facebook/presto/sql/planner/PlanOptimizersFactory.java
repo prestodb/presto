@@ -29,6 +29,7 @@ import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
 import com.facebook.presto.sql.planner.optimizations.MergeProjections;
 import com.facebook.presto.sql.planner.optimizations.MetadataQueryOptimizer;
 import com.facebook.presto.sql.planner.optimizations.NormalizeJoinOrder;
+import com.facebook.presto.sql.planner.optimizations.PickLayout;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
 import com.facebook.presto.sql.planner.optimizations.PruneRedundantProjections;
@@ -66,12 +67,11 @@ public class PlanOptimizersFactory
                 new PruneRedundantProjections(),
                 new SetFlatteningOptimizer(),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
-                new PredicatePushDown(metadata, sqlParser, splitManager),
-                new PredicatePushDown(metadata, sqlParser, splitManager), // Run predicate push down one more time in case we can leverage new information from generated partitions
+                new PredicatePushDown(metadata, sqlParser),
                 new MergeProjections(),
                 new SimplifyExpressions(metadata, sqlParser), // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 new UnaliasSymbolReferences(), // Run again because predicate pushdown might add more projections
-                new IndexJoinOptimizer(indexManager), // Run this after projections and filters have been fully simplified and pushed down
+                new IndexJoinOptimizer(metadata, indexManager), // Run this after projections and filters have been fully simplified and pushed down
                 new CountConstantOptimizer(),
                 new WindowFilterPushDown(), // This must run after PredicatePushDown so that it squashes any successive filter nodes
                 new HashGenerationOptimizer(featuresConfig.isOptimizeHashGeneration()), // This must run after all other optimizers have run to that all the PlanNodes are created
@@ -80,15 +80,21 @@ public class PlanOptimizersFactory
                 new PruneRedundantProjections()); // This MUST run after PruneUnreferencedOutputs as it may introduce new redundant projections
 
         if (featuresConfig.isOptimizeMetadataQueries()) {
-            builder.add(new MetadataQueryOptimizer(metadata, splitManager));
+            builder.add(new MetadataQueryOptimizer(metadata));
         }
 
         builder.add(new NormalizeJoinOrder());
         builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
 
         if (!forceSingleNode) {
-            builder.add(new AddExchanges(metadata, featuresConfig.isDistributedIndexJoinsEnabled(), featuresConfig.isDistributedJoinsEnabled()));
+            builder.add(new AddExchanges(metadata, sqlParser, featuresConfig.isDistributedIndexJoinsEnabled(), featuresConfig.isDistributedJoinsEnabled()));
         }
+
+        builder.add(new PickLayout(metadata));
+
+        builder.add(new PredicatePushDown(metadata, sqlParser)); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
+        builder.add(new PruneUnreferencedOutputs());
+        builder.add(new PruneRedundantProjections());
 
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point

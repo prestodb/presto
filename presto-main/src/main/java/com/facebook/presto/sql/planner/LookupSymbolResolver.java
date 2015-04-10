@@ -13,35 +13,43 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public class LookupSymbolResolver
         implements SymbolResolver
 {
-    private final Map<Symbol, Object> bindings;
+    private final Map<Symbol, ColumnHandle> assignments;
+    private final Map<ColumnHandle, ?> bindings;
 
-    public LookupSymbolResolver(Map<Symbol, Object> bindings)
+    public LookupSymbolResolver(Map<Symbol, ColumnHandle> assignments, Map<ColumnHandle, ?> bindings)
     {
-        checkNotNull(bindings, "bindings is null");
+        requireNonNull(assignments, "assignments is null");
+        requireNonNull(bindings, "bindings is null");
 
+        this.assignments = ImmutableMap.copyOf(assignments);
         this.bindings = ImmutableMap.copyOf(bindings);
     }
 
     @Override
     public Object getValue(Symbol symbol)
     {
-        if (!bindings.containsKey(symbol)) {
+        ColumnHandle column = assignments.get(symbol);
+        checkArgument(column != null, "Missing column assignment for %s", symbol);
+
+        if (!bindings.containsKey(column)) {
             return new QualifiedNameReference(symbol.toQualifiedName());
         }
 
-        Object value = bindings.get(symbol);
+        Object value = bindings.get(column);
 
         if (value instanceof String) {
             return Slices.wrappedBuffer(((String) value).getBytes(UTF_8));
