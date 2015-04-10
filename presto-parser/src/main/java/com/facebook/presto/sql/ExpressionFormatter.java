@@ -97,8 +97,8 @@ public final class ExpressionFormatter
         protected String visitRow(Row node, Boolean unmangleNames)
         {
             return "ROW (" + Joiner.on(", ").join(node.getItems().stream()
-                            .map((child) -> process(child, unmangleNames))
-                            .collect(Collectors.toList())) + ")";
+                    .map((child) -> process(child, unmangleNames))
+                    .collect(Collectors.toList())) + ")";
         }
 
         @Override
@@ -203,7 +203,7 @@ public final class ExpressionFormatter
                     .append(" '").append(node.getValue()).append("' ")
                     .append(node.getStartField());
 
-            if (node.getEndField().isPresent())  {
+            if (node.getEndField().isPresent()) {
                 builder.append(" TO ").append(node.getEndField().get());
             }
             return builder.toString();
