@@ -48,13 +48,13 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -238,10 +238,15 @@ public class SqlQueryManager
         QueryId queryId = queryIdGenerator.createNextQueryId();
 
         Statement statement;
+        QueryExecutionFactory<?> queryExecutionFactory;
         try {
             statement = sqlParser.createStatement(query);
+            queryExecutionFactory = executionFactories.get(statement.getClass());
+            if (queryExecutionFactory == null) {
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + statement.getClass().getSimpleName());
+            }
         }
-        catch (ParsingException e) {
+        catch (ParsingException | PrestoException e) {
             // This is intentionally not a method, since after the state change listener is registered
             // it's not safe to do any of this, and we had bugs before where people reused this code in a method
             URI self = locationFactory.createQueryLocation(queryId);
@@ -256,8 +261,6 @@ public class SqlQueryManager
             return execution.getQueryInfo();
         }
 
-        QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(statement.getClass());
-        checkState(queryExecutionFactory != null, "Unsupported statement type %s", statement.getClass().getName());
         QueryExecution queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement);
         queryMonitor.createdEvent(queryExecution.getQueryInfo());
 
