@@ -35,6 +35,10 @@ import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+/**
+ * Current implementation is based on code points from Unicode and does ignore grapheme cluster boundaries.
+ * Therefore only some methods work correctly with grapheme cluster boundaries.
+ */
 public final class StringFunctions
 {
     private StringFunctions()
@@ -72,7 +76,7 @@ public final class StringFunctions
         return concat;
     }
 
-    @Description("length of the given string")
+    @Description("count of code points of the given string")
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
     public static long length(@SqlType(StandardTypes.VARCHAR) Slice slice)
@@ -101,7 +105,6 @@ public final class StringFunctions
             buffer.setBytes(0, replace);
             int indexBuffer = replace.length();
             // After every code point insert `replace`
-            // TODO Same issue as with reverse
             int index = 0;
             while (index < string.length()) {
                 final int startByte = string.getUnsignedByte(index);
@@ -155,7 +158,7 @@ public final class StringFunctions
         return buffer.slice(0, indexBuffer);
     }
 
-    @Description("reverses the given string")
+    @Description("reverse all code points in a given string")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
     public static Slice reverse(@SqlType(StandardTypes.VARCHAR) Slice string)
