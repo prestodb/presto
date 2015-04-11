@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.google.common.base.Ascii;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -263,6 +264,10 @@ public final class StringFunctions
         checkCondition(limit > 0, INVALID_FUNCTION_ARGUMENT, "Limit must be positive");
         checkCondition(limit <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "Limit is too large");
         checkCondition(!UnicodeUtil.isEmpty(delimiter), INVALID_FUNCTION_ARGUMENT, "The delimiter may not be the empty string");
+        // If limit is one, the last and only element is the complete string
+        if (limit == 1) {
+            return toStackRepresentation(ImmutableList.of(string), VARCHAR);
+        }
 
         final List<Slice> parts = new ArrayList<>();
 
@@ -273,16 +278,14 @@ public final class StringFunctions
             if (splitIndex < 0) {
                 break;
             }
-            // Non empty split?
-            if (splitIndex > index) {
-                if (parts.size() == limit - 1) {
-                    break;
-                }
-
-                parts.add(string.slice(index, splitIndex - index));
-            }
+            // Add the part from current index to found split
+            parts.add(string.slice(index, splitIndex - index));
             // Continue searching after delimiter
             index = splitIndex + delimiter.length();
+            // Reached limit-1 parts so we can stop
+            if (parts.size() == limit - 1) {
+                break;
+            }
         }
         // Non-empty rest of string?
         if (index < string.length()) {

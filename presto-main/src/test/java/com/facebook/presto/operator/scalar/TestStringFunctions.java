@@ -182,6 +182,8 @@ public class TestStringFunctions
     @Test
     public void testSplit()
     {
+        assertFunction("SPLIT('ab', '.', 1)", ImmutableList.of("ab"));
+        assertFunction("SPLIT('a.b', '.', 1)", ImmutableList.of("a.b"));
         assertFunction("SPLIT('a.b.c', '.')", ImmutableList.of("a", "b", "c"));
         assertFunction("SPLIT('a..b..c', '..')", ImmutableList.of("a", "b", "c"));
         assertFunction("SPLIT('a.b.c', '.', 2)", ImmutableList.of("a", "b.c"));
@@ -194,10 +196,11 @@ public class TestStringFunctions
         assertFunction("SPLIT('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 3)", ImmutableList.of("\u4FE1\u5FF5", "\u7231", "\u5E0C\u671B"));
         assertFunction("SPLIT('\u8B49\u8BC1\u8A3C', '\u8BC1', 2)", ImmutableList.of("\u8B49", "\u8A3C"));
 
-        assertFunction("SPLIT('.a.b.c', '.', 4)", ImmutableList.of("a", "b", "c"));
-        assertFunction("SPLIT('.a.b.c', '.', 3)", ImmutableList.of("a", "b", "c"));
-        assertFunction("SPLIT('.a.b.c', '.', 2)", ImmutableList.of("a", "b.c"));
-        assertFunction("SPLIT('a..b..c', '.', 3)", ImmutableList.of("a", "b", "c"));
+        assertFunction("SPLIT('.a.b.c', '.', 4)", ImmutableList.of("", "a", "b", "c"));
+        assertFunction("SPLIT('.a.b.c', '.', 3)", ImmutableList.of("", "a", "b.c"));
+        assertFunction("SPLIT('.a.b.c', '.', 2)", ImmutableList.of("", "a.b.c"));
+        assertFunction("SPLIT('a..b..c', '.', 3)", ImmutableList.of("a", "", "b..c"));
+        assertFunction("SPLIT('a.b..', '.', 3)", ImmutableList.of("a", "b", "."));
 
         assertInvalidFunction("SPLIT('a.b.c', '', 1)", "The delimiter may not be the empty string");
         assertInvalidFunction("SPLIT('a.b.c', '.', 0)", "Limit must be positive");
