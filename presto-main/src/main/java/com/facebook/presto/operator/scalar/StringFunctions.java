@@ -323,9 +323,7 @@ public final class StringFunctions
         int matchCount = 0;
 
         int p = 0;
-        while (p < string.length())
-
-        {
+        while (p < string.length()) {
             final int matchIndex = UnicodeUtil.findUtf8IndexOfString(string, p, string.length(), delimiter);
             // No match
             if (matchIndex < 0) {
@@ -339,9 +337,7 @@ public final class StringFunctions
             p = matchIndex + delimiter.length();
         }
 
-        if (matchCount == index - 1)
-
-        {
+        if (matchCount == index - 1) {
             // returns last section of the split
             return string.slice(p, string.length() - p);
         }
@@ -400,6 +396,7 @@ public final class StringFunctions
                 return i;
             }
         }
+
         return -1;
     }
 
