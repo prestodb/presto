@@ -14,7 +14,10 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -30,6 +33,14 @@ public class TestStringFunctions
     public void setUp()
     {
         functionAssertions = new FunctionAssertions();
+        functionAssertions.addScalarFunctions(TestStringFunctions.class);
+    }
+
+    @ScalarFunction("utf8")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice convertBinaryToVarchar(@SqlType(StandardTypes.VARBINARY) Slice binary)
+    {
+        return binary;
     }
 
     @Test
@@ -104,12 +115,14 @@ public class TestStringFunctions
         assertFunction("REVERSE('hello')", "olleh");
         assertFunction("REVERSE('Quadratically')", "yllacitardauQ");
         assertFunction("REVERSE('racecar')", "racecar");
-        //
         // Test REVERSE for non-ASCII
         assertFunction("REVERSE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", "\u671B\u5E0C,\u7231,\u5FF5\u4FE1");
         assertFunction("REVERSE('\u00D6sterreich')", "hcierrets\u00D6");
         assertFunction("REVERSE('na\u00EFve')", "ev\u00EFan");
         assertFunction("REVERSE('\uD801\uDC2Dend')", "dne\uD801\uDC2D");
+
+        assertInvalidFunction("REVERSE(utf8(from_hex('CE')))", "Invalid utf8 encoding");
+        assertInvalidFunction("REVERSE(utf8(from_hex('68656C6C6FCE')))", "Invalid utf8 encoding");
     }
 
     @Test
@@ -237,6 +250,8 @@ public class TestStringFunctions
 
         assertInvalidFunction("SPLIT_PART('abc', '', 0)", "Index must be greater than zero");
         assertInvalidFunction("SPLIT_PART('abc', '', -1)", "Index must be greater than zero");
+
+        assertInvalidFunction("SPLIT_PART(utf8(from_hex('CE')), '', 1)", "Invalid utf8 encoding");
     }
 
     @Test(expectedExceptions = RuntimeException.class)

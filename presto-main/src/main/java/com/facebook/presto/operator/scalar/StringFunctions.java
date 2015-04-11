@@ -176,7 +176,12 @@ public final class StringFunctions
             }
             else {
                 j -= codePointLength;
-                // TODO Illegal start bytes could end in IOOB. Discuss this in review if it is ok.
+                // Enough bytes left in string?
+                if (j < 0) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid utf8 encoding");
+                }
+                // No check made for the following condition because it is check indirect with j >= 0
+                assert i + codePointLength <= string.length();
                 reverse.setBytes(j, string, i, codePointLength);
             }
 
@@ -301,16 +306,23 @@ public final class StringFunctions
                 // index is too big, null is returned
                 return null;
             }
-
+            // Copy only one code point at index
             final int indexStart = UnicodeUtil.findUtf8IndexOfCodePointPosition(string, Ints.checkedCast(index - 1));
-            // TODO Illegal start bytes could end in IOOB. Discuss this in review if it is ok.
-            return string.slice(indexStart, UnicodeUtil.lengthOfCodePoint(string.getUnsignedByte(indexStart)));
+            final int length = UnicodeUtil.lengthOfCodePoint(string.getUnsignedByte(indexStart));
+            // Check whether we have an invalid utf8 encoding
+            if (indexStart + length > string.length()) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid utf8 encoding");
+            }
+
+            return string.slice(indexStart, length);
         }
 
         int matchCount = 0;
 
         int p = 0;
-        while (p < string.length()) {
+        while (p < string.length())
+
+        {
             final int matchIndex = UnicodeUtil.findUtf8IndexOfString(string, p, string.length(), delimiter);
             // No match
             if (matchIndex < 0) {
@@ -324,7 +336,9 @@ public final class StringFunctions
             p = matchIndex + delimiter.length();
         }
 
-        if (matchCount == index - 1) {
+        if (matchCount == index - 1)
+
+        {
             // returns last section of the split
             return string.slice(p, string.length() - p);
         }
