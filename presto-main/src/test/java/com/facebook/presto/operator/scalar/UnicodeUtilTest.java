@@ -30,8 +30,8 @@ public class UnicodeUtilTest
     private static final String STRING_NAIVE = "na\u00EFve";
     private static final String STRING_OO = "\uD801\uDC2Dend";
 
-    private static final byte[] INVALID_UTF8_1 = new byte[]{-127};
-    private static final byte[] INVALID_UTF8_2 = new byte[]{50, -127, 52, 50};
+    private static final byte[] INVALID_UTF8_1 = new byte[] {-127};
+    private static final byte[] INVALID_UTF8_2 = new byte[] {50, -127, 52, 50};
 
     @Test
     public void testCodePointCount()
@@ -119,9 +119,14 @@ public class UnicodeUtilTest
         assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_QUADRATICALLY), 0, 6, Slices.utf8Slice("drat")), -1);
         assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_QUADRATICALLY), 0, 13, Slices.utf8Slice("lly")), 10);
         assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_QUADRATICALLY), 0, 13, Slices.utf8Slice("llyx")), -1);
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_QUADRATICALLY), 11, 13, Slices.utf8Slice("qudra")), -1);
 
         assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_HELLO), 0, 5, Slices.utf8Slice("hello")), 0);
         assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_HELLO), 0, 5, Slices.utf8Slice("o")), 4);
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_HELLO), 2, 5, Slices.utf8Slice("l")), 2);
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_HELLO), 3, 5, Slices.utf8Slice("l")), 3);
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_HELLO), 4, 5, Slices.utf8Slice("l")), -1);
+        assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_HELLO), 4, 5, Slices.utf8Slice("ll")), -1);
 
         assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_HELLO), 0, 5, Slices.utf8Slice(STRING_EMPTY)), 0);
         assertEquals(UnicodeUtil.findUtf8IndexOfString(Slices.utf8Slice(STRING_EMPTY), 0, 5, Slices.utf8Slice(STRING_EMPTY)), 0);
