@@ -13,23 +13,30 @@
     <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet" type="text/css">
 
     <style type="text/css">
-        table td:nth-child(2) {
+        .sql {
+            word-wrap: break-word;
+            white-space: normal;
+        }
+        .query-row {
+            padding: 6px;
+            border-top: 1px solid #bbb;
+        }
+        .row {
             white-space: nowrap;
         }
-        table {
-            table-layout: fixed;
-            word-wrap: break-word;
-        }
-        table th {
+        .truncate {
             overflow: hidden;
-            word-wrap: normal;
+            text-overflow: ellipsis;
+        }
+        pre {
+            margin: 0;
         }
     </style>
 </head>
 
 <body>
 
-<div class="container">
+<div class="container-fluid">
     <div class="page-header">
         <h1>Presto</h1>
     </div>
@@ -43,29 +50,27 @@ var Query = React.createClass({
     {
         switch (errorType) {
             case "USER_ERROR":
-                return "USER";
+                return "USER ERROR";
             case "INTERNAL_ERROR":
-                return "INTERNAL";
+                return "INTERNAL ERROR";
             case "INSUFFICIENT_RESOURCES":
-                return "RESOURCES";
+                return "INSUFFICIENT RESOURCES";
+            case "EXTERNAL":
+                return "EXTERNAL ERROR";
         }
         return errorType;
-    },
-    included: function(field)
-    {
-        return this.props.excludedFields.indexOf(field) == -1;
     },
     stateClass: function(state)
     {
         switch (state) {
             case "FINISHED":
-                return "success";
+                return "bg-success";
             case "FAILED":
-                return "danger";
+                return "bg-danger";
             case "CANCELED":
-                return "warning";
+                return "bg-warning";
             default:
-                return "info";
+                return "bg-info";
         }
     },
     handleClick: function(e) {
@@ -79,42 +84,63 @@ var Query = React.createClass({
     {
         var query = this.props.query;
 
-        var fields = [];
-        fields.push(<td>{query.queryId}</td>);
-        fields.push(<td>{query.elapsedTime}</td>);
-        fields.push(<td>{query.query}</td>);
-        fields.push(<td>{query.session.source}</td>);
-        fields.push(<td>{query.session.user}</td>);
-        fields.push(<td>{query.state}</td>);
         var progress = "N/A";
         if (query.scheduled) {
             progress = d3.format("%")(query.totalDrivers == 0 ? 0 : query.completedDrivers / query.totalDrivers);
         }
-        if (this.included("progress")) {
-            fields.push(<td>{progress}</td>);
+        var state = query.state;
+        if (state === "FAILED") {
+            state = this.shortErrorType(query.errorType);
         }
-        if (this.included("errorType")) {
-            fields.push(<td>{this.shortErrorType(query.errorType)}</td>);
+        var splits;
+        if (query.state == 'FINISHED' || query.state == 'FAILED' || query.state == 'CANCELED') {
+            splits = <div className="row">
+                <div className="col-md-12">
+                    Completed Splits: {query.completedDrivers}
+                </div>
+            </div>
         }
-        if (this.included("queuedDrivers")) {
-            fields.push(<td>{query.queuedDrivers}</td>)
+        else {
+            splits = <div className="row">
+                <div className="col-md-4">
+                    Queued: {query.queuedDrivers}
+                </div>
+                <div className="col-md-4">
+                    Running: {query.runningDrivers}
+                </div>
+                <div className="col-md-4">
+                    Done: {query.completedDrivers}
+                </div>
+            </div>;
         }
-        if (this.included("runningDrivers")) {
-            fields.push(<td>{query.runningDrivers}</td>)
-        }
-        if (this.included("completedDrivers")) {
-            fields.push(<td>{query.completedDrivers}</td>)
-        }
-        if (this.included("totalDrivers")) {
-            fields.push(<td>{query.totalDrivers}</td>)
-        }
-        if (this.included("completion")) {
-            fields.push(<td>{d3.format("%")(query.totalDrivers == 0 ? 0 : query.completedDrivers / query.totalDrivers)}</td>);
+        var queryText = query.query;
+        if (queryText.length > 200) {
+            queryText = queryText.substring(0, 200) + "...";
         }
         return (
-                <tr className={this.stateClass(query.state)} onClick={this.handleClick}>
-                    {fields}
-                </tr>
+                <div className={"row query-row " + this.stateClass(query.state)} onClick={this.handleClick}>
+                    <div className="col-md-3 col-lg-3">
+                        <div className="row">
+                            <div className="col-md-12">{query.queryId}</div>
+                        </div>
+                        <div className="row">
+                            <div className="col-md-12 truncate">{query.session.user}</div>
+                        </div>
+                        <div className="row">
+                            <div className="col-md-12 truncate">{query.session.source}</div>
+                        </div>
+                    </div>
+                    <div className="col-md-4 col-lg-3">
+                        <div className="row">
+                            <div className="col-md-8">{query.elapsedTime} ({progress})</div>
+                        </div>
+                        <div className="row">
+                            <div className="col-md-12">{state}</div>
+                        </div>
+                        {splits}
+                    </div>
+                    <div className="col-md-5 col-lg-6"><pre><code className="sql">{queryText}</code></pre></div>
+                </div>
         );
     }
 });
@@ -124,33 +150,13 @@ var QueryList = React.createClass({
     {
         var queryNodes = this.props.queries.map(function (query) {
             return (
-                    <Query query={query} excludedFields={this.props.excludedFields} />
+                    <Query key={query.queryId} query={query} />
             );
         }.bind(this));
-        var columnWidths = this.props.widths.map(function (width) {
-            return (
-                    <col width={width} />
-            );
-        });
-        var columnHeaders = this.props.headers.map(function (header) {
-            return (
-                    <th>{header}</th>
-            );
-        });
         return (
-                <table className="table table-striped">
-                    <colgroup>
-                        {columnWidths}
-                    </colgroup>
-                    <thead>
-                        <tr>
-                            {columnHeaders}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {queryNodes}
-                    </tbody>
-                </table>
+                <div>
+                    {queryNodes}
+                </div>
         );
     }
 });
@@ -190,16 +196,8 @@ var QueryPane = React.createClass({
         doneQueries.sort(function(a, b) { return d3.descending(a.endTime, b.endTime); });
         return (
                 <div>
-                    <QueryList queries={runningQueries}
-                               excludedFields={["errorType", "totalDrivers", "completion"]}
-                               headers={["Id", "Elapsed", "Query", "Source", "User", "State", "Done"]}
-                               widths={["90px", "80px", "auto", "80px", "80px", "90px", "60px", "60px", "60px", "60px"]}
-                            />
-                    <QueryList queries={doneQueries}
-                               excludedFields={["progress", "queuedDrivers", "runningDrivers"]}
-                               headers={["Id", "Elapsed", "Query", "Source", "User", "State", "Error", "Done", "Total", "Completion"]}
-                               widths={["90px", "80px", "auto", "80px", "80px", "90px", "80px", "60px", "60px", "60px"]}
-                            />
+                    <QueryList queries={runningQueries} />
+                    <QueryList queries={doneQueries} />
                 </div>
         );
     }
