@@ -116,11 +116,12 @@ public class HdfsConfigurationUpdater
 
         // re-map filesystem schemes to match Amazon Elastic MapReduce
         config.set("fs.s3.impl", PrestoS3FileSystem.class.getName());
+        config.set("fs.s3a.impl", PrestoS3FileSystem.class.getName());
         config.set("fs.s3n.impl", PrestoS3FileSystem.class.getName());
         config.set("fs.s3bfs.impl", "org.apache.hadoop.fs.s3.S3FileSystem");
 
         // set AWS credentials for S3
-        for (String scheme : ImmutableList.of("s3", "s3bfs", "s3n")) {
+        for (String scheme : ImmutableList.of("s3", "s3a", "s3bfs", "s3n")) {
             if (s3AwsAccessKey != null) {
                 config.set(format("fs.%s.awsAccessKeyId", scheme), s3AwsAccessKey);
             }
