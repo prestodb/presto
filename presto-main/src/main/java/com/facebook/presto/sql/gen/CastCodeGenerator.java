@@ -15,7 +15,6 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
@@ -25,6 +24,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
+
 public class CastCodeGenerator
         implements ByteCodeGenerator
 {
@@ -33,10 +34,9 @@ public class CastCodeGenerator
     {
         RowExpression argument = arguments.get(0);
 
-        CompilerContext context = generatorContext.getContext();
         if (argument.getType().equals(UnknownType.UNKNOWN)) {
-            return new Block(context)
-                    .putVariable("wasNull", true)
+            return new Block()
+                    .append(generatorContext.wasNull().set(constantTrue()))
                     .pushJavaDefault(returnType.getJavaType());
         }
 

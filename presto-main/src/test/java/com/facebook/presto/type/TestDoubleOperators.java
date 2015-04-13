@@ -13,198 +13,190 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.FunctionAssertions;
-import org.testng.annotations.BeforeClass;
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+
 public class TestDoubleOperators
+        extends AbstractTestFunctions
 {
-    private FunctionAssertions functionAssertions;
-
-    @BeforeClass
-    public void setUp()
-    {
-        functionAssertions = new FunctionAssertions();
-    }
-
-    private void assertFunction(String projection, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expected);
-    }
-
     @Test
     public void testLiteral()
             throws Exception
     {
-        assertFunction("37.7", 37.7);
-        assertFunction("17.1", 17.1);
+        assertFunction("37.7", DOUBLE, 37.7);
+        assertFunction("17.1", DOUBLE, 17.1);
     }
 
     @Test
     public void testAdd()
             throws Exception
     {
-        assertFunction("37.7 + 37.7", 37.7 + 37.7);
-        assertFunction("37.7 + 17.1", 37.7 + 17.1);
-        assertFunction("17.1 + 37.7", 17.1 + 37.7);
-        assertFunction("17.1 + 17.1", 17.1 + 17.1);
+        assertFunction("37.7 + 37.7", DOUBLE, 37.7 + 37.7);
+        assertFunction("37.7 + 17.1", DOUBLE, 37.7 + 17.1);
+        assertFunction("17.1 + 37.7", DOUBLE, 17.1 + 37.7);
+        assertFunction("17.1 + 17.1", DOUBLE, 17.1 + 17.1);
     }
 
     @Test
     public void testSubtract()
             throws Exception
     {
-        assertFunction("37.7 - 37.7", 37.7 - 37.7);
-        assertFunction("37.7 - 17.1", 37.7 - 17.1);
-        assertFunction("17.1 - 37.7", 17.1 - 37.7);
-        assertFunction("17.1 - 17.1", 17.1 - 17.1);
+        assertFunction("37.7 - 37.7", DOUBLE, 37.7 - 37.7);
+        assertFunction("37.7 - 17.1", DOUBLE, 37.7 - 17.1);
+        assertFunction("17.1 - 37.7", DOUBLE, 17.1 - 37.7);
+        assertFunction("17.1 - 17.1", DOUBLE, 17.1 - 17.1);
     }
 
     @Test
     public void testMultiply()
             throws Exception
     {
-        assertFunction("37.7 * 37.7", 37.7 * 37.7);
-        assertFunction("37.7 * 17.1", 37.7 * 17.1);
-        assertFunction("17.1 * 37.7", 17.1 * 37.7);
-        assertFunction("17.1 * 17.1", 17.1 * 17.1);
+        assertFunction("37.7 * 37.7", DOUBLE, 37.7 * 37.7);
+        assertFunction("37.7 * 17.1", DOUBLE, 37.7 * 17.1);
+        assertFunction("17.1 * 37.7", DOUBLE, 17.1 * 37.7);
+        assertFunction("17.1 * 17.1", DOUBLE, 17.1 * 17.1);
     }
 
     @Test
     public void testDivide()
             throws Exception
     {
-        assertFunction("37.7 / 37.7", 37.7 / 37.7);
-        assertFunction("37.7 / 17.1", 37.7 / 17.1);
-        assertFunction("17.1 / 37.7", 17.1 / 37.7);
-        assertFunction("17.1 / 17.1", 17.1 / 17.1);
+        assertFunction("37.7 / 37.7", DOUBLE, 37.7 / 37.7);
+        assertFunction("37.7 / 17.1", DOUBLE, 37.7 / 17.1);
+        assertFunction("17.1 / 37.7", DOUBLE, 17.1 / 37.7);
+        assertFunction("17.1 / 17.1", DOUBLE, 17.1 / 17.1);
     }
 
     @Test
     public void testModulus()
             throws Exception
     {
-        assertFunction("37.7 % 37.7", 37.7 % 37.7);
-        assertFunction("37.7 % 17.1", 37.7 % 17.1);
-        assertFunction("17.1 % 37.7", 17.1 % 37.7);
-        assertFunction("17.1 % 17.1", 17.1 % 17.1);
+        assertFunction("37.7 % 37.7", DOUBLE, 37.7 % 37.7);
+        assertFunction("37.7 % 17.1", DOUBLE, 37.7 % 17.1);
+        assertFunction("17.1 % 37.7", DOUBLE, 17.1 % 37.7);
+        assertFunction("17.1 % 17.1", DOUBLE, 17.1 % 17.1);
     }
 
     @Test
     public void testNegation()
             throws Exception
     {
-        assertFunction("-(37.7)", -37.7);
-        assertFunction("-(17.1)", -17.1);
+        assertFunction("-(37.7)", DOUBLE, -37.7);
+        assertFunction("-(17.1)", DOUBLE, -17.1);
     }
 
     @Test
     public void testEqual()
             throws Exception
     {
-        assertFunction("37.7 = 37.7", true);
-        assertFunction("37.7 = 17.1", false);
-        assertFunction("17.1 = 37.7", false);
-        assertFunction("17.1 = 17.1", true);
+        assertFunction("37.7 = 37.7", BOOLEAN, true);
+        assertFunction("37.7 = 17.1", BOOLEAN, false);
+        assertFunction("17.1 = 37.7", BOOLEAN, false);
+        assertFunction("17.1 = 17.1", BOOLEAN, true);
     }
 
     @Test
     public void testNotEqual()
             throws Exception
     {
-        assertFunction("37.7 <> 37.7", false);
-        assertFunction("37.7 <> 17.1", true);
-        assertFunction("17.1 <> 37.7", true);
-        assertFunction("17.1 <> 17.1", false);
+        assertFunction("37.7 <> 37.7", BOOLEAN, false);
+        assertFunction("37.7 <> 17.1", BOOLEAN, true);
+        assertFunction("17.1 <> 37.7", BOOLEAN, true);
+        assertFunction("17.1 <> 17.1", BOOLEAN, false);
     }
 
     @Test
     public void testLessThan()
             throws Exception
     {
-        assertFunction("37.7 < 37.7", false);
-        assertFunction("37.7 < 17.1", false);
-        assertFunction("17.1 < 37.7", true);
-        assertFunction("17.1 < 17.1", false);
+        assertFunction("37.7 < 37.7", BOOLEAN, false);
+        assertFunction("37.7 < 17.1", BOOLEAN, false);
+        assertFunction("17.1 < 37.7", BOOLEAN, true);
+        assertFunction("17.1 < 17.1", BOOLEAN, false);
     }
 
     @Test
     public void testLessThanOrEqual()
             throws Exception
     {
-        assertFunction("37.7 <= 37.7", true);
-        assertFunction("37.7 <= 17.1", false);
-        assertFunction("17.1 <= 37.7", true);
-        assertFunction("17.1 <= 17.1", true);
+        assertFunction("37.7 <= 37.7", BOOLEAN, true);
+        assertFunction("37.7 <= 17.1", BOOLEAN, false);
+        assertFunction("17.1 <= 37.7", BOOLEAN, true);
+        assertFunction("17.1 <= 17.1", BOOLEAN, true);
     }
 
     @Test
     public void testGreaterThan()
             throws Exception
     {
-        assertFunction("37.7 > 37.7", false);
-        assertFunction("37.7 > 17.1", true);
-        assertFunction("17.1 > 37.7", false);
-        assertFunction("17.1 > 17.1", false);
+        assertFunction("37.7 > 37.7", BOOLEAN, false);
+        assertFunction("37.7 > 17.1", BOOLEAN, true);
+        assertFunction("17.1 > 37.7", BOOLEAN, false);
+        assertFunction("17.1 > 17.1", BOOLEAN, false);
     }
 
     @Test
     public void testGreaterThanOrEqual()
             throws Exception
     {
-        assertFunction("37.7 >= 37.7", true);
-        assertFunction("37.7 >= 17.1", true);
-        assertFunction("17.1 >= 37.7", false);
-        assertFunction("17.1 >= 17.1", true);
+        assertFunction("37.7 >= 37.7", BOOLEAN, true);
+        assertFunction("37.7 >= 17.1", BOOLEAN, true);
+        assertFunction("17.1 >= 37.7", BOOLEAN, false);
+        assertFunction("17.1 >= 17.1", BOOLEAN, true);
     }
 
     @Test
     public void testBetween()
             throws Exception
     {
-        assertFunction("37.7 BETWEEN 37.7 AND 37.7", true);
-        assertFunction("37.7 BETWEEN 37.7 AND 17.1", false);
+        assertFunction("37.7 BETWEEN 37.7 AND 37.7", BOOLEAN, true);
+        assertFunction("37.7 BETWEEN 37.7 AND 17.1", BOOLEAN, false);
 
-        assertFunction("37.7 BETWEEN 17.1 AND 37.7", true);
-        assertFunction("37.7 BETWEEN 17.1 AND 17.1", false);
+        assertFunction("37.7 BETWEEN 17.1 AND 37.7", BOOLEAN, true);
+        assertFunction("37.7 BETWEEN 17.1 AND 17.1", BOOLEAN, false);
 
-        assertFunction("17.1 BETWEEN 37.7 AND 37.7", false);
-        assertFunction("17.1 BETWEEN 37.7 AND 17.1", false);
+        assertFunction("17.1 BETWEEN 37.7 AND 37.7", BOOLEAN, false);
+        assertFunction("17.1 BETWEEN 37.7 AND 17.1", BOOLEAN, false);
 
-        assertFunction("17.1 BETWEEN 17.1 AND 37.7", true);
-        assertFunction("17.1 BETWEEN 17.1 AND 17.1", true);
+        assertFunction("17.1 BETWEEN 17.1 AND 37.7", BOOLEAN, true);
+        assertFunction("17.1 BETWEEN 17.1 AND 17.1", BOOLEAN, true);
     }
 
     @Test
     public void testCastToVarchar()
             throws Exception
     {
-        assertFunction("cast(37.7 as varchar)", "37.7");
-        assertFunction("cast(17.1 as varchar)", "17.1");
+        assertFunction("cast(37.7 as varchar)", VARCHAR, "37.7");
+        assertFunction("cast(17.1 as varchar)", VARCHAR, "17.1");
     }
 
     @Test
     public void testCastToBigint()
             throws Exception
     {
-        assertFunction("cast(37.7 as bigint)", 38L);
-        assertFunction("cast(17.1 as bigint)", 17L);
+        assertFunction("cast(37.7 as bigint)", BIGINT, 38L);
+        assertFunction("cast(17.1 as bigint)", BIGINT, 17L);
     }
 
     @Test
     public void testCastToBoolean()
             throws Exception
     {
-        assertFunction("cast(37.7 as boolean)", true);
-        assertFunction("cast(17.1 as boolean)", true);
-        assertFunction("cast(0.0 as boolean)", false);
+        assertFunction("cast(37.7 as boolean)", BOOLEAN, true);
+        assertFunction("cast(17.1 as boolean)", BOOLEAN, true);
+        assertFunction("cast(0.0 as boolean)", BOOLEAN, false);
     }
 
     @Test
     public void testCastFromVarchar()
             throws Exception
     {
-        assertFunction("cast('37.7' as double)", 37.7);
-        assertFunction("cast('17.1' as double)", 17.1);
+        assertFunction("cast('37.7' as double)", DOUBLE, 37.7);
+        assertFunction("cast('17.1' as double)", DOUBLE, 17.1);
     }
 }

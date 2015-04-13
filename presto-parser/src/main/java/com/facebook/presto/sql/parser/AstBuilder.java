@@ -25,6 +25,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -90,6 +91,7 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
@@ -142,7 +144,13 @@ class AstBuilder
     @Override
     public Node visitCreateTableAsSelect(@NotNull SqlBaseParser.CreateTableAsSelectContext context)
     {
-        return new CreateTable(getQualifiedName(context.qualifiedName()), (Query) visit(context.query()));
+        return new CreateTableAsSelect(getQualifiedName(context.qualifiedName()), (Query) visit(context.query()));
+    }
+
+    @Override
+    public Node visitCreateTable(@NotNull SqlBaseParser.CreateTableContext context)
+    {
+        return new CreateTable(getQualifiedName(context.qualifiedName()), visit(context.tableElement(), TableElement.class));
     }
 
     @Override
@@ -445,29 +453,34 @@ class AstBuilder
     public Node visitJoinRelation(@NotNull SqlBaseParser.JoinRelationContext context)
     {
         Relation left = (Relation) visit(context.left);
-        Relation right = (Relation) visit(context.right);
+        Relation right;
 
         if (context.CROSS() != null) {
+            right = (Relation) visit(context.right);
             return new Join(Join.Type.CROSS, left, right, Optional.<JoinCriteria>empty());
         }
 
         JoinCriteria criteria;
         if (context.NATURAL() != null) {
+            right = (Relation) visit(context.right);
             criteria = new NaturalJoin();
         }
-        else if (context.joinCriteria().ON() != null) {
-            criteria = new JoinOn((Expression) visit(context.joinCriteria().booleanExpression()));
-        }
-        else if (context.joinCriteria().USING() != null) {
-            List<String> columns = context.joinCriteria()
-                    .identifier().stream()
-                    .map(ParseTree::getText)
-                    .collect(Collectors.toList());
-
-            criteria = new JoinUsing(columns);
-        }
         else {
-            throw new IllegalArgumentException("Unsupported join criteria");
+            right = (Relation) visit(context.rightRelation);
+            if (context.joinCriteria().ON() != null) {
+                criteria = new JoinOn((Expression) visit(context.joinCriteria().booleanExpression()));
+            }
+            else if (context.joinCriteria().USING() != null) {
+                List<String> columns = context.joinCriteria()
+                        .identifier().stream()
+                        .map(ParseTree::getText)
+                        .collect(Collectors.toList());
+
+                criteria = new JoinUsing(columns);
+            }
+            else {
+                throw new IllegalArgumentException("Unsupported join criteria");
+            }
         }
 
         Join.Type joinType;
@@ -866,6 +879,12 @@ class AstBuilder
                 visit(context.partition, Expression.class),
                 visit(context.sortItem(), SortItem.class),
                 visitIfPresent(context.windowFrame(), WindowFrame.class));
+    }
+
+    @Override
+    public Node visitTableElement(@NotNull SqlBaseParser.TableElementContext context)
+    {
+        return new TableElement(context.identifier().getText(), getType(context.type()));
     }
 
     @Override

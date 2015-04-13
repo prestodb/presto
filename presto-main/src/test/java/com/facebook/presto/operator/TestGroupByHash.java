@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -37,10 +38,38 @@ public class TestGroupByHash
     private static final int MAX_GROUP_ID = 500;
 
     @Test
+    public void testAddPage()
+            throws Exception
+    {
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(BIGINT), new int[] {0}, Optional.of(1), 100);
+        for (int tries = 0; tries < 2; tries++) {
+            for (int value = 0; value < MAX_GROUP_ID; value++) {
+                Block block = BlockAssertions.createLongsBlock(value);
+                Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(BIGINT), block);
+                Page page = new Page(block, hashBlock);
+                for (int addValuesTries = 0; addValuesTries < 10; addValuesTries++) {
+                    groupByHash.addPage(page);
+                    assertEquals(groupByHash.getGroupCount(), tries == 0 ? value + 1 : MAX_GROUP_ID);
+
+                    // add the page again using get group ids and make sure the group count didn't change
+                    GroupByIdBlock groupIds = groupByHash.getGroupIds(page);
+                    assertEquals(groupByHash.getGroupCount(), tries == 0 ? value + 1 : MAX_GROUP_ID);
+                    assertEquals(groupIds.getGroupCount(), tries == 0 ? value + 1 : MAX_GROUP_ID);
+
+                    // verify the first position
+                    assertEquals(groupIds.getPositionCount(), 1);
+                    long groupId = groupIds.getGroupId(0);
+                    assertEquals(groupId, value);
+                }
+            }
+        }
+    }
+
+    @Test
     public void testGetGroupIds()
             throws Exception
     {
-        GroupByHash groupByHash = new GroupByHash(ImmutableList.of(BIGINT), new int[] { 0 }, Optional.of(1), 100);
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(BIGINT), new int[] {0}, Optional.of(1), 100);
         for (int tries = 0; tries < 2; tries++) {
             for (int value = 0; value < MAX_GROUP_ID; value++) {
                 Block block = BlockAssertions.createLongsBlock(value);
@@ -61,7 +90,7 @@ public class TestGroupByHash
     public void testTypes()
             throws Exception
     {
-        GroupByHash groupByHash = new GroupByHash(ImmutableList.of(VARCHAR), new int[] { 0 }, Optional.of(1), 100);
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(VARCHAR), new int[] {0}, Optional.of(1), 100);
         // Additional bigint channel for hash
         assertEquals(groupByHash.getTypes(), ImmutableList.of(VARCHAR, BIGINT));
     }
@@ -72,7 +101,7 @@ public class TestGroupByHash
     {
         Block valuesBlock = BlockAssertions.createStringSequenceBlock(0, 100);
         Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(VARCHAR), valuesBlock);
-        GroupByHash groupByHash = new GroupByHash(ImmutableList.of(VARCHAR), new int[] { 0 }, Optional.of(1), 100);
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(VARCHAR), new int[] {0}, Optional.of(1), 100);
 
         GroupByIdBlock groupIds = groupByHash.getGroupIds(new Page(valuesBlock, hashBlock));
         for (int i = 0; i < groupIds.getPositionCount(); i++) {
@@ -106,7 +135,7 @@ public class TestGroupByHash
         Block valuesBlock = BlockAssertions.createLongsBlock(values);
         Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(BIGINT), valuesBlock);
 
-        GroupByHash groupByHash = new GroupByHash(ImmutableList.of(BIGINT), new int[] { 0 }, Optional.of(1), 100);
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(BIGINT), new int[] {0}, Optional.of(1), 100);
         groupByHash.getGroupIds(new Page(valuesBlock, hashBlock));
         assertEquals(groupByHash.getGroupCount(), 50);
 
@@ -126,7 +155,7 @@ public class TestGroupByHash
     {
         Block valuesBlock = BlockAssertions.createDoubleSequenceBlock(0, 10);
         Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(DOUBLE), valuesBlock);
-        GroupByHash groupByHash = new GroupByHash(ImmutableList.of(DOUBLE), new int[] { 0 }, Optional.of(1), 100);
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(DOUBLE), new int[] {0}, Optional.of(1), 100);
         groupByHash.getGroupIds(new Page(valuesBlock, hashBlock));
 
         Block testBlock = BlockAssertions.createDoublesBlock((double) 3);
@@ -145,7 +174,7 @@ public class TestGroupByHash
         Block valuesBlock = BlockAssertions.createDoubleSequenceBlock(0, 10);
         Block stringValuesBlock = BlockAssertions.createStringSequenceBlock(0, 10);
         Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(DOUBLE, VARCHAR), valuesBlock, stringValuesBlock);
-        GroupByHash groupByHash = new GroupByHash(ImmutableList.of(DOUBLE, VARCHAR), new int[] { 0, 1 }, Optional.of(2), 100);
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(DOUBLE, VARCHAR), new int[] {0, 1}, Optional.of(2), 100);
         groupByHash.getGroupIds(new Page(valuesBlock, stringValuesBlock, hashBlock));
 
         Block testValuesBlock = BlockAssertions.createDoublesBlock((double) 3);
@@ -163,7 +192,7 @@ public class TestGroupByHash
         Block hashBlock = TypeUtils.getHashBlock(ImmutableList.of(VARCHAR), valuesBlock);
 
         // Create group by hash with extremely small size
-        GroupByHash groupByHash = new GroupByHash(ImmutableList.of(VARCHAR), new int[] { 0 }, Optional.of(1), 4);
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(VARCHAR), new int[] {0}, Optional.of(1), 4);
         groupByHash.getGroupIds(new Page(valuesBlock, hashBlock));
 
         // Ensure that all groups are present in group by hash

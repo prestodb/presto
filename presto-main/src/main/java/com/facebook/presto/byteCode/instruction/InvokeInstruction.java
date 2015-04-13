@@ -16,6 +16,7 @@ package com.facebook.presto.byteCode.instruction;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.MethodDefinition;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.OpCode;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.google.common.base.CharMatcher;
@@ -40,6 +41,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 
+@SuppressWarnings("UnusedDeclaration")
 public class InvokeInstruction
         implements InstructionNode
 {
@@ -353,7 +355,7 @@ public class InvokeInstruction
     }
 
     @Override
-    public void accept(MethodVisitor visitor)
+    public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
         visitor.visitMethodInsn(opCode.getOpCode(), target.getClassName(), name, getMethodDescription());
     }
@@ -388,7 +390,7 @@ public class InvokeInstruction
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
             Handle bootstrapMethodHandle = new Handle(Opcodes.H_INVOKESTATIC,
                     type(bootstrapMethod.getDeclaringClass()).getClassName(),

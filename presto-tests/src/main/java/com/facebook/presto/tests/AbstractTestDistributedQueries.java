@@ -105,6 +105,17 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testCreateTable()
+            throws Exception
+    {
+        assertQueryTrue("CREATE TABLE test_create (a bigint, b double, c varchar)");
+        assertTrue(queryRunner.tableExists(getSession(), "test_create"));
+
+        assertQueryTrue("DROP TABLE test_create");
+        assertFalse(queryRunner.tableExists(getSession(), "test_create"));
+    }
+
+    @Test
     public void testCreateTableAsSelect()
             throws Exception
     {

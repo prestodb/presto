@@ -56,6 +56,12 @@ public class TestKafkaDistributed
     //
 
     @Override
+    public void testCreateTable()
+            throws Exception
+    {
+    }
+
+    @Override
     public void testCreateSampledTableAsSelectLimit()
             throws Exception
     {
@@ -81,6 +87,12 @@ public class TestKafkaDistributed
 
     @Override
     public void testCreateTableAsSelectLimit()
+            throws Exception
+    {
+    }
+
+    @Override
+    public void testSymbolAliasing()
             throws Exception
     {
     }

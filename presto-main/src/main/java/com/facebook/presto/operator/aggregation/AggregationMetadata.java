@@ -56,7 +56,6 @@ public class AggregationMetadata
     private final MethodHandle combineFunction;
     @Nullable
     private final MethodHandle outputFunction;
-    private final Class<?> stateInterface;
     private final AccumulatorStateSerializer<?> stateSerializer;
     private final AccumulatorStateFactory<?> stateFactory;
     private final Type outputType;
@@ -92,7 +91,6 @@ public class AggregationMetadata
         this.intermediateInputFunction = intermediateInputFunction;
         this.combineFunction = combineFunction;
         this.outputFunction = outputFunction;
-        this.stateInterface = checkNotNull(stateInterface, "stateInterface is null");
         this.stateSerializer = checkNotNull(stateSerializer, "stateSerializer is null");
         this.stateFactory = checkNotNull(stateFactory, "stateFactory is null");
         this.approximate = approximate;
@@ -154,11 +152,6 @@ public class AggregationMetadata
     public MethodHandle getOutputFunction()
     {
         return outputFunction;
-    }
-
-    public Class<?> getStateInterface()
-    {
-        return stateInterface;
     }
 
     public AccumulatorStateSerializer<?> getStateSerializer()
@@ -254,7 +247,7 @@ public class AggregationMetadata
             this.sqlType = sqlType;
         }
 
-        public static ParameterMetadata fromAnnotations(Annotation[] annotations, String methodName, TypeManager typeManager)
+        public static ParameterMetadata fromAnnotations(Annotation[] annotations, String methodName, TypeManager typeManager, boolean sampleWeightAllowed)
         {
             List<Annotation> baseTypes = Arrays.asList(annotations).stream()
                     .filter(annotation -> annotation instanceof SqlType || annotation instanceof BlockIndex || annotation instanceof SampleWeight)
@@ -279,6 +272,7 @@ public class AggregationMetadata
                 return new ParameterMetadata(BLOCK_INDEX);
             }
             else if (annotation instanceof SampleWeight) {
+                checkArgument(sampleWeightAllowed, "@SampleWeight only allowed in approximate aggregations");
                 return new ParameterMetadata(SAMPLE_WEIGHT);
             }
             else {

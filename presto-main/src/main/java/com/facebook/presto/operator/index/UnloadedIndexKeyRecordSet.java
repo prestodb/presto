@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -59,7 +60,7 @@ public class UnloadedIndexKeyRecordSet
         }
 
         ImmutableList.Builder<PageAndPositions> builder = ImmutableList.builder();
-        GroupByHash groupByHash = new GroupByHash(distinctChannelTypes, normalizedDistinctChannels, Optional.empty(), 10_000);
+        GroupByHash groupByHash = createGroupByHash(distinctChannelTypes, normalizedDistinctChannels, Optional.empty(), 10_000);
         for (UpdateRequest request : requests) {
             Page page = request.getPage();
             Block[] blocks = page.getBlocks();

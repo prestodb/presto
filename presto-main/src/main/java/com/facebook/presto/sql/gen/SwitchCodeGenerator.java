@@ -15,7 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
@@ -31,6 +31,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 import java.util.List;
+
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
 
 public class SwitchCodeGenerator
         implements ByteCodeGenerator
@@ -68,7 +71,7 @@ public class SwitchCodeGenerator
             // repeat with next sequence of constant expressions
          */
 
-        CompilerContext context = generatorContext.getContext();
+        Scope scope = generatorContext.getScope();
 
         // process value, else, and all when clauses
         RowExpression value = arguments.get(0);
@@ -79,8 +82,8 @@ public class SwitchCodeGenerator
         RowExpression last = arguments.get(arguments.size() - 1);
         if (last instanceof CallExpression && ((CallExpression) last).getSignature().getName().equals("WHEN")) {
             whenClauses = arguments.subList(1, arguments.size());
-            elseValue = new Block(context)
-                    .putVariable("wasNull", true)
+            elseValue = new Block()
+                    .append(generatorContext.wasNull().set(constantTrue()))
                     .pushJavaDefault(returnType.getJavaType());
         }
         else {
@@ -93,16 +96,16 @@ public class SwitchCodeGenerator
 
         // evaluate the value and store it in a variable
         LabelNode nullValue = new LabelNode("nullCondition");
-        Variable tempVariable = context.createTempVariable(valueType);
-        Block block = new Block(context)
+        Variable tempVariable = scope.createTempVariable(valueType);
+        Block block = new Block()
                 .append(valueBytecode)
-                .append(ByteCodeUtils.ifWasNullClearPopAndGoto(context, nullValue, void.class, valueType))
+                .append(ByteCodeUtils.ifWasNullClearPopAndGoto(scope, nullValue, void.class, valueType))
                 .putVariable(tempVariable);
 
         ByteCodeNode getTempVariableNode = VariableInstruction.loadVariable(tempVariable);
 
         // build the statements
-        elseValue = new Block(context).visitLabel(nullValue).append(elseValue);
+        elseValue = new Block().visitLabel(nullValue).append(elseValue);
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
         for (RowExpression clause : Lists.reverse(whenClauses)) {
             Preconditions.checkArgument(clause instanceof CallExpression && ((CallExpression) clause).getSignature().getName().equals("WHEN"));
@@ -122,15 +125,14 @@ public class SwitchCodeGenerator
                     equalsFunction,
                     ImmutableList.of(generatorContext.generate(operand), getTempVariableNode));
 
-            Block condition = new Block(context)
+            Block condition = new Block()
                     .append(equalsCall)
-                    .putVariable("wasNull", false);
+                    .append(generatorContext.wasNull().set(constantFalse()));
 
-            elseValue = new IfStatement(context,
-                    "when",
-                    condition,
-                    generatorContext.generate(result),
-                    elseValue);
+            elseValue = new IfStatement("when")
+                    .condition(condition)
+                    .ifTrue(generatorContext.generate(result))
+                    .ifFalse(elseValue);
         }
 
         return block.append(elseValue);

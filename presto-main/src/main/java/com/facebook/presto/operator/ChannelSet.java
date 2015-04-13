@@ -14,15 +14,14 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
 public class ChannelSet
@@ -56,12 +55,6 @@ public class ChannelSet
         return containsNull;
     }
 
-    public boolean contains(int position, Page page, Block hashBlock)
-    {
-        int rawHash = (int) BigintType.BIGINT.getLong(hashBlock, position);
-        return hash.contains(position, page, rawHash);
-    }
-
     public boolean contains(int position, Page page)
     {
         return hash.contains(position, page);
@@ -76,7 +69,7 @@ public class ChannelSet
         public ChannelSetBuilder(Type type, Optional<Integer> hashChannel, int expectedPositions, OperatorContext operatorContext)
         {
             List<Type> types = ImmutableList.of(type);
-            this.hash = new GroupByHash(types, new int[] {0}, hashChannel, expectedPositions);
+            this.hash = createGroupByHash(types, new int[] {0}, hashChannel, expectedPositions);
             this.operatorContext = operatorContext;
             this.nullBlockPage = new Page(type.createBlockBuilder(new BlockBuilderStatus(), 1, UNKNOWN.getFixedSize()).appendNull().build());
         }
@@ -98,7 +91,7 @@ public class ChannelSet
 
         public void addPage(Page page)
         {
-            hash.getGroupIds(page);
+            hash.addPage(page);
 
             if (operatorContext != null) {
                 operatorContext.setMemoryReservation(hash.getEstimatedSize());

@@ -15,6 +15,7 @@ General Changes
 ---------------
 
 * Fix ``%f`` specifier in :func:`date_format` and :func:`date_parse`.
+* Add ``WITH ORDINALITY`` support to ``UNNEST``.
 * Add :func:`array_distinct` function.
 * Add :func:`split` function.
 * Add :func:`degrees` and :func:`radians` functions.
@@ -22,3 +23,7 @@ General Changes
 * Rename config property ``task.shard.max-threads`` to ``task.max-worker-threads``.
   This property sets the number of threads used to concurrently process splits.
   The old property name is deprecated and will be removed in a future release.
+* Fix referencing ``NULL`` values in :ref:`row_type`.
+* Make :ref:`map_type` comparable.
+* Fix leak of tasks blocked during query teardown.
+* Improve query queue config validation.

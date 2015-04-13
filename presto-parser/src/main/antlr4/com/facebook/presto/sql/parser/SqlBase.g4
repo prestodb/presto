@@ -31,6 +31,8 @@ statement
     | USE schema=identifier                                            #use
     | USE catalog=identifier '.' schema=identifier                     #use
     | CREATE TABLE qualifiedName AS query                              #createTableAsSelect
+    | CREATE TABLE qualifiedName
+        '(' tableElement (',' tableElement)* ')'                       #createTable
     | DROP TABLE qualifiedName                                         #dropTable
     | INSERT INTO qualifiedName query                                  #insertInto
     | ALTER TABLE from=qualifiedName RENAME TO to=qualifiedName        #renameTable
@@ -59,6 +61,10 @@ query
 
 with
     : WITH RECURSIVE? namedQuery (',' namedQuery)*
+    ;
+
+tableElement
+    : identifier type
     ;
 
 queryNoWith:
@@ -110,9 +116,9 @@ selectItem
 
 relation
     : left=relation
-      ( CROSS JOIN right=relation
-      | joinType JOIN right=relation joinCriteria
-      | NATURAL joinType JOIN right=relation
+      ( CROSS JOIN right=sampledRelation
+      | joinType JOIN rightRelation=relation joinCriteria
+      | NATURAL joinType JOIN right=sampledRelation
       )                                           #joinRelation
     | sampledRelation                             #relationDefault
     ;

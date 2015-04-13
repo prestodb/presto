@@ -16,9 +16,9 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.MethodDefinition;
-import com.facebook.presto.byteCode.NamedParameterDefinition;
+import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.ForLoop;
@@ -46,12 +46,9 @@ import java.util.TreeSet;
 
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
+import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.OpCode.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.byteCode.control.ForLoop.ForLoopBuilder;
-import static com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.loadConstant;
 import static java.lang.String.format;
@@ -80,36 +77,28 @@ public class PageProcessorCompiler
 
     private void generateProcessMethod(ClassDefinition classDefinition, RowExpression filter, List<RowExpression> projections)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
-        MethodDefinition method = classDefinition.declareMethod(context,
-                a(PUBLIC),
-                "process",
-                type(int.class),
-                arg("session", ConnectorSession.class),
-                arg("page", Page.class),
-                arg("start", int.class),
-                arg("end", int.class),
-                arg("pageBuilder", PageBuilder.class));
+        Parameter session = arg("session", ConnectorSession.class);
+        Parameter page = arg("page", Page.class);
+        Parameter start = arg("start", int.class);
+        Parameter end = arg("end", int.class);
+        Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(int.class), session, page, start, end, pageBuilder);
 
-        Variable sessionVariable = context.getVariable("session");
-        Variable pageVariable = context.getVariable("page");
-        Variable startVariable = context.getVariable("start");
-        Variable endVariable = context.getVariable("end");
-        Variable pageBuilderVariable = context.getVariable("pageBuilder");
-
-        Variable positionVariable = context.declareVariable(int.class, "position");
+        Scope scope = method.getScope();
+        Variable thisVariable = method.getThis();
+        Variable position = scope.declareVariable(int.class, "position");
 
         method.getBody()
                 .comment("int position = start;")
-                .getVariable(startVariable)
-                .putVariable(positionVariable);
+                .getVariable(start)
+                .putVariable(position);
 
         List<Integer> allInputChannels = getInputChannels(Iterables.concat(projections, ImmutableList.of(filter)));
         for (int channel : allInputChannels) {
-            Variable blockVariable = context.declareVariable(com.facebook.presto.spi.block.Block.class, "block_" + channel);
+            Variable blockVariable = scope.declareVariable(com.facebook.presto.spi.block.Block.class, "block_" + channel);
             method.getBody()
                     .comment("Block %s = page.getBlock(%s);", blockVariable.getName(), channel)
-                    .getVariable(pageVariable)
+                    .getVariable(page)
                     .push(channel)
                     .invokeVirtual(Page.class, "getBlock", com.facebook.presto.spi.block.Block.class, int.class)
                     .putVariable(blockVariable);
@@ -120,35 +109,33 @@ public class PageProcessorCompiler
         //
         LabelNode done = new LabelNode("done");
 
-        Block loopBody = new Block(context);
+        Block loopBody = new Block();
 
-        ForLoopBuilder loop = ForLoop.forLoopBuilder(context)
+        ForLoop loop = new ForLoop()
                 .initialize(NOP)
-                .condition(new Block(context)
+                .condition(new Block()
                                 .comment("position < end")
-                                .getVariable(positionVariable)
-                                .getVariable(endVariable)
+                                .getVariable(position)
+                                .getVariable(end)
                                 .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class)
                 )
-                .update(new Block(context)
+                .update(new Block()
                         .comment("position++")
-                        .incrementVariable(positionVariable, (byte) 1))
+                        .incrementVariable(position, (byte) 1))
                 .body(loopBody);
 
         loopBody.comment("if (pageBuilder.isFull()) break;")
-                .getVariable(pageBuilderVariable)
+                .getVariable(pageBuilder)
                 .invokeVirtual(PageBuilder.class, "isFull", boolean.class)
                 .ifTrueGoto(done);
 
         // if (filter(cursor))
-        IfStatementBuilder filterBlock = new IfStatementBuilder(context);
-
-        Block trueBlock = new Block(context);
-        filterBlock.condition(new Block(context)
-                .pushThis()
-                .getVariable(sessionVariable)
-                .append(pushBlockVariables(context, getInputChannels(filter)))
-                .getVariable(positionVariable)
+        IfStatement filterBlock = new IfStatement();
+        filterBlock.condition()
+                .append(thisVariable)
+                .getVariable(session)
+                .append(pushBlockVariables(scope, getInputChannels(filter)))
+                .getVariable(position)
                 .invokeVirtual(classDefinition.getType(),
                         "filter",
                         type(boolean.class),
@@ -156,26 +143,29 @@ public class PageProcessorCompiler
                                 .add(type(ConnectorSession.class))
                                 .addAll(nCopies(getInputChannels(filter).size(), type(com.facebook.presto.spi.block.Block.class)))
                                 .add(type(int.class))
-                                .build()))
-                .ifTrue(trueBlock);
+                                .build());
 
-        trueBlock.getVariable(pageBuilderVariable)
+        filterBlock.ifTrue()
+                .append(pageBuilder)
                 .invokeVirtual(PageBuilder.class, "declarePosition", void.class);
 
         for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
             List<Integer> inputChannels = getInputChannels(projections.get(projectionIndex));
 
-            trueBlock.pushThis()
-                    .getVariable(sessionVariable)
-                    .append(pushBlockVariables(context, inputChannels))
-                    .getVariable(positionVariable);
+            filterBlock.ifTrue()
+                    .append(thisVariable)
+                    .append(session)
+                    .append(pushBlockVariables(scope, inputChannels))
+                    .getVariable(position);
 
-            trueBlock.comment("pageBuilder.getBlockBuilder(" + projectionIndex + ")")
-                    .getVariable(pageBuilderVariable)
+            filterBlock.ifTrue()
+                    .comment("pageBuilder.getBlockBuilder(" + projectionIndex + ")")
+                    .append(pageBuilder)
                     .push(projectionIndex)
                     .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
 
-            trueBlock.comment("project_" + projectionIndex + "(session, block_" + inputChannels + ", position, blockBuilder)")
+            filterBlock.ifTrue()
+                    .comment("project_" + projectionIndex + "(session, block_" + inputChannels + ", position, blockBuilder)")
                     .invokeVirtual(classDefinition.getType(),
                             "project_" + projectionIndex,
                             type(void.class),
@@ -187,39 +177,41 @@ public class PageProcessorCompiler
                                     .build());
         }
 
-        loopBody.append(filterBlock.build());
+        loopBody.append(filterBlock);
 
         method.getBody()
-                .append(loop.build())
+                .append(loop)
                 .visitLabel(done)
                 .comment("return position;")
-                .getVariable(positionVariable)
+                .getVariable(position)
                 .retInt();
     }
 
     private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
-        MethodDefinition method = classDefinition.declareMethod(context,
+        Parameter session = arg("session", ConnectorSession.class);
+        List<Parameter> blocks = toBlockParameters(getInputChannels(filter));
+        Parameter position = arg("position", int.class);
+        MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
                 "filter",
                 type(boolean.class),
-                ImmutableList.<NamedParameterDefinition>builder()
-                        .add(arg("session", ConnectorSession.class))
-                        .addAll(toBlockParameters(getInputChannels(filter)))
-                        .add(arg("position", int.class))
+                ImmutableList.<Parameter>builder()
+                        .add(session)
+                        .addAll(blocks)
+                        .add(position)
                         .build());
 
         method.comment("Filter: %s", filter.toString());
 
-        Variable positionVariable = context.getVariable("position");
-        Variable wasNullVariable = context.declareVariable(type(boolean.class), "wasNull");
+        Scope scope = method.getScope();
+        Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
         ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(
                 callSiteBinder,
-                fieldReferenceCompiler(callSiteBinder, positionVariable, wasNullVariable),
+                fieldReferenceCompiler(callSiteBinder, position, wasNullVariable),
                 metadata.getFunctionRegistry());
-        ByteCodeNode body = filter.accept(visitor, context);
+        ByteCodeNode body = filter.accept(visitor, scope);
 
         LabelNode end = new LabelNode("end");
         method
@@ -237,35 +229,36 @@ public class PageProcessorCompiler
 
     private void generateProjectMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String methodName, RowExpression projection)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
-        MethodDefinition method = classDefinition.declareMethod(context,
+        Parameter session = arg("session", ConnectorSession.class);
+        List<Parameter> inputs = toBlockParameters(getInputChannels(projection));
+        Parameter position = arg("position", int.class);
+        Parameter output = arg("output", BlockBuilder.class);
+        MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
                 methodName,
                 type(void.class),
-                ImmutableList.<NamedParameterDefinition>builder()
-                        .add(arg("session", ConnectorSession.class))
-                        .addAll(toBlockParameters(getInputChannels(projection)))
-                        .add(arg("position", int.class))
-                        .add(arg("output", BlockBuilder.class))
+                ImmutableList.<Parameter>builder()
+                        .add(session)
+                        .addAll(inputs)
+                        .add(position)
+                        .add(output)
                         .build());
 
         method.comment("Projection: %s", projection.toString());
 
-        Variable positionVariable = context.getVariable("position");
-        Variable outputVariable = context.getVariable("output");
-
-        Variable wasNullVariable = context.declareVariable(type(boolean.class), "wasNull");
+        Scope scope = method.getScope();
+        Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
         Block body = method.getBody()
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false);
 
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(callSiteBinder, positionVariable, wasNullVariable), metadata.getFunctionRegistry());
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(callSiteBinder, position, wasNullVariable), metadata.getFunctionRegistry());
 
-        body.getVariable(outputVariable)
+        body.getVariable(output)
                 .comment("evaluate projection: " + projection.toString())
-                .append(projection.accept(visitor, context))
-                .append(generateWrite(callSiteBinder, context, wasNullVariable, projection.getType()))
+                .append(projection.accept(visitor, scope))
+                .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
                 .ret();
     }
 
@@ -285,64 +278,66 @@ public class PageProcessorCompiler
         return getInputChannels(ImmutableList.of(expression));
     }
 
-    private static List<NamedParameterDefinition> toBlockParameters(List<Integer> inputChannels)
+    private static List<Parameter> toBlockParameters(List<Integer> inputChannels)
     {
-        ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
+        ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         for (int channel : inputChannels) {
             parameters.add(arg("block_" + channel, com.facebook.presto.spi.block.Block.class));
         }
         return parameters.build();
     }
 
-    private static ByteCodeNode pushBlockVariables(CompilerContext context, List<Integer> inputs)
+    private static ByteCodeNode pushBlockVariables(Scope scope, List<Integer> inputs)
     {
-        Block block = new Block(context);
+        Block block = new Block();
         for (int channel : inputs) {
-            block.getVariable("block_" + channel);
+            block.append(scope.getVariable("block_" + channel));
         }
         return block;
     }
 
-    private RowExpressionVisitor<CompilerContext, ByteCodeNode> fieldReferenceCompiler(final CallSiteBinder callSiteBinder, final Variable positionVariable, final Variable wasNullVariable)
+    private RowExpressionVisitor<Scope, ByteCodeNode> fieldReferenceCompiler(final CallSiteBinder callSiteBinder, final Variable positionVariable, final Variable wasNullVariable)
     {
-        return new RowExpressionVisitor<CompilerContext, ByteCodeNode>()
+        return new RowExpressionVisitor<Scope, ByteCodeNode>()
         {
             @Override
-            public ByteCodeNode visitInputReference(InputReferenceExpression node, CompilerContext context)
+            public ByteCodeNode visitInputReference(InputReferenceExpression node, Scope scope)
             {
                 int field = node.getField();
                 Type type = node.getType();
+                Variable block = scope.getVariable("block_" + field);
 
                 Class<?> javaType = type.getJavaType();
-                Block isNullCheck = new Block(context)
+                IfStatement ifStatement = new IfStatement();
+                ifStatement.condition()
                         .setDescription(format("block_%d.get%s()", field, type))
-                        .getVariable("block_" + field)
+                        .append(block)
                         .getVariable(positionVariable)
                         .invokeInterface(com.facebook.presto.spi.block.Block.class, "isNull", boolean.class, int.class);
 
-                Block isNull = new Block(context)
+                ifStatement.ifTrue()
                         .putVariable(wasNullVariable, true)
                         .pushJavaDefault(javaType);
 
                 String methodName = "get" + Primitives.wrap(javaType).getSimpleName();
 
-                Block isNotNull = new Block(context)
-                        .append(loadConstant(context, callSiteBinder.bind(type, Type.class)))
-                        .getVariable("block_" + field)
+                ifStatement.ifFalse()
+                        .append(loadConstant(callSiteBinder.bind(type, Type.class)))
+                        .append(block)
                         .getVariable(positionVariable)
                         .invokeInterface(Type.class, methodName, javaType, com.facebook.presto.spi.block.Block.class, int.class);
 
-                return new IfStatement(context, isNullCheck, isNull, isNotNull);
+                return ifStatement;
             }
 
             @Override
-            public ByteCodeNode visitCall(CallExpression call, CompilerContext context)
+            public ByteCodeNode visitCall(CallExpression call, Scope scope)
             {
                 throw new UnsupportedOperationException("not yet implemented");
             }
 
             @Override
-            public ByteCodeNode visitConstant(ConstantExpression literal, CompilerContext context)
+            public ByteCodeNode visitConstant(ConstantExpression literal, Scope scope)
             {
                 throw new UnsupportedOperationException("not yet implemented");
             }

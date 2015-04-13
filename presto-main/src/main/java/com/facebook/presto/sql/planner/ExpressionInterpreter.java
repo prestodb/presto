@@ -465,7 +465,7 @@ public class ExpressionInterpreter
             ComparisonExpression.Type type = node.getType();
 
             Object left = process(node.getLeft(), context);
-            if (left == null && !(type == ComparisonExpression.Type.IS_DISTINCT_FROM)) {
+            if (left == null && type != ComparisonExpression.Type.IS_DISTINCT_FROM) {
                 return null;
             }
 
@@ -590,6 +590,7 @@ public class ExpressionInterpreter
                     if (Boolean.FALSE.equals(right) || Boolean.TRUE.equals(left)) {
                         return right;
                     }
+                    break;
                 }
                 case OR: {
                     // if either left or right is true, result is always true regardless of nulls
@@ -600,6 +601,7 @@ public class ExpressionInterpreter
                     if (Boolean.TRUE.equals(right) || Boolean.FALSE.equals(left)) {
                         return right;
                     }
+                    break;
                 }
             }
 
@@ -777,7 +779,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitRow(Row node, Object context)
         {
-            throw new UnsupportedOperationException("Row expressions not yet supported");
+            throw new PrestoException(NOT_SUPPORTED, "Row expressions not yet supported");
         }
 
         @Override

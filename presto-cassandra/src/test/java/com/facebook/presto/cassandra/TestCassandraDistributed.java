@@ -57,4 +57,11 @@ public class TestCassandraDistributed
     {
         // Cassandra connector currently does not support insert
     }
+
+    @Override
+    public void testCreateTable()
+            throws Exception
+    {
+        // Cassandra connector currently does not support create table
+    }
 }

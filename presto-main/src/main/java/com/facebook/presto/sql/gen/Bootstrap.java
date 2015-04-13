@@ -49,7 +49,7 @@ public final class Bootstrap
             checkArgument(classLoader instanceof DynamicClassLoader, "Expected %s's classloader to be of type %s", callerLookup.lookupClass().getName(), DynamicClassLoader.class.getName());
 
             DynamicClassLoader dynamicClassLoader = (DynamicClassLoader) classLoader;
-            MethodHandle target = dynamicClassLoader.getCallsiteBindings().get(bindingId);
+            MethodHandle target = dynamicClassLoader.getCallSiteBindings().get(bindingId);
             checkArgument(target != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
 
             return new ConstantCallSite(target);

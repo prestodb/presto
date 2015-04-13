@@ -41,6 +41,13 @@ public interface PagesHashStrategy
     int hashRow(int position, Block... blocks);
 
     /**
+     * Compares the values in the specified blocks.  The values are compared positionally, so {@code leftBlocks}
+     * and {@code rightBlocks} must have the same number of entries as the hashed columns and each entry
+     * is expected to be the same type.
+     */
+    boolean rowEqualsRow(int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks);
+
+    /**
      * Compares the hashed columns in this PagesHashStrategy to the values in the specified blocks.  The
      * values are compared positionally, so {@code rightBlocks} must have the same number of entries as
      * the hashed columns and each entry is expected to be the same type.

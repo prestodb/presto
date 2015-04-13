@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.orc.stream;
 
-import com.facebook.presto.hive.$internal.com.google.common.primitives.Ints;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.google.common.base.MoreObjects;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;

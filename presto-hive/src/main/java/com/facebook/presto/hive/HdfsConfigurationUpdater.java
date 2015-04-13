@@ -42,6 +42,7 @@ public class HdfsConfigurationUpdater
     private final String domainSocketPath;
     private final String s3AwsAccessKey;
     private final String s3AwsSecretKey;
+    private final boolean s3UseInstanceCredentials;
     private final boolean s3SslEnabled;
     private final int s3MaxClientRetries;
     private final int s3MaxErrorRetries;
@@ -54,7 +55,6 @@ public class HdfsConfigurationUpdater
     private final DataSize s3MultipartMinPartSize;
     private final File s3StagingDirectory;
     private final List<String> resourcePaths;
-    private final boolean verifyChecksum;
 
     @Inject
     public HdfsConfigurationUpdater(HiveClientConfig hiveClientConfig)
@@ -69,6 +69,7 @@ public class HdfsConfigurationUpdater
         this.domainSocketPath = hiveClientConfig.getDomainSocketPath();
         this.s3AwsAccessKey = hiveClientConfig.getS3AwsAccessKey();
         this.s3AwsSecretKey = hiveClientConfig.getS3AwsSecretKey();
+        this.s3UseInstanceCredentials = hiveClientConfig.isS3UseInstanceCredentials();
         this.s3SslEnabled = hiveClientConfig.isS3SslEnabled();
         this.s3MaxClientRetries = hiveClientConfig.getS3MaxClientRetries();
         this.s3MaxErrorRetries = hiveClientConfig.getS3MaxErrorRetries();
@@ -81,12 +82,6 @@ public class HdfsConfigurationUpdater
         this.s3MultipartMinPartSize = hiveClientConfig.getS3MultipartMinPartSize();
         this.s3StagingDirectory = hiveClientConfig.getS3StagingDirectory();
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
-        this.verifyChecksum = hiveClientConfig.isVerifyChecksum();
-    }
-
-    public boolean verifyChecksum()
-    {
-        return verifyChecksum;
     }
 
     public void updateConfiguration(Configuration config)
@@ -135,6 +130,7 @@ public class HdfsConfigurationUpdater
         }
 
         // set config for S3
+        config.setBoolean(PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS, s3UseInstanceCredentials);
         config.setBoolean(PrestoS3FileSystem.S3_SSL_ENABLED, s3SslEnabled);
         config.setInt(PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES, s3MaxClientRetries);
         config.setInt(PrestoS3FileSystem.S3_MAX_ERROR_RETRIES, s3MaxErrorRetries);

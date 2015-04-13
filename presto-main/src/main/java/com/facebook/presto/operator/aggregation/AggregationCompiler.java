@@ -115,7 +115,7 @@ public class AggregationCompiler
                         List<Type> inputTypes = getInputTypes(inputFunction);
                         Type outputType = AggregationUtils.getOutputType(outputFunction, stateSerializer, typeManager);
 
-                        AggregationMetadata metadata = null;
+                        AggregationMetadata metadata;
                         try {
                             MethodHandle inputHandle = lookup().unreflect(inputFunction);
                             MethodHandle intermediateInputHandle = intermediateInputFunction == null ? null : lookup().unreflect(intermediateInputFunction);
@@ -139,7 +139,7 @@ public class AggregationCompiler
                             throw Throwables.propagate(e);
                         }
 
-                        GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
+                        AccumulatorFactoryBinder factory = new LazyAccumulatorFactoryBinder(metadata, classLoader);
                         builder.add(new InternalAggregationFunction(name, inputTypes, intermediateType, outputType, aggregationAnnotation.decomposable(), aggregationAnnotation.approximate(), factory));
                     }
                 }
@@ -161,7 +161,7 @@ public class AggregationCompiler
         Annotation[][] annotations = method.getParameterAnnotations();
         // Start at 1 because 0 is the STATE
         for (int i = 1; i < annotations.length; i++) {
-            builder.add(fromAnnotations(annotations[i], method.getDeclaringClass() + "." + method.getName(), typeManager));
+            builder.add(fromAnnotations(annotations[i], method.getDeclaringClass() + "." + method.getName(), typeManager, sampleWeightAllowed));
         }
         return builder.build();
     }
@@ -203,7 +203,7 @@ public class AggregationCompiler
         return null;
     }
 
-    private static List<Method> getOutputFunctions(Class<?> clazz, final Class<?> stateClass)
+    private static List<Method> getOutputFunctions(Class<?> clazz, Class<?> stateClass)
     {
         // Only include methods that match this state class
         List<Method> methods = findPublicStaticMethodsWithAnnotation(clazz, OutputFunction.class).stream()
@@ -218,7 +218,7 @@ public class AggregationCompiler
         return methods;
     }
 
-    private static List<Method> getInputFunctions(Class<?> clazz, final Class<?> stateClass)
+    private static List<Method> getInputFunctions(Class<?> clazz, Class<?> stateClass)
     {
         // Only include methods that match this state class
         List<Method> inputFunctions = findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class).stream()
@@ -242,8 +242,7 @@ public class AggregationCompiler
             }
         }
 
-        ImmutableList<Type> types = builder.build();
-        return types;
+        return builder.build();
     }
 
     private static Set<Class<?>> getStateClasses(Class<?> clazz)

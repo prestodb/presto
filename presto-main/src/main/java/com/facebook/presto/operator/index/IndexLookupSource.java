@@ -44,6 +44,12 @@ public class IndexLookupSource
     }
 
     @Override
+    public long getInMemorySizeInBytes()
+    {
+        return 0;
+    }
+
+    @Override
     public long getJoinPosition(int position, Page page, int rawHash)
     {
         // TODO update to take advantage of precomputed hash

@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
 
 import java.util.Arrays;
@@ -23,28 +24,38 @@ import java.util.List;
 public class WindowFunctionDefinition
 {
     private final WindowFunctionSupplier functionSupplier;
+    private final Type type;
     private final List<Integer> argumentChannels;
 
-    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, List<Integer> inputs)
+    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, List<Integer> inputs)
     {
         Preconditions.checkNotNull(functionSupplier, "functionSupplier is null");
+        Preconditions.checkNotNull(type, "type is null");
         Preconditions.checkNotNull(inputs, "inputs is null");
 
-        return new WindowFunctionDefinition(functionSupplier, inputs);
+        return new WindowFunctionDefinition(functionSupplier, type, inputs);
     }
 
-    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Integer... inputs)
+    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, Integer... inputs)
     {
         Preconditions.checkNotNull(functionSupplier, "functionSupplier is null");
+        Preconditions.checkNotNull(type, "type is null");
         Preconditions.checkNotNull(inputs, "inputs is null");
 
-        return window(functionSupplier, Arrays.asList(inputs));
+        return window(functionSupplier, type, Arrays.asList(inputs));
     }
 
-    WindowFunctionDefinition(WindowFunctionSupplier functionSupplier, List<Integer> argumentChannels)
+    WindowFunctionDefinition(WindowFunctionSupplier functionSupplier, Type type, List<Integer> argumentChannels)
     {
         this.functionSupplier = functionSupplier;
+        this.type = type;
         this.argumentChannels = argumentChannels;
+    }
+
+    public Type getType()
+    {
+        return type;
+
     }
 
     public WindowFunction createWindowFunction()

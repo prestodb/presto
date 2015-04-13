@@ -15,6 +15,7 @@ package com.facebook.presto.byteCode.expression;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.OpCode;
 import com.facebook.presto.byteCode.instruction.JumpInstruction;
 import com.facebook.presto.byteCode.instruction.LabelNode;
@@ -258,8 +259,8 @@ class ComparisonByteCodeExpression
     }
 
     private final String infixSymbol;
-    private OpCode comparisonInstruction;
-    private OpCode noMatchJumpInstruction;
+    private final OpCode comparisonInstruction;
+    private final OpCode noMatchJumpInstruction;
     private final ByteCodeExpression left;
     private final ByteCodeExpression right;
 
@@ -279,9 +280,9 @@ class ComparisonByteCodeExpression
     }
 
     @Override
-    public ByteCodeNode getByteCode()
+    public ByteCodeNode getByteCode(MethodGenerationContext generationContext)
     {
-        Block block = new Block(null)
+        Block block = new Block()
                 .append(left)
                 .append(right);
 

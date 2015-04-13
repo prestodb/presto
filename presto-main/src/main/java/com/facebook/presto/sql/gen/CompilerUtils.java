@@ -57,7 +57,16 @@ public final class CompilerUtils
 
     public static ParameterizedType makeClassName(String baseName)
     {
-        return ParameterizedType.typeFromJavaClassName("com.facebook.presto.$gen." + baseName + "_" + CLASS_ID.incrementAndGet());
+        String className = "com.facebook.presto.$gen." + baseName + "_" + CLASS_ID.incrementAndGet();
+        String javaClassName = toJavaIdentifierString(className);
+        return ParameterizedType.typeFromJavaClassName(javaClassName);
+    }
+
+    public static String toJavaIdentifierString(String className)
+    {
+        // replace invalid characters with '_'
+        int[] codePoints = className.codePoints().map(c -> Character.isJavaIdentifierPart(c) ? c : '_').toArray();
+        return new String(codePoints, 0, codePoints.length);
     }
 
     public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)

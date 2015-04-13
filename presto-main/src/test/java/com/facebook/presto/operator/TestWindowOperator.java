@@ -15,8 +15,10 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.operator.PrePartitionedWindowOperator.PrePartitionedWindowOperatorFactory;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.window.FirstValueFunction.VarcharFirstValueFunction;
+import com.facebook.presto.operator.window.FrameInfo;
 import com.facebook.presto.operator.window.LagFunction.VarcharLagFunction;
 import com.facebook.presto.operator.window.LastValueFunction.VarcharLastValueFunction;
 import com.facebook.presto.operator.window.LeadFunction.VarcharLeadFunction;
@@ -26,8 +28,6 @@ import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.FrameBound;
-import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -50,6 +50,9 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
+import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -58,27 +61,27 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 public class TestWindowOperator
 {
     private static final List<WindowFunctionDefinition> ROW_NUMBER = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("row_number", BIGINT, ImmutableList.<Type>of(), RowNumberFunction.class))
+            window(new ReflectionWindowFunctionSupplier<>("row_number", BIGINT, ImmutableList.<Type>of(), RowNumberFunction.class), BIGINT)
     );
 
     private static final List<WindowFunctionDefinition> FIRST_VALUE = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("first_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharFirstValueFunction.class), 1)
+            window(new ReflectionWindowFunctionSupplier<>("first_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharFirstValueFunction.class), VARCHAR, 1)
     );
 
     private static final List<WindowFunctionDefinition> LAST_VALUE = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("last_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharLastValueFunction.class), 1)
+            window(new ReflectionWindowFunctionSupplier<>("last_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharLastValueFunction.class), VARCHAR, 1)
     );
 
     private static final List<WindowFunctionDefinition> NTH_VALUE = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("nth_value", VARCHAR, ImmutableList.of(VARCHAR, BIGINT), VarcharNthValueFunction.class), 1, 3)
+            window(new ReflectionWindowFunctionSupplier<>("nth_value", VARCHAR, ImmutableList.of(VARCHAR, BIGINT), VarcharNthValueFunction.class), VARCHAR, 1, 3)
     );
 
     private static final List<WindowFunctionDefinition> LAG = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("lag", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), VarcharLagFunction.class), 1, 3, 4)
+            window(new ReflectionWindowFunctionSupplier<>("lag", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), VarcharLagFunction.class), VARCHAR, 1, 3, 4)
     );
 
     private static final List<WindowFunctionDefinition> LEAD = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("lead", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), VarcharLeadFunction.class), 1, 3, 4)
+            window(new ReflectionWindowFunctionSupplier<>("lead", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), VarcharLeadFunction.class), VARCHAR, 1, 3, 4)
     );
 
     private ExecutorService executor;
@@ -162,6 +165,97 @@ public class TestWindowOperator
                 .row("a", 6, 0.1, true, 3)
                 .row("b", -1, -0.1, true, 1)
                 .row("b", 5, 0.4, false, 2)
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
+    public void testRowNumberPrePartitionedNoPageBreaks()
+            throws Exception
+    {
+        assertRowNumberPrePartitioned(rowPagesBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN)
+                .row("a", 2, 0.3, false)
+                .row("a", 6, 0.1, true)
+                .row("a", 4, 0.2, true)
+                .row("b", -1, -0.1, true)
+                .row("b", 5, 0.4, false)
+                .row("c", 14, 0.2, true)
+                .row("c", 12, 0.3, false)
+                .row("c", 16, 0.1, true)
+                .row("d", 15, 0.4, false)
+                .row("d", -11, -0.1, true)
+                .build());
+    }
+
+    @Test
+    public void testRowNumberPrePartitionedPageBreakAtPartition()
+            throws Exception
+    {
+        assertRowNumberPrePartitioned(rowPagesBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN)
+                .row("a", 4, 0.2, true)
+                .row("a", 6, 0.1, true)
+                .row("a", 2, 0.3, false)
+                .pageBreak()
+                .row("b", -1, -0.1, true)
+                .row("b", 5, 0.4, false)
+                .pageBreak()
+                .row("c", 14, 0.2, true)
+                .row("c", 12, 0.3, false)
+                .row("c", 16, 0.1, true)
+                .pageBreak()
+                .row("d", 15, 0.4, false)
+                .row("d", -11, -0.1, true)
+                .build());
+    }
+
+    @Test
+    public void testRowNumberPrePartitionedPageBreakWithinPartition()
+            throws Exception
+    {
+        assertRowNumberPrePartitioned(rowPagesBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN)
+                .row("a", 2, 0.3, false)
+                .row("a", 6, 0.1, true)
+                .row("a", 4, 0.2, true)
+                .row("b", -1, -0.1, true)
+                .pageBreak()
+                .row("b", 5, 0.4, false)
+                .row("c", 14, 0.2, true)
+                .row("c", 12, 0.3, false)
+                .pageBreak()
+                .row("c", 16, 0.1, true)
+                .row("d", 15, 0.4, false)
+                .pageBreak()
+                .row("d", -11, -0.1, true)
+                .build());
+    }
+
+    private void assertRowNumberPrePartitioned(List<Page> input)
+    {
+        PrePartitionedWindowOperatorFactory operatorFactory = new PrePartitionedWindowOperatorFactory(
+                0,
+                ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN),
+                Ints.asList(0, 1, 2, 3),
+                ROW_NUMBER,
+                Ints.asList(0),
+                Ints.asList(1),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new FrameInfo(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty()),
+                10);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, DOUBLE, BOOLEAN, BIGINT)
+                .row("a", 2, 0.3, false, 1)
+                .row("a", 4, 0.2, true, 2)
+                .row("a", 6, 0.1, true, 3)
+                .row("b", -1, -0.1, true, 1)
+                .row("b", 5, 0.4, false, 2)
+                .row("c", 12, 0.3, false, 1)
+                .row("c", 14, 0.2, true, 2)
+                .row("c", 16, 0.1, true, 3)
+                .row("d", -11, -0.1, true, 1)
+                .row("d", 15, 0.4, false, 2)
                 .build();
 
         assertOperatorEquals(operator, input, expected);
@@ -432,9 +526,7 @@ public class TestWindowOperator
                 partitionChannels,
                 sortChannels,
                 sortOrder,
-                WindowFrame.Type.RANGE,
-                FrameBound.Type.UNBOUNDED_PRECEDING, Optional.empty(),
-                FrameBound.Type.UNBOUNDED_FOLLOWING, Optional.empty(),
+                new FrameInfo(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty()),
                 10);
     }
 }

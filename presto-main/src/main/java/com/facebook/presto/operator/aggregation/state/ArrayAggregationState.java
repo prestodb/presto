@@ -11,28 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.byteCode;
+package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.byteCode.instruction.LabelNode;
+import com.facebook.presto.spi.block.BlockBuilder;
 
-public class IterationScope
+@AccumulatorStateMetadata(stateFactoryClass = ArrayAggregationStateFactory.class, stateSerializerClass = ArrayAggregationStateSerializer.class)
+public interface ArrayAggregationState
+    extends AccumulatorState
 {
-    private final LabelNode begin;
-    private final LabelNode end;
+    BlockBuilder getBlockBuilder();
 
-    public IterationScope(LabelNode begin, LabelNode end)
-    {
-        this.begin = begin;
-        this.end = end;
-    }
+    void setBlockBuilder(BlockBuilder value);
 
-    public LabelNode getBegin()
-    {
-        return begin;
-    }
-
-    public LabelNode getEnd()
-    {
-        return end;
-    }
+    void addMemoryUsage(long memory);
 }

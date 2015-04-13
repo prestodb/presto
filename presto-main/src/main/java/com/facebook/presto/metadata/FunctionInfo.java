@@ -185,10 +185,10 @@ public final class FunctionInfo
         return this;
     }
 
-    public WindowFunctionDefinition bindWindowFunction(List<Integer> inputs)
+    public WindowFunctionDefinition bindWindowFunction(Type type, List<Integer> inputs)
     {
         checkState(isWindow, "not a window function");
-        return window(windowFunctionSupplier, inputs);
+        return window(windowFunctionSupplier, type, inputs);
     }
 
     public InternalAggregationFunction getAggregationFunction()

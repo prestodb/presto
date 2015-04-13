@@ -31,6 +31,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -120,7 +121,6 @@ public class HashAggregationOperator
     private final int expectedGroups;
 
     private final List<Type> types;
-    private final MemoryManager memoryManager;
 
     private GroupByHashAggregationBuilder aggregationBuilder;
     private Iterator<Page> outputIterator;
@@ -145,10 +145,7 @@ public class HashAggregationOperator
         this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
         this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
         this.step = step;
-
         this.expectedGroups = expectedGroups;
-        this.memoryManager = new MemoryManager(operatorContext);
-
         this.types = toTypes(groupByTypes, step, accumulatorFactories, hashChannel);
     }
 
@@ -195,7 +192,7 @@ public class HashAggregationOperator
                     groupByTypes,
                     groupByChannels,
                     hashChannel,
-                    memoryManager);
+                    operatorContext);
 
             // assume initial aggregationBuilder is not full
         }
@@ -224,7 +221,7 @@ public class HashAggregationOperator
 
             // Only partial aggregation can flush early. Also, check that we are not flushing tiny bits at a time
             if (!finishing && step != Step.PARTIAL) {
-                throw new ExceededMemoryLimitException(memoryManager.getMaxMemorySize());
+                throw new ExceededMemoryLimitException(operatorContext.getMaxMemorySize());
             }
 
             outputIterator = aggregationBuilder.build();
@@ -257,7 +254,7 @@ public class HashAggregationOperator
     {
         private final GroupByHash groupByHash;
         private final List<Aggregator> aggregators;
-        private final MemoryManager memoryManager;
+        private final OperatorContext operatorContext;
 
         private GroupByHashAggregationBuilder(
                 List<AccumulatorFactory> accumulatorFactories,
@@ -266,10 +263,10 @@ public class HashAggregationOperator
                 List<Type> groupByTypes,
                 List<Integer> groupByChannels,
                 Optional<Integer> hashChannel,
-                MemoryManager memoryManager)
+                OperatorContext operatorContext)
         {
-            this.groupByHash = new GroupByHash(groupByTypes, Ints.toArray(groupByChannels), hashChannel, expectedGroups);
-            this.memoryManager = memoryManager;
+            this.groupByHash = createGroupByHash(groupByTypes, Ints.toArray(groupByChannels), hashChannel, expectedGroups);
+            this.operatorContext = operatorContext;
 
             // wrapper each function with an aggregator
             ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
@@ -283,6 +280,11 @@ public class HashAggregationOperator
 
         private void processPage(Page page)
         {
+            if (aggregators.isEmpty()) {
+                groupByHash.addPage(page);
+                return;
+            }
+
             GroupByIdBlock groupIds = groupByHash.getGroupIds(page);
 
             for (Aggregator aggregator : aggregators) {
@@ -296,7 +298,11 @@ public class HashAggregationOperator
             for (Aggregator aggregator : aggregators) {
                 memorySize += aggregator.getEstimatedSize();
             }
-            return !memoryManager.canUse(memorySize);
+            memorySize -= operatorContext.getOperatorPreAllocatedMemory().toBytes();
+            if (memorySize < 0) {
+                memorySize = 0;
+            }
+            return operatorContext.setMemoryReservation(memorySize, true) != memorySize;
         }
 
         public Iterator<Page> build()

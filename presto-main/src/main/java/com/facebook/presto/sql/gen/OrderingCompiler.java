@@ -15,8 +15,9 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.MethodDefinition;
+import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.byteCode.instruction.LabelNode;
@@ -46,12 +47,11 @@ import java.util.concurrent.ExecutionException;
 import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
+import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.getStatic;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.invokeStatic;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
@@ -114,7 +114,7 @@ public class OrderingCompiler
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
+        ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName("PagesIndexComparator"),
                 type(Object.class),
@@ -128,52 +128,49 @@ public class OrderingCompiler
 
     private void generateCompareTo(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
-        MethodDefinition compareToMethod = classDefinition.declareMethod(context,
-                a(PUBLIC),
-                "compareTo",
-                type(int.class),
-                arg("pagesIndex", PagesIndex.class),
-                arg("leftPosition", int.class),
-                arg("rightPosition", int.class));
+        Parameter pagesIndex = arg("pagesIndex", PagesIndex.class);
+        Parameter leftPosition = arg("leftPosition", int.class);
+        Parameter rightPosition = arg("rightPosition", int.class);
+        MethodDefinition compareToMethod = classDefinition.declareMethod(a(PUBLIC), "compareTo", type(int.class), pagesIndex, leftPosition, rightPosition);
+        Scope scope = compareToMethod.getScope();
 
-        Variable valueAddresses = context.declareVariable(LongArrayList.class, "valueAddresses");
+        Variable valueAddresses = scope.declareVariable(LongArrayList.class, "valueAddresses");
         compareToMethod
                 .getBody()
                 .comment("LongArrayList valueAddresses = pagesIndex.valueAddresses")
-                .append(valueAddresses.set(context.getVariable("pagesIndex").invoke("getValueAddresses", LongArrayList.class)));
+                .append(valueAddresses.set(pagesIndex.invoke("getValueAddresses", LongArrayList.class)));
 
-        Variable leftPageAddress = context.declareVariable(long.class, "leftPageAddress");
+        Variable leftPageAddress = scope.declareVariable(long.class, "leftPageAddress");
         compareToMethod
                 .getBody()
                 .comment("long leftPageAddress = valueAddresses.getLong(leftPosition)")
-                .append(leftPageAddress.set(valueAddresses.invoke("getLong", long.class, context.getVariable("leftPosition"))));
+                .append(leftPageAddress.set(valueAddresses.invoke("getLong", long.class, leftPosition)));
 
-        Variable leftBlockIndex = context.declareVariable(int.class, "leftBlockIndex");
+        Variable leftBlockIndex = scope.declareVariable(int.class, "leftBlockIndex");
         compareToMethod
                 .getBody()
                 .comment("int leftBlockIndex = decodeSliceIndex(leftPageAddress)")
                 .append(leftBlockIndex.set(invokeStatic(SyntheticAddress.class, "decodeSliceIndex", int.class, leftPageAddress)));
 
-        Variable leftBlockPosition = context.declareVariable(int.class, "leftBlockPosition");
+        Variable leftBlockPosition = scope.declareVariable(int.class, "leftBlockPosition");
         compareToMethod
                 .getBody()
                 .comment("int leftBlockPosition = decodePosition(leftPageAddress)")
                 .append(leftBlockPosition.set(invokeStatic(SyntheticAddress.class, "decodePosition", int.class, leftPageAddress)));
 
-        Variable rightPageAddress = context.declareVariable(long.class, "rightPageAddress");
+        Variable rightPageAddress = scope.declareVariable(long.class, "rightPageAddress");
         compareToMethod
                 .getBody()
                 .comment("long rightPageAddress = valueAddresses.getLong(rightPosition);")
-                .append(rightPageAddress.set(valueAddresses.invoke("getLong", long.class, context.getVariable("rightPosition"))));
+                .append(rightPageAddress.set(valueAddresses.invoke("getLong", long.class, rightPosition)));
 
-        Variable rightBlockIndex = context.declareVariable(int.class, "rightBlockIndex");
+        Variable rightBlockIndex = scope.declareVariable(int.class, "rightBlockIndex");
         compareToMethod
                 .getBody()
                 .comment("int rightBlockIndex = decodeSliceIndex(rightPageAddress)")
                 .append(rightBlockIndex.set(invokeStatic(SyntheticAddress.class, "decodeSliceIndex", int.class, rightPageAddress)));
 
-        Variable rightBlockPosition = context.declareVariable(int.class, "rightBlockPosition");
+        Variable rightBlockPosition = scope.declareVariable(int.class, "rightBlockPosition");
         compareToMethod
                 .getBody()
                 .comment("int rightBlockPosition = decodePosition(rightPageAddress)")
@@ -183,17 +180,17 @@ public class OrderingCompiler
             int sortChannel = sortChannels.get(i);
             SortOrder sortOrder = sortOrders.get(i);
 
-            Block block = new Block(context)
+            Block block = new Block()
                     .setDescription("compare channel " + sortChannel + " " + sortOrder);
 
             Type sortType = sortTypes.get(i);
 
-            ByteCodeExpression leftBlock = context.getVariable("pagesIndex")
+            ByteCodeExpression leftBlock = pagesIndex
                     .invoke("getChannel", ObjectArrayList.class, constantInt(sortChannel))
                     .invoke("get", Object.class, leftBlockIndex)
                     .cast(com.facebook.presto.spi.block.Block.class);
 
-            ByteCodeExpression rightBlock = context.getVariable("pagesIndex")
+            ByteCodeExpression rightBlock = pagesIndex
                     .invoke("getChannel", ObjectArrayList.class, constantInt(sortChannel))
                     .invoke("get", Object.class, rightBlockIndex)
                     .cast(com.facebook.presto.spi.block.Block.class);
@@ -202,7 +199,7 @@ public class OrderingCompiler
                     .invoke("compareBlockValue",
                             int.class,
                             ImmutableList.of(Type.class, com.facebook.presto.spi.block.Block.class, int.class, com.facebook.presto.spi.block.Block.class, int.class),
-                            constantType(context, callSiteBinder, sortType),
+                            constantType(callSiteBinder, sortType),
                             leftBlock,
                             leftBlockPosition,
                             rightBlock,

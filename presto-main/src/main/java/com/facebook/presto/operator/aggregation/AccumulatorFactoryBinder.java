@@ -11,10 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.byteCode;
+package com.facebook.presto.operator.aggregation;
 
-public enum ExpectedType
+import java.util.List;
+import java.util.Optional;
+
+public interface AccumulatorFactoryBinder
 {
-    VOID,
-    BOOLEAN
+    AccumulatorFactory bind(List<Integer> argumentChannels, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence);
 }

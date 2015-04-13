@@ -19,6 +19,8 @@ import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
@@ -27,6 +29,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class CassandraConnector
         implements Connector
 {
+    private static final Logger log = Logger.get(CassandraConnector.class);
+
+    private final LifeCycleManager lifeCycleManager;
     private final CassandraMetadata metadata;
     private final CassandraSplitManager splitManager;
     private final ConnectorRecordSetProvider recordSetProvider;
@@ -35,12 +40,14 @@ public class CassandraConnector
 
     @Inject
     public CassandraConnector(
+            LifeCycleManager lifeCycleManager,
             CassandraMetadata metadata,
             CassandraSplitManager splitManager,
             CassandraRecordSetProvider recordSetProvider,
             CassandraHandleResolver handleResolver,
             CassandraConnectorRecordSinkProvider recordSinkProvider)
     {
+        this.lifeCycleManager = checkNotNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
         this.recordSetProvider = checkNotNull(recordSetProvider, "recordSetProvider is null");
@@ -76,5 +83,16 @@ public class CassandraConnector
     public ConnectorRecordSinkProvider getRecordSinkProvider()
     {
         return recordSinkProvider;
+    }
+
+    @Override
+    public final void shutdown()
+    {
+        try {
+            lifeCycleManager.stop();
+        }
+        catch (Exception e) {
+            log.error(e, "Error shutting down connector");
+        }
     }
 }

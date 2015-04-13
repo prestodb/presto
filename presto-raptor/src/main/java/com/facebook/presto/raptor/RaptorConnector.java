@@ -19,6 +19,8 @@ import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
@@ -27,6 +29,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class RaptorConnector
         implements Connector
 {
+    private static final Logger log = Logger.get(RaptorConnector.class);
+
+    private final LifeCycleManager lifeCycleManager;
     private final RaptorMetadata metadata;
     private final RaptorSplitManager splitManager;
     private final RaptorPageSourceProvider pageSourceProvider;
@@ -35,12 +40,14 @@ public class RaptorConnector
 
     @Inject
     public RaptorConnector(
+            LifeCycleManager lifeCycleManager,
             RaptorMetadata metadata,
             RaptorSplitManager splitManager,
             RaptorPageSourceProvider pageSourceProvider,
             RaptorPageSinkProvider pageSinkProvider,
             RaptorHandleResolver handleResolver)
     {
+        this.lifeCycleManager = checkNotNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
         this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceProvider is null");
@@ -76,5 +83,16 @@ public class RaptorConnector
     public ConnectorSplitManager getSplitManager()
     {
         return splitManager;
+    }
+
+    @Override
+    public final void shutdown()
+    {
+        try {
+            lifeCycleManager.stop();
+        }
+        catch (Exception e) {
+            log.error(e, "Error shutting down connector");
+        }
     }
 }

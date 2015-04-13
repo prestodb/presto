@@ -205,14 +205,25 @@ public class OperatorContext
 
     public boolean reserveMemory(long bytes)
     {
+        return reserveMemory(bytes, false);
+    }
+
+    public boolean reserveMemory(long bytes, boolean noFail)
+    {
         long newReservation = memoryReservation.getAndAdd(bytes);
         if (newReservation > maxMemoryReservation) {
             memoryReservation.getAndAdd(-bytes);
+            if (!noFail) {
+                throw new ExceededMemoryLimitException(getMaxMemorySize());
+            }
             return false;
         }
         boolean result = driverContext.reserveMemory(bytes);
         if (!result) {
             memoryReservation.getAndAdd(-bytes);
+            if (!noFail) {
+                throw new ExceededMemoryLimitException(getMaxMemorySize());
+            }
         }
         return result;
     }
@@ -225,16 +236,21 @@ public class OperatorContext
 
     public synchronized long setMemoryReservation(long newMemoryReservation)
     {
+        return setMemoryReservation(newMemoryReservation, false);
+    }
+
+    public synchronized long setMemoryReservation(long newMemoryReservation, boolean noFail)
+    {
         checkArgument(newMemoryReservation >= 0, "newMemoryReservation is negative");
 
         long delta = newMemoryReservation - memoryReservation.get();
 
         // currently, operator memory is not be released
-        if (delta > 0 && !reserveMemory(delta)) {
-            throw new ExceededMemoryLimitException(getMaxMemorySize());
+        if (delta > 0) {
+            reserveMemory(delta, noFail);
         }
 
-        return newMemoryReservation;
+        return memoryReservation.get();
     }
 
     public void setInfoSupplier(Supplier<Object> infoSupplier)

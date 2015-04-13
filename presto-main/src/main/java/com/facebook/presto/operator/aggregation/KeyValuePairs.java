@@ -15,7 +15,6 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.GroupByHash;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -28,19 +27,23 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Optional;
 
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
+import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
+import static com.facebook.presto.type.TypeUtils.expectedValueSize;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class KeyValuePairs
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(KeyValuePairs.class).instanceSize();
-    public static final int EXPECTED_HASH_SIZE = 10_000;
+    private static final int EXPECTED_ENTRIES = 10;
+    private static final int EXPECTED_ENTRY_SIZE = 16;
 
     private final GroupByHash keysHash;
-    private final PageBuilder keyPageBuilder;
+    private final BlockBuilder keyBlockBuilder;
     private final Type keyType;
 
-    private final PageBuilder valuePageBuilder;
+    private final BlockBuilder valueBlockBuilder;
     private final Type valueType;
 
     public KeyValuePairs(Type keyType, Type valueType)
@@ -50,9 +53,10 @@ public class KeyValuePairs
 
         this.keyType = keyType;
         this.valueType = valueType;
-        keysHash = new GroupByHash(ImmutableList.of(keyType), new int[] {0}, Optional.empty(), EXPECTED_HASH_SIZE);
-        keyPageBuilder = new PageBuilder(ImmutableList.of(this.keyType));
-        valuePageBuilder = new PageBuilder(ImmutableList.of(this.valueType));
+        keysHash = createGroupByHash(ImmutableList.of(keyType), new int[] {0}, Optional.empty(), EXPECTED_ENTRIES);
+        BlockBuilderStatus keyBlockBuilderStatus = new BlockBuilderStatus();
+        keyBlockBuilder = this.keyType.createBlockBuilder(keyBlockBuilderStatus, EXPECTED_ENTRIES, expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
+        valueBlockBuilder = this.valueType.createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ENTRIES, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
     }
 
     public KeyValuePairs(Slice serialized, Type keyType, Type valueType)
@@ -63,20 +67,21 @@ public class KeyValuePairs
 
         this.keyType = keyType;
         this.valueType = valueType;
-        keysHash = new GroupByHash(ImmutableList.of(keyType), new int[] {0}, Optional.empty(), 10_000);
-        keyPageBuilder = new PageBuilder(ImmutableList.of(this.keyType));
-        valuePageBuilder = new PageBuilder(ImmutableList.of(this.valueType));
+        keysHash = createGroupByHash(ImmutableList.of(keyType), new int[] {0}, Optional.empty(), EXPECTED_ENTRIES);
+        BlockBuilderStatus keyBlockBuilderStatus = new BlockBuilderStatus();
+        keyBlockBuilder = this.keyType.createBlockBuilder(keyBlockBuilderStatus, EXPECTED_ENTRIES, expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
+        valueBlockBuilder = this.valueType.createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ENTRIES, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
         deserialize(serialized);
     }
 
     public Block getKeys()
     {
-        return keyPageBuilder.getBlockBuilder(0).build();
+        return keyBlockBuilder.build();
     }
 
     public Block getValues()
     {
-        return valuePageBuilder.getBlockBuilder(0).build();
+        return valueBlockBuilder.build();
     }
 
     private void deserialize(Slice serialized)
@@ -89,8 +94,8 @@ public class KeyValuePairs
 
     public Slice serialize()
     {
-        Block values = valuePageBuilder.getBlockBuilder(0).build();
-        Block keys = keyPageBuilder.getBlockBuilder(0).build();
+        Block values = valueBlockBuilder.build();
+        Block keys = keyBlockBuilder.build();
         BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), keys.getSizeInBytes() + values.getSizeInBytes());
         for (int i = 0; i < keys.getPositionCount(); i++) {
             keyType.appendTo(keys, i, blockBuilder);
@@ -101,20 +106,25 @@ public class KeyValuePairs
 
     public long estimatedInMemorySize()
     {
-        return INSTANCE_SIZE + keyPageBuilder.getSizeInBytes() + valuePageBuilder.getSizeInBytes();
+        long size = INSTANCE_SIZE;
+        size += Math.max(EXPECTED_ENTRIES * expectedValueSize(keyType, EXPECTED_ENTRY_SIZE), keyBlockBuilder.getSizeInBytes());
+        size += Math.max(EXPECTED_ENTRIES * expectedValueSize(valueType, EXPECTED_ENTRY_SIZE), valueBlockBuilder.getSizeInBytes());
+        // TODO: We need an optimized version of GroupByHash that doesn't allocate a full PageBuilder
+        size += Math.max(DEFAULT_MAX_BLOCK_SIZE_IN_BYTES, keysHash.getEstimatedSize());
+        return size;
     }
 
     public void add(Block key, Block value, int keyPosition, int valuePosition)
     {
         Page page = new Page(key);
         if (!keysHash.contains(keyPosition, page)) {
-            int groupId = keysHash.putIfAbsent(keyPosition, page, new Block[] { key });
-            keysHash.appendValuesTo(groupId, keyPageBuilder, 0);
+            keysHash.putIfAbsent(keyPosition, page);
+            keyType.appendTo(key, keyPosition, keyBlockBuilder);
             if (value.isNull(valuePosition)) {
-                valuePageBuilder.getBlockBuilder(0).appendNull();
+                valueBlockBuilder.appendNull();
             }
             else {
-                valueType.appendTo(value, valuePosition, valuePageBuilder.getBlockBuilder(0));
+                valueType.appendTo(value, valuePosition, valueBlockBuilder);
             }
         }
     }

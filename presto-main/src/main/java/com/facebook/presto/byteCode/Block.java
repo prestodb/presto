@@ -20,7 +20,6 @@ import com.facebook.presto.byteCode.instruction.JumpInstruction;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.byteCode.instruction.TypeInstruction;
 import com.facebook.presto.byteCode.instruction.VariableInstruction;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 
@@ -49,21 +48,22 @@ import static com.facebook.presto.byteCode.instruction.FieldInstruction.putField
 import static com.facebook.presto.byteCode.instruction.FieldInstruction.putStaticInstruction;
 import static com.facebook.presto.byteCode.instruction.TypeInstruction.cast;
 import static com.facebook.presto.byteCode.instruction.TypeInstruction.instanceOf;
+import static com.facebook.presto.byteCode.instruction.VariableInstruction.loadVariable;
+import static com.facebook.presto.byteCode.instruction.VariableInstruction.storeVariable;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.invoke.MethodType.methodType;
 
+@SuppressWarnings("UnusedDeclaration")
 @NotThreadSafe
 public class Block
         implements ByteCodeNode
 {
-    private final CompilerContext context;
     private final List<ByteCodeNode> nodes = new ArrayList<>();
 
     private String description;
+    private int currentLineNumber = -1;
 
-    public Block(CompilerContext context)
+    public Block()
     {
-        this.context = context;
     }
 
     public String getDescription()
@@ -85,9 +85,7 @@ public class Block
 
     public Block append(ByteCodeNode node)
     {
-        if (node != OpCode.NOP && !(node instanceof Block && ((Block) node).isEmpty())) {
-            nodes.add(node);
-        }
+        nodes.add(node);
         return this;
     }
 
@@ -105,7 +103,7 @@ public class Block
 
     public boolean isEmpty()
     {
-        return nodes.size() == 0;
+        return nodes.isEmpty();
     }
 
     public Block visitLabel(LabelNode label)
@@ -484,27 +482,6 @@ public class Block
         return this;
     }
 
-    public Block invokeDynamic(String name, Class<?> returnType, List<Class<?>> parameterTypes)
-    {
-        return invokeDynamic(name, methodType(returnType, parameterTypes));
-    }
-
-    public Block invokeDynamic(String name, Class<?> returnType, Class<?>... parameterTypes)
-    {
-        return invokeDynamic(name, methodType(returnType, ImmutableList.copyOf(parameterTypes)));
-    }
-
-    public Block invokeDynamic(String name, MethodType methodType)
-    {
-        return invokeDynamic(name, methodType, context.getDefaultBootstrapMethod(), context.getDefaultBootstrapArguments());
-    }
-
-    public Block invokeDynamic(String name, MethodType methodType, Object... defaultBootstrapArguments)
-    {
-        nodes.add(InvokeInstruction.invokeDynamic(name, methodType, context.getDefaultBootstrapMethod(), defaultBootstrapArguments));
-        return this;
-    }
-
     public Block invokeDynamic(String name, MethodType methodType, Method bootstrapMethod, Object... defaultBootstrapArguments)
     {
         nodes.add(InvokeInstruction.invokeDynamic(name, methodType, bootstrapMethod, defaultBootstrapArguments));
@@ -778,12 +755,6 @@ public class Block
     // Load constants
     //
 
-    public Block pushThis()
-    {
-        getVariable("this");
-        return this;
-    }
-
     public Block pushNull()
     {
         nodes.add(OpCode.ACONST_NULL);
@@ -846,19 +817,6 @@ public class Block
         return pushNull();
     }
 
-    public Block getVariable(String name)
-    {
-        append(context.getVariable(name).getByteCode());
-        return this;
-    }
-
-    public Block getVariable(String name, ParameterizedType type)
-    {
-        getVariable(name);
-        checkCast(type);
-        return this;
-    }
-
     public Block initializeVariable(Variable variable)
     {
         ParameterizedType type = variable.getType();
@@ -888,68 +846,20 @@ public class Block
             nodes.add(Constant.loadNull());
         }
 
-        nodes.add(VariableInstruction.storeVariable(variable));
+        nodes.add(storeVariable(variable));
 
         return this;
     }
 
     public Block getVariable(Variable variable)
     {
-        nodes.add(VariableInstruction.loadVariable(variable));
-        return this;
-    }
-
-    public Block putVariable(String name)
-    {
-        putVariable(context.getVariable(name));
-        return this;
-    }
-
-    public Block putVariable(String name, Class<?> type)
-    {
-        nodes.add(loadClass(type));
-        putVariable(name);
-        return this;
-    }
-
-    public Block putVariable(String name, ParameterizedType type)
-    {
-        nodes.add(loadClass(type));
-        putVariable(name);
-        return this;
-    }
-
-    public Block putVariable(String name, String value)
-    {
-        nodes.add(Constant.loadString(value));
-        putVariable(name);
-        return this;
-    }
-
-    public Block putVariable(String name, Number value)
-    {
-        nodes.add(loadNumber(value));
-        putVariable(name);
-        return this;
-    }
-
-    public Block putVariable(String name, int value)
-    {
-        nodes.add(loadInt(value));
-        putVariable(name);
-        return this;
-    }
-
-    public Block putVariable(String name, boolean value)
-    {
-        nodes.add(loadBoolean(value));
-        putVariable(name);
+        nodes.add(loadVariable(variable));
         return this;
     }
 
     public Block putVariable(Variable variable)
     {
-        nodes.add(VariableInstruction.storeVariable(variable));
+        nodes.add(storeVariable(variable));
         return this;
     }
 
@@ -998,7 +908,7 @@ public class Block
     public Block incrementVariable(Variable variable, byte increment)
     {
         String type = variable.getType().getClassName();
-        Preconditions.checkArgument(ImmutableList.of("byte", "short", "int").contains(type), "variable must be an byte, short or int, but is %s", type);
+        checkArgument(ImmutableList.of("byte", "short", "int").contains(type), "variable must be an byte, short or int, but is %s", type);
         nodes.add(VariableInstruction.incrementVariable(variable, increment));
         return this;
     }
@@ -1015,23 +925,21 @@ public class Block
         return this;
     }
 
-    public Block visitLineNumber(int line)
+    public Block visitLineNumber(int currentLineNumber)
     {
-        if (line <= 0) {
-            context.cleanLineNumber();
-        }
-        else if (!context.hasVisitedLine(line)) {
-            nodes.add(new LineNumberNode(line));
-            context.visitLine(line);
+        checkArgument(currentLineNumber >= 0, "currentLineNumber must be positive");
+        if (this.currentLineNumber != currentLineNumber) {
+            nodes.add(new LineNumberNode(currentLineNumber));
+            this.currentLineNumber = currentLineNumber;
         }
         return this;
     }
 
     @Override
-    public void accept(MethodVisitor visitor)
+    public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
         for (ByteCodeNode node : nodes) {
-            node.accept(visitor);
+            node.accept(visitor, generationContext);
         }
     }
 

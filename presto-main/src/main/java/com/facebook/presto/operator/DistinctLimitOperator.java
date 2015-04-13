@@ -22,6 +22,7 @@ import com.google.common.primitives.Ints;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -95,7 +96,7 @@ public class DistinctLimitOperator
         for (int channel : distinctChannels) {
             distinctTypes.add(types.get(channel));
         }
-        this.groupByHash = new GroupByHash(distinctTypes.build(), Ints.toArray(distinctChannels), hashChannel, Math.min((int) limit, 10_000));
+        this.groupByHash = createGroupByHash(distinctTypes.build(), Ints.toArray(distinctChannels), hashChannel, Math.min((int) limit, 10_000));
         this.pageBuilder = new PageBuilder(types);
         remainingLimit = limit;
     }

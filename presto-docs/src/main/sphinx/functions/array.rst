@@ -5,13 +5,14 @@ Array Functions and Operators
 Subscript Operator: []
 ----------------------
 
-The ``[]`` operator is used to access an element of an array, and is indexed starting from one::
+The ``[]`` operator is used to access an element of an array and is indexed starting from one::
 
     SELECT my_array[1] AS first_element
 
 Concatenation Operator: ||
 --------------------------
-The ``||`` operator can be used to concatenate an array with an array or an element of the same type::
+
+The ``||`` operator is used to concatenate an array with an array or an element of the same type::
 
     SELECT ARRAY [1] || ARRAY [2]; => [1, 2]
     SELECT ARRAY [1] || 2; => [1, 2]
@@ -20,24 +21,28 @@ The ``||`` operator can be used to concatenate an array with an array or an elem
 Array Functions
 ---------------
 
-.. function:: cardinality(x) -> bigint
-
-    Returns the cardinality (size) of the array ``x``.
-
-.. function:: contains(x, y) -> boolean
-
-    Returns true iff the array ``x`` contains the element ``y``.
-
 .. function:: array_distinct(x) -> array
 
     Remove duplicate values from the array ``x``.
+
+.. function:: array_intersect(x, y) -> array
+
+    Returns an array of the elements in the intersection of ``x`` and ``y``, without duplicates.
 
 .. function:: array_sort(x) -> array
 
     Sorts and returns the array ``x``. The elements of ``x`` must be orderable.
 
+.. function:: cardinality(x) -> bigint
+
+    Returns the cardinality (size) of the array ``x``.
+
 .. function:: concat(x, y) -> array
     :noindex:
 
-    Concatenates given arrays ``x`` and ``y``. The element types of ``x`` and ``y`` must be the same.
-    This function provides the same functionality as the concatenation operator (``||``).
+    Concatenates the arrays ``x`` and ``y``. This function provides the same
+    functionality as the SQL-standard concatenation operator (``||``).
+
+.. function:: contains(x, y) -> boolean
+
+    Returns true if the array ``x`` contains the element ``y``.

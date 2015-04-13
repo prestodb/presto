@@ -13,7 +13,29 @@
  */
 package com.facebook.presto.byteCode;
 
-public interface ByteCodeNodeFactory
+import javax.annotation.concurrent.Immutable;
+
+@Immutable
+public class Parameter
+        extends Variable
 {
-    ByteCodeNode build(CompilerContext context, ExpectedType expectedType);
+    public static Parameter arg(String name, Class<?> type)
+    {
+        return new Parameter(name, ParameterizedType.type(type));
+    }
+
+    public static Parameter arg(String name, ParameterizedType type)
+    {
+        return new Parameter(name, type);
+    }
+
+    Parameter(String name, ParameterizedType type)
+    {
+        super(name, type);
+    }
+
+    String getSourceString()
+    {
+        return getType().getJavaClassName() + " " + getName();
+    }
 }

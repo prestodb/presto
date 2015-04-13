@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 /**
  * A reference to an execution engine channel.
- * <p/>
+ * <p>
  * This is used to replace a {@link QualifiedNameReference} with a direct reference to the physical
  * channel and field to avoid unnecessary lookups in a symbol->channel map during evaluation
  */
@@ -28,12 +26,10 @@ public class InputReference
 
     public InputReference(int channel)
     {
-        checkNotNull(channel, "channel is null");
-
         this.channel = channel;
     }
 
-    public Integer getChannel()
+    public int getChannel()
     {
         return channel;
     }

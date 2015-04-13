@@ -15,6 +15,7 @@ package com.facebook.presto.byteCode.expression;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.OpCode;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.google.common.collect.ImmutableList;
@@ -47,9 +48,9 @@ class CastByteCodeExpression
     }
 
     @Override
-    public ByteCodeNode getByteCode()
+    public ByteCodeNode getByteCode(MethodGenerationContext generationContext)
     {
-        Block block = new Block(null).append(instance.getByteCode());
+        Block block = new Block().append(instance.getByteCode(generationContext));
 
         if (instance.getType().isPrimitive()) {
             Class<?> sourceType = instance.getType().getPrimitiveType();
@@ -146,6 +147,9 @@ class CastByteCodeExpression
             }
         }
         if (sourceType == int.class) {
+            if (targetType == boolean.class) {
+                return block;
+            }
             if (targetType == byte.class) {
                 return block.append(OpCode.I2B);
             }

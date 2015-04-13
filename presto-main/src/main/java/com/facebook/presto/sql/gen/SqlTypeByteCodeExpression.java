@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.byteCode.instruction.InvokeInstruction;
 import com.facebook.presto.spi.type.Type;
@@ -24,19 +24,19 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SqlTypeByteCodeExpression
         extends ByteCodeExpression
 {
-    public static ByteCodeExpression constantType(CompilerContext context, CallSiteBinder callSiteBinder, Type type)
+    public static ByteCodeExpression constantType(CallSiteBinder callSiteBinder, Type type)
     {
-        checkNotNull(context, "context is null");
         checkNotNull(callSiteBinder, "callSiteBinder is null");
         checkNotNull(type, "type is null");
 
         Binding binding = callSiteBinder.bind(type, Type.class);
-        return new SqlTypeByteCodeExpression(type, binding, context.getDefaultBootstrapMethod());
+        return new SqlTypeByteCodeExpression(type, binding, BOOTSTRAP_METHOD);
     }
 
     private final Type type;
@@ -53,7 +53,7 @@ public class SqlTypeByteCodeExpression
     }
 
     @Override
-    public ByteCodeNode getByteCode()
+    public ByteCodeNode getByteCode(MethodGenerationContext generationContext)
     {
         return InvokeInstruction.invokeDynamic(type.getTypeSignature().toString().replaceAll("\\W+", "_"), binding.getType(), bootstrapMethod, binding.getBindingId());
     }

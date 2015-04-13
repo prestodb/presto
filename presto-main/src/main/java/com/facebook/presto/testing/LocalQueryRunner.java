@@ -182,6 +182,7 @@ public class LocalQueryRunner
     public void close()
     {
         executor.shutdownNow();
+        connectorManager.stop();
     }
 
     @Override

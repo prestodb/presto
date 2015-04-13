@@ -17,6 +17,7 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -571,7 +572,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitCreateTable(CreateTable node, Integer indent)
+        protected Void visitCreateTableAsSelect(CreateTableAsSelect node, Integer indent)
         {
             builder.append("CREATE TABLE ")
                     .append(node.getName())
@@ -579,6 +580,20 @@ public final class SqlFormatter
 
             process(node.getQuery(), indent);
 
+            return null;
+        }
+
+        @Override
+        protected Void visitCreateTable(CreateTable node, Integer indent)
+        {
+            builder.append("CREATE TABLE ")
+                    .append(node.getName())
+                    .append(" (");
+
+            Joiner.on(", ").appendTo(builder, transform(node.getElements(),
+                    element -> element.getName() + " " + element.getType()));
+
+            builder.append(")");
             return null;
         }
 

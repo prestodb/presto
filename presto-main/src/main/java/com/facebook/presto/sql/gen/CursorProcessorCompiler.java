@@ -16,8 +16,9 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.MethodDefinition;
+import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.byteCode.control.IfStatement;
@@ -40,12 +41,9 @@ import java.util.List;
 
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
+import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.OpCode.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.byteCode.control.ForLoop.ForLoopBuilder;
-import static com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.generateWrite;
 import static java.lang.String.format;
 
@@ -72,22 +70,15 @@ public class CursorProcessorCompiler
 
     private void generateProcessMethod(ClassDefinition classDefinition, int projections)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
-        MethodDefinition method = classDefinition.declareMethod(context,
-                a(PUBLIC),
-                "process",
-                type(int.class),
-                arg("session", ConnectorSession.class),
-                arg("cursor", RecordCursor.class),
-                arg("count", int.class),
-                arg("pageBuilder", PageBuilder.class));
+        Parameter session = arg("session", ConnectorSession.class);
+        Parameter cursor = arg("cursor", RecordCursor.class);
+        Parameter count = arg("count", int.class);
+        Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(int.class), session, cursor, count, pageBuilder);
 
-        Variable sessionVariable = context.getVariable("session");
-        Variable cursorVariable = context.getVariable("cursor");
-        Variable countVariable = context.getVariable("count");
-        Variable pageBuilderVariable = context.getVariable("pageBuilder");
-
-        Variable completedPositionsVariable = context.declareVariable(int.class, "completedPositions");
+        Scope scope = method.getScope();
+        Variable thisVariable = method.getThis();
+        Variable completedPositionsVariable = scope.declareVariable(int.class, "completedPositions");
 
         method.getBody()
                 .comment("int completedPositions = 0;")
@@ -97,71 +88,72 @@ public class CursorProcessorCompiler
         // for loop loop body
         //
         LabelNode done = new LabelNode("done");
-        ForLoopBuilder forLoop = ForLoop.forLoopBuilder(context)
+        ForLoop forLoop = new ForLoop()
                 .initialize(NOP)
-                .condition(new Block(context)
+                .condition(new Block()
                                 .comment("completedPositions < count")
                                 .getVariable(completedPositionsVariable)
-                                .getVariable(countVariable)
+                                .getVariable(count)
                                 .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class)
                 )
-                .update(new Block(context)
+                .update(new Block()
                                 .comment("completedPositions++")
                                 .incrementVariable(completedPositionsVariable, (byte) 1)
                 );
 
-        Block forLoopBody = new Block(context)
+        Block forLoopBody = new Block()
                 .comment("if (pageBuilder.isFull()) break;")
-                .append(new Block(context)
-                        .getVariable(pageBuilderVariable)
+                .append(new Block()
+                        .getVariable(pageBuilder)
                         .invokeVirtual(PageBuilder.class, "isFull", boolean.class)
                         .ifTrueGoto(done))
                 .comment("if (!cursor.advanceNextPosition()) break;")
-                .append(new Block(context)
-                        .getVariable(cursorVariable)
+                .append(new Block()
+                        .getVariable(cursor)
                         .invokeInterface(RecordCursor.class, "advanceNextPosition", boolean.class)
                         .ifFalseGoto(done));
 
         forLoop.body(forLoopBody);
 
         // if (filter(cursor))
-        IfStatementBuilder ifStatement = new IfStatementBuilder(context);
-        ifStatement.condition(new Block(context)
-                .pushThis()
-                .getVariable(sessionVariable)
-                .getVariable(cursorVariable)
-                .invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), type(ConnectorSession.class), type(RecordCursor.class)));
-
-        Block trueBlock = new Block(context);
-        ifStatement.ifTrue(trueBlock);
+        IfStatement ifStatement = new IfStatement();
+        ifStatement.condition()
+                .append(method.getThis())
+                .getVariable(session)
+                .getVariable(cursor)
+                .invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), type(ConnectorSession.class), type(RecordCursor.class));
 
         // pageBuilder.declarePosition();
-        trueBlock.getVariable(pageBuilderVariable)
+        ifStatement.ifTrue()
+                .getVariable(pageBuilder)
                 .invokeVirtual(PageBuilder.class, "declarePosition", void.class);
 
         // this.project_43(session, cursor, pageBuilder.getBlockBuilder(42)));
         for (int projectionIndex = 0; projectionIndex < projections; projectionIndex++) {
-            trueBlock.pushThis()
-                    .getVariable(sessionVariable)
-                    .getVariable(cursorVariable);
+            ifStatement.ifTrue()
+                    .append(method.getThis())
+                    .getVariable(session)
+                    .getVariable(cursor);
 
             // pageBuilder.getBlockBuilder(0)
-            trueBlock.getVariable(pageBuilderVariable)
+            ifStatement.ifTrue()
+                    .getVariable(pageBuilder)
                     .push(projectionIndex)
                     .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
 
             // project(block..., blockBuilder)
-            trueBlock.invokeVirtual(classDefinition.getType(),
+            ifStatement.ifTrue()
+                    .invokeVirtual(classDefinition.getType(),
                     "project_" + projectionIndex,
                     type(void.class),
                     type(ConnectorSession.class),
                     type(RecordCursor.class),
                     type(BlockBuilder.class));
         }
-        forLoopBody.append(ifStatement.build());
+        forLoopBody.append(ifStatement);
 
         method.getBody()
-                .append(forLoop.build())
+                .append(forLoop)
                 .visitLabel(done)
                 .comment("return completedPositions;")
                 .getVariable(completedPositionsVariable)
@@ -170,28 +162,23 @@ public class CursorProcessorCompiler
 
     private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
-        MethodDefinition method = classDefinition.declareMethod(
-                context,
-                a(PUBLIC),
-                "filter",
-                type(boolean.class),
-                arg("session", ConnectorSession.class),
-                arg("cursor", RecordCursor.class));
+        Parameter session = arg("session", ConnectorSession.class);
+        Parameter cursor = arg("cursor", RecordCursor.class);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "filter", type(boolean.class), session, cursor);
 
         method.comment("Filter: %s", filter);
 
-        Variable wasNullVariable = context.declareVariable(type(boolean.class), "wasNull");
-        Variable cursorVariable = context.getVariable("cursor");
+        Scope scope = method.getScope();
+        Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(cursorVariable, wasNullVariable), metadata.getFunctionRegistry());
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(cursor, wasNullVariable), metadata.getFunctionRegistry());
 
         LabelNode end = new LabelNode("end");
         method.getBody()
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false)
                 .comment("evaluate filter: " + filter)
-                .append(filter.accept(visitor, context))
+                .append(filter.accept(visitor, scope))
                 .comment("if (wasNull) return false;")
                 .getVariable(wasNullVariable)
                 .ifFalseGoto(end)
@@ -203,75 +190,68 @@ public class CursorProcessorCompiler
 
     private void generateProjectMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String methodName, RowExpression projection)
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
-        MethodDefinition method = classDefinition.declareMethod(context,
-                a(PUBLIC),
-                methodName,
-                type(void.class),
-                arg("session", ConnectorSession.class),
-                arg("cursor", RecordCursor.class),
-                arg("output", BlockBuilder.class));
+        Parameter session = arg("session", ConnectorSession.class);
+        Parameter cursor = arg("cursor", RecordCursor.class);
+        Parameter output = arg("output", BlockBuilder.class);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), methodName, type(void.class), session, cursor, output);
 
         method.comment("Projection: %s", projection.toString());
 
-        Variable outputVariable = context.getVariable("output");
-
-        Variable cursorVariable = context.getVariable("cursor");
-        Variable wasNullVariable = context.declareVariable(type(boolean.class), "wasNull");
+        Scope scope = method.getScope();
+        Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
         Block body = method.getBody()
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false);
 
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(cursorVariable, wasNullVariable), metadata.getFunctionRegistry());
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(cursor, wasNullVariable), metadata.getFunctionRegistry());
 
-        body.getVariable(outputVariable)
+        body.getVariable(output)
                 .comment("evaluate projection: " + projection.toString())
-                .append(projection.accept(visitor, context))
-                .append(generateWrite(callSiteBinder, context, wasNullVariable, projection.getType()))
+                .append(projection.accept(visitor, scope))
+                .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
                 .ret();
     }
 
-    private RowExpressionVisitor<CompilerContext, ByteCodeNode> fieldReferenceCompiler(final Variable cursorVariable, final Variable wasNullVariable)
+    private RowExpressionVisitor<Scope, ByteCodeNode> fieldReferenceCompiler(final Variable cursorVariable, final Variable wasNullVariable)
     {
-        return new RowExpressionVisitor<CompilerContext, ByteCodeNode>()
+        return new RowExpressionVisitor<Scope, ByteCodeNode>()
         {
             @Override
-            public ByteCodeNode visitInputReference(InputReferenceExpression node, CompilerContext context)
+            public ByteCodeNode visitInputReference(InputReferenceExpression node, Scope scope)
             {
                 int field = node.getField();
                 Type type = node.getType();
 
                 Class<?> javaType = type.getJavaType();
 
-                Block isNullCheck = new Block(context)
+                IfStatement ifStatement = new IfStatement();
+                ifStatement.condition()
                         .setDescription(format("cursor.get%s(%d)", type, field))
                         .getVariable(cursorVariable)
                         .push(field)
                         .invokeInterface(RecordCursor.class, "isNull", boolean.class, int.class);
 
-                Block isNull = new Block(context)
+                ifStatement.ifTrue()
                         .putVariable(wasNullVariable, true)
                         .pushJavaDefault(javaType);
 
-                Block isNotNull = new Block(context)
+                ifStatement.ifFalse()
                         .getVariable(cursorVariable)
-                        .push(field);
+                        .push(field)
+                        .invokeInterface(RecordCursor.class, "get" + Primitives.wrap(javaType).getSimpleName(), javaType, int.class);
 
-                String methodName = "get" + Primitives.wrap(javaType).getSimpleName();
-                isNotNull.invokeInterface(RecordCursor.class, methodName, javaType, int.class);
-
-                return new IfStatement(context, isNullCheck, isNull, isNotNull);
+                return ifStatement;
             }
 
             @Override
-            public ByteCodeNode visitCall(CallExpression call, CompilerContext context)
+            public ByteCodeNode visitCall(CallExpression call, Scope scope)
             {
                 throw new UnsupportedOperationException("not yet implemented");
             }
 
             @Override
-            public ByteCodeNode visitConstant(ConstantExpression literal, CompilerContext context)
+            public ByteCodeNode visitConstant(ConstantExpression literal, Scope scope)
             {
                 throw new UnsupportedOperationException("not yet implemented");
             }

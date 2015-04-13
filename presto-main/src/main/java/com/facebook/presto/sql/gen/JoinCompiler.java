@@ -16,19 +16,18 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.OpCode;
+import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
-import com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.operator.InMemoryJoinHash;
 import com.facebook.presto.operator.LookupSource;
-import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -54,12 +53,11 @@ import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PRIVATE;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
+import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantNull;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.notEqual;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
@@ -127,7 +125,7 @@ public class JoinCompiler
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
+        ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName("PagesHashStrategy"),
                 type(Object.class),
@@ -151,7 +149,8 @@ public class JoinCompiler
         generateGetChannelCountMethod(classDefinition, channelFields);
         generateAppendToMethod(classDefinition, callSiteBinder, types, channelFields);
         generateHashPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, hashChannelField);
-        generateHashRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
+        generateHashRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
+        generateRowEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
         generatePositionEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
 
@@ -164,48 +163,50 @@ public class JoinCompiler
             List<FieldDefinition> joinChannelFields,
             FieldDefinition hashChannelField)
     {
-        CompilerContext compilerContext = new CompilerContext(BOOTSTRAP_METHOD);
-        Block constructor = classDefinition.declareConstructor(compilerContext,
-                a(PUBLIC),
-                arg("channels", type(List.class, type(List.class, com.facebook.presto.spi.block.Block.class))),
-                arg("hashChannel", type(Optional.class, Integer.class)))
+        Parameter channels = arg("channels", type(List.class, type(List.class, com.facebook.presto.spi.block.Block.class)));
+        Parameter hashChannel = arg("hashChannel", type(Optional.class, Integer.class));
+        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), channels, hashChannel);
+
+        Variable thisVariable = constructorDefinition.getThis();
+
+        Block constructor = constructorDefinition
                 .getBody()
                 .comment("super();")
-                .pushThis()
+                .append(thisVariable)
                 .invokeConstructor(Object.class);
 
         constructor.comment("Set channel fields");
+
         for (int index = 0; index < channelFields.size(); index++) {
-            ByteCodeExpression channel = compilerContext.getVariable("channels")
-                    .invoke("get", Object.class, constantInt(index))
+            ByteCodeExpression channel = channels.invoke("get", Object.class, constantInt(index))
                     .cast(type(List.class, com.facebook.presto.spi.block.Block.class));
 
-            constructor.append(compilerContext.getVariable("this").setField(channelFields.get(index), channel));
+            constructor.append(thisVariable.setField(channelFields.get(index), channel));
         }
 
         constructor.comment("Set join channel fields");
         for (int index = 0; index < joinChannelFields.size(); index++) {
-            ByteCodeExpression joinChannel = compilerContext.getVariable("channels")
-                    .invoke("get", Object.class, constantInt(joinChannels.get(index)))
+            ByteCodeExpression joinChannel = channels.invoke("get", Object.class, constantInt(joinChannels.get(index)))
                     .cast(type(List.class, com.facebook.presto.spi.block.Block.class));
 
-            constructor.append(compilerContext.getVariable("this").setField(joinChannelFields.get(index), joinChannel));
+            constructor.append(thisVariable.setField(joinChannelFields.get(index), joinChannel));
         }
 
         constructor.comment("Set hashChannel");
-        Variable hashChannel = compilerContext.getVariable("hashChannel");
-        constructor.append(new IfStatement(
-                compilerContext,
-                hashChannel.invoke("isPresent", boolean.class),
-                compilerContext.getVariable("this").setField(hashChannelField, compilerContext.getVariable("channels").invoke("get", Object.class, hashChannel.invoke("get", Object.class).cast(Integer.class).cast(int.class))),
-                compilerContext.getVariable("this").setField(hashChannelField, constantNull(hashChannelField.getType()))
-        ));
+        constructor.append(new IfStatement()
+                .condition(hashChannel.invoke("isPresent", boolean.class))
+                .ifTrue(thisVariable.setField(
+                        hashChannelField,
+                        channels.invoke("get", Object.class, hashChannel.invoke("get", Object.class).cast(Integer.class).cast(int.class))))
+                .ifFalse(thisVariable.setField(
+                        hashChannelField,
+                        constantNull(hashChannelField.getType()))));
         constructor.ret();
     }
 
     private void generateGetChannelCountMethod(ClassDefinition classDefinition, List<FieldDefinition> channelFields)
     {
-        classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
+        classDefinition.declareMethod(
                 a(PUBLIC),
                 "getChannelCount",
                 type(int.class))
@@ -216,34 +217,31 @@ public class JoinCompiler
 
     private void generateAppendToMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> types, List<FieldDefinition> channelFields)
     {
-        CompilerContext compilerContext = new CompilerContext(BOOTSTRAP_METHOD);
-        Block appendToBody = classDefinition.declareMethod(compilerContext,
-                a(PUBLIC),
-                "appendTo",
-                type(void.class),
-                arg("blockIndex", int.class),
-                arg("blockPosition", int.class),
-                arg("pageBuilder", PageBuilder.class),
-                arg("outputChannelOffset", int.class))
-                .getBody();
+        Parameter blockIndex = arg("blockIndex", int.class);
+        Parameter blockPosition = arg("blockPosition", int.class);
+        Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
+        Parameter outputChannelOffset = arg("outputChannelOffset", int.class);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "appendTo", type(void.class), blockIndex, blockPosition, pageBuilder, outputChannelOffset);
+
+        Variable thisVariable = method.getThis();
+        Block appendToBody = method.getBody();
 
         for (int index = 0; index < channelFields.size(); index++) {
             Type type = types.get(index);
-            ByteCodeExpression typeExpression = constantType(compilerContext, callSiteBinder, type);
+            ByteCodeExpression typeExpression = constantType(callSiteBinder, type);
 
-            ByteCodeExpression block = compilerContext
-                    .getVariable("this")
+            ByteCodeExpression block = thisVariable
                     .getField(channelFields.get(index))
-                    .invoke("get", Object.class, compilerContext.getVariable("blockIndex"))
+                    .invoke("get", Object.class, blockIndex)
                     .cast(com.facebook.presto.spi.block.Block.class);
 
             appendToBody
                     .comment("%s.appendTo(channel_%s.get(blockIndex), blockPosition, pageBuilder.getBlockBuilder(outputChannelOffset + %s));", type.getClass(), index, index)
                     .append(typeExpression)
                     .append(block)
-                    .getVariable("blockPosition")
-                    .getVariable("pageBuilder")
-                    .getVariable("outputChannelOffset")
+                    .append(blockPosition)
+                    .append(pageBuilder)
+                    .append(outputChannelOffset)
                     .push(index)
                     .append(OpCode.IADD)
                     .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class)
@@ -254,23 +252,22 @@ public class JoinCompiler
 
     private void generateHashPositionMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> joinChannelTypes, List<FieldDefinition> joinChannelFields, FieldDefinition hashChannelField)
     {
-        CompilerContext compilerContext = new CompilerContext(BOOTSTRAP_METHOD);
-        MethodDefinition hashPositionMethod = classDefinition.declareMethod(compilerContext,
+        Parameter blockIndex = arg("blockIndex", int.class);
+        Parameter blockPosition = arg("blockPosition", int.class);
+        MethodDefinition hashPositionMethod = classDefinition.declareMethod(
                 a(PUBLIC),
                 "hashPosition",
                 type(int.class),
-                arg("blockIndex", int.class),
-                arg("blockPosition", int.class));
+                blockIndex,
+                blockPosition);
 
-        Variable thisVariable = compilerContext.getVariable("this");
+        Variable thisVariable = hashPositionMethod.getThis();
         ByteCodeExpression hashChannel = thisVariable.getField(hashChannelField);
-        ByteCodeExpression bigintType = constantType(compilerContext, callSiteBinder, BigintType.BIGINT);
-        Variable blockIndex = compilerContext.getVariable("blockIndex");
-        Variable blockPosition = compilerContext.getVariable("blockPosition");
+        ByteCodeExpression bigintType = constantType(callSiteBinder, BigintType.BIGINT);
 
-        IfStatementBuilder ifStatementBuilder = new IfStatementBuilder(compilerContext);
-        ifStatementBuilder.condition(notEqual(hashChannel, constantNull(hashChannelField.getType())));
-        ifStatementBuilder.ifTrue(
+        IfStatement ifStatement = new IfStatement();
+        ifStatement.condition(notEqual(hashChannel, constantNull(hashChannelField.getType())));
+        ifStatement.ifTrue(
                 bigintType.invoke(
                         "getLong",
                         long.class,
@@ -282,18 +279,18 @@ public class JoinCompiler
 
         hashPositionMethod
                 .getBody()
-                .append(ifStatementBuilder.build());
+                .append(ifStatement);
 
-        Variable resultVariable = hashPositionMethod.getCompilerContext().declareVariable(int.class, "result");
+        Variable resultVariable = hashPositionMethod.getScope().declareVariable(int.class, "result");
         hashPositionMethod.getBody().push(0).putVariable(resultVariable);
 
         for (int index = 0; index < joinChannelTypes.size(); index++) {
-            ByteCodeExpression type = constantType(compilerContext, callSiteBinder, joinChannelTypes.get(index));
+            ByteCodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
 
-            ByteCodeExpression block = compilerContext
-                    .getVariable("this")
+            ByteCodeExpression block = hashPositionMethod
+                    .getThis()
                     .getField(joinChannelFields.get(index))
-                    .invoke("get", Object.class, compilerContext.getVariable("blockIndex"))
+                    .invoke("get", Object.class, blockIndex)
                     .cast(com.facebook.presto.spi.block.Block.class);
 
             hashPositionMethod
@@ -301,7 +298,7 @@ public class JoinCompiler
                     .getVariable(resultVariable)
                     .push(31)
                     .append(OpCode.IMUL)
-                    .append(typeHashCode(compilerContext, type, block, compilerContext.getVariable("blockPosition")))
+                    .append(typeHashCode(type, block, blockPosition))
                     .append(OpCode.IADD)
                     .putVariable(resultVariable);
         }
@@ -312,33 +309,27 @@ public class JoinCompiler
                 .retInt();
     }
 
-    private void generateHashRowMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> joinChannelTypes, List<FieldDefinition> joinChannelFields)
+    private void generateHashRowMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> joinChannelTypes)
     {
-        CompilerContext compilerContext = new CompilerContext(BOOTSTRAP_METHOD);
-        MethodDefinition hashPositionMethod = classDefinition.declareMethod(compilerContext,
-                a(PUBLIC),
-                "hashRow",
-                type(int.class),
-                arg("position", int.class),
-                arg("blocks", com.facebook.presto.spi.block.Block[].class));
+        Parameter position = arg("position", int.class);
+        Parameter blocks = arg("blocks", com.facebook.presto.spi.block.Block[].class);
+        MethodDefinition hashPositionMethod = classDefinition.declareMethod(a(PUBLIC), "hashRow", type(int.class), position, blocks);
 
-        Variable resultVariable = hashPositionMethod.getCompilerContext().declareVariable(int.class, "result");
+        Variable resultVariable = hashPositionMethod.getScope().declareVariable(int.class, "result");
         hashPositionMethod.getBody().push(0).putVariable(resultVariable);
 
         for (int index = 0; index < joinChannelTypes.size(); index++) {
-            ByteCodeExpression type = constantType(compilerContext, callSiteBinder, joinChannelTypes.get(index));
+            ByteCodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
 
-            ByteCodeExpression block = compilerContext
-                    .getVariable("blocks")
-                    .getElement(index)
-                    .cast(com.facebook.presto.spi.block.Block.class);
+            // todo is the case needed
+            ByteCodeExpression block = blocks.getElement(index).cast(com.facebook.presto.spi.block.Block.class);
 
             hashPositionMethod
                     .getBody()
                     .getVariable(resultVariable)
                     .push(31)
                     .append(OpCode.IMUL)
-                    .append(typeHashCode(compilerContext, type, block, compilerContext.getVariable("position")))
+                    .append(typeHashCode(type, block, position))
                     .append(OpCode.IADD)
                     .putVariable(resultVariable);
         }
@@ -349,43 +340,35 @@ public class JoinCompiler
                 .retInt();
     }
 
-    private static ByteCodeNode typeHashCode(CompilerContext compilerContext, ByteCodeExpression type, ByteCodeExpression blockRef, ByteCodeExpression blockPosition)
+    private static ByteCodeNode typeHashCode(ByteCodeExpression type, ByteCodeExpression blockRef, ByteCodeExpression blockPosition)
     {
-        IfStatementBuilder ifStatementBuilder = new IfStatementBuilder(compilerContext);
-
-        ifStatementBuilder.condition(new Block(compilerContext).append(blockRef.invoke("isNull", boolean.class, blockPosition)));
-
-        ifStatementBuilder.ifTrue(new Block(compilerContext).push(0));
-
-        ifStatementBuilder.ifFalse(new Block(compilerContext).append(type.invoke("hash", int.class, blockRef, blockPosition)));
-
-        return ifStatementBuilder.build();
+        return new IfStatement()
+            .condition(blockRef.invoke("isNull", boolean.class, blockPosition))
+            .ifTrue(constantInt(0))
+            .ifFalse(type.invoke("hash", int.class, blockRef, blockPosition));
     }
 
-    private void generatePositionEqualsRowMethod(
+    private void generateRowEqualsRowMethod(
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
-            List<Type> joinChannelTypes,
-            List<FieldDefinition> joinChannelFields)
+            List<Type> joinChannelTypes)
     {
-        CompilerContext compilerContext = new CompilerContext(BOOTSTRAP_METHOD);
-        MethodDefinition hashPositionMethod = classDefinition.declareMethod(compilerContext,
+        MethodDefinition hashPositionMethod = classDefinition.declareMethod(
                 a(PUBLIC),
-                "positionEqualsRow",
+                "rowEqualsRow",
                 type(boolean.class),
-                arg("leftBlockIndex", int.class),
-                arg("leftBlockPosition", int.class),
+                arg("leftPosition", int.class),
+                arg("leftBlocks", com.facebook.presto.spi.block.Block[].class),
                 arg("rightPosition", int.class),
                 arg("rightBlocks", com.facebook.presto.spi.block.Block[].class));
 
+        Scope compilerContext = hashPositionMethod.getScope();
         for (int index = 0; index < joinChannelTypes.size(); index++) {
-            ByteCodeExpression type = constantType(compilerContext, callSiteBinder, joinChannelTypes.get(index));
+            ByteCodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
 
             ByteCodeExpression leftBlock = compilerContext
-                    .getVariable("this")
-                    .getField(joinChannelFields.get(index))
-                    .invoke("get", Object.class, compilerContext.getVariable("leftBlockIndex"))
-                    .cast(com.facebook.presto.spi.block.Block.class);
+                    .getVariable("leftBlocks")
+                    .getElement(index);
 
             ByteCodeExpression rightBlock = compilerContext
                     .getVariable("rightBlocks")
@@ -394,12 +377,59 @@ public class JoinCompiler
             LabelNode checkNextField = new LabelNode("checkNextField");
             hashPositionMethod
                     .getBody()
-                    .append(typeEquals(compilerContext,
+                    .append(typeEquals(
                             type,
                             leftBlock,
-                            compilerContext.getVariable("leftBlockPosition"),
+                            compilerContext.getVariable("leftPosition"),
                             rightBlock,
                             compilerContext.getVariable("rightPosition")))
+                    .ifTrueGoto(checkNextField)
+                    .push(false)
+                    .retBoolean()
+                    .visitLabel(checkNextField);
+        }
+
+        hashPositionMethod
+                .getBody()
+                .push(true)
+                .retInt();
+    }
+
+    private void generatePositionEqualsRowMethod(
+            ClassDefinition classDefinition,
+            CallSiteBinder callSiteBinder,
+            List<Type> joinChannelTypes,
+            List<FieldDefinition> joinChannelFields)
+    {
+        Parameter leftBlockIndex = arg("leftBlockIndex", int.class);
+        Parameter leftBlockPosition = arg("leftBlockPosition", int.class);
+        Parameter rightPosition = arg("rightPosition", int.class);
+        Parameter rightBlocks = arg("rightBlocks", com.facebook.presto.spi.block.Block[].class);
+        MethodDefinition hashPositionMethod = classDefinition.declareMethod(
+                a(PUBLIC),
+                "positionEqualsRow",
+                type(boolean.class),
+                leftBlockIndex,
+                leftBlockPosition,
+                rightPosition,
+                rightBlocks);
+
+        Variable thisVariable = hashPositionMethod.getThis();
+
+        for (int index = 0; index < joinChannelTypes.size(); index++) {
+            ByteCodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
+
+            ByteCodeExpression leftBlock = thisVariable
+                    .getField(joinChannelFields.get(index))
+                    .invoke("get", Object.class, leftBlockIndex)
+                    .cast(com.facebook.presto.spi.block.Block.class);
+
+            ByteCodeExpression rightBlock = rightBlocks.getElement(index);
+
+            LabelNode checkNextField = new LabelNode("checkNextField");
+            hashPositionMethod
+                    .getBody()
+                    .append(typeEquals(type, leftBlock, leftBlockPosition, rightBlock, rightPosition))
                     .ifTrueGoto(checkNextField)
                     .push(false)
                     .retBoolean()
@@ -418,41 +448,37 @@ public class JoinCompiler
             List<Type> joinChannelTypes,
             List<FieldDefinition> joinChannelFields)
     {
-        CompilerContext compilerContext = new CompilerContext(BOOTSTRAP_METHOD);
-        MethodDefinition hashPositionMethod = classDefinition.declareMethod(compilerContext,
+        Parameter leftBlockIndex = arg("leftBlockIndex", int.class);
+        Parameter leftBlockPosition = arg("leftBlockPosition", int.class);
+        Parameter rightBlockIndex = arg("rightBlockIndex", int.class);
+        Parameter rightBlockPosition = arg("rightBlockPosition", int.class);
+        MethodDefinition hashPositionMethod = classDefinition.declareMethod(
                 a(PUBLIC),
                 "positionEqualsPosition",
                 type(boolean.class),
-                arg("leftBlockIndex", int.class),
-                arg("leftBlockPosition", int.class),
-                arg("rightBlockIndex", int.class),
-                arg("rightBlockPosition", int.class));
+                leftBlockIndex,
+                leftBlockPosition,
+                rightBlockIndex,
+                rightBlockPosition);
 
+        Variable thisVariable = hashPositionMethod.getThis();
         for (int index = 0; index < joinChannelTypes.size(); index++) {
-            ByteCodeExpression type = constantType(compilerContext, callSiteBinder, joinChannelTypes.get(index));
+            ByteCodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
 
-            Variable blockIndex = compilerContext.getVariable("leftBlockIndex");
-            ByteCodeExpression leftBlock = compilerContext
-                    .getVariable("this")
+            ByteCodeExpression leftBlock = thisVariable
                     .getField(joinChannelFields.get(index))
-                    .invoke("get", Object.class, blockIndex)
+                    .invoke("get", Object.class, leftBlockIndex)
                     .cast(com.facebook.presto.spi.block.Block.class);
 
-            ByteCodeExpression rightBlock = compilerContext
-                    .getVariable("this")
+            ByteCodeExpression rightBlock = thisVariable
                     .getField(joinChannelFields.get(index))
-                    .invoke("get", Object.class, compilerContext.getVariable("rightBlockIndex"))
+                    .invoke("get", Object.class, rightBlockIndex)
                     .cast(com.facebook.presto.spi.block.Block.class);
 
             LabelNode checkNextField = new LabelNode("checkNextField");
             hashPositionMethod
                     .getBody()
-                    .append(typeEquals(compilerContext,
-                            type,
-                            leftBlock,
-                            compilerContext.getVariable("leftBlockPosition"),
-                            rightBlock,
-                            compilerContext.getVariable("rightBlockPosition")))
+                    .append(typeEquals(type, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition))
                     .ifTrueGoto(checkNextField)
                     .push(false)
                     .retBoolean()
@@ -466,27 +492,26 @@ public class JoinCompiler
     }
 
     private static ByteCodeNode typeEquals(
-            CompilerContext compilerContext,
             ByteCodeExpression type,
             ByteCodeExpression leftBlock,
             ByteCodeExpression leftBlockPosition,
             ByteCodeExpression rightBlock,
             ByteCodeExpression rightBlockPosition)
     {
-        IfStatementBuilder ifStatementBuilder = new IfStatementBuilder(compilerContext);
-        ifStatementBuilder.condition(new Block(compilerContext)
+        IfStatement ifStatement = new IfStatement();
+        ifStatement.condition()
                 .append(leftBlock.invoke("isNull", boolean.class, leftBlockPosition))
                 .append(rightBlock.invoke("isNull", boolean.class, rightBlockPosition))
-                .append(OpCode.IOR));
+                .append(OpCode.IOR);
 
-        ifStatementBuilder.ifTrue(new Block(compilerContext)
+        ifStatement.ifTrue()
                 .append(leftBlock.invoke("isNull", boolean.class, leftBlockPosition))
                 .append(rightBlock.invoke("isNull", boolean.class, rightBlockPosition))
-                .append(OpCode.IAND));
+                .append(OpCode.IAND);
 
-        ifStatementBuilder.ifFalse(new Block(compilerContext).append(type.invoke("equalTo", boolean.class, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition)));
+        ifStatement.ifFalse().append(type.invoke("equalTo", boolean.class, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition));
 
-        return ifStatementBuilder.build();
+        return ifStatement;
     }
 
     public static class LookupSourceFactory
@@ -498,18 +523,18 @@ public class JoinCompiler
         {
             this.pagesHashStrategyFactory = pagesHashStrategyFactory;
             try {
-                constructor = lookupSourceClass.getConstructor(LongArrayList.class, List.class, PagesHashStrategy.class, OperatorContext.class);
+                constructor = lookupSourceClass.getConstructor(LongArrayList.class, List.class, PagesHashStrategy.class);
             }
             catch (NoSuchMethodException e) {
                 throw Throwables.propagate(e);
             }
         }
 
-        public LookupSource createLookupSource(LongArrayList addresses, List<Type> types, List<List<com.facebook.presto.spi.block.Block>> channels, Optional<Integer> hashChannel, OperatorContext operatorContext)
+        public LookupSource createLookupSource(LongArrayList addresses, List<Type> types, List<List<com.facebook.presto.spi.block.Block>> channels, Optional<Integer> hashChannel)
         {
             PagesHashStrategy pagesHashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
             try {
-                return constructor.newInstance(addresses, types, pagesHashStrategy, operatorContext);
+                return constructor.newInstance(addresses, types, pagesHashStrategy);
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);

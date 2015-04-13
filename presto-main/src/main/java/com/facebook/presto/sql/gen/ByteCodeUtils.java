@@ -15,7 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
@@ -36,7 +36,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.byteCode.OpCode.NOP;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.invokeDynamic;
+import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static java.lang.String.format;
 
 public final class ByteCodeUtils
@@ -45,38 +48,40 @@ public final class ByteCodeUtils
     {
     }
 
-    public static ByteCodeNode ifWasNullPopAndGoto(CompilerContext context, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
+    public static ByteCodeNode ifWasNullPopAndGoto(Scope scope, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
     {
-        return handleNullValue(context, label, returnType, ImmutableList.copyOf(stackArgsToPop), false);
+        return handleNullValue(scope, label, returnType, ImmutableList.copyOf(stackArgsToPop), false);
     }
 
-    public static ByteCodeNode ifWasNullPopAndGoto(CompilerContext context, LabelNode label, Class<?> returnType, Iterable<? extends Class<?>> stackArgsToPop)
+    public static ByteCodeNode ifWasNullPopAndGoto(Scope scope, LabelNode label, Class<?> returnType, Iterable<? extends Class<?>> stackArgsToPop)
     {
-        return handleNullValue(context, label, returnType, ImmutableList.copyOf(stackArgsToPop), false);
+        return handleNullValue(scope, label, returnType, ImmutableList.copyOf(stackArgsToPop), false);
     }
 
-    public static ByteCodeNode ifWasNullClearPopAndGoto(CompilerContext context, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
+    public static ByteCodeNode ifWasNullClearPopAndGoto(Scope scope, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
     {
-        return handleNullValue(context, label, returnType, ImmutableList.copyOf(stackArgsToPop), true);
+        return handleNullValue(scope, label, returnType, ImmutableList.copyOf(stackArgsToPop), true);
     }
 
-    public static ByteCodeNode handleNullValue(CompilerContext context,
+    public static ByteCodeNode handleNullValue(Scope scope,
             LabelNode label,
             Class<?> returnType,
             List<Class<?>> stackArgsToPop,
             boolean clearNullFlag)
     {
-        Block nullCheck = new Block(context)
+        Variable wasNull = scope.getVariable("wasNull");
+
+        Block nullCheck = new Block()
                 .setDescription("ifWasNullGoto")
-                .getVariable("wasNull");
+                .append(wasNull);
 
         String clearComment = null;
         if (clearNullFlag) {
-            nullCheck.putVariable("wasNull", false);
+            nullCheck.append(wasNull.set(constantFalse()));
             clearComment = "clear wasNull";
         }
 
-        Block isNull = new Block(context);
+        Block isNull = new Block();
         for (Class<?> parameterType : stackArgsToPop) {
             isNull.pop(parameterType);
         }
@@ -94,13 +99,14 @@ public final class ByteCodeUtils
             popComment = format("pop(%s)", Joiner.on(", ").join(stackArgsToPop));
         }
 
-        String comment = format("if wasNull then %s", Joiner.on(", ").skipNulls().join(clearComment, popComment, loadDefaultComment, "goto " + label.getLabel()));
-        return new IfStatement(context, comment, nullCheck, isNull, NOP);
+        return new IfStatement("if wasNull then %s", Joiner.on(", ").skipNulls().join(clearComment, popComment, loadDefaultComment, "goto " + label.getLabel()))
+                .condition(nullCheck)
+                .ifTrue(isNull);
     }
 
-    public static ByteCodeNode boxPrimitive(CompilerContext context, Class<?> type)
+    public static ByteCodeNode boxPrimitive(Class<?> type)
     {
-        Block block = new Block(context).comment("box primitive");
+        Block block = new Block().comment("box primitive");
         if (type == long.class) {
             return block.invokeStatic(Long.class, "valueOf", Long.class, long.class);
         }
@@ -117,9 +123,9 @@ public final class ByteCodeUtils
         return NOP;
     }
 
-    public static ByteCodeNode unboxPrimitive(CompilerContext context, Class<?> unboxedType)
+    public static ByteCodeNode unboxPrimitive(Class<?> unboxedType)
     {
-        Block block = new Block(context).comment("unbox primitive");
+        Block block = new Block().comment("unbox primitive");
         if (unboxedType == long.class) {
             return block.invokeVirtual(Long.class, "longValue", long.class);
         }
@@ -132,22 +138,22 @@ public final class ByteCodeUtils
         throw new UnsupportedOperationException("not yet implemented: " + unboxedType);
     }
 
-    public static ByteCodeExpression loadConstant(CompilerContext context, CallSiteBinder callSiteBinder, Object constant, Class<?> type)
+    public static ByteCodeExpression loadConstant(CallSiteBinder callSiteBinder, Object constant, Class<?> type)
     {
         Binding binding = callSiteBinder.bind(MethodHandles.constant(type, constant));
-        return loadConstant(context, binding);
+        return loadConstant(binding);
     }
 
-    public static ByteCodeExpression loadConstant(CompilerContext context, Binding binding)
+    public static ByteCodeExpression loadConstant(Binding binding)
     {
         return invokeDynamic(
-                context.getDefaultBootstrapMethod(),
+                BOOTSTRAP_METHOD,
                 ImmutableList.of(binding.getBindingId()),
                 "constant_" + binding.getBindingId(),
                 binding.getType().returnType());
     }
 
-    public static ByteCodeNode generateInvocation(CompilerContext context, FunctionInfo function, List<ByteCodeNode> arguments, Binding binding)
+    public static ByteCodeNode generateInvocation(Scope scope, FunctionInfo function, List<ByteCodeNode> arguments, Binding binding)
     {
         MethodType methodType = binding.getType();
 
@@ -156,7 +162,7 @@ public final class ByteCodeUtils
         Class<?> unboxedReturnType = Primitives.unwrap(returnType);
 
         LabelNode end = new LabelNode("end");
-        Block block = new Block(context)
+        Block block = new Block()
                 .setDescription("invoke " + signature);
 
         List<Class<?>> stackTypes = new ArrayList<>();
@@ -165,64 +171,65 @@ public final class ByteCodeUtils
         for (Class<?> type : methodType.parameterArray()) {
             stackTypes.add(type);
             if (type == ConnectorSession.class) {
-                block.getVariable("session");
+                block.append(scope.getVariable("session"));
             }
             else {
                 block.append(arguments.get(index));
                 if (!function.getNullableArguments().get(index)) {
-                    block.append(ifWasNullPopAndGoto(context, end, unboxedReturnType, Lists.reverse(stackTypes)));
+                    block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
                 }
                 else {
-                    block.append(boxPrimitiveIfNecessary(context, type));
-                    block.putVariable("wasNull", false);
+                    block.append(boxPrimitiveIfNecessary(scope, type));
+                    block.append(scope.getVariable("wasNull").set(constantFalse()));
                 }
                 index++;
             }
         }
-        block.append(invoke(context, binding, function.getSignature()));
+        block.append(invoke(binding, function.getSignature()));
 
         if (function.isNullable()) {
-            block.append(unboxPrimitiveIfNecessary(context, returnType));
+            block.append(unboxPrimitiveIfNecessary(scope, returnType));
         }
         block.visitLabel(end);
 
         return block;
     }
 
-    public static Block unboxPrimitiveIfNecessary(CompilerContext context, Class<?> boxedType)
+    public static Block unboxPrimitiveIfNecessary(Scope scope, Class<?> boxedType)
     {
-        Block block = new Block(context);
+        Block block = new Block();
         LabelNode end = new LabelNode("end");
         Class<?> unboxedType = Primitives.unwrap(boxedType);
+        Variable wasNull = scope.getVariable("wasNull");
 
         if (unboxedType.isPrimitive() && unboxedType != void.class) {
             LabelNode notNull = new LabelNode("notNull");
             block.dup(boxedType)
                     .ifNotNullGoto(notNull)
-                    .putVariable("wasNull", true)
+                    .append(wasNull.set(constantTrue()))
                     .comment("swap boxed null with unboxed default")
                     .pop(boxedType)
                     .pushJavaDefault(unboxedType)
                     .gotoLabel(end)
                     .visitLabel(notNull)
-                    .append(unboxPrimitive(context, unboxedType));
+                    .append(unboxPrimitive(unboxedType));
         }
         else {
             block.dup(boxedType)
                     .ifNotNullGoto(end)
-                    .putVariable("wasNull", true);
+                    .append(wasNull.set(constantTrue()));
         }
         block.visitLabel(end);
 
         return block;
     }
 
-    public static ByteCodeNode boxPrimitiveIfNecessary(CompilerContext context, Class<?> type)
+    public static ByteCodeNode boxPrimitiveIfNecessary(Scope scope, Class<?> type)
     {
         if (!Primitives.isWrapperType(type)) {
             return NOP;
         }
-        Block notNull = new Block(context).comment("box primitive");
+        Block notNull = new Block().comment("box primitive");
         Class<?> expectedCurrentStackType;
         if (type == Long.class) {
             notNull.invokeStatic(Long.class, "valueOf", Long.class, long.class);
@@ -245,31 +252,33 @@ public final class ByteCodeUtils
             throw new UnsupportedOperationException("not yet implemented: " + type);
         }
 
-        Block condition = new Block(context).getVariable("wasNull");
+        Block condition = new Block().append(scope.getVariable("wasNull"));
 
-        Block wasNull = new Block(context)
+        Block wasNull = new Block()
                 .pop(expectedCurrentStackType)
                 .pushNull()
                 .checkCast(type);
 
-        return IfStatement.ifStatementBuilder(context).condition(condition).ifTrue(wasNull).ifFalse(notNull).build();
+        return new IfStatement()
+                .condition(condition)
+                .ifTrue(wasNull)
+                .ifFalse(notNull);
     }
 
-    public static ByteCodeNode invoke(CompilerContext context, Binding binding, String name)
+    public static ByteCodeNode invoke(Binding binding, String name)
     {
-        return new Block(context)
-                .invokeDynamic(name, binding.getType(), binding.getBindingId());
+        return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), name, binding.getType());
     }
 
-    public static ByteCodeNode invoke(CompilerContext context, Binding binding, Signature signature)
+    public static ByteCodeNode invoke(Binding binding, Signature signature)
     {
-        return invoke(context, binding, signature.getName());
+        return invoke(binding, signature.getName());
     }
 
-    public static ByteCodeNode generateWrite(CallSiteBinder callSiteBinder, CompilerContext context, Variable wasNullVariable, Type type)
+    public static ByteCodeNode generateWrite(CallSiteBinder callSiteBinder, Scope scope, Variable wasNullVariable, Type type)
     {
         if (type.getJavaType() == void.class) {
-            return new Block(context).comment("output.appendNull();")
+            return new Block().comment("output.appendNull();")
                     .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
                     .pop();
         }
@@ -282,25 +291,24 @@ public final class ByteCodeUtils
         // use temp variables to re-shuffle the stack to the right shape before Type.writeXXX is called
         // Unfortunately, because of the assumptions made by try_cast, we can't get around it yet.
         // TODO: clean up once try_cast is fixed
-        Variable tempValue = context.createTempVariable(type.getJavaType());
-        Variable tempOutput = context.createTempVariable(BlockBuilder.class);
-        return new Block(context)
+        Variable tempValue = scope.createTempVariable(type.getJavaType());
+        Variable tempOutput = scope.createTempVariable(BlockBuilder.class);
+        return new Block()
                 .comment("if (wasNull)")
-                .append(new IfStatement.IfStatementBuilder(context)
-                        .condition(new Block(context).getVariable(wasNullVariable))
-                        .ifTrue(new Block(context)
+                .append(new IfStatement()
+                        .condition(wasNullVariable)
+                        .ifTrue(new Block()
                                 .comment("output.appendNull();")
                                 .pop(type.getJavaType())
                                 .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
                                 .pop())
-                        .ifFalse(new Block(context)
+                        .ifFalse(new Block()
                                 .comment(type.getTypeSignature() + "." + methodName + "(output, " + type.getJavaType().getSimpleName() + ")")
                                 .putVariable(tempValue)
                                 .putVariable(tempOutput)
-                                .append(loadConstant(context, callSiteBinder.bind(type, Type.class)))
+                                .append(loadConstant(callSiteBinder.bind(type, Type.class)))
                                 .getVariable(tempOutput)
                                 .getVariable(tempValue)
-                                .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, type.getJavaType()))
-                        .build());
+                                .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, type.getJavaType())));
     }
 }

@@ -25,6 +25,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class GenericAccumulatorFactoryBinder
+        implements AccumulatorFactoryBinder
 {
     private final boolean approximationSupported;
     private final AccumulatorStateSerializer<?> stateSerializer;
@@ -65,6 +66,7 @@ public class GenericAccumulatorFactoryBinder
         }
     }
 
+    @Override
     public AccumulatorFactory bind(List<Integer> argumentChannels, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
     {
         if (!approximationSupported) {

@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.PageProcessor;
@@ -35,7 +34,6 @@ import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
@@ -107,7 +105,7 @@ public class ExpressionCompiler
             BodyCompiler<T> bodyCompiler,
             Class<? extends T> superType)
     {
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
+        ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName(superType.getSimpleName()),
                 type(Object.class),
@@ -135,10 +133,9 @@ public class ExpressionCompiler
     private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)
     {
         // bind constant via invokedynamic to avoid constant pool issues due to large strings
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
-        classDefinition.declareMethod(context, a(PUBLIC), "toString", type(String.class))
+        classDefinition.declareMethod(a(PUBLIC), "toString", type(String.class))
                 .getBody()
-                .append(invoke(context, callSiteBinder.bind(string, String.class), "toString"))
+                .append(invoke(callSiteBinder.bind(string, String.class), "toString"))
                 .retObject();
     }
 

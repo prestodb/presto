@@ -15,6 +15,7 @@ package com.facebook.presto.byteCode.instruction;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.OpCode;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +29,7 @@ import static com.facebook.presto.byteCode.OpCode.INSTANCEOF;
 import static com.facebook.presto.byteCode.OpCode.NEW;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 
+@SuppressWarnings("UnusedDeclaration")
 public class TypeInstruction
         implements InstructionNode
 {
@@ -81,7 +83,7 @@ public class TypeInstruction
     }
 
     @Override
-    public void accept(MethodVisitor visitor)
+    public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
         visitor.visitTypeInsn(opCode.getOpCode(), type.getClassName());
     }

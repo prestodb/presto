@@ -20,6 +20,7 @@ import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
@@ -37,6 +38,7 @@ import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.services.s3.transfer.Upload;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.Iterators;
@@ -100,6 +102,7 @@ public class PrestoS3FileSystem
     public static final String S3_STAGING_DIRECTORY = "presto.s3.staging-directory";
     public static final String S3_MULTIPART_MIN_FILE_SIZE = "presto.s3.multipart.min-file-size";
     public static final String S3_MULTIPART_MIN_PART_SIZE = "presto.s3.multipart.min-part-size";
+    public static final String S3_USE_INSTANCE_CREDENTIALS = "presto.s3.use-instance-credentials";
 
     private static final Logger log = Logger.get(PrestoS3FileSystem.class);
 
@@ -114,6 +117,7 @@ public class PrestoS3FileSystem
     private int maxClientRetries;
     private Duration maxBackoffTime;
     private Duration maxRetryTime;
+    private boolean useInstanceCredentials;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -139,15 +143,16 @@ public class PrestoS3FileSystem
         int maxConnections = conf.getInt(S3_MAX_CONNECTIONS, defaults.getS3MaxConnections());
         long minFileSize = conf.getLong(S3_MULTIPART_MIN_FILE_SIZE, defaults.getS3MultipartMinFileSize().toBytes());
         long minPartSize = conf.getLong(S3_MULTIPART_MIN_PART_SIZE, defaults.getS3MultipartMinPartSize().toBytes());
+        this.useInstanceCredentials = conf.getBoolean(S3_USE_INSTANCE_CREDENTIALS, defaults.isS3UseInstanceCredentials());
 
-        ClientConfiguration configuration = new ClientConfiguration();
-        configuration.setMaxErrorRetry(maxErrorRetries);
-        configuration.setProtocol(sslEnabled ? Protocol.HTTPS : Protocol.HTTP);
-        configuration.setConnectionTimeout(Ints.checkedCast(connectTimeout.toMillis()));
-        configuration.setSocketTimeout(Ints.checkedCast(socketTimeout.toMillis()));
-        configuration.setMaxConnections(maxConnections);
+        ClientConfiguration configuration = new ClientConfiguration()
+                .withMaxErrorRetry(maxErrorRetries)
+                .withProtocol(sslEnabled ? Protocol.HTTPS : Protocol.HTTP)
+                .withConnectionTimeout(Ints.checkedCast(connectTimeout.toMillis()))
+                .withSocketTimeout(Ints.checkedCast(socketTimeout.toMillis()))
+                .withMaxConnections(maxConnections);
 
-        this.s3 = new AmazonS3Client(getAwsCredentials(uri, conf), configuration);
+        this.s3 = createAmazonS3Client(uri, conf, configuration);
 
         transferConfig.setMultipartUploadThreshold(minFileSize);
         transferConfig.setMinimumUploadPartSize(minPartSize);
@@ -352,20 +357,17 @@ public class PrestoS3FileSystem
 
     private Iterator<LocatedFileStatus> statusFromObjects(List<S3ObjectSummary> objects)
     {
-        List<LocatedFileStatus> list = new ArrayList<>();
-        for (S3ObjectSummary object : objects) {
-            if (!object.getKey().endsWith("/")) {
-                FileStatus status = new FileStatus(
+        return objects.stream()
+                .filter(object -> !object.getKey().endsWith("/"))
+                .map(object -> new FileStatus(
                         object.getSize(),
                         false,
                         1,
                         BLOCK_SIZE.toBytes(),
                         object.getLastModified().getTime(),
-                        qualifiedPath(new Path("/" + object.getKey())));
-                list.add(createLocatedFileStatus(status));
-            }
-        }
-        return list.iterator();
+                        qualifiedPath(new Path("/" + object.getKey()))))
+                .map(this::createLocatedFileStatus)
+                .iterator();
     }
 
     /**
@@ -446,6 +448,22 @@ public class PrestoS3FileSystem
             key = key.substring(0, key.length() - 1);
         }
         return key;
+    }
+
+    private AmazonS3Client createAmazonS3Client(URI uri, Configuration hadoopConfig, ClientConfiguration clientConfig)
+    {
+        // first try credentials from URI or static properties
+        try {
+            return new AmazonS3Client(getAwsCredentials(uri, hadoopConfig), clientConfig);
+        }
+        catch (IllegalArgumentException ignored) {
+        }
+
+        if (useInstanceCredentials) {
+            return new AmazonS3Client(new InstanceProfileCredentialsProvider(), clientConfig);
+        }
+
+        throw new RuntimeException("S3 credentials not configured");
     }
 
     private static AWSCredentials getAwsCredentials(URI uri, Configuration conf)
@@ -723,5 +741,11 @@ public class PrestoS3FileSystem
                 }
             };
         }
+    }
+
+    @VisibleForTesting
+    AmazonS3 getS3Client()
+    {
+        return s3;
     }
 }

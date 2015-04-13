@@ -14,11 +14,13 @@
 package com.facebook.presto.byteCode.expression;
 
 import com.facebook.presto.byteCode.Block;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.ByteCodeNode;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import org.testng.annotations.Test;
 
 import java.awt.Point;
+import java.util.function.Function;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressionAssertions.assertByteCodeExpression;
@@ -27,7 +29,7 @@ import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.consta
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantString;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.newInstance;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.setStatic;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
+import static com.facebook.presto.util.Reflection.field;
 import static org.testng.Assert.assertEquals;
 
 public class TestSetFieldByteCodeExpression
@@ -38,24 +40,26 @@ public class TestSetFieldByteCodeExpression
     public void testSetField()
             throws Exception
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
-        Variable point = context.declareVariable(Point.class, "point");
-
-        assertSetPoint(context, point.setField("x", constantInt(42)));
-        assertSetPoint(context, point.setField(Point.class.getField("x"), constantInt(42)));
+        assertSetPoint(point -> point.setField("x", constantInt(42)));
+        assertSetPoint(point -> point.setField(field(Point.class, "x"), constantInt(42)));
     }
 
-    public static void assertSetPoint(CompilerContext context, ByteCodeExpression setX)
+    public static void assertSetPoint(Function<ByteCodeExpression, ByteCodeExpression> setX)
             throws Exception
     {
-        assertEquals(setX.toString(), "point.x = 42;");
+        Function<Scope, ByteCodeNode> nodeGenerator = scope -> {
+            Variable point = scope.declareVariable(Point.class, "point");
 
-        Block block = new Block(context)
-                .append(context.getVariable("point").set(newInstance(Point.class, constantInt(3), constantInt(7))))
-                .append(setX)
-                .append(context.getVariable("point").ret());
+            ByteCodeExpression setExpression = setX.apply(point);
+            assertEquals(setExpression.toString(), "point.x = 42;");
 
-        assertByteCodeNode(block, type(Point.class), new Point(42, 7));
+            return new Block()
+                    .append(point.set(newInstance(Point.class, constantInt(3), constantInt(7))))
+                    .append(setExpression)
+                    .append(point.ret());
+        };
+
+        assertByteCodeNode(nodeGenerator, type(Point.class), new Point(42, 7));
     }
 
     @Test

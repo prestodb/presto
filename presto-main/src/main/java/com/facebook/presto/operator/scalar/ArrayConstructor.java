@@ -15,9 +15,10 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.DynamicClassLoader;
-import com.facebook.presto.byteCode.NamedParameterDefinition;
+import com.facebook.presto.byteCode.MethodDefinition;
+import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
@@ -25,7 +26,6 @@ import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.sql.gen.Bootstrap;
 import com.facebook.presto.sql.gen.ByteCodeUtils;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.CompilerUtils;
@@ -48,7 +48,7 @@ import static com.facebook.presto.byteCode.Access.PRIVATE;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
+import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
@@ -120,13 +120,11 @@ public final class ArrayConstructor
 
     private static Class<?> generateArrayConstructor(List<Class<?>> stackTypes, Type elementType)
     {
-        CompilerContext context = new CompilerContext(Bootstrap.BOOTSTRAP_METHOD);
         List<String> stackTypeNames = stackTypes.stream()
                 .map(Class::getSimpleName)
                 .collect(toImmutableList());
 
         ClassDefinition definition = new ClassDefinition(
-                context,
                 a(PUBLIC, FINAL),
                 CompilerUtils.makeClassName(Joiner.on("").join(stackTypeNames) + "ArrayConstructor"),
                 type(Object.class));
@@ -135,23 +133,24 @@ public final class ArrayConstructor
         definition.declareDefaultConstructor(a(PRIVATE));
 
         // Generate arrayConstructor()
-        ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
+        ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         for (int i = 0; i < stackTypes.size(); i++) {
             Class<?> stackType = stackTypes.get(i);
             parameters.add(arg("arg" + i, stackType));
         }
 
-        Block body = definition.declareMethod(context, a(PUBLIC, STATIC), "arrayConstructor", type(Slice.class), parameters.build())
-                .getBody();
+        MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "arrayConstructor", type(Slice.class), parameters.build());
+        Scope scope = method.getScope();
+        Block body = method.getBody();
 
-        Variable elementTypeVariable = context.declareVariable(Type.class, "elementTypeVariable");
+        Variable elementTypeVariable = scope.declareVariable(Type.class, "elementTypeVariable");
         CallSiteBinder binder = new CallSiteBinder();
 
         body.comment("elementTypeVariable = elementType;")
-                .append(constantType(context, binder, elementType))
+                .append(constantType(binder, elementType))
                 .putVariable(elementTypeVariable);
 
-        Variable valuesVariable = context.declareVariable(List.class, "values");
+        Variable valuesVariable = scope.declareVariable(List.class, "values");
         body.comment("List<Object> values = new ArrayList();")
                 .newObject(ArrayList.class)
                 .dup()
@@ -161,10 +160,10 @@ public final class ArrayConstructor
         for (int i = 0; i < stackTypes.size(); i++) {
             body.comment("values.add(arg" + i + ");")
                     .getVariable(valuesVariable)
-                    .getVariable("arg" + i);
+                    .append(scope.getVariable("arg" + i));
             Class<?> stackType = stackTypes.get(i);
             if (stackType.isPrimitive()) {
-                body.append(ByteCodeUtils.boxPrimitiveIfNecessary(context, stackType));
+                body.append(ByteCodeUtils.boxPrimitiveIfNecessary(scope, stackType));
             }
             body.invokeInterface(List.class, "add", boolean.class, Object.class);
         }

@@ -122,6 +122,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -156,6 +157,7 @@ public abstract class AbstractTestHiveClient
 
     protected SchemaTableName temporaryCreateTable;
     protected SchemaTableName temporaryCreateSampledTable;
+    protected SchemaTableName temporaryCreateEmptyTable;
     protected SchemaTableName temporaryRenameTableOld;
     protected SchemaTableName temporaryRenameTableNew;
     protected SchemaTableName temporaryCreateView;
@@ -216,6 +218,7 @@ public abstract class AbstractTestHiveClient
 
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         temporaryCreateSampledTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
+        temporaryCreateEmptyTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         temporaryRenameTableOld = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
         temporaryRenameTableNew = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
         temporaryCreateView = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
@@ -1113,6 +1116,20 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testEmptyTableCreation()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : createTableFormats) {
+            try {
+                doCreateEmptyTable(storageFormat);
+            }
+            finally {
+                dropTable(temporaryCreateEmptyTable);
+            }
+        }
+    }
+
+    @Test
     public void testViewCreation()
     {
         try {
@@ -1376,6 +1393,49 @@ public abstract class AbstractTestHiveClient
             assertEquals(row.getField(3), 98.1);
             assertEquals(row.getField(4), false);
         }
+    }
+
+    private void doCreateEmptyTable(HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        // create the table
+        Type arrayStringType = requireNonNull(TYPE_MANAGER.getType(parseTypeSignature("array<varchar>")));
+        List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
+                .add(new ColumnMetadata("id", BIGINT, 1, false))
+                .add(new ColumnMetadata("t_string", VARCHAR, 2, false))
+                .add(new ColumnMetadata("t_bigint", BIGINT, 3, false))
+                .add(new ColumnMetadata("t_double", DOUBLE, 4, false))
+                .add(new ColumnMetadata("t_boolean", BOOLEAN, 5, false))
+                .add(new ColumnMetadata("t_array_string", arrayStringType, 6, false))
+                .build();
+
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateEmptyTable, columns, SESSION.getUser());
+
+        ConnectorSession session = createSession(storageFormat);
+
+        metadata.createTable(session, tableMetadata);
+
+        // load the new table
+        ConnectorTableHandle tableHandle = getTableHandle(temporaryCreateEmptyTable);
+
+        // verify the metadata
+        tableMetadata = metadata.getTableMetadata(getTableHandle(temporaryCreateEmptyTable));
+        assertEquals(tableMetadata.getOwner(), session.getUser());
+
+        Map<String, ColumnMetadata> columnMap = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
+
+        assertPrimitiveField(columnMap, 0, "id", BIGINT, false);
+        assertPrimitiveField(columnMap, 1, "t_string", VARCHAR, false);
+        assertPrimitiveField(columnMap, 2, "t_bigint", BIGINT, false);
+        assertPrimitiveField(columnMap, 3, "t_double", DOUBLE, false);
+        assertPrimitiveField(columnMap, 4, "t_boolean", BOOLEAN, false);
+        assertPrimitiveField(columnMap, 5, "t_array_string", arrayStringType, false);
+
+        // verify the table is empty
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ConnectorColumnHandle>all());
+        assertEquals(partitionResult.getPartitions().size(), 1);
+        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
+        assertEquals(getAllSplits(splitSource).size(), 0);
     }
 
     protected void assertGetRecordsOptional(String tableName, HiveStorageFormat hiveStorageFormat)

@@ -50,7 +50,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
+import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -184,7 +186,7 @@ public class SqlQueryExecution
             return doAnalyzeQuery();
         }
         catch (StackOverflowError e) {
-            throw new RuntimeException("statement is too large (stack overflow during analysis)", e);
+            throw new PrestoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
         }
     }
 
@@ -422,18 +424,12 @@ public class SqlQueryExecution
         @Override
         public SqlQueryExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement)
         {
-            int initialHashPartitions;
+            int initialHashPartitions = this.initialHashPartitions;
             if (isBigQueryEnabled(session, false)) {
-                if (this.bigQueryInitialHashPartitions == null) {
-                    initialHashPartitions = nodeManager.getActiveNodes().size();
-                }
-                else {
-                    initialHashPartitions = this.bigQueryInitialHashPartitions;
-                }
+                initialHashPartitions = (bigQueryInitialHashPartitions == null) ? nodeManager.getActiveNodes().size() : bigQueryInitialHashPartitions;
             }
-            else {
-                initialHashPartitions = this.initialHashPartitions;
-            }
+            initialHashPartitions = getHashPartitionCount(session, initialHashPartitions);
+
             SqlQueryExecution queryExecution = new SqlQueryExecution(queryId,
                     query,
                     session,
