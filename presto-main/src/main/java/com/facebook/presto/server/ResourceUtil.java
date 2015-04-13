@@ -31,6 +31,7 @@ import javax.ws.rs.core.Response.Status;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -43,6 +44,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static java.lang.String.format;
@@ -75,7 +77,7 @@ final class ResourceUtil
 
         // parse session properties
         Multimap<String, Entry<String, String>> sessionPropertiesByCatalog = HashMultimap.create();
-        for (String sessionHeader : Collections.list(servletRequest.getHeaders(PRESTO_SESSION))) {
+        for (String sessionHeader : splitSessionHeader(servletRequest.getHeaders(PRESTO_SESSION))) {
             parseSessionHeader(sessionHeader, sessionPropertiesByCatalog);
         }
         sessionBuilder.setSystemProperties(toMap(sessionPropertiesByCatalog.get(null)));
@@ -86,6 +88,15 @@ final class ResourceUtil
         }
 
         return sessionBuilder.build();
+    }
+
+    private static List<String> splitSessionHeader(Enumeration<String> headers)
+    {
+        Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
+        return Collections.list(headers).stream()
+                .map(splitter::splitToList)
+                .flatMap(Collection::stream)
+                .collect(toImmutableList());
     }
 
     private static void parseSessionHeader(String header, Multimap<String, Entry<String, String>> sessionPropertiesByCatalog)
