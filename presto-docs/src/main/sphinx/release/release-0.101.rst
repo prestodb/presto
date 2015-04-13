@@ -20,3 +20,4 @@ Hive Changes
 * Treat ORC files as splittable.
 * Lower the Hive metadata refresh interval from two minutes to one second.
 * Invalidate Hive metadata cache for failed operations.
+* Support ``s3a`` file system scheme.
