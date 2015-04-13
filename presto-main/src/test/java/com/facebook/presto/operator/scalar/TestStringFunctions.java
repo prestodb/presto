@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -24,6 +27,19 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 public class TestStringFunctions
         extends AbstractTestFunctions
 {
+    @BeforeClass
+    public void setUp()
+    {
+        functionAssertions.addScalarFunctions(TestStringFunctions.class);
+    }
+
+    @ScalarFunction("utf8")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice convertBinaryToVarchar(@SqlType(StandardTypes.VARBINARY) Slice binary)
+    {
+        return binary;
+    }
+
     @Test
     public void testChr()
     {
@@ -48,9 +64,9 @@ public class TestStringFunctions
         assertFunction("CONCAT('this', CONCAT(' is', ' cool'))", VARCHAR, "this is cool");
         //
         // Test concat for non-ASCII
-        assertFunction("CONCAT('hello na\u00EFve', ' world')", "hello na\u00EFve world");
-        assertFunction("CONCAT('\uD801\uDC2D', 'end')", "\uD801\uDC2Dend");
-        assertFunction("CONCAT(CONCAT('\u4FE1\u5FF5', ',\u7231'), ',\u5E0C\u671B')", "\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
+        assertFunction("CONCAT('hello na\u00EFve', ' world')", VARCHAR, "hello na\u00EFve world");
+        assertFunction("CONCAT('\uD801\uDC2D', 'end')", VARCHAR, "\uD801\uDC2Dend");
+        assertFunction("CONCAT(CONCAT('\u4FE1\u5FF5', ',\u7231'), ',\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
     }
 
     @Test
@@ -102,8 +118,8 @@ public class TestStringFunctions
         assertFunction("REVERSE('na\u00EFve')", VARCHAR, "ev\u00EFan");
         assertFunction("REVERSE('\uD801\uDC2Dend')", VARCHAR, "dne\uD801\uDC2D");
 
-        assertInvalidFunction("REVERSE(utf8(from_hex('CE')))", VARCHAR, "Invalid utf8 encoding");
-        assertInvalidFunction("REVERSE(utf8(from_hex('68656C6C6FCE')))", VARCHAR, "Invalid utf8 encoding");
+        assertInvalidFunction("REVERSE(utf8(from_hex('CE')))", "Invalid utf8 encoding");
+        assertInvalidFunction("REVERSE(utf8(from_hex('68656C6C6FCE')))", "Invalid utf8 encoding");
     }
 
     @Test
