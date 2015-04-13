@@ -16,11 +16,12 @@ package com.facebook.presto.tests;
 import com.facebook.presto.client.QueryResults;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 public interface ResultsSession<T>
 {
     void addResults(QueryResults result);
 
-    T build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties);
+    T build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties, Optional<QueryResults> finalQueryResults);
 }

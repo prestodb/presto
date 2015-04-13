@@ -59,6 +59,7 @@ import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -138,7 +139,8 @@ public class StatementResource
     public Response createQuery(
             String statement,
             @Context HttpServletRequest servletRequest,
-            @Context UriInfo uriInfo)
+            @Context UriInfo uriInfo,
+            @HeaderParam("X-Presto-Digest") String digest)
             throws InterruptedException
     {
         assertRequest(!isNullOrEmpty(statement), "SQL statement is empty");
@@ -146,7 +148,8 @@ public class StatementResource
         Session session = createSessionForRequest(servletRequest);
 
         ExchangeClient exchangeClient = exchangeClientSupplier.get();
-        Query query = new Query(session, statement, queryManager, exchangeClient);
+        Optional<String> queryDigest = Optional.ofNullable(digest);
+        Query query = new Query(session, statement, queryManager, exchangeClient, queryDigest);
         queries.put(query.getQueryId(), query);
 
         return getQueryResults(query, Optional.empty(), uriInfo, new Duration(1, MILLISECONDS));
@@ -241,17 +244,19 @@ public class StatementResource
         public Query(Session session,
                 String query,
                 QueryManager queryManager,
-                ExchangeClient exchangeClient)
+                ExchangeClient exchangeClient,
+                Optional<String> queryDigest)
         {
             checkNotNull(session, "session is null");
             checkNotNull(query, "query is null");
             checkNotNull(queryManager, "queryManager is null");
             checkNotNull(exchangeClient, "exchangeClient is null");
+            checkNotNull(queryDigest, "queryDigest is null");
 
             this.session = session;
             this.queryManager = queryManager;
 
-            QueryInfo queryInfo = queryManager.createQuery(session, query);
+            QueryInfo queryInfo = queryManager.createQuery(session, query, queryDigest);
             queryId = queryInfo.getQueryId();
             this.exchangeClient = exchangeClient;
         }
@@ -354,6 +359,8 @@ public class StatementResource
             setSessionProperties = queryInfo.getSetSessionProperties();
             resetSessionProperties = queryInfo.getResetSessionProperties();
 
+            Boolean digestMatched = queryInfo.getState() == QueryState.DIGEST_MATCHED;
+
             // first time through, self is null
             QueryResults queryResults = new QueryResults(
                     queryId.toString(),
@@ -363,9 +370,11 @@ public class StatementResource
                     columns,
                     data,
                     toStatementStats(queryInfo),
+                    digestMatched,
                     toQueryError(queryInfo),
                     queryInfo.getUpdateType(),
-                    updateCount);
+                    updateCount,
+                    queryInfo.getQueryDigest());
 
             // cache the last results
             if (lastResult != null && lastResult.getNextUri() != null) {
@@ -614,7 +623,7 @@ public class StatementResource
             FailureInfo failure = queryInfo.getFailureInfo();
             if (failure == null) {
                 QueryState state = queryInfo.getState();
-                if ((!state.isDone()) || (state == QueryState.FINISHED)) {
+                if ((!state.isDone()) || (state == QueryState.FINISHED) || (state == QueryState.DIGEST_MATCHED)) {
                     return null;
                 }
                 log.warn("Query %s in state %s has no failure info", queryInfo.getQueryId(), state);

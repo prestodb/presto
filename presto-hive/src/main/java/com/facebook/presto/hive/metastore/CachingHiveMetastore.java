@@ -583,6 +583,7 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
     public Map<String, Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
             throws NoSuchObjectException
     {
@@ -594,6 +595,21 @@ public class CachingHiveMetastore
             partitionsByName.put(entry.getKey().getPartitionName(), entry.getValue());
         }
         return partitionsByName.build();
+    }
+
+    @Override
+    public Map<String, Partition> getCachedPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
+            throws NoSuchObjectException
+    {
+        Iterable<HivePartitionName> hivePartitionNames = transform(partitionNames, name -> HivePartitionName.partition(databaseName, tableName, name));
+        Map<HivePartitionName, Partition> cachedPartitions = partitionCache.asMap();
+        ImmutableMap.Builder<String, Partition> partitions = ImmutableMap.builder();
+        for (HivePartitionName hivePartitionName : hivePartitionNames) {
+            if (cachedPartitions.containsKey(hivePartitionName)) {
+                partitions.put(hivePartitionName.getPartitionName(), cachedPartitions.get(hivePartitionName));
+            }
+        }
+        return partitions.build();
     }
 
     private Partition loadPartitionByName(final HivePartitionName partitionName)

@@ -45,6 +45,7 @@ public class QueryInfo
     private final URI self;
     private final List<String> fieldNames;
     private final String query;
+    private final String queryDigest;
     private final QueryStats queryStats;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
@@ -64,6 +65,7 @@ public class QueryInfo
             @JsonProperty("self") URI self,
             @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("query") String query,
+            @JsonProperty("queryDigest") String queryDigest,
             @JsonProperty("queryStats") QueryStats queryStats,
             @JsonProperty("setSessionProperties") Map<String, String> setSessionProperties,
             @JsonProperty("resetSessionProperties") Set<String> resetSessionProperties,
@@ -91,6 +93,7 @@ public class QueryInfo
         this.self = self;
         this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.query = query;
+        this.queryDigest = queryDigest;
         this.queryStats = queryStats;
         this.setSessionProperties = ImmutableMap.copyOf(setSessionProperties);
         this.resetSessionProperties = ImmutableSet.copyOf(resetSessionProperties);
@@ -142,6 +145,12 @@ public class QueryInfo
     public String getQuery()
     {
         return query;
+    }
+
+    @JsonProperty
+    public String getQueryDigest()
+    {
+        return queryDigest;
     }
 
     @JsonProperty

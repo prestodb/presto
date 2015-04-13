@@ -111,6 +111,7 @@ public class QueryMonitor
                             queryInfo.getSelf(),
                             queryInfo.getFieldNames(),
                             queryInfo.getQuery(),
+                            queryInfo.getQueryDigest(),
                             queryStats.getCreateTime(),
                             queryStats.getExecutionStartTime(),
                             queryStats.getEndTime(),

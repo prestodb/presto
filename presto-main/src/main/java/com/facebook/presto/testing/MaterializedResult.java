@@ -14,6 +14,7 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
@@ -38,6 +39,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -54,18 +56,20 @@ public class MaterializedResult
     private final List<Type> types;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
+    private final Optional<QueryResults> finalQueryResults;
 
     public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types)
     {
-        this(rows, types, ImmutableMap.of(), ImmutableSet.of());
+        this(rows, types, ImmutableMap.of(), ImmutableSet.of(), Optional.empty());
     }
 
-    public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types, Map<String, String> setSessionProperties, Set<String> resetSessionProperties)
+    public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types, Map<String, String> setSessionProperties, Set<String> resetSessionProperties, Optional<QueryResults> finalQueryResults)
     {
         this.rows = ImmutableList.copyOf(checkNotNull(rows, "rows is null"));
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         this.setSessionProperties = ImmutableMap.copyOf(checkNotNull(setSessionProperties, "setSessionProperties is null"));
         this.resetSessionProperties = ImmutableSet.copyOf(checkNotNull(resetSessionProperties, "resetSessionProperties is null"));
+        this.finalQueryResults = checkNotNull(finalQueryResults, "finalQueryResults is null");
     }
 
     public int getRowCount()
@@ -97,6 +101,11 @@ public class MaterializedResult
     public Set<String> getResetSessionProperties()
     {
         return resetSessionProperties;
+    }
+
+    public Optional<QueryResults> getFinalQueryResults()
+    {
+        return finalQueryResults;
     }
 
     @Override
@@ -138,7 +147,7 @@ public class MaterializedResult
         for (MaterializedRow row : rows) {
             jdbcRows.add(convertToJdbcTypes(row));
         }
-        return new MaterializedResult(jdbcRows.build(), types, setSessionProperties, resetSessionProperties);
+        return new MaterializedResult(jdbcRows.build(), types, setSessionProperties, resetSessionProperties, finalQueryResults);
     }
 
     private static MaterializedRow convertToJdbcTypes(MaterializedRow prestoRow)

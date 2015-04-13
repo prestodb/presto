@@ -323,7 +323,9 @@ public abstract class AbstractTestHiveClient
                 hiveClientConfig.getMaxInitialSplits(),
                 false,
                 false,
-                false);
+                false,
+                hiveClientConfig.isUseTableLastModifiedTimeForDigest(),
+                hiveClientConfig.getMaxNumberOfPartitionsToRetrieveForDigest());
         recordSinkProvider = new HiveRecordSinkProvider(hdfsEnvironment);
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER, DEFAULT_HIVE_DATA_STREAM_FACTORIES, TYPE_MANAGER);
     }

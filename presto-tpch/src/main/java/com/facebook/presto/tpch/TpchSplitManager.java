@@ -24,10 +24,17 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.TupleDomain;
+import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.tpch.Types.checkType;
@@ -56,6 +63,21 @@ public class TpchSplitManager
     {
         ImmutableList<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new TpchPartition((TpchTableHandle) table));
         return new ConnectorPartitionResult(partitions, tupleDomain);
+    }
+
+    @Override
+    public Optional<Slice> computeDigest(ConnectorTableHandle table, List<ConnectorPartition> partitions)
+    {
+        checkNotNull(partitions, "partitions is null");
+
+        HashFunction hashFunction = Hashing.sha256();
+        Hasher hasher = hashFunction.newHasher();
+
+        for (ConnectorPartition partition : partitions) {
+            hasher.putString(partition.getPartitionId(), Charsets.UTF_8);
+        }
+
+        return Optional.of(Slices.wrappedBuffer(hasher.hash().asBytes()));
     }
 
     @Override

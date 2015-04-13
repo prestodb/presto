@@ -120,6 +120,9 @@ public class StatementClient
         if (session.getSchema() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_SCHEMA, session.getSchema());
         }
+        if (session.getDigest() != null) {
+            builder.setHeader(PrestoHeaders.PRESTO_DIGEST, session.getDigest());
+        }
         builder.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZoneId());
         builder.setHeader(PrestoHeaders.PRESTO_LANGUAGE, session.getLocale().toLanguageTag());
         builder.setHeader(USER_AGENT, USER_AGENT_VALUE);
@@ -160,6 +163,16 @@ public class StatementClient
     public boolean isFailed()
     {
         return currentResults.get().getError() != null;
+    }
+
+    public boolean isDigestMatched()
+    {
+        return currentResults.get().isDigestMatched();
+    }
+
+    public String getQueryDigest()
+    {
+        return currentResults.get().getQueryDigest();
     }
 
     public QueryResults current()

@@ -46,6 +46,7 @@ public class QueryCompletionEvent
     private final URI uri;
     private final List<String> fieldNames;
     private final String query;
+    private final String queryDigest;
 
     private final DateTime createTime;
     private final DateTime executionStartTime;
@@ -85,6 +86,7 @@ public class QueryCompletionEvent
             URI uri,
             List<String> fieldNames,
             String query,
+            String queryDigest,
             DateTime createTime,
             DateTime executionStartTime,
             DateTime endTime,
@@ -118,6 +120,7 @@ public class QueryCompletionEvent
         this.errorCode = errorCode;
         this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.query = query;
+        this.queryDigest = queryDigest;
         this.createTime = createTime;
         this.executionStartTime = executionStartTime;
         this.endTime = endTime;
@@ -231,6 +234,12 @@ public class QueryCompletionEvent
     public String getQuery()
     {
         return query;
+    }
+
+    @EventField
+    public String getQueryDigest()
+    {
+        return queryDigest;
     }
 
     @EventField

@@ -23,6 +23,7 @@ public class FeaturesConfig
     private boolean distributedJoinsEnabled;
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration;
+    private boolean queryDigestEnabled;
 
     @LegacyConfig("analyzer.experimental-syntax-enabled")
     @Config("experimental-syntax-enabled")
@@ -82,6 +83,18 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeHashGeneration(boolean optimizeHashGeneration)
     {
         this.optimizeHashGeneration = optimizeHashGeneration;
+        return this;
+    }
+
+    public boolean isQueryDigestEnabled()
+    {
+        return queryDigestEnabled;
+    }
+
+    @Config("query-digest-enabled")
+    public FeaturesConfig setQueryDigestEnabled(boolean queryDigestEnabled)
+    {
+        this.queryDigestEnabled = queryDigestEnabled;
         return this;
     }
 }

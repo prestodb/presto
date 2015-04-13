@@ -74,6 +74,8 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.PlanDigest;
+import com.facebook.presto.sql.planner.PlanDigestGenerator;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
@@ -311,12 +313,12 @@ public class LocalQueryRunner
     }
 
     @Override
-    public MaterializedResult execute(Session session, @Language("SQL") String sql)
+    public MaterializedResult execute(Session session, @Language("SQL") String sql, String digest)
     {
         MaterializedOutputFactory outputFactory = new MaterializedOutputFactory();
 
         TaskContext taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session);
-        List<Driver> drivers = createDrivers(session, sql, outputFactory, taskContext);
+        List<Driver> drivers = createDrivers(session, sql, outputFactory, taskContext, digest);
 
         boolean done = false;
         while (!done) {
@@ -333,12 +335,18 @@ public class LocalQueryRunner
         return outputFactory.getMaterializingOperator().getMaterializedResult();
     }
 
-    public List<Driver> createDrivers(@Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
+    @Override
+    public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
-        return createDrivers(defaultSession, sql, outputFactory, taskContext);
+        return execute(session, sql, null);
     }
 
-    public List<Driver> createDrivers(Session session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
+    public List<Driver> createDrivers(@Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
+    {
+        return createDrivers(defaultSession, sql, outputFactory, taskContext, null);
+    }
+
+    public List<Driver> createDrivers(Session session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext, String digest)
     {
         Statement statement = sqlParser.createStatement(sql);
 
@@ -356,6 +364,14 @@ public class LocalQueryRunner
 
         Analysis analysis = analyzer.analyze(statement);
         Plan plan = new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator, metadata).plan(analysis);
+
+        PlanDigestGenerator planDigestGenerator = new PlanDigestGenerator(splitManager);
+        PlanDigest planDigest = planDigestGenerator.generate(plan);
+
+        checkState(planDigest != null, "Digest is null for query: " + sql);
+        if (digest != null) {
+            checkState(planDigest.getDigestString().equals(digest));
+        }
 
         if (printPlan) {
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata));

@@ -40,6 +40,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_DIGEST;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
@@ -84,12 +85,13 @@ public class ExecuteResource
             @HeaderParam(PRESTO_SCHEMA) String schema,
             @HeaderParam(PRESTO_TIME_ZONE) String timeZoneId,
             @HeaderParam(PRESTO_LANGUAGE) String language,
+            @HeaderParam(PRESTO_DIGEST) String digest,
             @Context HttpServletRequest servletRequest)
     {
         assertRequest(!isNullOrEmpty(query), "SQL query is empty");
 
         Session session = createSessionForRequest(servletRequest);
-        ClientSession clientSession = session.toClientSession(serverUri(), false);
+        ClientSession clientSession = session.toClientSession(serverUri(), false, digest);
 
         StatementClient client = new StatementClient(httpClient, queryResultsCodec, clientSession, query);
 

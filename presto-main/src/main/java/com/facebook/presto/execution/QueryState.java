@@ -24,6 +24,10 @@ public enum QueryState
      */
     PLANNING(false),
     /**
+     * The digest generated for the query plan has matched the one provided with the query.
+     */
+    DIGEST_MATCHED(true),
+    /**
      * Query execution is being started.
      */
     STARTING(false),

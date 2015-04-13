@@ -161,6 +161,13 @@ public class InMemoryHiveMetastore
     }
 
     @Override
+    public Map<String, Partition> getCachedPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
+            throws NoSuchObjectException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Table getTable(String databaseName, String tableName)
             throws NoSuchObjectException
     {

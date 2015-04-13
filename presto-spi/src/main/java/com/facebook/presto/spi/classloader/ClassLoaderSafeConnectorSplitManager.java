@@ -20,8 +20,10 @@ import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.TupleDomain;
+import io.airlift.slice.Slice;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -42,6 +44,14 @@ public final class ClassLoaderSafeConnectorSplitManager
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getPartitions(table, tupleDomain);
+        }
+    }
+
+    @Override
+    public Optional<Slice> computeDigest(ConnectorTableHandle table, List<ConnectorPartition> connectorPartitions)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.computeDigest(table, connectorPartitions);
         }
     }
 
