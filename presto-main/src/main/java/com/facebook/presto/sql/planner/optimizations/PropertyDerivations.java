@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableLayout;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
@@ -42,6 +45,7 @@ import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -53,26 +57,32 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.base.Preconditions.checkArgument;
 
 class PropertyDerivations
 {
-    private static final Visitor INSTANCE = new Visitor();
-
     private PropertyDerivations() {}
 
-    public static ActualProperties deriveProperties(PlanNode node, ActualProperties inputProperties)
+    public static ActualProperties deriveProperties(PlanNode node, ActualProperties inputProperties, Metadata metadata)
     {
-        return deriveProperties(node, ImmutableList.of(inputProperties));
+        return deriveProperties(node, ImmutableList.of(inputProperties), metadata);
     }
 
-    public static ActualProperties deriveProperties(PlanNode node, List<ActualProperties> inputProperties)
+    public static ActualProperties deriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata)
     {
-        return node.accept(INSTANCE, inputProperties);
+        return node.accept(new Visitor(metadata), inputProperties);
     }
 
     private static class Visitor
             extends PlanVisitor<List<ActualProperties>, ActualProperties>
     {
+        private final Metadata metadata;
+
+        public Visitor(Metadata metadata)
+        {
+            this.metadata = metadata;
+        }
+
         @Override
         protected ActualProperties visitPlan(PlanNode node, List<ActualProperties> inputProperties)
         {
@@ -341,8 +351,36 @@ class PropertyDerivations
         @Override
         public ActualProperties visitTableScan(TableScanNode node, List<ActualProperties> inputProperties)
         {
-            // TODO
-            return ActualProperties.partitioned();
+            checkArgument(node.getLayout().isPresent(), "table layout has not yet been chosen");
+
+            TableLayout layout = metadata.getLayout(node.getLayout().get());
+            Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
+
+            Optional<List<Symbol>> partitioningColumns = Optional.empty();
+            if (layout.getPartitioningColumns().isPresent()) {
+                partitioningColumns = translate(layout.getPartitioningColumns().get(), assignments);
+            }
+
+            ActualProperties.Builder properties = ActualProperties.builder();
+            if (partitioningColumns.isPresent()) {
+                properties.partitioned(ImmutableSet.copyOf(partitioningColumns.get()));
+            }
+            else {
+                properties.partitioned();
+            }
+
+            ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.<LocalProperty<Symbol>>builder();
+            for (LocalProperty<ColumnHandle> property : layout.getLocalProperties()) {
+                Optional<LocalProperty<Symbol>> translated = property.translate(column -> Optional.ofNullable(assignments.get(column)));
+                if (!translated.isPresent()) {
+                    break;
+                }
+                localProperties.add(translated.get());
+            }
+
+            properties.local(localProperties.build());
+
+            return properties.build();
         }
 
         private static Map<Symbol, Symbol> computeIdentityTranslations(Map<Symbol, Expression> assignments)
@@ -359,11 +397,11 @@ class PropertyDerivations
         /**
          * @return Optional.empty() if not all columns could be translated
          */
-        private static Optional<List<Symbol>> translate(Collection<Symbol> columns, Map<Symbol, Symbol> mappings)
+        private static <T> Optional<List<Symbol>> translate(Collection<T> columns, Map<T, Symbol> mappings)
         {
             ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
 
-            for (Symbol column : columns) {
+            for (T column : columns) {
                 Symbol translated = mappings.get(column);
                 if (translated == null) {
                     return Optional.empty();

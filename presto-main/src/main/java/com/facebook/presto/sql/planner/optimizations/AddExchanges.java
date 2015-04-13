@@ -86,7 +86,6 @@ import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripDeterministicConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static com.facebook.presto.sql.planner.optimizations.PropertyDerivations.deriveProperties;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
@@ -604,7 +603,7 @@ public class AddExchanges
                     node.getLeftHashSymbol(),
                     node.getRightHashSymbol());
 
-            return new PlanWithProperties(result, PropertyDerivations.deriveProperties(result, ImmutableList.of(left.getProperties(), right.getProperties())));
+            return new PlanWithProperties(result, deriveProperties(result, ImmutableList.of(left.getProperties(), right.getProperties())));
         }
 
         @Override
@@ -757,6 +756,16 @@ public class AddExchanges
         private PlanWithProperties withDerivedProperties(PlanNode node, ActualProperties inputProperties)
         {
             return new PlanWithProperties(node, deriveProperties(node, inputProperties));
+        }
+
+        private ActualProperties deriveProperties(PlanNode result, ActualProperties inputProperties)
+        {
+            return PropertyDerivations.deriveProperties(result, inputProperties, metadata);
+        }
+
+        private ActualProperties deriveProperties(PlanNode result, List<ActualProperties> inputProperties)
+        {
+            return PropertyDerivations.deriveProperties(result, inputProperties, metadata);
         }
     }
 
