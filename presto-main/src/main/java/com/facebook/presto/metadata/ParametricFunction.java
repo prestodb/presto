@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 
@@ -39,5 +40,5 @@ public interface ParametricFunction
     String getDescription();
 
     // TODO: This should really return an object with just the MethodHandle/InternalAggregation...etc. However, due to the magic literal hack this is not possible
-    FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry);
+    FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FunctionRegistry functionRegistry);
 }

@@ -17,6 +17,7 @@ import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.window.AggregateWindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -180,7 +181,7 @@ public final class FunctionInfo
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FunctionRegistry functionRegistry)
     {
         return this;
     }

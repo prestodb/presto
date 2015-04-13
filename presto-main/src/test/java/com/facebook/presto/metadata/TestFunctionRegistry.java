@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.operator.scalar.CustomFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.SqlType;
@@ -43,7 +45,9 @@ public class TestFunctionRegistry
     @Test
     public void testIdentityCast()
     {
-        FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
+        TypeRegistry typeManager = new TypeRegistry();
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
+        FunctionRegistry registry = new FunctionRegistry(typeManager, blockEncodingSerde, true);
         FunctionInfo exactOperator = registry.getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG);
         assertEquals(exactOperator.getSignature().getName(), mangleOperatorName(OperatorType.CAST.name()));
         assertEquals(transform(exactOperator.getArgumentTypes(), Functions.toStringFunction()), ImmutableList.of(StandardTypes.HYPER_LOG_LOG));
@@ -54,7 +58,8 @@ public class TestFunctionRegistry
     public void testExactMatchBeforeCoercion()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, true);
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
+        FunctionRegistry registry = new FunctionRegistry(typeManager, blockEncodingSerde, true);
         boolean foundOperator = false;
         for (ParametricFunction function : registry.listOperators()) {
             OperatorType operatorType = unmangleOperator(function.getSignature().getName());
@@ -79,7 +84,9 @@ public class TestFunctionRegistry
         assertEquals(signature.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
 
-        FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
+        TypeRegistry typeManager = new TypeRegistry();
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
+        FunctionRegistry registry = new FunctionRegistry(typeManager, blockEncodingSerde, true);
         FunctionInfo function = registry.resolveFunction(QualifiedName.of(signature.getName()), signature.getArgumentTypes(), false);
         assertEquals(function.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
@@ -95,7 +102,9 @@ public class TestFunctionRegistry
                 .filter(input -> input.getSignature().getName().equals("custom_add"))
                 .collect(toImmutableList());
 
-        FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
+        TypeRegistry typeManager = new TypeRegistry();
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
+        FunctionRegistry registry = new FunctionRegistry(typeManager, blockEncodingSerde, true);
         registry.addFunctions(functions);
         registry.addFunctions(functions);
     }
@@ -108,7 +117,9 @@ public class TestFunctionRegistry
                 .scalar(ScalarSum.class)
                 .getFunctions();
 
-        FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
+        TypeRegistry typeManager = new TypeRegistry();
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
+        FunctionRegistry registry = new FunctionRegistry(typeManager, blockEncodingSerde, true);
         registry.addFunctions(functions);
     }
 
@@ -116,7 +127,9 @@ public class TestFunctionRegistry
     public void testListingHiddenFunctions()
             throws Exception
     {
-        FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
+        TypeRegistry typeManager = new TypeRegistry();
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
+        FunctionRegistry registry = new FunctionRegistry(typeManager, blockEncodingSerde, true);
         List<ParametricFunction> functions = registry.list();
         List<String> names = transform(functions, input -> input.getSignature().getName());
 

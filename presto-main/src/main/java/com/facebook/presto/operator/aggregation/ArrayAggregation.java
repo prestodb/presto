@@ -28,6 +28,7 @@ import com.facebook.presto.operator.aggregation.state.ArrayAggregationStateSeria
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -71,7 +72,7 @@ public class ArrayAggregation
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FunctionRegistry functionRegistry)
     {
         Type type = types.get("T");
         Signature signature = new Signature(NAME,

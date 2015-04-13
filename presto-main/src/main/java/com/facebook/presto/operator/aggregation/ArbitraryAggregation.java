@@ -23,6 +23,7 @@ import com.facebook.presto.operator.aggregation.state.ArbitraryAggregationStateF
 import com.facebook.presto.operator.aggregation.state.ArbitraryAggregationStateSerializer;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -62,7 +63,7 @@ public class ArbitraryAggregation
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FunctionRegistry functionRegistry)
     {
         Type valueType = types.get("T");
         Signature signature = new Signature(NAME, valueType.getTypeSignature(), valueType.getTypeSignature());

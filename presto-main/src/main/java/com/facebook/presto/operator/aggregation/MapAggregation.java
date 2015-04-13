@@ -23,6 +23,7 @@ import com.facebook.presto.operator.aggregation.state.KeyValuePairsState;
 import com.facebook.presto.operator.aggregation.state.KeyValuePairsStateFactory;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.MapType;
@@ -68,7 +69,7 @@ public class MapAggregation
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FunctionRegistry functionRegistry)
     {
         Type keyType = types.get("K");
         Type valueType = types.get("V");

@@ -17,6 +17,7 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.NodeSystemTable;
@@ -141,7 +142,7 @@ public class LocalQueryRunner
         this.indexManager = new IndexManager();
         this.pageSinkManager = new PageSinkManager();
 
-        this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry);
+        this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry, new BlockEncodingManager(typeRegistry));
         this.splitManager = new SplitManager();
         this.pageSourceManager = new PageSourceManager();
 

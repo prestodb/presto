@@ -23,6 +23,7 @@ import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer
 import com.facebook.presto.operator.aggregation.state.LongState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -64,7 +65,7 @@ public class CountColumn
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FunctionRegistry functionRegistry)
     {
         Type type = types.get("T");
         Signature signature = new Signature(NAME, parseTypeSignature(StandardTypes.BIGINT), type.getTypeSignature());
