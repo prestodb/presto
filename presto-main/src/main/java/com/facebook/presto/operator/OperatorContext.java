@@ -245,9 +245,11 @@ public class OperatorContext
 
         long delta = newMemoryReservation - memoryReservation.get();
 
-        // currently, operator memory is not be released
         if (delta > 0) {
             reserveMemory(delta, noFail);
+        }
+        else {
+            freeMemory(-delta);
         }
 
         return memoryReservation.get();
