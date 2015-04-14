@@ -140,18 +140,31 @@ public class TestStringFunctions
     @Test
     public void testStringPosition()
     {
-        assertFunction("STRPOS('high', 'ig')", BIGINT, 2);
-        assertFunction("STRPOS('high', 'igx')", BIGINT, 0);
-        assertFunction("STRPOS('Quadratically', 'a')", BIGINT, 3);
-        assertFunction("STRPOS('foobar', 'foobar')", BIGINT, 1);
-        assertFunction("STRPOS('foobar', 'obar')", BIGINT, 3);
-        assertFunction("STRPOS('zoo!', '!')", BIGINT, 4);
-        assertFunction("STRPOS('x', '')", BIGINT, 1);
-        assertFunction("STRPOS('', '')", BIGINT, 1);
+        testStrPosAndPosition("high", "ig", 2);
+        testStrPosAndPosition("high", "igx", 0);
+        testStrPosAndPosition("Quadratically", "a", 3);
+        testStrPosAndPosition("foobar", "foobar", 1);
+        testStrPosAndPosition("foobar", "obar", 3);
+        testStrPosAndPosition("zoo!", "!", 4);
+        testStrPosAndPosition("x", "", 1);
+        testStrPosAndPosition("", "", 1);
 
-        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u7231')", BIGINT, 4);
-        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u5E0C\u671B')", BIGINT, 6);
-        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', 'nice')", BIGINT, 0);
+        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u7231", 4);
+        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u5E0C\u671B", 6);
+        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "nice", 0);
+
+        testStrPosAndPosition(null, "", null);
+        testStrPosAndPosition("", null, null);
+        testStrPosAndPosition(null, null, null);
+    }
+
+    private void testStrPosAndPosition(String string, String substring, Integer expected)
+    {
+        string = (string == null) ? "NULL" : ("'" + string + "'");
+        substring = (substring == null) ? "NULL" : ("'" + substring + "'");
+
+        assertFunction(String.format("STRPOS(%s, %s)", string, substring), BIGINT,  expected);
+        assertFunction(String.format("POSITION(%s in %s)", substring, string), BIGINT,  expected);
     }
 
     @Test

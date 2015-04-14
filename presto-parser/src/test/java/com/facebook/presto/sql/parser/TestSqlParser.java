@@ -487,6 +487,12 @@ public class TestSqlParser
         SQL_PARSER.createStatement("select CAST(-12223222232535343423232435343 AS BIGINT)");
     }
 
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: mismatched input ',' expecting\\E.*")
+    public void testParseErrorPositionWithoutIn()
+    {
+        SQL_PARSER.createStatement("select POSITION('hi', 'high')");
+    }
+
     @Test
     public void testParsingExceptionPositionInfo()
     {

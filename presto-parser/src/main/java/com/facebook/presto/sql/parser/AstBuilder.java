@@ -107,6 +107,7 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.misc.NotNull;
@@ -791,6 +792,13 @@ class AstBuilder
     public Node visitSubstring(@NotNull SqlBaseParser.SubstringContext context)
     {
         return new FunctionCall(new QualifiedName("substr"), visit(context.valueExpression(), Expression.class));
+    }
+
+    @Override
+    public Node visitPosition(@NotNull SqlBaseParser.PositionContext context)
+    {
+        List<Expression> arguments = Lists.reverse(visit(context.valueExpression(), Expression.class));
+        return new FunctionCall(new QualifiedName("strpos"), arguments);
     }
 
     @Override
