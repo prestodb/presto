@@ -496,7 +496,8 @@ class QueryPlanner
                             frame,
                             assignments.build(),
                             signatures,
-                            Optional.empty()),
+                            Optional.empty(),
+                            ImmutableSet.of()),
                     subPlan.getSampleWeight());
 
             if (needCoercion) {

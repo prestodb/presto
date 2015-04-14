@@ -167,7 +167,17 @@ public class ChildReplacer
     @Override
     public PlanNode visitWindow(WindowNode node, List<PlanNode> newChildren)
     {
-        return new WindowNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getFrame(), node.getWindowFunctions(), node.getSignatures(), node.getHashSymbol());
+        return new WindowNode(
+                node.getId(),
+                Iterables.getOnlyElement(newChildren),
+                node.getPartitionBy(),
+                node.getOrderBy(),
+                node.getOrderings(),
+                node.getFrame(),
+                node.getWindowFunctions(),
+                node.getSignatures(),
+                node.getHashSymbol(),
+                node.getPrePartitionedInputs());
     }
 
     @Override

@@ -50,6 +50,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import org.testng.Assert;
@@ -282,7 +283,9 @@ public class TestEffectivePredicateExtractor
                         FrameBound.Type.UNBOUNDED_PRECEDING, Optional.empty(),
                         FrameBound.Type.CURRENT_ROW, Optional.empty()),
                 ImmutableMap.<Symbol, FunctionCall>of(),
-                ImmutableMap.<Symbol, Signature>of(), Optional.empty());
+                ImmutableMap.<Symbol, Signature>of(),
+                Optional.empty(),
+                ImmutableSet.of());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 

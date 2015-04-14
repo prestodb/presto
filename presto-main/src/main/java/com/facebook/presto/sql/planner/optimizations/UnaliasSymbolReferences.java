@@ -178,7 +178,17 @@ public class UnaliasSymbolReferences
                     frame.getStartType(), canonicalize(frame.getStartValue()),
                     frame.getEndType(), canonicalize(frame.getEndValue()));
 
-            return new WindowNode(node.getId(), source, canonicalize(node.getPartitionBy()), canonicalize(node.getOrderBy()), orderings.build(), frame, functionCalls.build(), functionInfos.build(), node.getHashSymbol());
+            return new WindowNode(
+                    node.getId(),
+                    source,
+                    canonicalize(node.getPartitionBy()),
+                    canonicalize(node.getOrderBy()),
+                    orderings.build(),
+                    frame,
+                    functionCalls.build(),
+                    functionInfos.build(),
+                    node.getHashSymbol().map(this::canonicalize),
+                    canonicalize(node.getPrePartitionedInputs()));
         }
 
         @Override

@@ -58,6 +58,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.util.GraphvizPrinter;
+import com.facebook.presto.util.ImmutableCollectors;
 import com.facebook.presto.util.JsonPlanPrinter;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
@@ -304,7 +305,27 @@ public class PlanPrinter
 
             List<String> args = new ArrayList<>();
             if (!partitionBy.isEmpty()) {
-                args.add(format("partition by (%s)", Joiner.on(", ").join(partitionBy)));
+                List<Symbol> prePartitioned = node.getPartitionBy().stream()
+                        .filter(node.getPrePartitionedInputs()::contains)
+                        .collect(ImmutableCollectors.toImmutableList());
+
+                List<Symbol> notPrePartitioned = node.getPartitionBy().stream()
+                        .filter(column -> !node.getPrePartitionedInputs().contains(column))
+                        .collect(ImmutableCollectors.toImmutableList());
+
+                StringBuilder builder = new StringBuilder();
+                if (!prePartitioned.isEmpty()) {
+                    builder.append("<")
+                            .append(Joiner.on(", ").join(prePartitioned))
+                            .append(">");
+                    if (!notPrePartitioned.isEmpty()) {
+                        builder.append(", ");
+                    }
+                }
+                if (!notPrePartitioned.isEmpty()) {
+                    builder.append(Joiner.on(", ").join(notPrePartitioned));
+                }
+                args.add(format("partition by (%s)", builder));
             }
             if (!orderBy.isEmpty()) {
                 args.add(format("order by (%s)", Joiner.on(", ").join(orderBy)));
