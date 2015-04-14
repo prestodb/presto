@@ -760,12 +760,12 @@ public class AddExchanges
 
         private ActualProperties deriveProperties(PlanNode result, ActualProperties inputProperties)
         {
-            return PropertyDerivations.deriveProperties(result, inputProperties, metadata);
+            return PropertyDerivations.deriveProperties(result, inputProperties, metadata, session, symbolAllocator.getTypes(), parser);
         }
 
         private ActualProperties deriveProperties(PlanNode result, List<ActualProperties> inputProperties)
         {
-            return PropertyDerivations.deriveProperties(result, inputProperties, metadata);
+            return PropertyDerivations.deriveProperties(result, inputProperties, metadata, session, symbolAllocator.getTypes(), parser);
         }
     }
 
