@@ -240,6 +240,7 @@ public class PruneUnreferencedOutputs
                     functionCalls.build(),
                     functions.build(),
                     masks.build(),
+                    node.getStep(),
                     node.getSampleWeight(),
                     node.getConfidence(),
                     node.getHashSymbol());

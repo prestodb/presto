@@ -103,6 +103,7 @@ public class HashGenerationOptimizer
                         node.getAggregations(),
                         node.getFunctions(),
                         node.getMasks(),
+                        node.getStep(),
                         node.getSampleWeight(),
                         node.getConfidence(),
                         Optional.empty());
@@ -116,6 +117,7 @@ public class HashGenerationOptimizer
                     node.getAggregations(),
                     node.getFunctions(),
                     node.getMasks(),
+                    node.getStep(),
                     node.getSampleWeight(),
                     node.getConfidence(),
                     Optional.of(hashSymbol));

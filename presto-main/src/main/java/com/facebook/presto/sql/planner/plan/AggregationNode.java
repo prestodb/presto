@@ -52,11 +52,6 @@ public class AggregationNode
         SINGLE
     }
 
-    public AggregationNode(PlanNodeId id, PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks, Optional<Symbol> sampleWeight, double confidence, Optional<Symbol> hashSymbol)
-    {
-        this(id, source, groupByKeys, aggregations, functions, masks, Step.SINGLE, sampleWeight, confidence, hashSymbol);
-    }
-
     @JsonCreator
     public AggregationNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,

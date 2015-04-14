@@ -96,7 +96,17 @@ public class SetFlatteningOptimizer
                 return rewrittenNode;
             }
 
-            return new AggregationNode(node.getId(), rewrittenNode, node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), node.getSampleWeight(), node.getConfidence(), node.getHashSymbol());
+            return new AggregationNode(
+                    node.getId(),
+                    rewrittenNode,
+                    node.getGroupBy(),
+                    node.getAggregations(),
+                    node.getFunctions(),
+                    node.getMasks(),
+                    node.getStep(),
+                    node.getSampleWeight(),
+                    node.getConfidence(),
+                    node.getHashSymbol());
         }
 
         private static boolean isDistinctOperator(AggregationNode node)
