@@ -63,11 +63,11 @@ public class TestHashJoinOperator
     @DataProvider(name = "hashEnabledValues")
     public static Object[][] hashEnabledValuesProvider()
     {
-        return new Object[][] { { true }, { false } };
+        return new Object[][] { { true, true }, { true, false }, { false, true }, { false, false } };
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testInnerJoin(boolean hashEnabled)
+    public void testInnerJoin(boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
@@ -75,11 +75,11 @@ public class TestHashJoinOperator
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), buildTypes);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, buildPages
                 .addSequencePage(10, 20, 30, 40)
                 .build());
-        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, rowPagesBuilder.getTypes(), Ints.asList(0), rowPagesBuilder.getHashChannel(), 100);
+        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildPages.getTypes(), Ints.asList(0), buildPages.getHashChannel(), 100);
         Operator sourceHashProvider = hashBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, sourceHashProvider);
@@ -89,16 +89,16 @@ public class TestHashJoinOperator
 
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
-        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(hashEnabled, Ints.asList(0), probeTypes);
-        List<Page> probeInput = rowPagesBuilderProbe
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
+        List<Page> probeInput = probePages
                 .addSequencePage(1000, 0, 1000, 2000)
                 .build();
         OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
-                rowPagesBuilderProbe.getTypes(),
+                probePages.getTypes(),
                 Ints.asList(0),
-                rowPagesBuilderProbe.getHashChannel());
+                probePages.getHashChannel());
 
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
@@ -116,11 +116,11 @@ public class TestHashJoinOperator
                 .row("29", 1029, 2029, "29", 39, 49)
                 .build();
 
-        assertOperatorEquals(joinOperator, probeInput, expected, hashEnabled, ImmutableList.of(buildTypes.size(), buildTypes.size() + probeTypes.size() + 1));
+        assertOperatorEquals(joinOperator, probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testInnerJoinWithNullProbe(boolean hashEnabled)
+    public void testInnerJoinWithNullProbe(boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
@@ -128,13 +128,13 @@ public class TestHashJoinOperator
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), buildTypes);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, buildPages
                 .row("a")
                 .row("b")
                 .row("c")
                 .build());
-        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, rowPagesBuilder.getTypes(), Ints.asList(0), rowPagesBuilder.getHashChannel(), 100);
+        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildPages.getTypes(), Ints.asList(0), buildPages.getHashChannel(), 100);
         Operator sourceHashProvider = hashBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, sourceHashProvider);
@@ -144,8 +144,8 @@ public class TestHashJoinOperator
 
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(probeTypes);
-        List<Page> probeInput = rowPagesBuilderProbe
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
+        List<Page> probeInput = probePages
                 .row("a")
                 .row((String) null)
                 .row((String) null)
@@ -155,9 +155,9 @@ public class TestHashJoinOperator
         OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
-                rowPagesBuilderProbe.getTypes(),
+                probePages.getTypes(),
                 Ints.asList(0),
-                rowPagesBuilderProbe.getHashChannel());
+                probePages.getHashChannel());
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
@@ -167,11 +167,11 @@ public class TestHashJoinOperator
                 .row("b", "b")
                 .build();
 
-        assertOperatorEquals(joinOperator, probeInput, expected, hashEnabled, ImmutableList.of(buildTypes.size() + probeTypes.size()));
+        assertOperatorEquals(joinOperator, probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testInnerJoinWithNullBuild(boolean hashEnabled)
+    public void testInnerJoinWithNullBuild(boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
@@ -179,15 +179,15 @@ public class TestHashJoinOperator
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), buildTypes);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, buildPages
                 .row("a")
                 .row((String) null)
                 .row((String) null)
                 .row("a")
                 .row("b")
                 .build());
-        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, rowPagesBuilder.getTypes(), Ints.asList(0), rowPagesBuilder.getHashChannel(), 100);
+        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildPages.getTypes(), Ints.asList(0), buildPages.getHashChannel(), 100);
         Operator sourceHashProvider = hashBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, sourceHashProvider);
@@ -197,8 +197,8 @@ public class TestHashJoinOperator
 
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(hashEnabled, Ints.asList(0), probeTypes);
-        List<Page> probeInput = rowPagesBuilderProbe
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
+        List<Page> probeInput = probePages
                 .row("a")
                 .row("b")
                 .row("c")
@@ -206,9 +206,9 @@ public class TestHashJoinOperator
         OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
-                rowPagesBuilderProbe.getTypes(),
+                probePages.getTypes(),
                 Ints.asList(0),
-                 rowPagesBuilderProbe.getHashChannel());
+                probePages.getHashChannel());
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
@@ -218,11 +218,11 @@ public class TestHashJoinOperator
                 .row("b", "b")
                 .build();
 
-        assertOperatorEquals(joinOperator, probeInput, expected, hashEnabled, ImmutableList.of(buildTypes.size(), buildTypes.size() + probeTypes.size() + 1));
+        assertOperatorEquals(joinOperator, probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testInnerJoinWithNullOnBothSides(boolean hashEnabled)
+    public void testInnerJoinWithNullOnBothSides(boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
@@ -230,15 +230,15 @@ public class TestHashJoinOperator
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), buildTypes);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, buildPages
                 .row("a")
                 .row((String) null)
                 .row((String) null)
                 .row("a")
                 .row("b")
                 .build());
-        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, rowPagesBuilder.getTypes(), Ints.asList(0), rowPagesBuilder.getHashChannel(), 100);
+        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildPages.getTypes(), Ints.asList(0), buildPages.getHashChannel(), 100);
         Operator sourceHashProvider = hashBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, sourceHashProvider);
@@ -248,8 +248,8 @@ public class TestHashJoinOperator
 
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(probeTypes);
-        List<Page> probeInput = rowPagesBuilderProbe
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
+        List<Page> probeInput = probePages
                 .row("a")
                 .row("b")
                 .row((String) null)
@@ -258,9 +258,9 @@ public class TestHashJoinOperator
         OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
-                rowPagesBuilderProbe.getTypes(),
+                probePages.getTypes(),
                 Ints.asList(0),
-                rowPagesBuilderProbe.getHashChannel());
+                probePages.getHashChannel());
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
@@ -270,11 +270,11 @@ public class TestHashJoinOperator
                 .row("b", "b")
                 .build();
 
-        assertOperatorEquals(joinOperator, probeInput, expected, hashEnabled, ImmutableList.of(buildTypes.size() + probeTypes.size()));
+        assertOperatorEquals(joinOperator, probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testProbeOuterJoin(boolean hashEnabled)
+    public void testProbeOuterJoin(boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
@@ -282,12 +282,12 @@ public class TestHashJoinOperator
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), buildTypes);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, buildPages
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
-        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, rowPagesBuilder.getTypes(), Ints.asList(0), rowPagesBuilder.getHashChannel(), 100);
+        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildPages.getTypes(), Ints.asList(0), buildPages.getHashChannel(), 100);
         Operator hashBuilderOperator = hashBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, hashBuilderOperator);
@@ -297,16 +297,16 @@ public class TestHashJoinOperator
 
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
-        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(hashEnabled, Ints.asList(0), probeTypes);
-        List<Page> probeInput = rowPagesBuilderProbe
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
+        List<Page> probeInput = probePages
                 .addSequencePage(15, 20, 1020, 2020)
                 .build();
         OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
-                rowPagesBuilderProbe.getTypes(),
+                probePages.getTypes(),
                 Ints.asList(0),
-                rowPagesBuilderProbe.getHashChannel());
+                probePages.getHashChannel());
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
@@ -329,11 +329,11 @@ public class TestHashJoinOperator
                 .row("34", 1034, 2034, null, null, null)
                 .build();
 
-        assertOperatorEquals(joinOperator, probeInput, expected, hashEnabled, ImmutableList.of(buildTypes.size(), buildTypes.size() + probeTypes.size() + 1));
+        assertOperatorEquals(joinOperator, probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testOuterJoinWithNullProbe(boolean hashEnabled)
+    public void testOuterJoinWithNullProbe(boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
@@ -341,13 +341,13 @@ public class TestHashJoinOperator
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), buildTypes);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, buildPages
                 .row("a")
                 .row("b")
                 .row("c")
                 .build());
-        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, rowPagesBuilder.getTypes(), Ints.asList(0), rowPagesBuilder.getHashChannel(), 100);
+        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildPages.getTypes(), Ints.asList(0), buildPages.getHashChannel(), 100);
         Operator sourceHashProvider = hashBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, sourceHashProvider);
@@ -357,8 +357,8 @@ public class TestHashJoinOperator
 
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(probeTypes);
-        List<Page> probeInput = rowPagesBuilderProbe
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
+        List<Page> probeInput = probePages
                 .row("a")
                 .row((String) null)
                 .row((String) null)
@@ -368,9 +368,9 @@ public class TestHashJoinOperator
         OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
-                rowPagesBuilderProbe.getTypes(),
+                probePages.getTypes(),
                 Ints.asList(0),
-                rowPagesBuilderProbe.getHashChannel());
+                probePages.getHashChannel());
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
@@ -382,11 +382,11 @@ public class TestHashJoinOperator
                 .row("b", "b")
                 .build();
 
-        assertOperatorEquals(joinOperator, probeInput, expected, hashEnabled, ImmutableList.of(buildTypes.size() + probeTypes.size()));
+        assertOperatorEquals(joinOperator, probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testOuterJoinWithNullBuild(boolean hashEnabled)
+    public void testOuterJoinWithNullBuild(boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
@@ -394,15 +394,15 @@ public class TestHashJoinOperator
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), buildTypes);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, buildPages
                 .row("a")
                 .row((String) null)
                 .row((String) null)
                 .row("a")
                 .row("b")
                 .build());
-        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, rowPagesBuilder.getTypes(), Ints.asList(0), rowPagesBuilder.getHashChannel(), 100);
+        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildPages.getTypes(), Ints.asList(0), buildPages.getHashChannel(), 100);
         Operator sourceHashProvider = hashBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, sourceHashProvider);
@@ -412,8 +412,8 @@ public class TestHashJoinOperator
 
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(probeTypes);
-        List<Page> probeInput = rowPagesBuilderProbe
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
+        List<Page> probeInput = probePages
                 .row("a")
                 .row("b")
                 .row("c")
@@ -421,9 +421,9 @@ public class TestHashJoinOperator
         OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
-                rowPagesBuilderProbe.getTypes(),
+                probePages.getTypes(),
                 Ints.asList(0),
-                rowPagesBuilderProbe.getHashChannel());
+                probePages.getHashChannel());
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
@@ -434,11 +434,11 @@ public class TestHashJoinOperator
                 .row("c", null)
                 .build();
 
-        assertOperatorEquals(joinOperator, probeInput, expected, hashEnabled, ImmutableList.of(buildTypes.size() + probeTypes.size()));
+        assertOperatorEquals(joinOperator, probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(dataProvider = "hashEnabledValues")
-    public void testOuterJoinWithNullOnBothSides(boolean hashEnabled)
+    public void testOuterJoinWithNullOnBothSides(boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
@@ -446,15 +446,15 @@ public class TestHashJoinOperator
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), buildTypes);
-        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
+        Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, buildPages
                 .row("a")
                 .row((String) null)
                 .row((String) null)
                 .row("a")
                 .row("b")
                 .build());
-        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, rowPagesBuilder.getTypes(), Ints.asList(0), rowPagesBuilder.getHashChannel(), 100);
+        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildPages.getTypes(), Ints.asList(0), buildPages.getHashChannel(), 100);
         Operator sourceHashProvider = hashBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = new Driver(driverContext, buildOperator, sourceHashProvider);
@@ -464,8 +464,8 @@ public class TestHashJoinOperator
 
         // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(probeTypes);
-        List<Page> probeInput = rowPagesBuilderProbe
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
+        List<Page> probeInput = probePages
                 .row("a")
                 .row("b")
                 .row((String) null)
@@ -474,9 +474,9 @@ public class TestHashJoinOperator
         OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
                 0,
                 hashBuilderOperatorFactory.getLookupSourceSupplier(),
-                rowPagesBuilderProbe.getTypes(),
+                probePages.getTypes(),
                 Ints.asList(0),
-                rowPagesBuilderProbe.getHashChannel());
+                probePages.getHashChannel());
         Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
 
         // expected
@@ -488,11 +488,11 @@ public class TestHashJoinOperator
                 .row("c", null)
                 .build();
 
-        assertOperatorEquals(joinOperator, probeInput, expected, hashEnabled, ImmutableList.of(buildTypes.size() + probeTypes.size()));
+        assertOperatorEquals(joinOperator, probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
     @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Task exceeded max memory size.*", dataProvider = "hashEnabledValues")
-    public void testMemoryLimit(boolean hashEnabled)
+    public void testMemoryLimit(boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(100, BYTE))
@@ -501,7 +501,7 @@ public class TestHashJoinOperator
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), buildTypes);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
         Operator buildOperator = new ValuesOperator(operatorContext, buildTypes, rowPagesBuilder
                 .addSequencePage(10, 20, 30, 40)
                 .build());
@@ -512,5 +512,17 @@ public class TestHashJoinOperator
         while (!driver.isFinished()) {
             driver.process();
         }
+    }
+
+    private static List<Integer> getHashChannels(RowPagesBuilder probe, RowPagesBuilder build)
+    {
+        ImmutableList.Builder<Integer> hashChannels = ImmutableList.builder();
+        if (probe.getHashChannel().isPresent()) {
+            hashChannels.add(probe.getHashChannel().get());
+        }
+        if (build.getHashChannel().isPresent()) {
+            hashChannels.add(probe.getTypes().size() + build.getHashChannel().get());
+        }
+        return hashChannels.build();
     }
 }
