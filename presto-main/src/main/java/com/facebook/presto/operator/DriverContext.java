@@ -190,13 +190,10 @@ public class DriverContext
         return pipelineContext.getOperatorPreAllocatedMemory();
     }
 
-    public boolean reserveMemory(long bytes)
+    public void reserveMemory(long bytes)
     {
-        boolean result = pipelineContext.reserveMemory(bytes);
-        if (result) {
-            memoryReservation.getAndAdd(bytes);
-        }
-        return result;
+        pipelineContext.reserveMemory(bytes);
+        memoryReservation.getAndAdd(bytes);
     }
 
     public void freeMemory(long bytes)

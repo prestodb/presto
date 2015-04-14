@@ -198,13 +198,10 @@ public class PipelineContext
         return taskContext.getOperatorPreAllocatedMemory();
     }
 
-    public synchronized boolean reserveMemory(long bytes)
+    public synchronized void reserveMemory(long bytes)
     {
-        boolean result = taskContext.reserveMemory(bytes);
-        if (result) {
-            memoryReservation.getAndAdd(bytes);
-        }
-        return result;
+        taskContext.reserveMemory(bytes);
+        memoryReservation.getAndAdd(bytes);
     }
 
     public synchronized void freeMemory(long bytes)

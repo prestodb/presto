@@ -182,6 +182,7 @@ public class TopNOperator
         if (topNBuilder == null) {
             topNBuilder = new TopNBuilder(
                     n,
+                    partial,
                     sortTypes,
                     sortChannels,
                     sortOrders,
@@ -211,9 +212,6 @@ public class TopNOperator
                 outputIterator = topNBuilder.build();
                 topNBuilder = null;
             }
-            else {
-                throw new ExceededMemoryLimitException(operatorContext.getMaxMemorySize());
-            }
         }
 
         pageBuilder.reset();
@@ -232,6 +230,7 @@ public class TopNOperator
     private static class TopNBuilder
     {
         private final int n;
+        private final boolean partial;
         private final List<Type> sortTypes;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrders;
@@ -241,12 +240,14 @@ public class TopNOperator
         private long memorySize;
 
         private TopNBuilder(int n,
+                boolean partial,
                 List<Type> sortTypes,
                 List<Integer> sortChannels,
                 List<SortOrder> sortOrders,
                 OperatorContext operatorContext)
         {
             this.n = n;
+            this.partial = partial;
 
             this.sortTypes = sortTypes;
             this.sortChannels = sortChannels;
@@ -336,7 +337,16 @@ public class TopNOperator
             if (memorySize < 0) {
                 memorySize = 0;
             }
-            return operatorContext.setMemoryReservation(memorySize, true) != memorySize;
+            try {
+                operatorContext.setMemoryReservation(memorySize);
+                return false;
+            }
+            catch (ExceededMemoryLimitException e) {
+                if (partial) {
+                    return true;
+                }
+                throw e;
+            }
         }
 
         public Iterator<Block[]> build()
