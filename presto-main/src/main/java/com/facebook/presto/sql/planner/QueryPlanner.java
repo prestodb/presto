@@ -366,7 +366,18 @@ class QueryPlanner
             confidence = Double.valueOf(analysis.getQuery().getApproximate().get().getConfidence()) / 100.0;
         }
 
-        AggregationNode aggregationNode = new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build(), new ImmutableMap.Builder<Symbol, Symbol>().putAll(masks).build(), subPlan.getSampleWeight(), confidence, Optional.empty());
+        AggregationNode aggregationNode = new AggregationNode(
+                idAllocator.getNextId(),
+                subPlan.getRoot(),
+                ImmutableList.copyOf(groupBySymbols),
+                aggregationAssignments.build(),
+                functions.build(),
+                masks,
+                AggregationNode.Step.SINGLE,
+                subPlan.getSampleWeight(),
+                confidence,
+                Optional.empty());
+
         subPlan = new PlanBuilder(translations, aggregationNode, Optional.empty());
 
         // 3. Post-projection
@@ -585,6 +596,7 @@ class QueryPlanner
                     ImmutableMap.<Symbol, FunctionCall>of(),
                     ImmutableMap.<Symbol, Signature>of(),
                     ImmutableMap.<Symbol, Symbol>of(),
+                    AggregationNode.Step.SINGLE,
                     Optional.empty(),
                     1.0,
                     Optional.empty());

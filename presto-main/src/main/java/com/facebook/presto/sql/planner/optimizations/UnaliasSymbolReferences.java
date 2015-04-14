@@ -122,7 +122,17 @@ public class UnaliasSymbolReferences
             }
 
             List<Symbol> groupByKeys = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getGroupBy())));
-            return new AggregationNode(node.getId(), source, groupByKeys, functionCalls.build(), functionInfos.build(), masks.build(), canonicalize(node.getSampleWeight()), node.getConfidence(), node.getHashSymbol());
+            return new AggregationNode(
+                    node.getId(),
+                    source,
+                    groupByKeys,
+                    functionCalls.build(),
+                    functionInfos.build(),
+                    masks.build(),
+                    node.getStep(),
+                    canonicalize(node.getSampleWeight()),
+                    node.getConfidence(),
+                    node.getHashSymbol());
         }
 
         @Override

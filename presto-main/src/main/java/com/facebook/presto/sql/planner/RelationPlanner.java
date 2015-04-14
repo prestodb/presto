@@ -687,6 +687,7 @@ class RelationPlanner
                 ImmutableMap.<Symbol, FunctionCall>of(),
                 ImmutableMap.<Symbol, Signature>of(),
                 ImmutableMap.<Symbol, Symbol>of(),
+                AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 1.0,
                 Optional.empty());
