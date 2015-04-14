@@ -136,8 +136,7 @@ public class HashBuilderOperator
         }
 
         LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels, hashChannel);
-        // TODO: should we really be using the no-fail flag here?
-        operatorContext.setMemoryReservation(pagesIndex.getEstimatedSize().toBytes() + lookupSource.getInMemorySizeInBytes(), true);
+        operatorContext.setMemoryReservation(pagesIndex.getEstimatedSize().toBytes() + lookupSource.getInMemorySizeInBytes());
         lookupSourceSupplier.setLookupSource(lookupSource);
         finished = true;
     }
