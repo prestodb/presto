@@ -416,6 +416,10 @@ public final class TupleDomain<T>
         for (Map.Entry<T, Domain> entry : domains.entrySet()) {
             U key = function.apply(entry.getKey());
 
+            if (key == null) {
+                continue;
+            }
+
             Domain previous = result.put(key, entry.getValue());
 
             if (previous != null) {

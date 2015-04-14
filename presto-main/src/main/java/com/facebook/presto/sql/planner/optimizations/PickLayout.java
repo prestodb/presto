@@ -110,10 +110,12 @@ public class PickLayout
                     metadata,
                     session,
                     predicate,
-                    symbolAllocator.getTypes(),
-                    node.getAssignments());
+                    symbolAllocator.getTypes());
 
-            TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain().intersect(node.getCurrentConstraint());
+            TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
+                    .transform(node.getAssignments()::get)
+                    .intersect(node.getCurrentConstraint());
+
             List<TableLayoutResult> layouts = metadata.getLayouts(node.getTable(), Optional.empty(), new Constraint<>(simplifiedConstraint, bindings -> true));
 
             if (layouts.isEmpty()) {
@@ -131,11 +133,11 @@ public class PickLayout
                     simplifiedConstraint.intersect(layout.getLayout().getPredicate()),
                     Optional.ofNullable(node.getOriginalConstraint()).orElse(predicate));
 
+            Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
             Expression resultingPredicate = combineConjuncts(
                     decomposedPredicate.getRemainingExpression(),
                     DomainTranslator.toPredicate(
-                            layout.getUnenforcedConstraint(),
-                            ImmutableBiMap.copyOf(node.getAssignments()).inverse(),
+                            layout.getUnenforcedConstraint().transform(assignments::get),
                             symbolAllocator.getTypes()));
 
             if (!BooleanLiteral.TRUE_LITERAL.equals(resultingPredicate)) {
