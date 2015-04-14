@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
@@ -55,6 +56,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -67,13 +69,13 @@ import static com.google.common.collect.Iterables.concat;
 
 /**
  * Removes all computation that does is not referenced transitively from the root of the plan
- * <p/>
+ * <p>
  * E.g.,
- * <p/>
+ * <p>
  * {@code Output[$0] -> Project[$0 := $1 + $2, $3 = $4 / $5] -> ...}
- * <p/>
+ * <p>
  * gets rewritten as
- * <p/>
+ * <p>
  * {@code Output[$0] -> Project[$0 := $1 + $2] -> ...}
  */
 public class PruneUnreferencedOutputs
@@ -99,6 +101,42 @@ public class PruneUnreferencedOutputs
         public Rewriter(Map<Symbol, Type> types)
         {
             this.types = types;
+        }
+
+        @Override
+        public PlanNode visitExchange(ExchangeNode node, RewriteContext<Set<Symbol>> context)
+        {
+            List<List<Symbol>> inputsBySource = new ArrayList<>(node.getInputs().size());
+            for (int i = 0; i < node.getInputs().size(); i++) {
+                inputsBySource.add(new ArrayList<>());
+            }
+
+            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                for (int source = 0; source < node.getInputs().size(); source++) {
+                    inputsBySource.get(source).add(node.getInputs().get(source).get(i));
+                }
+            }
+
+            ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.<PlanNode>builder();
+            for (int i = 0; i < node.getSources().size(); i++) {
+                ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                        .addAll(inputsBySource.get(i));
+
+                node.getHashSymbol().ifPresent(expectedInputs::add);
+
+                rewrittenSources.add(context.rewrite(
+                        node.getSources().get(i),
+                        expectedInputs.build()));
+            }
+
+            return new ExchangeNode(
+                    node.getId(),
+                    node.getType(),
+                    node.getPartitionKeys(),
+                    node.getHashSymbol(),
+                    rewrittenSources.build(),
+                    node.getOutputSymbols(),
+                    inputsBySource);
         }
 
         @Override
