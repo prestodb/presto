@@ -246,13 +246,10 @@ public class IndexJoinOptimizer
         @NotNull
         private PlanNode planTableScan(TableScanNode node, Expression predicate, Context context)
         {
-            TupleDomain<ColumnHandle> constraint = node.getCurrentConstraint().intersect(
-                    DomainTranslator.fromPredicate(
-                            metadata,
-                            session,
-                            predicate,
-                            symbolAllocator.getTypes(),
-                            node.getAssignments()).getTupleDomain());
+            TupleDomain<ColumnHandle> constraint = DomainTranslator.fromPredicate(metadata, session, predicate, symbolAllocator.getTypes())
+                    .getTupleDomain()
+                    .transform(node.getAssignments()::get)
+                    .intersect(node.getCurrentConstraint());
 
             checkState(node.getOutputSymbols().containsAll(context.getLookupSymbols()));
 
@@ -268,7 +265,7 @@ public class IndexJoinOptimizer
             ResolvedIndex resolvedIndex = optionalResolvedIndex.get();
 
             Map<ColumnHandle, Symbol> inverseAssignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
-            Expression unresolvedExpression = DomainTranslator.toPredicate(resolvedIndex.getUnresolvedTupleDomain(), inverseAssignments, symbolAllocator.getTypes());
+            Expression unresolvedExpression = DomainTranslator.toPredicate(resolvedIndex.getUnresolvedTupleDomain().transform(inverseAssignments::get), symbolAllocator.getTypes());
 
             PlanNode source = new IndexSourceNode(
                     idAllocator.getNextId(),

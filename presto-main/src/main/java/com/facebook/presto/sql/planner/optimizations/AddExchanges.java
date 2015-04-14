@@ -458,10 +458,11 @@ public class AddExchanges
                     metadata,
                     session,
                     deterministicPredicate,
-                    symbolAllocator.getTypes(),
-                    node.getAssignments());
+                    symbolAllocator.getTypes());
 
-            TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain().intersect(node.getCurrentConstraint());
+            TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
+                    .transform(node.getAssignments()::get)
+                    .intersect(node.getCurrentConstraint());
 
             List<TableLayoutResult> layouts = metadata.getLayouts(
                     node.getTable(),
@@ -495,8 +496,7 @@ public class AddExchanges
             Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
             Expression resultingPredicate = combineConjuncts(
                     DomainTranslator.toPredicate(
-                            layout.getUnenforcedConstraint(),
-                            assignments,
+                            layout.getUnenforcedConstraint().transform(assignments::get),
                             symbolAllocator.getTypes()),
                     stripDeterministicConjuncts(predicate),
                     decomposedPredicate.getRemainingExpression());

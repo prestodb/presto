@@ -163,9 +163,9 @@ public class EffectivePredicateExtractor
     @Override
     public Expression visitTableScan(TableScanNode node, Void context)
     {
+        Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
         return DomainTranslator.toPredicate(
-                spanTupleDomain(node.getCurrentConstraint()),
-                ImmutableBiMap.copyOf(node.getAssignments()).inverse(),
+                spanTupleDomain(node.getCurrentConstraint()).transform(assignments::get),
                 symbolTypes);
     }
 
