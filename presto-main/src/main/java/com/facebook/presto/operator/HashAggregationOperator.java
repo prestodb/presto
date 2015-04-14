@@ -219,11 +219,6 @@ public class HashAggregationOperator
                 return null;
             }
 
-            // Only partial aggregation can flush early. Also, check that we are not flushing tiny bits at a time
-            if (!finishing && step != Step.PARTIAL) {
-                throw new ExceededMemoryLimitException(operatorContext.getMaxMemorySize());
-            }
-
             outputIterator = aggregationBuilder.build();
             aggregationBuilder = null;
 
@@ -255,6 +250,7 @@ public class HashAggregationOperator
         private final GroupByHash groupByHash;
         private final List<Aggregator> aggregators;
         private final OperatorContext operatorContext;
+        private final boolean partial;
 
         private GroupByHashAggregationBuilder(
                 List<AccumulatorFactory> accumulatorFactories,
@@ -267,6 +263,7 @@ public class HashAggregationOperator
         {
             this.groupByHash = createGroupByHash(groupByTypes, Ints.toArray(groupByChannels), hashChannel, expectedGroups);
             this.operatorContext = operatorContext;
+            this.partial = (step == Step.PARTIAL);
 
             // wrapper each function with an aggregator
             ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
@@ -302,7 +299,16 @@ public class HashAggregationOperator
             if (memorySize < 0) {
                 memorySize = 0;
             }
-            return operatorContext.setMemoryReservation(memorySize, true) != memorySize;
+            try {
+                operatorContext.setMemoryReservation(memorySize);
+                return false;
+            }
+            catch (ExceededMemoryLimitException e) {
+                if (partial) {
+                    return true;
+                }
+                throw e;
+            }
         }
 
         public Iterator<Page> build()

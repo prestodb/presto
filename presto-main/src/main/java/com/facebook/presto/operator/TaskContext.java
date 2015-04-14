@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
@@ -180,15 +181,14 @@ public class TaskContext
         return operatorPreAllocatedMemory;
     }
 
-    public synchronized boolean reserveMemory(long bytes)
+    public synchronized void reserveMemory(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
 
         if (memoryReservation.get() + bytes > maxMemory) {
-            return false;
+            throw new ExceededMemoryLimitException(getMaxMemorySize());
         }
         memoryReservation.getAndAdd(bytes);
-        return true;
     }
 
     public synchronized void freeMemory(long bytes)
