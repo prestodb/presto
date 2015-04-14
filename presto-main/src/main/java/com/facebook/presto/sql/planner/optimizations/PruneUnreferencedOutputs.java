@@ -319,7 +319,17 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new WindowNode(node.getId(), source, node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getFrame(), functionCalls.build(), functions.build(), node.getHashSymbol());
+            return new WindowNode(
+                    node.getId(),
+                    source,
+                    node.getPartitionBy(),
+                    node.getOrderBy(),
+                    node.getOrderings(),
+                    node.getFrame(),
+                    functionCalls.build(),
+                    functions.build(),
+                    node.getHashSymbol(),
+                    node.getPrePartitionedInputs());
         }
 
         @Override

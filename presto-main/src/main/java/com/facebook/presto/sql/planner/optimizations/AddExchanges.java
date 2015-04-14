@@ -290,7 +290,19 @@ public class AddExchanges
                 }
             }
 
-            return rebaseAndDeriveProperties(node, child);
+            return withDerivedProperties(
+                    new WindowNode(
+                            node.getId(),
+                            child.getNode(),
+                            node.getPartitionBy(),
+                            node.getOrderBy(),
+                            node.getOrderings(),
+                            node.getFrame(),
+                            node.getWindowFunctions(),
+                            node.getSignatures(),
+                            node.getHashSymbol(),
+                            child.getProperties().getMaxGroupingSubset(node.getPartitionBy())),
+                    child.getProperties());
         }
 
         @Override

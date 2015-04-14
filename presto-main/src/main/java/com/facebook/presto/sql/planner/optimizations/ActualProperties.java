@@ -147,6 +147,11 @@ class ActualProperties
         return new Builder();
     }
 
+    public Set<Symbol> getMaxGroupingSubset(List<Symbol> columns)
+    {
+        return LocalProperty.getMaxGroupingSubset(localProperties, constants.keySet(), columns);
+    }
+
     public static class Builder
     {
         private Optional<Set<Symbol>> partitioningColumns; // if missing => partitioned with some unknown scheme
