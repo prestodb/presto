@@ -259,7 +259,12 @@ public class TopNRowNumberOperator
                 sizeDelta += partitionBuilder.replaceRow(row);
             }
         }
-        operatorContext.reserveMemory(sizeDelta);
+        if (sizeDelta > 0) {
+            operatorContext.reserveMemory(sizeDelta);
+        }
+        else {
+            operatorContext.freeMemory(-sizeDelta);
+        }
     }
 
     private int compare(int position, Block[] blocks, Block[] currentMax)
