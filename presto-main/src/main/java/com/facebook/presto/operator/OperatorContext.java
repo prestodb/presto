@@ -215,6 +215,8 @@ public class OperatorContext
 
     public void freeMemory(long bytes)
     {
+        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
         driverContext.freeMemory(bytes);
         memoryReservation.getAndAdd(-bytes);
     }
