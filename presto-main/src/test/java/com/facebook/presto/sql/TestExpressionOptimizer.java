@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
@@ -35,7 +37,8 @@ public class TestExpressionOptimizer
     public void testPossibleExponentialOptimizationTime()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        ExpressionOptimizer optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, false), typeManager, TEST_SESSION);
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
+        ExpressionOptimizer optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, blockEncodingSerde, false), typeManager, TEST_SESSION);
         RowExpression expression = new ConstantExpression(1L, BIGINT);
         for (int i = 0; i < 100; i++) {
             Signature signature = Signature.internalOperator(OperatorType.ADD.name(), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT));

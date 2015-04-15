@@ -33,6 +33,7 @@ import com.facebook.presto.operator.aggregation.state.SliceStateSerializer;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
@@ -82,7 +83,7 @@ public abstract class AbstractMinMaxAggregation
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FunctionRegistry functionRegistry)
     {
         Type type = types.get("E");
         MethodHandle compareMethodHandle = functionRegistry.resolveOperator(operatorType, ImmutableList.of(type, type)).getMethodHandle();

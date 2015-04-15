@@ -70,6 +70,7 @@ import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -139,11 +140,11 @@ import static com.facebook.presto.operator.scalar.ArrayEqualOperator.ARRAY_EQUAL
 import static com.facebook.presto.operator.scalar.ArrayGreaterThanOperator.ARRAY_GREATER_THAN;
 import static com.facebook.presto.operator.scalar.ArrayGreaterThanOrEqualOperator.ARRAY_GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.operator.scalar.ArrayHashCodeOperator.ARRAY_HASH_CODE;
+import static com.facebook.presto.operator.scalar.ArrayIntersectFunction.ARRAY_INTERSECT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayLessThanOperator.ARRAY_LESS_THAN;
 import static com.facebook.presto.operator.scalar.ArrayLessThanOrEqualOperator.ARRAY_LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.operator.scalar.ArrayNotEqualOperator.ARRAY_NOT_EQUAL;
 import static com.facebook.presto.operator.scalar.ArraySortFunction.ARRAY_SORT_FUNCTION;
-import static com.facebook.presto.operator.scalar.ArrayIntersectFunction.ARRAY_INTERSECT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
 import static com.facebook.presto.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
@@ -205,7 +206,7 @@ public class FunctionRegistry
     private final LoadingCache<SpecializedFunctionKey, FunctionInfo> specializedFunctionCache;
     private volatile FunctionMap functions = new FunctionMap();
 
-    public FunctionRegistry(TypeManager typeManager, boolean experimentalSyntaxEnabled)
+    public FunctionRegistry(TypeManager typeManager, final BlockEncodingSerde blockEncodingSerde, boolean experimentalSyntaxEnabled)
     {
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
 
@@ -217,7 +218,7 @@ public class FunctionRegistry
                     public FunctionInfo load(SpecializedFunctionKey key)
                             throws Exception
                     {
-                        return key.getFunction().specialize(key.getBoundTypeParameters(), key.getArity(), typeManager, FunctionRegistry.this);
+                        return key.getFunction().specialize(key.getBoundTypeParameters(), key.getArity(), typeManager, blockEncodingSerde, FunctionRegistry.this);
                     }
                 });
 
