@@ -487,7 +487,7 @@ public class LocalExecutionPlanner
                     node.getMaxRowCountPerPartition(),
                     node.isPartial(),
                     hashChannel,
-                    1_000_000);
+                    1000);
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), source);
         }
