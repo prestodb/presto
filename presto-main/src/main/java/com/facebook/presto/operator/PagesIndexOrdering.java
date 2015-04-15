@@ -32,9 +32,9 @@ public class PagesIndexOrdering
         return comparator;
     }
 
-    public void sort(PagesIndex pagesIndex)
+    public void sort(PagesIndex pagesIndex, int startPosition, int endPosition)
     {
-        quickSort(pagesIndex, 0, pagesIndex.getPositionCount());
+        quickSort(pagesIndex, startPosition, endPosition);
     }
 
     /**

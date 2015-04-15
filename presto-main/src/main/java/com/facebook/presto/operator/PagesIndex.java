@@ -244,7 +244,12 @@ public class PagesIndex
 
     public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
-        createPagesIndexComparator(sortChannels, sortOrders).sort(this);
+        sort(sortChannels, sortOrders, 0, getPositionCount());
+    }
+
+    public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders, int startPosition, int endPosition)
+    {
+        createPagesIndexComparator(sortChannels, sortOrders).sort(this, startPosition, endPosition);
     }
 
     public boolean positionEqualsPosition(PagesHashStrategy partitionHashStrategy, int leftPosition, int rightPosition)

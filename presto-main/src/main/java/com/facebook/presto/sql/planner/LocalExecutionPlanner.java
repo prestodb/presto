@@ -559,8 +559,10 @@ public class LocalExecutionPlanner
                     outputChannels.build(),
                     windowFunctions,
                     partitionChannels,
+                    ImmutableList.of(),
                     sortChannels,
                     sortOrder,
+                    0,
                     new FrameInfo(frame.getType(), frame.getStartType(), frameStartChannel, frame.getEndType(), frameEndChannel),
                     1_000_000);
 
