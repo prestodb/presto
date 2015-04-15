@@ -84,9 +84,13 @@ public class TestSqlParser
         SQL_PARSER.createExpression("@[QBKZ70D4M].[Revenue]");
         SQL_PARSER.createExpression("@abc/@dce");
         SQL_PARSER.createExpression("@[abc/dce]");
+        SQL_PARSER.createExpression("current_date");
+        SQL_PARSER.createExpression("current_date()");
         //SQL_PARSER.createExpression("D'2015-03-03'");
         //String exp = "D('111', 222)";
-        String exp = "D'2015-03-03'";
+        //String exp = "D'2015-03-03'";
+        //String exp = "current_date";
+        String exp = "current_date()";
         Expression lastone = SQL_PARSER.createExpression(exp);
         CommonTree commone = SQL_PARSER.parseExpression(exp);
         System.out.println("treetostring -> " + TreePrinter.treeToString(commone));

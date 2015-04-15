@@ -521,7 +521,7 @@ intervalField
     ;
 
 specialFunction
-    : CURRENT_DATE
+    : CURRENT_DATE ('('')')?					   -> ^(CURRENT_DATE)
     | CURRENT_TIME ('(' integer ')')?              -> ^(CURRENT_TIME integer?)
     | CURRENT_TIMESTAMP ('(' integer ')')?         -> ^(CURRENT_TIMESTAMP integer?)
     | LOCALTIME ('(' integer ')')?                 -> ^(LOCALTIME integer?)
