@@ -15,10 +15,12 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DependencyExtractor;
@@ -80,6 +82,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
 import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
@@ -116,11 +119,9 @@ import static com.google.common.collect.Sets.newIdentityHashSet;
 
 public class ExpressionAnalyzer
 {
-    private final Analysis analysis;
-    private final Metadata metadata;
-    private final SqlParser sqlParser;
-    private final boolean experimentalSyntaxEnabled;
-    private final Session session;
+    private final FunctionRegistry functionRegistry;
+    private final TypeManager typeManager;
+    private final Function<Node, StatementAnalyzer> statementAnalyzerFactory;
     private final Map<QualifiedName, Integer> resolvedNames = new HashMap<>();
     private final IdentityHashMap<FunctionCall, FunctionInfo> resolvedFunctions = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionTypes = new IdentityHashMap<>();
@@ -128,13 +129,11 @@ public class ExpressionAnalyzer
     private final IdentityHashMap<Expression, Boolean> rowFieldReferences = new IdentityHashMap<>();
     private final Set<InPredicate> subqueryInPredicates = newIdentityHashSet();
 
-    public ExpressionAnalyzer(Analysis analysis, Session session, Metadata metadata, SqlParser sqlParser, boolean experimentalSyntaxEnabled)
+    public ExpressionAnalyzer(FunctionRegistry functionRegistry, TypeManager typeManager, Function<Node, StatementAnalyzer> statementAnalyzerFactory)
     {
-        this.analysis = checkNotNull(analysis, "analysis is null");
-        this.session = checkNotNull(session, "session is null");
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
-        this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
+        this.functionRegistry = checkNotNull(functionRegistry, "functionRegistry is null");
+        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+        this.statementAnalyzerFactory = checkNotNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
     }
 
     public Map<QualifiedName, Integer> getResolvedNames()
@@ -524,7 +523,7 @@ public class ExpressionAnalyzer
         protected Type visitArrayConstructor(ArrayConstructor node, AnalysisContext context)
         {
             Type type = coerceToSingleType(context, "All ARRAY elements must be the same type: %s", node.getValues());
-            Type arrayType = metadata.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(type.getTypeSignature()), ImmutableList.of());
+            Type arrayType = typeManager.getParameterizedType(ARRAY.getName(), ImmutableList.of(type.getTypeSignature()), ImmutableList.of());
             expressionTypes.put(node, arrayType);
             return arrayType;
         }
@@ -560,13 +559,13 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitGenericLiteral(GenericLiteral node, AnalysisContext context)
         {
-            Type type = metadata.getType(parseTypeSignature(node.getType()));
+            Type type = typeManager.getType(parseTypeSignature(node.getType()));
             if (type == null) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
             try {
-                metadata.getFunctionRegistry().getCoercion(VARCHAR, type);
+                functionRegistry.getCoercion(VARCHAR, type);
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
@@ -669,10 +668,10 @@ public class ExpressionAnalyzer
                 argumentTypes.add(process(expression, context).getTypeSignature());
             }
 
-            FunctionInfo function = metadata.resolveFunction(node.getName(), argumentTypes.build(), context.isApproximate());
+            FunctionInfo function = functionRegistry.resolveFunction(node.getName(), argumentTypes.build(), context.isApproximate());
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
-                Type type = metadata.getType(function.getArgumentTypes().get(i));
+                Type type = typeManager.getType(function.getArgumentTypes().get(i));
                 checkNotNull(type, "Type %s not found", function.getArgumentTypes().get(i));
                 if (node.isDistinct() && !type.isComparable()) {
                     throw new SemanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", type);
@@ -681,7 +680,7 @@ public class ExpressionAnalyzer
             }
             resolvedFunctions.put(node, function);
 
-            Type type = metadata.getType(function.getReturnType());
+            Type type = typeManager.getType(function.getReturnType());
             expressionTypes.put(node, type);
 
             return type;
@@ -723,7 +722,7 @@ public class ExpressionAnalyzer
         @Override
         public Type visitCast(Cast node, AnalysisContext context)
         {
-            Type type = metadata.getType(parseTypeSignature(node.getType()));
+            Type type = typeManager.getType(parseTypeSignature(node.getType()));
             if (type == null) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
@@ -735,7 +734,7 @@ public class ExpressionAnalyzer
             Type value = process(node.getExpression(), context);
             if (!value.equals(UNKNOWN)) {
                 try {
-                    metadata.getFunctionRegistry().getCoercion(value, type);
+                    functionRegistry.getCoercion(value, type);
                 }
                 catch (OperatorNotFoundException e) {
                     throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", value, type);
@@ -783,7 +782,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitSubqueryExpression(SubqueryExpression node, AnalysisContext context)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, session, experimentalSyntaxEnabled, Optional.empty());
+            StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
             TupleDescriptor descriptor = analyzer.process(node.getQuery(), context);
 
             // Scalar subqueries should only produce one column
@@ -823,7 +822,7 @@ public class ExpressionAnalyzer
 
             FunctionInfo operatorInfo;
             try {
-                operatorInfo = metadata.resolveOperator(operatorType, argumentTypes.build());
+                operatorInfo = functionRegistry.resolveOperator(operatorType, argumentTypes.build());
             }
             catch (OperatorNotFoundException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, e.getMessage());
@@ -831,11 +830,11 @@ public class ExpressionAnalyzer
 
             for (int i = 0; i < arguments.length; i++) {
                 Expression expression = arguments[i];
-                Type type = metadata.getType(operatorInfo.getArgumentTypes().get(i));
+                Type type = typeManager.getType(operatorInfo.getArgumentTypes().get(i));
                 coerceType(context, expression, type, String.format("Operator %s argument %d", operatorInfo, i));
             }
 
-            Type type = metadata.getType(operatorInfo.getReturnType());
+            Type type = typeManager.getType(operatorInfo.getReturnType());
             expressionTypes.put(node, type);
 
             return type;
@@ -993,7 +992,7 @@ public class ExpressionAnalyzer
             TupleDescriptor tupleDescriptor,
             Iterable<? extends Expression> expressions)
     {
-        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(new Analysis(), session, metadata, sqlParser, false);
+        ExpressionAnalyzer analyzer = create(new Analysis(), session, metadata, sqlParser, false);
         for (Expression expression : expressions) {
             analyzer.analyze(expression, tupleDescriptor, new AnalysisContext());
         }
@@ -1014,7 +1013,7 @@ public class ExpressionAnalyzer
             AnalysisContext context,
             Expression expression)
     {
-        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(analysis, session, metadata, sqlParser, approximateQueriesEnabled);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, approximateQueriesEnabled);
         analyzer.analyze(expression, tupleDescriptor, context);
 
         IdentityHashMap<Expression, Type> expressionTypes = analyzer.getExpressionTypes();
@@ -1033,5 +1032,13 @@ public class ExpressionAnalyzer
         Set<InPredicate> subqueryInPredicates = analyzer.getSubqueryInPredicates();
 
         return new ExpressionAnalysis(expressionTypes, expressionCoercions, subqueryInPredicates);
+    }
+
+    public static ExpressionAnalyzer create(Analysis analysis, Session session, Metadata metadata, SqlParser sqlParser, boolean experimentalSyntaxEnabled)
+    {
+        return new ExpressionAnalyzer(
+                metadata.getFunctionRegistry(),
+                metadata.getTypeManager(),
+                node -> new StatementAnalyzer(analysis, metadata, sqlParser, session, experimentalSyntaxEnabled, Optional.empty()));
     }
 }
