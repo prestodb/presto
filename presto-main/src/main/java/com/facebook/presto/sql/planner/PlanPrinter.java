@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Domain;
@@ -381,8 +382,12 @@ public class PlanPrinter
             TableHandle table = node.getTable();
             print(indent, "- TableScan[%s, original constraint=%s] => [%s]", table, node.getOriginalConstraint(), formatOutputs(node.getOutputSymbols()));
 
-            TupleDomain<ColumnHandle> constraint = node.getCurrentConstraint();
-            if (constraint.isNone()) {
+            TupleDomain<ColumnHandle> predicate = node.getLayout()
+                    .map(metadata::getLayout)
+                    .map(TableLayout::getPredicate)
+                    .orElse(TupleDomain.<ColumnHandle>all());
+
+            if (predicate.isNone()) {
                 print(indent + 2, ":: NONE");
             }
             else {
@@ -390,20 +395,20 @@ public class PlanPrinter
                 for (Map.Entry<Symbol, ColumnHandle> assignment : node.getAssignments().entrySet()) {
                     ColumnHandle column = assignment.getValue();
                     print(indent + 2, "%s := %s", assignment.getKey(), column);
-                    printConstraint(indent + 3, table, column, constraint);
+                    printConstraint(indent + 3, table, column, predicate);
                 }
 
                 // then, print constraints for columns that are not in the output
-                if (!constraint.isAll()) {
+                if (!predicate.isAll()) {
                     Set<ColumnHandle> outputs = ImmutableSet.copyOf(node.getAssignments().values());
 
-                    constraint.getDomains()
+                    predicate.getDomains()
                             .entrySet().stream()
                             .filter(entry -> !outputs.contains(entry.getKey()))
                             .forEach(entry -> {
                                 ColumnHandle column = entry.getKey();
                                 print(indent + 2, "%s", column);
-                                printConstraint(indent + 3, table, column, constraint);
+                                printConstraint(indent + 3, table, column, predicate);
                             });
                 }
             }
