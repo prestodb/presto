@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 
 public class ComparisonExpression
         extends Expression
@@ -110,19 +109,5 @@ public class ComparisonExpression
         result = 31 * result + left.hashCode();
         result = 31 * result + right.hashCode();
         return result;
-    }
-
-    public static Predicate<ComparisonExpression> matchesPattern(final Type type, final Class<?> left, final Class<?> right)
-    {
-        return new Predicate<ComparisonExpression>()
-        {
-            @Override
-            public boolean apply(ComparisonExpression expression)
-            {
-                return expression.getType() == type &&
-                        left.isAssignableFrom(expression.getLeft().getClass()) &&
-                        right.isAssignableFrom(expression.getRight().getClass());
-            }
-        };
     }
 }
