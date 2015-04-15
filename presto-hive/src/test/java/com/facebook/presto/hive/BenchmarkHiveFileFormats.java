@@ -206,7 +206,7 @@ public final class BenchmarkHiveFileFormats
                         new MapredParquetOutputFormat(),
                         new ParquetHiveSerDe(),
                         ImmutableList.<HiveRecordCursorProvider>builder()
-                                .add(new ParquetRecordCursorProvider())
+                                .add(new ParquetRecordCursorProvider(false))
                                 .build(),
                         ImmutableList.<HivePageSourceFactory>builder()
                                 .build()))

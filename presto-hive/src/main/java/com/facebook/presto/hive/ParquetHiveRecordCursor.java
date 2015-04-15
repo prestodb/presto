@@ -14,9 +14,9 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
@@ -52,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
@@ -104,16 +105,16 @@ class ParquetHiveRecordCursor
             Properties splitSchema,
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
+            boolean useParquetColumnNames,
             TypeManager typeManager)
     {
-        checkNotNull(configuration, "jobConf is null");
         checkNotNull(path, "path is null");
         checkArgument(length >= 0, "totalBytes is negative");
         checkNotNull(splitSchema, "splitSchema is null");
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(columns, "columns is null");
 
-        this.recordReader = createParquetRecordReader(configuration, path, start, length, columns);
+        this.recordReader = createParquetRecordReader(configuration, path, start, length, columns, useParquetColumnNames);
         this.totalBytes = length;
 
         int size = columns.size();
@@ -302,14 +303,20 @@ class ParquetHiveRecordCursor
         }
     }
 
-    private ParquetRecordReader<Void> createParquetRecordReader(Configuration configuration, Path path, long start, long length, List<HiveColumnHandle> columns)
+    private ParquetRecordReader<Void> createParquetRecordReader(
+            Configuration configuration,
+            Path path,
+            long start,
+            long length,
+            List<HiveColumnHandle> columns,
+            boolean useParquetColumnNames)
     {
         try {
             ParquetMetadata parquetMetadata = ParquetFileReader.readFooter(configuration, path);
             List<BlockMetaData> blocks = parquetMetadata.getBlocks();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
 
-            PrestoReadSupport readSupport = new PrestoReadSupport(columns, parquetMetadata.getFileMetaData().getSchema());
+            PrestoReadSupport readSupport = new PrestoReadSupport(useParquetColumnNames, columns, fileMetaData.getSchema());
             ReadContext readContext = readSupport.init(configuration, fileMetaData.getKeyValueMetaData(), fileMetaData.getSchema());
 
             List<BlockMetaData> splitGroup = new ArrayList<>();
@@ -357,21 +364,23 @@ class ParquetHiveRecordCursor
         }
     }
 
-    public class PrestoReadSupport
+    public final class PrestoReadSupport
             extends ReadSupport<Void>
     {
+        private final boolean useParquetColumnNames;
         private final List<HiveColumnHandle> columns;
         private final List<Converter> converters;
 
-        public PrestoReadSupport(List<HiveColumnHandle> columns, MessageType messageType)
+        public PrestoReadSupport(boolean useParquetColumnNames, List<HiveColumnHandle> columns, MessageType messageType)
         {
             this.columns = columns;
+            this.useParquetColumnNames = useParquetColumnNames;
 
             ImmutableList.Builder<Converter> converters = ImmutableList.builder();
             for (int i = 0; i < columns.size(); i++) {
                 HiveColumnHandle column = columns.get(i);
-                if (!column.isPartitionKey() && column.getHiveColumnIndex() < messageType.getFieldCount()) {
-                    parquet.schema.Type parquetType = messageType.getFields().get(column.getHiveColumnIndex());
+                if (!column.isPartitionKey()) {
+                    parquet.schema.Type parquetType = getParquetType(column, messageType);
                     if (parquetType.isPrimitive()) {
                         converters.add(new ParquetPrimitiveColumnConverter(i));
                     }
@@ -408,8 +417,8 @@ class ParquetHiveRecordCursor
         {
             ImmutableList.Builder<parquet.schema.Type> fields = ImmutableList.builder();
             for (HiveColumnHandle column : columns) {
-                if (!column.isPartitionKey() && column.getHiveColumnIndex() < messageType.getFieldCount()) {
-                    fields.add(messageType.getType(column.getName()));
+                if (!column.isPartitionKey()) {
+                    fields.add(getParquetType(column, messageType));
                 }
             }
             MessageType requestedProjection = new MessageType(messageType.getName(), fields.build());
@@ -424,6 +433,21 @@ class ParquetHiveRecordCursor
                 ReadContext readContext)
         {
             return new ParquetRecordConverter(converters);
+        }
+
+        private parquet.schema.Type getParquetType(HiveColumnHandle column, MessageType messageType)
+        {
+            if (useParquetColumnNames) {
+                return messageType.getType(column.getName());
+            }
+
+            if (column.getHiveColumnIndex() >= messageType.getFieldCount()) {
+                throw new PrestoException(HIVE_BAD_DATA, format(
+                        "Hive column index (%s) should be in Parquet field range (%s)",
+                        column.getHiveColumnIndex(),
+                        messageType.getFieldCount()));
+            }
+            return messageType.getType(column.getHiveColumnIndex());
         }
     }
 
@@ -451,7 +475,7 @@ class ParquetHiveRecordCursor
     }
 
     public static class ParquetGroupConverter
-        extends GroupConverter
+            extends GroupConverter
     {
         private final List<Converter> converters;
 
