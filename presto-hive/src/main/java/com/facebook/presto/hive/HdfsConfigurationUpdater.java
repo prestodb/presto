@@ -53,6 +53,7 @@ public class HdfsConfigurationUpdater
     private final int s3MaxConnections;
     private final DataSize s3MultipartMinFileSize;
     private final DataSize s3MultipartMinPartSize;
+    private final boolean parquetColumnAccess;
     private final File s3StagingDirectory;
     private final List<String> resourcePaths;
 
@@ -80,6 +81,7 @@ public class HdfsConfigurationUpdater
         this.s3MaxConnections = hiveClientConfig.getS3MaxConnections();
         this.s3MultipartMinFileSize = hiveClientConfig.getS3MultipartMinFileSize();
         this.s3MultipartMinPartSize = hiveClientConfig.getS3MultipartMinPartSize();
+        this.parquetColumnAccess = hiveClientConfig.isParquetColumnAccess();
         this.s3StagingDirectory = hiveClientConfig.getS3StagingDirectory();
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
     }
@@ -143,6 +145,7 @@ public class HdfsConfigurationUpdater
         config.setInt(PrestoS3FileSystem.S3_MAX_CONNECTIONS, s3MaxConnections);
         config.setLong(PrestoS3FileSystem.S3_MULTIPART_MIN_FILE_SIZE, s3MultipartMinFileSize.toBytes());
         config.setLong(PrestoS3FileSystem.S3_MULTIPART_MIN_PART_SIZE, s3MultipartMinPartSize.toBytes());
+        config.setBoolean(ParquetHiveRecordCursor.PARQUET_COLUMN_ACCESS, parquetColumnAccess);
     }
 
     public static class NoOpDNSToSwitchMapping

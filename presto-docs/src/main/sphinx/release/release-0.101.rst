@@ -21,3 +21,7 @@ Hive Changes
 * Lower the Hive metadata refresh interval from two minutes to one second.
 * Invalidate Hive metadata cache for failed operations.
 * Support ``s3a`` file system scheme.
+* Make Parquet file column access configurable. By default, Parquet file column is accessed via column index.
+  To access column based on Parquet column name, set
+  ``hive.parquet.column.access=true`` in your Hive catalog properties file.
+  

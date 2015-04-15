@@ -77,6 +77,9 @@ import static parquet.schema.OriginalType.MAP_KEY_VALUE;
 class ParquetHiveRecordCursor
         extends HiveRecordCursor
 {
+    // TODO: use org.apache.hadoop.hive.ql.io.parquet.read.DataWritableReadSupport#PARQUET_COLUMN_INDEX_ACCESS
+    public static final String PARQUET_COLUMN_ACCESS = "parquet.column.access";
+
     private final ParquetRecordReader<Void> recordReader;
 
     @SuppressWarnings("FieldCanBeLocal") // include names for debugging
@@ -309,7 +312,7 @@ class ParquetHiveRecordCursor
             List<BlockMetaData> blocks = parquetMetadata.getBlocks();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
 
-            PrestoReadSupport readSupport = new PrestoReadSupport(columns, parquetMetadata.getFileMetaData().getSchema());
+            PrestoReadSupport readSupport = new PrestoReadSupport(configuration, columns, fileMetaData.getSchema());
             ReadContext readContext = readSupport.init(configuration, fileMetaData.getKeyValueMetaData(), fileMetaData.getSchema());
 
             List<BlockMetaData> splitGroup = new ArrayList<>();
@@ -348,6 +351,17 @@ class ParquetHiveRecordCursor
         }
     }
 
+        private parquet.schema.Type getParquetType(Configuration configuration, HiveColumnHandle column, MessageType messageType)
+        {
+            HiveClientConfig defaults = new HiveClientConfig();
+            if (configuration.getBoolean(PARQUET_COLUMN_ACCESS, defaults.isParquetColumnAccess())) {
+                return messageType.getType(column.getName());
+            }
+            checkArgument(column.getHiveColumnIndex() < messageType.getFieldCount(),
+                            "Hive Column Index %d should be in Parquet Field Range %d", column.getHiveColumnIndex(), messageType.getFieldCount());
+            return messageType.getType(column.getHiveColumnIndex());
+        }
+
     public class PrestoParquetRecordReader
             extends ParquetRecordReader<Void>
     {
@@ -363,15 +377,15 @@ class ParquetHiveRecordCursor
         private final List<HiveColumnHandle> columns;
         private final List<Converter> converters;
 
-        public PrestoReadSupport(List<HiveColumnHandle> columns, MessageType messageType)
+        public PrestoReadSupport(Configuration configuration, List<HiveColumnHandle> columns, MessageType messageType)
         {
             this.columns = columns;
 
             ImmutableList.Builder<Converter> converters = ImmutableList.builder();
             for (int i = 0; i < columns.size(); i++) {
                 HiveColumnHandle column = columns.get(i);
-                if (!column.isPartitionKey() && column.getHiveColumnIndex() < messageType.getFieldCount()) {
-                    parquet.schema.Type parquetType = messageType.getFields().get(column.getHiveColumnIndex());
+                if (!column.isPartitionKey()) {
+                    parquet.schema.Type parquetType = getParquetType(configuration, column, messageType);
                     if (parquetType.isPrimitive()) {
                         converters.add(new ParquetPrimitiveColumnConverter(i));
                     }
@@ -408,8 +422,8 @@ class ParquetHiveRecordCursor
         {
             ImmutableList.Builder<parquet.schema.Type> fields = ImmutableList.builder();
             for (HiveColumnHandle column : columns) {
-                if (!column.isPartitionKey() && column.getHiveColumnIndex() < messageType.getFieldCount()) {
-                    fields.add(messageType.getType(column.getName()));
+                if (!column.isPartitionKey()) {
+                    fields.add(getParquetType(configuration, column, messageType));
                 }
             }
             MessageType requestedProjection = new MessageType(messageType.getName(), fields.build());
