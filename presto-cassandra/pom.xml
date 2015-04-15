@@ -402,7 +402,7 @@
 
     <profiles>
         <profile>
-            <id>ci</id>
+            <id>ci-cassandra</id>
             <build>
                 <plugins>
                     <plugin>
