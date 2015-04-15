@@ -43,6 +43,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.ParallelHashBuilder;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.RowNumberOperator;
@@ -148,7 +149,9 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskAggregationConcurrency;
+import static com.facebook.presto.SystemSessionProperties.getTaskHashBuildConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskJoinConcurrency;
+import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static com.facebook.presto.operator.InMemoryExchangeSourceOperator.InMemoryExchangeSourceOperatorFactory.createBroadcastDistribution;
 import static com.facebook.presto.operator.InMemoryExchangeSourceOperator.InMemoryExchangeSourceOperatorFactory.createRandomDistribution;
@@ -160,12 +163,11 @@ import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
-import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -1281,7 +1283,7 @@ public class LocalExecutionPlanner
             LocalExecutionPlanContext parallelParentContext = null;
             int joinConcurrency = getTaskJoinConcurrency(session, defaultConcurrency);
             // currently we can not run joins with an outer build in parallel
-            if ((node.getType() == INNER ||  node.getType() == LEFT) && context.isAllowLocalParallel() && context.getDriverInstanceCount() == 1 && joinConcurrency > 1) {
+            if (!isBuildOuter(node) && context.isAllowLocalParallel() && context.getDriverInstanceCount() == 1 && joinConcurrency > 1) {
                 parallelParentContext = context;
                 context = context.createSubContext();
                 probeSource = createInMemoryExchange(probeNode, context);
@@ -1299,21 +1301,53 @@ public class LocalExecutionPlanner
             List<Integer> buildChannels = ImmutableList.copyOf(getChannelsForSymbols(buildSymbols, buildSource.getLayout()));
             Optional<Integer> buildHashChannel = buildHashSymbol.map(channelGetter(buildSource));
 
-            HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
-                    buildContext.getNextOperatorId(),
-                    buildSource.getTypes(),
-                    buildChannels,
-                    buildHashChannel,
-                    10_000);
-            LookupSourceSupplier lookupSourceSupplier = hashBuilderOperatorFactory.getLookupSourceSupplier();
-            DriverFactory buildDriverFactory = new DriverFactory(
-                    buildContext.isInputDriver(),
-                    false,
-                    ImmutableList.<OperatorFactory>builder()
-                            .addAll(buildSource.getOperatorFactories())
-                            .add(hashBuilderOperatorFactory)
-                            .build());
-            context.addDriverFactory(buildDriverFactory);
+            LookupSourceSupplier lookupSourceSupplier;
+            int hashBuildConcurrency = getTaskHashBuildConcurrency(session, defaultConcurrency);
+            if (isBuildOuter(node) || hashBuildConcurrency <= 1) {
+                HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
+                        buildContext.getNextOperatorId(),
+                        buildSource.getTypes(),
+                        buildChannels,
+                        buildHashChannel,
+                        10_000);
+
+                context.addDriverFactory(new DriverFactory(
+                        buildContext.isInputDriver(),
+                        false,
+                        ImmutableList.<OperatorFactory>builder()
+                                .addAll(buildSource.getOperatorFactories())
+                                .add(hashBuilderOperatorFactory)
+                                .build()));
+
+                lookupSourceSupplier = hashBuilderOperatorFactory.getLookupSourceSupplier();
+            }
+            else {
+                // round partitionCount down to the last power of 2
+                int parallelBuildCount = Integer.highestOneBit(hashBuildConcurrency);
+
+                ParallelHashBuilder parallelHashBuilder = new ParallelHashBuilder(
+                        buildSource.getTypes(),
+                        buildChannels,
+                        buildHashChannel,
+                        10_000,
+                        parallelBuildCount);
+
+                context.addDriverFactory(new DriverFactory(
+                        buildContext.isInputDriver(),
+                        false,
+                        ImmutableList.<OperatorFactory>builder()
+                                .addAll(buildSource.getOperatorFactories())
+                                .add(parallelHashBuilder.getCollectOperatorFactory(buildContext.getNextOperatorId()))
+                                .build()));
+
+                context.addDriverFactory(new DriverFactory(
+                        false,
+                        false,
+                        ImmutableList.of(parallelHashBuilder.getBuildOperatorFactory()),
+                        parallelBuildCount));
+
+                lookupSourceSupplier = parallelHashBuilder.getLookupSourceSupplier();
+            }
 
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             outputMappings.putAll(probeSource.getLayout());
@@ -1335,6 +1369,11 @@ public class LocalExecutionPlanner
             }
 
             return operation;
+        }
+
+        private boolean isBuildOuter(JoinNode node)
+        {
+            return node.getType() == RIGHT || node.getType() == FULL;
         }
 
         private OperatorFactory createJoinOperator(

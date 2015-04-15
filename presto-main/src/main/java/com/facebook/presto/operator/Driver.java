@@ -323,6 +323,27 @@ public class Driver
                 processNewSources();
             }
 
+            // special handling for drivers with a single operator
+            if (operators.size() == 1) {
+                if (driverContext.isDone()) {
+                    return NOT_BLOCKED;
+                }
+
+                // check if operator is blocked
+                Operator current = operators.get(0);
+                ListenableFuture<?> blocked = isBlocked(current);
+                if (!blocked.isDone()) {
+                    current.getOperatorContext().recordBlocked(blocked);
+                    return blocked;
+                }
+
+                // there is only one operator so just finish it
+                current.getOperatorContext().startIntervalTimer();
+                current.finish();
+                current.getOperatorContext().recordFinish();
+                return NOT_BLOCKED;
+            }
+
             boolean movedPage = false;
             for (int i = 0; i < operators.size() - 1 && !driverContext.isDone(); i++) {
                 Operator current = operators.get(i);
