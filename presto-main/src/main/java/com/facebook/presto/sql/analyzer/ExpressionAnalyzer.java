@@ -213,6 +213,7 @@ public class ExpressionAnalyzer
             this.tupleDescriptor = checkNotNull(tupleDescriptor, "tupleDescriptor is null");
         }
 
+        @SuppressWarnings("SuspiciousMethodCalls")
         @Override
         public Type process(Node node, @Nullable AnalysisContext context)
         {
@@ -275,9 +276,9 @@ public class ExpressionAnalyzer
             List<Field> matches = tupleDescriptor.resolveFields(node.getName());
             if (matches.isEmpty()) {
                 // TODO This is kind of hacky, instead we should change the way QualifiedNameReferences are parsed
-                return tryVisitRowFieldAccessor(node, context);
+                return tryVisitRowFieldAccessor(node);
             }
-            else if (matches.size() > 1) {
+            if (matches.size() > 1) {
                 throw new SemanticException(AMBIGUOUS_ATTRIBUTE, node, "Column '%s' is ambiguous", node.getName());
             }
 
@@ -289,7 +290,7 @@ public class ExpressionAnalyzer
             return field.getType();
         }
 
-        private Type tryVisitRowFieldAccessor(QualifiedNameReference node, AnalysisContext context)
+        private Type tryVisitRowFieldAccessor(QualifiedNameReference node)
         {
             if (node.getName().getParts().size() < 2) {
                 throw createMissingAttributeException(node);
@@ -299,7 +300,7 @@ public class ExpressionAnalyzer
             if (matches.isEmpty()) {
                 throw createMissingAttributeException(node);
             }
-            else if (matches.size() > 1) {
+            if (matches.size() > 1) {
                 throw new SemanticException(AMBIGUOUS_ATTRIBUTE, node, "Column '%s' is ambiguous", node.getName());
             }
 
