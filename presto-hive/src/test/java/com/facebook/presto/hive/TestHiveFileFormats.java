@@ -241,7 +241,7 @@ public class TestHiveFileFormats
         file.delete();
         try {
             FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns);
-            HiveRecordCursorProvider cursorProvider = new ParquetRecordCursorProvider();
+            HiveRecordCursorProvider cursorProvider = new ParquetRecordCursorProvider(false);
             testCursorProvider(cursorProvider, split, inputFormat, serde, testColumns);
         }
         finally {

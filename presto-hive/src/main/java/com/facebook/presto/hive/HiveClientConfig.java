@@ -81,6 +81,7 @@ public class HiveClientConfig
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
     private DataSize s3MultipartMinFileSize = new DataSize(16, MEGABYTE);
     private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
+    private boolean useParquetColumnNames;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
 
@@ -679,6 +680,19 @@ public class HiveClientConfig
     public HiveClientConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
     {
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        return this;
+    }
+
+    public boolean isUseParquetColumnNames()
+   {
+        return useParquetColumnNames;
+    }
+
+    @Config("hive.parquet.use-column-names")
+    @ConfigDescription("Access Parquet columns using names from the file")
+    public HiveClientConfig setUseParquetColumnNames(boolean useParquetColumnNames)
+    {
+        this.useParquetColumnNames = useParquetColumnNames;
         return this;
     }
 }

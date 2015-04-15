@@ -49,7 +49,7 @@ public final class HiveTestUtils
 
     public static final ImmutableSet<HiveRecordCursorProvider> DEFAULT_HIVE_RECORD_CURSOR_PROVIDER = ImmutableSet.<HiveRecordCursorProvider>builder()
             .add(new OrcRecordCursorProvider())
-            .add(new ParquetRecordCursorProvider())
+            .add(new ParquetRecordCursorProvider(false))
             .add(new DwrfRecordCursorProvider())
             .add(new ColumnarTextHiveRecordCursorProvider())
             .add(new ColumnarBinaryHiveRecordCursorProvider())
