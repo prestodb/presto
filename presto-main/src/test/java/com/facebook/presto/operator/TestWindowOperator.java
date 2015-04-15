@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.operator.PrePartitionedWindowOperator.PrePartitionedWindowOperatorFactory;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.window.FirstValueFunction.VarcharFirstValueFunction;
 import com.facebook.presto.operator.window.FrameInfo;
@@ -44,6 +43,7 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
+import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrder;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -165,97 +165,6 @@ public class TestWindowOperator
                 .row("a", 6, 0.1, true, 3)
                 .row("b", -1, -0.1, true, 1)
                 .row("b", 5, 0.4, false, 2)
-                .build();
-
-        assertOperatorEquals(operator, input, expected);
-    }
-
-    @Test
-    public void testRowNumberPrePartitionedNoPageBreaks()
-            throws Exception
-    {
-        assertRowNumberPrePartitioned(rowPagesBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN)
-                .row("a", 2, 0.3, false)
-                .row("a", 6, 0.1, true)
-                .row("a", 4, 0.2, true)
-                .row("b", -1, -0.1, true)
-                .row("b", 5, 0.4, false)
-                .row("c", 14, 0.2, true)
-                .row("c", 12, 0.3, false)
-                .row("c", 16, 0.1, true)
-                .row("d", 15, 0.4, false)
-                .row("d", -11, -0.1, true)
-                .build());
-    }
-
-    @Test
-    public void testRowNumberPrePartitionedPageBreakAtPartition()
-            throws Exception
-    {
-        assertRowNumberPrePartitioned(rowPagesBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN)
-                .row("a", 4, 0.2, true)
-                .row("a", 6, 0.1, true)
-                .row("a", 2, 0.3, false)
-                .pageBreak()
-                .row("b", -1, -0.1, true)
-                .row("b", 5, 0.4, false)
-                .pageBreak()
-                .row("c", 14, 0.2, true)
-                .row("c", 12, 0.3, false)
-                .row("c", 16, 0.1, true)
-                .pageBreak()
-                .row("d", 15, 0.4, false)
-                .row("d", -11, -0.1, true)
-                .build());
-    }
-
-    @Test
-    public void testRowNumberPrePartitionedPageBreakWithinPartition()
-            throws Exception
-    {
-        assertRowNumberPrePartitioned(rowPagesBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN)
-                .row("a", 2, 0.3, false)
-                .row("a", 6, 0.1, true)
-                .row("a", 4, 0.2, true)
-                .row("b", -1, -0.1, true)
-                .pageBreak()
-                .row("b", 5, 0.4, false)
-                .row("c", 14, 0.2, true)
-                .row("c", 12, 0.3, false)
-                .pageBreak()
-                .row("c", 16, 0.1, true)
-                .row("d", 15, 0.4, false)
-                .pageBreak()
-                .row("d", -11, -0.1, true)
-                .build());
-    }
-
-    private void assertRowNumberPrePartitioned(List<Page> input)
-    {
-        PrePartitionedWindowOperatorFactory operatorFactory = new PrePartitionedWindowOperatorFactory(
-                0,
-                ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN),
-                Ints.asList(0, 1, 2, 3),
-                ROW_NUMBER,
-                Ints.asList(0),
-                Ints.asList(1),
-                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
-                new FrameInfo(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty()),
-                10);
-
-        Operator operator = operatorFactory.createOperator(driverContext);
-
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, DOUBLE, BOOLEAN, BIGINT)
-                .row("a", 2, 0.3, false, 1)
-                .row("a", 4, 0.2, true, 2)
-                .row("a", 6, 0.1, true, 3)
-                .row("b", -1, -0.1, true, 1)
-                .row("b", 5, 0.4, false, 2)
-                .row("c", 12, 0.3, false, 1)
-                .row("c", 14, 0.2, true, 2)
-                .row("c", 16, 0.1, true, 3)
-                .row("d", -11, -0.1, true, 1)
-                .row("d", 15, 0.4, false, 2)
                 .build();
 
         assertOperatorEquals(operator, input, expected);
@@ -510,6 +419,208 @@ public class TestWindowOperator
         assertOperatorEquals(operator, input, expected);
     }
 
+    @Test
+    public void testPartiallyPreGroupedPartitionWithEmptyInput()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
+                .pageBreak()
+                .pageBreak()
+                .build();
+
+        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
+                ImmutableList.of(BIGINT, VARCHAR, BIGINT, VARCHAR),
+                Ints.asList(0, 1, 2, 3),
+                ROW_NUMBER,
+                Ints.asList(0, 1),
+                Ints.asList(1),
+                Ints.asList(3),
+                ImmutableList.of(SortOrder.ASC_NULLS_LAST),
+                0);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
+    public void testPartiallyPreGroupedPartition()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
+                .pageBreak()
+                .row(1, "a", 100, "A")
+                .row(2, "a", 101, "B")
+                .pageBreak()
+                .row(3, "b", 102, "E")
+                .row(1, "b", 103, "D")
+                .pageBreak()
+                .row(3, "b", 104, "C")
+                .row(1, "c", 105, "F")
+                .pageBreak()
+                .build();
+
+        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
+                ImmutableList.of(BIGINT, VARCHAR, BIGINT, VARCHAR),
+                Ints.asList(0, 1, 2, 3),
+                ROW_NUMBER,
+                Ints.asList(0, 1),
+                Ints.asList(1),
+                Ints.asList(3),
+                ImmutableList.of(SortOrder.ASC_NULLS_LAST),
+                0);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
+                .row(1, "a", 100, "A", 1)
+                .row(2, "a", 101, "B", 1)
+                .row(3, "b", 104, "C", 1)
+                .row(3, "b", 102, "E", 2)
+                .row(1, "b", 103, "D", 1)
+                .row(1, "c", 105, "F", 1)
+                .build();
+
+        assertOperatorEqualsIgnoreOrder(operator, input, expected);
+    }
+
+    @Test
+    public void testFullyPreGroupedPartition()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
+                .pageBreak()
+                .row(1, "a", 100, "A")
+                .pageBreak()
+                .row(2, "a", 101, "B")
+                .pageBreak()
+                .row(2, "b", 102, "D")
+                .row(2, "b", 103, "C")
+                .row(1, "b", 104, "E")
+                .pageBreak()
+                .row(1, "b", 105, "F")
+                .row(3, "c", 106, "G")
+                .build();
+
+        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
+                ImmutableList.of(BIGINT, VARCHAR, BIGINT, VARCHAR),
+                Ints.asList(0, 1, 2, 3),
+                ROW_NUMBER,
+                Ints.asList(1, 0),
+                Ints.asList(0, 1),
+                Ints.asList(3),
+                ImmutableList.of(SortOrder.ASC_NULLS_LAST),
+                0);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
+                .row(1, "a", 100, "A", 1)
+                .row(2, "a", 101, "B", 1)
+                .row(2, "b", 103, "C", 1)
+                .row(2, "b", 102, "D", 2)
+                .row(1, "b", 104, "E", 1)
+                .row(1, "b", 105, "F", 2)
+                .row(3, "c", 106, "G", 1)
+                .build();
+
+        assertOperatorEqualsIgnoreOrder(operator, input, expected);
+    }
+
+    @Test
+    public void testFullyPreGroupedAndPartiallySortedPartition()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
+                .pageBreak()
+                .row(1, "a", 100, "A")
+                .pageBreak()
+                .row(2, "a", 100, "A")
+                .pageBreak()
+                .row(2, "b", 102, "A")
+                .row(2, "b", 101, "A")
+                .row(2, "b", 100, "B")
+                .row(1, "b", 101, "A")
+                .pageBreak()
+                .row(1, "b", 100, "A")
+                .row(3, "c", 100, "A")
+                .build();
+
+        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
+                ImmutableList.of(BIGINT, VARCHAR, BIGINT, VARCHAR),
+                Ints.asList(0, 1, 2, 3),
+                ROW_NUMBER,
+                Ints.asList(1, 0),
+                Ints.asList(0, 1),
+                Ints.asList(3, 2),
+                ImmutableList.of(SortOrder.ASC_NULLS_LAST, SortOrder.ASC_NULLS_LAST),
+                1);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
+                .row(1, "a", 100, "A", 1)
+                .row(2, "a", 100, "A", 1)
+                .row(2, "b", 101, "A", 1)
+                .row(2, "b", 102, "A", 2)
+                .row(2, "b", 100, "B", 3)
+                .row(1, "b", 100, "A", 1)
+                .row(1, "b", 101, "A", 2)
+                .row(3, "c", 100, "A", 1)
+                .build();
+
+        assertOperatorEqualsIgnoreOrder(operator, input, expected);
+    }
+
+    @Test
+    public void testFullyPreGroupedAndFullySortedPartition()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
+                .pageBreak()
+                .row(1, "a", 100, "A")
+                .pageBreak()
+                .row(2, "a", 101, "A")
+                .pageBreak()
+                .row(2, "b", 102, "A")
+                .row(2, "b", 103, "A")
+                .row(2, "b", 104, "B")
+                .row(1, "b", 105, "A")
+                .pageBreak()
+                .row(1, "b", 106, "A")
+                .row(3, "c", 107, "A")
+                .build();
+
+        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
+                ImmutableList.of(BIGINT, VARCHAR, BIGINT, VARCHAR),
+                Ints.asList(0, 1, 2, 3),
+                ROW_NUMBER,
+                Ints.asList(1, 0),
+                Ints.asList(0, 1),
+                Ints.asList(3),
+                ImmutableList.of(SortOrder.ASC_NULLS_LAST),
+                1);
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
+                .row(1, "a", 100, "A", 1)
+                .row(2, "a", 101, "A", 1)
+                .row(2, "b", 102, "A", 1)
+                .row(2, "b", 103, "A", 2)
+                .row(2, "b", 104, "B", 3)
+                .row(1, "b", 105, "A", 1)
+                .row(1, "b", 106, "A", 2)
+                .row(3, "c", 107, "A", 1)
+                .build();
+
+        // Since fully grouped and sorted already, should respect original input order
+        assertOperatorEquals(operator, input, expected);
+    }
+
     private static WindowOperatorFactory createFactoryUnbounded(
             List<? extends Type> sourceTypes,
             List<Integer> outputChannels,
@@ -518,14 +629,37 @@ public class TestWindowOperator
             List<Integer> sortChannels,
             List<SortOrder> sortOrder)
     {
+        return createFactoryUnbounded(
+                sourceTypes,
+                outputChannels,
+                functions,
+                partitionChannels,
+                ImmutableList.of(),
+                sortChannels,
+                sortOrder,
+                0);
+    }
+
+    private static WindowOperatorFactory createFactoryUnbounded(
+            List<? extends Type> sourceTypes,
+            List<Integer> outputChannels,
+            List<WindowFunctionDefinition> functions,
+            List<Integer> partitionChannels,
+            List<Integer> preGroupedChannels,
+            List<Integer> sortChannels,
+            List<SortOrder> sortOrder,
+            int preSortedChannelPrefix)
+    {
         return new WindowOperatorFactory(
                 0,
                 sourceTypes,
                 outputChannels,
                 functions,
                 partitionChannels,
+                preGroupedChannels,
                 sortChannels,
                 sortOrder,
+                preSortedChannelPrefix,
                 new FrameInfo(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty()),
                 10);
     }
