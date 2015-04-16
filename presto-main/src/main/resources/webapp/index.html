@@ -20,6 +20,13 @@
         .no-queries h4 {
             margin: 0;
         }
+        .toolbar {
+            padding: 3px;
+            background-color: #eee;
+        }
+        .toolbar label {
+            margin: 0;
+        }
         .sql {
             word-wrap: break-word;
             white-space: normal;
@@ -176,20 +183,28 @@ var QueryPane = React.createClass({
     loadQueriesFromServer: function(finishCallback)
     {
         d3.json('/v1/query', function (queries) {
-            this.replaceState({queries: queries});
+            this.setState({queries: queries});
             finishCallback();
         }.bind(this));
     },
     getInitialState: function() {
-        return {queries: []};
+        return {queries: [], autoRefresh: true};
     },
     refreshLoop: function() {
-        this.loadQueriesFromServer(function() {
+        if (this.state.autoRefresh) {
+            this.loadQueriesFromServer(function () {
+                setTimeout(this.refreshLoop, 1000);
+            }.bind(this));
+        }
+        else {
             setTimeout(this.refreshLoop, 1000);
-        }.bind(this));
+        }
     },
     componentDidMount: function() {
         this.refreshLoop();
+    },
+    handleAutoRefresh: function(event) {
+        this.setState({autoRefresh: event.target.checked});
     },
     render: function() {
         if (this.state.queries.length > 0) {
@@ -206,6 +221,11 @@ var QueryPane = React.createClass({
             doneQueries.sort(function(a, b) { return d3.descending(a.endTime, b.endTime); });
             return (
                     <div>
+                        <div className="row toolbar">
+                            <div className="col-md-12">
+                                <label><input type="checkbox" defaultChecked="true" onChange={this.handleAutoRefresh} /> auto-refresh</label>
+                            </div>
+                        </div>
                         <QueryList queries={runningQueries} />
                         <QueryList queries={doneQueries} />
                     </div>
