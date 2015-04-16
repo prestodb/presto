@@ -29,7 +29,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class ExchangeNode
         extends PlanNode
 {
-    public static enum Type
+    public enum Type
     {
         GATHER,
         REPARTITION,
