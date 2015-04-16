@@ -20,6 +20,6 @@ public class TestHost
 {
     public TestHost(InetSocketAddress address)
     {
-        super(address, new ConvictionPolicy.Simple.Factory());
+        super(address, new ConvictionPolicy.Simple.Factory(), null);
     }
 }
