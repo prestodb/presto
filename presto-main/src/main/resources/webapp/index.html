@@ -31,13 +31,26 @@
         pre {
             margin: 0;
         }
+        .header {
+            background-color: black;
+            padding-bottom: 10px;
+        }
+        .logo {
+            height: 50px;
+        }
     </style>
 </head>
 
 <body>
 
 <div class="container-fluid">
-    <h1>Presto</h1>
+    <div class="row header">
+        <div class="col-md-12">
+            <a href=".">
+                <img class="logo" alt="Presto logo" src="./presto.png" />
+            </a>
+        </div>
+    </div>
 
     <div id="queries"></div>
 </div>
