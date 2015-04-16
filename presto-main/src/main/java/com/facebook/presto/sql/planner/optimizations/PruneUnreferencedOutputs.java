@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -106,14 +106,23 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitExchange(ExchangeNode node, RewriteContext<Set<Symbol>> context)
         {
+            Set<Symbol> expectedOutputSymbols = Sets.newHashSet(context.get());
+            node.getHashSymbol().ifPresent(expectedOutputSymbols::add);
+            expectedOutputSymbols.addAll(node.getPartitionKeys());
+
             List<List<Symbol>> inputsBySource = new ArrayList<>(node.getInputs().size());
             for (int i = 0; i < node.getInputs().size(); i++) {
                 inputsBySource.add(new ArrayList<>());
             }
 
+            List<Symbol> newOutputSymbols = new ArrayList<>(node.getOutputSymbols().size());
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                for (int source = 0; source < node.getInputs().size(); source++) {
-                    inputsBySource.get(source).add(node.getInputs().get(source).get(i));
+                Symbol outputSymbol = node.getOutputSymbols().get(i);
+                if (expectedOutputSymbols.contains(outputSymbol)) {
+                    newOutputSymbols.add(outputSymbol);
+                    for (int source = 0; source < node.getInputs().size(); source++) {
+                        inputsBySource.get(source).add(node.getInputs().get(source).get(i));
+                    }
                 }
             }
 
@@ -121,8 +130,6 @@ public class PruneUnreferencedOutputs
             for (int i = 0; i < node.getSources().size(); i++) {
                 ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                         .addAll(inputsBySource.get(i));
-
-                node.getHashSymbol().ifPresent(expectedInputs::add);
 
                 rewrittenSources.add(context.rewrite(
                         node.getSources().get(i),
@@ -135,7 +142,7 @@ public class PruneUnreferencedOutputs
                     node.getPartitionKeys(),
                     node.getHashSymbol(),
                     rewrittenSources.build(),
-                    node.getOutputSymbols(),
+                    newOutputSymbols,
                     inputsBySource);
         }
 
