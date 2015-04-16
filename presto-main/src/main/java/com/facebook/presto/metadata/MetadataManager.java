@@ -14,9 +14,10 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -33,6 +34,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -42,7 +44,6 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -92,25 +93,30 @@ public class MetadataManager
     private final TypeManager typeManager;
     private final JsonCodec<ViewDefinition> viewCodec;
     private final SplitManager splitManager;
+    private final BlockEncodingSerde blockEncodingSerde;
 
-    @VisibleForTesting
-    public MetadataManager()
+    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, SplitManager splitManager, BlockEncodingSerde blockEncodingSerde)
     {
-        this(new FeaturesConfig(), new TypeRegistry(), new SplitManager());
-    }
-
-    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, SplitManager splitManager)
-    {
-        this(featuresConfig, typeManager, createTestingViewCodec(), splitManager);
+        this(featuresConfig, typeManager, createTestingViewCodec(), splitManager, blockEncodingSerde);
     }
 
     @Inject
-    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, JsonCodec<ViewDefinition> viewCodec, SplitManager splitManager)
+    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, JsonCodec<ViewDefinition> viewCodec, SplitManager splitManager, BlockEncodingSerde blockEncodingSerde)
     {
         functions = new FunctionRegistry(typeManager, featuresConfig.isExperimentalSyntaxEnabled());
         this.typeManager = checkNotNull(typeManager, "types is null");
         this.viewCodec = checkNotNull(viewCodec, "viewCodec is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
+        this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingSerde is null");
+    }
+
+    public static MetadataManager createTestMetadataManager()
+    {
+        FeaturesConfig featuresConfig = new FeaturesConfig();
+        TypeManager typeManager = new TypeRegistry();
+        SplitManager splitManager = new SplitManager();
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
+        return new MetadataManager(featuresConfig, typeManager, splitManager, blockEncodingSerde);
     }
 
     public synchronized void addConnectorMetadata(String connectorId, String catalogName, ConnectorMetadata connectorMetadata)
@@ -526,6 +532,12 @@ public class MetadataManager
     public TypeManager getTypeManager()
     {
         return typeManager;
+    }
+
+    @Override
+    public BlockEncodingSerde getBlockEncodingSerde()
+    {
+        return blockEncodingSerde;
     }
 
     private ViewDefinition deserializeView(String data)

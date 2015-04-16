@@ -102,7 +102,7 @@ public class TestHashAggregationOperator
     public void testHashAggregation(boolean hashEnabled)
             throws Exception
     {
-        MetadataManager metadata = new MetadataManager();
+        MetadataManager metadata = MetadataManager.createTestMetadataManager();
         InternalAggregationFunction countVarcharColumn = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)), false).getAggregationFunction();
         InternalAggregationFunction countBooleanColumn = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of(parseTypeSignature(StandardTypes.BOOLEAN)), false).getAggregationFunction();
         InternalAggregationFunction maxVarcharColumn = metadata.resolveFunction(QualifiedName.of("max"), ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)), false).getAggregationFunction();
@@ -150,7 +150,7 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "hashEnabledValues", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Task exceeded max memory size of 10B")
     public void testMemoryLimit(boolean hashEnabled)
     {
-        MetadataManager metadata = new MetadataManager();
+        MetadataManager metadata = MetadataManager.createTestMetadataManager();
         InternalAggregationFunction maxVarcharColumn = metadata.resolveFunction(QualifiedName.of("max"), ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)), false).getAggregationFunction();
 
         List<Integer> hashChannels = Ints.asList(1);

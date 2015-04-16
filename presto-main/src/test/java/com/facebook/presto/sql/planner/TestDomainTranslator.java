@@ -71,7 +71,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestDomainTranslator
 {
-    private static final Metadata METADATA = new MetadataManager();
+    private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
 
     private static final Symbol A = new Symbol("a");
     private static final Symbol B = new Symbol("b");

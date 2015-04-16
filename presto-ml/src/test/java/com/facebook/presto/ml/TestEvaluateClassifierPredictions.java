@@ -42,7 +42,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestEvaluateClassifierPredictions
 {
-    private final Metadata metadata = new MetadataManager();
+    private final Metadata metadata = MetadataManager.createTestMetadataManager();
 
     @Test
     public void testEvaluateClassifierPredictions()

@@ -14,10 +14,11 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.index.IndexManager;
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
@@ -160,7 +161,8 @@ public abstract class AbstractTestQueryFramework
 
     private QueryExplainer getQueryExplainer()
     {
-        Metadata metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), new TypeRegistry(), new SplitManager());
+        TypeManager typeManager = new TypeRegistry();
+        MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeManager, new SplitManager(), new BlockEncodingManager(typeManager));
         FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true).setOptimizeHashGeneration(true);
         List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, sqlParser, new SplitManager(), new IndexManager(), featuresConfig).get();
         return new QueryExplainer(queryRunner.getDefaultSession(),

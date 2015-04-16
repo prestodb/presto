@@ -41,7 +41,7 @@ import static org.testng.Assert.assertEquals;
 public class TestInterpretedProjectionFunction
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
-    private static final Metadata METADATA = new MetadataManager();
+    private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
 
     @Test
     public void testBooleanExpression()

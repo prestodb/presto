@@ -82,7 +82,7 @@ public class BenchmarkPageProcessor
 
         handCodedProcessor = new Tpch1FilterAndProject();
 
-        compiledProcessor = new ExpressionCompiler(new MetadataManager()).compilePageProcessor(FILTER, ImmutableList.of(PROJECT));
+        compiledProcessor = new ExpressionCompiler(MetadataManager.createTestMetadataManager()).compilePageProcessor(FILTER, ImmutableList.of(PROJECT));
     }
 
     @Benchmark

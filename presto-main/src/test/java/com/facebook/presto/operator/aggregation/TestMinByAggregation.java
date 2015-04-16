@@ -38,7 +38,7 @@ import static org.testng.Assert.assertNotNull;
 
 public class TestMinByAggregation
 {
-    private static final MetadataManager metadata = new MetadataManager();
+    private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
 
     @BeforeClass
     public void setup()

@@ -44,7 +44,7 @@ import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 
 public class TestMapAggAggregation
 {
-    private static final MetadataManager metadata = new MetadataManager();
+    private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
 
     @Test
     public void testDuplicateKeysValues()

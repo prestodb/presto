@@ -86,7 +86,7 @@ public class TestExpressionInterpreter
             .build();
 
     private static final SqlParser SQL_PARSER = new SqlParser();
-    private static final Metadata METADATA = new MetadataManager();
+    private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
 
     @Test
     public void testAnd()
