@@ -32,7 +32,7 @@ import static org.testng.Assert.assertNotNull;
 
 public class TestArbitraryAggregation
 {
-    private static final MetadataManager metadata = new MetadataManager();
+    private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
 
     @Test
     public void testAllRegistered()

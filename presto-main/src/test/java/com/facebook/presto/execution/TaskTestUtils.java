@@ -82,7 +82,7 @@ public final class TaskTestUtils
 
     public static LocalExecutionPlanner createTestingPlanner()
     {
-        MetadataManager metadata = new MetadataManager();
+        MetadataManager metadata = MetadataManager.createTestMetadataManager();
 
         PageSourceManager pageSourceManager = new PageSourceManager();
         pageSourceManager.addConnectorPageSourceProvider("test", new TestingPageSourceProvider());

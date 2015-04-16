@@ -48,7 +48,7 @@ public class TestResetSessionTask
         Session session = TEST_SESSION.withSystemProperty("foo", "bar").withCatalogProperty("catalog", "baz", "blah");
 
         QueryStateMachine stateMachine = new QueryStateMachine(new QueryId("query"), "reset foo", session, URI.create("fake://uri"), executor);
-        new ResetSessionTask().execute(new ResetSession(QualifiedName.of("catalog", "baz")), session, new MetadataManager(), stateMachine);
+        new ResetSessionTask().execute(new ResetSession(QualifiedName.of("catalog", "baz")), session, MetadataManager.createTestMetadataManager(), stateMachine);
 
         Set<String> sessionProperties = stateMachine.getResetSessionProperties();
         assertEquals(sessionProperties, ImmutableSet.of("catalog.baz"));
