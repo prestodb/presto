@@ -93,7 +93,7 @@ public final class LiteralInterpreter
         }
 
         if (object == null) {
-            if (type == UNKNOWN) {
+            if (type.equals(UNKNOWN)) {
                 return new NullLiteral();
             }
             return new Cast(new NullLiteral(), type.getTypeSignature().toString());
