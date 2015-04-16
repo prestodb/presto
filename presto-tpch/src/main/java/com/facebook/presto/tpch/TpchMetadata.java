@@ -98,7 +98,7 @@ public class TpchMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorTableHandle table, Constraint<ColumnHandle> constraint)
+    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         TpchTableHandle tableHandle = checkType(table, TpchTableHandle.class, "table");
 
@@ -134,7 +134,7 @@ public class TpchMetadata
         TpchTableLayoutHandle layout = checkType(handle, TpchTableLayoutHandle.class, "layout");
 
         // tables in this connector have a single layout
-        return getTableLayouts(layout.getTable(), Constraint.<ColumnHandle>alwaysTrue())
+        return getTableLayouts(layout.getTable(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty())
                 .get(0)
                 .getTableLayout();
     }

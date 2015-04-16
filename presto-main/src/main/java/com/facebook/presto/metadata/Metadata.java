@@ -60,7 +60,7 @@ public interface Metadata
     Optional<TableHandle> getTableHandle(Session session, QualifiedTableName tableName);
 
     @NotNull
-    List<TableLayoutResult> getLayouts(TableHandle tableHandle, Optional<Set<ColumnHandle>> requiredColumns, Constraint<ColumnHandle> constraint);
+    List<TableLayoutResult> getLayouts(TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
 
     @NotNull
     TableLayout getLayout(TableLayoutHandle handle);

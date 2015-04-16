@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Map;
@@ -116,7 +117,10 @@ public class PickLayout
                     .transform(node.getAssignments()::get)
                     .intersect(node.getCurrentConstraint());
 
-            List<TableLayoutResult> layouts = metadata.getLayouts(node.getTable(), Optional.empty(), new Constraint<>(simplifiedConstraint, bindings -> true));
+            List<TableLayoutResult> layouts = metadata.getLayouts(
+                    node.getTable(),
+                    new Constraint<>(simplifiedConstraint, bindings -> true),
+                    Optional.of(ImmutableSet.copyOf(node.getAssignments().values())));
 
             if (layouts.isEmpty()) {
                 return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of());

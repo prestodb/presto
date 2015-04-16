@@ -486,8 +486,9 @@ public class AddExchanges
 
             List<TableLayoutResult> layouts = metadata.getLayouts(
                     node.getTable(),
-                    Optional.empty(),
-                    new Constraint<>(simplifiedConstraint, bindings -> !shouldPrune(constraint, node.getAssignments(), bindings)));
+                    new Constraint<>(simplifiedConstraint, bindings -> !shouldPrune(constraint, node.getAssignments(), bindings)),
+                    Optional.of(ImmutableSet.copyOf(node.getAssignments().values()))
+            );
 
             if (layouts.isEmpty()) {
                 return new PlanWithProperties(

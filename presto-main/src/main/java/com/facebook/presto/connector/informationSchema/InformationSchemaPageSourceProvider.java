@@ -252,7 +252,7 @@ public class InformationSchemaPageSourceProvider
         checkArgument(tableHandle.isPresent(), "Table %s does not exist", tableName);
         Map<ColumnHandle, String> columnHandles = ImmutableBiMap.copyOf(metadata.getColumnHandles(tableHandle.get())).inverse();
 
-        List<TableLayoutResult> layouts = metadata.getLayouts(tableHandle.get(), Optional.empty(), Constraint.<ColumnHandle>alwaysTrue());
+        List<TableLayoutResult> layouts = metadata.getLayouts(tableHandle.get(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty());
 
         if (layouts.size() == 1) {
             TableLayout layout = Iterables.getOnlyElement(layouts).getLayout();
