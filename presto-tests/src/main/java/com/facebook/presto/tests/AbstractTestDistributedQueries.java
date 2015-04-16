@@ -267,13 +267,6 @@ public abstract class AbstractTestDistributedQueries
         assertQueryTrue("DROP VIEW meta_test_view");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*statement is too large.*")
-    public void testLargeQueryFailure()
-            throws Exception
-    {
-        assertQuery("SELECT " + Joiner.on(" AND ").join(nCopies(1000, "1 = 1")), "SELECT true");
-    }
-
     @Test
     public void testLargeQuerySuccess()
             throws Exception
