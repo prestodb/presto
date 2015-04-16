@@ -965,7 +965,7 @@ public class LocalExecutionPlanner
             }
             Optional<Symbol> ordinalitySymbol = node.getOrdinalitySymbol();
             Optional<Type> ordinalityType = ordinalitySymbol.map(context.getTypes()::get);
-            ordinalityType.ifPresent(type -> checkState(type == BigintType.BIGINT, "Type of ordinalitySymbol must always be BIGINT."));
+            ordinalityType.ifPresent(type -> checkState(type.equals(BigintType.BIGINT), "Type of ordinalitySymbol must always be BIGINT."));
 
             List<Integer> replicateChannels = getChannelsForSymbols(node.getReplicateSymbols(), source.getLayout());
             List<Integer> unnestChannels = getChannelsForSymbols(unnestSymbols, source.getLayout());
