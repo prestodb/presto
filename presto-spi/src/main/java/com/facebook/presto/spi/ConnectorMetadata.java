@@ -18,6 +18,8 @@ import io.airlift.slice.Slice;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 public interface ConnectorMetadata
 {
@@ -36,7 +38,7 @@ public interface ConnectorMetadata
      *
      * For each layout, connectors must return an "unenforced constraint" representing the part of the constraint summary that isn't guaranteed by the layout.
      */
-    default List<ConnectorTableLayoutResult> getTableLayouts(ConnectorTableHandle table, Constraint<ColumnHandle> constraint)
+    default List<ConnectorTableLayoutResult> getTableLayouts(ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }

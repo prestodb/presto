@@ -221,7 +221,7 @@ public class MetadataManager
     }
 
     @Override
-    public List<TableLayoutResult> getLayouts(TableHandle table, Optional<Set<ColumnHandle>> requiredColumns, Constraint<ColumnHandle> constraint)
+    public List<TableLayoutResult> getLayouts(TableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         if (constraint.getSummary().isNone()) {
             return ImmutableList.of();
@@ -235,7 +235,7 @@ public class MetadataManager
         List<ConnectorTableLayoutResult> layouts;
         try {
             ConnectorMetadata metadata = getConnectorMetadata(connectorId);
-            layouts = metadata.getTableLayouts(connectorTable, new Constraint<>(summary, bindings -> predicate.test(bindings)));
+            layouts = metadata.getTableLayouts(connectorTable, new Constraint<>(summary, predicate::test), desiredColumns);
         }
         catch (UnsupportedOperationException e) {
             ConnectorSplitManager connectorSplitManager = splitManager.getConnectorSplitManager(connectorId);
