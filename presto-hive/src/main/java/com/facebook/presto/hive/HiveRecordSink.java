@@ -196,6 +196,8 @@ public class HiveRecordSink
         }
 
         try {
+            // TODO: hypothetically Hive table can have different serializers for different partitions
+            // TODO: see HiveSplitSourceProvider.getPartitionSchema
             serializer = (Serializer) lookupDeserializer(serdeLib);
             Class<?> clazz = Class.forName(outputFormat);
             outputFormatClass = clazz.asSubclass(HiveOutputFormat.class);

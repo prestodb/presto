@@ -751,7 +751,10 @@ public class HiveMetadata
         String outputFormat = table.getSd().getOutputFormat();
         SerDeInfo serdeInfo = table.getSd().getSerdeInfo();
         String serdeLib = serdeInfo.getSerializationLib();
-        Map<String, String> serdeParameters = serdeInfo.getParameters();
+        Map<String, String> serdeParameters = ImmutableMap.<String, String>builder()
+                                                       .putAll(serdeInfo.getParameters())
+                                                       .putAll(table.getParameters())
+                                                       .build();
 
         String location = table.getSd().getLocation();
         ConnectorTableMetadata tableMetadata = getTableMetadata(tableHandle);
