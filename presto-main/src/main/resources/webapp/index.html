@@ -84,13 +84,6 @@ var Query = React.createClass({
                 return "bg-info";
         }
     },
-    handleClick: function(e) {
-        if (e.ctrlKey || e.metaKey || e.which == 2) {
-            window.open("query.html?" + this.props.query.queryId);
-        } else {
-            window.location = "query.html?" + this.props.query.queryId;
-        }
-    },
     render: function()
     {
         var query = this.props.query;
@@ -129,10 +122,10 @@ var Query = React.createClass({
             queryText = queryText.substring(0, 200) + "...";
         }
         return (
-                <div className={"row query-row " + this.stateClass(query.state)} onClick={this.handleClick}>
+                <div className={"row query-row " + this.stateClass(query.state)}>
                     <div className="col-md-3 col-lg-3">
                         <div className="row">
-                            <div className="col-md-12">{query.queryId}</div>
+                            <div className="col-md-12"><a href={"query.html?" + query.queryId}>{query.queryId}</a></div>
                         </div>
                         <div className="row">
                             <div className="col-md-12 truncate">{query.session.user}</div>
