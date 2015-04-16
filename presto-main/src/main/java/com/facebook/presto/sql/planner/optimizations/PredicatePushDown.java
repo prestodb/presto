@@ -362,6 +362,12 @@ public class PredicatePushDown
                     criteria = builder.build();
                 }
                 output = new JoinNode(node.getId(), node.getType(), leftSource, rightSource, criteria, node.getLeftHashSymbol(), node.getRightHashSymbol());
+
+                // If more output symbols were added to support the JOIN, project out just the originals symbols
+                if (output.getOutputSymbols().size() > node.getOutputSymbols().size()) {
+                    output = new ProjectNode(idAllocator.getNextId(), output, node.getOutputSymbols().stream()
+                            .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
+                }
             }
             if (!postJoinPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
                 output = new FilterNode(idAllocator.getNextId(), output, postJoinPredicate);
