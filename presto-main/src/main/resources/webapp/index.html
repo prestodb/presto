@@ -13,6 +13,13 @@
     <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet" type="text/css">
 
     <style type="text/css">
+        .no-queries {
+            text-align: center;
+            margin-top: 10px;
+        }
+        .no-queries h4 {
+            margin: 0;
+        }
         .sql {
             word-wrap: break-word;
             white-space: normal;
@@ -185,9 +192,9 @@ var QueryPane = React.createClass({
         this.refreshLoop();
     },
     render: function() {
-        var runningQueries = [];
-        var doneQueries = [];
-        if (this.state.queries) {
+        if (this.state.queries.length > 0) {
+            var runningQueries = [];
+            var doneQueries = [];
             runningQueries = this.state.queries.filter(function (query) {
                 return query.state != 'FINISHED' && query.state != 'FAILED' && query.state != 'CANCELED';
             });
@@ -195,15 +202,22 @@ var QueryPane = React.createClass({
             doneQueries = this.state.queries.filter(function (query) {
                 return query.state == 'FINISHED' || query.state == 'FAILED' || query.state == 'CANCELED';
             });
+            runningQueries.sort(function(a, b) { return d3.descending(a.createTime, b.createTime); });
+            doneQueries.sort(function(a, b) { return d3.descending(a.endTime, b.endTime); });
+            return (
+                    <div>
+                        <QueryList queries={runningQueries} />
+                        <QueryList queries={doneQueries} />
+                    </div>
+            );
         }
-        runningQueries.sort(function(a, b) { return d3.descending(a.createTime, b.createTime); });
-        doneQueries.sort(function(a, b) { return d3.descending(a.endTime, b.endTime); });
-        return (
-                <div>
-                    <QueryList queries={runningQueries} />
-                    <QueryList queries={doneQueries} />
-                </div>
-        );
+        else {
+            return (
+                    <div className="row no-queries">
+                        <div className="col-md-12"><div className="well"><h4>No queries</h4></div></div>
+                    </div>
+            );
+        }
     }
 });
 React.render(
