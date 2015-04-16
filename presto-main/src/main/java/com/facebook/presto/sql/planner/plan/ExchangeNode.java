@@ -23,6 +23,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
@@ -64,6 +65,8 @@ public class ExchangeNode
         checkNotNull(hashSymbol, "hashSymbol is null");
         checkNotNull(outputs, "outputs is null");
         checkNotNull(inputs, "inputs is null");
+        checkArgument(inputs.stream().allMatch(inputSymbols -> inputSymbols.size() == outputs.size()), "Input symbols do not match output symbols");
+        checkArgument(sources.stream().map(PlanNode::getOutputSymbols).allMatch(sourceSymbols -> sourceSymbols.size() == outputs.size()), "Source symbols do not match output symbols");
 
         this.type = type;
         this.sources = sources;
