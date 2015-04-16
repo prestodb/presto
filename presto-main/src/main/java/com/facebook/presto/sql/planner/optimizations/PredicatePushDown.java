@@ -29,6 +29,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -61,6 +62,7 @@ import io.airlift.log.Logger;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -145,6 +147,42 @@ public class PredicatePushDown
                 rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, context.get());
             }
             return rewrittenNode;
+        }
+
+        @Override
+        public PlanNode visitExchange(ExchangeNode node, RewriteContext<Expression> context)
+        {
+            boolean modified = false;
+            ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
+            for (int i = 0; i < node.getSources().size(); i++) {
+                Map<Symbol, QualifiedNameReference> outputsToInputs = new HashMap<>();
+                for (int index = 0; index < node.getInputs().get(i).size(); index++) {
+                    outputsToInputs.put(
+                            node.getOutputSymbols().get(index),
+                            node.getInputs().get(i).get(index).toQualifiedNameReference());
+                }
+
+                Expression sourcePredicate = ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(outputsToInputs), context.get());
+                PlanNode source = node.getSources().get(i);
+                PlanNode rewrittenSource = context.rewrite(source, sourcePredicate);
+                if (rewrittenSource != source) {
+                    modified = true;
+                }
+                builder.add(rewrittenSource);
+            }
+
+            if (modified) {
+                return new ExchangeNode(
+                        node.getId(),
+                        node.getType(),
+                        node.getPartitionKeys(),
+                        node.getHashSymbol(),
+                        builder.build(),
+                        node.getOutputSymbols(),
+                        node.getInputs());
+            }
+
+            return node;
         }
 
         @Override
