@@ -18,8 +18,8 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.command.Command;
 import io.airlift.command.HelpOption;
+import io.airlift.log.Level;
 import io.airlift.log.Logging;
-import io.airlift.log.Logging.Level;
 import io.airlift.log.LoggingConfiguration;
 
 import javax.inject.Inject;
