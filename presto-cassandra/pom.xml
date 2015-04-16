@@ -14,7 +14,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <cassandra.version>2.1.0</cassandra.version>
-        <datastax.version>2.1.1</datastax.version>
+        <datastax.version>2.1.5</datastax.version>
     </properties>
 
     <dependencies>
