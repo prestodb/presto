@@ -19,6 +19,7 @@ public final class SystemSessionProperties
     private static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     private static final String DISTRIBUTED_JOIN = "distributed_join";
     private static final String HASH_PARTITION_COUNT = "hash_partition_count";
+    private static final String TASK_WRITER_COUNT = "task_writer_count";
 
     private SystemSessionProperties() {}
 
@@ -64,5 +65,10 @@ public final class SystemSessionProperties
     public static int getHashPartitionCount(Session session, int defaultValue)
     {
         return getNumber(HASH_PARTITION_COUNT, session, defaultValue);
+    }
+
+    public static int getTaskWriterCount(Session session, int defaultValue)
+    {
+        return getNumber(TASK_WRITER_COUNT, session, defaultValue);
     }
 }
