@@ -476,10 +476,18 @@ public class AddExchanges
                     .transform(node.getAssignments()::get)
                     .intersect(node.getCurrentConstraint());
 
+            Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
+
+            Expression constraint = combineConjuncts(
+                    deterministicPredicate,
+                    DomainTranslator.toPredicate(
+                            node.getCurrentConstraint().transform(assignments::get),
+                            symbolAllocator.getTypes()));
+
             List<TableLayoutResult> layouts = metadata.getLayouts(
                     node.getTable(),
                     Optional.empty(),
-                    new Constraint<>(simplifiedConstraint, bindings -> !shouldPrune(deterministicPredicate, node.getAssignments(), bindings)));
+                    new Constraint<>(simplifiedConstraint, bindings -> !shouldPrune(constraint, node.getAssignments(), bindings)));
 
             if (layouts.isEmpty()) {
                 return new PlanWithProperties(
@@ -505,7 +513,6 @@ public class AddExchanges
 
             PlanWithProperties result = new PlanWithProperties(tableScan, deriveProperties(tableScan, ImmutableList.of()));
 
-            Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
             Expression resultingPredicate = combineConjuncts(
                     DomainTranslator.toPredicate(
                             layout.getUnenforcedConstraint().transform(assignments::get),
