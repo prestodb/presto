@@ -52,6 +52,12 @@
         .logo {
             height: 50px;
         }
+        .bg-success-warning {
+            background-color: #EEF4DF;
+        }
+        .bg-danger-warning {
+            background-color: #F7EBE1;
+        }
     </style>
 </head>
 
@@ -85,13 +91,20 @@ var Query = React.createClass({
         }
         return errorType;
     },
-    stateClass: function(state)
+    stateClass: function(state, errorType)
     {
         switch (state) {
             case "FINISHED":
                 return "bg-success";
             case "FAILED":
-                return "bg-danger";
+                switch (errorType) {
+                    case "USER_ERROR":
+                        return "bg-success-warning";
+                    case "EXTERNAL":
+                        return "bg-danger-warning";
+                    default:
+                        return "bg-danger";
+                }
             case "CANCELED":
                 return "bg-warning";
             default:
@@ -136,7 +149,7 @@ var Query = React.createClass({
             queryText = queryText.substring(0, 200) + "...";
         }
         return (
-                <div className={"row query-row " + this.stateClass(query.state)}>
+                <div className={"row query-row " + this.stateClass(query.state, query.errorType)}>
                     <div className="col-md-3 col-lg-3">
                         <div className="row">
                             <div className="col-md-12"><a href={"query.html?" + query.queryId}>{query.queryId}</a></div>
