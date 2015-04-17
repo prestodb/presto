@@ -201,7 +201,13 @@ var QueryPane = React.createClass({
         }
     },
     componentDidMount: function() {
+        window.addEventListener('keydown', this.handleKeyDown, false);
         this.refreshLoop();
+    },
+    handleKeyDown: function(event) {
+        if (event.keyCode === 90) { // z-key
+            this.setState({autoRefresh: !this.state.autoRefresh});
+        }
     },
     handleAutoRefresh: function(event) {
         this.setState({autoRefresh: event.target.checked});
@@ -223,7 +229,7 @@ var QueryPane = React.createClass({
                     <div>
                         <div className="row toolbar">
                             <div className="col-md-12">
-                                <label><input type="checkbox" defaultChecked="true" onChange={this.handleAutoRefresh} /> auto-refresh</label>
+                                <label><input type="checkbox" checked={this.state.autoRefresh} onChange={this.handleAutoRefresh} /> auto-refresh</label>
                             </div>
                         </div>
                         <QueryList queries={runningQueries} />
