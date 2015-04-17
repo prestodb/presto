@@ -66,12 +66,9 @@ public class FunctionListBuilder
 
     private static final Set<Class<?>> SUPPORTED_TYPES = ImmutableSet.of(
             long.class,
-            Long.class,
             double.class,
-            Double.class,
             Slice.class,
             boolean.class,
-            Boolean.class,
             Pattern.class,
             Regex.class,
             JsonPath.class);
