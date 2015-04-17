@@ -35,7 +35,7 @@ import java.util.Set;
 
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_INPUT_CHANNEL;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.SAMPLE_WEIGHT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -178,7 +178,7 @@ public class AggregationMetadata
         for (int i = 1; i < parameters.length; i++) {
             ParameterMetadata metadata = parameterMetadatas.get(i);
             switch (metadata.getParameterType()) {
-                case NULLABLE_INPUT_CHANNEL:
+                case NULLABLE_BLOCK_INPUT_CHANNEL:
                     checkArgument(parameters[i] == Block.class, "Parameter must be Block if it has @Nullable");
                     break;
                 case INPUT_CHANNEL:
@@ -222,7 +222,7 @@ public class AggregationMetadata
     {
         int parameters = 0;
         for (ParameterMetadata metadata : metadatas) {
-            if (metadata.getParameterType() == INPUT_CHANNEL || metadata.getParameterType() == NULLABLE_INPUT_CHANNEL) {
+            if (metadata.getParameterType() == INPUT_CHANNEL || metadata.getParameterType() == NULLABLE_BLOCK_INPUT_CHANNEL) {
                 parameters++;
             }
         }
@@ -242,7 +242,7 @@ public class AggregationMetadata
 
         public ParameterMetadata(ParameterType parameterType, Type sqlType)
         {
-            checkArgument((sqlType == null) == (parameterType != INPUT_CHANNEL && parameterType != NULLABLE_INPUT_CHANNEL), "sqlType must be provided only for input channels");
+            checkArgument((sqlType == null) == (parameterType != INPUT_CHANNEL && parameterType != NULLABLE_BLOCK_INPUT_CHANNEL), "sqlType must be provided only for input channels");
             this.parameterType = parameterType;
             this.sqlType = sqlType;
         }
@@ -262,7 +262,7 @@ public class AggregationMetadata
             if (annotation instanceof SqlType) {
                 TypeSignature signature = parseTypeSignature(((SqlType) annotation).value());
                 if (nullable) {
-                    return new ParameterMetadata(NULLABLE_INPUT_CHANNEL, typeManager.getType(signature));
+                    return new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, typeManager.getType(signature));
                 }
                 else {
                     return new ParameterMetadata(INPUT_CHANNEL, typeManager.getType(signature));
@@ -293,7 +293,7 @@ public class AggregationMetadata
         public enum ParameterType
         {
             INPUT_CHANNEL,
-            NULLABLE_INPUT_CHANNEL,
+            NULLABLE_BLOCK_INPUT_CHANNEL,
             BLOCK_INDEX,
             SAMPLE_WEIGHT,
             STATE
