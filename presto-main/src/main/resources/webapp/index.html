@@ -191,18 +191,24 @@ var QueryPane = React.createClass({
         return {queries: [], autoRefresh: true};
     },
     refreshLoop: function() {
-        if (this.state.autoRefresh) {
-            this.loadQueriesFromServer(function () {
-                setTimeout(this.refreshLoop, 1000);
-            }.bind(this));
-        }
-        else {
-            setTimeout(this.refreshLoop, 1000);
-        }
+        clearTimeout(this.timeoutId);
+        this.loadQueriesFromServer(function () {
+            this.timeoutId = setTimeout(this.refreshLoop, 1000);
+        }.bind(this));
     },
     componentDidMount: function() {
         window.addEventListener('keydown', this.handleKeyDown, false);
         this.refreshLoop();
+    },
+    componentDidUpdate: function(prevProps, prevState) {
+        if (prevState.autoRefresh != this.state.autoRefresh) {
+            if (this.state.autoRefresh) {
+                this.refreshLoop();
+            }
+            else {
+                clearTimeout(this.timeoutId);
+            }
+        }
     },
     handleKeyDown: function(event) {
         if (event.keyCode === 90) { // z-key
