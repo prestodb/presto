@@ -99,7 +99,10 @@ class ActualProperties
     public boolean isPartitionedOn(Collection<Symbol> columns)
     {
         // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
-        return partitioningColumns.isPresent() && ImmutableSet.copyOf(columns).containsAll(partitioningColumns.get());
+        // constant partitioning columns can be ignored without impact
+        return partitioningColumns.isPresent() && partitioningColumns.get().stream()
+                .filter(symbol -> !constants.containsKey(symbol))
+                .allMatch(ImmutableSet.copyOf(columns)::contains);
     }
 
     public boolean hasKnownPartitioningScheme()
