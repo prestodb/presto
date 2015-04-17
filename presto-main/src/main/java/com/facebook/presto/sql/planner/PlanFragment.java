@@ -90,7 +90,7 @@ public class PlanFragment
         checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(outputLayout),
                 "Root node outputs (%s) don't include all fragment outputs (%s)", root.getOutputSymbols(), outputLayout);
 
-        types = root.getOutputSymbols().stream()
+        types = outputLayout.stream()
                 .map(symbols::get)
                 .collect(toImmutableList());
 
