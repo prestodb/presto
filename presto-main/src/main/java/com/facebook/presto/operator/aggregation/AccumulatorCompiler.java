@@ -16,11 +16,11 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.Parameter;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.byteCode.control.IfStatement;
@@ -49,15 +49,13 @@ import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PRIVATE;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.OpCode.NOP;
+import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantString;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.invokeStatic;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.countInputChannels;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
@@ -301,11 +299,15 @@ public class AccumulatorCompiler
         //  Wrap with null checks
         List<Boolean> nullable = new ArrayList<>();
         for (ParameterMetadata metadata : parameterMetadatas) {
-            if (metadata.getParameterType() == INPUT_CHANNEL) {
-                nullable.add(false);
-            }
-            else if (metadata.getParameterType() == NULLABLE_BLOCK_INPUT_CHANNEL) {
-                nullable.add(true);
+            switch (metadata.getParameterType()) {
+                case INPUT_CHANNEL:
+                case BLOCK_INPUT_CHANNEL:
+                    nullable.add(false);
+                    break;
+                case NULLABLE_BLOCK_INPUT_CHANNEL:
+                    nullable.add(true);
+                    break;
+                default: // do nothing
             }
         }
         checkState(nullable.size() == parameterVariables.size(), "Number of parameters does not match");
@@ -401,6 +403,7 @@ public class AccumulatorCompiler
                     checkNotNull(sampleWeight, "sampleWeight is null");
                     block.getVariable(sampleWeight);
                     break;
+                case BLOCK_INPUT_CHANNEL:
                 case NULLABLE_BLOCK_INPUT_CHANNEL:
                     block.getVariable(parameterVariables.get(inputChannel));
                     inputChannel++;
@@ -424,10 +427,7 @@ public class AccumulatorCompiler
     private static void pushStackType(Scope scope, Block block, Type sqlType, Block getBlockByteCode, Class<?> parameter, CallSiteBinder callSiteBinder)
     {
         Variable position = scope.getVariable("position");
-        if (parameter == com.facebook.presto.spi.block.Block.class) {
-            block.append(getBlockByteCode);
-        }
-        else if (parameter == long.class) {
+        if (parameter == long.class) {
             block.comment("%s.getLong(block, position)", sqlType.getTypeSignature())
                     .append(constantType(callSiteBinder, sqlType))
                     .append(getBlockByteCode)

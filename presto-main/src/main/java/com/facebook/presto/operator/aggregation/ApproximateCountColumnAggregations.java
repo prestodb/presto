@@ -30,28 +30,28 @@ public final class ApproximateCountColumnAggregations
     private ApproximateCountColumnAggregations() {}
 
     @InputFunction
-    public static void booleanInput(ApproximateCountState state, @SqlType(StandardTypes.BOOLEAN) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
+    public static void booleanInput(ApproximateCountState state, @BlockPosition @SqlType(StandardTypes.BOOLEAN) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
     {
         state.setCount(state.getCount() + sampleWeight);
         state.setSamples(state.getSamples() + 1);
     }
 
     @InputFunction
-    public static void bigintInput(ApproximateCountState state, @SqlType(StandardTypes.BIGINT) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
+    public static void bigintInput(ApproximateCountState state, @BlockPosition @SqlType(StandardTypes.BIGINT) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
     {
         state.setCount(state.getCount() + sampleWeight);
         state.setSamples(state.getSamples() + 1);
     }
 
     @InputFunction
-    public static void doubleInput(ApproximateCountState state, @SqlType(StandardTypes.DOUBLE) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
+    public static void doubleInput(ApproximateCountState state, @BlockPosition @SqlType(StandardTypes.DOUBLE) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
     {
         state.setCount(state.getCount() + sampleWeight);
         state.setSamples(state.getSamples() + 1);
     }
 
     @InputFunction
-    public static void varcharInput(ApproximateCountState state, @SqlType(StandardTypes.VARCHAR) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
+    public static void varcharInput(ApproximateCountState state, @BlockPosition @SqlType(StandardTypes.VARCHAR) Block block, @BlockIndex int index, @SampleWeight long sampleWeight)
     {
         state.setCount(state.getCount() + sampleWeight);
         state.setSamples(state.getSamples() + 1);
