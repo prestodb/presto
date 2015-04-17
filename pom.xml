@@ -69,6 +69,7 @@
         <module>presto-hive-hadoop2</module>
         <module>presto-hive-cdh4</module>
         <module>presto-hive-cdh5</module>
+        <module>presto-teradata-functions</module>
         <module>presto-example-http</module>
         <module>presto-tpch</module>
         <module>presto-raptor</module>
