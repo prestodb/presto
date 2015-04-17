@@ -989,7 +989,7 @@ public final class SqlStageExecution
 
     private static Optional<Integer> getHashChannel(PlanFragment fragment)
     {
-        return fragment.getHash().map(symbol -> fragment.getRoot().getOutputSymbols().indexOf(symbol));
+        return fragment.getHash().map(symbol -> fragment.getOutputLayout().indexOf(symbol));
     }
 
     private static List<Integer> getPartitioningChannels(PlanFragment fragment)
@@ -997,7 +997,7 @@ public final class SqlStageExecution
         checkState(fragment.getOutputPartitioning() == OutputPartitioning.HASH, "fragment is not hash partitioned");
         // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
         return fragment.getPartitionBy().stream()
-                .map(symbol -> fragment.getRoot().getOutputSymbols().indexOf(symbol))
+                .map(symbol -> fragment.getOutputLayout().indexOf(symbol))
                 .collect(toImmutableList());
     }
 }
