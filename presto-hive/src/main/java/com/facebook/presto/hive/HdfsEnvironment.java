@@ -47,13 +47,15 @@ public class HdfsEnvironment
     public Configuration getConfiguration(Path path)
     {
         URI uri = path.toUri();
-        if (!"hdfs".equals(uri.getScheme())) {
+        String scheme = uri.getScheme();
+        if (scheme.equals("hdfs") || scheme.equals("s3") || scheme.equals("s3n") || scheme.equals("s3a")) {
+            String host = uri.getHost();
+            checkArgument(host != null, "path host is null: %s", path);
+            return hdfsConfiguration.getConfiguration(host);
+        }
+        else {
             return new Configuration();
         }
-
-        String host = uri.getHost();
-        checkArgument(host != null, "path host is null: %s", path);
-        return hdfsConfiguration.getConfiguration(host);
     }
 
     public FileSystem getFileSystem(Path path)
