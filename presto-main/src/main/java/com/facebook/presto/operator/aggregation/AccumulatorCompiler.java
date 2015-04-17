@@ -57,7 +57,7 @@ import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.consta
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.invokeStatic;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_INPUT_CHANNEL;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.countInputChannels;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
@@ -304,7 +304,7 @@ public class AccumulatorCompiler
             if (metadata.getParameterType() == INPUT_CHANNEL) {
                 nullable.add(false);
             }
-            else if (metadata.getParameterType() == NULLABLE_INPUT_CHANNEL) {
+            else if (metadata.getParameterType() == NULLABLE_BLOCK_INPUT_CHANNEL) {
                 nullable.add(true);
             }
         }
@@ -401,7 +401,7 @@ public class AccumulatorCompiler
                     checkNotNull(sampleWeight, "sampleWeight is null");
                     block.getVariable(sampleWeight);
                     break;
-                case NULLABLE_INPUT_CHANNEL:
+                case NULLABLE_BLOCK_INPUT_CHANNEL:
                     block.getVariable(parameterVariables.get(inputChannel));
                     inputChannel++;
                     break;

@@ -38,7 +38,7 @@ import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_INPUT_CHANNEL;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -107,7 +107,7 @@ public class MapAggregation
     {
         return ImmutableList.of(new ParameterMetadata(STATE),
                                 new ParameterMetadata(INPUT_CHANNEL, keyType),
-                                new ParameterMetadata(NULLABLE_INPUT_CHANNEL, valueType),
+                                new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, valueType),
                                 new ParameterMetadata(BLOCK_INDEX));
     }
 
