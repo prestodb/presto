@@ -90,6 +90,7 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class AddExchanges
@@ -487,7 +488,9 @@ public class AddExchanges
             List<TableLayoutResult> layouts = metadata.getLayouts(
                     node.getTable(),
                     new Constraint<>(simplifiedConstraint, bindings -> !shouldPrune(constraint, node.getAssignments(), bindings)),
-                    Optional.of(ImmutableSet.copyOf(node.getAssignments().values()))
+                    Optional.of(node.getOutputSymbols().stream()
+                            .map(node.getAssignments()::get)
+                            .collect(toImmutableSet()))
             );
 
             if (layouts.isEmpty()) {
