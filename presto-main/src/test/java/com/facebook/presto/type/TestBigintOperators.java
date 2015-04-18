@@ -33,6 +33,22 @@ public class TestBigintOperators
     }
 
     @Test
+    public void testUnaryPlus()
+            throws Exception
+    {
+        assertFunction("+37", BIGINT, 37);
+        assertFunction("+17", BIGINT, 17);
+    }
+
+    @Test
+    public void testUnaryMinus()
+            throws Exception
+    {
+        assertFunction("-37", BIGINT, -37);
+        assertFunction("-17", BIGINT, -17);
+    }
+
+    @Test
     public void testAdd()
             throws Exception
     {
