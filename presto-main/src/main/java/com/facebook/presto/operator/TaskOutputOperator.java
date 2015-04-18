@@ -38,7 +38,7 @@ public class TaskOutputOperator
         }
 
         @Override
-        public OperatorFactory createOutputOperator(int operatorId, List<Type> sourceType)
+        public OperatorFactory createOutputOperator(int operatorId, List<Type> sourceTypes)
         {
             return new TaskOutputOperatorFactory(operatorId, sharedBuffer);
         }

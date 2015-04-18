@@ -19,5 +19,5 @@ import java.util.List;
 
 public interface OutputFactory
 {
-    OperatorFactory createOutputOperator(int operatorId, List<Type> sourceType);
+    OperatorFactory createOutputOperator(int operatorId, List<Type> sourceTypes);
 }
