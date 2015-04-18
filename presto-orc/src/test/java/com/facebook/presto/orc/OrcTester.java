@@ -17,24 +17,22 @@ import com.facebook.hive.orc.OrcConf;
 import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
-import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
+import com.facebook.presto.spi.type.AbstractVariableWidthType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.fs.Path;
@@ -64,8 +62,10 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -78,7 +78,11 @@ import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
 import static com.facebook.presto.orc.Vector.MAX_VECTOR_LENGTH;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Functions.constant;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Iterators.advance;
@@ -151,150 +155,148 @@ public class OrcTester
         testRoundTrip(columnObjectInspector, writeValues, writeValues, parameterType);
     }
 
-    public <W, R> void testRoundTrip(PrimitiveObjectInspector columnObjectInspector, Iterable<W> writeValues, Function<W, R> transform, Type parameterType)
+    public <W, R> void testRoundTrip(PrimitiveObjectInspector columnObjectInspector, Iterable<W> writeValues, Function<W, R> readTransform, Type parameterType)
             throws Exception
     {
-        testRoundTrip(columnObjectInspector, writeValues, transform(writeValues, transform), parameterType);
+        testRoundTrip(columnObjectInspector, writeValues, transform(writeValues, readTransform), parameterType);
     }
 
-    public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type parameterType)
-            throws Exception
-    {
-        testRoundTrip(objectInspector, writeValues, readValues, readValues, parameterType);
-    }
-
-    public void testRoundTrip(
-            ObjectInspector objectInspector,
-            Iterable<?> writeValues,
-            Iterable<?> readValues,
-            Iterable<?> readStackValues,
-            Type parameterType)
+    public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
             throws Exception
     {
         // just the values
-        testRoundTripType(objectInspector, writeValues, readValues);
+        testRoundTripType(objectInspector, writeValues, readValues, type);
 
         // all nulls
-        assertRoundTrip(objectInspector, transform(writeValues, constant(null)), transform(readValues, constant(null)));
+        assertRoundTrip(objectInspector, transform(writeValues, constant(null)), transform(readValues, constant(null)), type);
 
         // values wrapped in struct
         if (structTestsEnabled) {
-            testStructRoundTrip(objectInspector, writeValues, readStackValues, parameterType);
+            testStructRoundTrip(objectInspector, writeValues, readValues, type);
         }
 
         // values wrapped in a struct wrapped in a struct
         if (complexStructuralTestsEnabled) {
             testStructRoundTrip(createHiveStructInspector(objectInspector),
                     transform(writeValues, OrcTester::toHiveStruct),
-                    transform(readStackValues, OrcTester::toObjectStruct),
-                    parameterType);
+                    transform(readValues, OrcTester::toHiveStruct),
+                    rowType(type, type, type));
         }
 
         // values wrapped in map
         if (mapTestsEnabled) {
-            testMapRoundTrip(objectInspector, writeValues, readStackValues, parameterType);
+            testMapRoundTrip(objectInspector, writeValues, readValues, type);
         }
 
         // values wrapped in list
         if (listTestsEnabled) {
-            testListRoundTrip(objectInspector, writeValues, readStackValues, parameterType);
+            testListRoundTrip(objectInspector, writeValues, readValues, type);
         }
 
         // values wrapped in a list wrapped in a list
         if (complexStructuralTestsEnabled) {
             testListRoundTrip(createHiveListInspector(objectInspector),
                     transform(writeValues, OrcTester::toHiveList),
-                    transform(readStackValues, OrcTester::toObjectList),
-                    parameterType);
+                    transform(readValues, OrcTester::toHiveList),
+                    arrayType(type));
         }
     }
 
-    private void testStructRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type parameterType)
+    private void testStructRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type elementType)
             throws Exception
     {
+        Type rowType = rowType(elementType, elementType, elementType);
         // values in simple struct
         testRoundTripType(createHiveStructInspector(objectInspector),
                 transform(writeValues, OrcTester::toHiveStruct),
-                transform(readValues, value -> toBlockStruct(value, parameterType)));
+                transform(readValues, OrcTester::toHiveStruct),
+                rowType);
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple struct
             testRoundTripType(createHiveStructInspector(objectInspector),
                     transform(insertNullEvery(5, writeValues), OrcTester::toHiveStruct),
-                    transform(insertNullEvery(5, readValues), value -> toBlockStruct(value, parameterType)));
+                    transform(insertNullEvery(5, readValues), OrcTester::toHiveStruct), rowType);
 
             // all null values in simple struct
             testRoundTripType(createHiveStructInspector(objectInspector),
                     transform(transform(writeValues, constant(null)), OrcTester::toHiveStruct),
-                    transform(transform(writeValues, constant(null)), value -> toBlockStruct(value, parameterType)));
+                    transform(transform(writeValues, constant(null)), OrcTester::toHiveStruct), rowType);
         }
     }
 
-    private void testMapRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type parameterType)
+    private void testMapRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type elementType)
             throws Exception
     {
+        Type mapType = mapType(elementType, elementType);
+
+        Object writeNullKeyValue = Iterables.getLast(writeValues);
+        Object readNullKeyValue = Iterables.getLast(readValues);
+
         // values in simple map
         testRoundTripType(createHiveMapInspector(objectInspector),
-                transform(writeValues, OrcTester::toHiveMap),
-                transform(readValues, value -> toBlockMap(value, parameterType)));
+                transform(writeValues, value -> toHiveMap(value, writeNullKeyValue)),
+                transform(readValues, value -> toHiveMap(value, readNullKeyValue)), mapType);
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple map
             testRoundTripType(createHiveMapInspector(objectInspector),
-                    transform(insertNullEvery(5, writeValues), OrcTester::toHiveMap),
-                    transform(insertNullEvery(5, readValues), value -> toBlockMap(value, parameterType)));
+                    transform(insertNullEvery(5, writeValues), value -> toHiveMap(value, writeNullKeyValue)),
+                    transform(insertNullEvery(5, readValues), value -> toHiveMap(value, readNullKeyValue)), mapType);
 
             // all null values in simple map
             testRoundTripType(createHiveMapInspector(objectInspector),
-                    transform(transform(writeValues, constant(null)), OrcTester::toHiveMap),
-                    transform(transform(readValues, constant(null)), value -> toBlockMap(value, parameterType)));
+                    transform(transform(writeValues, constant(null)), value -> toHiveMap(value, writeNullKeyValue)),
+                    transform(transform(readValues, constant(null)), value -> toHiveMap(value, readNullKeyValue)), mapType);
         }
     }
 
-    private void testListRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type parameterType)
+    private void testListRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type elementType)
             throws Exception
     {
+        Type arrayType = arrayType(elementType);
         // values in simple list
         testRoundTripType(createHiveListInspector(objectInspector),
                 transform(writeValues, OrcTester::toHiveList),
-                transform(readValues, value -> toBlockList(value, parameterType)));
+                transform(readValues, OrcTester::toHiveList),
+                arrayType);
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple list
             testRoundTripType(createHiveListInspector(objectInspector),
                     transform(insertNullEvery(5, writeValues), OrcTester::toHiveList),
-                    transform(insertNullEvery(5, readValues), value -> toBlockList(value, parameterType)));
+                    transform(insertNullEvery(5, readValues), OrcTester::toHiveList), arrayType);
 
             // all null values in simple list
             testRoundTripType(createHiveListInspector(objectInspector),
                     transform(transform(writeValues, constant(null)), OrcTester::toHiveList),
-                    transform(transform(readValues, constant(null)), value -> toBlockList(value, parameterType)));
+                    transform(transform(readValues, constant(null)), OrcTester::toHiveList), arrayType);
         }
     }
 
-    private void testRoundTripType(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues)
+    private void testRoundTripType(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
             throws Exception
     {
         // forward order
-        assertRoundTrip(objectInspector, writeValues, readValues);
+        assertRoundTrip(objectInspector, writeValues, readValues, type);
 
         // reverse order
         if (reverseTestsEnabled) {
-            assertRoundTrip(objectInspector, reverse(writeValues), reverse(readValues));
+            assertRoundTrip(objectInspector, reverse(writeValues), reverse(readValues), type);
         }
 
         if (nullTestsEnabled) {
             // forward order with nulls
-            assertRoundTrip(objectInspector, insertNullEvery(5, writeValues), insertNullEvery(5, readValues));
+            assertRoundTrip(objectInspector, insertNullEvery(5, writeValues), insertNullEvery(5, readValues), type);
 
             // reverse order with nulls
             if (reverseTestsEnabled) {
-                assertRoundTrip(objectInspector, insertNullEvery(5, reverse(writeValues)), insertNullEvery(5, reverse(readValues)));
+                assertRoundTrip(objectInspector, insertNullEvery(5, reverse(writeValues)), insertNullEvery(5, reverse(readValues)), type);
             }
         }
     }
 
-    public void assertRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues)
+    public void assertRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
             throws Exception
     {
         for (Format formatVersion : formats) {
@@ -313,14 +315,14 @@ public class OrcTester
                 try (TempFile tempFile = new TempFile("test", "orc")) {
                     writeOrcColumn(tempFile.getFile(), formatVersion, compression, objectInspector, writeValues.iterator());
 
-                    assertFileContents(objectInspector, tempFile, readValues, false, false, metadataReader);
+                    assertFileContents(objectInspector, tempFile, readValues, false, false, metadataReader, type);
 
                     if (skipBatchTestsEnabled) {
-                        assertFileContents(objectInspector, tempFile, readValues, true, false, metadataReader);
+                        assertFileContents(objectInspector, tempFile, readValues, true, false, metadataReader, type);
                     }
 
                     if (skipStripeTestsEnabled) {
-                        assertFileContents(objectInspector, tempFile, readValues, false, true, metadataReader);
+                        assertFileContents(objectInspector, tempFile, readValues, false, true, metadataReader, type);
                     }
                 }
             }
@@ -332,7 +334,8 @@ public class OrcTester
             Iterable<?> expectedValues,
             boolean skipFirstBatch,
             boolean skipStripe,
-            MetadataReader metadataReader)
+            MetadataReader metadataReader,
+            Type type)
             throws IOException
     {
         OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(objectInspector, expectedValues));
@@ -357,12 +360,14 @@ public class OrcTester
                 for (int i = 0; i < batchSize; i++) {
                     assertTrue(iterator.hasNext());
                     Object expected = iterator.next();
-                    if (expected instanceof String) {
-                        expected = Slices.utf8Slice((String) expected);
+
+                    Object actual = objectVector.vector[i];
+                    if (actual instanceof Slice) {
+                        actual = decodeSlice(type, (Slice) actual);
                     }
 
-                    if (!Objects.equals(objectVector.vector[i], expected)) {
-                        assertEquals(objectVector.vector[i], expected);
+                    if (!Objects.equals(actual, expected)) {
+                        assertEquals(actual, expected);
                     }
                 }
             }
@@ -504,7 +509,7 @@ public class OrcTester
                 Text.class,
                 compression != NONE,
                 createTableProperties("test", columnObjectInspector.getTypeName()),
-                () -> {}
+                () -> { }
         );
     }
 
@@ -525,7 +530,7 @@ public class OrcTester
                 Text.class,
                 compressionCodec != NONE,
                 createTableProperties("test", columnObjectInspector.getTypeName()),
-                () -> {}
+                () -> { }
         );
     }
 
@@ -602,31 +607,12 @@ public class OrcTester
 
     private static StandardStructObjectInspector createHiveStructInspector(ObjectInspector objectInspector)
     {
-        return getStandardStructObjectInspector(ImmutableList.of("a", "b"), ImmutableList.of(objectInspector, objectInspector));
+        return getStandardStructObjectInspector(ImmutableList.of("a", "b", "c"), ImmutableList.of(objectInspector, objectInspector, objectInspector));
     }
 
-    private static Object toHiveStruct(Object input)
+    private static List<Object> toHiveStruct(Object input)
     {
-        return new Object[] {input, input};
-    }
-
-    private static Object toBlockStruct(Object input, Type parameterType)
-    {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
-        appendToBlockBuilder(parameterType, input, blockBuilder);
-        appendToBlockBuilder(parameterType, input, blockBuilder);
-        return buildStructuralSlice(blockBuilder);
-    }
-
-    private static Object toObjectStruct(Object input)
-    {
-        if (input instanceof Float) {
-            input = ((Float) input).doubleValue();
-        }
-        List<Object> data = new ArrayList<>();
-        data.add(input);
-        data.add(input);
-        return data;
+        return Arrays.asList(input, input, input);
     }
 
     private static StandardMapObjectInspector createHiveMapInspector(ObjectInspector objectInspector)
@@ -634,19 +620,11 @@ public class OrcTester
         return getStandardMapObjectInspector(objectInspector, objectInspector);
     }
 
-    private static Object toHiveMap(Object input)
+    private static Map<Object, Object> toHiveMap(Object input, Object nullKeyValue)
     {
         Map<Object, Object> map = new HashMap<>();
-        map.put(input, input);
+        map.put(input != null ? input : nullKeyValue, input);
         return map;
-    }
-
-    private static Object toBlockMap(Object input, Type parameterType)
-    {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
-        appendToBlockBuilder(parameterType, input, blockBuilder);
-        appendToBlockBuilder(parameterType, input, blockBuilder);
-        return buildStructuralSlice(blockBuilder);
     }
 
     private static StandardListObjectInspector createHiveListInspector(ObjectInspector objectInspector)
@@ -654,99 +632,81 @@ public class OrcTester
         return getStandardListObjectInspector(objectInspector);
     }
 
-    private static Object toHiveList(Object input)
+    private static List<Object> toHiveList(Object input)
     {
-        List<Object> list = new ArrayList<>(4);
-        for (int i = 0; i < 4; i++) {
-            list.add(input);
+        return Arrays.asList(input, input, input, input);
+    }
+
+    private static Object decodeSlice(Type type, Slice slice)
+    {
+        String base = type.getTypeSignature().getBase();
+        if (base.equals(ARRAY)) {
+            Block block = new VariableWidthBlockEncoding().readBlock(slice.getInput());
+
+            Type elementType = type.getTypeParameters().get(0);
+
+            List<Object> array = new ArrayList<>();
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                array.add(getBlockValue(block, position, elementType));
+            }
+            return array;
         }
-        return list;
-    }
+        else if (base.equals(ROW)) {
+            Block block = new VariableWidthBlockEncoding().readBlock(slice.getInput());
 
-    private static Object toBlockList(Object input, Type parameterType)
-    {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
-        for (int i = 0; i < 4; i++) {
-            appendToBlockBuilder(parameterType, input, blockBuilder);
+            List<Type> fieldTypes = type.getTypeParameters();
+
+            List<Object> row = new ArrayList<>();
+            for (int field = 0; field < block.getPositionCount(); field++) {
+                row.add(getBlockValue(block, field, fieldTypes.get(field)));
+            }
+            return row;
         }
-        return buildStructuralSlice(blockBuilder);
+        else if (base.equals(MAP)) {
+            Block block = new VariableWidthBlockEncoding().readBlock(slice.getInput());
+
+            Type keyType = type.getTypeParameters().get(0);
+            Type valueType = type.getTypeParameters().get(1);
+
+            Map<Object, Object> map = new LinkedHashMap<>();
+            int entryCount = block.getPositionCount() / 2;
+            for (int entry = 0; entry < entryCount; entry++) {
+                int blockPosition = entry * 2;
+                Object key = getBlockValue(block, blockPosition, keyType);
+                // null keys are not allowed
+                if (key != null) {
+                    Object value = getBlockValue(block, blockPosition + 1, valueType);
+                    map.put(key, value);
+                }
+            }
+            return map;
+        }
+        if (type.equals(VARCHAR) || type.equals(VARBINARY)) {
+            return slice.toStringUtf8();
+        }
+
+        throw new IllegalArgumentException("Unsupported type: " + type);
     }
 
-    private static Slice buildStructuralSlice(BlockBuilder builder)
+    private static Object getBlockValue(Block block, int position, Type type)
     {
-        BlockEncoding encoding = builder.getEncoding();
-        Block block = builder.build();
-        DynamicSliceOutput output = new DynamicSliceOutput(encoding.getEstimatedSize(block));
-        encoding.writeBlock(output, block);
-
-        return output.slice();
-    }
-
-    private static void appendToBlockBuilder(Type type, Object element, BlockBuilder blockBuilder)
-    {
+        if (block.isNull(position)) {
+            return null;
+        }
         Class<?> javaType = type.getJavaType();
-        if (element == null) {
-            blockBuilder.appendNull();
+        if (javaType == boolean.class) {
+            return type.getBoolean(block, position);
         }
-        else if (type.getTypeSignature().getBase().equals(StandardTypes.ARRAY) && element instanceof Iterable<?>) {
-            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
-            for (Object subElement : (Iterable<?>) element) {
-                appendToBlockBuilder(type.getTypeParameters().get(0), subElement, subBlockBuilder);
-            }
-            type.writeSlice(blockBuilder, buildStructuralSlice(subBlockBuilder));
+        if (javaType == long.class) {
+            return type.getLong(block, position);
         }
-        else if (type.getTypeSignature().getBase().equals(StandardTypes.ROW) && element instanceof Iterable<?>) {
-            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
-            int field = 0;
-            for (Object subElement : (Iterable<?>) element) {
-                appendToBlockBuilder(type.getTypeParameters().get(field), subElement, subBlockBuilder);
-                field++;
-            }
-            type.writeSlice(blockBuilder, buildStructuralSlice(subBlockBuilder));
+        if (javaType == double.class) {
+            return type.getDouble(block, position);
         }
-        else if (type.getTypeSignature().getBase().equals(StandardTypes.MAP) && element instanceof Map<?, ?>) {
-            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
-            for (Map.Entry<?, ?> entry : ((Map<?, ?>) element).entrySet()) {
-                appendToBlockBuilder(type.getTypeParameters().get(0), entry.getKey(), subBlockBuilder);
-                appendToBlockBuilder(type.getTypeParameters().get(1), entry.getValue(), subBlockBuilder);
-            }
-            type.writeSlice(blockBuilder, buildStructuralSlice(subBlockBuilder));
+        if (javaType == Slice.class) {
+            return decodeSlice(type, type.getSlice(block, position));
         }
-        else if (javaType == boolean.class) {
-            type.writeBoolean(blockBuilder, (Boolean) element);
-        }
-        else if (javaType == long.class) {
-            type.writeLong(blockBuilder, ((Number) element).longValue());
-        }
-        else if (javaType == double.class) {
-            type.writeDouble(blockBuilder, (Double) element);
-        }
-        else if (javaType == Slice.class) {
-            if (element instanceof String) {
-                type.writeSlice(blockBuilder, Slices.utf8Slice(element.toString()));
-            }
-            else if (element instanceof byte[]) {
-                type.writeSlice(blockBuilder, Slices.wrappedBuffer((byte[]) element));
-            }
-            else {
-                type.writeSlice(blockBuilder, (Slice) element);
-            }
-        }
-        else {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, String.format("Unexpected type %s", javaType.getName()));
-        }
-    }
-
-    private static Object toObjectList(Object input)
-    {
-        if (input instanceof Float) {
-            input = ((Float) input).doubleValue();
-        }
-        List<Object> list = new ArrayList<>(4);
-        for (int i = 0; i < 4; i++) {
-            list.add(input);
-        }
-        return list;
+        throw new IllegalArgumentException("Unsupported type: " + type);
     }
 
     private static boolean hasType(ObjectInspector objectInspector, PrimitiveCategory... types)
@@ -779,5 +739,62 @@ public class OrcTester
             return false;
         }
         throw new IllegalArgumentException("Unknown object inspector type " + objectInspector);
+    }
+
+    private static Type arrayType(Type elementType)
+    {
+        return new MockStructuralType(ARRAY, ImmutableList.of(elementType));
+    }
+
+    private static Type mapType(Type keyType, Type valueType)
+    {
+        return new MockStructuralType(MAP, ImmutableList.of(keyType, valueType));
+    }
+
+    private static Type rowType(Type... fieldTypes)
+    {
+        return new MockStructuralType(ROW, ImmutableList.copyOf(fieldTypes));
+    }
+
+    private static class MockStructuralType
+            extends AbstractVariableWidthType
+    {
+        private final List<Type> types;
+
+        public MockStructuralType(String base, List<Type> types)
+        {
+            super(new TypeSignature(base, ImmutableList.copyOf(transform(types, Type::getTypeSignature)), ImmutableList.of()), Slice.class);
+            this.types = types;
+        }
+
+        @Override
+        public Object getObjectValue(ConnectorSession session, Block block, int position)
+        {
+            return null;
+        }
+
+        @Override
+        public void appendTo(Block block, int position, BlockBuilder blockBuilder)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<Type> getTypeParameters()
+        {
+            return ImmutableList.copyOf(types);
+        }
+
+        @Override
+        public Slice getSlice(Block block, int position)
+        {
+            return block.getSlice(position, 0, block.getLength(position));
+        }
+
+        @Override
+        public void writeSlice(BlockBuilder blockBuilder, Slice value)
+        {
+            blockBuilder.writeBytes(value, 0, value.length()).closeEntry();
+        }
     }
 }

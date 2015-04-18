@@ -228,7 +228,8 @@ public abstract class AbstractTestOrcReader
         Iterable<byte[]> writeValues = transform(intsBetween(0, 30_000), compose(AbstractTestOrcReader::stringToByteArray, Object::toString));
         tester.testRoundTrip(javaByteArrayObjectInspector,
                 writeValues,
-                transform(writeValues, AbstractTestOrcReader::byteArrayToString), writeValues, VARBINARY);
+                transform(writeValues, AbstractTestOrcReader::byteArrayToString),
+                VARBINARY);
     }
 
     @Test
@@ -238,7 +239,8 @@ public abstract class AbstractTestOrcReader
         Iterable<byte[]> writeValues = limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), compose(AbstractTestOrcReader::stringToByteArray, Object::toString))), 30_000);
         tester.testRoundTrip(javaByteArrayObjectInspector,
                 writeValues,
-                transform(writeValues, AbstractTestOrcReader::byteArrayToString), writeValues, VARBINARY);
+                transform(writeValues, AbstractTestOrcReader::byteArrayToString),
+                VARBINARY);
     }
 
     @Test
@@ -259,10 +261,10 @@ public abstract class AbstractTestOrcReader
                         Collections.nCopies(1_000_000, null))),
                 200_000);
 
-        tester.assertRoundTrip(javaIntObjectInspector, values, transform(values, value -> value == null ? null : (long) value));
+        tester.assertRoundTrip(javaIntObjectInspector, values, transform(values, value -> value == null ? null : (long) value), VARCHAR);
 
         Iterable<String> stringValue = transform(values, value -> value == null ? null : String.valueOf(value));
-        tester.assertRoundTrip(javaStringObjectInspector, stringValue, stringValue);
+        tester.assertRoundTrip(javaStringObjectInspector, stringValue, stringValue, VARCHAR);
     }
 
     @Test
