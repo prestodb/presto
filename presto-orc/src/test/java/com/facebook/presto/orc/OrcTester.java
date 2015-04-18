@@ -57,7 +57,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.util.Progressable;
 import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
@@ -185,7 +184,10 @@ public class OrcTester
 
         // values wrapped in a struct wrapped in a struct
         if (complexStructuralTestsEnabled) {
-            testStructRoundTrip(createHiveStructInspector(objectInspector), transform(writeValues, OrcTester::toHiveStruct), transform(readStackValues, OrcTester::toObjectStruct), parameterType);
+            testStructRoundTrip(createHiveStructInspector(objectInspector),
+                    transform(writeValues, OrcTester::toHiveStruct),
+                    transform(readStackValues, OrcTester::toObjectStruct),
+                    parameterType);
         }
 
         // values wrapped in map
@@ -200,7 +202,10 @@ public class OrcTester
 
         // values wrapped in a list wrapped in a list
         if (complexStructuralTestsEnabled) {
-            testListRoundTrip(createHiveListInspector(objectInspector), transform(writeValues, OrcTester::toHiveList), transform(readStackValues, OrcTester::toObjectList), parameterType);
+            testListRoundTrip(createHiveListInspector(objectInspector),
+                    transform(writeValues, OrcTester::toHiveList),
+                    transform(readStackValues, OrcTester::toObjectList),
+                    parameterType);
         }
     }
 
@@ -208,7 +213,9 @@ public class OrcTester
             throws Exception
     {
         // values in simple struct
-        testRoundTripType(createHiveStructInspector(objectInspector), transform(writeValues, OrcTester::toHiveStruct), transform(readValues, value -> toBlockStruct(value, parameterType)));
+        testRoundTripType(createHiveStructInspector(objectInspector),
+                transform(writeValues, OrcTester::toHiveStruct),
+                transform(readValues, value -> toBlockStruct(value, parameterType)));
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple struct
@@ -228,18 +235,18 @@ public class OrcTester
     {
         // values in simple map
         testRoundTripType(createHiveMapInspector(objectInspector),
-                transform(writeValues, value -> toHiveMap(value)),
+                transform(writeValues, OrcTester::toHiveMap),
                 transform(readValues, value -> toBlockMap(value, parameterType)));
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple map
             testRoundTripType(createHiveMapInspector(objectInspector),
-                    transform(insertNullEvery(5, writeValues), value -> toHiveMap(value)),
+                    transform(insertNullEvery(5, writeValues), OrcTester::toHiveMap),
                     transform(insertNullEvery(5, readValues), value -> toBlockMap(value, parameterType)));
 
             // all null values in simple map
             testRoundTripType(createHiveMapInspector(objectInspector),
-                    transform(transform(writeValues, constant(null)), value -> toHiveMap(value)),
+                    transform(transform(writeValues, constant(null)), OrcTester::toHiveMap),
                     transform(transform(readValues, constant(null)), value -> toBlockMap(value, parameterType)));
         }
     }
@@ -248,7 +255,9 @@ public class OrcTester
             throws Exception
     {
         // values in simple list
-        testRoundTripType(createHiveListInspector(objectInspector), transform(writeValues, OrcTester::toHiveList), transform(readValues, value -> toBlockList(value, parameterType)));
+        testRoundTripType(createHiveListInspector(objectInspector),
+                transform(writeValues, OrcTester::toHiveList),
+                transform(readValues, value -> toBlockList(value, parameterType)));
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple list
@@ -357,6 +366,7 @@ public class OrcTester
                     }
                 }
             }
+            rowsProcessed += batchSize;
         }
         assertFalse(iterator.hasNext());
         recordReader.close();
@@ -403,7 +413,7 @@ public class OrcTester
         return orcReader.createRecordReader(ImmutableSet.of(0), predicate, HIVE_STORAGE_TIME_ZONE);
     }
 
-    public static DataSize writeOrcColumn(File outputFile, Format format, Compression compression, ObjectInspector columnObjectInspector, Iterator<?> values)
+    private static DataSize writeOrcColumn(File outputFile, Format format, Compression compression, ObjectInspector columnObjectInspector, Iterator<?> values)
             throws Exception
     {
         RecordWriter recordWriter;
@@ -480,7 +490,7 @@ public class OrcTester
         }
     }
 
-    public static RecordWriter createOrcRecordWriter(File outputFile, Format format, Compression compression, ObjectInspector columnObjectInspector)
+    private static RecordWriter createOrcRecordWriter(File outputFile, Format format, Compression compression, ObjectInspector columnObjectInspector)
             throws IOException
     {
         JobConf jobConf = new JobConf();
@@ -494,17 +504,11 @@ public class OrcTester
                 Text.class,
                 compression != NONE,
                 createTableProperties("test", columnObjectInspector.getTypeName()),
-                new Progressable()
-                {
-                    @Override
-                    public void progress()
-                    {
-                    }
-                }
+                () -> {}
         );
     }
 
-    public static RecordWriter createDwrfRecordWriter(File outputFile, Compression compressionCodec, ObjectInspector columnObjectInspector)
+    private static RecordWriter createDwrfRecordWriter(File outputFile, Compression compressionCodec, ObjectInspector columnObjectInspector)
             throws IOException
     {
         JobConf jobConf = new JobConf();
@@ -521,13 +525,7 @@ public class OrcTester
                 Text.class,
                 compressionCodec != NONE,
                 createTableProperties("test", columnObjectInspector.getTypeName()),
-                new Progressable()
-                {
-                    @Override
-                    public void progress()
-                    {
-                    }
-                }
+                () -> {}
         );
     }
 
@@ -577,34 +575,27 @@ public class OrcTester
         return Lists.reverse(ImmutableList.copyOf(iterable));
     }
 
-    private static <T> Iterable<T> insertNullEvery(final int n, final Iterable<T> iterable)
+    private static <T> Iterable<T> insertNullEvery(int n, Iterable<T> iterable)
     {
-        return new Iterable<T>()
+        return () -> new AbstractIterator<T>()
         {
+            private final Iterator<T> delegate = iterable.iterator();
+            private int position;
+
             @Override
-            public Iterator<T> iterator()
+            protected T computeNext()
             {
-                return new AbstractIterator<T>()
-                {
-                    private final Iterator<T> delegate = iterable.iterator();
-                    private int position;
+                position++;
+                if (position > n) {
+                    position = 0;
+                    return null;
+                }
 
-                    @Override
-                    protected T computeNext()
-                    {
-                        position++;
-                        if (position > n) {
-                            position = 0;
-                            return null;
-                        }
+                if (!delegate.hasNext()) {
+                    return endOfData();
+                }
 
-                        if (!delegate.hasNext()) {
-                            return endOfData();
-                        }
-
-                        return delegate.next();
-                    }
-                };
+                return delegate.next();
             }
         };
     }
@@ -691,7 +682,7 @@ public class OrcTester
         return output.slice();
     }
 
-    public static void appendToBlockBuilder(Type type, Object element, BlockBuilder blockBuilder)
+    private static void appendToBlockBuilder(Type type, Object element, BlockBuilder blockBuilder)
     {
         Class<?> javaType = type.getJavaType();
         if (element == null) {
@@ -758,7 +749,7 @@ public class OrcTester
         return list;
     }
 
-    public static boolean hasType(ObjectInspector objectInspector, PrimitiveCategory... types)
+    private static boolean hasType(ObjectInspector objectInspector, PrimitiveCategory... types)
     {
         if (objectInspector instanceof PrimitiveObjectInspector) {
             PrimitiveObjectInspector primitiveInspector = (PrimitiveObjectInspector) objectInspector;
