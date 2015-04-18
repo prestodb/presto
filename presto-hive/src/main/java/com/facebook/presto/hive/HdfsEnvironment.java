@@ -22,9 +22,7 @@ import org.apache.hadoop.fs.Path;
 import javax.inject.Inject;
 
 import java.io.IOException;
-import java.net.URI;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HdfsEnvironment
@@ -46,14 +44,7 @@ public class HdfsEnvironment
 
     public Configuration getConfiguration(Path path)
     {
-        URI uri = path.toUri();
-        if (!"hdfs".equals(uri.getScheme())) {
-            return new Configuration();
-        }
-
-        String host = uri.getHost();
-        checkArgument(host != null, "path host is null: %s", path);
-        return hdfsConfiguration.getConfiguration(host);
+        return hdfsConfiguration.getConfiguration(path.toUri());
     }
 
     public FileSystem getFileSystem(Path path)

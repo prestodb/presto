@@ -17,6 +17,8 @@ import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
 
+import java.net.URI;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HiveHdfsConfiguration
@@ -43,9 +45,9 @@ public class HiveHdfsConfiguration
     }
 
     @Override
-    public Configuration getConfiguration(String host)
+    public Configuration getConfiguration(URI uri)
     {
-        // use the same configuration for every host
+        // use the same configuration for everything
         return hadoopConfiguration.get();
     }
 }
