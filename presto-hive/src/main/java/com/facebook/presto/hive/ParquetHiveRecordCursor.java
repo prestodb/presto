@@ -50,9 +50,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
@@ -71,6 +71,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.toList;
 import static parquet.schema.OriginalType.LIST;
 import static parquet.schema.OriginalType.MAP;
 import static parquet.schema.OriginalType.MAP_KEY_VALUE;
@@ -381,6 +382,9 @@ class ParquetHiveRecordCursor
                 HiveColumnHandle column = columns.get(i);
                 if (!column.isPartitionKey()) {
                     parquet.schema.Type parquetType = getParquetType(column, messageType);
+                    if (parquetType == null) {
+                        continue;
+                    }
                     if (parquetType.isPrimitive()) {
                         converters.add(new ParquetPrimitiveColumnConverter(i));
                     }
@@ -415,13 +419,12 @@ class ParquetHiveRecordCursor
                 Map<String, String> keyValueMetaData,
                 MessageType messageType)
         {
-            ImmutableList.Builder<parquet.schema.Type> fields = ImmutableList.builder();
-            for (HiveColumnHandle column : columns) {
-                if (!column.isPartitionKey()) {
-                    fields.add(getParquetType(column, messageType));
-                }
-            }
-            MessageType requestedProjection = new MessageType(messageType.getName(), fields.build());
+            List<parquet.schema.Type> fields = columns.stream()
+                    .filter(column -> !column.isPartitionKey())
+                    .map(column -> getParquetType(column, messageType))
+                    .filter(Objects::nonNull)
+                    .collect(toList());
+            MessageType requestedProjection = new MessageType(messageType.getName(), fields);
             return new ReadContext(requestedProjection);
         }
 
@@ -438,16 +441,16 @@ class ParquetHiveRecordCursor
         private parquet.schema.Type getParquetType(HiveColumnHandle column, MessageType messageType)
         {
             if (useParquetColumnNames) {
-                return messageType.getType(column.getName());
+                if (messageType.containsField(column.getName())) {
+                    return messageType.getType(column.getName());
+                }
+                return null;
             }
 
-            if (column.getHiveColumnIndex() >= messageType.getFieldCount()) {
-                throw new PrestoException(HIVE_BAD_DATA, format(
-                        "Hive column index (%s) should be in Parquet field range (%s)",
-                        column.getHiveColumnIndex(),
-                        messageType.getFieldCount()));
+            if (column.getHiveColumnIndex() < messageType.getFieldCount()) {
+                return messageType.getType(column.getHiveColumnIndex());
             }
-            return messageType.getType(column.getHiveColumnIndex());
+            return null;
         }
     }
 
