@@ -273,69 +273,55 @@ public abstract class AbstractTestOrcReader
         tester.testRoundTrip(javaStringObjectInspector, values, VARCHAR);
     }
 
-    private static <T> Iterable<T> skipEvery(final int n, final Iterable<T> iterable)
+    private static <T> Iterable<T> skipEvery(int n, Iterable<T> iterable)
     {
-        return new Iterable<T>()
+        return () -> new AbstractIterator<T>()
         {
+            private final Iterator<T> delegate = iterable.iterator();
+            private int position;
+
             @Override
-            public Iterator<T> iterator()
+            protected T computeNext()
             {
-                return new AbstractIterator<T>()
-                {
-                    private final Iterator<T> delegate = iterable.iterator();
-                    private int position;
-
-                    @Override
-                    protected T computeNext()
-                    {
-                        while (true) {
-                            if (!delegate.hasNext()) {
-                                return endOfData();
-                            }
-
-                            T next = delegate.next();
-                            position++;
-                            if (position <= n) {
-                                return next;
-                            }
-                            position = 0;
-                        }
+                while (true) {
+                    if (!delegate.hasNext()) {
+                        return endOfData();
                     }
-                };
+
+                    T next = delegate.next();
+                    position++;
+                    if (position <= n) {
+                        return next;
+                    }
+                    position = 0;
+                }
             }
         };
     }
 
-    private static <T> Iterable<T> repeatEach(final int n, final Iterable<T> iterable)
+    private static <T> Iterable<T> repeatEach(int n, Iterable<T> iterable)
     {
-        return new Iterable<T>()
+        return () -> new AbstractIterator<T>()
         {
+            private final Iterator<T> delegate = iterable.iterator();
+            private int position;
+            private T value;
+
             @Override
-            public Iterator<T> iterator()
+            protected T computeNext()
             {
-                return new AbstractIterator<T>()
-                {
-                    private final Iterator<T> delegate = iterable.iterator();
-                    private int position;
-                    private T value;
-
-                    @Override
-                    protected T computeNext()
-                    {
-                        if (position == 0) {
-                            if (!delegate.hasNext()) {
-                                return endOfData();
-                            }
-                            value = delegate.next();
-                        }
-
-                        position++;
-                        if (position >= n) {
-                            position = 0;
-                        }
-                        return value;
+                if (position == 0) {
+                    if (!delegate.hasNext()) {
+                        return endOfData();
                     }
-                };
+                    value = delegate.next();
+                }
+
+                position++;
+                if (position >= n) {
+                    position = 0;
+                }
+                return value;
             }
         };
     }
@@ -350,27 +336,20 @@ public abstract class AbstractTestOrcReader
         });
     }
 
-    private static Iterable<Double> doubleSequence(final double start, final double step, final int items)
+    private static Iterable<Double> doubleSequence(double start, double step, int items)
     {
-        return new Iterable<Double>()
+        return () -> new AbstractSequentialIterator<Double>(start)
         {
-            @Override
-            public Iterator<Double> iterator()
-            {
-                return new AbstractSequentialIterator<Double>(start)
-                {
-                    private int item;
+            private int item;
 
-                    @Override
-                    protected Double computeNext(Double previous)
-                    {
-                        if (item >= items) {
-                            return null;
-                        }
-                        item++;
-                        return previous + step;
-                    }
-                };
+            @Override
+            protected Double computeNext(Double previous)
+            {
+                if (item >= items) {
+                    return null;
+                }
+                item++;
+                return previous + step;
             }
         };
     }
