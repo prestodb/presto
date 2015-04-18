@@ -264,9 +264,9 @@ public class LocalQueryRunner
         }
 
         @Override
-        public OperatorFactory createOutputOperator(int operatorId, List<Type> sourceType)
+        public OperatorFactory createOutputOperator(int operatorId, List<Type> sourceTypes)
         {
-            checkNotNull(sourceType, "sourceType is null");
+            checkNotNull(sourceTypes, "sourceType is null");
 
             return new OperatorFactory()
             {
@@ -280,7 +280,7 @@ public class LocalQueryRunner
                 public Operator createOperator(DriverContext driverContext)
                 {
                     OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MaterializingOperator.class.getSimpleName());
-                    MaterializingOperator operator = new MaterializingOperator(operatorContext, sourceType);
+                    MaterializingOperator operator = new MaterializingOperator(operatorContext, sourceTypes);
 
                     if (!materializingOperator.compareAndSet(null, operator)) {
                         throw new IllegalArgumentException("Output already created");
