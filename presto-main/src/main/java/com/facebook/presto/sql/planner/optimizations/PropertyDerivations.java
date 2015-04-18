@@ -350,10 +350,12 @@ class PropertyDerivations
                 Object value = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
 
                 if (value instanceof QualifiedNameReference) {
-                    value = constants.get(Symbol.fromQualifiedName(((QualifiedNameReference) value).getName()));
+                    Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) value).getName());
+                    value = constants.getOrDefault(symbol, value);
                 }
 
-                if (!(value instanceof Expression)) {
+                // TODO: remove value null check when constants are supported
+                if (value != null && !(value instanceof Expression)) {
                     constants.put(assignment.getKey(), value);
                 }
             }
