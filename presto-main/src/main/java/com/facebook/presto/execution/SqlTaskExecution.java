@@ -23,12 +23,16 @@ import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.DriverStats;
+import com.facebook.presto.operator.OutputFactory;
+import com.facebook.presto.operator.PartitionedOutputOperator.PartitionedOutputFactory;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskOutputOperator.TaskOutputFactory;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
@@ -56,11 +60,13 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
+import static java.lang.String.format;
 
 public class SqlTaskExecution
 {
@@ -144,13 +150,24 @@ public class SqlTaskExecution
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             List<DriverFactory> driverFactories;
             try {
+                OutputFactory outputOperatorFactory;
+                if (fragment.getOutputPartitioning() == OutputPartitioning.NONE) {
+                    outputOperatorFactory = new TaskOutputFactory(sharedBuffer);
+                }
+                else if (fragment.getOutputPartitioning() == OutputPartitioning.HASH) {
+                    outputOperatorFactory = new PartitionedOutputFactory(sharedBuffer);
+                }
+                else {
+                    throw new PrestoException(NOT_SUPPORTED, format("OutputPartitioning %s is not supported", fragment.getOutputPartitioning()));
+                }
+
                 LocalExecutionPlan localExecutionPlan = planner.plan(
                         taskContext.getSession(),
                         fragment.getRoot(),
                         fragment.getOutputLayout(),
                         fragment.getSymbols(),
                         fragment.getDistribution(),
-                        new TaskOutputFactory(sharedBuffer));
+                        outputOperatorFactory);
                 driverFactories = localExecutionPlan.getDriverFactories();
             }
             catch (Throwable e) {

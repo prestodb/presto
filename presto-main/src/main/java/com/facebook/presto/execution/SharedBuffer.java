@@ -127,6 +127,8 @@ public class SharedBuffer
 
     private final long maxBufferedBytes;
 
+    private final SettableFuture<OutputBuffers> finalOutputBuffers = SettableFuture.create();
+
     @GuardedBy("this")
     private OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS;
 
@@ -185,6 +187,11 @@ public class SharedBuffer
         return new SharedBufferInfo(state.get(), masterSequenceId.get(), pagesAdded.get(), infos.build());
     }
 
+    public ListenableFuture<OutputBuffers> getFinalOutputBuffers()
+    {
+        return finalOutputBuffers;
+    }
+
     public synchronized void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
         checkNotNull(newOutputBuffers, "newOutputBuffers is null");
@@ -218,6 +225,7 @@ public class SharedBuffer
         if (outputBuffers.isNoMoreBufferIds()) {
             state.compareAndSet(OPEN, NO_MORE_BUFFERS);
             state.compareAndSet(NO_MORE_PAGES, FLUSHING);
+            finalOutputBuffers.set(outputBuffers);
         }
 
         updateState();
