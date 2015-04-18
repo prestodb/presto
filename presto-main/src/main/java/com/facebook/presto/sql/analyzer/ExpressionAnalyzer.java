@@ -487,7 +487,7 @@ public class ExpressionAnalyzer
                         throw new SemanticException(TYPE_MISMATCH, node, "Unary '+' operator cannot by applied to %s type", type);
                     }
                     expressionTypes.put(node, type);
-                    break;
+                    return type;
                 case MINUS:
                     return getOperator(context, node, OperatorType.NEGATION, node.getValue());
             }
