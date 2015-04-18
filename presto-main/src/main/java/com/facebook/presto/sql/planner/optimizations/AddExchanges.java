@@ -182,7 +182,7 @@ public class AddExchanges
                     .allMatch(InternalAggregationFunction::isDecomposable);
 
             PlanWithProperties child = planChild(node, preferredChildProperties);
-            if (!child.getProperties().isPartitionedOn(node.getGroupBy())) {
+            if (node.getGroupBy().isEmpty() || !child.getProperties().isPartitionedOn(node.getGroupBy())) {
                 if (!decomposable) {
                     child = withDerivedProperties(
                             addExchange.apply(child.getNode()),
