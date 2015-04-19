@@ -1042,4 +1042,11 @@ public class ExpressionAnalyzer
                 metadata.getTypeManager(),
                 node -> new StatementAnalyzer(analysis, metadata, sqlParser, session, experimentalSyntaxEnabled, Optional.empty()));
     }
+
+    public static ExpressionAnalyzer createWithoutSubqueries(FunctionRegistry functionRegistry, TypeManager typeManager, SemanticErrorCode errorCode, String message)
+    {
+        return new ExpressionAnalyzer(functionRegistry, typeManager, node -> {
+            throw new SemanticException(errorCode, node, message);
+        });
+    }
 }
