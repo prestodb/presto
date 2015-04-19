@@ -62,7 +62,6 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -86,6 +85,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Functions.constant;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Iterators.advance;
+import static java.util.Arrays.asList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardMapObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -216,12 +216,14 @@ public class OrcTester
             // values and nulls in simple struct
             testRoundTripType(createHiveStructInspector(objectInspector),
                     transform(insertNullEvery(5, writeValues), OrcTester::toHiveStruct),
-                    transform(insertNullEvery(5, readValues), OrcTester::toHiveStruct), rowType);
+                    transform(insertNullEvery(5, readValues), OrcTester::toHiveStruct),
+                    rowType);
 
             // all null values in simple struct
             testRoundTripType(createHiveStructInspector(objectInspector),
                     transform(transform(writeValues, constant(null)), OrcTester::toHiveStruct),
-                    transform(transform(writeValues, constant(null)), OrcTester::toHiveStruct), rowType);
+                    transform(transform(writeValues, constant(null)), OrcTester::toHiveStruct),
+                    rowType);
         }
     }
 
@@ -230,24 +232,28 @@ public class OrcTester
     {
         Type mapType = mapType(elementType, elementType);
 
+        // maps can not have a null key, so select a value to use for the map key when the value is null
         Object writeNullKeyValue = Iterables.getLast(writeValues);
         Object readNullKeyValue = Iterables.getLast(readValues);
 
         // values in simple map
         testRoundTripType(createHiveMapInspector(objectInspector),
                 transform(writeValues, value -> toHiveMap(value, writeNullKeyValue)),
-                transform(readValues, value -> toHiveMap(value, readNullKeyValue)), mapType);
+                transform(readValues, value -> toHiveMap(value, readNullKeyValue)),
+                mapType);
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple map
             testRoundTripType(createHiveMapInspector(objectInspector),
                     transform(insertNullEvery(5, writeValues), value -> toHiveMap(value, writeNullKeyValue)),
-                    transform(insertNullEvery(5, readValues), value -> toHiveMap(value, readNullKeyValue)), mapType);
+                    transform(insertNullEvery(5, readValues), value -> toHiveMap(value, readNullKeyValue)),
+                    mapType);
 
             // all null values in simple map
             testRoundTripType(createHiveMapInspector(objectInspector),
                     transform(transform(writeValues, constant(null)), value -> toHiveMap(value, writeNullKeyValue)),
-                    transform(transform(readValues, constant(null)), value -> toHiveMap(value, readNullKeyValue)), mapType);
+                    transform(transform(readValues, constant(null)), value -> toHiveMap(value, readNullKeyValue)),
+                    mapType);
         }
     }
 
@@ -265,12 +271,14 @@ public class OrcTester
             // values and nulls in simple list
             testRoundTripType(createHiveListInspector(objectInspector),
                     transform(insertNullEvery(5, writeValues), OrcTester::toHiveList),
-                    transform(insertNullEvery(5, readValues), OrcTester::toHiveList), arrayType);
+                    transform(insertNullEvery(5, readValues), OrcTester::toHiveList),
+                    arrayType);
 
             // all null values in simple list
             testRoundTripType(createHiveListInspector(objectInspector),
                     transform(transform(writeValues, constant(null)), OrcTester::toHiveList),
-                    transform(transform(readValues, constant(null)), OrcTester::toHiveList), arrayType);
+                    transform(transform(readValues, constant(null)), OrcTester::toHiveList),
+                    arrayType);
         }
     }
 
@@ -612,7 +620,7 @@ public class OrcTester
 
     private static List<Object> toHiveStruct(Object input)
     {
-        return Arrays.asList(input, input, input);
+        return asList(input, input, input);
     }
 
     private static StandardMapObjectInspector createHiveMapInspector(ObjectInspector objectInspector)
@@ -634,7 +642,7 @@ public class OrcTester
 
     private static List<Object> toHiveList(Object input)
     {
-        return Arrays.asList(input, input, input, input);
+        return asList(input, input, input, input);
     }
 
     private static Object decodeSlice(Type type, Slice slice)
