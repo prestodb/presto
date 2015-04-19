@@ -195,10 +195,10 @@ public class DwrfMetadataReader
             return null;
         }
 
-        // TODO remove this when double statistics are changed to correctly deal with NaNs
-        // if either min or max is NaN, ignore the stat
+        // if either min, max, or sum is NaN, ignore the stat
         if ((doubleStatistics.hasMinimum() && Double.isNaN(doubleStatistics.getMinimum())) ||
-                (doubleStatistics.hasMaximum() && Double.isNaN(doubleStatistics.getMaximum()))) {
+                (doubleStatistics.hasMaximum() && Double.isNaN(doubleStatistics.getMaximum())) ||
+                (doubleStatistics.hasSum() && Double.isNaN(doubleStatistics.getSum()))) {
             return null;
         }
 
