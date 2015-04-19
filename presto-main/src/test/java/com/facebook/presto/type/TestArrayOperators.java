@@ -156,6 +156,7 @@ public class TestArrayOperators
         assertFunction("ARRAY [ARRAY[1, 2], ARRAY[3]]", new ArrayType(new ArrayType(BIGINT)), ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(3L)));
         assertFunction("ARRAY [ARRAY[1, 2], NULL, ARRAY[3]]", new ArrayType(new ArrayType(BIGINT)), Lists.newArrayList(ImmutableList.of(1L, 2L), null, ImmutableList.of(3L)));
         assertFunction("ARRAY [1.0, 2.5, 3.0]", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.5, 3.0));
+        assertFunction("ARRAY [1, 2.5, 3]", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.5, 3.0));
         assertFunction("ARRAY ['puppies', 'kittens']", new ArrayType(VARCHAR), ImmutableList.of("puppies", "kittens"));
         assertFunction("ARRAY [TRUE, FALSE]", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
         assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)]", new ArrayType(TIMESTAMP), ImmutableList.of(
@@ -183,6 +184,8 @@ public class TestArrayOperators
         assertFunction("ARRAY [] || ARRAY []", new ArrayType(UNKNOWN), ImmutableList.of());
         assertFunction("ARRAY [TRUE] || ARRAY [FALSE] || ARRAY [TRUE]", new ArrayType(BOOLEAN), ImmutableList.of(true, false, true));
         assertFunction("ARRAY [1] || ARRAY [2] || ARRAY [3] || ARRAY [4]", new ArrayType(BIGINT), ImmutableList.of(1L, 2L, 3L, 4L));
+
+        assertFunction("ARRAY [1] || ARRAY [2.0] || ARRAY [3] || ARRAY [4.0]", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.0, 3.0, 4.0));
 
         assertInvalidFunction("ARRAY [ARRAY[1]] || ARRAY[ARRAY[true], ARRAY[false]]", FUNCTION_NOT_FOUND.toErrorCode());
 
@@ -353,6 +356,7 @@ public class TestArrayOperators
         assertFunction("ARRAY_INTERSECT(ARRAY [1, 1, 2, 4], ARRAY [1, 1, 4, 4])", new ArrayType(BIGINT), ImmutableList.of(1L, 4L));
         assertFunction("ARRAY_INTERSECT(ARRAY [2, 8], ARRAY [8, 3])", new ArrayType(BIGINT), ImmutableList.of(8L));
         assertFunction("ARRAY_INTERSECT(ARRAY [IF (RAND() < 1.0, 7, 1) , 2], ARRAY [7])", new ArrayType(BIGINT), ImmutableList.of(7L));
+        assertFunction("ARRAY_INTERSECT(ARRAY [1, 5], ARRAY [1.0])", new ArrayType(DOUBLE), ImmutableList.of(1.0));
         assertFunction("ARRAY_INTERSECT(ARRAY [8.3, 1.6, 4.1, 5.2], ARRAY [4.0, 5.2, 8.3, 9.7, 3.5])", new ArrayType(DOUBLE), ImmutableList.of(5.2, 8.3));
         assertFunction("ARRAY_INTERSECT(ARRAY [5.1, 7, 3.0, 4.8, 10], ARRAY [6.5, 10.0, 1.9, 5.1, 3.9, 4.8])", new ArrayType(DOUBLE), ImmutableList.of(4.8, 5.1, 10.0));
     }

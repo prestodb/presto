@@ -76,6 +76,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.DateOperators;
@@ -523,11 +524,9 @@ public class FunctionRegistry
 
     public FunctionInfo getCoercion(Type fromType, Type toType)
     {
-        List<? extends Type> argumentTypes = ImmutableList.of(fromType);
-        FunctionInfo functionInfo = getExactFunction(Signature.internalOperator(OperatorType.CAST.name(), toType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)));
-
+        FunctionInfo functionInfo = getExactFunction(Signature.internalOperator(OperatorType.CAST.name(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
         if (functionInfo == null) {
-            throw new OperatorNotFoundException(OperatorType.CAST, argumentTypes, toType);
+            throw new OperatorNotFoundException(OperatorType.CAST, ImmutableList.of(fromType), toType);
         }
         return functionInfo;
     }
@@ -590,6 +589,12 @@ public class FunctionRegistry
             return true;
         }
 
+        if (actualType instanceof ArrayType && expectedType instanceof ArrayType) {
+            Type actualElementType = ((ArrayType) actualType).getElementType();
+            Type expectedElementType = ((ArrayType) expectedType).getElementType();
+            return canCoerce(actualElementType, expectedElementType);
+        }
+
         return false;
     }
 
@@ -632,6 +637,15 @@ public class FunctionRegistry
         if ((firstType.equals(TIMESTAMP) || firstType.equals(TIMESTAMP_WITH_TIME_ZONE)) && (secondType.equals(TIMESTAMP) || secondType.equals(TIMESTAMP_WITH_TIME_ZONE))) {
             return Optional.<Type>of(TIMESTAMP_WITH_TIME_ZONE);
         }
+
+        if (firstType instanceof ArrayType && secondType instanceof ArrayType) {
+            Optional<Type> elementType = getCommonSuperType(((ArrayType) firstType).getElementType(), ((ArrayType) secondType).getElementType());
+            if (elementType.isPresent()) {
+                return Optional.of(new ArrayType(elementType.get()));
+            }
+        }
+
+        // TODO add row and map type
 
         return Optional.empty();
     }
