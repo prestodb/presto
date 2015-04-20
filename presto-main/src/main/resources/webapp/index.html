@@ -77,10 +77,13 @@
 
 <script type="text/jsx">
 var Query = React.createClass({
-    shortErrorType: function(errorType)
+    shortErrorType: function(errorType, errorCode)
     {
         switch (errorType) {
             case "USER_ERROR":
+                if (errorCode.name === 'USER_CANCELED') {
+                    return "USER CANCELED";
+                }
                 return "USER ERROR";
             case "INTERNAL_ERROR":
                 return "INTERNAL ERROR";
@@ -91,7 +94,7 @@ var Query = React.createClass({
         }
         return errorType;
     },
-    stateClass: function(state, errorType)
+    stateClass: function(state, errorType, errorCode)
     {
         switch (state) {
             case "FINISHED":
@@ -99,14 +102,15 @@ var Query = React.createClass({
             case "FAILED":
                 switch (errorType) {
                     case "USER_ERROR":
+                        if (errorCode.name === 'USER_CANCELED') {
+                            return "bg-warning";
+                        }
                         return "bg-success-warning";
                     case "EXTERNAL":
                         return "bg-danger-warning";
                     default:
                         return "bg-danger";
                 }
-            case "CANCELED":
-                return "bg-warning";
             default:
                 return "bg-info";
         }
@@ -121,10 +125,10 @@ var Query = React.createClass({
         }
         var state = query.state;
         if (state === "FAILED") {
-            state = this.shortErrorType(query.errorType);
+            state = this.shortErrorType(query.errorType, query.errorCode);
         }
         var splits;
-        if (query.state == 'FINISHED' || query.state == 'FAILED' || query.state == 'CANCELED') {
+        if (query.state == 'FINISHED' || query.state == 'FAILED') {
             splits = <div className="row">
                 <div className="col-md-12">
                     Completed Splits: {query.completedDrivers}
@@ -149,7 +153,7 @@ var Query = React.createClass({
             queryText = queryText.substring(0, 200) + "...";
         }
         return (
-                <div className={"row query-row " + this.stateClass(query.state, query.errorType)}>
+                <div className={"row query-row " + this.stateClass(query.state, query.errorType, query.errorCode)}>
                     <div className="col-md-3 col-lg-3">
                         <div className="row">
                             <div className="col-md-12"><a href={"query.html?" + query.queryId}>{query.queryId}</a></div>
@@ -236,11 +240,11 @@ var QueryPane = React.createClass({
             var runningQueries = [];
             var doneQueries = [];
             runningQueries = this.state.queries.filter(function (query) {
-                return query.state != 'FINISHED' && query.state != 'FAILED' && query.state != 'CANCELED';
+                return query.state != 'FINISHED' && query.state != 'FAILED';
             });
 
             doneQueries = this.state.queries.filter(function (query) {
-                return query.state == 'FINISHED' || query.state == 'FAILED' || query.state == 'CANCELED';
+                return query.state == 'FINISHED' || query.state == 'FAILED';
             });
             runningQueries.sort(function(a, b) { return d3.descending(a.createTime, b.createTime); });
             doneQueries.sort(function(a, b) { return d3.descending(a.endTime, b.endTime); });
