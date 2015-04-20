@@ -125,7 +125,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 -----
 
-The following software may be included in this product: Apache Avro, Apache BVal, Apache Commons BeanUtils Core, Apache Commons CLI, Apache Commons Codec, Apache Commons Configuration, Apache Commons IO, Apache Commons Lang, Apache Commons Logging, Apache Hadoop, Apache Hive, Apache HttpClient, Apache Maven, Apache Thrift, Apache XBean, Bean Validation API, Code Generation Library, Guava, Jackson, Jetty, Joda time, Log4j Implemented Over SLF4J, Ning Asynchronous Http Client, Plexus, airlift, airlift resolver, airlift slice, fastutil, jDBI, javax.inject, jmxutils, opencsv, snappy.
+The following software may be included in this product: Apache Avro, Apache BVal, Apache Commons BeanUtils Core, Apache Commons CLI, Apache Commons Codec, Apache Commons Configuration, Apache Commons IO, Apache Commons Lang, Apache Commons Logging, Apache Hadoop, Apache Hive, Apache HttpClient, Apache Maven, Apache Thrift, Apache XBean, Bean Validation API, Code Generation Library, Guava, Jackson, Jetty, Joda time, Log4j Implemented Over SLF4J, Ning Asynchronous Http Client, Plexus, airlift, airlift resolver, airlift slice, fastutil, jDBI, javax.inject, jmxutils, opencsv, snappy, vis.js.
 This software contains the following license and notice below:
 
 

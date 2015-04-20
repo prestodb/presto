@@ -106,6 +106,9 @@
         <dt>Execution</dt>
         <dd><a id="executionLink"></a></dd>
 
+        <dt>Visualization</dt>
+        <dd><a id="timelineLink">Timeline</a></dd>
+
         <dt>Kill</dt>
         <dd id="killQuery"></dd>
 
@@ -228,6 +231,9 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
     var executionLink = "/ui/query-execution?" + query.queryId;
     d3.select('#executionLink').text(executionLink);
     d3.select('#executionLink').attr("href", executionLink);
+
+    var timelineLink = "/timeline.html?" + query.queryId;
+    d3.select('#timelineLink').attr("href", timelineLink);
 
     hljs.initHighlighting();
 
