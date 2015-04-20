@@ -31,7 +31,6 @@ import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.transfer.Transfer;
@@ -62,6 +61,7 @@ import org.apache.hadoop.fs.s3.S3Credentials;
 import org.apache.hadoop.util.Progressable;
 
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -87,6 +87,7 @@ import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
 import static org.apache.http.HttpStatus.SC_FORBIDDEN;
 import static org.apache.http.HttpStatus.SC_NOT_FOUND;
+import static org.apache.http.HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE;
 
 public class PrestoS3FileSystem
         extends FileSystem
@@ -524,9 +525,14 @@ public class PrestoS3FileSystem
                 long skip = pos - position;
                 if (skip <= max(in.available(), MAX_SKIP_SIZE.toBytes())) {
                     // already buffered or seek is small enough
-                    if (in.skip(skip) == skip) {
-                        position = pos;
-                        return;
+                    try {
+                        if (in.skip(skip) == skip) {
+                            position = pos;
+                            return;
+                        }
+                    }
+                    catch (IOException ignored) {
+                        // will retry by re-opening the stream
                     }
                 }
             }
@@ -594,7 +600,7 @@ public class PrestoS3FileSystem
             return false;
         }
 
-        private S3Object getS3Object(final Path path, final long start)
+        private S3ObjectInputStream getS3InputStream(final Path path, final long start)
                 throws IOException
         {
             try {
@@ -604,9 +610,13 @@ public class PrestoS3FileSystem
                         .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
                         .run("getS3Object", () -> {
                             try {
-                                return s3.getObject(new GetObjectRequest(host, keyFromPath(path)).withRange(start, Long.MAX_VALUE));
+                                return s3.getObject(new GetObjectRequest(host, keyFromPath(path)).withRange(start, Long.MAX_VALUE)).getObjectContent();
                             }
                             catch (AmazonServiceException e) {
+                                if (e.getStatusCode() == SC_REQUESTED_RANGE_NOT_SATISFIABLE) {
+                                    //The given start was past the end of object, ignore it
+                                    return new S3ObjectInputStream(new ByteArrayInputStream(new byte[0]), null);
+                                }
                                 if (e.getStatusCode() == SC_FORBIDDEN) {
                                     throw new UnrecoverableS3OperationException(e);
                                 }
@@ -628,7 +638,7 @@ public class PrestoS3FileSystem
                 throws IOException
         {
             if (in == null) {
-                in = getS3Object(path, position).getObjectContent();
+                in = getS3InputStream(path, position);
             }
         }
 
@@ -637,7 +647,12 @@ public class PrestoS3FileSystem
         {
             if (in != null) {
                 try {
-                    in.abort();
+                    if (in.getHttpRequest() != null) {
+                        in.abort();
+                    }
+                    else {
+                        in.close();
+                    }
                 }
                 catch (AbortedException ignored) {
                     // thrown if the current thread is in the interrupted state
