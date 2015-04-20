@@ -72,17 +72,17 @@ public final class QueryUtil
         for (Expression expression : expressions) {
             items.add(new SingleColumn(expression));
         }
-        return new Select(false, items.build());
+        return new Select(false, items.build(), ImmutableList.of());
     }
 
     public static Select selectList(SelectItem... items)
     {
-        return new Select(false, ImmutableList.copyOf(items));
+        return new Select(false, ImmutableList.copyOf(items), ImmutableList.of());
     }
 
     public static Select selectAll(List<SelectItem> items)
     {
-        return new Select(false, items);
+        return new Select(false, items, ImmutableList.of());
     }
 
     public static Relation table(QualifiedName name)

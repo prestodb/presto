@@ -15,31 +15,50 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.AssignmentStatement;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.CallStatement;
+import com.facebook.presto.sql.tree.CaseStatement;
+import com.facebook.presto.sql.tree.CaseStatementWhenClause;
+import com.facebook.presto.sql.tree.CompoundStatement;
+import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateProcedure;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.ElseClause;
+import com.facebook.presto.sql.tree.ElseifClause;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.IfStatement;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
+import com.facebook.presto.sql.tree.IterateStatement;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
+import com.facebook.presto.sql.tree.LeaveStatement;
+import com.facebook.presto.sql.tree.LoopStatement;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.ParameterDeclaration;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.RepeatStatement;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.ReturnClause;
+import com.facebook.presto.sql.tree.ReturnStatement;
+import com.facebook.presto.sql.tree.RoutineCharacteristics;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
@@ -52,11 +71,14 @@ import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SingleColumn;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
+import com.facebook.presto.sql.tree.VariableDeclaration;
+import com.facebook.presto.sql.tree.WhileStatement;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
@@ -225,6 +247,16 @@ public final class SqlFormatter
             else {
                 builder.append(' ');
                 process(getOnlyElement(node.getSelectItems()), indent);
+            }
+            if (!node.getTargets().isEmpty()) {
+                builder.append(" INTO ");
+                Iterator<QualifiedName> targetIt = node.getTargets().iterator();
+                while (targetIt.hasNext()) {
+                    builder.append(targetIt.next());
+                    if (targetIt.hasNext()) {
+                        builder.append(", ");
+                    }
+                }
             }
 
             builder.append('\n');
@@ -646,6 +678,375 @@ public final class SqlFormatter
             builder.append("RESET SESSION ")
                     .append(node.getName());
 
+            return null;
+        }
+
+        @Override
+        protected Void visitCreateFunction(CreateFunction node, Integer indent)
+        {
+            builder.append("CREATE FUNCTION ")
+                    .append(node.getName())
+                    .append("(");
+
+            Iterator<ParameterDeclaration> parameterIt = node.getParameters().iterator();
+            while (parameterIt.hasNext()) {
+                process(parameterIt.next(), indent);
+                if (parameterIt.hasNext()) {
+                    builder.append(", ");
+                }
+            }
+            builder.append(")\n");
+            process(node.getReturnClause(), indent);
+            builder.append("\n");
+            process(node.getRoutineCharacteristics(), indent);
+            builder.append("\n");
+            process(node.getStatement(), indent);
+
+            return null;
+        }
+
+        @Override
+        protected Void visitCreateProcedure(CreateProcedure node, Integer indent)
+        {
+            builder.append("CREATE PROCEDURE ")
+                    .append(node.getName())
+                    .append("(");
+
+            Iterator<ParameterDeclaration> parameterIt = node.getParameters().iterator();
+            while (parameterIt.hasNext()) {
+                process(parameterIt.next(), indent);
+                if (parameterIt.hasNext()) {
+                    builder.append(", ");
+                }
+            }
+            builder.append(")\n");
+            process(node.getRoutineCharacteristics(), indent);
+            builder.append("\n");
+            process(node.getStatement(), indent);
+
+            return null;
+        }
+
+        @Override
+        protected Void visitParameterDeclaration(ParameterDeclaration node, Integer indent)
+        {
+            builder.append(node.getMode())
+                    .append(" ");
+            if (node.getName().isPresent()) {
+                builder.append(node.getName().get())
+                        .append(" ");
+            }
+            builder.append(node.getType());
+            if (node.getDefaultValue().isPresent()) {
+                builder.append(" DEFAULT");
+                process(node.getDefaultValue().get(), indent);
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitRoutineCharacteristics(RoutineCharacteristics node, Integer indent)
+        {
+            Iterator<QualifiedName> specificsIt = node.getSpecificCharacteristics().iterator();
+            while (specificsIt.hasNext()) {
+                append(indent, "SPECIFIC ")
+                    .append(specificsIt.next())
+                    .append("\n");
+            }
+            builder.append(indentString(indent));
+            if (!node.isDeterministic()) {
+                builder.append("NOT ");
+            }
+            builder.append("DETERMINISTIC\n")
+                    .append(indentString(indent));
+            switch (node.getSqlDataAccessType()) {
+                case NO_SQL:
+                    builder.append("NO SQL\n");
+                    break;
+                case CONTAINS_SQL:
+                    builder.append("CONTAINS SQL\n");
+                    break;
+                case READS_SQL_DATA:
+                    builder.append("READS SQL DATA\n");
+                    break;
+                case MODIFIES_SQL_DATA:
+                    builder.append("MODIFIES SQL DATA\n");
+                    break;
+            }
+            if (node.isReturnsNullOnNullInput()) {
+                append(indent, "RETURNS NULL ON NULL INPUT\n");
+            }
+            else {
+                append(indent, "CALLED ON NULL INPUT\n");
+            }
+            append(indent, "DYNAMIC RESULT SETS ")
+                .append(node.getDynamicResultSets());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitReturnClause(ReturnClause node, Integer indent)
+        {
+            builder.append("RETURNS ")
+                    .append(node.getReturnType());
+            if (node.getCastFromType().isPresent()) {
+                builder.append(" CAST FROM")
+                        .append(node.getCastFromType().get());
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitCallStatement(CallStatement node, Integer indent)
+        {
+            builder.append("CALL ")
+                    .append(node.getName());
+            return null;
+        }
+
+        @Override
+        protected Void visitReturnStatement(ReturnStatement node, Integer context)
+        {
+            builder.append("RETURN ")
+                    .append(node.getValue());
+            return null;
+        }
+
+        @Override
+        protected Void visitCompoundStatement(CompoundStatement node, Integer indent)
+        {
+            if (node.getLabel().isPresent()) {
+                builder.append(node.getLabel().get())
+                        .append(": ");
+            }
+            builder.append("BEGIN\n");
+            for (VariableDeclaration variableDeclaration : node.getVariableDeclarations()) {
+                builder.append(indentString(indent + 1));
+                process(variableDeclaration, indent + 1);
+                builder.append(";\n");
+            }
+            for (Statement statement : node.getStatements()) {
+                builder.append(indentString(indent + 1));
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            append(indent, "END");
+            if (node.getLabel().isPresent()) {
+                builder.append(" ")
+                        .append(node.getLabel().get());
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitVariableDeclaration(VariableDeclaration node, Integer indent)
+        {
+            builder.append("DECLARE ");
+            Iterator<String> targetIt = node.getNames().iterator();
+            while (targetIt.hasNext()) {
+                builder.append(targetIt.next());
+                if (targetIt.hasNext()) {
+                    builder.append(", ");
+                }
+            }
+            builder.append(" ")
+                    .append(node.getType());
+            if (node.getDefaultValue().isPresent()) {
+                builder.append(" DEFAULT ")
+                        .append(formatExpression(node.getDefaultValue().get()));
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitAssignmentStatement(AssignmentStatement node, Integer indent)
+        {
+            builder.append("SET ");
+            if (node.getTargets().size() == 1) {
+                builder.append(node.getTargets().get(0));
+            }
+            else {
+                builder.append("(");
+                Iterator<QualifiedName> targetIt = node.getTargets().iterator();
+                while (targetIt.hasNext()) {
+                    builder.append(targetIt.next());
+                    if (targetIt.hasNext()) {
+                        builder.append(", ");
+                    }
+                }
+                builder.append(")");
+            }
+            builder.append(" = ")
+                    .append(formatExpression(node.getValue()));
+            return null;
+        }
+
+        @Override
+        protected Void visitCaseStatement(CaseStatement node, Integer indent)
+        {
+            builder.append("CASE");
+            if (node.getExpression().isPresent()) {
+                builder.append(" ")
+                        .append(formatExpression(node.getExpression().get()));
+            }
+            builder.append("\n");
+            for (CaseStatementWhenClause whenClause : node.getWhenClauses()) {
+                builder.append(indentString(indent + 1));
+                process(whenClause, indent + 1);
+            }
+            if (node.getElseClause().isPresent()) {
+                builder.append(indentString(indent + 1));
+                process(node.getElseClause().get(), indent + 1);
+            }
+            append(indent, "END CASE");
+            return null;
+        }
+
+        @Override
+        protected Void visitCaseStatementWhenClause(CaseStatementWhenClause node, Integer indent)
+        {
+            builder.append("WHEN ")
+                    .append(formatExpression(node.getExpression()))
+                    .append(" THEN\n");
+            for (Statement statement : node.getStatements()) {
+                builder.append(indentString(indent + 1));
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitIfStatement(IfStatement node, Integer indent)
+        {
+            builder.append("IF ")
+                    .append(formatExpression(node.getExpression()))
+                    .append(" THEN\n");
+            for (Statement statement : node.getStatements()) {
+                builder.append(indentString(indent + 1));
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            for (ElseifClause elseifClause : node.getElseifClauses()) {
+                builder.append(indentString(indent));
+                process(elseifClause, indent);
+            }
+            if (node.getElseClause().isPresent()) {
+                builder.append(indentString(indent));
+                process(node.getElseClause().get(), indent);
+            }
+            append(indent, "END IF");
+            return null;
+        }
+
+        @Override
+        protected Void visitElseifClause(ElseifClause node, Integer indent)
+        {
+            builder.append("ELSIF ")
+                    .append(formatExpression(node.getExpression()))
+                    .append(" THEN\n");
+            for (Statement statement : node.getStatements()) {
+                builder.append(indentString(indent + 1));
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitElseClause(ElseClause node, Integer indent)
+        {
+            builder.append("ELSE\n");
+            for (Statement statement : node.getStatements()) {
+                builder.append(indentString(indent + 1));
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitIterateStatement(IterateStatement node, Integer indent)
+        {
+            builder.append("ITERATE ")
+                    .append(node.getLabel());
+            return null;
+        }
+
+        @Override
+        protected Void visitLeaveStatement(LeaveStatement node, Integer indent)
+        {
+            builder.append("LEAVE ")
+                    .append(node.getLabel());
+            return null;
+        }
+
+        @Override
+        protected Void visitLoopStatement(LoopStatement node, Integer indent)
+        {
+            if (node.getLabel().isPresent()) {
+                builder.append(node.getLabel().get())
+                        .append(": ");
+            }
+            builder.append("LOOP\n");
+            for (Statement statement : node.getStatements()) {
+                builder.append(indentString(indent + 1));
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            append(indent, "END LOOP");
+            if (node.getLabel().isPresent()) {
+                builder.append(" ")
+                        .append(node.getLabel().get());
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitWhileStatement(WhileStatement node, Integer indent)
+        {
+            if (node.getLabel().isPresent()) {
+                builder.append(node.getLabel().get())
+                        .append(": ");
+            }
+            builder.append("WHILE ")
+                    .append(formatExpression(node.getExpression()))
+                    .append(" DO\n");
+            for (Statement statement : node.getStatements()) {
+                builder.append(indentString(indent + 1));
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            append(indent, "END WHILE");
+            if (node.getLabel().isPresent()) {
+                builder.append(" ")
+                        .append(node.getLabel().get());
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitRepeatStatement(RepeatStatement node, Integer indent)
+        {
+            if (node.getLabel().isPresent()) {
+                builder.append(node.getLabel().get())
+                        .append(": ");
+            }
+            builder.append("REPEAT\n");
+            for (Statement statement : node.getStatements()) {
+                builder.append(indentString(indent + 1));
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            append(indent, "REPEAT ")
+                .append(formatExpression(node.getCondition()))
+                .append("\n");
+            append(indent, "END REPEAT");
+            if (node.getLabel().isPresent()) {
+                builder.append(" ")
+                        .append(node.getLabel().get());
+            }
             return null;
         }
 

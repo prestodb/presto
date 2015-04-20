@@ -19,18 +19,28 @@ import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
+import com.facebook.presto.sql.tree.AssignmentStatement;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.CallStatement;
+import com.facebook.presto.sql.tree.CaseStatement;
+import com.facebook.presto.sql.tree.CaseStatementWhenClause;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CompoundStatement;
+import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateProcedure;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.DeterministicCharacteristic;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.ElseClause;
+import com.facebook.presto.sql.tree.ElseifClause;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Explain;
@@ -43,6 +53,7 @@ import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IfExpression;
+import com.facebook.presto.sql.tree.IfStatement;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Insert;
@@ -50,18 +61,23 @@ import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.IterateStatement;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
+import com.facebook.presto.sql.tree.LeaveStatement;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.LoopStatement;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
+import com.facebook.presto.sql.tree.NullInputCharacteristic;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.ParameterDeclaration;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
@@ -69,7 +85,13 @@ import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.RepeatStatement;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.ReturnClause;
+import com.facebook.presto.sql.tree.ReturnStatement;
+import com.facebook.presto.sql.tree.ReturnedResultSetsCharacteristic;
+import com.facebook.presto.sql.tree.RoutineCharacteristic;
+import com.facebook.presto.sql.tree.RoutineCharacteristics;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
@@ -86,6 +108,8 @@ import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.SpecificCharacteristic;
+import com.facebook.presto.sql.tree.SqlDataAccessCharacteristic;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
@@ -99,7 +123,9 @@ import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
+import com.facebook.presto.sql.tree.VariableDeclaration;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.sql.tree.WhileStatement;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.sql.tree.With;
@@ -111,6 +137,7 @@ import org.antlr.v4.runtime.misc.NotNull;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -267,9 +294,16 @@ class AstBuilder
 
             from = Optional.of(relation);
         }
+        List<QualifiedName> targets = Optional.ofNullable(context.targetSpecification())
+                                              .map(SqlBaseParser.TargetSpecificationContext::qualifiedName)
+                                              .map(AstBuilder::getQualifiedNames)
+                                              .orElse(ImmutableList.of());
 
         return new QuerySpecification(
-                new Select(isDistinct(context.setQuantifier()), visit(context.selectItem(), SelectItem.class)),
+                new Select(
+                        isDistinct(context.setQuantifier()),
+                        visit(context.selectItem(), SelectItem.class),
+                        targets),
                 from,
                 visitIfPresent(context.where, Expression.class),
                 visit(context.groupBy, Expression.class),
@@ -990,6 +1024,256 @@ class AstBuilder
                         .map(AstBuilder::getIntervalFieldType));
     }
 
+    // ***************** functions & stored procedures *****************
+
+    @Override
+    public Node visitCreateFunction(@NotNull SqlBaseParser.CreateFunctionContext context)
+    {
+        return new CreateFunction(
+                getQualifiedName(context.qualifiedName()),
+                visit(context.parameterDeclaration(), ParameterDeclaration.class),
+                (ReturnClause) visit(context.returnsClause()),
+                gatherRoutineCharacteristics(context.routineCharacteristic()),
+                (Statement) visitRoutineStatement(context.routineStatement()));
+    }
+
+    @Override
+    public Node visitCreateProcedure(@NotNull SqlBaseParser.CreateProcedureContext context)
+    {
+        return new CreateProcedure(
+                getQualifiedName(context.qualifiedName()),
+                visit(context.parameterDeclaration(), ParameterDeclaration.class),
+                gatherRoutineCharacteristics(context.routineCharacteristic()),
+                (Statement) visitRoutineStatement(context.routineStatement()));
+    }
+
+    @Override
+    public Node visitParameterDeclaration(@NotNull SqlBaseParser.ParameterDeclarationContext context)
+    {
+        return new ParameterDeclaration(
+                Optional.ofNullable(context.parameterMode())
+                        .map(SqlBaseParser.ParameterModeContext::getText)
+                        .map(String::toUpperCase)
+                        .map(ParameterDeclaration.Mode::valueOf),
+                Optional.ofNullable(context.identifier())
+                        .map(SqlBaseParser.IdentifierContext::getText),
+                getType(context.type()),
+                visitIfPresent(context.valueExpression(), Expression.class));
+    }
+
+    @Override
+    public Node visitReturnsClause(@NotNull SqlBaseParser.ReturnsClauseContext context)
+    {
+        return new ReturnClause(
+                getType(context.returnType),
+                Optional.ofNullable(context.castFromType)
+                        .map(AstBuilder::getType));
+    }
+
+    private RoutineCharacteristics gatherRoutineCharacteristics(List<SqlBaseParser.RoutineCharacteristicContext> contexts)
+    {
+        return new RoutineCharacteristics(visit(contexts, RoutineCharacteristic.class));
+    }
+
+    @Override
+    public Node visitSpecificCharacteristic(@NotNull SqlBaseParser.SpecificCharacteristicContext context)
+    {
+        return new SpecificCharacteristic(getQualifiedName(context.value));
+    }
+
+    @Override
+    public Node visitIsDeterministicCharacteristic(@NotNull SqlBaseParser.IsDeterministicCharacteristicContext context)
+    {
+        return DeterministicCharacteristic.DETERMINISTIC;
+    }
+
+    @Override
+    public Node visitIsNotDeterministicCharacteristic(@NotNull SqlBaseParser.IsNotDeterministicCharacteristicContext context)
+    {
+        return DeterministicCharacteristic.NOT_DETERMINISTIC;
+    }
+
+    @Override
+    public Node visitNoSqlAccessCharacteristic(@NotNull SqlBaseParser.NoSqlAccessCharacteristicContext context)
+    {
+        return SqlDataAccessCharacteristic.NO_SQL;
+    }
+
+    @Override
+    public Node visitContainsSqlAccessCharacteristic(@NotNull SqlBaseParser.ContainsSqlAccessCharacteristicContext context)
+    {
+        return SqlDataAccessCharacteristic.CONTAINS_SQL;
+    }
+
+    @Override
+    public Node visitReadsSqlDataAccessCharacteristic(@NotNull SqlBaseParser.ReadsSqlDataAccessCharacteristicContext context)
+    {
+        return SqlDataAccessCharacteristic.READS_SQL_DATA;
+    }
+
+    @Override
+    public Node visitModifiesSqlDataAccessCharacteristic(@NotNull SqlBaseParser.ModifiesSqlDataAccessCharacteristicContext context)
+    {
+        return SqlDataAccessCharacteristic.MODIFIES_SQL_DATA;
+    }
+
+    @Override
+    public Node visitReturnsNullOnNullInputCharacteristic(@NotNull SqlBaseParser.ReturnsNullOnNullInputCharacteristicContext context)
+    {
+        return NullInputCharacteristic.RETURNS_NULL_ON_NULL_INPUT;
+    }
+
+    @Override
+    public Node visitCalledOnNullInputCharacteristic(@NotNull SqlBaseParser.CalledOnNullInputCharacteristicContext context)
+    {
+        return NullInputCharacteristic.CALLED_ON_NULL_INPUT;
+    }
+
+    @Override
+    public Node visitReturnedResultSetsCharacteristic(@NotNull SqlBaseParser.ReturnedResultSetsCharacteristicContext context)
+    {
+        return new ReturnedResultSetsCharacteristic(Integer.parseInt(context.value.getText()));
+    }
+
+    @Override
+    public Node visitCallStatement(@NotNull SqlBaseParser.CallStatementContext context)
+    {
+        return new CallStatement(
+                getQualifiedName(context.qualifiedName()),
+                visit(context.expression(), Expression.class));
+    }
+
+    @Override
+    public Node visitReturnStatement(@NotNull SqlBaseParser.ReturnStatementContext context)
+    {
+        return new ReturnStatement((Expression) visit(context.valueExpression()));
+    }
+
+    @Override
+    public Node visitCompoundStatement(@NotNull SqlBaseParser.CompoundStatementContext context)
+    {
+        return new CompoundStatement(
+                Optional.ofNullable(context.beginningLabel)
+                        .map(SqlBaseParser.LabelWithColonContext::getText),
+                visit(context.variableDeclaration(), VariableDeclaration.class),
+                visit(Optional.ofNullable(context.sqlStatementList())
+                        .map(SqlBaseParser.SqlStatementListContext::routineStatement)
+                        .orElse(ImmutableList.of()), Statement.class));
+    }
+
+    @Override
+    public Node visitVariableDeclaration(@NotNull SqlBaseParser.VariableDeclarationContext context)
+    {
+        List<String> names = context.identifier().stream()
+                                    .map(ParseTree::getText)
+                                    .collect(Collectors.toList());
+
+        return new VariableDeclaration(
+                names,
+                getType(context.type()),
+                visitIfPresent(context.valueExpression(), Expression.class));
+    }
+
+    @Override
+    public Node visitAssignmentStatement(@NotNull SqlBaseParser.AssignmentStatementContext context)
+    {
+        return new AssignmentStatement(
+                getQualifiedNames(context.qualifiedName()),
+                (Expression) visit(context.expression()));
+    }
+
+    @Override
+    public Node visitSimpleCaseStatement(@NotNull SqlBaseParser.SimpleCaseStatementContext context)
+    {
+        return new CaseStatement(
+                visitIfPresent(context.expression(), Expression.class),
+                visit(context.caseStatementWhenClause(), CaseStatementWhenClause.class),
+                visitIfPresent(context.elseClause(), ElseClause.class));
+    }
+
+    @Override
+    public Node visitSearchedCaseStatement(@NotNull SqlBaseParser.SearchedCaseStatementContext context)
+    {
+        return new CaseStatement(
+                Optional.<Expression>empty(),
+                visit(context.caseStatementWhenClause(), CaseStatementWhenClause.class),
+                visitIfPresent(context.elseClause(), ElseClause.class));
+    }
+
+    @Override
+    public Node visitCaseStatementWhenClause(@NotNull SqlBaseParser.CaseStatementWhenClauseContext context)
+    {
+        return new CaseStatementWhenClause(
+                (Expression) visit(context.expression()),
+                visit(context.sqlStatementList().routineStatement(), Statement.class));
+    }
+
+    @Override
+    public Node visitIfStatement(@NotNull SqlBaseParser.IfStatementContext context)
+    {
+        return new IfStatement(
+                (Expression) visit(context.expression()),
+                visit(context.sqlStatementList().routineStatement(), Statement.class),
+                visit(context.elseifClause(), ElseifClause.class),
+                visitIfPresent(context.elseClause(), ElseClause.class));
+    }
+
+    @Override
+    public Node visitElseifClause(@NotNull SqlBaseParser.ElseifClauseContext context)
+    {
+        return new ElseifClause(
+                (Expression) visit(context.expression()),
+                visit(context.sqlStatementList().routineStatement(), Statement.class));
+    }
+
+    @Override
+    public Node visitElseClause(@NotNull SqlBaseParser.ElseClauseContext context)
+    {
+        return new ElseClause(
+                visit(context.sqlStatementList().routineStatement(), Statement.class));
+    }
+
+    @Override
+    public Node visitIterateStatement(@NotNull SqlBaseParser.IterateStatementContext context)
+    {
+        return new IterateStatement(context.identifier().getText());
+    }
+
+    @Override
+    public Node visitLeaveStatement(@NotNull SqlBaseParser.LeaveStatementContext context)
+    {
+        return new LeaveStatement(context.identifier().getText());
+    }
+
+    @Override
+    public Node visitLoopStatement(@NotNull SqlBaseParser.LoopStatementContext context)
+    {
+        return new LoopStatement(
+                Optional.ofNullable(context.beginningLabel)
+                        .map(SqlBaseParser.LabelWithColonContext::getText),
+                visit(context.sqlStatementList().routineStatement(), Statement.class));
+    }
+
+    @Override
+    public Node visitWhileStatement(@NotNull SqlBaseParser.WhileStatementContext context)
+    {
+        return new WhileStatement(
+                Optional.ofNullable(context.beginningLabel)
+                        .map(SqlBaseParser.LabelWithColonContext::getText),
+                (Expression) visit(context.expression()),
+                visit(context.sqlStatementList().routineStatement(), Statement.class));
+    }
+
+    @Override
+    public Node visitRepeatStatement(@NotNull SqlBaseParser.RepeatStatementContext context)
+    {
+        return new RepeatStatement(
+                Optional.ofNullable(context.beginningLabel)
+                        .map(SqlBaseParser.LabelWithColonContext::getText),
+                visit(context.sqlStatementList().routineStatement(), Statement.class),
+                (Expression) visit(context.expression()));
+    }
+
     // ***************** helpers *****************
 
     @Override
@@ -1041,6 +1325,13 @@ class AstBuilder
                 .collect(Collectors.toList());
 
         return new QualifiedName(parts);
+    }
+
+    private static List<QualifiedName> getQualifiedNames(Collection<SqlBaseParser.QualifiedNameContext> contexts)
+    {
+        return contexts.stream()
+                .map(AstBuilder::getQualifiedName)
+                .collect(Collectors.toList());
     }
 
     private static boolean isDistinct(SqlBaseParser.SetQuantifierContext setQuantifier)
