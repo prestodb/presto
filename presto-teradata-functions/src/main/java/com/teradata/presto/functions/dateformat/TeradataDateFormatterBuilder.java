@@ -15,7 +15,11 @@ package com.teradata.presto.functions.dateformat;
 
 import com.facebook.presto.spi.PrestoException;
 import com.teradata.presto.functions.dateformat.tokens.DDToken;
+import com.teradata.presto.functions.dateformat.tokens.HH24Token;
+import com.teradata.presto.functions.dateformat.tokens.HHToken;
+import com.teradata.presto.functions.dateformat.tokens.MIToken;
 import com.teradata.presto.functions.dateformat.tokens.MMToken;
+import com.teradata.presto.functions.dateformat.tokens.SSToken;
 import com.teradata.presto.functions.dateformat.tokens.YYYYToken;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
@@ -38,6 +42,10 @@ public class TeradataDateFormatterBuilder
                 .addToken(new YYYYToken())
                 .addToken(new MMToken())
                 .addToken(new DDToken())
+                .addToken(new HH24Token())
+                .addToken(new HHToken())
+                .addToken(new MIToken())
+                .addToken(new SSToken())
                 .build();
     }
 

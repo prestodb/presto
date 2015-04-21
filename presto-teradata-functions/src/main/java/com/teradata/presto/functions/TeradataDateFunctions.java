@@ -53,13 +53,27 @@ public final class TeradataDateFunctions
                               @SqlType(StandardTypes.VARCHAR) Slice dateTime,
                               @SqlType(StandardTypes.VARCHAR) Slice formatString)
     {
+        return MILLISECONDS.toDays(parseMilis(session, dateTime, formatString));
+    }
+
+    @Description("Converts string_expr to a TIMESTAMP data type. Teradata extension to the ANSI SQL-2003 standard")
+    @ScalarFunction("to_timestamp")
+    @SqlType(StandardTypes.TIMESTAMP)
+    public static long toTimestamp(ConnectorSession session,
+                                   @SqlType(StandardTypes.VARCHAR) Slice dateTime,
+                                   @SqlType(StandardTypes.VARCHAR) Slice formatString)
+    {
+        return parseMilis(session, dateTime, formatString);
+    }
+
+    private static long parseMilis(ConnectorSession session, Slice dateTime, Slice formatString)
+    {
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
                 .withChronology(getChronology(session.getTimeZoneKey()))
                 .withLocale(session.getLocale());
 
         try {
-            long millis = formatter.parseMillis(dateTime.toString(UTF_8));
-            return MILLISECONDS.toDays(millis);
+            return formatter.parseMillis(dateTime.toString(UTF_8));
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
