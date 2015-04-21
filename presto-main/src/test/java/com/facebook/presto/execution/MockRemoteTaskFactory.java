@@ -112,7 +112,7 @@ public class MockRemoteTaskFactory
         return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, initialSplits);
     }
 
-    private class MockRemoteTask
+    private static class MockRemoteTask
             implements RemoteTask
     {
         private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskInfo.STARTING_VERSION);
@@ -213,16 +213,9 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public void addStateChangeListener(final StateChangeListener<TaskInfo> stateChangeListener)
+        public void addStateChangeListener(StateChangeListener<TaskInfo> stateChangeListener)
         {
-            taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
-            {
-                @Override
-                public void stateChanged(TaskState newValue)
-                {
-                    stateChangeListener.stateChanged(getTaskInfo());
-                }
-            });
+            taskStateMachine.addStateChangeListener(newValue -> stateChangeListener.stateChanged(getTaskInfo()));
         }
 
         @Override
