@@ -15,11 +15,11 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
@@ -36,6 +36,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -51,7 +52,7 @@ public class TestHashJoinOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
-        taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, TEST_SESSION);
+        taskContext = createTaskContext(executor, TEST_SESSION);
     }
 
     @AfterMethod
@@ -495,7 +496,7 @@ public class TestHashJoinOperator
     public void testMemoryLimit(boolean hashEnabled)
             throws Exception
     {
-        DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, TEST_SESSION, new DataSize(100, BYTE))
+        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(100, BYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();
 

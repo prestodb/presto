@@ -22,7 +22,6 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.NodeSystemTable;
 import com.facebook.presto.connector.system.SystemConnector;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.HandleResolver;
@@ -105,6 +104,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
+import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -320,7 +320,7 @@ public class LocalQueryRunner
     {
         MaterializedOutputFactory outputFactory = new MaterializedOutputFactory();
 
-        TaskContext taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session);
+        TaskContext taskContext = createTaskContext(executor, session);
         List<Driver> drivers = createDrivers(session, sql, outputFactory, taskContext);
 
         boolean done = false;

@@ -35,12 +35,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
-import static com.facebook.presto.util.Threads.checkNotSameThreadExecutor;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
@@ -68,27 +66,6 @@ public class TaskContext
 
     private final boolean verboseStats;
     private final boolean cpuTimerEnabled;
-
-    public TaskContext(TaskId taskId, Executor executor, Session session)
-    {
-        this(
-                checkNotNull(taskId, "taskId is null"),
-                checkNotSameThreadExecutor(executor, "executor is null"),
-                session,
-                new DataSize(256, MEGABYTE));
-    }
-
-    public TaskContext(TaskId taskId, Executor executor, Session session, DataSize maxMemory)
-    {
-        this(
-                new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotSameThreadExecutor(executor, "executor is null")),
-                executor,
-                session,
-                checkNotNull(checkNotNull(maxMemory, "maxMemory is null"), "maxMemory is null"),
-                new DataSize(1, MEGABYTE),
-                true,
-                true);
-    }
 
     public TaskContext(TaskStateMachine taskStateMachine,
             Executor executor,
