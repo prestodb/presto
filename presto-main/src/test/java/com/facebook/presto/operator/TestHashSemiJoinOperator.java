@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.HashSemiJoinOperator.HashSemiJoinOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
 import com.facebook.presto.spi.Page;
@@ -37,6 +36,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -52,7 +52,7 @@ public class TestHashSemiJoinOperator
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
-        taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, TEST_SESSION);
+        taskContext = createTaskContext(executor, TEST_SESSION);
     }
 
     @AfterMethod
@@ -282,7 +282,7 @@ public class TestHashSemiJoinOperator
     public void testMemoryLimit(boolean hashEnabled)
             throws Exception
     {
-        DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, TEST_SESSION, new DataSize(100, BYTE))
+        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(100, BYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();
 
