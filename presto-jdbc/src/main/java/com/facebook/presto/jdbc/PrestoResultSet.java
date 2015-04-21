@@ -301,7 +301,7 @@ public class PrestoResultSet
             return null;
         }
 
-        ColumnInfo columnInfo = columnInfoList.get(columnIndex - 1);
+        ColumnInfo columnInfo = columnInfo(columnIndex);
         if (columnInfo.getColumnTypeName().equalsIgnoreCase("time")) {
             try {
                 return new Time(TIME_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value)));
@@ -338,7 +338,7 @@ public class PrestoResultSet
             return null;
         }
 
-        ColumnInfo columnInfo = columnInfoList.get(columnIndex - 1);
+        ColumnInfo columnInfo = columnInfo(columnIndex);
         if (columnInfo.getColumnTypeName().equalsIgnoreCase("timestamp")) {
             try {
                 return new Timestamp(TIMESTAMP_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value)));
@@ -534,7 +534,7 @@ public class PrestoResultSet
     public Object getObject(int columnIndex)
             throws SQLException
     {
-        ColumnInfo columnInfo = columnInfoList.get(columnIndex - 1);
+        ColumnInfo columnInfo = columnInfo(columnIndex);
         switch (columnInfo.getColumnType()) {
             case Types.DATE:
                 return getDate(columnIndex);
@@ -1147,8 +1147,9 @@ public class PrestoResultSet
             return null;
         }
 
-        String elementTypeName = getOnlyElement(columnInfoList.get(columnIndex - 1).getColumnTypeSignature().getParameters()).toString();
-        int elementType = getOnlyElement(columnInfoList.get(columnIndex - 1).getColumnParameterTypes());
+        ColumnInfo columnInfo = columnInfo(columnIndex);
+        String elementTypeName = getOnlyElement(columnInfo.getColumnTypeSignature().getParameters()).toString();
+        int elementType = getOnlyElement(columnInfo.getColumnParameterTypes());
         return new PrestoArray(elementTypeName, elementType, (List<?>) value);
     }
 
@@ -1695,6 +1696,17 @@ public class PrestoResultSet
         Object value = row.get().get(index - 1);
         wasNull.set(value == null);
         return value;
+    }
+
+    private ColumnInfo columnInfo(int index)
+            throws SQLException
+    {
+        checkOpen();
+        checkValidRow();
+        if ((index <= 0) || (index > columnInfoList.size())) {
+            throw new SQLException("Invalid column index: " + index);
+        }
+        return columnInfoList.get(index - 1);
     }
 
     private Object column(String label)
