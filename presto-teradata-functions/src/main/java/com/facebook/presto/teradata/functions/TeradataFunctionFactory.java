@@ -35,6 +35,7 @@ public class TeradataFunctionFactory
     {
         return new FunctionListBuilder(typeManager)
                 .scalar(TeradataFunctions.class)
+                .scalar(TeradataDateFunctions.class)
                 .getFunctions();
     }
 }

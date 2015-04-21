@@ -16,12 +16,9 @@ package com.teradata.presto.functions.dateformat;
 import com.facebook.presto.spi.PrestoException;
 import com.teradata.presto.functions.dateformat.tokens.DDToken;
 import com.teradata.presto.functions.dateformat.tokens.MMToken;
-import com.teradata.presto.functions.dateformat.tokens.TextToken;
 import com.teradata.presto.functions.dateformat.tokens.YYYYToken;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
-
-import java.text.ParseException;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
@@ -44,7 +41,7 @@ public class TeradataDateFormatterBuilder
                 .build();
     }
 
-    public DateTimeFormatter createDateTimeFormatter(String format) throws ParseException
+    public DateTimeFormatter createDateTimeFormatter(String format)
     {
         DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
         for (Token token : lexer.tokenize(format)) {

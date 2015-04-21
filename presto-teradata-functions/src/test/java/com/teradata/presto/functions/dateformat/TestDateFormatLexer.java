@@ -13,10 +13,10 @@
  */
 package com.teradata.presto.functions.dateformat;
 
+import com.facebook.presto.spi.PrestoException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.text.ParseException;
 import java.util.List;
 
 import static org.testng.Assert.assertEquals;
@@ -32,27 +32,27 @@ public class TestDateFormatLexer
     }
 
     @Test
-    public void testSimpleFormat() throws ParseException
+    public void testSimpleFormat()
     {
         List<Token> tokens = yearLexer.tokenize("yyyy");
         assertEquals(tokens.size(), 1);
         assertEquals(tokens.get(0).representation(), "yyyy");
     }
 
-    @Test(expectedExceptions = ParseException.class)
-    public void testInvalidToken1() throws ParseException
+    @Test(expectedExceptions = PrestoException.class)
+    public void testInvalidToken1()
     {
         yearLexer.tokenize("yyy");
     }
 
-    @Test(expectedExceptions = ParseException.class)
-    public void testInvalidToken2() throws ParseException
+    @Test(expectedExceptions = PrestoException.class)
+    public void testInvalidToken2()
     {
         yearLexer.tokenize("ala");
     }
 
     @Test
-    public void testYearMonthDay() throws ParseException
+    public void testYearMonthDay()
     {
         DateFormatLexer yearMonthDayLexer = DateFormatLexer.builder()
                 .addTextToken("yyyy")
@@ -72,7 +72,7 @@ public class TestDateFormatLexer
     }
 
     @Test
-    public void testGreedinessLongFirst() throws ParseException
+    public void testGreedinessLongFirst()
     {
         DateFormatLexer lexer = DateFormatLexer.builder()
                 .addTextToken("yyy")
@@ -90,7 +90,7 @@ public class TestDateFormatLexer
     }
 
     @Test
-    public void testGreedinessShortFirst() throws ParseException
+    public void testGreedinessShortFirst()
     {
         DateFormatLexer lexer = DateFormatLexer.builder()
                 .addTextToken("y")

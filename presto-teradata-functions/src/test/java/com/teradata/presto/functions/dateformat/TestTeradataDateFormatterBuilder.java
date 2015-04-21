@@ -18,8 +18,6 @@ import org.joda.time.format.DateTimeFormatter;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.text.ParseException;
-
 import static org.testng.Assert.assertEquals;
 
 public class TestTeradataDateFormatterBuilder
@@ -33,12 +31,12 @@ public class TestTeradataDateFormatterBuilder
     }
 
     @Test
-    public void testFormatterBuilder() throws ParseException
+    public void testFormatterBuilder()
     {
         testFormat("yyyy/mm/dd", "1988/04/08", new DateTime(1988, 4, 8, 0, 0));
     }
 
-    private void testFormat(String format, String dateString, DateTime expected) throws ParseException
+    private void testFormat(String format, String dateString, DateTime expected)
     {
         DateTimeFormatter formatter = builder.createDateTimeFormatter(format);
         assertEquals(formatter.parseDateTime(dateString), expected);

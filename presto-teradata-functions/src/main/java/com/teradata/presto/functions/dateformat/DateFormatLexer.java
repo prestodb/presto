@@ -13,7 +13,11 @@
  */
 package com.teradata.presto.functions.dateformat;
 
-import java.text.ParseException;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+
+import com.facebook.presto.spi.PrestoException;
+import com.teradata.presto.functions.dateformat.tokens.TextToken;
+
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -36,12 +40,12 @@ public class DateFormatLexer
         return new DateFormatLexerBuilder();
     }
 
-    public List<Token> tokenize(String string) throws ParseException
+    public List<Token> tokenize(String string)
     {
         return tokenize(string, 0);
     }
 
-    private List<Token> tokenize(String string, int offset) throws ParseException
+    private List<Token> tokenize(String string, int offset)
     {
         List<Token> result = new ArrayList<>();
 
@@ -57,22 +61,25 @@ public class DateFormatLexer
             }
 
             if (noTokenFound) {
-                throw new ParseException(String.format("Failed to tokenize string [%s]", string), offset);
+                throw new PrestoException(
+                        INVALID_FUNCTION_ARGUMENT,
+                        String.format("Failed to tokenize string [%s] at offset [%d]", string, offset));
             }
         }
         return result;
     }
 
-    private List<Token> getPossibleTokens(String string, int offset) throws ParseException
+    private List<Token> getPossibleTokens(String string, int offset)
     {
         Character firstChar = string.charAt(offset);
         if (!tokensByFirstCharMap.containsKey(firstChar)) {
-            throw new ParseException(
+            throw new PrestoException(
+                    INVALID_FUNCTION_ARGUMENT,
                     String.format(
-                            "No tokens starts with character [%c] in string [%s]",
+                            "No tokens starts with character [%c] in string [%s] at offset [%d]",
                             firstChar,
-                            string),
-                    offset);
+                            string,
+                            offset));
         }
         return tokensByFirstCharMap.get(firstChar);
     }
@@ -94,6 +101,11 @@ public class DateFormatLexer
             }
             tokens.get(key).add(token);
             return this;
+        }
+
+        public DateFormatLexerBuilder addTextToken(String text)
+        {
+            return addToken(new TextToken(text));
         }
     }
 }
