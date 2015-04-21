@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>36</version>
+        <version>37</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -50,7 +50,9 @@
         <cli.main-class>None</cli.main-class>
 
         <!-- use a fractional hour timezone offset for tests -->
-        <test.timezone>Asia/Katmandu</test.timezone>
+        <air.test.timezone>Asia/Katmandu</air.test.timezone>
+        <air.test.parallel>methods</air.test.parallel>
+        <air.test.thread-count>4</air.test.thread-count>
     </properties>
 
     <modules>
@@ -643,13 +645,7 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <configuration combine.children="append">
-                        <argLine>${argLine} -Duser.timezone=${test.timezone} -Xmx1792m -Xms1792m -XX:OnOutOfMemoryError="kill -9 %p" -XX:+HeapDumpOnOutOfMemoryError</argLine>
-                        <parallel>methods</parallel>
-                        <threadCount>4</threadCount>
-                        <systemPropertyVariables>
-                            <user.timezone>${test.timezone}</user.timezone>
-                            <java.util.logging.SimpleFormatter.format>%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS %4$s %5$s%6$s%n</java.util.logging.SimpleFormatter.format>
-                        </systemPropertyVariables>
+                        <argLine>${argLine} -Duser.timezone=${air.test.timezone} -Xmx1792m -Xms1792m -XX:OnOutOfMemoryError="kill -9 %p" -XX:+HeapDumpOnOutOfMemoryError</argLine>
                     </configuration>
                 </plugin>
 
