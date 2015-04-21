@@ -71,7 +71,7 @@ public class Driver
     private Thread lockHolder;
 
     @GuardedBy("exclusiveLock")
-    private Map<PlanNodeId, TaskSource> currentSources = new ConcurrentHashMap<>();
+    private final Map<PlanNodeId, TaskSource> currentSources = new ConcurrentHashMap<>();
 
     private enum State
     {
@@ -314,15 +314,6 @@ public class Driver
         }
     }
 
-    private ListenableFuture<?> isBlocked(Operator operator)
-    {
-        ListenableFuture<?> blocked = operator.isBlocked();
-        if (blocked.isDone()) {
-            blocked = operator.getOperatorContext().isWaitingForMemory();
-        }
-        return blocked;
-    }
-
     private ListenableFuture<?> processInternal()
     {
         checkLockHeld("Lock must be held to call processInternal");
@@ -373,7 +364,7 @@ public class Driver
             // if we did not move any pages, check if we are blocked
             if (!movedPage) {
                 List<ListenableFuture<?>> blockedFutures = operators.stream()
-                        .map(Operator::isBlocked)
+                        .map(Driver::isBlocked)
                         .filter(blocked -> !blocked.isDone())
                         .collect(Collectors.toList());
 
@@ -446,7 +437,16 @@ public class Driver
         }
     }
 
-    private Throwable addSuppressedException(Throwable inFlightException, Throwable newException, String message, Object... args)
+    private static ListenableFuture<?> isBlocked(Operator operator)
+    {
+        ListenableFuture<?> blocked = operator.isBlocked();
+        if (blocked.isDone()) {
+            blocked = operator.getOperatorContext().isWaitingForMemory();
+        }
+        return blocked;
+    }
+
+    private static Throwable addSuppressedException(Throwable inFlightException, Throwable newException, String message, Object... args)
     {
         if (newException instanceof Error) {
             if (inFlightException == null) {
