@@ -97,6 +97,16 @@ public class BenchmarkQueryRunner
                 i++;
                 failures = 0;
             }
+            catch (BenchmarkDriverExecutionException e) {
+                return new BenchmarkQueryResult(
+                        suite,
+                        query,
+                        "fail",
+                        e.getMessage(),
+                        new Stat(new double[] {0}),
+                        new Stat(new double[] {0}),
+                        new Stat(new double[] {0}));
+            }
             catch (Exception e) {
                 handleFailure(e);
             }
@@ -130,6 +140,8 @@ public class BenchmarkQueryRunner
         return new BenchmarkQueryResult(
                 suite,
                 query,
+                "pass",
+                "",
                 new Stat(wallTimeNanos),
                 new Stat(processCpuTimeNanos),
                 new Stat(queryCpuTimeNanos));
@@ -205,7 +217,8 @@ public class BenchmarkQueryRunner
                 cause = resultsError.getFailureInfo().toException();
             }
 
-            throw new IllegalStateException(String.format("Query failed: %s%n", resultsError.getMessage()), cause);
+            throw new BenchmarkDriverExecutionException(
+                String.format("Query failed: %s%n", resultsError.getMessage()), cause);
         }
 
         return client.finalResults().getStats();

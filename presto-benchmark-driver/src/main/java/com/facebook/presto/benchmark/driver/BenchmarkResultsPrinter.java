@@ -70,6 +70,8 @@ public class BenchmarkResultsPrinter
                 .add("queryCpuTimeP50")
                 .add("queryCpuTimeMean")
                 .add("queryCpuTimeStd")
+                .add("status")
+                .add("error")
                 .build());
     }
 
@@ -93,6 +95,8 @@ public class BenchmarkResultsPrinter
                 .add(NANOSECONDS.toMillis((long) result.getQueryCpuTimeNanos().getMedian()))
                 .add(NANOSECONDS.toMillis((long) result.getQueryCpuTimeNanos().getMean()))
                 .add(NANOSECONDS.toMillis((long) result.getQueryCpuTimeNanos().getStandardDeviation()))
+                .add(result.getStatus())
+                .add(result.getErrorMessageShort())
                 .build());
     }
 
