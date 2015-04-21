@@ -18,7 +18,11 @@ import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
+import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+
+import static java.nio.charset.StandardCharsets.UTF_16BE;
 
 public final class TeradataStringFunctions
 {
@@ -32,5 +36,15 @@ public final class TeradataStringFunctions
     public static long index(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice substring)
     {
         return StringFunctions.stringPosition(string, substring);
+    }
+
+    @Description("Returns the hexadecimal representation of the UTF-16BE encoding of the argument")
+    @ScalarFunction("char2hexint")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice char2HexInt(@SqlType(StandardTypes.VARCHAR) Slice string)
+    {
+        Slice utf16 = Slices.wrappedBuffer(UTF_16BE.encode(string.toStringUtf8()));
+        String encoded = BaseEncoding.base16().encode(utf16.getBytes());
+        return Slices.utf8Slice(encoded);
     }
 }

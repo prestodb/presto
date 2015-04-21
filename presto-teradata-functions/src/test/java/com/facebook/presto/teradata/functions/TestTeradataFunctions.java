@@ -19,6 +19,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestTeradataFunctions
 {
@@ -45,6 +46,23 @@ public class TestTeradataFunctions
         assertFunction("INDEX(NULL, '')", BIGINT, null);
         assertFunction("INDEX('', NULL)", BIGINT, null);
         assertFunction("INDEX(NULL, NULL)", BIGINT, null);
+    }
+
+    @Test
+    public void testChar2HexInt()
+    {
+        assertFunction("CHAR2HEXINT('123')", VARCHAR, "003100320033");
+        assertFunction("CHAR2HEXINT('One Ring')", VARCHAR, "004F006E0065002000520069006E0067");
+    }
+
+    @Test
+    public void testChar2HexIntUtf8()
+    {
+        assertFunction("CHAR2HEXINT('\u0105')", VARCHAR, "0105");
+        assertFunction("CHAR2HEXINT('\u0ca0')", VARCHAR, "0CA0");
+        assertFunction("CHAR2HEXINT('\uff71')", VARCHAR, "FF71");
+        assertFunction("CHAR2HEXINT('\u0ca0\u76ca\u0ca0')", VARCHAR, "0CA076CA0CA0");
+        assertFunction("CHAR2HEXINT('(\u30ce\u0ca0\u76ca\u0ca0)\u30ce\u5f61\u253b\u2501\u253b')", VARCHAR, "002830CE0CA076CA0CA0002930CE5F61253B2501253B");
     }
 
     private void assertFunction(String projection, Type expectedType, Object expected)
