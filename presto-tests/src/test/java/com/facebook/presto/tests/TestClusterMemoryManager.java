@@ -26,7 +26,7 @@ import static java.util.Locale.ENGLISH;
 
 public class TestClusterMemoryManager
 {
-    @Test(timeOut = 30_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded max memory size of 1kB.*")
+    @Test(timeOut = 240_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded max memory size of 1kB.*")
     public void testQueryMemoryLimit()
             throws Exception
     {
