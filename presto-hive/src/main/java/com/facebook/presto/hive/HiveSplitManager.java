@@ -440,10 +440,16 @@ public class HiveSplitManager
                             // Verify that the partition schema matches the table schema.
                             // Either adding or dropping columns from the end of the table
                             // without modifying existing partitions is allowed, but every
-                            // but every column that exists in both the table and partition
-                            // must have the same type.
+                            // column that exists in both the table and partition must have
+                            // the same type.
                             List<FieldSchema> tableColumns = table.getSd().getCols();
                             List<FieldSchema> partitionColumns = partition.getSd().getCols();
+                            if (tableColumns == null || partitionColumns == null) {
+                                throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
+                                        "Table '%s' or partition '%s' has NULL column",
+                                        tableName,
+                                        partName));
+                            }
                             for (int i = 0; i < min(partitionColumns.size(), tableColumns.size()); i++) {
                                 String tableType = tableColumns.get(i).getType();
                                 String partitionType = partitionColumns.get(i).getType();
