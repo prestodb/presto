@@ -70,6 +70,7 @@ import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -203,12 +204,14 @@ public class FunctionRegistry
     private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
 
     private final TypeManager typeManager;
+    private final BlockEncodingSerde blockEncodingSerde;
     private final LoadingCache<SpecializedFunctionKey, FunctionInfo> specializedFunctionCache;
     private volatile FunctionMap functions = new FunctionMap();
 
-    public FunctionRegistry(TypeManager typeManager, boolean experimentalSyntaxEnabled)
+    public FunctionRegistry(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, boolean experimentalSyntaxEnabled)
     {
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
+        this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingSerde is null");
 
         specializedFunctionCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
