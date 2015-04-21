@@ -18,6 +18,7 @@ import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;
+import java.io.EOFException;
 
 public class HdfsOrcDataSource
         extends AbstractOrcDataSource
@@ -34,6 +35,15 @@ public class HdfsOrcDataSource
     protected void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
             throws IOException
     {
-        inputStream.readFully(position, buffer, bufferOffset, bufferLength);
+        long start = System.nanoTime();
+        inputStream.seek(position);
+        int nread = 0;
+        while (nread < bufferLength) {
+            int nbytes = inputStream.read(buffer, bufferOffset + nread, bufferLength - nread);
+            if (nbytes < 0) {
+                throw new EOFException("End of file reached before reading fully.");
+            }
+            nread += nbytes;
+        }
     }
 }
