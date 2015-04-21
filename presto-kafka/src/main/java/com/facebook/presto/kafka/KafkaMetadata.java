@@ -89,7 +89,7 @@ public class KafkaMetadata
     {
         KafkaTopicDescription table = getDefinedTables().get(schemaTableName);
         if (table == null) {
-            throw new TableNotFoundException(schemaTableName);
+            return null;
         }
 
         return new KafkaTableHandle(connectorId,
