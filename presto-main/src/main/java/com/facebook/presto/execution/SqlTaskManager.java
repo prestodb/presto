@@ -76,7 +76,7 @@ public class SqlTaskManager
     @Inject
     public SqlTaskManager(
             LocalExecutionPlanner planner,
-            final LocationFactory locationFactory,
+            LocationFactory locationFactory,
             TaskExecutor taskExecutor,
             QueryMonitor queryMonitor,
             NodeInfo nodeInfo,
@@ -87,7 +87,7 @@ public class SqlTaskManager
         infoCacheTime = config.getInfoMaxAge();
         clientTimeout = config.getClientTimeout();
 
-        final DataSize maxBufferSize = config.getSinkMaxBufferSize();
+        DataSize maxBufferSize = config.getSinkMaxBufferSize();
 
         taskNotificationExecutor = newCachedThreadPool(threadsNamed("task-notification-%s"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
@@ -95,7 +95,7 @@ public class SqlTaskManager
         taskManagementExecutor = newScheduledThreadPool(5, threadsNamed("task-management-%s"));
         taskManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskManagementExecutor);
 
-        final SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, queryMonitor, config);
+        SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, queryMonitor, config);
 
         tasks = CacheBuilder.newBuilder().build(new CacheLoader<TaskId, SqlTask>()
         {
