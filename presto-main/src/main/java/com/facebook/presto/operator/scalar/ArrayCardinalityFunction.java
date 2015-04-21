@@ -55,13 +55,13 @@ public final class ArrayCardinalityFunction
     @Override
     public boolean isDeterministic()
     {
-        return false;
+        return true;
     }
 
     @Override
     public String getDescription()
     {
-        return null;
+        return "Returns the cardinality (length) of the array";
     }
 
     @Override
@@ -69,7 +69,7 @@ public final class ArrayCardinalityFunction
     {
         checkArgument(types.size() == 1, "Cardinality expects only one argument");
         Type type = types.get("E");
-        return new FunctionInfo(new Signature("cardinality", parseTypeSignature(StandardTypes.BIGINT), parameterizedTypeName("array", type.getTypeSignature())), "Returns the cardinality (length) of the array", false, METHOD_HANDLE, true, false, ImmutableList.of(false));
+        return new FunctionInfo(new Signature("cardinality", parseTypeSignature(StandardTypes.BIGINT), parameterizedTypeName("array", type.getTypeSignature())), getDescription(), isHidden(), METHOD_HANDLE, isDeterministic(), false, ImmutableList.of(false));
     }
 
     public static long arrayLength(Slice slice)
