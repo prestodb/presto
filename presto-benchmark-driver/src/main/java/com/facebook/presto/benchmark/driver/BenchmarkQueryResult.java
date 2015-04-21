@@ -16,7 +16,10 @@ package com.facebook.presto.benchmark.driver;
 import com.google.common.base.MoreObjects;
 import io.airlift.units.Duration;
 
+import java.util.Optional;
+
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class BenchmarkQueryResult
@@ -35,13 +38,13 @@ public class BenchmarkQueryResult
 
     public static BenchmarkQueryResult failResult(Suite suite, BenchmarkQuery benchmarkQuery, String errorMessage)
     {
-        return new BenchmarkQueryResult(suite, benchmarkQuery, Status.FAIL, errorMessage, FAIL_STAT, FAIL_STAT, FAIL_STAT);
+        return new BenchmarkQueryResult(suite, benchmarkQuery, Status.FAIL, Optional.of(errorMessage), FAIL_STAT, FAIL_STAT, FAIL_STAT);
     }
 
     private final Suite suite;
     private final BenchmarkQuery benchmarkQuery;
     private final Status status;
-    private final String errorMessage;
+    private final Optional<String> errorMessage;
     private final Stat wallTimeNanos;
     private final Stat processCpuTimeNanos;
     private final Stat queryCpuTimeNanos;
@@ -50,7 +53,7 @@ public class BenchmarkQueryResult
             Suite suite,
             BenchmarkQuery benchmarkQuery,
             Status status,
-            String errorMessage,
+            Optional<String> errorMessage,
             Stat wallTimeNanos,
             Stat processCpuTimeNanos,
             Stat queryCpuTimeNanos)
@@ -58,7 +61,7 @@ public class BenchmarkQueryResult
         this.suite = checkNotNull(suite, "suite is null");
         this.benchmarkQuery = checkNotNull(benchmarkQuery, "benchmarkQuery is null");
         this.status = checkNotNull(status, "status is null");
-        this.errorMessage = checkNotNull(errorMessage, "error is null");
+        this.errorMessage = requireNonNull(errorMessage, "errorMessage is null");
         this.wallTimeNanos = checkNotNull(wallTimeNanos, "wallTimeNanos is null");
         this.processCpuTimeNanos = checkNotNull(processCpuTimeNanos, "processCpuTimeNanos is null");
         this.queryCpuTimeNanos = checkNotNull(queryCpuTimeNanos, "queryCpuTimeNanos is null");
@@ -79,7 +82,7 @@ public class BenchmarkQueryResult
         return status;
     }
 
-    public String getErrorMessage()
+    public Optional<String> getErrorMessage()
     {
         return errorMessage;
     }

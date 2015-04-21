@@ -20,10 +20,10 @@ import com.google.common.collect.ImmutableList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.Status.FAIL;
 import static com.google.common.base.CharMatcher.anyOf;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -86,11 +86,8 @@ public class BenchmarkResultsPrinter
         tags.putAll(result.getBenchmarkQuery().getTags());
         tags.putAll(benchmarkSchema.getTags());
 
-        String errorMessage = "";
-        if (result.getStatus() == FAIL) {
-            // only print first line of error message
-            errorMessage = getFirst(Splitter.on(anyOf("\r\n")).trimResults().split(result.getErrorMessage()), "");
-        }
+        // only print first line of error message
+        Optional<String> errorMessage = result.getErrorMessage().map(error -> getFirst(Splitter.on(anyOf("\r\n")).trimResults().split(error), ""));
 
         printRow(ImmutableList.builder()
                 .add(result.getSuite().getName())
@@ -106,7 +103,7 @@ public class BenchmarkResultsPrinter
                 .add(NANOSECONDS.toMillis((long) result.getQueryCpuTimeNanos().getMean()))
                 .add(NANOSECONDS.toMillis((long) result.getQueryCpuTimeNanos().getStandardDeviation()))
                 .add(result.getStatus().toString().toLowerCase())
-                .add(errorMessage)
+                .add(errorMessage.orElse(""))
                 .build());
     }
 
