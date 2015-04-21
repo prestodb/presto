@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -38,6 +39,8 @@ public class HiveOutputTableHandle
     private final String temporaryPath;
     private final ConnectorSession connectorSession;
     private final HiveStorageFormat hiveStorageFormat;
+    private final Map<String, String> tableParameters;
+    private final Map<String, String> serdeParameters;
 
     @JsonCreator
     public HiveOutputTableHandle(
@@ -50,7 +53,9 @@ public class HiveOutputTableHandle
             @JsonProperty("targetPath") String targetPath,
             @JsonProperty("temporaryPath") String temporaryPath,
             @JsonProperty("connectorSession") ConnectorSession connectorSession,
-            @JsonProperty("hiveStorageFormat") HiveStorageFormat hiveStorageFormat)
+            @JsonProperty("hiveStorageFormat") HiveStorageFormat hiveStorageFormat,
+            @JsonProperty("tableParameters") Map<String, String> tableParameters,
+            @JsonProperty("serdeParameters") Map<String, String> serdeParameters)
     {
         this.clientId = checkNotNull(clientId, "clientId is null");
         this.schemaName = checkNotNull(schemaName, "schemaName is null");
@@ -60,6 +65,8 @@ public class HiveOutputTableHandle
         this.temporaryPath = checkNotNull(temporaryPath, "temporaryPath is null");
         this.connectorSession = checkNotNull(connectorSession, "session is null");
         this.hiveStorageFormat = checkNotNull(hiveStorageFormat, "hiveStorageFormat is null");
+        this.tableParameters = checkNotNull(tableParameters, "tableParameters is null");
+        this.serdeParameters = checkNotNull(serdeParameters, "serdeParameters is null");
 
         checkNotNull(columnNames, "columnNames is null");
         checkNotNull(columnTypes, "columnTypes is null");
@@ -127,6 +134,18 @@ public class HiveOutputTableHandle
     public HiveStorageFormat getHiveStorageFormat()
     {
         return hiveStorageFormat;
+    }
+
+    @JsonProperty
+    public Map<String, String> getTableParameters()
+    {
+        return tableParameters;
+    }
+
+    @JsonProperty
+    public Map<String, String> getSerdeParameters()
+    {
+        return serdeParameters;
     }
 
     @Override

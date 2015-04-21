@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.hive;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -38,6 +38,7 @@ public class HiveInsertTableHandle implements ConnectorInsertTableHandle
     private final String temporaryPath;
     private final String outputFormat;
     private final String serdeLib;
+    private final Map<String, String> tableParameters;
     private final Map<String, String> serdeParameters;
     private final List<Boolean> partitionBitmap;
     private final String filePrefix;
@@ -54,6 +55,7 @@ public class HiveInsertTableHandle implements ConnectorInsertTableHandle
             @JsonProperty("temporaryPath") String temporaryPath,
             @JsonProperty("outputFormat") String outputFormat,
             @JsonProperty("serdeLib") String serdeLib,
+            @JsonProperty("tableParameters") Map<String, String> tableParameters,
             @JsonProperty("serdeParameters") Map<String, String> serdeParameters,
             @JsonProperty("partitionBitmap") List<Boolean> partitionBitmap,
             @JsonProperty("filePrefix") String filePrefix,
@@ -73,6 +75,7 @@ public class HiveInsertTableHandle implements ConnectorInsertTableHandle
 
         this.outputFormat = outputFormat;
         this.serdeLib = serdeLib;
+        this.tableParameters = tableParameters;
         this.serdeParameters = serdeParameters;
         this.partitionBitmap = partitionBitmap;
         this.filePrefix = filePrefix;
@@ -143,6 +146,12 @@ public class HiveInsertTableHandle implements ConnectorInsertTableHandle
     public String getSerdeLib()
     {
         return serdeLib;
+    }
+
+    @JsonProperty
+    public Map<String, String> getTableParameters()
+    {
+        return tableParameters;
     }
 
     @JsonProperty

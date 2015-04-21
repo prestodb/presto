@@ -15,7 +15,11 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import io.airlift.units.DataSize;
+
+import java.util.Map;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -24,6 +28,8 @@ public final class HiveSessionProperties
 {
     public static final String STORAGE_FORMAT_PROPERTY = "storage_format";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
+    private static final String TABLE_PARAMETERS_PREFIX = "table_parameters";
+    private static final String SERDE_PARAMETERS_PREFIX = "serde_parameters";
     private static final String OPTIMIZED_READER_ENABLED = "optimized_reader_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
@@ -46,6 +52,16 @@ public final class HiveSessionProperties
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_SESSION_PROPERTY, "Hive storage-format is invalid: " + storageFormatString);
         }
+    }
+
+    public static Map<String, String> getHiveTableParameters(ConnectorSession session)
+    {
+        return getPropertiesSubset(TABLE_PARAMETERS_PREFIX, session.getProperties());
+    }
+
+    public static Map<String, String> getHiveSerdeParameters(ConnectorSession session)
+    {
+        return getPropertiesSubset(SERDE_PARAMETERS_PREFIX, session.getProperties());
     }
 
     public static boolean isOptimizedReaderEnabled(ConnectorSession session, boolean defaultValue)
@@ -96,6 +112,18 @@ public final class HiveSessionProperties
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_SESSION_PROPERTY, ORC_STREAM_BUFFER_SIZE + " is invalid: " + streamBufferSizeString);
         }
+    }
+
+    static Map<String, String> getPropertiesSubset(String prefix, Map<String, String> properties)
+    {
+        ImmutableMap.Builder<String, String> propertiesSubset = ImmutableMap.builder();
+
+        properties.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(prefix + '.'))
+                .map(entry -> Maps.immutableEntry(entry.getKey().replace(prefix + '.', ""), entry.getValue()))
+                .forEach(propertiesSubset::put);
+
+        return propertiesSubset.build();
     }
 
     private static boolean isEnabled(String propertyName, ConnectorSession session, boolean defaultValue)

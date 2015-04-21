@@ -129,6 +129,7 @@ public class HiveRecordSink
             handle.getDataColumnTypes(),
             handle.getOutputFormat(),
             handle.getSerdeLib(),
+            handle.getTableParameters(),
             handle.getSerdeParameters(),
             handle.getFilePrefix(),
             handle.isOutputTablePartitioned(),
@@ -150,7 +151,8 @@ public class HiveRecordSink
             handle.getColumnTypes(),
             handle.getHiveStorageFormat().getOutputFormat(),
             handle.getHiveStorageFormat().getSerDe(),
-            null,
+            handle.getTableParameters(),
+            handle.getSerdeParameters(),
             "",
             false,
             handle.getConnectorSession());
@@ -164,6 +166,7 @@ public class HiveRecordSink
                              List<Type> dataColumnTypes,
                              String outputFormat,
                              String serdeLib,
+                             Map<String, String> tableParameters,
                              Map<String, String> serdeParameters,
                              String filePrefix,
                              boolean isPartitioned,
@@ -189,10 +192,12 @@ public class HiveRecordSink
         properties.setProperty(META_TABLE_COLUMNS, Joiner.on(',').join(dataColumnNames));
         properties.setProperty(META_TABLE_COLUMN_TYPES, Joiner.on(':').join(hiveTypeNames));
 
+        if (tableParameters != null) {
+            properties.putAll(tableParameters);
+        }
+
         if (serdeParameters != null) {
-            for (String key : serdeParameters.keySet()) {
-                properties.setProperty(key, serdeParameters.get(key));
-            }
+            properties.putAll(serdeParameters);
         }
 
         try {

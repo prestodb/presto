@@ -106,7 +106,7 @@ final class ResourceUtil
 
         String catalog;
         String name;
-        List<String> nameParts = Splitter.on('.').splitToList(nameValue.get(0));
+        List<String> nameParts = Splitter.on('.').limit(2).splitToList(nameValue.get(0));
         if (nameParts.size() == 1) {
             catalog = null;
             name = nameParts.get(0);
