@@ -75,18 +75,48 @@ public final class BlockEncodingManager
     @Override
     public void writeBlockEncoding(SliceOutput output, BlockEncoding encoding)
     {
-        // get the encoding name
-        String encodingName = encoding.getName();
+        writeBlockEncodingInternal(output, encoding);
+    }
 
-        // look up the encoding factory
-        BlockEncodingFactory<BlockEncoding> blockEncoding = (BlockEncodingFactory<BlockEncoding>) blockEncodings.get(encodingName);
-        checkArgument(blockEncoding != null, "Unknown block encoding %s", encodingName);
+    /**
+     * This method enables internal implementations to serialize data without holding a BlockEncodingManager.
+     * For example, LiteralInterpreter.toExpression serializes data to produce literals.
+     */
+    public static void writeBlockEncodingInternal(SliceOutput output, BlockEncoding encoding)
+    {
+        WriteOnlyBlockEncodingManager.INSTANCE.writeBlockEncoding(output, encoding);
+    }
 
-        // write the name to the output
-        writeLengthPrefixedString(output, encodingName);
+    private static class WriteOnlyBlockEncodingManager
+            implements BlockEncodingSerde
+    {
+        static final WriteOnlyBlockEncodingManager INSTANCE = new WriteOnlyBlockEncodingManager();
 
-        // write the encoding to the output
-        blockEncoding.writeEncoding(this, output, encoding);
+        private WriteOnlyBlockEncodingManager()
+        {
+        }
+
+        @Override
+        public BlockEncoding readBlockEncoding(SliceInput input)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void writeBlockEncoding(SliceOutput output, BlockEncoding encoding)
+        {
+            // get the encoding name
+            String encodingName = encoding.getName();
+
+            // look up the encoding factory
+            BlockEncodingFactory<BlockEncoding> blockEncoding = encoding.getFactory();
+
+            // write the name to the output
+            writeLengthPrefixedString(output, encodingName);
+
+            // write the encoding to the output
+            blockEncoding.writeEncoding(this, output, encoding);
+        }
     }
 
     private static String readLengthPrefixedString(SliceInput input)

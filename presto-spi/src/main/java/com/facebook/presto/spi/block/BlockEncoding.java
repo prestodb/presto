@@ -38,4 +38,9 @@ public interface BlockEncoding
      * Estimated serialized block size
      */
     int getEstimatedSize(Block block);
+
+    /**
+     * Return associated factory
+     */
+    BlockEncodingFactory getFactory();
 }

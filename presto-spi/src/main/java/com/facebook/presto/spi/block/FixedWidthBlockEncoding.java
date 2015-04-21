@@ -102,6 +102,12 @@ public class FixedWidthBlockEncoding
         return new FixedWidthBlock(fixedSize, positionCount, slice, valueIsNull);
     }
 
+    @Override
+    public BlockEncodingFactory getFactory()
+    {
+        return FACTORY;
+    }
+
     public static class FixedWidthBlockEncodingFactory
             implements BlockEncodingFactory<FixedWidthBlockEncoding>
     {

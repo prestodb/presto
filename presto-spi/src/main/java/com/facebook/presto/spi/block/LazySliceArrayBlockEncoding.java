@@ -116,6 +116,12 @@ public class LazySliceArrayBlockEncoding
         return new SliceArrayBlock(positionCount, values);
     }
 
+    @Override
+    public BlockEncodingFactory getFactory()
+    {
+        return FACTORY;
+    }
+
     public static class LazySliceArrayBlockEncodingFactory
             implements BlockEncodingFactory<LazySliceArrayBlockEncoding>
     {
