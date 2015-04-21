@@ -200,12 +200,12 @@ var QueryPane = React.createClass({
     loadQueriesFromServer: function(finishCallback)
     {
         d3.json('/v1/query', function (queries) {
-            this.setState({queries: queries});
+            this.setState({queries: queries, initialized: true});
             finishCallback();
         }.bind(this));
     },
     getInitialState: function() {
-        return {queries: [], autoRefresh: true};
+        return {queries: [], autoRefresh: true, initialized: false};
     },
     refreshLoop: function() {
         clearTimeout(this.timeoutId);
@@ -261,9 +261,10 @@ var QueryPane = React.createClass({
             );
         }
         else {
+            var label = this.state.initialized ? "No queries" : "Loading...";
             return (
                     <div className="row no-queries">
-                        <div className="col-md-12"><div className="well"><h4>No queries</h4></div></div>
+                        <div className="col-md-12"><div className="well"><h4>{label}</h4></div></div>
                     </div>
             );
         }
