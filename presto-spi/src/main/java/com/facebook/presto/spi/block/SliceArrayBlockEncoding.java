@@ -116,6 +116,12 @@ public class SliceArrayBlockEncoding
         return new SliceArrayBlock(positionCount, values);
     }
 
+    @Override
+    public BlockEncodingFactory getFactory()
+    {
+        return FACTORY;
+    }
+
     public static class SliceArrayBlockEncodingFactory
             implements BlockEncodingFactory<SliceArrayBlockEncoding>
     {

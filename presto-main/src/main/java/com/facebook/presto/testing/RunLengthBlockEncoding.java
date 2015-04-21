@@ -79,6 +79,12 @@ public class RunLengthBlockEncoding
         return new RunLengthEncodedBlock(value, positionCount);
     }
 
+    @Override
+    public BlockEncodingFactory getFactory()
+    {
+        return FACTORY;
+    }
+
     private static class RunLengthBlockEncodingFactory
             implements BlockEncodingFactory<RunLengthBlockEncoding>
     {
