@@ -22,10 +22,13 @@ import com.facebook.presto.type.SqlType;
 import com.facebook.presto.util.ThreadLocalCache;
 import com.teradata.presto.functions.dateformat.TeradataDateFormatterBuilder;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.joda.time.format.DateTimeFormatter;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
+import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -44,6 +47,20 @@ public final class TeradataDateFunctions
 
     private TeradataDateFunctions()
     {
+    }
+
+    @Description("Converts timestamp with timezone to varchar. Teradata extension to the ANSI SQL-2003 standard")
+    @ScalarFunction("to_char")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice toChar(ConnectorSession session,
+                                       @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone,
+                                       @SqlType(StandardTypes.VARCHAR) Slice formatString)
+    {
+        DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
+                .withChronology(unpackChronology(timestampWithTimeZone))
+                .withLocale(session.getLocale());
+
+        return Slices.copiedBuffer(formatter.print(unpackMillisUtc(timestampWithTimeZone)), UTF_8);
     }
 
     @Description("Converts string_expr to a DATE data type. Teradata extension to the ANSI SQL-2003 standard")

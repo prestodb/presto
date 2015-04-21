@@ -27,6 +27,6 @@ public class DDToken implements Token
     @Override
     public void appendTo(DateTimeFormatterBuilder builder)
     {
-        builder.appendDayOfMonth(1);
+        builder.appendDayOfMonth(2);
     }
 }

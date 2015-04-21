@@ -27,6 +27,6 @@ public class SSToken implements Token
     @Override
     public void appendTo(DateTimeFormatterBuilder builder)
     {
-        builder.appendSecondOfMinute(1);
+        builder.appendSecondOfMinute(2);
     }
 }

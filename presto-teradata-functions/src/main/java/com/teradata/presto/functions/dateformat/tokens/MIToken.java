@@ -27,6 +27,6 @@ public class MIToken implements Token
     @Override
     public void appendTo(DateTimeFormatterBuilder builder)
     {
-        builder.appendMinuteOfHour(1);
+        builder.appendMinuteOfHour(2);
     }
 }

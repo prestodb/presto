@@ -29,6 +29,7 @@ import org.testng.annotations.Test;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.util.Locale.ENGLISH;
 
@@ -72,9 +73,24 @@ public class TestTeradataDateFunctions
         assertTimestamp("to_timestamp(';198804:08',';yyyymm:dd')", 1988, 4, 8, 0, 0, 0);
 
         assertTimestamp("to_timestamp('1988/04/08;2','yyyy/mm/dd;hh')", 1988, 4, 8, 2, 0, 0);
+
         assertTimestamp("to_timestamp('1988/04/08;14','yyyy/mm/dd;hh24')", 1988, 4, 8, 14, 0, 0);
         assertTimestamp("to_timestamp('1988/04/08;14:15','yyyy/mm/dd;hh24:mi')", 1988, 4, 8, 14, 15, 0);
         assertTimestamp("to_timestamp('1988/04/08;14:15:16','yyyy/mm/dd;hh24:mi:ss')", 1988, 4, 8, 14, 15, 16);
+
+        assertTimestamp("to_timestamp('1988/04/08;2:3:4','yyyy/mm/dd;hh24:mi:ss')", 1988, 4, 8, 2, 3, 4);
+        assertTimestamp("to_timestamp('1988/04/08;02:03:04','yyyy/mm/dd;hh24:mi:ss')", 1988, 4, 8, 2, 3, 4);
+    }
+
+    @Test
+    public void testMinimalToChar()
+    {
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04','yyyy/mm/dd;hh:mi:ss')", "1988/04/08;02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04','yyyy/mm/dd;hh24:mi:ss')", "1988/04/08;02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 14:15:16','yyyy/mm/dd;hh24:mi:ss')", "1988/04/08;14:15:16");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 14:15:16 +02:09','yyyy/mm/dd;hh24:mi:ss')", "1988/04/08;14:15:16");
+
+        assertVarchar("to_char(DATE '1988-04-08','yyyy/mm/dd;hh24:mi:ss')", "1988/04/08;00:00:00");
     }
 
     // TODO: implement this feature SWARM-355
@@ -134,6 +150,11 @@ public class TestTeradataDateFunctions
                 projection,
                 DateType.DATE,
                 sqlDate(new DateTime(year, month, day, 0, 0, DATE_TIME_ZONE)));
+    }
+
+    private void assertVarchar(String projection, String expected)
+    {
+        assertFunction(projection, VARCHAR, expected);
     }
 
     private void assertFunction(String projection, Type expectedType, Object expected)

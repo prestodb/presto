@@ -27,6 +27,6 @@ public class HH24Token implements Token
     @Override
     public void appendTo(DateTimeFormatterBuilder builder)
     {
-        builder.appendHourOfDay(1);
+        builder.appendHourOfDay(2);
     }
 }

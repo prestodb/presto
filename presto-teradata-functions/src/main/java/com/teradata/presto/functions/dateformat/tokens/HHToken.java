@@ -27,6 +27,6 @@ public class HHToken implements Token
     @Override
     public void appendTo(DateTimeFormatterBuilder builder)
     {
-        builder.appendHourOfHalfday(1);
+        builder.appendHourOfHalfday(2);
     }
 }
