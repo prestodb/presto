@@ -48,8 +48,20 @@ class ColumnInfo
     private final String catalogName;
 
     public ColumnInfo(
-            int columnType, List<Integer> columnParameterTypes, TypeSignature columnTypeSignature, int nullable, boolean currency, boolean signed, int precision, int scale,
-            int columnDisplaySize, String columnLabel, String columnName, String tableName, String schemaName, String catalogName)
+            int columnType,
+            List<Integer> columnParameterTypes,
+            TypeSignature columnTypeSignature,
+            int nullable,
+            boolean currency,
+            boolean signed,
+            int precision,
+            int scale,
+            int columnDisplaySize,
+            String columnLabel,
+            String columnName,
+            String tableName,
+            String schemaName,
+            String catalogName)
     {
         this.columnType = columnType;
         this.columnParameterTypes = ImmutableList.copyOf(checkNotNull(columnParameterTypes, "columnParameterTypes is null"));
@@ -350,8 +362,20 @@ class ColumnInfo
         public ColumnInfo build()
         {
             return new ColumnInfo(
-                    columnType, columnParameterTypes, columnTypeSignature, nullable, currency, signed, precision, scale,
-                    columnDisplaySize, columnLabel, columnName, tableName, schemaName, catalogName);
+                    columnType,
+                    columnParameterTypes,
+                    columnTypeSignature,
+                    nullable,
+                    currency,
+                    signed,
+                    precision,
+                    scale,
+                    columnDisplaySize,
+                    columnLabel,
+                    columnName,
+                    tableName,
+                    schemaName,
+                    catalogName);
         }
     }
 }
