@@ -130,7 +130,6 @@ public class TestRaptorSplitManager
                 .map(ColumnInfo::fromHandle)
                 .collect(toList());
 
-        shardManager.createTable(tableId, columns);
         shardManager.commitShards(tableId, columns, shards, Optional.empty());
 
         raptorSplitManager = new RaptorSplitManager(connectorId, nodeManager, shardManager, storageManager);
