@@ -198,8 +198,7 @@ public class PrestoS3FileSystem
     }
 
     @Override
-    public RemoteIterator<LocatedFileStatus> listLocatedStatus(final Path path)
-            throws IOException
+    public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path path)
     {
         STATS.newListLocatedStatusCall();
         return new RemoteIterator<LocatedFileStatus>()
@@ -249,7 +248,7 @@ public class PrestoS3FileSystem
         if (metadata == null) {
             // check if this path is a directory
             Iterator<LocatedFileStatus> iterator = listPrefix(path);
-            if ((iterator != null) && iterator.hasNext()) {
+            if (iterator.hasNext()) {
                 return new FileStatus(0, true, 1, 0, 0, qualifiedPath(path));
             }
             throw new FileNotFoundException("File does not exist: " + path);
@@ -293,28 +292,24 @@ public class PrestoS3FileSystem
 
     @Override
     public FSDataOutputStream append(Path f, int bufferSize, Progressable progress)
-            throws IOException
     {
         throw new UnsupportedOperationException("append");
     }
 
     @Override
     public boolean rename(Path src, Path dst)
-            throws IOException
     {
         throw new UnsupportedOperationException("rename");
     }
 
     @Override
     public boolean delete(Path f, boolean recursive)
-            throws IOException
     {
         throw new UnsupportedOperationException("delete");
     }
 
     @Override
     public boolean mkdirs(Path f, FsPermission permission)
-            throws IOException
     {
         // no need to do anything for S3
         return true;
@@ -394,7 +389,7 @@ public class PrestoS3FileSystem
         }
     }
 
-    private ObjectMetadata getS3ObjectMetadata(final Path path)
+    private ObjectMetadata getS3ObjectMetadata(Path path)
             throws IOException
     {
         try {
@@ -514,7 +509,6 @@ public class PrestoS3FileSystem
 
         @Override
         public void close()
-                throws IOException
         {
             closed = true;
             closeStream();
@@ -552,21 +546,19 @@ public class PrestoS3FileSystem
 
         @Override
         public long getPos()
-                throws IOException
         {
             return position;
         }
 
         @Override
         public int read()
-                throws IOException
         {
             // This stream is wrapped with BufferedInputStream, so this method should never be called
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public int read(final byte[] buffer, final int offset, final int length)
+        public int read(byte[] buffer, int offset, int length)
                 throws IOException
         {
             try {
@@ -602,12 +594,11 @@ public class PrestoS3FileSystem
 
         @Override
         public boolean seekToNewSource(long targetPos)
-                throws IOException
         {
             return false;
         }
 
-        private S3Object getS3Object(final Path path, final long start)
+        private S3Object getS3Object(Path path, long start)
                 throws IOException
         {
             try {
@@ -647,7 +638,6 @@ public class PrestoS3FileSystem
         }
 
         private void closeStream()
-                throws IOException
         {
             if (in != null) {
                 try {
@@ -736,7 +726,7 @@ public class PrestoS3FileSystem
             }
         }
 
-        private ProgressListener createProgressListener(final Transfer transfer)
+        private ProgressListener createProgressListener(Transfer transfer)
         {
             return new ProgressListener()
             {
