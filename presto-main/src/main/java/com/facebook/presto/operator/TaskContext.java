@@ -121,12 +121,11 @@ public class TaskContext
 
     public void start()
     {
-        if (!startNanos.compareAndSet(0, System.nanoTime())) {
-            // already started
-            return;
-        }
         DateTime now = DateTime.now();
         executionStartTime.compareAndSet(null, now);
+        startNanos.compareAndSet(0, System.nanoTime());
+
+        // always update last execution start time
         lastExecutionStartTime.set(now);
     }
 
