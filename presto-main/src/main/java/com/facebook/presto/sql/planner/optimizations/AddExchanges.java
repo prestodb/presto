@@ -65,7 +65,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.jetbrains.annotations.NotNull;
@@ -86,12 +85,14 @@ import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripDeterministicConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.planner.optimizations.LocalProperties.grouped;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
 
 public class AddExchanges
         extends PlanOptimizer
@@ -291,6 +292,12 @@ public class AddExchanges
                 }
             }
 
+            Optional<LocalProperty<Symbol>> matched = getOnlyElement(LocalProperties.match(child.getProperties().getLocalProperties(), grouped(node.getPartitionBy())));
+            Set<Symbol> unPartitionedColumns = matched.map(LocalProperty::getColumns).orElse(ImmutableSet.of());
+            Set<Symbol> prePartitionedColumns = node.getPartitionBy().stream()
+                    .filter(symbol -> !unPartitionedColumns.contains(symbol))
+                    .collect(toImmutableSet());
+
             return withDerivedProperties(
                     new WindowNode(
                             node.getId(),
@@ -302,7 +309,7 @@ public class AddExchanges
                             node.getWindowFunctions(),
                             node.getSignatures(),
                             node.getHashSymbol(),
-                            child.getProperties().getMaxGroupingSubset(node.getPartitionBy())),
+                            prePartitionedColumns),
                     child.getProperties());
         }
 
@@ -760,7 +767,7 @@ public class AddExchanges
 
         private PlanWithProperties planChild(PlanNode node, PreferredProperties preferred)
         {
-            return Iterables.getOnlyElement(node.getSources()).accept(this, preferred);
+            return getOnlyElement(node.getSources()).accept(this, preferred);
         }
 
         private PlanWithProperties rebaseAndDeriveProperties(PlanNode node, PlanWithProperties child)

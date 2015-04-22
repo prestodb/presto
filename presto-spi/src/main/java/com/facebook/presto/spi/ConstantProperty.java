@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.block.SortOrder;
-
 import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
@@ -23,19 +21,14 @@ import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
-public final class SortingProperty<E>
+public final class ConstantProperty<E>
         implements LocalProperty<E>
 {
     private final E column;
-    private final SortOrder order;
 
-    public SortingProperty(E column, SortOrder order)
+    public ConstantProperty(E column)
     {
-        requireNonNull(column, "column is null");
-        requireNonNull(order, "order is null");
-
-        this.column = column;
-        this.order = order;
+        this.column = requireNonNull(column, "column is null");
     }
 
     public E getColumn()
@@ -48,21 +41,13 @@ public final class SortingProperty<E>
         return Collections.singleton(column);
     }
 
-    public SortOrder getOrder()
-    {
-        return order;
-    }
-
-    /**
-     * Returns Optional.empty() if the column could not be translated
-     */
     @Override
     public <T> Optional<LocalProperty<T>> translate(Function<E, Optional<T>> translator)
     {
         Optional<T> translated = translator.apply(column);
 
         if (translated.isPresent()) {
-            return Optional.of(new SortingProperty<>(translated.get(), order));
+            return Optional.of(new ConstantProperty<>(translated.get()));
         }
 
         return Optional.empty();
@@ -71,34 +56,13 @@ public final class SortingProperty<E>
     @Override
     public boolean isSimplifiedBy(LocalProperty<E> known)
     {
-        return known instanceof ConstantProperty || known.equals(this);
+        return known instanceof ConstantProperty && known.equals(this);
     }
 
     @Override
     public String toString()
     {
-        String ordering = "";
-        String nullOrdering = "";
-        switch (order) {
-            case ASC_NULLS_FIRST:
-                ordering = "\u2191";
-                nullOrdering = "\u2190";
-                break;
-            case ASC_NULLS_LAST:
-                ordering = "\u2191";
-                nullOrdering = "\u2190";
-                break;
-            case DESC_NULLS_FIRST:
-                ordering = "\u2193";
-                nullOrdering = "\u2192";
-                break;
-            case DESC_NULLS_LAST:
-                ordering = "\u2193";
-                nullOrdering = "\u2192";
-                break;
-        }
-
-        return "S" + ordering + nullOrdering + "(" + column + ")";
+        return "C(" + column + ")";
     }
 
     @Override
@@ -110,14 +74,13 @@ public final class SortingProperty<E>
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        SortingProperty<?> that = (SortingProperty<?>) o;
-        return Objects.equals(column, that.column) &&
-                Objects.equals(order, that.order);
+        ConstantProperty<?> that = (ConstantProperty<?>) o;
+        return Objects.equals(column, that.column);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(column, order);
+        return Objects.hash(column);
     }
 }
