@@ -301,7 +301,6 @@ public final class GraphvizPrinter
             for (PlanNode planNode : node.getSources()) {
                 planNode.accept(this, context);
             }
-
             return null;
         }
 
