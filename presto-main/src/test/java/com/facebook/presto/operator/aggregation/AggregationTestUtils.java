@@ -28,9 +28,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -419,5 +421,28 @@ public final class AggregationTestUtils
         BlockBuilder out = groupedAggregation.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1);
         groupedAggregation.evaluateFinal(groupId, out);
         return BlockAssertions.getOnlyValue(groupedAggregation.getFinalType(), out.build());
+    }
+
+    public static double[] constructDoublePrimitiveArray(int start, int length)
+    {
+        return IntStream.range(start, start + length).asDoubleStream().toArray();
+    }
+
+    public static Block createDoubleSequenceBlock(int start, int length)
+    {
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), length);
+        for (int i = start; i < start + length; i++) {
+            DOUBLE.writeDouble(blockBuilder, i);
+        }
+        return blockBuilder.build();
+    }
+
+    public static Block createDoubleArbitraryBlock(double... values)
+    {
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), values.length);
+        for (double i : values) {
+            DOUBLE.writeDouble(blockBuilder, i);
+        }
+        return blockBuilder.build();
     }
 }
