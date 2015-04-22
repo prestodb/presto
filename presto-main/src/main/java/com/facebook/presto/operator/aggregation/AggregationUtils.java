@@ -14,6 +14,9 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
+import com.facebook.presto.operator.aggregation.state.CorrelationState;
+import com.facebook.presto.operator.aggregation.state.CovarianceState;
+import com.facebook.presto.operator.aggregation.state.RegressionState;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -45,6 +48,27 @@ public final class AggregationUtils
         state.setM2(state.getM2() + delta * (value - state.getMean()));
     }
 
+    public static void updateCovarianceState(CovarianceState state, double x, double y)
+    {
+        state.setCount(state.getCount() + 1);
+        state.setSumXY(state.getSumXY() + x * y);
+        state.setSumX(state.getSumX() + x);
+        state.setSumY(state.getSumY() + y);
+    }
+
+    public static void updateCorrelationState(CorrelationState state, double x, double y)
+    {
+        updateCovarianceState(state, x, y);
+        state.setSumXSquare(state.getSumXSquare() + x * x);
+        state.setSumYSquare(state.getSumYSquare() + y * y);
+    }
+
+    public static void updateRegressionState(RegressionState state, double x, double y)
+    {
+        updateCovarianceState(state, x, y);
+        state.setSumXSquare(state.getSumXSquare() + x * x);
+    }
+
     public static void mergeVarianceState(VarianceState state, VarianceState otherState)
     {
         long count = otherState.getCount();
@@ -62,6 +86,44 @@ public final class AggregationUtils
         state.setM2(state.getM2() + m2Delta);
         state.setCount(newCount);
         state.setMean(newMean);
+    }
+
+    private static void updateCovarianceState(CovarianceState state, CovarianceState otherState)
+    {
+        state.setSumX(state.getSumX() + otherState.getSumX());
+        state.setSumY(state.getSumY() + otherState.getSumY());
+        state.setSumXY(state.getSumXY() + otherState.getSumXY());
+        state.setCount(state.getCount() + otherState.getCount());
+    }
+
+    public static void mergeCovarianceState(CovarianceState state, CovarianceState otherState)
+    {
+        if (otherState.getCount() == 0) {
+            return;
+        }
+
+        updateCovarianceState(state, otherState);
+    }
+
+    public static void mergeCorrelationState(CorrelationState state, CorrelationState otherState)
+    {
+        if (otherState.getCount() == 0) {
+            return;
+        }
+
+        updateCovarianceState(state, otherState);
+        state.setSumXSquare(state.getSumXSquare() + otherState.getSumXSquare());
+        state.setSumYSquare(state.getSumYSquare() + otherState.getSumYSquare());
+    }
+
+    public static void mergeRegressionState(RegressionState state, RegressionState otherState)
+    {
+        if (otherState.getCount() == 0) {
+            return;
+        }
+
+        updateCovarianceState(state, otherState);
+        state.setSumXSquare(state.getSumXSquare() + otherState.getSumXSquare());
     }
 
     public static Type getOutputType(@Nullable Method outputFunction, AccumulatorStateSerializer<?> serializer, TypeManager typeManager)
