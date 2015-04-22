@@ -164,7 +164,8 @@ public abstract class AbstractTestQueryFramework
         TypeManager typeManager = new TypeRegistry();
         MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeManager, new SplitManager(), new BlockEncodingManager(typeManager));
         FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true).setOptimizeHashGeneration(true);
-        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, sqlParser, new SplitManager(), new IndexManager(), featuresConfig).get();
+        boolean forceSingleNode = queryRunner.getNodeCount() == 1;
+        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, sqlParser, new SplitManager(), new IndexManager(), featuresConfig, forceSingleNode).get();
         return new QueryExplainer(queryRunner.getDefaultSession(),
                 optimizers,
                 metadata,
