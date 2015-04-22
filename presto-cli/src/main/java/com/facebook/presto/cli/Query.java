@@ -69,36 +69,31 @@ public class Query
         return client.getResetSessionProperties();
     }
 
-    public void renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
+    public int renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
     {
-        SignalHandler oldHandler = Signal.handle(SIGINT, new SignalHandler()
-        {
-            @Override
-            public void handle(Signal signal)
-            {
-                if (ignoreUserInterrupt.get() || client.isClosed()) {
-                    return;
-                }
-                try {
-                    if (!client.cancelLeafStage()) {
-                        client.close();
-                    }
-                }
-                catch (RuntimeException e) {
-                    log.debug(e, "error canceling leaf stage");
+        SignalHandler oldHandler = Signal.handle(SIGINT, signal -> {
+            if (ignoreUserInterrupt.get() || client.isClosed()) {
+                return;
+            }
+            try {
+                if (!client.cancelLeafStage()) {
                     client.close();
                 }
             }
+            catch (RuntimeException e) {
+                log.debug(e, "error canceling leaf stage");
+                client.close();
+            }
         });
         try {
-            renderQueryOutput(out, outputFormat, interactive);
+            return renderQueryOutput(out, outputFormat, interactive);
         }
         finally {
             Signal.handle(SIGINT, oldHandler);
         }
     }
 
-    private void renderQueryOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
+    private int renderQueryOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
     {
         StatusPrinter statusPrinter = null;
         @SuppressWarnings("resource")
@@ -119,7 +114,8 @@ public class Query
             }
             else if (results.getColumns() == null) {
                 errorChannel.printf("Query %s has no columns\n", results.getId());
-                return;
+                int errorCode = results.getError().getErrorCode();
+                return errorCode != 0 ? errorCode : 1; //0 can be returned as an error code
             }
             else {
                 renderResults(out, outputFormat, interactive, results.getColumns());
@@ -128,6 +124,12 @@ public class Query
 
         if (statusPrinter != null) {
             statusPrinter.printFinalInfo();
+        }
+
+        int returnCode = 0;
+        if (client.finalResults().getError() != null) {
+            int errorCode = client.finalResults().getError().getErrorCode();
+            returnCode = errorCode != 0 ? errorCode : 1; //0 can be returned as an error code
         }
 
         if (client.isClosed()) {
@@ -139,6 +141,8 @@ public class Query
         else if (client.isFailed()) {
             renderFailure(client.finalResults(), errorChannel);
         }
+
+        return returnCode;
     }
 
     private void waitForData()
