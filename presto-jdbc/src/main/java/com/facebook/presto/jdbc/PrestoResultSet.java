@@ -64,7 +64,6 @@ import static com.facebook.presto.jdbc.ColumnInfo.setTypeInfo;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Throwables.propagate;
-import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
@@ -166,7 +165,9 @@ public class PrestoResultSet
             return true;
         }
         catch (RuntimeException e) {
-            propagateIfInstanceOf(e, SQLException.class);
+            if (e.getCause() instanceof SQLException) {
+                throw (SQLException) e.getCause();
+            }
             throw new SQLException("Error fetching results", e);
         }
     }
@@ -1769,6 +1770,11 @@ public class PrestoResultSet
         protected Iterable<List<Object>> computeNext()
         {
             while (client.isValid()) {
+                if (Thread.currentThread().isInterrupted()) {
+                    client.close();
+                    throw propagate(new SQLException("ResultSet thread was interrupted"));
+                }
+
                 Iterable<List<Object>> data = client.current().getData();
                 client.advance();
                 if (data != null) {
