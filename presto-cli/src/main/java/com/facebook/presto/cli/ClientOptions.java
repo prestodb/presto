@@ -70,6 +70,9 @@ public class ClientOptions
     @Option(name = "--socks-proxy", title = "socks-proxy", description = "SOCKS proxy to use for server connections")
     public HostAndPort socksProxy;
 
+    @Option(name = "--stop-on-error", title = "stop-on-error", description = "Whether to stop execution immediately if any query fails in batch mode (default: true)", arity = 1)
+    public boolean stopOnError = true;
+
     public enum OutputFormat
     {
         ALIGNED,
@@ -92,7 +95,8 @@ public class ClientOptions
                 TimeZone.getDefault().getID(),
                 Locale.getDefault(),
                 toProperties(sessionProperties),
-                debug);
+                debug,
+                stopOnError);
     }
 
     public static URI parseServer(String server)

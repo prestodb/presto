@@ -79,6 +79,9 @@ public class BenchmarkDriverOptions
     @Option(name = "--socks", title = "socks", description = "Socks proxy to use")
     public HostAndPort socksProxy;
 
+    @Option(name = "--stop-on-error", title = "stop-on-error", description = "Whether to stop execution immediately if any query fails in batch mode (default: true)", arity = 1)
+    public boolean stopOnError = true;
+
     public ClientSession getClientSession()
     {
         return new ClientSession(
@@ -90,7 +93,8 @@ public class BenchmarkDriverOptions
                 TimeZone.getDefault().getID(),
                 Locale.getDefault(),
                 toProperties(this.sessionProperties),
-                debug);
+                debug,
+                stopOnError);
     }
 
     private static URI parseServer(String server)

@@ -583,7 +583,8 @@ public class PrestoConnection
                 timeZoneId.get(),
                 locale.get(),
                 ImmutableMap.copyOf(sessionProperties),
-                false);
+                false,
+                true);
 
         return queryExecutor.startQuery(session, sql);
     }
