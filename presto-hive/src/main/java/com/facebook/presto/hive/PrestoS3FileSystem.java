@@ -493,7 +493,8 @@ public class PrestoS3FileSystem
 
         private boolean closed;
         private S3ObjectInputStream in;
-        private long position;
+        private long streamPosition;
+        private long nextReadPosition;
 
         public PrestoS3InputStream(AmazonS3 s3, String host, Path path, int maxClientRetry, Duration maxBackoffTime, Duration maxRetryTime)
         {
@@ -516,30 +517,36 @@ public class PrestoS3FileSystem
 
         @Override
         public void seek(long pos)
-                throws IOException
         {
             checkState(!closed, "already closed");
             checkArgument(pos >= 0, "position is negative: %s", pos);
 
-            if ((in != null) && (pos == position)) {
+            // this allows a seek beyond the end of the stream but a the next read will fail
+            nextReadPosition = pos;
+        }
+
+        private void seekStream()
+                throws IOException
+        {
+            if ((in != null) && (nextReadPosition == streamPosition)) {
                 // already at specified position
                 return;
             }
 
-            if ((in != null) && (pos > position)) {
+            if ((in != null) && (nextReadPosition > streamPosition)) {
                 // seeking forwards
-                long skip = pos - position;
+                long skip = nextReadPosition - streamPosition;
                 if (skip <= max(in.available(), MAX_SKIP_SIZE.toBytes())) {
                     // already buffered or seek is small enough
                     if (in.skip(skip) == skip) {
-                        position = pos;
+                        streamPosition = nextReadPosition;
                         return;
                     }
                 }
             }
 
             // close the stream and open at desired position
-            position = pos;
+            streamPosition = nextReadPosition;
             closeStream();
             openStream();
         }
@@ -547,7 +554,7 @@ public class PrestoS3FileSystem
         @Override
         public long getPos()
         {
-            return position;
+            return nextReadPosition;
         }
 
         @Override
@@ -567,7 +574,7 @@ public class PrestoS3FileSystem
                         .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, maxRetryTime, 2.0)
                         .stopOn(InterruptedException.class)
                         .run("readStream", () -> {
-                            openStream();
+                            seekStream();
                             try {
                                 return in.read(buffer, offset, length);
                             }
@@ -578,7 +585,8 @@ public class PrestoS3FileSystem
                         });
 
                 if (bytesRead != -1) {
-                    position += bytesRead;
+                    streamPosition += bytesRead;
+                    nextReadPosition += bytesRead;
                 }
                 return bytesRead;
             }
@@ -632,7 +640,8 @@ public class PrestoS3FileSystem
                 throws IOException
         {
             if (in == null) {
-                in = getS3Object(path, position).getObjectContent();
+                in = getS3Object(path, nextReadPosition).getObjectContent();
+                streamPosition = nextReadPosition;
                 STATS.connectionOpened();
             }
         }
