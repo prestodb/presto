@@ -35,7 +35,7 @@ class ColumnInfo
     private final int columnType;
     private final List<Integer> columnParameterTypes;
     private final TypeSignature columnTypeSignature;
-    private final int nullable;
+    private final Nullable nullable;
     private final boolean currency;
     private final boolean signed;
     private final int precision;
@@ -47,11 +47,16 @@ class ColumnInfo
     private final String schemaName;
     private final String catalogName;
 
+    public enum Nullable
+    {
+        NO_NULLS, NULLABLE, UNKNOWN
+    }
+
     public ColumnInfo(
             int columnType,
             List<Integer> columnParameterTypes,
             TypeSignature columnTypeSignature,
-            int nullable,
+            Nullable nullable,
             boolean currency,
             boolean signed,
             int precision,
@@ -66,7 +71,7 @@ class ColumnInfo
         this.columnType = columnType;
         this.columnParameterTypes = ImmutableList.copyOf(checkNotNull(columnParameterTypes, "columnParameterTypes is null"));
         this.columnTypeSignature = checkNotNull(columnTypeSignature, "columnTypeName is null");
-        this.nullable = nullable;
+        this.nullable = checkNotNull(nullable, "nullable is null");
         this.currency = currency;
         this.signed = signed;
         this.precision = precision;
@@ -204,7 +209,7 @@ class ColumnInfo
         return columnTypeSignature;
     }
 
-    public int getNullable()
+    public Nullable getNullable()
     {
         return nullable;
     }
@@ -264,7 +269,7 @@ class ColumnInfo
         private int columnType;
         private List<Integer> columnParameterTypes;
         private TypeSignature columnTypeSignature;
-        private int nullable;
+        private Nullable nullable;
         private boolean currency;
         private boolean signed;
         private int precision;
@@ -293,7 +298,7 @@ class ColumnInfo
             return this;
         }
 
-        public Builder setNullable(int nullable)
+        public Builder setNullable(Nullable nullable)
         {
             this.nullable = nullable;
             return this;
