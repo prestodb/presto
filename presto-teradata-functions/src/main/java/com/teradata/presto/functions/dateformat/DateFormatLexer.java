@@ -93,7 +93,7 @@ public class DateFormatLexer
             return new DateFormatLexer(tokens);
         }
 
-        public DateFormatLexerBuilder addToken(Token token)
+        public DateFormatLexerBuilder add(Token token)
         {
             Character key = token.representation().charAt(0);
             if (!tokens.containsKey(key)) {
@@ -103,9 +103,9 @@ public class DateFormatLexer
             return this;
         }
 
-        public DateFormatLexerBuilder addTextToken(String text)
+        public DateFormatLexerBuilder add(String text)
         {
-            return addToken(new TextToken(text));
+            return add(new TextToken(text));
         }
     }
 }

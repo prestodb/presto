@@ -28,7 +28,7 @@ public class TestDateFormatLexer
     @BeforeClass
     public void setUp()
     {
-        yearLexer = DateFormatLexer.builder().addTextToken("yyyy").build();
+        yearLexer = DateFormatLexer.builder().add("yyyy").build();
     }
 
     @Test
@@ -55,11 +55,11 @@ public class TestDateFormatLexer
     public void testYearMonthDay()
     {
         DateFormatLexer yearMonthDayLexer = DateFormatLexer.builder()
-                .addTextToken("yyyy")
-                .addTextToken("mm")
-                .addTextToken("dd")
-                .addTextToken("-")
-                .addTextToken("/")
+                .add("yyyy")
+                .add("mm")
+                .add("dd")
+                .add("-")
+                .add("/")
                 .build();
 
         List<Token> tokens = yearMonthDayLexer.tokenize("mm-dd/yyyy");
@@ -75,9 +75,9 @@ public class TestDateFormatLexer
     public void testGreedinessLongFirst()
     {
         DateFormatLexer lexer = DateFormatLexer.builder()
-                .addTextToken("yyy")
-                .addTextToken("yy")
-                .addTextToken("y")
+                .add("yyy")
+                .add("yy")
+                .add("y")
                 .build();
 
         assertEquals(lexer.tokenize("y").size(), 1);
@@ -93,9 +93,9 @@ public class TestDateFormatLexer
     public void testGreedinessShortFirst()
     {
         DateFormatLexer lexer = DateFormatLexer.builder()
-                .addTextToken("y")
-                .addTextToken("yy")
-                .addTextToken("yyy")
+                .add("y")
+                .add("yy")
+                .add("yyy")
                 .build();
 
         assertEquals(lexer.tokenize("y").size(), 1);
