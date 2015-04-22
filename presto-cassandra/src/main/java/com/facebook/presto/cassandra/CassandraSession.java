@@ -28,7 +28,7 @@ import com.datastax.driver.core.querybuilder.Clause;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
 import com.datastax.driver.core.querybuilder.Select;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -323,7 +323,7 @@ public class CassandraSession
         List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
 
         ByteBuffer buffer = ByteBuffer.allocate(1000);
-        HashMap<ConnectorColumnHandle, Comparable<?>> map = new HashMap<>();
+        HashMap<ColumnHandle, Comparable<?>> map = new HashMap<>();
         Set<String> uniquePartitionIds = new HashSet<>();
         StringBuilder stringBuilder = new StringBuilder();
 
@@ -359,7 +359,7 @@ public class CassandraSession
             buffer.flip();
             byte[] key = new byte[buffer.limit()];
             buffer.get(key);
-            TupleDomain<ConnectorColumnHandle> tupleDomain = TupleDomain.withFixedValues(map);
+            TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withFixedValues(map);
             String partitionId = stringBuilder.toString();
             if (uniquePartitionIds.add(partitionId)) {
                 partitions.add(new CassandraPartition(key, partitionId, tupleDomain, false));

@@ -63,6 +63,11 @@ public class TestStatementBuilder
         printStatement("select x from unnest(array[1, 2, 3]) t(x)");
         printStatement("select * from users cross join unnest(friends)");
         printStatement("select id, friend from users cross join unnest(friends) t(friend)");
+        printStatement("select * from unnest(t.my_array) with ordinality");
+        printStatement("select * from unnest(array[1, 2, 3]) with ordinality");
+        printStatement("select x from unnest(array[1, 2, 3]) with ordinality t(x)");
+        printStatement("select * from users cross join unnest(friends) with ordinality");
+        printStatement("select id, friend from users cross join unnest(friends) with ordinality t(friend)");
 
         printStatement("" +
                 "select depname, empno, salary\n" +
@@ -147,6 +152,9 @@ public class TestStatementBuilder
 
         printStatement("alter table foo rename to bar");
         printStatement("alter table a.b.c rename to d.e.f");
+
+        printStatement("create table test (a boolean, b bigint, c double, d varchar, e timestamp)");
+        printStatement("drop table test");
 
         printStatement("create view foo as with a as (select 123) select * from a");
         printStatement("create or replace view foo as select 123 from t");

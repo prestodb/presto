@@ -47,7 +47,7 @@ public class TestHiveClientConfig
                 .setAllowRenameTable(false)
                 .setAllowCorruptWritesForTesting(false)
                 .setMetastoreCacheTtl(new Duration(1, TimeUnit.HOURS))
-                .setMetastoreRefreshInterval(new Duration(2, TimeUnit.MINUTES))
+                .setMetastoreRefreshInterval(new Duration(1, TimeUnit.SECONDS))
                 .setMaxMetastoreRefreshThreads(100)
                 .setMetastoreSocksProxy(null)
                 .setMetastoreTimeout(new Duration(10, TimeUnit.SECONDS))
@@ -56,6 +56,7 @@ public class TestHiveClientConfig
                 .setMaxInitialSplits(200)
                 .setMaxInitialSplitSize(new DataSize(32, Unit.MEGABYTE))
                 .setForceLocalScheduling(false)
+                .setRecursiveDirWalkerEnabled(false)
                 .setDfsTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setDfsConnectTimeout(new Duration(500, TimeUnit.MILLISECONDS))
                 .setDfsConnectMaxRetries(5)
@@ -63,8 +64,10 @@ public class TestHiveClientConfig
                 .setResourceConfigFiles((String) null)
                 .setHiveStorageFormat(HiveStorageFormat.RCBINARY)
                 .setDomainSocketPath(null)
+                .setUseParquetColumnNames(false)
                 .setS3AwsAccessKey(null)
                 .setS3AwsSecretKey(null)
+                .setS3UseInstanceCredentials(true)
                 .setS3SslEnabled(true)
                 .setS3MaxClientRetries(3)
                 .setS3MaxErrorRetries(10)
@@ -77,7 +80,10 @@ public class TestHiveClientConfig
                 .setS3MaxConnections(500)
                 .setS3StagingDirectory(new File(StandardSystemProperty.JAVA_IO_TMPDIR.value()))
                 .setOptimizedReaderEnabled(true)
-                .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE)));
+                .setAssumeCanonicalPartitionKeys(false)
+                .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE))
+                .setOrcMaxBufferSize(new DataSize(8, Unit.MEGABYTE))
+                .setOrcStreamBufferSize(new DataSize(8, Unit.MEGABYTE)));
     }
 
     @Test
@@ -106,11 +112,15 @@ public class TestHiveClientConfig
                 .put("hive.config.resources", "/foo.xml,/bar.xml")
                 .put("hive.max-initial-splits", "10")
                 .put("hive.max-initial-split-size", "16MB")
+                .put("hive.recursive-directories", "true")
                 .put("hive.storage-format", "SEQUENCEFILE")
                 .put("hive.force-local-scheduling", "true")
+                .put("hive.assume-canonical-partition-keys", "true")
                 .put("dfs.domain-socket-path", "/foo")
+                .put("hive.parquet.use-column-names", "true")
                 .put("hive.s3.aws-access-key", "abc123")
                 .put("hive.s3.aws-secret-key", "secret")
+                .put("hive.s3.use-instance-credentials", "false")
                 .put("hive.s3.ssl.enabled", "false")
                 .put("hive.s3.max-client-retries", "9")
                 .put("hive.s3.max-error-retries", "8")
@@ -124,6 +134,8 @@ public class TestHiveClientConfig
                 .put("hive.s3.staging-directory", "/s3-staging")
                 .put("hive.optimized-reader.enabled", "false")
                 .put("hive.orc.max-merge-distance", "22kB")
+                .put("hive.orc.max-buffer-size", "44kB")
+                .put("hive.orc.stream-buffer-size", "55kB")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -145,6 +157,7 @@ public class TestHiveClientConfig
                 .setMaxInitialSplits(10)
                 .setMaxInitialSplitSize(new DataSize(16, Unit.MEGABYTE))
                 .setForceLocalScheduling(true)
+                .setRecursiveDirWalkerEnabled(true)
                 .setDfsTimeout(new Duration(33, TimeUnit.SECONDS))
                 .setDfsConnectTimeout(new Duration(20, TimeUnit.SECONDS))
                 .setDfsConnectMaxRetries(10)
@@ -152,8 +165,10 @@ public class TestHiveClientConfig
                 .setResourceConfigFiles(ImmutableList.of("/foo.xml", "/bar.xml"))
                 .setHiveStorageFormat(HiveStorageFormat.SEQUENCEFILE)
                 .setDomainSocketPath("/foo")
+                .setUseParquetColumnNames(true)
                 .setS3AwsAccessKey("abc123")
                 .setS3AwsSecretKey("secret")
+                .setS3UseInstanceCredentials(false)
                 .setS3SslEnabled(false)
                 .setS3MaxClientRetries(9)
                 .setS3MaxErrorRetries(8)
@@ -166,7 +181,10 @@ public class TestHiveClientConfig
                 .setS3MaxConnections(77)
                 .setS3StagingDirectory(new File("/s3-staging"))
                 .setOptimizedReaderEnabled(false)
-                .setOrcMaxMergeDistance(new DataSize(22, Unit.KILOBYTE));
+                .setAssumeCanonicalPartitionKeys(true)
+                .setOrcMaxMergeDistance(new DataSize(22, Unit.KILOBYTE))
+                .setOrcMaxBufferSize(new DataSize(44, Unit.KILOBYTE))
+                .setOrcStreamBufferSize(new DataSize(55, Unit.KILOBYTE));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

@@ -24,7 +24,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Explain;
@@ -55,6 +55,7 @@ import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
@@ -71,7 +72,6 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
-import static com.facebook.presto.connector.system.CatalogSystemTable.CATALOG_TABLE_NAME;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.aliasedName;
@@ -109,6 +109,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.elementsEqual;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.stream.Collectors.toList;
 
 class StatementAnalyzer
         extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
@@ -187,10 +188,13 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitShowCatalogs(ShowCatalogs node, AnalysisContext context)
     {
+        List<Expression> rows = metadata.getCatalogNames().keySet().stream()
+                .map(name -> row(new StringLiteral(name)))
+                .collect(toList());
+
         Query query = simpleQuery(
-                selectList(aliasedName("catalog_name", "Catalog")),
-                from(session.getCatalog(), CATALOG_TABLE_NAME),
-                ordering(ascending("catalog_name")));
+                selectList(new AllColumns()),
+                aliased(new Values(rows), "catalogs", ImmutableList.of("Catalog")));
 
         return process(query, context);
     }
@@ -224,6 +228,7 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitUse(Use node, AnalysisContext context)
     {
+        analysis.setUpdateType("USE");
         throw new SemanticException(NOT_SUPPORTED, node, "USE statement is not supported");
     }
 
@@ -352,6 +357,8 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitInsert(Insert insert, AnalysisContext context)
     {
+        analysis.setUpdateType("INSERT");
+
         // analyze the query that creates the data
         TupleDescriptor descriptor = process(insert.getQuery(), context);
 
@@ -364,7 +371,9 @@ class StatementAnalyzer
         analysis.setInsertTarget(targetTableHandle.get());
 
         List<ColumnMetadata> columns = metadata.getTableMetadata(targetTableHandle.get()).getColumns();
-        Iterable<Type> tableTypes = transform(columns, ColumnMetadata::getType);
+        Iterable<Type> tableTypes = FluentIterable.from(columns)
+                .filter(column -> !column.isHidden())
+                .transform(ColumnMetadata::getType);
 
         Iterable<Type> queryTypes = transform(descriptor.getVisibleFields(), Field::getType);
 
@@ -378,8 +387,10 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitCreateTable(CreateTable node, AnalysisContext context)
+    protected TupleDescriptor visitCreateTableAsSelect(CreateTableAsSelect node, AnalysisContext context)
     {
+        analysis.setUpdateType("CREATE TABLE");
+
         // turn this into a query that has a new table writer node on top.
         QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, node.getName());
         analysis.setCreateTableDestination(targetTable);
@@ -400,6 +411,8 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitCreateView(CreateView node, AnalysisContext context)
     {
+        analysis.setUpdateType("CREATE VIEW");
+
         // analyze the query that creates the view
         TupleDescriptor descriptor = process(node.getQuery(), context);
 

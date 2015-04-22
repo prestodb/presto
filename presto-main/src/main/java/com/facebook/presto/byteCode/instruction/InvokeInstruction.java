@@ -16,8 +16,10 @@ package com.facebook.presto.byteCode.instruction;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.MethodDefinition;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.OpCode;
 import com.facebook.presto.byteCode.ParameterizedType;
+import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
@@ -35,8 +37,11 @@ import static com.facebook.presto.byteCode.OpCode.INVOKESPECIAL;
 import static com.facebook.presto.byteCode.OpCode.INVOKESTATIC;
 import static com.facebook.presto.byteCode.OpCode.INVOKEVIRTUAL;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 
+@SuppressWarnings("UnusedDeclaration")
 public class InvokeInstruction
         implements InstructionNode
 {
@@ -311,6 +316,7 @@ public class InvokeInstruction
             ParameterizedType returnType,
             Iterable<ParameterizedType> parameterTypes)
     {
+        checkUnqualifiedName(name);
         this.opCode = opCode;
         this.target = target;
         this.name = name;
@@ -349,7 +355,7 @@ public class InvokeInstruction
     }
 
     @Override
-    public void accept(MethodVisitor visitor)
+    public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
         visitor.visitMethodInsn(opCode.getOpCode(), target.getClassName(), name, getMethodDescription());
     }
@@ -384,7 +390,7 @@ public class InvokeInstruction
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
             Handle bootstrapMethodHandle = new Handle(Opcodes.H_INVOKESTATIC,
                     type(bootstrapMethod.getDeclaringClass()).getClassName(),
@@ -420,5 +426,17 @@ public class InvokeInstruction
         {
             return visitor.visitInvokeDynamic(parent, this);
         }
+    }
+
+    private static void checkUnqualifiedName(String name)
+    {
+        // JVM Specification 4.2.2 Unqualified Names
+        checkNotNull(name, "name is null");
+        checkArgument(!name.isEmpty(), "name is empty");
+        if (name.equals("<init>") || name.equals("<clinit>")) {
+            return;
+        }
+        CharMatcher invalid = CharMatcher.anyOf(".;[/<>");
+        checkArgument(invalid.matchesNoneOf(name), "invalid name: %s", name);
     }
 }

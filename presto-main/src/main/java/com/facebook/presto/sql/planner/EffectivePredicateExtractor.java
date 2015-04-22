@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
@@ -47,6 +48,7 @@ import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -63,7 +65,7 @@ import static com.google.common.collect.Iterables.transform;
 
 /**
  * Computes the effective predicate at the top of the specified PlanNode
- * <p/>
+ * <p>
  * Note: non-deterministic predicates can not be pulled up (so they will be ignored)
  */
 public class EffectivePredicateExtractor
@@ -124,6 +126,20 @@ public class EffectivePredicateExtractor
     }
 
     @Override
+    public Expression visitExchange(ExchangeNode node, Void context)
+    {
+        return deriveCommonPredicates(node, source -> {
+            Map<Symbol, QualifiedNameReference> mappings = new HashMap<>();
+            for (int i = 0; i < node.getInputs().get(source).size(); i++) {
+                mappings.put(
+                        node.getOutputSymbols().get(i),
+                        node.getInputs().get(source).get(i).toQualifiedNameReference());
+            }
+            return mappings.entrySet();
+        });
+    }
+
+    @Override
     public Expression visitProject(ProjectNode node, Void context)
     {
         // TODO: add simple algebraic solver for projection translation (right now only considers identity projections)
@@ -163,24 +179,10 @@ public class EffectivePredicateExtractor
     @Override
     public Expression visitTableScan(TableScanNode node, Void context)
     {
-        if (!node.getGeneratedPartitions().isPresent()) {
-            return BooleanLiteral.TRUE_LITERAL;
-        }
-
-        // The effective predicate can be computed from the intersection of the aggregate partition TupleDomain summary (generated from Partitions)
-        // and the TupleDomain that was initially used to generate those Partitions. We do this because we need to select the more restrictive of the two.
-        // Note: the TupleDomain used to generate the partitions may contain columns/predicates that are unknown to the partition TupleDomain summary,
-        // but those are guaranteed to be part of a FilterNode directly above this table scan, so it's ok to include.
-        TupleDomain<ColumnHandle> tupleDomain = node.getPartitionsDomainSummary().intersect(node.getGeneratedPartitions().get().getTupleDomainInput());
-
-        // A TupleDomain that has too many disjunctions will produce an Expression that will be very expensive to evaluate at runtime.
-        // For the time being, we will just summarize the TupleDomain by the span over each of its columns (which is ok since we only need to generate
-        // an effective predicate here).
-        // In the future, we can do further optimizations here that will simplify the TupleDomain, but still improve the specificity compared to just a simple span (e.g. range clustering).
-        tupleDomain = spanTupleDomain(tupleDomain);
-
-        Expression partitionPredicate = DomainTranslator.toPredicate(tupleDomain, ImmutableBiMap.copyOf(node.getAssignments()).inverse(), symbolTypes);
-        return pullExpressionThroughSymbols(partitionPredicate, node.getOutputSymbols());
+        Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
+        return DomainTranslator.toPredicate(
+                spanTupleDomain(node.getCurrentConstraint()).transform(assignments::get),
+                symbolTypes);
     }
 
     private static TupleDomain<ColumnHandle> spanTupleDomain(TupleDomain<ColumnHandle> tupleDomain)
@@ -215,32 +217,7 @@ public class EffectivePredicateExtractor
     @Override
     public Expression visitUnion(UnionNode node, Void context)
     {
-        // Find the predicates that can be pulled up from each source
-        List<Set<Expression>> sourceOutputConjuncts = new ArrayList<>();
-        for (int i = 0; i < node.getSources().size(); i++) {
-            Expression underlyingPredicate = node.getSources().get(i).accept(this, context);
-
-            Iterable<Expression> equalities = FluentIterable.from(node.outputSymbolMap(i).entries())
-                    .filter(not(symbolMatchesExpression()))
-                    .transform(entryToEquality());
-
-            sourceOutputConjuncts.add(ImmutableSet.copyOf(extractConjuncts(pullExpressionThroughSymbols(combineConjuncts(
-                            ImmutableList.<Expression>builder()
-                                    .addAll(equalities)
-                                    .add(underlyingPredicate)
-                                    .build()),
-                    node.getOutputSymbols()))));
-        }
-
-        // Find the intersection of predicates across all sources
-        // TODO: use a more precise way to determine overlapping conjuncts (e.g. commutative predicates)
-        Iterator<Set<Expression>> iterator = sourceOutputConjuncts.iterator();
-        Set<Expression> potentialOutputConjuncts = iterator.next();
-        while (iterator.hasNext()) {
-            potentialOutputConjuncts = Sets.intersection(potentialOutputConjuncts, iterator.next());
-        }
-
-        return combineConjuncts(potentialOutputConjuncts);
+        return deriveCommonPredicates(node, source -> node.outputSymbolMap(source).entries());
     }
 
     @Override
@@ -286,6 +263,36 @@ public class EffectivePredicateExtractor
     {
         // Filtering source does not change the effective predicate over the output symbols
         return node.getSource().accept(this, context);
+    }
+
+    private Expression deriveCommonPredicates(PlanNode node, Function<Integer, Collection<Map.Entry<Symbol, QualifiedNameReference>>> mapping)
+    {
+        // Find the predicates that can be pulled up from each source
+        List<Set<Expression>> sourceOutputConjuncts = new ArrayList<>();
+        for (int i = 0; i < node.getSources().size(); i++) {
+            Expression underlyingPredicate = node.getSources().get(i).accept(this, null);
+
+            Iterable<Expression> equalities = FluentIterable.from(mapping.apply(i))
+                    .filter(not(symbolMatchesExpression()))
+                    .transform(entryToEquality());
+
+            sourceOutputConjuncts.add(ImmutableSet.copyOf(extractConjuncts(pullExpressionThroughSymbols(combineConjuncts(
+                            ImmutableList.<Expression>builder()
+                                    .addAll(equalities)
+                                    .add(underlyingPredicate)
+                                    .build()),
+                    node.getOutputSymbols()))));
+        }
+
+        // Find the intersection of predicates across all sources
+        // TODO: use a more precise way to determine overlapping conjuncts (e.g. commutative predicates)
+        Iterator<Set<Expression>> iterator = sourceOutputConjuncts.iterator();
+        Set<Expression> potentialOutputConjuncts = iterator.next();
+        while (iterator.hasNext()) {
+            potentialOutputConjuncts = Sets.intersection(potentialOutputConjuncts, iterator.next());
+        }
+
+        return combineConjuncts(potentialOutputConjuncts);
     }
 
     private static Expression pullExpressionThroughSymbols(Expression expression, Collection<Symbol> symbols)

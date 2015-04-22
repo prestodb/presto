@@ -14,25 +14,15 @@
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.BlockBigArray;
 
 public class MaxOrMinByStateFactory
         implements AccumulatorStateFactory<MaxOrMinByState>
 {
-    private final Type valueType;
-    private final Type keyType;
-
-    public MaxOrMinByStateFactory(Type valueType, Type keyType)
-    {
-        this.valueType = valueType;
-        this.keyType = keyType;
-    }
-
     @Override
     public MaxOrMinByState createSingleState()
     {
-        return new SingleMaxOrMinByState(keyType, valueType);
+        return new SingleMaxOrMinByState();
     }
 
     @Override
@@ -44,7 +34,7 @@ public class MaxOrMinByStateFactory
     @Override
     public MaxOrMinByState createGroupedState()
     {
-        return new GroupedMaxOrMinByState(keyType, valueType);
+        return new GroupedMaxOrMinByState();
     }
 
     @Override
@@ -57,16 +47,8 @@ public class MaxOrMinByStateFactory
             extends AbstractGroupedAccumulatorState
             implements MaxOrMinByState
     {
-        private final Type keyType;
-        private final Type valueType;
         private final BlockBigArray keys = new BlockBigArray();
         private final BlockBigArray values = new BlockBigArray();
-
-        public GroupedMaxOrMinByState(Type keyType, Type valueType)
-        {
-            this.keyType = keyType;
-            this.valueType = valueType;
-        }
 
         @Override
         public void ensureCapacity(long size)
@@ -79,18 +61,6 @@ public class MaxOrMinByStateFactory
         public long getEstimatedSize()
         {
             return keys.sizeOf() + values.sizeOf();
-        }
-
-        @Override
-        public Type getKeyType()
-        {
-            return keyType;
-        }
-
-        @Override
-        public Type getValueType()
-        {
-            return valueType;
         }
 
         @Override
@@ -121,16 +91,8 @@ public class MaxOrMinByStateFactory
     public static class SingleMaxOrMinByState
             implements MaxOrMinByState
     {
-        private final Type keyType;
-        private final Type valueType;
         private Block key;
         private Block value;
-
-        public SingleMaxOrMinByState(Type keyType, Type valueType)
-        {
-            this.keyType = keyType;
-            this.valueType = valueType;
-        }
 
         @Override
         public long getEstimatedSize()
@@ -143,18 +105,6 @@ public class MaxOrMinByStateFactory
                 size += value.getSizeInBytes();
             }
             return size;
-        }
-
-        @Override
-        public Type getKeyType()
-        {
-            return keyType;
-        }
-
-        @Override
-        public Type getValueType()
-        {
-            return valueType;
         }
 
         @Override

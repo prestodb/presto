@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.TableLayout;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Marker;
@@ -28,7 +29,6 @@ import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
@@ -40,6 +40,7 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -58,6 +59,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.util.GraphvizPrinter;
+import com.facebook.presto.util.ImmutableCollectors;
 import com.facebook.presto.util.JsonPlanPrinter;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
@@ -304,7 +306,27 @@ public class PlanPrinter
 
             List<String> args = new ArrayList<>();
             if (!partitionBy.isEmpty()) {
-                args.add(format("partition by (%s)", Joiner.on(", ").join(partitionBy)));
+                List<Symbol> prePartitioned = node.getPartitionBy().stream()
+                        .filter(node.getPrePartitionedInputs()::contains)
+                        .collect(ImmutableCollectors.toImmutableList());
+
+                List<Symbol> notPrePartitioned = node.getPartitionBy().stream()
+                        .filter(column -> !node.getPrePartitionedInputs().contains(column))
+                        .collect(ImmutableCollectors.toImmutableList());
+
+                StringBuilder builder = new StringBuilder();
+                if (!prePartitioned.isEmpty()) {
+                    builder.append("<")
+                            .append(Joiner.on(", ").join(prePartitioned))
+                            .append(">");
+                    if (!notPrePartitioned.isEmpty()) {
+                        builder.append(", ");
+                    }
+                }
+                if (!notPrePartitioned.isEmpty()) {
+                    builder.append(Joiner.on(", ").join(notPrePartitioned));
+                }
+                args.add(format("partition by (%s)", builder));
             }
             if (!orderBy.isEmpty()) {
                 args.add(format("order by (%s)", Joiner.on(", ").join(orderBy)));
@@ -357,25 +379,40 @@ public class PlanPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Integer indent)
         {
-            TupleDomain<ColumnHandle> partitionsDomainSummary = node.getPartitionsDomainSummary();
-            print(indent, "- TableScan[%s, original constraint=%s] => [%s]", node.getTable(), node.getOriginalConstraint(), formatOutputs(node.getOutputSymbols()));
+            TableHandle table = node.getTable();
+            print(indent, "- TableScan[%s, original constraint=%s] => [%s]", table, node.getOriginalConstraint(), formatOutputs(node.getOutputSymbols()));
 
-            Set<Symbol> outputs = ImmutableSet.copyOf(node.getOutputSymbols());
-            for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                boolean isOutputSymbol = outputs.contains(entry.getKey());
-                boolean isInOriginalConstraint = node.getOriginalConstraint() == null ? false : DependencyExtractor.extractUnique(node.getOriginalConstraint()).contains(entry.getKey());
-                boolean isInDomainSummary = !partitionsDomainSummary.isNone() && partitionsDomainSummary.getDomains().keySet().contains(entry.getValue());
+            TupleDomain<ColumnHandle> predicate = node.getLayout()
+                    .map(metadata::getLayout)
+                    .map(TableLayout::getPredicate)
+                    .orElse(TupleDomain.<ColumnHandle>all());
 
-                if (isOutputSymbol || isInOriginalConstraint || isInDomainSummary) {
-                    print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
-                    if (isInDomainSummary) {
-                        print(indent + 3, ":: %s", formatDomain(node.getTable(), entry.getValue(), simplifyDomain(partitionsDomainSummary.getDomains().get(entry.getValue()))));
-                    }
-                    else if (partitionsDomainSummary.isNone()) {
-                        print(indent + 3, ":: NONE");
-                    }
+            if (predicate.isNone()) {
+                print(indent + 2, ":: NONE");
+            }
+            else {
+                // first, print output columns and their constraints
+                for (Map.Entry<Symbol, ColumnHandle> assignment : node.getAssignments().entrySet()) {
+                    ColumnHandle column = assignment.getValue();
+                    print(indent + 2, "%s := %s", assignment.getKey(), column);
+                    printConstraint(indent + 3, table, column, predicate);
+                }
+
+                // then, print constraints for columns that are not in the output
+                if (!predicate.isAll()) {
+                    Set<ColumnHandle> outputs = ImmutableSet.copyOf(node.getAssignments().values());
+
+                    predicate.getDomains()
+                            .entrySet().stream()
+                            .filter(entry -> !outputs.contains(entry.getKey()))
+                            .forEach(entry -> {
+                                ColumnHandle column = entry.getKey();
+                                print(indent + 2, "%s", column);
+                                printConstraint(indent + 3, table, column, predicate);
+                            });
                 }
             }
+
             return null;
         }
 
@@ -523,6 +560,13 @@ public class PlanPrinter
         private String formatOutputs(Iterable<Symbol> symbols)
         {
             return Joiner.on(", ").join(Iterables.transform(symbols, input -> input + ":" + types.get(input)));
+        }
+    }
+
+    private void printConstraint(int indent, TableHandle table, ColumnHandle column, TupleDomain<ColumnHandle> constraint)
+    {
+        if (!constraint.isAll() && constraint.getDomains().containsKey(column)) {
+            print(indent, ":: %s", formatDomain(table, column, simplifyDomain(constraint.getDomains().get(column))));
         }
     }
 

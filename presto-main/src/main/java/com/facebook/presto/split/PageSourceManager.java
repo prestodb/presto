@@ -13,16 +13,10 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.connector.system.SystemRecordSetProvider;
-import com.facebook.presto.connector.system.SystemTablesManager;
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
-import com.google.common.collect.Lists;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,12 +30,6 @@ public class PageSourceManager
 {
     private final ConcurrentMap<String, ConnectorPageSourceProvider> pageSourceProviders = new ConcurrentHashMap<>();
 
-    @Inject
-    public PageSourceManager(SystemRecordSetProvider systemRecordSetProvider)
-    {
-        pageSourceProviders.put(SystemTablesManager.CONNECTOR_ID, new RecordPageSourceProvider(systemRecordSetProvider));
-    }
-
     public void addConnectorPageSourceProvider(String connectorId, ConnectorPageSourceProvider connectorPageSourceProvider)
     {
         pageSourceProviders.put(connectorId, connectorPageSourceProvider);
@@ -53,9 +41,7 @@ public class PageSourceManager
         checkNotNull(split, "split is null");
         checkNotNull(columns, "columns is null");
 
-        List<ConnectorColumnHandle> handles = Lists.transform(columns, ColumnHandle::getConnectorHandle);
-
-        return getPageSourceProvider(split).createPageSource(split.getConnectorSplit(), handles);
+        return getPageSourceProvider(split).createPageSource(split.getConnectorSplit(), columns);
     }
 
     private ConnectorPageSourceProvider getPageSourceProvider(Split split)

@@ -24,6 +24,12 @@ public class ResetSessionTask
         implements DataDefinitionTask<ResetSession>
 {
     @Override
+    public String getName()
+    {
+        return "RESET SESSION";
+    }
+
+    @Override
     public void execute(ResetSession statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
     {
         if (statement.getName().getParts().size() > 2) {

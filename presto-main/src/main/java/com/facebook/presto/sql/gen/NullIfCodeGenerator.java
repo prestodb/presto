@@ -15,7 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.metadata.FunctionInfo;
@@ -28,13 +28,15 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
+
 public class NullIfCodeGenerator
         implements ByteCodeGenerator
 {
     @Override
     public ByteCodeNode generateExpression(Signature signature, ByteCodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
     {
-        CompilerContext context = generatorContext.getContext();
+        Scope scope = generatorContext.getScope();
 
         RowExpression first = arguments.get(0);
         RowExpression second = arguments.get(1);
@@ -42,10 +44,10 @@ public class NullIfCodeGenerator
         LabelNode notMatch = new LabelNode("notMatch");
 
         // push first arg on the stack
-        Block block = new Block(context)
+        Block block = new Block()
                 .comment("check if first arg is null")
                 .append(generatorContext.generate(first))
-                .append(ByteCodeUtils.ifWasNullPopAndGoto(context, notMatch, void.class));
+                .append(ByteCodeUtils.ifWasNullPopAndGoto(scope, notMatch, void.class));
 
         Type firstType = first.getType();
         Type secondType = second.getType();
@@ -59,21 +61,24 @@ public class NullIfCodeGenerator
         ByteCodeNode equalsCall = generatorContext.generateCall(
                 equalsFunction,
                 ImmutableList.of(
-                        cast(generatorContext, new Block(context).dup(firstType.getJavaType()), firstType, commonType),
+                        cast(generatorContext, new Block().dup(firstType.getJavaType()), firstType, commonType),
                         cast(generatorContext, generatorContext.generate(second), secondType, commonType)));
 
-        Block conditionBlock = new Block(context)
+        Block conditionBlock = new Block()
                 .append(equalsCall)
-                .append(ByteCodeUtils.ifWasNullClearPopAndGoto(context, notMatch, void.class, boolean.class));
+                .append(ByteCodeUtils.ifWasNullClearPopAndGoto(scope, notMatch, void.class, boolean.class));
 
         // if first and second are equal, return null
-        Block trueBlock = new Block(context)
-                .putVariable("wasNull", true)
+        Block trueBlock = new Block()
+                .append(generatorContext.wasNull().set(constantTrue()))
                 .pop(first.getType().getJavaType())
                 .pushJavaDefault(first.getType().getJavaType());
 
         // else return first (which is still on the stack
-        block.append(new IfStatement(context, conditionBlock, trueBlock, notMatch));
+        block.append(new IfStatement()
+                .condition(conditionBlock)
+                .ifTrue(trueBlock)
+                .ifFalse(notMatch));
 
         return block;
     }

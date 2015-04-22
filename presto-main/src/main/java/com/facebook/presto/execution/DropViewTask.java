@@ -29,13 +29,22 @@ public class DropViewTask
         implements DataDefinitionTask<DropView>
 {
     @Override
+    public String getName()
+    {
+        return "DROP VIEW";
+    }
+
+    @Override
     public void execute(DropView statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
     {
         QualifiedTableName name = createQualifiedTableName(session, statement.getName());
 
         Optional<ViewDefinition> view = metadata.getView(session, name);
         if (!view.isPresent()) {
-            throw new SemanticException(MISSING_TABLE, statement, "View '%s' does not exist", name);
+            if (!statement.isExists()) {
+                throw new SemanticException(MISSING_TABLE, statement, "View '%s' does not exist", name);
+            }
+            return;
         }
 
         metadata.dropView(session, name);

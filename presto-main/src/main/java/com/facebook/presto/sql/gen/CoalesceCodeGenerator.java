@@ -15,7 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
@@ -25,7 +25,8 @@ import com.google.common.collect.Lists;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.byteCode.OpCode.NOP;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
 
 public class CoalesceCodeGenerator
         implements ByteCodeGenerator
@@ -38,24 +39,26 @@ public class CoalesceCodeGenerator
             operands.add(generatorContext.generate(expression));
         }
 
-        CompilerContext context = generatorContext.getContext();
-        ByteCodeNode nullValue = new Block(context)
-                .putVariable("wasNull", true)
+        Variable wasNull = generatorContext.wasNull();
+        ByteCodeNode nullValue = new Block()
+                .append(wasNull.set(constantTrue()))
                 .pushJavaDefault(returnType.getJavaType());
 
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
         for (ByteCodeNode operand : Lists.reverse(operands)) {
-            Block condition = new Block(context)
+            IfStatement ifStatement = new IfStatement();
+
+            ifStatement.condition()
                     .append(operand)
-                    .getVariable("wasNull");
+                    .append(wasNull);
 
             // if value was null, pop the null value, clear the null flag, and process the next operand
-            Block nullBlock = new Block(context)
+            ifStatement.ifTrue()
                     .pop(returnType.getJavaType())
-                    .putVariable("wasNull", false)
+                    .append(wasNull.set(constantFalse()))
                     .append(nullValue);
 
-            nullValue = new IfStatement(context, condition, nullBlock, NOP);
+            nullValue = ifStatement;
         }
 
         return nullValue;

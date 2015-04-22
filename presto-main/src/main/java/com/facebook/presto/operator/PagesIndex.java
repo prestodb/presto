@@ -27,8 +27,6 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import it.unimi.dsi.fastutil.Swapper;
-import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
-import it.unimi.dsi.fastutil.ints.IntComparator;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
@@ -39,6 +37,8 @@ import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.sizeOf;
 
@@ -102,8 +102,25 @@ public class PagesIndex
         return channels[channel];
     }
 
+    public void clear()
+    {
+        for (ObjectArrayList<Block> channel : channels) {
+            channel.clear();
+        }
+        valueAddresses.clear();
+        positionCount = 0;
+        pagesMemorySize = 0;
+
+        estimatedSize = calculateEstimatedSize();
+    }
+
     public void addPage(Page page)
     {
+        // ignore empty pages
+        if (page.getPositionCount() == 0) {
+            return;
+        }
+
         positionCount += page.getPositionCount();
 
         int pageIndex = (channels.length > 0) ? channels[0].size() : 0;
@@ -225,31 +242,66 @@ public class PagesIndex
         return types.get(channel).getSlice(block, blockPosition);
     }
 
-    public void sort(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
+    public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
-        orderingCompiler.compilePagesIndexOrdering(sortTypes, sortChannels, sortOrders).sort(this);
+        sort(sortChannels, sortOrders, 0, getPositionCount());
     }
 
-    public IntComparator createComparator(final List<Type> sortTypes, final List<Integer> sortChannels, final List<SortOrder> sortOrders)
+    public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders, int startPosition, int endPosition)
     {
-        return new AbstractIntComparator()
-        {
-            private final PagesIndexComparator comparator = orderingCompiler.compilePagesIndexOrdering(sortTypes, sortChannels, sortOrders).getComparator();
-
-            @Override
-            public int compare(int leftPosition, int rightPosition)
-            {
-                return comparator.compareTo(PagesIndex.this, leftPosition, rightPosition);
-            }
-        };
+        createPagesIndexComparator(sortChannels, sortOrders).sort(this, startPosition, endPosition);
     }
 
-    public LookupSource createLookupSource(List<Integer> joinChannels, OperatorContext operatorContext)
+    public boolean positionEqualsPosition(PagesHashStrategy partitionHashStrategy, int leftPosition, int rightPosition)
     {
-        return createLookupSource(joinChannels, operatorContext, Optional.empty());
+        long leftAddress = valueAddresses.getLong(leftPosition);
+        int leftPageIndex = decodeSliceIndex(leftAddress);
+        int leftPagePosition = decodePosition(leftAddress);
+
+        long rightAddress = valueAddresses.getLong(rightPosition);
+        int rightPageIndex = decodeSliceIndex(rightAddress);
+        int rightPagePosition = decodePosition(rightAddress);
+
+        return partitionHashStrategy.positionEqualsPosition(leftPageIndex, leftPagePosition, rightPageIndex, rightPagePosition);
     }
 
-    public LookupSource createLookupSource(List<Integer> joinChannels, OperatorContext operatorContext, Optional<Integer> hashChannel)
+    public boolean positionEqualsRow(PagesHashStrategy pagesHashStrategy, int indexPosition, int rowPosition, Block... row)
+    {
+        long pageAddress = valueAddresses.getLong(indexPosition);
+        int pageIndex = decodeSliceIndex(pageAddress);
+        int pagePosition = decodePosition(pageAddress);
+
+        return pagesHashStrategy.positionEqualsRow(pageIndex, pagePosition, rowPosition, row);
+    }
+
+    private PagesIndexOrdering createPagesIndexComparator(List<Integer> sortChannels, List<SortOrder> sortOrders)
+    {
+        List<Type> sortTypes = sortChannels.stream()
+                .map(types::get)
+                .collect(toImmutableList());
+        return orderingCompiler.compilePagesIndexOrdering(sortTypes, sortChannels, sortOrders);
+    }
+
+    public LookupSource createLookupSource(List<Integer> joinChannels)
+    {
+        return createLookupSource(joinChannels, Optional.empty());
+    }
+
+    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, Optional<Integer> hashChannel)
+    {
+        try {
+            return joinCompiler.compilePagesHashStrategyFactory(types, joinChannels)
+                    .createPagesHashStrategy(ImmutableList.copyOf(channels), hashChannel);
+        }
+        catch (Exception e) {
+            log.error(e, "Lookup source compile failed for types=%s error=%s", types, e);
+        }
+
+        // if compilation fails, use interpreter
+        return new SimplePagesHashStrategy(types, ImmutableList.<List<Block>>copyOf(channels), joinChannels, hashChannel);
+    }
+
+    public LookupSource createLookupSource(List<Integer> joinChannels, Optional<Integer> hashChannel)
     {
         try {
             LookupSourceFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels);
@@ -262,8 +314,7 @@ public class PagesIndex
                     valueAddresses,
                     joinChannelTypes.build(),
                     ImmutableList.<List<Block>>copyOf(channels),
-                    hashChannel,
-                    operatorContext);
+                    hashChannel);
 
             return lookupSource;
         }
@@ -282,6 +333,16 @@ public class PagesIndex
         for (Integer channel : joinChannels) {
             hashTypes.add(types.get(channel));
         }
-        return new InMemoryJoinHash(valueAddresses, hashTypes.build(), hashStrategy, operatorContext);
+        return new InMemoryJoinHash(valueAddresses, hashTypes.build(), hashStrategy);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("positionCount", positionCount)
+                .add("types", types)
+                .add("estimatedSize", estimatedSize)
+                .toString();
     }
 }

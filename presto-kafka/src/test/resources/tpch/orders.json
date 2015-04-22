@@ -39,7 +39,7 @@
             {
                 "name": "orderdate",
                 "mapping": "orderdate",
-                "type": "VARCHAR",
+                "type": "DATE",
                 "dataFormat": "iso8601"
             },
             {

@@ -15,8 +15,11 @@ package com.facebook.presto;
 
 public final class SystemSessionProperties
 {
-    private static final String BIG_QUERY = "experimental_big_query";
+    public static final String BIG_QUERY = "experimental_big_query";
     private static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
+    private static final String DISTRIBUTED_JOIN = "distributed_join";
+    private static final String HASH_PARTITION_COUNT = "hash_partition_count";
+    private static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
 
     private SystemSessionProperties() {}
 
@@ -35,8 +38,37 @@ public final class SystemSessionProperties
         return Boolean.valueOf(enabled);
     }
 
+    private static int getNumber(String propertyName, Session session, int defaultValue)
+    {
+        String count = session.getSystemProperties().get(propertyName);
+        if (count != null) {
+            try {
+                return Integer.valueOf(count);
+            }
+            catch (NumberFormatException ignored) {
+            }
+        }
+
+        return defaultValue;
+    }
+
     public static boolean isOptimizeHashGenerationEnabled(Session session, boolean defaultValue)
     {
         return isEnabled(OPTIMIZE_HASH_GENERATION, session, defaultValue);
+    }
+
+    public static boolean isDistributedJoinEnabled(Session session, boolean defaultValue)
+    {
+        return isEnabled(DISTRIBUTED_JOIN, session, defaultValue);
+    }
+
+    public static int getHashPartitionCount(Session session, int defaultValue)
+    {
+        return getNumber(HASH_PARTITION_COUNT, session, defaultValue);
+    }
+
+    public static boolean preferStreamingOperators(Session session, boolean defaultValue)
+    {
+        return isEnabled(PREFER_STREAMING_OPERATORS, session, defaultValue);
     }
 }

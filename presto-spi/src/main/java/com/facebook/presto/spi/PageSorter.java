@@ -30,7 +30,7 @@ public interface PageSorter
      * the high 32 bits containing the page index and the low 32 bits containing position index
      */
     @Deprecated
-    long[] sort(List<Type> types, List<Page> pages, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders, int expectedPositions);
+    long[] sort(List<Type> types, List<Page> pages, List<Integer> sortChannels, List<SortOrder> sortOrders, int expectedPositions);
 
     int decodePageIndex(long address);
 

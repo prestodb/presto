@@ -18,18 +18,19 @@ import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchRecordSetProvider;
 import com.facebook.presto.tpch.TpchSplitManager;
-import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
+import java.util.Set;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class IndexedTpchConnectorFactory
@@ -78,21 +79,9 @@ public class IndexedTpchConnectorFactory
             }
 
             @Override
-            public ConnectorPageSourceProvider getPageSourceProvider()
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
                 return new TpchRecordSetProvider();
-            }
-
-            @Override
-            public ConnectorRecordSinkProvider getRecordSinkProvider()
-            {
-                throw new UnsupportedOperationException();
             }
 
             @Override
@@ -100,13 +89,19 @@ public class IndexedTpchConnectorFactory
             {
                 return new TpchIndexResolver(connectorId, indexedData);
             }
+
+            @Override
+            public Set<SystemTable> getSystemTables()
+            {
+                return ImmutableSet.of(new ExampleSystemTable());
+            }
         };
     }
 
     private int getSplitsPerNode(Map<String, String> properties)
     {
         try {
-            return Integer.parseInt(Objects.firstNonNull(properties.get("tpch.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
+            return Integer.parseInt(firstNonNull(properties.get("tpch.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
         }
         catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid property tpch.splits-per-node");

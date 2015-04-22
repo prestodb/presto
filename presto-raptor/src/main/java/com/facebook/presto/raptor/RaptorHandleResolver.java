@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -25,7 +24,7 @@ import javax.inject.Inject;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class RaptorHandleResolver
+public class    RaptorHandleResolver
         implements ConnectorHandleResolver
 {
     private final String connectorId;
@@ -44,7 +43,7 @@ public class RaptorHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorColumnHandle columnHandle)
+    public boolean canHandle(ColumnHandle columnHandle)
     {
         return (columnHandle instanceof RaptorColumnHandle) &&
                 ((RaptorColumnHandle) columnHandle).getConnectorId().equals(connectorId);
@@ -70,19 +69,13 @@ public class RaptorHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorIndexHandle indexHandle)
-    {
-        return false;
-    }
-
-    @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return RaptorTableHandle.class;
     }
 
     @Override
-    public Class<? extends ConnectorColumnHandle> getColumnHandleClass()
+    public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         return RaptorColumnHandle.class;
     }
@@ -97,12 +90,6 @@ public class RaptorHandleResolver
     public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
     {
         return RaptorOutputTableHandle.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override

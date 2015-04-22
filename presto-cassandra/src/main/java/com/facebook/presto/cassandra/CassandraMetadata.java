@@ -15,7 +15,7 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -31,6 +31,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
+import io.airlift.slice.Slice;
 
 import javax.inject.Inject;
 
@@ -43,6 +44,7 @@ import static com.facebook.presto.cassandra.CassandraColumnHandle.columnMetadata
 import static com.facebook.presto.cassandra.CassandraType.BIGINT;
 import static com.facebook.presto.cassandra.CassandraType.toCassandraType;
 import static com.facebook.presto.cassandra.util.Types.checkType;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -144,21 +146,21 @@ public class CassandraMetadata
     }
 
     @Override
-    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return getColumnHandles(tableHandle, true).get(SAMPLE_WEIGHT_COLUMN_NAME);
     }
 
     @Override
-    public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
         return getColumnHandles(tableHandle, false);
     }
 
-    private Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle, boolean includeSampleWeight)
+    private Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle, boolean includeSampleWeight)
     {
         CassandraTable table = schemaProvider.getTable((CassandraTableHandle) tableHandle);
-        ImmutableMap.Builder<String, ConnectorColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (CassandraColumnHandle columnHandle : table.getColumns()) {
             if (includeSampleWeight || !columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
                 columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(ENGLISH), columnHandle);
@@ -192,7 +194,7 @@ public class CassandraMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         checkType(tableHandle, CassandraTableHandle.class, "tableHandle");
         return checkType(columnHandle, CassandraColumnHandle.class, "columnHandle").getColumnMetadata();
@@ -213,9 +215,9 @@ public class CassandraMetadata
     }
 
     @Override
-    public ConnectorTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "CREATE TABLE not yet supported for Cassandra");
     }
 
     @Override
@@ -224,7 +226,7 @@ public class CassandraMetadata
         checkArgument(tableHandle instanceof CassandraTableHandle, "tableHandle is not an instance of CassandraTableHandle");
 
         if (!allowDropTable) {
-            throw new PrestoException(PERMISSION_DENIED, "DROP TABLE is disabled in this Hive catalog");
+            throw new PrestoException(PERMISSION_DENIED, "DROP TABLE is disabled in this Cassandra catalog");
         }
 
         CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;
@@ -239,7 +241,7 @@ public class CassandraMetadata
     @Override
     public void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "Renaming tables not yet supported for Cassandra");
     }
 
     @Override
@@ -295,7 +297,7 @@ public class CassandraMetadata
     }
 
     @Override
-    public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments)
+    public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         CassandraOutputTableHandle outputTableHandle = checkType(tableHandle, CassandraOutputTableHandle.class, "tableHandle");
         schemaProvider.flushTable(new SchemaTableName(outputTableHandle.getSchemaName(), outputTableHandle.getTableName()));
@@ -304,11 +306,11 @@ public class CassandraMetadata
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "INSERT not yet supported for Cassandra");
     }
 
     @Override
-    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
+    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         throw new UnsupportedOperationException();
     }
@@ -316,13 +318,13 @@ public class CassandraMetadata
     @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "CREATE VIEW not yet supported for Cassandra");
     }
 
     @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "DROP VIEW not yet supported for Cassandra");
     }
 
     @Override

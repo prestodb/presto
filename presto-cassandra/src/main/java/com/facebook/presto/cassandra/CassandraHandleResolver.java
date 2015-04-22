@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexHandle;
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -44,7 +42,7 @@ public class CassandraHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorColumnHandle columnHandle)
+    public boolean canHandle(ColumnHandle columnHandle)
     {
         return columnHandle instanceof CassandraColumnHandle && ((CassandraColumnHandle) columnHandle).getConnectorId().equals(connectorId);
     }
@@ -56,21 +54,9 @@ public class CassandraHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorIndexHandle indexHandle)
-    {
-        return false;
-    }
-
-    @Override
     public boolean canHandle(ConnectorOutputTableHandle tableHandle)
     {
         return (tableHandle instanceof CassandraOutputTableHandle) && ((CassandraOutputTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorInsertTableHandle tableHandle)
-    {
-        return false;
     }
 
     @Override
@@ -80,7 +66,7 @@ public class CassandraHandleResolver
     }
 
     @Override
-    public Class<? extends ConnectorColumnHandle> getColumnHandleClass()
+    public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         return CassandraColumnHandle.class;
     }
@@ -92,21 +78,9 @@ public class CassandraHandleResolver
     }
 
     @Override
-    public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
     {
         return CassandraOutputTableHandle.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override

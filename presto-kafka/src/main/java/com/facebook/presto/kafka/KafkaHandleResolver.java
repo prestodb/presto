@@ -13,11 +13,8 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexHandle;
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.google.inject.name.Named;
@@ -50,7 +47,7 @@ public class KafkaHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorColumnHandle columnHandle)
+    public boolean canHandle(ColumnHandle columnHandle)
     {
         return columnHandle != null && columnHandle instanceof KafkaColumnHandle && connectorId.equals(((KafkaColumnHandle) columnHandle).getConnectorId());
     }
@@ -62,31 +59,13 @@ public class KafkaHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorIndexHandle indexHandle)
-    {
-        return false;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
-    {
-        return false;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorInsertTableHandle tableHandle)
-    {
-        return false;
-    }
-
-    @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return KafkaTableHandle.class;
     }
 
     @Override
-    public Class<? extends ConnectorColumnHandle> getColumnHandleClass()
+    public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         return KafkaColumnHandle.class;
     }
@@ -95,24 +74,6 @@ public class KafkaHandleResolver
     public Class<? extends ConnectorSplit> getSplitClass()
     {
         return KafkaSplit.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
-    {
-        throw new UnsupportedOperationException();
     }
 
     KafkaTableHandle convertTableHandle(ConnectorTableHandle tableHandle)
@@ -125,7 +86,7 @@ public class KafkaHandleResolver
         return kafkaTableHandle;
     }
 
-    KafkaColumnHandle convertColumnHandle(ConnectorColumnHandle columnHandle)
+    KafkaColumnHandle convertColumnHandle(ColumnHandle columnHandle)
     {
         checkNotNull(columnHandle, "columnHandle is null");
         checkArgument(columnHandle instanceof KafkaColumnHandle, "columnHandle is not an instance of KafkaColumnHandle");

@@ -16,7 +16,11 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorMetadata;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorPageSourceProvider;
@@ -25,10 +29,12 @@ import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.NodeModule;
@@ -98,15 +104,21 @@ public class HiveConnectorFactory
                     .setOptionalConfigurationProperties(optionalConfig)
                     .initialize();
 
-            HiveClient hiveClient = injector.getInstance(HiveClient.class);
+            LifeCycleManager lifeCycleManager = injector.getInstance(LifeCycleManager.class);
+            ConnectorMetadata metadata = injector.getInstance(ConnectorMetadata.class);
+            ConnectorSplitManager splitManager = injector.getInstance(ConnectorSplitManager.class);
             ConnectorPageSourceProvider connectorPageSource = injector.getInstance(ConnectorPageSourceProvider.class);
+            ConnectorRecordSinkProvider recordSinkProvider = injector.getInstance(ConnectorRecordSinkProvider.class);
+            ConnectorHandleResolver handleResolver = injector.getInstance(ConnectorHandleResolver.class);
 
             return new HiveConnector(
-                    new ClassLoaderSafeConnectorMetadata(hiveClient, classLoader),
-                    new ClassLoaderSafeConnectorSplitManager(hiveClient, classLoader),
+                    lifeCycleManager,
+                    new ClassLoaderSafeConnectorMetadata(metadata, classLoader),
+                    new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader),
                     new ClassLoaderSafeConnectorPageSourceProvider(connectorPageSource, classLoader),
-                    new ClassLoaderSafeConnectorRecordSinkProvider(hiveClient, classLoader),
-                    new ClassLoaderSafeConnectorHandleResolver(hiveClient, classLoader));
+                    new ClassLoaderSafeConnectorRecordSinkProvider(recordSinkProvider, classLoader),
+                    new ClassLoaderSafeConnectorHandleResolver(handleResolver, classLoader),
+                    ImmutableSet.of());
         }
         catch (Exception e) {
             throw Throwables.propagate(e);

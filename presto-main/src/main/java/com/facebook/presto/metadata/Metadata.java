@@ -14,11 +14,15 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
+import io.airlift.slice.Slice;
 
 import javax.validation.constraints.NotNull;
 
@@ -26,6 +30,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public interface Metadata
 {
@@ -54,6 +59,12 @@ public interface Metadata
      */
     @NotNull
     Optional<TableHandle> getTableHandle(Session session, QualifiedTableName tableName);
+
+    @NotNull
+    List<TableLayoutResult> getLayouts(TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
+
+    @NotNull
+    TableLayout getLayout(TableLayoutHandle handle);
 
     /**
      * Return the metadata for the specified table handle.
@@ -109,7 +120,7 @@ public interface Metadata
      * Creates a table using the specified table metadata.
      */
     @NotNull
-    TableHandle createTable(Session session, String catalogName, TableMetadata tableMetadata);
+    void createTable(Session session, String catalogName, TableMetadata tableMetadata);
 
     /**
      * Rename the specified table.
@@ -131,7 +142,12 @@ public interface Metadata
     /**
      * Commit a table creation with data after the data is written.
      */
-    void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments);
+    void commitCreateTable(OutputTableHandle tableHandle, Collection<Slice> fragments);
+
+    /**
+     * Rollback a table creation
+     */
+    void rollbackCreateTable(OutputTableHandle tableHandle);
 
     /**
      * Begin insert query
@@ -141,7 +157,12 @@ public interface Metadata
     /**
      * Commit insert query
      */
-    void commitInsert(InsertTableHandle tableHandle, Collection<String> fragments);
+    void commitInsert(InsertTableHandle tableHandle, Collection<Slice> fragments);
+
+    /**
+     * Rollback insert query
+     */
+    void rollbackInsert(InsertTableHandle tableHandle);
 
     /**
      * Gets all the loaded catalogs
@@ -182,4 +203,6 @@ public interface Metadata
     FunctionRegistry getFunctionRegistry();
 
     TypeManager getTypeManager();
+
+    BlockEncodingSerde getBlockEncodingSerde();
 }

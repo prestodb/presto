@@ -24,6 +24,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
+import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -41,7 +42,6 @@ import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
@@ -69,11 +69,13 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
@@ -398,7 +400,15 @@ public class ExpressionInterpreter
 
             if (hasUnresolvedValue) {
                 Type type = expressionTypes.get(node.getValue());
-                return new InPredicate(toExpression(value, type), new InListExpression(toExpressions(values, types)));
+                List<Expression> expressionValues = toExpressions(values, types);
+                List<Expression> simplifiedExpressionValues = Stream.concat(
+                        expressionValues.stream()
+                                .filter(DeterminismEvaluator::isDeterministic)
+                                .distinct(),
+                        expressionValues.stream()
+                                .filter((expression -> !DeterminismEvaluator.isDeterministic(expression))))
+                        .collect(toImmutableList());
+                return new InPredicate(toExpression(value, type), new InListExpression(simplifiedExpressionValues));
             }
             if (hasNullValue) {
                 return null;
@@ -465,7 +475,7 @@ public class ExpressionInterpreter
             ComparisonExpression.Type type = node.getType();
 
             Object left = process(node.getLeft(), context);
-            if (left == null && !(type == ComparisonExpression.Type.IS_DISTINCT_FROM)) {
+            if (left == null && type != ComparisonExpression.Type.IS_DISTINCT_FROM) {
                 return null;
             }
 
@@ -590,6 +600,7 @@ public class ExpressionInterpreter
                     if (Boolean.FALSE.equals(right) || Boolean.TRUE.equals(left)) {
                         return right;
                     }
+                    break;
                 }
                 case OR: {
                     // if either left or right is true, result is always true regardless of nulls
@@ -600,6 +611,7 @@ public class ExpressionInterpreter
                     if (Boolean.TRUE.equals(right) || Boolean.FALSE.equals(left)) {
                         return right;
                     }
+                    break;
                 }
             }
 
@@ -777,7 +789,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitRow(Row node, Object context)
         {
-            throw new UnsupportedOperationException("Row expressions not yet supported");
+            throw new PrestoException(NOT_SUPPORTED, "Row expressions not yet supported");
         }
 
         @Override

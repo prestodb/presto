@@ -27,7 +27,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
-import java.lang.reflect.Method;
+import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
@@ -35,19 +35,19 @@ import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_INPUT_CHANNEL;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.util.Reflection.method;
+import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class MinBy
         extends ParametricAggregation
 {
     public static final MinBy MIN_BY = new MinBy();
     private static final String NAME = "min_by";
-    private static final Method OUTPUT_FUNCTION = method(MinBy.class, "output", MaxOrMinByState.class, BlockBuilder.class);
-    private static final Method INPUT_FUNCTION = method(MinBy.class, "input", MaxOrMinByState.class, Block.class, Block.class, int.class);
-    private static final Method COMBINE_FUNCTION = method(MinBy.class, "combine", MaxOrMinByState.class, MaxOrMinByState.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(MinBy.class, "output", Type.class, MaxOrMinByState.class, BlockBuilder.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(MinBy.class, "input", Type.class, MaxOrMinByState.class, Block.class, Block.class, int.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(MinBy.class, "combine", Type.class, MaxOrMinByState.class, MaxOrMinByState.class);
     private static final Signature SIGNATURE = new Signature(NAME, ImmutableList.of(orderableTypeParameter("K"), typeParameter("V")), "V", ImmutableList.of("V", "K"), false, false);
 
     @Override
@@ -69,27 +69,27 @@ public class MinBy
         Type valueType = types.get("V");
         Signature signature = new Signature(NAME, valueType.getTypeSignature(), valueType.getTypeSignature(), keyType.getTypeSignature());
         InternalAggregationFunction aggregation = generateAggregation(valueType, keyType);
-        return new FunctionInfo(signature, getDescription(), aggregation.getIntermediateType().getTypeSignature(), aggregation, false);
+        return new FunctionInfo(signature, getDescription(), aggregation);
     }
 
     private static InternalAggregationFunction generateAggregation(Type valueType, Type keyType)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(MinBy.class.getClassLoader());
 
-        MaxOrMinByStateSerializer stateSerializer = new MaxOrMinByStateSerializer();
+        MaxOrMinByStateSerializer stateSerializer = new MaxOrMinByStateSerializer(valueType, keyType);
         Type intermediateType = stateSerializer.getSerializedType();
 
         List<Type> inputTypes = ImmutableList.of(valueType, keyType);
 
-        MaxOrMinByStateFactory stateFactory = new MaxOrMinByStateFactory(valueType, keyType);
+        MaxOrMinByStateFactory stateFactory = new MaxOrMinByStateFactory();
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(NAME, valueType, inputTypes),
                 createInputParameterMetadata(valueType, keyType),
-                INPUT_FUNCTION,
+                INPUT_FUNCTION.bindTo(keyType),
                 null,
                 null,
-                COMBINE_FUNCTION,
-                OUTPUT_FUNCTION,
+                COMBINE_FUNCTION.bindTo(keyType),
+                OUTPUT_FUNCTION.bindTo(valueType),
                 MaxOrMinByState.class,
                 stateSerializer,
                 stateFactory,
@@ -102,40 +102,40 @@ public class MinBy
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value, Type key)
     {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(NULLABLE_INPUT_CHANNEL, value), new ParameterMetadata(NULLABLE_INPUT_CHANNEL, key), new ParameterMetadata(BLOCK_INDEX));
+        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, value), new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, key), new ParameterMetadata(BLOCK_INDEX));
     }
 
-    public static void input(MaxOrMinByState state, Block value, Block key, int position)
+    public static void input(Type keyType, MaxOrMinByState state, Block value, Block key, int position)
     {
         if (state.getKey() == null || state.getKey().isNull(0)) {
             state.setKey(key.getSingleValueBlock(position));
             state.setValue(value.getSingleValueBlock(position));
         }
-        else if (state.getKeyType().compareTo(key, position, state.getKey(), 0) < 0) {
+        else if (keyType.compareTo(key, position, state.getKey(), 0) < 0) {
             state.setKey(key.getSingleValueBlock(position));
             state.setValue(value.getSingleValueBlock(position));
         }
     }
 
-    public static void combine(MaxOrMinByState state, MaxOrMinByState otherState)
+    public static void combine(Type keyType, MaxOrMinByState state, MaxOrMinByState otherState)
     {
         if (state.getKey() == null) {
             state.setKey(otherState.getKey());
             state.setValue(otherState.getValue());
         }
-        else if (state.getKeyType().compareTo(otherState.getKey(), 0, state.getKey(), 0) < 0) {
+        else if (keyType.compareTo(otherState.getKey(), 0, state.getKey(), 0) < 0) {
             state.setKey(otherState.getKey());
             state.setValue(otherState.getValue());
         }
     }
 
-    public static void output(MaxOrMinByState state, BlockBuilder out)
+    public static void output(Type valueType, MaxOrMinByState state, BlockBuilder out)
     {
         if (state.getValue() == null) {
             out.appendNull();
         }
         else {
-            state.getValueType().appendTo(state.getValue(), 0, out);
+            valueType.appendTo(state.getValue(), 0, out);
         }
     }
 }

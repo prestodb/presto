@@ -16,6 +16,8 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.InListExpression;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -249,6 +251,7 @@ public class EqualityInference
     public static Predicate<Expression> isInferenceCandidate()
     {
         return expression -> {
+            expression = normalizeInPredicateToEquality(expression);
             if (DeterminismEvaluator.isDeterministic(expression) && expression instanceof ComparisonExpression) {
                 ComparisonExpression comparison = (ComparisonExpression) expression;
                 if (comparison.getType() == ComparisonExpression.Type.EQUAL) {
@@ -258,6 +261,23 @@ public class EqualityInference
             }
             return false;
         };
+    }
+
+    /**
+     * Rewrite single value InPredicates as equality if possible
+     */
+    private static Expression normalizeInPredicateToEquality(Expression expression)
+    {
+        if (expression instanceof InPredicate) {
+            InPredicate inPredicate = (InPredicate) expression;
+            if (inPredicate.getValueList() instanceof InListExpression) {
+                InListExpression valueList = (InListExpression) inPredicate.getValueList();
+                if (valueList.getValues().size() == 1) {
+                    return new ComparisonExpression(ComparisonExpression.Type.EQUAL, inPredicate.getValue(), Iterables.getOnlyElement(valueList.getValues()));
+                }
+            }
+        }
+        return expression;
     }
 
     /**
@@ -326,8 +346,8 @@ public class EqualityInference
 
         public Builder addEquality(Expression expression)
         {
+            expression = normalizeInPredicateToEquality(expression);
             checkArgument(isInferenceCandidate().apply(expression), "Expression must be a simple equality: " + expression);
-
             ComparisonExpression comparison = (ComparisonExpression) expression;
             addEquality(comparison.getLeft(), comparison.getRight());
             return this;

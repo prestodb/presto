@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.spi.type.DateType;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
-import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Shorts;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
@@ -35,6 +35,11 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Functions.compose;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
@@ -73,7 +78,7 @@ public abstract class AbstractTestOrcReader
     public void testBooleanSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaBooleanObjectInspector, limit(cycle(ImmutableList.of(true, false, false)), 30_000));
+        tester.testRoundTrip(javaBooleanObjectInspector, limit(cycle(ImmutableList.of(true, false, false)), 30_000), BOOLEAN);
     }
 
     @Test
@@ -135,70 +140,92 @@ public abstract class AbstractTestOrcReader
     {
         tester.testRoundTrip(javaByteObjectInspector,
                 transform(writeValues, AbstractTestOrcReader::intToByte),
-                AbstractTestOrcReader::byteToLong);
+                AbstractTestOrcReader::byteToLong,
+                BIGINT);
 
         tester.testRoundTrip(javaShortObjectInspector,
                 transform(writeValues, AbstractTestOrcReader::intToShort),
-                AbstractTestOrcReader::shortToLong);
+                AbstractTestOrcReader::shortToLong,
+                BIGINT);
 
-        tester.testRoundTrip(javaIntObjectInspector, writeValues, AbstractTestOrcReader::intToLong);
-        tester.testRoundTrip(javaLongObjectInspector, transform(writeValues, AbstractTestOrcReader::intToLong));
+        tester.testRoundTrip(javaIntObjectInspector, writeValues, AbstractTestOrcReader::intToLong, BIGINT);
+        tester.testRoundTrip(javaLongObjectInspector, transform(writeValues, AbstractTestOrcReader::intToLong), BIGINT);
 
         tester.testRoundTrip(javaTimestampObjectInspector,
                 transform(writeValues, AbstractTestOrcReader::intToTimestamp),
                 AbstractTestOrcReader::timestampToLong,
-                AbstractTestOrcReader::timestampToLong);
+                BIGINT);
 
         // date has three representations
         // normal format: DAYS since 1970
         // json stack: is milliseconds UTC since 1970
-        // json json: ISO 8601 format date
         tester.testRoundTrip(javaDateObjectInspector,
                 transform(writeValues, AbstractTestOrcReader::intToDate),
                 transform(writeValues, AbstractTestOrcReader::intToDays),
-                transform(writeValues, AbstractTestOrcReader::intToDays));
+                DateType.DATE);
     }
 
     @Test
     public void testFloatSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaFloatObjectInspector, floatSequence(0.0f, 0.1f, 30_000), AbstractTestOrcReader::floatToDouble);
+        tester.testRoundTrip(javaFloatObjectInspector, floatSequence(0.0f, 0.1f, 30_000), AbstractTestOrcReader::floatToDouble, DOUBLE);
     }
 
     @Test
     public void testDoubleSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaDoubleObjectInspector, doubleSequence(0, 0.1, 30_000));
+        tester.testRoundTrip(javaDoubleObjectInspector, doubleSequence(0, 0.1, 30_000), DOUBLE);
+    }
+
+    @Test
+    public void testDoubleNaNInfinity()
+            throws Exception
+    {
+        tester.testRoundTrip(javaDoubleObjectInspector, ImmutableList.of(1000.0, -1.0, Double.POSITIVE_INFINITY), DOUBLE);
+        tester.testRoundTrip(javaDoubleObjectInspector, ImmutableList.of(-1000.0, Double.NEGATIVE_INFINITY, 1.0), DOUBLE);
+        tester.testRoundTrip(javaDoubleObjectInspector, ImmutableList.of(0.0, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY), DOUBLE);
+
+        tester.testRoundTrip(javaDoubleObjectInspector, ImmutableList.of(Double.NaN, -1.0, 1.0), DOUBLE);
+        tester.testRoundTrip(javaDoubleObjectInspector, ImmutableList.of(Double.NaN, -1.0, Double.POSITIVE_INFINITY), DOUBLE);
+        tester.testRoundTrip(javaDoubleObjectInspector, ImmutableList.of(Double.NaN, Double.NEGATIVE_INFINITY, 1.0), DOUBLE);
+        tester.testRoundTrip(javaDoubleObjectInspector, ImmutableList.of(Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY), DOUBLE);
+    }
+
+    @Test
+    public void testStringUnicode()
+            throws Exception
+    {
+        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), 30_000), VARCHAR);
     }
 
     @Test
     public void testStringDirectSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, transform(intsBetween(0, 30_000), Object::toString));
+        tester.testRoundTrip(javaStringObjectInspector, transform(intsBetween(0, 30_000), Object::toString), VARCHAR);
     }
 
     @Test
     public void testStringDictionarySequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), Object::toString)), 30_000));
+        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), Object::toString)), 30_000), VARCHAR);
     }
 
     @Test
     public void testStringStrideDictionary()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, concat(ImmutableList.of("a"), Collections.nCopies(9999, "123"), ImmutableList.of("b"), Collections.nCopies(9999, "123")));
+        tester.testRoundTrip(javaStringObjectInspector, concat(ImmutableList.of("a"), Collections.nCopies(9999, "123"), ImmutableList.of("b"), Collections.nCopies(9999, "123")), VARCHAR);
     }
 
     @Test
     public void testEmptyStringSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(""), 30_000));
+        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(""), 30_000), VARCHAR);
     }
 
     @Test
@@ -209,7 +236,7 @@ public abstract class AbstractTestOrcReader
         tester.testRoundTrip(javaByteArrayObjectInspector,
                 writeValues,
                 transform(writeValues, AbstractTestOrcReader::byteArrayToString),
-                transform(writeValues, AbstractTestOrcReader::byteArrayToBase64));
+                VARBINARY);
     }
 
     @Test
@@ -220,79 +247,90 @@ public abstract class AbstractTestOrcReader
         tester.testRoundTrip(javaByteArrayObjectInspector,
                 writeValues,
                 transform(writeValues, AbstractTestOrcReader::byteArrayToString),
-                transform(writeValues, AbstractTestOrcReader::byteArrayToBase64));
+                VARBINARY);
     }
 
     @Test
     public void testEmptyBinarySequence()
             throws Exception
     {
-        tester.testRoundTrip(javaByteArrayObjectInspector, limit(cycle(new byte[0]), 30_000), AbstractTestOrcReader::byteArrayToString);
+        tester.testRoundTrip(javaByteArrayObjectInspector, limit(cycle(new byte[0]), 30_000), AbstractTestOrcReader::byteArrayToString, VARBINARY);
     }
 
-    private static <T> Iterable<T> skipEvery(final int n, final Iterable<T> iterable)
+    @Test
+    public void testDwrfInvalidCheckpointsForRowGroupDictionary()
+            throws Exception
     {
-        return new Iterable<T>()
+        Iterable<Integer> values = limit(cycle(concat(
+                        ImmutableList.of(1), Collections.nCopies(9999, 123),
+                        ImmutableList.of(2), Collections.nCopies(9999, 123),
+                        ImmutableList.of(3), Collections.nCopies(9999, 123),
+                        Collections.nCopies(1_000_000, null))),
+                200_000);
+
+        tester.assertRoundTrip(javaIntObjectInspector, values, transform(values, value -> value == null ? null : (long) value), VARCHAR);
+
+        Iterable<String> stringValue = transform(values, value -> value == null ? null : String.valueOf(value));
+        tester.assertRoundTrip(javaStringObjectInspector, stringValue, stringValue, VARCHAR);
+    }
+
+    @Test
+    public void testDwrfInvalidCheckpointsForStripeDictionary()
+            throws Exception
+    {
+        Iterable<String> values = limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), Object::toString)), 200_000);
+        tester.testRoundTrip(javaStringObjectInspector, values, VARCHAR);
+    }
+
+    private static <T> Iterable<T> skipEvery(int n, Iterable<T> iterable)
+    {
+        return () -> new AbstractIterator<T>()
         {
+            private final Iterator<T> delegate = iterable.iterator();
+            private int position;
+
             @Override
-            public Iterator<T> iterator()
+            protected T computeNext()
             {
-                return new AbstractIterator<T>()
-                {
-                    private final Iterator<T> delegate = iterable.iterator();
-                    private int position;
-
-                    @Override
-                    protected T computeNext()
-                    {
-                        while (true) {
-                            if (!delegate.hasNext()) {
-                                return endOfData();
-                            }
-
-                            T next = delegate.next();
-                            position++;
-                            if (position <= n) {
-                                return next;
-                            }
-                            position = 0;
-                        }
+                while (true) {
+                    if (!delegate.hasNext()) {
+                        return endOfData();
                     }
-                };
+
+                    T next = delegate.next();
+                    position++;
+                    if (position <= n) {
+                        return next;
+                    }
+                    position = 0;
+                }
             }
         };
     }
 
-    private static <T> Iterable<T> repeatEach(final int n, final Iterable<T> iterable)
+    private static <T> Iterable<T> repeatEach(int n, Iterable<T> iterable)
     {
-        return new Iterable<T>()
+        return () -> new AbstractIterator<T>()
         {
+            private final Iterator<T> delegate = iterable.iterator();
+            private int position;
+            private T value;
+
             @Override
-            public Iterator<T> iterator()
+            protected T computeNext()
             {
-                return new AbstractIterator<T>()
-                {
-                    private final Iterator<T> delegate = iterable.iterator();
-                    private int position;
-                    private T value;
-
-                    @Override
-                    protected T computeNext()
-                    {
-                        if (position == 0) {
-                            if (!delegate.hasNext()) {
-                                return endOfData();
-                            }
-                            value = delegate.next();
-                        }
-
-                        position++;
-                        if (position >= n) {
-                            position = 0;
-                        }
-                        return value;
+                if (position == 0) {
+                    if (!delegate.hasNext()) {
+                        return endOfData();
                     }
-                };
+                    value = delegate.next();
+                }
+
+                position++;
+                if (position >= n) {
+                    position = 0;
+                }
+                return value;
             }
         };
     }
@@ -307,27 +345,20 @@ public abstract class AbstractTestOrcReader
         });
     }
 
-    private static Iterable<Double> doubleSequence(final double start, final double step, final int items)
+    private static Iterable<Double> doubleSequence(double start, double step, int items)
     {
-        return new Iterable<Double>()
+        return () -> new AbstractSequentialIterator<Double>(start)
         {
-            @Override
-            public Iterator<Double> iterator()
-            {
-                return new AbstractSequentialIterator<Double>(start)
-                {
-                    private int item;
+            private int item;
 
-                    @Override
-                    protected Double computeNext(Double previous)
-                    {
-                        if (item >= items) {
-                            return null;
-                        }
-                        item++;
-                        return previous + step;
-                    }
-                };
+            @Override
+            protected Double computeNext(Double previous)
+            {
+                if (item >= items) {
+                    return null;
+                }
+                item++;
+                return previous + step;
             }
         };
     }
@@ -438,14 +469,6 @@ public abstract class AbstractTestOrcReader
     private static byte[] stringToByteArray(String input)
     {
         return input.getBytes(UTF_8);
-    }
-
-    private static String byteArrayToBase64(byte[] input)
-    {
-        if (input == null) {
-            return null;
-        }
-        return BaseEncoding.base64().encode(input);
     }
 
     private static String byteArrayToString(byte[] input)

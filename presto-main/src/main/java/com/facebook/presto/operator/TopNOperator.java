@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -107,7 +106,6 @@ public class TopNOperator
     private final List<Type> sortTypes;
     private final List<Integer> sortChannels;
     private final List<SortOrder> sortOrders;
-    private final TopNMemoryManager memoryManager;
     private final boolean partial;
 
     private final PageBuilder pageBuilder;
@@ -129,7 +127,7 @@ public class TopNOperator
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.types = checkNotNull(types, "types is null");
 
-        checkArgument(n > 0, "n must be greater than zero");
+        checkArgument(n >= 0, "n must be positive");
         this.n = n;
 
         this.sortTypes = checkNotNull(sortTypes, "sortTypes is null");
@@ -138,9 +136,11 @@ public class TopNOperator
 
         this.partial = partial;
 
-        this.memoryManager = new TopNMemoryManager(checkNotNull(operatorContext, "operatorContext is null"));
-
         this.pageBuilder = new PageBuilder(types);
+
+        if (n == 0) {
+            finishing = true;
+        }
     }
 
     @Override
@@ -181,10 +181,11 @@ public class TopNOperator
         if (topNBuilder == null) {
             topNBuilder = new TopNBuilder(
                     n,
+                    partial,
                     sortTypes,
                     sortChannels,
                     sortOrders,
-                    memoryManager);
+                    operatorContext);
         }
 
         checkState(!topNBuilder.isFull(), "Aggregation buffer is full");
@@ -210,9 +211,6 @@ public class TopNOperator
                 outputIterator = topNBuilder.build();
                 topNBuilder = null;
             }
-            else {
-                throw new ExceededMemoryLimitException(memoryManager.getMaxMemorySize());
-            }
         }
 
         pageBuilder.reset();
@@ -231,27 +229,30 @@ public class TopNOperator
     private static class TopNBuilder
     {
         private final int n;
+        private final boolean partial;
         private final List<Type> sortTypes;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrders;
-        private final TopNMemoryManager memoryManager;
+        private final OperatorContext operatorContext;
         private final PriorityQueue<Block[]> globalCandidates;
 
         private long memorySize;
 
         private TopNBuilder(int n,
+                boolean partial,
                 List<Type> sortTypes,
                 List<Integer> sortChannels,
                 List<SortOrder> sortOrders,
-                TopNMemoryManager memoryManager)
+                OperatorContext operatorContext)
         {
             this.n = n;
+            this.partial = partial;
 
             this.sortTypes = sortTypes;
             this.sortChannels = sortChannels;
             this.sortOrders = sortOrders;
 
-            this.memoryManager = memoryManager;
+            this.operatorContext = operatorContext;
 
             Ordering<Block[]> comparator = Ordering.from(new RowComparator(sortTypes, sortChannels, sortOrders)).reverse();
             this.globalCandidates = new PriorityQueue<>(Math.min(n, MAX_INITIAL_PRIORITY_QUEUE_SIZE), comparator);
@@ -269,10 +270,7 @@ public class TopNOperator
 
             Block[] blocks = page.getBlocks();
             for (int position = 0; position < page.getPositionCount(); position++) {
-                if (globalCandidates.size() < n) {
-                    sizeDelta += addRow(position, blocks);
-                }
-                else if (compare(position, blocks, globalCandidates.peek()) < 0) {
+                if (globalCandidates.size() < n || compare(position, blocks, globalCandidates.peek()) < 0) {
                     sizeDelta += addRow(position, blocks);
                 }
             }
@@ -334,7 +332,17 @@ public class TopNOperator
 
         private boolean isFull()
         {
-            return memoryManager.canUse(memorySize);
+            long memorySize = this.memorySize - operatorContext.getOperatorPreAllocatedMemory().toBytes();
+            if (memorySize < 0) {
+                memorySize = 0;
+            }
+            if (partial) {
+                return !operatorContext.trySetMemoryReservation(memorySize);
+            }
+            else {
+                operatorContext.setMemoryReservation(memorySize);
+                return false;
+            }
         }
 
         public Iterator<Block[]> build()
@@ -345,41 +353,6 @@ public class TopNOperator
                 minSortedGlobalCandidates.add(row);
             }
             return minSortedGlobalCandidates.build().reverse().iterator();
-        }
-    }
-
-    public static class TopNMemoryManager
-    {
-        private final OperatorContext operatorContext;
-        private long currentMemoryReservation;
-
-        public TopNMemoryManager(OperatorContext operatorContext)
-        {
-            this.operatorContext = operatorContext;
-        }
-
-        public boolean canUse(long memorySize)
-        {
-            // remove the pre-allocated memory from this size
-            memorySize -= operatorContext.getOperatorPreAllocatedMemory().toBytes();
-
-            long delta = memorySize - currentMemoryReservation;
-            if (delta <= 0) {
-                return false;
-            }
-
-            if (!operatorContext.reserveMemory(delta)) {
-                return true;
-            }
-
-            // reservation worked, record the reservation
-            currentMemoryReservation = Math.max(currentMemoryReservation, memorySize);
-            return false;
-        }
-
-        public DataSize getMaxMemorySize()
-        {
-            return operatorContext.getMaxMemorySize();
         }
     }
 }

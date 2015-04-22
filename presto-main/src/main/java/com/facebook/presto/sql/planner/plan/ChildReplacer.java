@@ -69,6 +69,19 @@ public class ChildReplacer
     }
 
     @Override
+    public PlanNode visitExchange(ExchangeNode node, List<PlanNode> newChildren)
+    {
+        return new ExchangeNode(
+                node.getId(),
+                node.getType(),
+                node.getPartitionKeys(),
+                node.getHashSymbol(),
+                newChildren,
+                node.getOutputSymbols(),
+                node.getInputs());
+    }
+
+    @Override
     public PlanNode visitTopN(TopNNode node, List<PlanNode> newChildren)
     {
         return new TopNNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getCount(), node.getOrderBy(), node.getOrderings(), node.isPartial());
@@ -91,7 +104,7 @@ public class ChildReplacer
     @Override
     public PlanNode visitUnnest(UnnestNode node, List<PlanNode> newChildren)
     {
-        return new UnnestNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getReplicateSymbols(), node.getUnnestSymbols());
+        return new UnnestNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getReplicateSymbols(), node.getUnnestSymbols(), node.getOrdinalitySymbol());
     }
 
     @Override
@@ -154,7 +167,17 @@ public class ChildReplacer
     @Override
     public PlanNode visitWindow(WindowNode node, List<PlanNode> newChildren)
     {
-        return new WindowNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getFrame(), node.getWindowFunctions(), node.getSignatures(), node.getHashSymbol());
+        return new WindowNode(
+                node.getId(),
+                Iterables.getOnlyElement(newChildren),
+                node.getPartitionBy(),
+                node.getOrderBy(),
+                node.getOrderings(),
+                node.getFrame(),
+                node.getWindowFunctions(),
+                node.getSignatures(),
+                node.getHashSymbol(),
+                node.getPrePartitionedInputs());
     }
 
     @Override

@@ -13,18 +13,20 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.spi.Page;
 
-import java.io.Closeable;
 import java.util.List;
 
 public interface StoragePageSink
-        extends Closeable
 {
     void appendPages(List<Page> pages);
 
     void appendPages(List<Page> pages, int[] pageIndexes, int[] positionIndexes);
 
-    @Override
-    void close();
+    boolean isFull();
+
+    void flush();
+
+    List<ShardInfo> commit();
 }

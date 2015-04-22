@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.kafka.decoder;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -28,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.kafka.decoder.KafkaFieldDecoder.DEFAULT_FIELD_DECODER_NAME;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -99,7 +99,8 @@ public class KafkaDecoderRegistry
         checkState(fieldDecoders.containsKey(rowDataFormat), "no field decoders for '%s' found", rowDataFormat);
         Set<KafkaFieldDecoder<?>> decoders = fieldDecoders.get(rowDataFormat).get(fieldType);
 
-        ImmutableSet<String> fieldNames = ImmutableSet.of(Objects.firstNonNull(fieldDataFormat, DEFAULT_FIELD_DECODER_NAME),
+        ImmutableSet<String> fieldNames = ImmutableSet.of(
+                firstNonNull(fieldDataFormat, DEFAULT_FIELD_DECODER_NAME),
                 DEFAULT_FIELD_DECODER_NAME);
 
         for (String fieldName : fieldNames) {

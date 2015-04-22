@@ -16,7 +16,7 @@ package com.facebook.presto.kafka;
 import com.facebook.presto.kafka.decoder.KafkaDecoderRegistry;
 import com.facebook.presto.kafka.decoder.KafkaFieldDecoder;
 import com.facebook.presto.kafka.decoder.KafkaRowDecoder;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
@@ -51,7 +51,7 @@ public class KafkaRecordSetProvider
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ConnectorColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
         KafkaSplit kafkaSplit = handleResolver.convertSplit(split);
 
@@ -62,7 +62,7 @@ public class KafkaRecordSetProvider
         KafkaRowDecoder keyDecoder = registry.getRowDecoder(kafkaSplit.getKeyDataFormat());
         KafkaRowDecoder messageDecoder = registry.getRowDecoder(kafkaSplit.getMessageDataFormat());
 
-        for (ConnectorColumnHandle handle : columns) {
+        for (ColumnHandle handle : columns) {
             KafkaColumnHandle columnHandle = handleResolver.convertColumnHandle(handle);
             handleBuilder.add(columnHandle);
 

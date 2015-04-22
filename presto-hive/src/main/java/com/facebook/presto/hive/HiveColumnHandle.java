@@ -14,12 +14,13 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
+
+import java.util.Objects;
 
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -27,7 +28,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HiveColumnHandle
-        implements ConnectorColumnHandle
+        implements ColumnHandle
 {
     public static final String SAMPLE_WEIGHT_COLUMN_NAME = "__presto__sample_weight__";
 
@@ -110,7 +111,7 @@ public class HiveColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(clientId, name, hiveColumnIndex, hiveType, partitionKey);
+        return Objects.hash(clientId, name, hiveColumnIndex, hiveType, partitionKey);
     }
 
     @Override
@@ -123,11 +124,11 @@ public class HiveColumnHandle
             return false;
         }
         HiveColumnHandle other = (HiveColumnHandle) obj;
-        return Objects.equal(this.clientId, other.clientId) &&
-                Objects.equal(this.name, other.name) &&
-                Objects.equal(this.hiveColumnIndex, other.hiveColumnIndex) &&
-                Objects.equal(this.hiveType, other.hiveType) &&
-                Objects.equal(this.partitionKey, other.partitionKey);
+        return Objects.equals(this.clientId, other.clientId) &&
+                Objects.equals(this.name, other.name) &&
+                Objects.equals(this.hiveColumnIndex, other.hiveColumnIndex) &&
+                Objects.equals(this.hiveType, other.hiveType) &&
+                Objects.equals(this.partitionKey, other.partitionKey);
     }
 
     @Override
@@ -143,7 +144,7 @@ public class HiveColumnHandle
                 .toString();
     }
 
-    public static HiveColumnHandle toHiveColumnHandle(ConnectorColumnHandle columnHandle)
+    public static HiveColumnHandle toHiveColumnHandle(ColumnHandle columnHandle)
     {
         return checkType(columnHandle, HiveColumnHandle.class, "columnHandle");
     }

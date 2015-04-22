@@ -18,6 +18,7 @@ import com.facebook.presto.execution.TaskId;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.Distribution;
 import io.airlift.units.DataSize;
@@ -198,17 +199,25 @@ public class PipelineContext
         return taskContext.getOperatorPreAllocatedMemory();
     }
 
-    public synchronized boolean reserveMemory(long bytes)
+    public synchronized ListenableFuture<?> reserveMemory(long bytes)
     {
-        boolean result = taskContext.reserveMemory(bytes);
-        if (result) {
+        ListenableFuture<?> future = taskContext.reserveMemory(bytes);
+        memoryReservation.getAndAdd(bytes);
+        return future;
+    }
+
+    public synchronized boolean tryReserveMemory(long bytes)
+    {
+        if (taskContext.tryReserveMemory(bytes)) {
             memoryReservation.getAndAdd(bytes);
+            return true;
         }
-        return result;
+        return false;
     }
 
     public synchronized void freeMemory(long bytes)
     {
+        checkArgument(bytes >= 0, "bytes is negative");
         checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
         taskContext.freeMemory(bytes);
         memoryReservation.getAndAdd(-bytes);

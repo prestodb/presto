@@ -15,98 +15,34 @@ package com.facebook.presto.byteCode.control;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.ByteCodeNodeFactory;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.ByteCodeNodes.buildBlock;
-import static com.facebook.presto.byteCode.ExpectedType.BOOLEAN;
-import static com.facebook.presto.byteCode.ExpectedType.VOID;
+import static com.google.common.base.Preconditions.checkState;
 
 public class WhileLoop
         implements FlowControl
 {
-    public static WhileLoopBuilder whileLoopBuilder(CompilerContext context)
-    {
-        return new WhileLoopBuilder(context);
-    }
-
-    public static class WhileLoopBuilder
-    {
-        private final CompilerContext context;
-
-        private final LabelNode beginLabel = new LabelNode("begin");
-        private final LabelNode endLabel = new LabelNode("end");
-
-        private String comment;
-        private ByteCodeNode condition;
-        private ByteCodeNode body;
-
-        public WhileLoopBuilder(CompilerContext context)
-        {
-            this.context = context;
-            context.pushIterationScope(beginLabel, endLabel);
-        }
-
-        public WhileLoopBuilder comment(String format, Object... args)
-        {
-            this.comment = String.format(format, args);
-            return this;
-        }
-
-        public WhileLoopBuilder condition(ByteCodeNode condition)
-        {
-            this.condition = buildBlock(context, condition, "condition");
-            return this;
-        }
-
-        public WhileLoopBuilder condition(ByteCodeNodeFactory condition)
-        {
-            this.condition = buildBlock(context, condition, BOOLEAN, "condition");
-            return this;
-        }
-
-        public WhileLoopBuilder body(ByteCodeNode body)
-        {
-            this.body = buildBlock(context, body, "body");
-            return this;
-        }
-
-        public WhileLoopBuilder body(ByteCodeNodeFactory body)
-        {
-            this.body = buildBlock(context, body, VOID, "body");
-            return this;
-        }
-
-        public WhileLoop build()
-        {
-            WhileLoop whileLoop = new WhileLoop(context, comment, condition, body, beginLabel, endLabel);
-            context.popIterationScope();
-            return whileLoop;
-        }
-    }
-
-    private final CompilerContext context;
     private final String comment;
-    private final ByteCodeNode condition;
-    private final ByteCodeNode body;
+    private final Block condition = new Block();
+    private final Block body = new Block();
 
-    private final LabelNode beginLabel;
-    private final LabelNode endLabel;
+    private final LabelNode continueLabel = new LabelNode("continue");
+    private final LabelNode endLabel = new LabelNode("end");
 
-    private WhileLoop(CompilerContext context, String comment, ByteCodeNode condition, ByteCodeNode body, LabelNode beginLabel, LabelNode endLabel)
+    public WhileLoop()
     {
-        this.context = context;
-        this.comment = comment;
-        this.condition = condition;
-        this.body = body;
-        this.beginLabel = beginLabel;
-        this.endLabel = endLabel;
+        this.comment = null;
+    }
+
+    public WhileLoop(String format, Object... args)
+    {
+        this.comment = String.format(format, args);
     }
 
     @Override
@@ -115,28 +51,54 @@ public class WhileLoop
         return comment;
     }
 
-    public ByteCodeNode getCondition()
+    public LabelNode getContinueLabel()
+    {
+        return continueLabel;
+    }
+
+    public LabelNode getEndLabel()
+    {
+        return endLabel;
+    }
+
+    public Block condition()
     {
         return condition;
     }
 
-    public ByteCodeNode getBody()
+    public WhileLoop condition(ByteCodeNode node)
+    {
+        checkState(condition.isEmpty(), "condition already set");
+        condition.append(node);
+        return this;
+    }
+
+    public Block body()
     {
         return body;
     }
 
-    @Override
-    public void accept(MethodVisitor visitor)
+    public WhileLoop body(ByteCodeNode node)
     {
-        Block block = new Block(context)
-                .visitLabel(beginLabel)
+        checkState(body.isEmpty(), "body already set");
+        body.append(node);
+        return this;
+    }
+
+    @Override
+    public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
+    {
+        checkState(!condition.isEmpty(), "WhileLoop does not have a condition set");
+
+        Block block = new Block()
+                .visitLabel(continueLabel)
                 .append(condition)
                 .ifZeroGoto(endLabel)
                 .append(body)
-                .gotoLabel(beginLabel)
+                .gotoLabel(continueLabel)
                 .visitLabel(endLabel);
 
-        block.accept(visitor);
+        block.accept(visitor, generationContext);
     }
 
     @Override

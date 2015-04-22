@@ -48,7 +48,6 @@ import com.facebook.presto.sql.tree.SortItem.Ordering;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -65,6 +64,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 
 class QueryPlanner
@@ -225,7 +225,7 @@ class QueryPlanner
 
         for (Expression expression : expressions) {
             Type coercion = analysis.getCoercion(expression);
-            Symbol symbol = symbolAllocator.newSymbol(expression, Objects.firstNonNull(coercion, analysis.getType(expression)));
+            Symbol symbol = symbolAllocator.newSymbol(expression, firstNonNull(coercion, analysis.getType(expression)));
             Expression rewritten = subPlan.rewrite(expression);
             if (coercion != null) {
                 rewritten = new Cast(rewritten, coercion.getTypeSignature().toString());
@@ -264,6 +264,7 @@ class QueryPlanner
     private PlanBuilder explicitCoercionSymbols(PlanBuilder subPlan, Iterable<Symbol> alreadyCoerced, Iterable<? extends Expression> uncoerced)
     {
         TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);
+        translations.copyMappingsFrom(subPlan.getTranslations());
         ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
 
         projections.putAll(coerce(uncoerced, subPlan, translations));
@@ -365,7 +366,18 @@ class QueryPlanner
             confidence = Double.valueOf(analysis.getQuery().getApproximate().get().getConfidence()) / 100.0;
         }
 
-        AggregationNode aggregationNode = new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build(), new ImmutableMap.Builder<Symbol, Symbol>().putAll(masks).build(), subPlan.getSampleWeight(), confidence, Optional.empty());
+        AggregationNode aggregationNode = new AggregationNode(
+                idAllocator.getNextId(),
+                subPlan.getRoot(),
+                ImmutableList.copyOf(groupBySymbols),
+                aggregationAssignments.build(),
+                functions.build(),
+                masks,
+                AggregationNode.Step.SINGLE,
+                subPlan.getSampleWeight(),
+                confidence,
+                Optional.empty());
+
         subPlan = new PlanBuilder(translations, aggregationNode, Optional.empty());
 
         // 3. Post-projection
@@ -484,7 +496,8 @@ class QueryPlanner
                             frame,
                             assignments.build(),
                             signatures,
-                            Optional.empty()),
+                            Optional.empty(),
+                            ImmutableSet.of()),
                     subPlan.getSampleWeight());
 
             if (needCoercion) {
@@ -584,6 +597,7 @@ class QueryPlanner
                     ImmutableMap.<Symbol, FunctionCall>of(),
                     ImmutableMap.<Symbol, Signature>of(),
                     ImmutableMap.<Symbol, Symbol>of(),
+                    AggregationNode.Step.SINGLE,
                     Optional.empty(),
                     1.0,
                     Optional.empty());
@@ -623,7 +637,7 @@ class QueryPlanner
 
         PlanNode planNode;
         if (limit.isPresent()) {
-            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.valueOf(limit.get()), orderBySymbols.build(), orderings.build(), false);
+            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.parseLong(limit.get()), orderBySymbols.build(), orderings.build(), false);
         }
         else {
             planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderBySymbols.build(), orderings.build());
@@ -645,7 +659,7 @@ class QueryPlanner
     private PlanBuilder limit(PlanBuilder subPlan, List<SortItem> orderBy, Optional<String> limit)
     {
         if (orderBy.isEmpty() && limit.isPresent()) {
-            long limitValue = Long.valueOf(limit.get());
+            long limitValue = Long.parseLong(limit.get());
             return new PlanBuilder(subPlan.getTranslations(), new LimitNode(idAllocator.getNextId(), subPlan.getRoot(), limitValue), subPlan.getSampleWeight());
         }
 

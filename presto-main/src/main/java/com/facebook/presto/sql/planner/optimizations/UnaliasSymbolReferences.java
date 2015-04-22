@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
@@ -122,7 +122,17 @@ public class UnaliasSymbolReferences
             }
 
             List<Symbol> groupByKeys = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getGroupBy())));
-            return new AggregationNode(node.getId(), source, groupByKeys, functionCalls.build(), functionInfos.build(), masks.build(), canonicalize(node.getSampleWeight()), node.getConfidence(), node.getHashSymbol());
+            return new AggregationNode(
+                    node.getId(),
+                    source,
+                    groupByKeys,
+                    functionCalls.build(),
+                    functionInfos.build(),
+                    masks.build(),
+                    node.getStep(),
+                    canonicalize(node.getSampleWeight()),
+                    node.getConfidence(),
+                    node.getHashSymbol());
         }
 
         @Override
@@ -141,7 +151,7 @@ public class UnaliasSymbolReferences
             for (Map.Entry<Symbol, List<Symbol>> entry : node.getUnnestSymbols().entrySet()) {
                 builder.put(canonicalize(entry.getKey()), canonicalize(entry.getValue()));
             }
-            return new UnnestNode(node.getId(), source, canonicalize(node.getReplicateSymbols()), builder.build());
+            return new UnnestNode(node.getId(), source, canonicalize(node.getReplicateSymbols()), builder.build(), canonicalize(node.getOrdinalitySymbol()));
         }
 
         @Override
@@ -168,7 +178,17 @@ public class UnaliasSymbolReferences
                     frame.getStartType(), canonicalize(frame.getStartValue()),
                     frame.getEndType(), canonicalize(frame.getEndValue()));
 
-            return new WindowNode(node.getId(), source, canonicalize(node.getPartitionBy()), canonicalize(node.getOrderBy()), orderings.build(), frame, functionCalls.build(), functionInfos.build(), node.getHashSymbol());
+            return new WindowNode(
+                    node.getId(),
+                    source,
+                    canonicalize(node.getPartitionBy()),
+                    canonicalize(node.getOrderBy()),
+                    orderings.build(),
+                    frame,
+                    functionCalls.build(),
+                    functionInfos.build(),
+                    node.getHashSymbol().map(this::canonicalize),
+                    canonicalize(node.getPrePartitionedInputs()));
         }
 
         @Override
@@ -183,7 +203,14 @@ public class UnaliasSymbolReferences
             if (node.getOriginalConstraint() != null) {
                 originalConstraint = canonicalize(node.getOriginalConstraint());
             }
-            return new TableScanNode(node.getId(), node.getTable(), canonicalize(node.getOutputSymbols()), builder.build(), originalConstraint, node.getSummarizedPartition());
+            return new TableScanNode(
+                    node.getId(),
+                    node.getTable(),
+                    canonicalize(node.getOutputSymbols()),
+                    builder.build(),
+                    node.getLayout(),
+                    node.getCurrentConstraint(),
+                    originalConstraint);
         }
 
         @Override

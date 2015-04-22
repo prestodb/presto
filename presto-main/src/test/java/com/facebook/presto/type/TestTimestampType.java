@@ -30,7 +30,7 @@ public class TestTimestampType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = TIMESTAMP.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = TIMESTAMP.createBlockBuilder(new BlockBuilderStatus(), 15);
         TIMESTAMP.writeLong(blockBuilder, 1111);
         TIMESTAMP.writeLong(blockBuilder, 1111);
         TIMESTAMP.writeLong(blockBuilder, 1111);

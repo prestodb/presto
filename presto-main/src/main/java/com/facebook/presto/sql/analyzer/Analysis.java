@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
@@ -29,7 +29,6 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Table;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -38,6 +37,7 @@ import com.google.common.collect.SetMultimap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -46,6 +46,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class Analysis
 {
     private Query query;
+    private String updateType;
 
     private final IdentityHashMap<Table, Query> namedQueries = new IdentityHashMap<>();
 
@@ -67,7 +68,7 @@ public class Analysis
 
     private final IdentityHashMap<Table, TableHandle> tables = new IdentityHashMap<>();
 
-    private final IdentityHashMap<Expression, Boolean> rowFieldAccesors = new IdentityHashMap<>();
+    private final IdentityHashMap<Expression, Boolean> rowFieldReferences = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> types = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> coercions = new IdentityHashMap<>();
     private final IdentityHashMap<FunctionCall, FunctionInfo> functionInfo = new IdentityHashMap<>();
@@ -90,6 +91,16 @@ public class Analysis
     public void setQuery(Query query)
     {
         this.query = query;
+    }
+
+    public String getUpdateType()
+    {
+        return updateType;
+    }
+
+    public void setUpdateType(String updateType)
+    {
+        this.updateType = updateType;
     }
 
     public void addResolvedNames(Expression expression, Map<QualifiedName, Integer> mappings)
@@ -117,9 +128,9 @@ public class Analysis
         return new IdentityHashMap<>(types);
     }
 
-    public boolean isRowFieldAccessor(QualifiedNameReference qualifiedNameReference)
+    public boolean isRowFieldReference(QualifiedNameReference qualifiedNameReference)
     {
-        return rowFieldAccesors.containsKey(qualifiedNameReference);
+        return rowFieldReferences.containsKey(qualifiedNameReference);
     }
 
     public Type getType(Expression expression)
@@ -279,9 +290,9 @@ public class Analysis
         this.types.putAll(types);
     }
 
-    public void addRowFieldAccessors(IdentityHashMap<Expression, Boolean> rowFieldAccesors)
+    public void addRowFieldReferences(IdentityHashMap<Expression, Boolean> rowFieldReferences)
     {
-        this.rowFieldAccesors.putAll(rowFieldAccesors);
+        this.rowFieldReferences.putAll(rowFieldReferences);
     }
 
     public void addCoercion(Expression expression, Type type)
@@ -377,7 +388,7 @@ public class Analysis
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(leftInPredicates, rightInPredicates);
+            return Objects.hash(leftInPredicates, rightInPredicates);
         }
 
         @Override
@@ -390,8 +401,8 @@ public class Analysis
                 return false;
             }
             final JoinInPredicates other = (JoinInPredicates) obj;
-            return Objects.equal(this.leftInPredicates, other.leftInPredicates) &&
-                    Objects.equal(this.rightInPredicates, other.rightInPredicates);
+            return Objects.equals(this.leftInPredicates, other.leftInPredicates) &&
+                    Objects.equals(this.rightInPredicates, other.rightInPredicates);
         }
     }
 }

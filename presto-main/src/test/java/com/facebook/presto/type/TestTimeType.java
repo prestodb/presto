@@ -30,7 +30,7 @@ public class TestTimeType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = TIME.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = TIME.createBlockBuilder(new BlockBuilderStatus(), 15);
         TIME.writeLong(blockBuilder, 1111);
         TIME.writeLong(blockBuilder, 1111);
         TIME.writeLong(blockBuilder, 1111);

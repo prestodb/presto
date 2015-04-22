@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransportException;
 import com.google.common.net.HostAndPort;
+import org.apache.thrift.transport.TTransportException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;

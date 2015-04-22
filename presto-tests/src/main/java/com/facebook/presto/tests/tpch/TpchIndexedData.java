@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tests.tpch;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
@@ -65,7 +65,7 @@ class TpchIndexedData
         for (TpchScaledTable table : tables) {
             SchemaTableName tableName = new SchemaTableName("sf" + table.getScaleFactor(), table.getTableName());
             TpchTableHandle tableHandle = tpchMetadata.getTableHandle(null, tableName);
-            Map<String, ConnectorColumnHandle> columnHandles = new LinkedHashMap<>(tpchMetadata.getColumnHandles(tableHandle));
+            Map<String, ColumnHandle> columnHandles = new LinkedHashMap<>(tpchMetadata.getColumnHandles(tableHandle));
             for (Set<String> columnNames : tpchIndexSpec.getColumnIndexes(table)) {
                 List<String> keyColumnNames = ImmutableList.copyOf(columnNames); // Finalize the key order
                 Set<TpchScaledColumn> keyColumns = FluentIterable.from(keyColumnNames)

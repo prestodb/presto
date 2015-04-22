@@ -81,6 +81,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public class OrcPageSource
         implements ConnectorPageSource
 {
+    private static final int NULL_ENTRY_SIZE = 0;
     private final OrcRecordReader recordReader;
     private final OrcDataSource orcDataSource;
 
@@ -138,7 +139,13 @@ public class OrcPageSource
 
                 byte[] bytes = partitionKey.getValue().getBytes(UTF_8);
 
-                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+                BlockBuilder blockBuilder;
+                if (type instanceof FixedWidthType) {
+                    blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_VECTOR_LENGTH);
+                }
+                else {
+                    blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_VECTOR_LENGTH, bytes.length);
+                }
 
                 if (HiveUtil.isHiveNull(bytes)) {
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
@@ -188,7 +195,7 @@ public class OrcPageSource
                 constantBlocks[columnIndex] = blockBuilder.build();
             }
             else if (!recordReader.isColumnPresent(column.getHiveColumnIndex())) {
-                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_VECTOR_LENGTH, NULL_ENTRY_SIZE);
                 for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                     blockBuilder.appendNull();
                 }
@@ -253,7 +260,7 @@ public class OrcPageSource
                     blocks[fieldId] = new LazyFixedWidthBlock(DOUBLE.getFixedSize(), batchSize, new LazyDoubleBlockLoader(hiveColumnIndexes[fieldId], batchSize));
                 }
                 else if (VARCHAR.equals(type) || VARBINARY.equals(type) || isStructuralType[fieldId]) {
-                    blocks[fieldId] = new LazySliceArrayBlock(batchSize, new LazySliceBlockLoader(hiveColumnIndexes[fieldId]));
+                    blocks[fieldId] = new LazySliceArrayBlock(batchSize, new LazySliceBlockLoader(hiveColumnIndexes[fieldId], batchSize));
                 }
                 else {
                     throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type);
@@ -331,7 +338,7 @@ public class OrcPageSource
         {
             checkState(batchId == expectedBatchId);
             try {
-                BooleanVector vector = new BooleanVector();
+                BooleanVector vector = new BooleanVector(batchSize);
                 recordReader.readVector(hiveColumnIndex, vector);
                 block.setNullVector(vector.isNull);
                 block.setRawSlice(wrappedBooleanArray(vector.vector, 0, batchSize));
@@ -360,7 +367,7 @@ public class OrcPageSource
         {
             checkState(batchId == expectedBatchId);
             try {
-                LongVector vector = new LongVector();
+                LongVector vector = new LongVector(batchSize);
                 recordReader.readVector(hiveColumnIndex, vector);
                 block.setNullVector(vector.isNull);
 
@@ -397,7 +404,7 @@ public class OrcPageSource
         {
             checkState(batchId == expectedBatchId);
             try {
-                LongVector vector = new LongVector();
+                LongVector vector = new LongVector(batchSize);
                 recordReader.readVector(hiveColumnIndex, vector);
                 block.setNullVector(vector.isNull);
                 block.setRawSlice(wrappedLongArray(vector.vector, 0, batchSize));
@@ -427,7 +434,7 @@ public class OrcPageSource
         {
             checkState(batchId == expectedBatchId);
             try {
-                DoubleVector vector = new DoubleVector();
+                DoubleVector vector = new DoubleVector(batchSize);
                 recordReader.readVector(hiveColumnIndex, vector);
                 block.setNullVector(vector.isNull);
                 block.setRawSlice(wrappedDoubleArray(vector.vector, 0, batchSize));
@@ -443,10 +450,12 @@ public class OrcPageSource
     {
         private final int expectedBatchId = batchId;
 
+        private final int batchSize;
         private final int hiveColumnIndex;
 
-        public LazySliceBlockLoader(int hiveColumnIndex)
+        public LazySliceBlockLoader(int hiveColumnIndex, int batchSize)
         {
+            this.batchSize = batchSize;
             this.hiveColumnIndex = hiveColumnIndex;
         }
 
@@ -455,7 +464,7 @@ public class OrcPageSource
         {
             checkState(batchId == expectedBatchId);
             try {
-                SliceVector vector = new SliceVector();
+                SliceVector vector = new SliceVector(batchSize);
                 recordReader.readVector(hiveColumnIndex, vector);
                 block.setValues(vector.vector);
             }

@@ -25,9 +25,9 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
-import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -36,6 +36,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestTopNOperator
@@ -46,7 +47,7 @@ public class TestTopNOperator
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
         driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, TEST_SESSION)
                 .addPipelineContext(true, true)
                 .addDriverContext();
@@ -161,5 +162,33 @@ public class TestTopNOperator
                 .build();
 
         assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
+    public void testLimitZero()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(BIGINT).row(1).build();
+
+        TopNOperatorFactory factory = new TopNOperatorFactory(
+                0,
+                ImmutableList.of(BIGINT),
+                0,
+                ImmutableList.of(0),
+                ImmutableList.of(DESC_NULLS_LAST),
+                false);
+
+        Operator operator = factory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT).build();
+
+        // assertOperatorEquals assumes operators do not start in finished state
+        assertEquals(operator.isFinished(), true);
+        assertEquals(operator.needsInput(), false);
+        assertEquals(operator.getOutput(), null);
+
+        List<Page> pages = OperatorAssertion.toPages(operator, input.iterator());
+        MaterializedResult actual = OperatorAssertion.toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
+        assertEquals(actual, expected);
     }
 }

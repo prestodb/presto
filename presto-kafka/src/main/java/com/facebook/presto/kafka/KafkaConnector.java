@@ -15,12 +15,11 @@ package com.facebook.presto.kafka;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
@@ -32,19 +31,23 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class KafkaConnector
         implements Connector
 {
-    private final KafkaMetadata metadata;
+    private static final Logger log = Logger.get(KafkaConnector.class);
 
+    private final LifeCycleManager lifeCycleManager;
+    private final KafkaMetadata metadata;
     private final KafkaSplitManager splitManager;
     private final KafkaRecordSetProvider recordSetProvider;
     private final KafkaHandleResolver handleResolver;
 
     @Inject
     public KafkaConnector(
+            LifeCycleManager lifeCycleManager,
             KafkaHandleResolver handleResolver,
             KafkaMetadata metadata,
             KafkaSplitManager splitManager,
             KafkaRecordSetProvider recordSetProvider)
     {
+        this.lifeCycleManager = checkNotNull(lifeCycleManager, "lifeCycleManager is null");
         this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
@@ -70,26 +73,19 @@ public class KafkaConnector
     }
 
     @Override
-    public ConnectorPageSourceProvider getPageSourceProvider()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
     }
 
     @Override
-    public ConnectorRecordSinkProvider getRecordSinkProvider()
+    public final void shutdown()
     {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ConnectorIndexResolver getIndexResolver()
-    {
-        throw new UnsupportedOperationException();
+        try {
+            lifeCycleManager.stop();
+        }
+        catch (Exception e) {
+            log.error(e, "Error shutting down connector");
+        }
     }
 }

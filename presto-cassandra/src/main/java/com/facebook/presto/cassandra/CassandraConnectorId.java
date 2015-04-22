@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -32,7 +32,7 @@ public class CassandraConnectorId
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(connectorId);
+        return Objects.hash(connectorId);
     }
 
     @Override
@@ -45,7 +45,7 @@ public class CassandraConnectorId
             return false;
         }
         CassandraConnectorId other = (CassandraConnectorId) obj;
-        return Objects.equal(this.connectorId, other.connectorId);
+        return Objects.equals(this.connectorId, other.connectorId);
     }
 
     @Override

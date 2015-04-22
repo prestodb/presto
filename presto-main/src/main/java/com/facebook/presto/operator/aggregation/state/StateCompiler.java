@@ -15,10 +15,13 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
+import com.facebook.presto.byteCode.MethodDefinition;
+import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.Variable;
+import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -52,13 +55,24 @@ import static com.facebook.presto.byteCode.Access.PRIVATE;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
+import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.add;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantBoolean;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantLong;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantNumber;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.defaultValue;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.invokeStatic;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.newInstance;
+import static com.facebook.presto.operator.aggregation.state.StateCompilerUtils.getBlockBuilderAppend;
+import static com.facebook.presto.operator.aggregation.state.StateCompilerUtils.getBlockGetter;
+import static com.facebook.presto.operator.aggregation.state.StateCompilerUtils.getSliceGetter;
+import static com.facebook.presto.operator.aggregation.state.StateCompilerUtils.getSliceSetter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
@@ -134,8 +148,7 @@ public class StateCompiler
 
     private static void generateGetSerializedType(ClassDefinition definition, List<StateField> fields, CallSiteBinder callSiteBinder)
     {
-        CompilerContext compilerContext = new CompilerContext();
-        Block body = definition.declareMethod(compilerContext, a(PUBLIC), "getSerializedType", type(Type.class)).getBody();
+        Block body = definition.declareMethod(a(PUBLIC), "getSerializedType", type(Type.class)).getBody();
 
         Type type;
         if (fields.size() > 1) {
@@ -164,7 +177,7 @@ public class StateCompiler
         }
 
         body.comment("return %s", type.getTypeSignature())
-                .append(constantType(new CompilerContext(BOOTSTRAP_METHOD), callSiteBinder, type))
+                .append(constantType(callSiteBinder, type))
                 .retObject();
     }
 
@@ -187,26 +200,27 @@ public class StateCompiler
 
     private static <T> void generateDeserialize(ClassDefinition definition, Class<T> clazz, List<StateField> fields)
     {
-        CompilerContext compilerContext = new CompilerContext();
-        Block deserializerBody = definition.declareMethod(compilerContext, a(PUBLIC), "deserialize", type(void.class), arg("block", com.facebook.presto.spi.block.Block.class), arg("index", int.class), arg("state", Object.class)).getBody();
+        Parameter block = arg("block", com.facebook.presto.spi.block.Block.class);
+        Parameter index = arg("index", int.class);
+        Parameter state = arg("state", Object.class);
+        MethodDefinition method = definition.declareMethod(a(PUBLIC), "deserialize", type(void.class), block, index, state);
+
+        Block deserializerBody = method.getBody();
 
         if (fields.size() == 1) {
-            generatePrimitiveDeserializer(deserializerBody, getSetter(clazz, fields.get(0)));
+            Method setter = getSetter(clazz, fields.get(0));
+            Method blockGetter = getBlockGetter(setter.getParameterTypes()[0]);
+            deserializerBody.append(state.cast(setter.getDeclaringClass()).invoke(setter, invokeStatic(blockGetter, block, index)));
         }
         else {
-            Variable slice = compilerContext.declareVariable(Slice.class, "slice");
-            deserializerBody.comment("Slice slice = block.getSlice(index, 0, block.getLength(index));")
-                    .getVariable("block")
-                    .getVariable("index")
-                    .push(0)
-                    .getVariable("block")
-                    .getVariable("index")
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "getLength", int.class, int.class)
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "getSlice", Slice.class, int.class, int.class, int.class)
-                    .putVariable(slice);
+            Variable slice = method.getScope().declareVariable(Slice.class, "slice");
+            deserializerBody.append(slice.set(block.invoke("getSlice", Slice.class, index, constantInt(0), block.invoke("getLength", int.class, index))));
 
             for (StateField field : fields) {
-                generateDeserializeFromSlice(deserializerBody, slice, getSetter(clazz, field), offsetOfField(field, fields));
+                Method setter = getSetter(clazz, field);
+                Method getter = getSliceGetter(setter.getParameterTypes()[0]);
+                int offset = offsetOfField(field, fields);
+                deserializerBody.append(state.cast(setter.getDeclaringClass()).invoke(setter, invokeStatic(getter, slice, constantInt(offset))));
             }
         }
         deserializerBody.ret();
@@ -214,44 +228,32 @@ public class StateCompiler
 
     private static <T> void generateSerialize(ClassDefinition definition, Class<T> clazz, List<StateField> fields)
     {
-        CompilerContext compilerContext = new CompilerContext();
-        Block serializerBody = definition.declareMethod(compilerContext, a(PUBLIC), "serialize", type(void.class), arg("state", Object.class), arg("out", BlockBuilder.class)).getBody();
+        Parameter state = arg("state", Object.class);
+        Parameter out = arg("out", BlockBuilder.class);
+        MethodDefinition method = definition.declareMethod(a(PUBLIC), "serialize", type(void.class), state, out);
+
+        Block serializerBody = method.getBody();
 
         if (fields.size() == 1) {
-            generatePrimitiveSerializer(serializerBody, getGetter(clazz, fields.get(0)));
+            Method getter = getGetter(clazz, fields.get(0));
+            Method append = getBlockBuilderAppend(getter.getReturnType());
+            serializerBody.append(invokeStatic(append, out, state.cast(getter.getDeclaringClass()).invoke(getter)));
         }
         else {
-            Variable slice = compilerContext.declareVariable(Slice.class, "slice");
-            int size = serializedSizeOf(clazz);
-            serializerBody.comment("Slice slice = Slices.allocate(%d);", size)
-                    .push(size)
-                    .invokeStatic(Slices.class, "allocate", Slice.class, int.class)
-                    .putVariable(slice);
+            Variable slice = method.getScope().declareVariable(Slice.class, "slice");
+            ByteCodeExpression size = constantInt(serializedSizeOf(clazz));
+            serializerBody.append(slice.set(invokeStatic(Slices.class, "allocate", Slice.class, size)));
 
             for (StateField field : fields) {
-                generateSerializeFieldToSlice(serializerBody, slice, getGetter(clazz, field), offsetOfField(field, fields));
+                Method getter = getGetter(clazz, field);
+                Method sliceSetter = getSliceSetter(getter.getReturnType());
+                serializerBody.append(invokeStatic(sliceSetter, slice, constantInt(offsetOfField(field, fields)), state.cast(getter.getDeclaringClass()).invoke(getter)));
             }
-            serializerBody.comment("out.appendSlice(slice);")
-                    .getVariable("out")
-                    .getVariable(slice)
-                    .push(0)
-                    .push(size)
-                    .invokeInterface(BlockBuilder.class, "writeBytes", BlockBuilder.class, Slice.class, int.class, int.class)
-                    .invokeInterface(BlockBuilder.class, "closeEntry", BlockBuilder.class)
-                    .pop();
+            serializerBody.append(out.invoke("writeBytes", BlockBuilder.class, slice, constantInt(0), size)
+                    .invoke("closeEntry", BlockBuilder.class)
+                    .pop());
         }
         serializerBody.ret();
-    }
-
-    private static void generateSerializeFieldToSlice(Block body, Variable slice, Method getter, int offset)
-    {
-        Method sliceSetterMethod = StateCompilerUtils.getSliceSetter(getter.getReturnType());
-        body.comment("slice.%s(offset, state.%s())", sliceSetterMethod.getName(), getter.getName())
-                .getVariable(slice)
-                .push(offset)
-                .getVariable("state")
-                .invokeInterface(getter)
-                .invokeStatic(sliceSetterMethod);
     }
 
     /**
@@ -301,38 +303,6 @@ public class StateCompiler
         catch (NoSuchMethodException e) {
             throw Throwables.propagate(e);
         }
-    }
-
-    private static void generatePrimitiveSerializer(Block body, Method getter)
-    {
-        Method method = StateCompilerUtils.getBlockBuilderAppend(getter.getReturnType());
-        body.comment("out.%s(state.%s());", method.getName(), getter.getName())
-                .getVariable("out")
-                .getVariable("state")
-                .invokeInterface(getter)
-                .invokeStatic(method);
-    }
-
-    private static void generatePrimitiveDeserializer(Block body, Method setter)
-    {
-        Method method = StateCompilerUtils.getBlockGetter(setter.getParameterTypes()[0]);
-        body.comment("state.%s(block.%s));", setter.getName(), method.getName())
-                .getVariable("state")
-                .getVariable("block")
-                .getVariable("index")
-                .invokeStatic(method)
-                .invokeInterface(setter);
-    }
-
-    private static void generateDeserializeFromSlice(Block body, Variable slice, Method setter, int offset)
-    {
-        Method sliceGetterMethod = StateCompilerUtils.getSliceGetter(setter.getParameterTypes()[0]);
-        body.comment("state.%s(slice.%s(%d))", setter.getName(), sliceGetterMethod.getName(), offset)
-                .getVariable("state")
-                .getVariable(slice)
-                .push(offset)
-                .invokeStatic(sliceGetterMethod)
-                .invokeInterface(setter);
     }
 
     public <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz)
@@ -420,15 +390,16 @@ public class StateCompiler
                 .putStaticField(classSize);
 
         // Add getter for class size
-        definition.declareMethod(new CompilerContext(null), a(PUBLIC), "getEstimatedSize", type(long.class))
+        definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class))
                 .getBody()
                 .getStaticField(classSize)
                 .retLong();
 
         // Generate constructor
-        Block constructor = definition.declareConstructor(a(PUBLIC))
-                .getBody()
-                .pushThis()
+        MethodDefinition constructor = definition.declareConstructor(a(PUBLIC));
+
+        constructor.getBody()
+                .append(constructor.getThis())
                 .invokeConstructor(Object.class);
 
         // Generate fields
@@ -437,7 +408,8 @@ public class StateCompiler
             generateField(definition, constructor, field);
         }
 
-        constructor.ret();
+        constructor.getBody()
+                .ret();
 
         return defineClass(definition, clazz, classLoader);
     }
@@ -454,13 +426,13 @@ public class StateCompiler
         List<StateField> fields = enumerateFields(clazz);
 
         // Create constructor
-        Block constructor = definition.declareConstructor(
-                a(PUBLIC))
-                .getBody()
-                .pushThis()
+        MethodDefinition constructor = definition.declareConstructor(a(PUBLIC));
+        constructor.getBody()
+                .append(constructor.getThis())
                 .invokeConstructor(AbstractGroupedAccumulatorState.class);
+
         // Create ensureCapacity
-        Block ensureCapacity = definition.declareMethod(a(PUBLIC), "ensureCapacity", type(void.class), arg("size", long.class)).getBody();
+        MethodDefinition ensureCapacity = definition.declareMethod(a(PUBLIC), "ensureCapacity", type(void.class), arg("size", long.class));
 
         // Generate fields, constructor, and ensureCapacity
         List<FieldDefinition> fieldDefinitions = new ArrayList<>();
@@ -468,113 +440,83 @@ public class StateCompiler
             fieldDefinitions.add(generateGroupedField(definition, constructor, ensureCapacity, field));
         }
 
-        constructor.ret();
-        ensureCapacity.ret();
+        constructor.getBody().ret();
+        ensureCapacity.getBody().ret();
 
         // Generate getEstimatedSize
-        Block getEstimatedSize = definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class))
-                .getBody()
-                .comment("long size = 0;")
-                .push(0L);
+        MethodDefinition getEstimatedSize = definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class));
+        Block body = getEstimatedSize.getBody();
+
+        Variable size = getEstimatedSize.getScope().declareVariable(long.class, "size");
+
+        // initialize size to 0L
+        body.append(size.set(constantLong(0)));
+
+        // add field to size
         for (FieldDefinition field : fieldDefinitions) {
-            getEstimatedSize
-                    .comment("size += %s.sizeOf();", field.getName())
-                    .pushThis()
-                    .getField(field)
-                    .invokeVirtual(field.getType(), "sizeOf", type(long.class))
-                    .longAdd();
+            body.append(size.set(add(size, getEstimatedSize.getThis().getField(field).invoke("sizeOf", long.class))));
         }
-        getEstimatedSize.comment("return size;");
-        getEstimatedSize.retLong();
+
+        // return size
+        body.append(size.ret());
 
         return defineClass(definition, clazz, classLoader);
     }
 
-    private static void generateField(ClassDefinition definition, Block constructor, StateField stateField)
+    private static void generateField(ClassDefinition definition, MethodDefinition constructor, StateField stateField)
     {
         FieldDefinition field = definition.declareField(a(PRIVATE), UPPER_CAMEL.to(LOWER_CAMEL, stateField.getName()) + "Value", stateField.getType());
 
         // Generate getter
-        definition.declareMethod(a(PUBLIC), stateField.getGetterName(), type(stateField.getType()))
-                .getBody()
-                .pushThis()
-                .getField(field)
-                .ret(stateField.getType());
+        MethodDefinition getter = definition.declareMethod(a(PUBLIC), stateField.getGetterName(), type(stateField.getType()));
+        getter.getBody()
+                .append(getter.getThis().getField(field).ret());
 
         // Generate setter
-        definition.declareMethod(a(PUBLIC), stateField.getSetterName(), type(void.class), arg("value", stateField.getType()))
-                .getBody()
-                .pushThis()
-                .getVariable("value")
-                .putField(field)
+        Parameter value = arg("value", stateField.getType());
+        MethodDefinition setter = definition.declareMethod(a(PUBLIC), stateField.getSetterName(), type(void.class), value);
+        setter.getBody()
+                .append(setter.getThis().setField(field, value))
                 .ret();
 
-        constructor.pushThis();
-        pushInitialValue(constructor, stateField);
-        constructor.putField(field);
+        constructor.getBody()
+                .append(constructor.getThis().setField(field, stateField.initialValueExpression()));
     }
 
-    private static FieldDefinition generateGroupedField(ClassDefinition definition, Block constructor, Block ensureCapacity, StateField stateField)
+    private static FieldDefinition generateGroupedField(ClassDefinition definition, MethodDefinition constructor, MethodDefinition ensureCapacity, StateField stateField)
     {
         Class<?> bigArrayType = getBigArrayType(stateField.getType());
         FieldDefinition field = definition.declareField(a(PRIVATE), UPPER_CAMEL.to(LOWER_CAMEL, stateField.getName()) + "Values", bigArrayType);
 
         // Generate getter
-        definition.declareMethod(a(PUBLIC), stateField.getGetterName(), type(stateField.getType()))
-                .getBody()
-                .comment("return field.get(getGroupId());")
-                .pushThis()
-                .getField(field)
-                .pushThis()
-                .invokeVirtual(AbstractGroupedAccumulatorState.class, "getGroupId", long.class)
-                .invokeVirtual(bigArrayType, "get", stateField.getType(), long.class)
-                .ret(stateField.getType());
+        MethodDefinition getter = definition.declareMethod(a(PUBLIC), stateField.getGetterName(), type(stateField.getType()));
+        getter.getBody()
+                .append(getter.getThis().getField(field).invoke(
+                        "get",
+                        stateField.getType(),
+                        getter.getThis().invoke("getGroupId", long.class))
+                        .ret());
 
         // Generate setter
-        definition.declareMethod(a(PUBLIC), stateField.getSetterName(), type(void.class), arg("value", stateField.getType()))
-                .getBody()
-                .comment("return field.set(getGroupId(), value);")
-                .pushThis()
-                .getField(field)
-                .pushThis()
-                .invokeVirtual(AbstractGroupedAccumulatorState.class, "getGroupId", long.class)
-                .getVariable("value")
-                .invokeVirtual(bigArrayType, "set", void.class, long.class, stateField.getType())
+        Parameter value = arg("value", stateField.getType());
+        MethodDefinition setter = definition.declareMethod(a(PUBLIC), stateField.getSetterName(), type(void.class), value);
+        setter.getBody()
+                .append(setter.getThis().getField(field).invoke(
+                        "set",
+                        void.class,
+                        setter.getThis().invoke("getGroupId", long.class),
+                        value))
                 .ret();
 
-        ensureCapacity.pushThis()
-                .getField(field)
-                .getVariable("size")
-                .invokeVirtual(field.getType(), "ensureCapacity", type(void.class), type(long.class));
+        Scope ensureCapacityScope = ensureCapacity.getScope();
+        ensureCapacity.getBody()
+                .append(ensureCapacity.getThis().getField(field).invoke("ensureCapacity", void.class, ensureCapacityScope.getVariable("size")));
 
         // Initialize field in constructor
-        constructor.pushThis()
-                .newObject(field.getType())
-                .dup();
-        pushInitialValue(constructor, stateField);
-        constructor.invokeConstructor(field.getType(), type(stateField.getType()));
-        constructor.putField(field);
+        constructor.getBody()
+                .append(constructor.getThis().setField(field, newInstance(field.getType(), stateField.initialValueExpression())));
 
         return field;
-    }
-
-    private static void pushInitialValue(Block block, StateField stateField)
-    {
-        Object initialValue = stateField.getInitialValue();
-        if (initialValue != null) {
-            if (initialValue instanceof Number) {
-                block.push((Number) initialValue);
-            }
-            else if (initialValue instanceof Boolean) {
-                block.push((boolean) initialValue);
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported initial value type: " + initialValue.getClass());
-            }
-        }
-        else {
-            block.pushJavaDefault(stateField.getType());
-        }
     }
 
     /**
@@ -764,6 +706,22 @@ public class StateCompiler
         public Object getInitialValue()
         {
             return initialValue;
+        }
+
+        public ByteCodeExpression initialValueExpression()
+        {
+            if (initialValue == null) {
+                return defaultValue(type);
+            }
+            if (initialValue instanceof Number) {
+                return constantNumber((Number) initialValue);
+            }
+            else if (initialValue instanceof Boolean) {
+                return constantBoolean((boolean) initialValue);
+            }
+            else {
+                throw new IllegalArgumentException("Unsupported initial value type: " + initialValue.getClass());
+            }
         }
     }
 }

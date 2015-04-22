@@ -18,13 +18,20 @@ import com.facebook.presto.hive.orc.DwrfRecordCursorProvider;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
 
 import java.util.List;
+
+import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
+import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 
 public final class HiveTestUtils
 {
@@ -42,19 +49,45 @@ public final class HiveTestUtils
 
     public static final ImmutableSet<HiveRecordCursorProvider> DEFAULT_HIVE_RECORD_CURSOR_PROVIDER = ImmutableSet.<HiveRecordCursorProvider>builder()
             .add(new OrcRecordCursorProvider())
-            .add(new ParquetRecordCursorProvider())
+            .add(new ParquetRecordCursorProvider(false))
             .add(new DwrfRecordCursorProvider())
             .add(new ColumnarTextHiveRecordCursorProvider())
             .add(new ColumnarBinaryHiveRecordCursorProvider())
             .add(new GenericHiveRecordCursorProvider())
             .build();
 
-    public static List<Type> getTypes(List<? extends ConnectorColumnHandle> columnHandles)
+    public static List<Type> getTypes(List<? extends ColumnHandle> columnHandles)
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (ConnectorColumnHandle columnHandle : columnHandles) {
+        for (ColumnHandle columnHandle : columnHandles) {
             types.add(TYPE_MANAGER.getType(((HiveColumnHandle) columnHandle).getTypeSignature()));
         }
         return types.build();
+    }
+
+    public static Slice arraySliceOf(Type elementType, Object... values)
+    {
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
+        for (Object value : values) {
+            appendToBlockBuilder(elementType, value, blockBuilder);
+        }
+        return buildStructuralSlice(blockBuilder);
+    }
+
+    public static Slice mapSliceOf(Type keyType, Type valueType, Object key, Object value)
+    {
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
+        appendToBlockBuilder(keyType, key, blockBuilder);
+        appendToBlockBuilder(valueType, value, blockBuilder);
+        return buildStructuralSlice(blockBuilder);
+    }
+
+    public static Slice rowSliceOf(List<Type> parameterTypes, Object... values)
+    {
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
+        for (int i = 0; i < values.length; i++) {
+            appendToBlockBuilder(parameterTypes.get(i), values[i], blockBuilder);
+        }
+        return buildStructuralSlice(blockBuilder);
     }
 }

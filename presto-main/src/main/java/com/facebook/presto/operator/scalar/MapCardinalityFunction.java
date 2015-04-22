@@ -27,6 +27,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -38,7 +39,6 @@ public final class MapCardinalityFunction
     public static final MapCardinalityFunction MAP_CARDINALITY = new MapCardinalityFunction();
     private static final Signature SIGNATURE = new Signature("cardinality", ImmutableList.of(typeParameter("K"), typeParameter("V")), "bigint", ImmutableList.of("map<K,V>"), false, false);
     private static final MethodHandle METHOD_HANDLE = methodHandle(MapCardinalityFunction.class, "mapCardinality", Slice.class);
-    public static final JsonPath JSON_PATH = new JsonPath("$");
 
     @Override
     public Signature getSignature()
@@ -75,6 +75,6 @@ public final class MapCardinalityFunction
 
     public static Long mapCardinality(Slice slice)
     {
-        return JsonFunctions.jsonSize(slice, JSON_PATH);
+        return (long) readStructuralBlock(slice).getPositionCount() / 2;
     }
 }

@@ -13,32 +13,31 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.operator.window.FrameInfo;
 import com.facebook.presto.operator.window.WindowFunction;
-import com.facebook.presto.operator.window.WindowIndex;
+import com.facebook.presto.operator.window.WindowPartition;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.FrameBound;
-import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
-import it.unimi.dsi.fastutil.ints.IntComparator;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
-import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
-import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
-import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
-import static com.facebook.presto.util.Failures.checkCondition;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
+import static java.util.Collections.nCopies;
+import static java.util.Objects.requireNonNull;
 
 public class WindowOperator
         implements Operator
@@ -50,16 +49,12 @@ public class WindowOperator
         private final List<Type> sourceTypes;
         private final List<Integer> outputChannels;
         private final List<WindowFunctionDefinition> windowFunctionDefinitions;
-        private final List<Type> partitionTypes;
         private final List<Integer> partitionChannels;
-        private final List<Type> sortTypes;
+        private final List<Integer> preGroupedChannels;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrder;
-        private final WindowFrame.Type frameType;
-        private final FrameBound.Type frameStartType;
-        private final Optional<Integer> frameStartChannel;
-        private final FrameBound.Type frameEndType;
-        private final Optional<Integer> frameEndChannel;
+        private final int preSortedChannelPrefix;
+        private final FrameInfo frameInfo;
         private final int expectedPositions;
         private final List<Type> types;
         private boolean closed;
@@ -70,42 +65,43 @@ public class WindowOperator
                 List<Integer> outputChannels,
                 List<WindowFunctionDefinition> windowFunctionDefinitions,
                 List<Integer> partitionChannels,
+                List<Integer> preGroupedChannels,
                 List<Integer> sortChannels,
                 List<SortOrder> sortOrder,
-                WindowFrame.Type frameType,
-                FrameBound.Type frameStartType,
-                Optional<Integer> frameStartChannel,
-                FrameBound.Type frameEndType,
-                Optional<Integer> frameEndChannel,
+                int preSortedChannelPrefix,
+                FrameInfo frameInfo,
                 int expectedPositions)
         {
+            requireNonNull(sourceTypes, "sourceTypes is null");
+            requireNonNull(outputChannels, "outputChannels is null");
+            requireNonNull(windowFunctionDefinitions, "windowFunctionDefinitions is null");
+            requireNonNull(partitionChannels, "partitionChannels is null");
+            requireNonNull(preGroupedChannels, "preGroupedChannels is null");
+            checkArgument(partitionChannels.containsAll(preGroupedChannels), "preGroupedChannels must be a subset of partitionChannels");
+            requireNonNull(sortChannels, "sortChannels is null");
+            requireNonNull(sortOrder, "sortOrder is null");
+            checkArgument(sortChannels.size() == sortOrder.size(), "Must have same number of sort channels as sort orders");
+            checkArgument(preSortedChannelPrefix <= sortChannels.size(), "Cannot have more pre-sorted channels than specified sorted channels");
+            checkArgument(preSortedChannelPrefix == 0 || ImmutableSet.copyOf(preGroupedChannels).equals(ImmutableSet.copyOf(partitionChannels)), "preSortedChannelPrefix can only be greater than zero if all partition channels are pre-grouped");
+            requireNonNull(frameInfo, "frameInfo is null");
+
             this.operatorId = operatorId;
             this.sourceTypes = ImmutableList.copyOf(sourceTypes);
-            this.outputChannels = ImmutableList.copyOf(checkNotNull(outputChannels, "outputChannels is null"));
-            this.windowFunctionDefinitions = windowFunctionDefinitions;
-            ImmutableList.Builder<Type> partitionTypes = ImmutableList.builder();
-            for (int channel : partitionChannels) {
-                partitionTypes.add(sourceTypes.get(channel));
-            }
-            this.partitionTypes = partitionTypes.build();
-            this.partitionChannels = ImmutableList.copyOf(checkNotNull(partitionChannels, "partitionChannels is null"));
-            ImmutableList.Builder<Type> sortTypes = ImmutableList.builder();
-            for (int channel : sortChannels) {
-                sortTypes.add(sourceTypes.get(channel));
-            }
-            this.sortTypes = sortTypes.build();
-            this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
-            this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder, "sortOrder is null"));
-
-            this.frameType = checkNotNull(frameType, "frameType is null");
-            this.frameStartType = checkNotNull(frameStartType, "frameStartType is null");
-            this.frameStartChannel = checkNotNull(frameStartChannel, "frameStartChannel is null");
-            this.frameEndType = checkNotNull(frameEndType, "frameEndType is null");
-            this.frameEndChannel = checkNotNull(frameEndChannel, "frameEndChannel is null");
-
+            this.outputChannels = ImmutableList.copyOf(outputChannels);
+            this.windowFunctionDefinitions = ImmutableList.copyOf(windowFunctionDefinitions);
+            this.partitionChannels = ImmutableList.copyOf(partitionChannels);
+            this.preGroupedChannels = ImmutableList.copyOf(preGroupedChannels);
+            this.sortChannels = ImmutableList.copyOf(sortChannels);
+            this.sortOrder = ImmutableList.copyOf(sortOrder);
+            this.preSortedChannelPrefix = preSortedChannelPrefix;
+            this.frameInfo = frameInfo;
             this.expectedPositions = expectedPositions;
-
-            this.types = toTypes(sourceTypes, outputChannels, toWindowFunctions(windowFunctionDefinitions));
+            this.types = Stream.concat(
+                    outputChannels.stream()
+                            .map(sourceTypes::get),
+                    windowFunctionDefinitions.stream()
+                            .map(WindowFunctionDefinition::getType))
+                    .collect(toImmutableList());
         }
 
         @Override
@@ -125,16 +121,12 @@ public class WindowOperator
                     sourceTypes,
                     outputChannels,
                     windowFunctionDefinitions,
-                    partitionTypes,
                     partitionChannels,
-                    sortTypes,
+                    preGroupedChannels,
                     sortChannels,
                     sortOrder,
-                    frameType,
-                    frameStartType,
-                    frameStartChannel,
-                    frameEndType,
-                    frameEndChannel,
+                    preSortedChannelPrefix,
+                    frameInfo,
                     expectedPositions);
         }
 
@@ -149,24 +141,25 @@ public class WindowOperator
     {
         NEEDS_INPUT,
         HAS_OUTPUT,
+        FINISHING,
         FINISHED
     }
 
     private final OperatorContext operatorContext;
     private final int[] outputChannels;
     private final List<WindowFunction> windowFunctions;
-    private final List<Type> partitionTypes;
-    private final List<Integer> partitionChannels;
-    private final List<Type> sortTypes;
-    private final List<Integer> sortChannels;
-    private final List<SortOrder> sortOrder;
+    private final List<Integer> orderChannels;
+    private final List<SortOrder> ordering;
     private final List<Type> types;
 
-    private final boolean frameRange;
-    private final FrameBound.Type frameStartType;
-    private final int frameStartChannel;
-    private final FrameBound.Type frameEndType;
-    private final int frameEndChannel;
+    private final int[] preGroupedChannels;
+
+    private final PagesHashStrategy preGroupedPartitionHashStrategy;
+    private final PagesHashStrategy unGroupedPartitionHashStrategy;
+    private final PagesHashStrategy preSortedPartitionHashStrategy;
+    private final PagesHashStrategy peerGroupHashStrategy;
+
+    private final FrameInfo frameInfo;
 
     private final PagesIndex pagesIndex;
 
@@ -174,52 +167,75 @@ public class WindowOperator
 
     private State state = State.NEEDS_INPUT;
 
-    private int currentPosition;
+    private WindowPartition partition;
 
-    private IntComparator partitionComparator;
-    private IntComparator orderComparator;
-
-    private int partitionStart;
-    private int partitionEnd;
-    private int peerGroupStart;
-    private int peerGroupEnd;
-    private int frameStart;
-    private int frameEnd;
+    private Page pendingInput;
 
     public WindowOperator(
             OperatorContext operatorContext,
             List<Type> sourceTypes,
             List<Integer> outputChannels,
             List<WindowFunctionDefinition> windowFunctionDefinitions,
-            List<Type> partitionTypes, List<Integer> partitionChannels,
-            List<Type> sortTypes, List<Integer> sortChannels,
+            List<Integer> partitionChannels,
+            List<Integer> preGroupedChannels,
+            List<Integer> sortChannels,
             List<SortOrder> sortOrder,
-            WindowFrame.Type frameType,
-            FrameBound.Type frameStartType,
-            Optional<Integer> frameStartChannel,
-            FrameBound.Type frameEndType,
-            Optional<Integer> frameEndChannel,
+            int preSortedChannelPrefix,
+            FrameInfo frameInfo,
             int expectedPositions)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.outputChannels = Ints.toArray(checkNotNull(outputChannels, "outputChannels is null"));
-        this.windowFunctions = toWindowFunctions(checkNotNull(windowFunctionDefinitions, "windowFunctionDefinitions is null"));
-        this.partitionTypes = ImmutableList.copyOf(checkNotNull(partitionTypes, "partitionTypes is null"));
-        this.partitionChannels = ImmutableList.copyOf(checkNotNull(partitionChannels, "partitionChannels is null"));
-        this.sortTypes = ImmutableList.copyOf(checkNotNull(sortTypes, "sortTypes is null"));
-        this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
-        this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder, "sortOrder is null"));
+        requireNonNull(operatorContext, "operatorContext is null");
+        requireNonNull(outputChannels, "outputChannels is null");
+        requireNonNull(windowFunctionDefinitions, "windowFunctionDefinitions is null");
+        requireNonNull(partitionChannels, "partitionChannels is null");
+        requireNonNull(preGroupedChannels, "preGroupedChannels is null");
+        checkArgument(partitionChannels.containsAll(preGroupedChannels), "preGroupedChannels must be a subset of partitionChannels");
+        requireNonNull(sortChannels, "sortChannels is null");
+        requireNonNull(sortOrder, "sortOrder is null");
+        checkArgument(sortChannels.size() == sortOrder.size(), "Must have same number of sort channels as sort orders");
+        checkArgument(preSortedChannelPrefix <= sortChannels.size(), "Cannot have more pre-sorted channels than specified sorted channels");
+        checkArgument(preSortedChannelPrefix == 0 || ImmutableSet.copyOf(preGroupedChannels).equals(ImmutableSet.copyOf(partitionChannels)), "preSortedChannelPrefix can only be greater than zero if all partition channels are pre-grouped");
+        requireNonNull(frameInfo, "frameInfo is null");
 
-        this.frameRange = (checkNotNull(frameType, "frameType is null") == WindowFrame.Type.RANGE);
-        this.frameStartType = checkNotNull(frameStartType, "frameStartType is null");
-        this.frameStartChannel = checkNotNull(frameStartChannel, "frameStartChannel is null").orElse(-1);
-        this.frameEndType = checkNotNull(frameEndType, "frameEndType is null");
-        this.frameEndChannel = checkNotNull(frameEndChannel, "frameEndChannel is null").orElse(-1);
+        this.operatorContext = operatorContext;
+        this.outputChannels = Ints.toArray(outputChannels);
+        this.windowFunctions = windowFunctionDefinitions.stream()
+                .map(WindowFunctionDefinition::createWindowFunction)
+                .collect(toImmutableList());
+        this.frameInfo = frameInfo;
 
-        this.types = toTypes(sourceTypes, outputChannels, windowFunctions);
+        this.types = Stream.concat(
+                outputChannels.stream()
+                        .map(sourceTypes::get),
+                windowFunctions.stream()
+                        .map(WindowFunction::getType))
+                .collect(toImmutableList());
 
         this.pagesIndex = new PagesIndex(sourceTypes, expectedPositions);
+        this.preGroupedChannels = Ints.toArray(preGroupedChannels);
+        this.preGroupedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preGroupedChannels, Optional.<Integer>empty());
+        List<Integer> unGroupedPartitionChannels = partitionChannels.stream()
+                .filter(channel -> !preGroupedChannels.contains(channel))
+                .collect(toImmutableList());
+        this.unGroupedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(unGroupedPartitionChannels, Optional.empty());
+        List<Integer> preSortedChannels = sortChannels.stream()
+                .limit(preSortedChannelPrefix)
+                .collect(toImmutableList());
+        this.preSortedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preSortedChannels, Optional.<Integer>empty());
+        this.peerGroupHashStrategy = pagesIndex.createPagesHashStrategy(sortChannels, Optional.empty());
+
         this.pageBuilder = new PageBuilder(this.types);
+
+        if (preSortedChannelPrefix > 0) {
+            // This already implies that set(preGroupedChannels) == set(partitionChannels) (enforced with checkArgument)
+            this.orderChannels = ImmutableList.copyOf(Iterables.skip(sortChannels, preSortedChannelPrefix));
+            this.ordering = ImmutableList.copyOf(Iterables.skip(sortOrder, preSortedChannelPrefix));
+        }
+        else {
+            // Otherwise, we need to sort by the unGroupedPartitionChannels and all original sort channels
+            this.orderChannels = ImmutableList.copyOf(concat(unGroupedPartitionChannels, sortChannels));
+            this.ordering = ImmutableList.copyOf(concat(nCopies(unGroupedPartitionChannels.size(), ASC_NULLS_LAST), sortOrder));
+        }
     }
 
     @Override
@@ -237,26 +253,14 @@ public class WindowOperator
     @Override
     public void finish()
     {
-        if (state == State.NEEDS_INPUT) {
-            state = State.HAS_OUTPUT;
-
-            // we partition by ordering the values so partitions are sequential values
-            List<SortOrder> partitionOrder = Collections.nCopies(partitionChannels.size(), ASC_NULLS_LAST);
-
-            // sort everything by partition channels, then sort channels
-            List<Integer> orderChannels = ImmutableList.copyOf(concat(partitionChannels, sortChannels));
-            List<SortOrder> ordering = ImmutableList.copyOf(concat(partitionOrder, sortOrder));
-            List<Type> orderingTypes = ImmutableList.copyOf(concat(partitionTypes, sortTypes));
-
-            // sort the index
-            pagesIndex.sort(orderingTypes, orderChannels, ordering);
-
-            // create partition comparator
-            partitionComparator = pagesIndex.createComparator(orderingTypes, partitionChannels, partitionOrder);
-
-            // create order comparator
-            orderComparator = pagesIndex.createComparator(orderingTypes, sortChannels, sortOrder);
+        if (state == State.FINISHING || state == State.FINISHED) {
+            return;
         }
+        if (state == State.NEEDS_INPUT) {
+            // Since was waiting for more input, prepare what we have for output since we will not be getting any more input
+            sortPagesIndexIfNecessary();
+        }
+        state = State.FINISHING;
     }
 
     @Override
@@ -274,213 +278,187 @@ public class WindowOperator
     @Override
     public void addInput(Page page)
     {
-        checkState(state == State.NEEDS_INPUT, "Operator is already finishing");
-        checkNotNull(page, "page is null");
+        checkState(state == State.NEEDS_INPUT, "Operator can not take input at this time");
+        requireNonNull(page, "page is null");
+        checkState(pendingInput == null, "Operator already has pending input");
 
-        pagesIndex.addPage(page);
+        if (page.getPositionCount() == 0) {
+            return;
+        }
+
+        pendingInput = page;
+        if (processPendingInput()) {
+            state = State.HAS_OUTPUT;
+        }
         operatorContext.setMemoryReservation(pagesIndex.getEstimatedSize().toBytes());
+    }
+
+    /**
+     * @return true if a full group has been buffered after processing the pendingInput, false otherwise
+     */
+    private boolean processPendingInput()
+    {
+        checkState(pendingInput != null);
+        pendingInput = updatePagesIndex(pendingInput);
+
+        // If we have unused input or are finishing, then we have buffered a full group
+        if (pendingInput != null || state == State.FINISHING) {
+            sortPagesIndexIfNecessary();
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    /**
+     * @return the unused section of the page, or null if fully applied.
+     * pagesIndex guaranteed to have at least one row after this method returns
+     */
+    private Page updatePagesIndex(Page page)
+    {
+        checkArgument(page.getPositionCount() > 0);
+
+        // TODO: Fix pagesHashStrategy to allow specifying channels for comparison, it currently requires us to rearrange the right side blocks in consecutive channel order
+        Page preGroupedPage = rearrangePage(page, preGroupedChannels);
+        if (pagesIndex.getPositionCount() == 0 || pagesIndex.positionEqualsRow(preGroupedPartitionHashStrategy, 0, 0, preGroupedPage.getBlocks())) {
+            // Find the position where the pre-grouped columns change
+            int groupEnd = findGroupEnd(preGroupedPage, preGroupedPartitionHashStrategy, 0);
+
+            // Add the section of the page that contains values for the current group
+            pagesIndex.addPage(page.getRegion(0, groupEnd));
+
+            if (page.getPositionCount() - groupEnd > 0) {
+                // Save the remaining page, which may contain multiple partitions
+                return page.getRegion(groupEnd, page.getPositionCount() - groupEnd);
+            }
+            else {
+                // Page fully consumed
+                return null;
+            }
+        }
+        else {
+            // We had previous results buffered, but the new page starts with new group values
+            return page;
+        }
+    }
+
+    private static Page rearrangePage(Page page, int[] channels)
+    {
+        Block[] newBlocks = new Block[channels.length];
+        for (int i = 0; i < channels.length; i++) {
+            newBlocks[i] = page.getBlock(channels[i]);
+        }
+        return new Page(page.getPositionCount(), newBlocks);
     }
 
     @Override
     public Page getOutput()
     {
-        if (state != State.HAS_OUTPUT) {
+        if (state == State.NEEDS_INPUT || state == State.FINISHED) {
             return null;
         }
 
-        if (currentPosition >= pagesIndex.getPositionCount()) {
-            state = State.FINISHED;
-            return null;
-        }
-
-        // iterate through the positions sequentially until we have one full page
-        pageBuilder.reset();
-        while (!pageBuilder.isFull() && currentPosition < pagesIndex.getPositionCount()) {
-            // check for new partition
-            boolean newPartition = (currentPosition == 0) || (currentPosition == partitionEnd);
-            if (newPartition) {
-                partitionStart = currentPosition;
-                // find end of partition
-                partitionEnd++;
-                while ((partitionEnd < pagesIndex.getPositionCount()) &&
-                        (partitionComparator.compare(partitionEnd - 1, partitionEnd) == 0)) {
-                    partitionEnd++;
-                }
-
-                // reset functions for new partition
-                WindowIndex windowIndex = new WindowIndex(pagesIndex, partitionStart, partitionEnd);
-                for (WindowFunction function : windowFunctions) {
-                    function.reset(windowIndex);
-                }
-            }
-
-            // copy output channels
-            pageBuilder.declarePosition();
-            int channel = 0;
-            while (channel < outputChannels.length) {
-                pagesIndex.appendTo(outputChannels[channel], currentPosition, pageBuilder.getBlockBuilder(channel));
-                channel++;
-            }
-
-            // check for new peer group
-            boolean newPeerGroup = newPartition || (currentPosition == peerGroupEnd);
-            if (newPeerGroup) {
-                peerGroupStart = currentPosition;
-                // find end of peer group
-                peerGroupEnd++;
-                while ((peerGroupEnd < partitionEnd) &&
-                        (orderComparator.compare(peerGroupEnd - 1, peerGroupEnd) == 0)) {
-                    peerGroupEnd++;
-                }
-            }
-
-            // compute window frame
-            updateFrame();
-
-            // process window functions
-            for (WindowFunction function : windowFunctions) {
-                function.processRow(
-                        pageBuilder.getBlockBuilder(channel),
-                        peerGroupStart - partitionStart,
-                        peerGroupEnd - partitionStart - 1,
-                        frameStart,
-                        frameEnd);
-                channel++;
-            }
-
-            currentPosition++;
-        }
-
-        // output the page if we have any data
-        if (pageBuilder.isEmpty()) {
-            state = State.FINISHED;
-            return null;
-        }
-
-        Page page = pageBuilder.build();
+        Page page = extractOutput();
+        operatorContext.setMemoryReservation(pagesIndex.getEstimatedSize().toBytes());
         return page;
     }
 
-    private void updateFrame()
+    private Page extractOutput()
     {
-        int rowPosition = currentPosition - partitionStart;
-        int endPosition = partitionEnd - partitionStart - 1;
+        // INVARIANT: pagesIndex contains the full grouped & sorted data for one or more partitions
 
-        // frame start
-        if (frameStartType == UNBOUNDED_PRECEDING) {
-            frameStart = 0;
-        }
-        else if (frameStartType == PRECEDING) {
-            frameStart = preceding(rowPosition, getStartValue());
-        }
-        else if (frameStartType == FOLLOWING) {
-            frameStart = following(rowPosition, endPosition, getStartValue());
-        }
-        else if (frameRange) {
-            frameStart = peerGroupStart - partitionStart;
-        }
-        else {
-            frameStart = rowPosition;
+        // Iterate through the positions sequentially until we have one full page
+        while (!pageBuilder.isFull()) {
+            if (partition == null || !partition.hasNext()) {
+                int partitionStart = partition == null ? 0 : partition.getPartitionEnd();
+
+                if (partitionStart >= pagesIndex.getPositionCount()) {
+                    // Finished all of the partitions in the current pagesIndex
+                    partition = null;
+                    pagesIndex.clear();
+
+                    // Try to extract more partitions from the pendingInput
+                    if (pendingInput != null && processPendingInput()) {
+                        partitionStart = 0;
+                    }
+                    else if (state == State.FINISHING) {
+                        state = State.FINISHED;
+                        // Output the remaining page if we have anything buffered
+                        if (!pageBuilder.isEmpty()) {
+                            Page page = pageBuilder.build();
+                            pageBuilder.reset();
+                            return page;
+                        }
+                        return null;
+                    }
+                    else {
+                        state = State.NEEDS_INPUT;
+                        return null;
+                    }
+                }
+
+                int partitionEnd = findGroupEnd(pagesIndex, unGroupedPartitionHashStrategy, partitionStart);
+                partition = new WindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, frameInfo, peerGroupHashStrategy);
+            }
+
+            partition.processNextRow(pageBuilder);
         }
 
-        // frame end
-        if (frameEndType == UNBOUNDED_FOLLOWING) {
-            frameEnd = endPosition;
-        }
-        else if (frameEndType == PRECEDING) {
-            frameEnd = preceding(rowPosition, getEndValue());
-        }
-        else if (frameEndType == FOLLOWING) {
-            frameEnd = following(rowPosition, endPosition, getEndValue());
-        }
-        else if (frameRange) {
-            frameEnd = peerGroupEnd - partitionStart - 1;
-        }
-        else {
-            frameEnd = rowPosition;
-        }
+        Page page = pageBuilder.build();
+        pageBuilder.reset();
+        return page;
+    }
 
-        // handle empty frame
-        if (emptyFrame(rowPosition, endPosition)) {
-            frameStart = -1;
-            frameEnd = -1;
+    private void sortPagesIndexIfNecessary()
+    {
+        if (pagesIndex.getPositionCount() > 1 && !orderChannels.isEmpty()) {
+            int startPosition = 0;
+            while (startPosition < pagesIndex.getPositionCount()) {
+                int endPosition = findGroupEnd(pagesIndex, preSortedPartitionHashStrategy, startPosition);
+                pagesIndex.sort(orderChannels, ordering, startPosition, endPosition);
+                startPosition = endPosition;
+            }
         }
     }
 
-    private boolean emptyFrame(int rowPosition, int endPosition)
+    // Assumes input grouped on relevant pagesHashStrategy columns
+    private static int findGroupEnd(Page page, PagesHashStrategy pagesHashStrategy, int startPosition)
     {
-        if (frameStartType != frameEndType) {
-            return false;
+        checkArgument(page.getPositionCount() > 0, "Must have at least one position");
+        checkPositionIndex(startPosition, page.getPositionCount(), "startPosition out of bounds");
+
+        // Short circuit if the whole page has the same value
+        if (pagesHashStrategy.rowEqualsRow(startPosition, page.getBlocks(), page.getPositionCount() - 1, page.getBlocks())) {
+            return page.getPositionCount();
         }
 
-        FrameBound.Type type = frameStartType;
-        if ((type != PRECEDING) && (type != FOLLOWING)) {
-            return false;
+        // TODO: do position binary search
+        int endPosition = startPosition + 1;
+        while (endPosition < page.getPositionCount() &&
+                pagesHashStrategy.rowEqualsRow(endPosition - 1, page.getBlocks(), endPosition, page.getBlocks())) {
+            endPosition++;
         }
-
-        long start = getStartValue();
-        long end = getEndValue();
-
-        if (type == PRECEDING) {
-            return (start < end) || ((start > rowPosition) && (end > rowPosition));
-        }
-
-        int positions = endPosition - rowPosition;
-        return (start > end) || ((start > positions) && (end > positions));
+        return endPosition;
     }
 
-    private static int preceding(int rowPosition, long value)
+    // Assumes input grouped on relevant pagesHashStrategy columns
+    private static int findGroupEnd(PagesIndex pagesIndex, PagesHashStrategy pagesHashStrategy, int startPosition)
     {
-        if (value > rowPosition) {
-            return 0;
+        checkArgument(pagesIndex.getPositionCount() > 0, "Must have at least one position");
+        checkPositionIndex(startPosition, pagesIndex.getPositionCount(), "startPosition out of bounds");
+
+        // Short circuit if the whole page has the same value
+        if (pagesIndex.positionEqualsPosition(pagesHashStrategy, startPosition, pagesIndex.getPositionCount() - 1)) {
+            return pagesIndex.getPositionCount();
         }
-        return Ints.checkedCast(rowPosition - value);
-    }
 
-    private static int following(int rowPosition, int endPosition, long value)
-    {
-        if (value > (endPosition - rowPosition)) {
-            return endPosition;
+        // TODO: do position binary search
+        int endPosition = startPosition + 1;
+        while ((endPosition < pagesIndex.getPositionCount()) &&
+                pagesIndex.positionEqualsPosition(pagesHashStrategy, endPosition - 1, endPosition)) {
+            endPosition++;
         }
-        return Ints.checkedCast(rowPosition + value);
-    }
-
-    private long getStartValue()
-    {
-        return getFrameValue(frameStartChannel, "starting");
-    }
-
-    private long getEndValue()
-    {
-        return getFrameValue(frameEndChannel, "ending");
-    }
-
-    private long getFrameValue(int channel, String type)
-    {
-        checkCondition(!pagesIndex.isNull(channel, currentPosition), INVALID_WINDOW_FRAME, "Window frame %s offset must not be null", type);
-        long value = pagesIndex.getLong(channel, currentPosition);
-        checkCondition(value >= 0, INVALID_WINDOW_FRAME, "Window frame %s offset must not be negative");
-        return value;
-    }
-
-    private static List<Type> toTypes(List<? extends Type> sourceTypes, List<Integer> outputChannels, List<WindowFunction> windowFunctions)
-    {
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (int channel : outputChannels) {
-            types.add(sourceTypes.get(channel));
-        }
-        for (WindowFunction function : windowFunctions) {
-            types.add(function.getType());
-        }
-        return types.build();
-    }
-
-    private static List<WindowFunction> toWindowFunctions(List<WindowFunctionDefinition> windowFunctionDefinitions)
-    {
-        ImmutableList.Builder<WindowFunction> builder = ImmutableList.builder();
-        for (WindowFunctionDefinition windowFunctionDefinition : windowFunctionDefinitions) {
-            builder.add(windowFunctionDefinition.createWindowFunction());
-        }
-        return builder.build();
+        return endPosition;
     }
 }

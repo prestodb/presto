@@ -17,27 +17,24 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
-import com.facebook.presto.connector.system.NodesSystemTable;
-import com.facebook.presto.connector.system.SystemRecordSetProvider;
-import com.facebook.presto.connector.system.SystemSplitManager;
-import com.facebook.presto.connector.system.SystemTablesManager;
-import com.facebook.presto.connector.system.SystemTablesMetadata;
+import com.facebook.presto.connector.system.NodeSystemTable;
+import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Partition;
-import com.facebook.presto.metadata.PartitionResult;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.TableLayoutHandle;
+import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
@@ -53,14 +50,17 @@ import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
@@ -85,7 +85,6 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.TypeUtils;
@@ -123,6 +122,7 @@ public class LocalQueryRunner
     private final TypeRegistry typeRegistry;
     private final MetadataManager metadata;
     private final SplitManager splitManager;
+    private final BlockEncodingSerde blockEncodingSerde;
     private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
     private final PageSinkManager pageSinkManager;
@@ -145,22 +145,10 @@ public class LocalQueryRunner
         this.indexManager = new IndexManager();
         this.pageSinkManager = new PageSinkManager();
 
-        // sys schema
-        SystemTablesMetadata systemTablesMetadata = new SystemTablesMetadata();
-        SystemSplitManager systemSplitManager = new SystemSplitManager(nodeManager);
-        SystemRecordSetProvider systemRecordSetProvider = new SystemRecordSetProvider();
-
-        this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry, systemTablesMetadata);
-        this.splitManager = new SplitManager(systemSplitManager);
-        this.pageSourceManager = new PageSourceManager(systemRecordSetProvider);
-
-        SystemTablesManager systemTablesManager = new SystemTablesManager(systemTablesMetadata, systemSplitManager, systemRecordSetProvider, ImmutableSet.<SystemTable>of());
-
-        // sys.node
-        systemTablesManager.addTable(new NodesSystemTable(nodeManager));
-
-        // sys.catalog
-        systemTablesManager.addTable(new CatalogSystemTable(metadata));
+        this.splitManager = new SplitManager();
+        this.blockEncodingSerde = new BlockEncodingManager(typeRegistry);
+        this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry, splitManager, blockEncodingSerde);
+        this.pageSourceManager = new PageSourceManager();
 
         this.compiler = new ExpressionCompiler(metadata);
 
@@ -174,6 +162,12 @@ public class LocalQueryRunner
                 ImmutableMap.<String, ConnectorFactory>of(),
                 nodeManager
         );
+
+        Connector systemConnector = new SystemConnector(nodeManager, ImmutableSet.of(
+                new NodeSystemTable(nodeManager),
+                new CatalogSystemTable(metadata)));
+
+        connectorManager.createConnection(SystemConnector.NAME, systemConnector);
     }
 
     public static LocalQueryRunner createHashEnabledQueryRunner(LocalQueryRunner localQueryRunner)
@@ -193,6 +187,7 @@ public class LocalQueryRunner
     public void close()
     {
         executor.shutdownNow();
+        connectorManager.stop();
     }
 
     @Override
@@ -269,7 +264,7 @@ public class LocalQueryRunner
         }
 
         @Override
-        public OperatorFactory createOutputOperator(final int operatorId, final List<Type> sourceType)
+        public OperatorFactory createOutputOperator(int operatorId, List<Type> sourceType)
         {
             checkNotNull(sourceType, "sourceType is null");
 
@@ -399,14 +394,10 @@ public class LocalQueryRunner
         // generate sources
         List<TaskSource> sources = new ArrayList<>();
         long sequenceId = 0;
-        for (PlanNode sourceNode : subplan.getFragment().getSources()) {
-            if (sourceNode instanceof ValuesNode) {
-                continue;
-            }
+        for (TableScanNode tableScan : findTableScanNodes(subplan.getFragment().getRoot())) {
+            TableLayoutHandle layout = tableScan.getLayout().get();
 
-            TableScanNode tableScan = (TableScanNode) sourceNode;
-
-            SplitSource splitSource = splitManager.getPartitionSplits(tableScan.getTable(), getPartitions(tableScan));
+            SplitSource splitSource = splitManager.getSplits(layout);
 
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
             while (!splitSource.isFinished()) {
@@ -447,17 +438,6 @@ public class LocalQueryRunner
         return ImmutableList.copyOf(drivers);
     }
 
-    private List<Partition> getPartitions(TableScanNode node)
-    {
-        if (node.getGeneratedPartitions().isPresent()) {
-            return node.getGeneratedPartitions().get().getPartitions();
-        }
-
-        // Otherwise return all partitions
-        PartitionResult matchingPartitions = splitManager.getPartitions(node.getTable(), Optional.empty());
-        return matchingPartitions.getPartitions();
-    }
-
     public OperatorFactory createTableScanOperator(int operatorId, String tableName, String... columnNames)
     {
         return createTableScanOperator(defaultSession, operatorId, tableName, columnNames);
@@ -465,7 +445,7 @@ public class LocalQueryRunner
 
     public OperatorFactory createTableScanOperator(
             Session session,
-            final int operatorId,
+            int operatorId,
             String tableName,
             String... columnNames)
     {
@@ -484,11 +464,12 @@ public class LocalQueryRunner
             ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableHandle, columnHandle);
             columnTypesBuilder.add(columnMetadata.getType());
         }
-        final List<ColumnHandle> columnHandles = columnHandlesBuilder.build();
-        final List<Type> columnTypes = columnTypesBuilder.build();
+        List<ColumnHandle> columnHandles = columnHandlesBuilder.build();
+        List<Type> columnTypes = columnTypesBuilder.build();
 
         // get the split for this table
-        final Split split = getLocalQuerySplit(tableHandle);
+        List<TableLayoutResult> layouts = metadata.getLayouts(tableHandle, Constraint.alwaysTrue(), Optional.empty());
+        Split split = getLocalQuerySplit(layouts.get(0).getLayout().getHandle());
 
         return new OperatorFactory()
         {
@@ -513,24 +494,23 @@ public class LocalQueryRunner
         };
     }
 
-    public OperatorFactory createHashProjectOperator(int operatorId, List<Type> columnTypes, List<Integer> channelsToHash)
+    public OperatorFactory createHashProjectOperator(int operatorId, List<Type> columnTypes)
     {
         ImmutableList.Builder<ProjectionFunction> projectionFunctions = ImmutableList.builder();
         for (int i = 0; i < columnTypes.size(); i++) {
             projectionFunctions.add(ProjectionFunctions.singleColumn(columnTypes.get(i), i));
         }
-        projectionFunctions.add(new HashProjectionFunction(columnTypes, channelsToHash));
+        projectionFunctions.add(new HashProjectionFunction(columnTypes));
         return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 operatorId,
                 new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, projectionFunctions.build()),
                 ImmutableList.copyOf(Iterables.concat(columnTypes, ImmutableList.of(BIGINT))));
     }
 
-    private Split getLocalQuerySplit(TableHandle tableHandle)
+    private Split getLocalQuerySplit(TableLayoutHandle handle)
     {
         try {
-            List<Partition> partitions = splitManager.getPartitions(tableHandle, Optional.empty()).getPartitions();
-            SplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitions);
+            SplitSource splitSource = splitManager.getSplits(handle);
             Split split = Iterables.getOnlyElement(splitSource.getNextBatch(1000));
             while (!splitSource.isFinished()) {
                 checkState(splitSource.getNextBatch(1000).isEmpty(), "Expected only one split for a local query");
@@ -543,16 +523,32 @@ public class LocalQueryRunner
         }
     }
 
+    private static List<TableScanNode> findTableScanNodes(PlanNode node)
+    {
+        ImmutableList.Builder<TableScanNode> tableScanNodes = ImmutableList.builder();
+        findTableScanNodes(node, tableScanNodes);
+        return tableScanNodes.build();
+    }
+
+    private static void findTableScanNodes(PlanNode node, ImmutableList.Builder<TableScanNode> builder)
+    {
+        for (PlanNode source : node.getSources()) {
+            findTableScanNodes(source, builder);
+        }
+
+        if (node instanceof TableScanNode) {
+            builder.add((TableScanNode) node);
+        }
+    }
+
     private static class HashProjectionFunction
             implements ProjectionFunction
     {
         private final List<Type> columnTypes;
-        private final List<Integer> hashChannels;
 
-        public HashProjectionFunction(List<Type> columnTypes, List<Integer> hashChannels)
+        public HashProjectionFunction(List<Type> columnTypes)
         {
             this.columnTypes = columnTypes;
-            this.hashChannels = hashChannels;
         }
 
         @Override

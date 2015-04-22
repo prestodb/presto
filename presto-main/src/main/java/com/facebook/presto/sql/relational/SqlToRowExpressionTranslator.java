@@ -14,10 +14,11 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
@@ -101,44 +102,39 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 
 public final class SqlToRowExpressionTranslator
 {
-    private SqlToRowExpressionTranslator()
-    {
-    }
+    private SqlToRowExpressionTranslator() {}
 
-    public static RowExpression translate(Expression expression, IdentityHashMap<Expression, Type> types, Metadata metadata, Session session, boolean optimize)
+    public static RowExpression translate(
+            Expression expression,
+            IdentityHashMap<Expression, Type> types,
+            FunctionRegistry functionRegistry,
+            TypeManager typeManager,
+            Session session,
+            boolean optimize)
     {
-        RowExpression result = new Visitor(types, metadata, session.getTimeZoneKey()).process(expression, null);
+        RowExpression result = new Visitor(types, typeManager, session.getTimeZoneKey()).process(expression, null);
 
         Preconditions.checkNotNull(result, "translated expression is null");
 
         if (optimize) {
-            ExpressionOptimizer optimizer = new ExpressionOptimizer(metadata.getFunctionRegistry(), metadata.getTypeManager(), session);
+            ExpressionOptimizer optimizer = new ExpressionOptimizer(functionRegistry, typeManager, session);
             return optimizer.optimize(result);
         }
 
         return result;
     }
 
-    public static List<RowExpression> translate(List<Expression> expressions, IdentityHashMap<Expression, Type> types, Metadata metadata, Session session, boolean optimize)
-    {
-        ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
-        for (Expression expression : expressions) {
-            builder.add(translate(expression, types, metadata, session, optimize));
-        }
-        return builder.build();
-    }
-
     private static class Visitor
             extends AstVisitor<RowExpression, Void>
     {
         private final IdentityHashMap<Expression, Type> types;
-        private final Metadata metadata;
+        private final TypeManager typeManager;
         private final TimeZoneKey timeZoneKey;
 
-        private Visitor(IdentityHashMap<Expression, Type> types, Metadata metadata, TimeZoneKey timeZoneKey)
+        private Visitor(IdentityHashMap<Expression, Type> types, TypeManager typeManager, TimeZoneKey timeZoneKey)
         {
             this.types = types;
-            this.metadata = metadata;
+            this.typeManager = typeManager;
             this.timeZoneKey = timeZoneKey;
         }
 
@@ -187,7 +183,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitGenericLiteral(GenericLiteral node, Void context)
         {
-            Type type = metadata.getType(parseTypeSignature(node.getType()));
+            Type type = typeManager.getType(parseTypeSignature(node.getType()));
             if (type == null) {
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
             }

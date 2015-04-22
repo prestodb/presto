@@ -21,6 +21,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Min;
@@ -48,13 +49,14 @@ public class HiveClientConfig
     private int maxInitialSplits = 200;
     private DataSize maxInitialSplitSize;
     private boolean forceLocalScheduling;
+    private boolean recursiveDirWalkerEnabled;
     private boolean allowDropTable;
     private boolean allowRenameTable;
 
     private boolean allowCorruptWritesForTesting;
 
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
-    private Duration metastoreRefreshInterval = new Duration(2, TimeUnit.MINUTES);
+    private Duration metastoreRefreshInterval = new Duration(1, TimeUnit.SECONDS);
     private int maxMetastoreRefreshThreads = 100;
     private HostAndPort metastoreSocksProxy;
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
@@ -68,6 +70,7 @@ public class HiveClientConfig
 
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
+    private boolean s3UseInstanceCredentials = true;
     private boolean s3SslEnabled = true;
     private int s3MaxClientRetries = 3;
     private int s3MaxErrorRetries = 10;
@@ -79,6 +82,7 @@ public class HiveClientConfig
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
     private DataSize s3MultipartMinFileSize = new DataSize(16, MEGABYTE);
     private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
+    private boolean useParquetColumnNames;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
 
@@ -86,7 +90,11 @@ public class HiveClientConfig
 
     private boolean optimizedReaderEnabled = true;
 
+    private boolean assumeCanonicalPartitionKeys;
+
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
+    private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
+    private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
 
     public int getMaxInitialSplits()
     {
@@ -131,6 +139,18 @@ public class HiveClientConfig
     public TimeZone getTimeZone()
     {
         return timeZone;
+    }
+
+    @Config("hive.recursive-directories")
+    public HiveClientConfig setRecursiveDirWalkerEnabled(boolean recursiveDirWalkerEnabled)
+    {
+        this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
+        return this;
+    }
+
+    public boolean getRecursiveDirWalkerEnabled()
+    {
+        return recursiveDirWalkerEnabled;
     }
 
     @Config("hive.time-zone")
@@ -448,6 +468,18 @@ public class HiveClientConfig
         return this;
     }
 
+    public boolean isS3UseInstanceCredentials()
+    {
+        return s3UseInstanceCredentials;
+    }
+
+    @Config("hive.s3.use-instance-credentials")
+    public HiveClientConfig setS3UseInstanceCredentials(boolean s3UseInstanceCredentials)
+    {
+        this.s3UseInstanceCredentials = s3UseInstanceCredentials;
+        return this;
+    }
+
     public boolean isS3SslEnabled()
     {
         return s3SslEnabled;
@@ -569,8 +601,8 @@ public class HiveClientConfig
         return this;
     }
 
-    // TODO: add @MinDataSize(5MB) when supported in Airlift
     @NotNull
+    @MinDataSize("16MB")
     public DataSize getS3MultipartMinFileSize()
     {
         return s3MultipartMinFileSize;
@@ -584,8 +616,8 @@ public class HiveClientConfig
         return this;
     }
 
-    // TODO: add @MinDataSize(5MB) when supported in Airlift
     @NotNull
+    @MinDataSize("5MB")
     public DataSize getS3MultipartMinPartSize()
     {
         return s3MultipartMinPartSize;
@@ -623,6 +655,57 @@ public class HiveClientConfig
     public HiveClientConfig setOrcMaxMergeDistance(DataSize orcMaxMergeDistance)
     {
         this.orcMaxMergeDistance = orcMaxMergeDistance;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getOrcMaxBufferSize()
+    {
+        return orcMaxBufferSize;
+    }
+
+    @Config("hive.orc.max-buffer-size")
+    public HiveClientConfig setOrcMaxBufferSize(DataSize orcMaxBufferSize)
+    {
+        this.orcMaxBufferSize = orcMaxBufferSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getOrcStreamBufferSize()
+    {
+        return orcStreamBufferSize;
+    }
+
+    @Config("hive.orc.stream-buffer-size")
+    public HiveClientConfig setOrcStreamBufferSize(DataSize orcStreamBufferSize)
+    {
+        this.orcStreamBufferSize = orcStreamBufferSize;
+        return this;
+    }
+
+    public boolean isAssumeCanonicalPartitionKeys()
+    {
+        return assumeCanonicalPartitionKeys;
+    }
+
+    @Config("hive.assume-canonical-partition-keys")
+    public HiveClientConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
+    {
+        this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        return this;
+    }
+
+    public boolean isUseParquetColumnNames()
+   {
+        return useParquetColumnNames;
+    }
+
+    @Config("hive.parquet.use-column-names")
+    @ConfigDescription("Access Parquet columns using names from the file")
+    public HiveClientConfig setUseParquetColumnNames(boolean useParquetColumnNames)
+    {
+        this.useParquetColumnNames = useParquetColumnNames;
         return this;
     }
 }

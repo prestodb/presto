@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -31,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -141,7 +141,6 @@ public class TopNRowNumberOperator
     private final boolean generateRowNumber;
     private final int maxRowCountPerPartition;
 
-    private final MemoryManager memoryManager;
     private final Map<Long, PartitionBuilder> partitionRows;
     private Optional<FlushingPartition> flushingPartition;
     private final PageBuilder pageBuilder;
@@ -174,13 +173,12 @@ public class TopNRowNumberOperator
         checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
 
         this.types = toTypes(sourceTypes, outputChannels, generateRowNumber);
-        this.memoryManager = new MemoryManager(operatorContext);
         this.partitionRows = new HashMap<>();
         if (partitionChannels.isEmpty()) {
             this.groupByHash = Optional.empty();
         }
         else {
-            this.groupByHash = Optional.of(new GroupByHash(partitionTypes, Ints.toArray(partitionChannels), hashChannel, expectedPositions));
+            this.groupByHash = Optional.of(createGroupByHash(partitionTypes, Ints.toArray(partitionChannels), hashChannel, expectedPositions));
         }
         this.flushingPartition = Optional.empty();
         this.pageBuilder = new PageBuilder(types);
@@ -213,7 +211,7 @@ public class TopNRowNumberOperator
     @Override
     public boolean needsInput()
     {
-        return !finishing && !memoryManager.isFull() && !isFlushing();
+        return !finishing && !isFlushing();
     }
 
     @Override
@@ -241,9 +239,7 @@ public class TopNRowNumberOperator
             GroupByHash hash = groupByHash.get();
             long groupByHashSize = hash.getEstimatedSize();
             partitionIds = Optional.of(hash.getGroupIds(page));
-            if (!memoryManager.canUseDelta(hash.getEstimatedSize() - groupByHashSize)) {
-                throw new ExceededMemoryLimitException(memoryManager.getMaxMemorySize());
-            }
+            operatorContext.reserveMemory(hash.getEstimatedSize() - groupByHashSize);
         }
 
         long sizeDelta = 0;
@@ -263,8 +259,11 @@ public class TopNRowNumberOperator
                 sizeDelta += partitionBuilder.replaceRow(row);
             }
         }
-        if (!memoryManager.canUseDelta(sizeDelta)) {
-            throw new ExceededMemoryLimitException(memoryManager.getMaxMemorySize());
+        if (sizeDelta > 0) {
+            operatorContext.reserveMemory(sizeDelta);
+        }
+        else {
+            operatorContext.freeMemory(-sizeDelta);
         }
     }
 
@@ -319,7 +318,7 @@ public class TopNRowNumberOperator
             return null;
         }
         Page page = pageBuilder.build();
-        memoryManager.freeMemory(-sizeDelta);
+        operatorContext.freeMemory(sizeDelta);
         return page;
     }
 

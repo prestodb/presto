@@ -13,39 +13,49 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.server.SliceSerializer;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.MapType;
+import com.facebook.presto.type.RowType;
 import com.facebook.presto.type.SqlType;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.google.common.base.Throwables;
-import io.airlift.json.ObjectMapperProvider;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
 
-import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
+import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 
 public final class TestingRowConstructor
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()));
-
     private TestingRowConstructor() {}
 
     @ScalarFunction("test_row")
     @SqlType("row<bigint,bigint>('col0','col1')")
     public static Slice testRowBigintBigint(@Nullable @SqlType(StandardTypes.BIGINT) Long arg1, @Nullable @SqlType(StandardTypes.BIGINT) Long arg2)
     {
-        return toStackRepresentation(arg1, arg2);
+        return toStackRepresentation(ImmutableList.of(BIGINT, BIGINT), arg1, arg2);
     }
 
     @ScalarFunction("test_row")
     @SqlType("row<bigint,double>('col0','col1')")
     public static Slice testRowBigintBigint(@Nullable @SqlType(StandardTypes.BIGINT) Long arg1, @Nullable @SqlType(StandardTypes.DOUBLE) Double arg2)
     {
-        return toStackRepresentation(arg1, arg2);
+        return toStackRepresentation(ImmutableList.of(BIGINT, DOUBLE), arg1, arg2);
     }
 
     @ScalarFunction("test_row")
@@ -54,14 +64,14 @@ public final class TestingRowConstructor
                                                           @Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg3, @Nullable @SqlType(StandardTypes.VARCHAR) Slice arg4,
                                                           @Nullable @SqlType(StandardTypes.TIMESTAMP) Long arg5)
     {
-        return toStackRepresentation(arg1, arg2, arg3, arg4, arg5);
+        return toStackRepresentation(ImmutableList.of(BIGINT, DOUBLE, BOOLEAN, VARCHAR, TIMESTAMP), arg1, arg2, arg3, arg4, arg5);
     }
 
     @ScalarFunction("test_row")
     @SqlType("row<HyperLogLog>('col0')")
     public static Slice testRowHyperLogLog(@Nullable @SqlType(StandardTypes.HYPER_LOG_LOG) Slice arg1)
     {
-        return toStackRepresentation(arg1);
+        return toStackRepresentation(ImmutableList.of(HYPER_LOG_LOG), arg1);
     }
 
     @ScalarFunction("test_row")
@@ -69,7 +79,10 @@ public final class TestingRowConstructor
     public static Slice testNestedRowsWithTimestampsWithTimeZones(@Nullable @SqlType(StandardTypes.DOUBLE) Double arg1,
                                                                   @Nullable @SqlType("row<timestamp with time zone,timestamp with time zone>('col0','col1')") Slice arg2)
     {
-        return toStackRepresentation(arg1, arg2);
+        List<Type> parameterTypes = ImmutableList.of(
+                DOUBLE,
+                new RowType(ImmutableList.of(TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP_WITH_TIME_ZONE), Optional.of(ImmutableList.of("col0", "col1"))));
+        return toStackRepresentation(parameterTypes, arg1, arg2);
     }
 
     @ScalarFunction("test_row")
@@ -77,28 +90,28 @@ public final class TestingRowConstructor
     public static Slice testRowTimestampsWithTimeZones(@Nullable @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) Long arg1,
                                                                    @Nullable @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) Long arg2)
     {
-        return toStackRepresentation(arg1, arg2);
+        return toStackRepresentation(ImmutableList.of(TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP_WITH_TIME_ZONE), arg1, arg2);
     }
 
     @ScalarFunction("test_row")
     @SqlType("row<double,double>('col0','col1')")
-    public static Slice testRowBigintBigint(@Nullable @SqlType(StandardTypes.DOUBLE) Double arg1, @Nullable @SqlType(StandardTypes.DOUBLE) Double arg2)
+    public static Slice testRowDoubleDouble(@Nullable @SqlType(StandardTypes.DOUBLE) Double arg1, @Nullable @SqlType(StandardTypes.DOUBLE) Double arg2)
     {
-        return toStackRepresentation(arg1, arg2);
+        return toStackRepresentation(ImmutableList.of(DOUBLE, DOUBLE), arg1, arg2);
     }
 
     @ScalarFunction("test_row")
     @SqlType("row<double,varchar>('col0','col1')")
-    public static Slice testRowBigintBigint(@Nullable @SqlType(StandardTypes.DOUBLE) Double arg1, @Nullable @SqlType(StandardTypes.VARCHAR) Slice arg2)
+    public static Slice testRowDoubleBigint(@Nullable @SqlType(StandardTypes.DOUBLE) Double arg1, @Nullable @SqlType(StandardTypes.VARCHAR) Slice arg2)
     {
-        return toStackRepresentation(arg1, arg2);
+        return toStackRepresentation(ImmutableList.of(DOUBLE, VARCHAR), arg1, arg2);
     }
 
     @ScalarFunction("test_row")
     @SqlType("row<boolean,boolean>('col0','col1')")
     public static Slice testRowBigintBigint(@Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg1, @Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg2)
     {
-        return toStackRepresentation(arg1, arg2);
+        return toStackRepresentation(ImmutableList.of(BOOLEAN, BOOLEAN), arg1, arg2);
     }
 
     @ScalarFunction("test_row")
@@ -106,14 +119,15 @@ public final class TestingRowConstructor
     public static Slice testRowFourBooleans(@Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg1, @Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg2,
                                               @Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg3, @Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg4)
     {
-        return toStackRepresentation(arg1, arg2, arg3, arg4);
+        return toStackRepresentation(ImmutableList.of(BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN), arg1, arg2, arg3, arg4);
     }
 
     @ScalarFunction("test_row")
     @SqlType("row<boolean,array<bigint>>('col0','col1')")
     public static Slice testRowBooleanArray(@Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg1, @Nullable @SqlType("array<bigint>") Slice arg2)
     {
-        return toStackRepresentation(arg1, arg2);
+        List<Type> parameterTypes = ImmutableList.of(BOOLEAN, new ArrayType(BIGINT));
+        return toStackRepresentation(parameterTypes, arg1, arg2);
     }
 
     @ScalarFunction("test_row")
@@ -121,7 +135,8 @@ public final class TestingRowConstructor
     public static Slice testRowBooleanArrayMap(@Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg1, @Nullable @SqlType("array<bigint>") Slice arg2,
                                                @Nullable @SqlType("map<bigint,double>") Slice arg3)
     {
-        return toStackRepresentation(arg1, arg2, arg3);
+        List<Type> parameterTypes = ImmutableList.of(BIGINT, new ArrayType(BIGINT), new MapType(BIGINT, DOUBLE));
+        return toStackRepresentation(parameterTypes, arg1, arg2, arg3);
     }
 
     @ScalarFunction("test_row")
@@ -129,23 +144,25 @@ public final class TestingRowConstructor
     public static Slice testNestedRow(@Nullable @SqlType(StandardTypes.DOUBLE) Double arg1, @Nullable @SqlType("array<bigint>") Slice arg2,
                                                @Nullable @SqlType("row<bigint,double>('col0','col1')") Slice arg3)
     {
-        return toStackRepresentation(arg1, arg2, arg3);
+        List<Type> parameterTypes = ImmutableList.of(
+                DOUBLE, new ArrayType(BIGINT),
+                new RowType(ImmutableList.of(BIGINT, DOUBLE), Optional.of(ImmutableList.of("col0", "col1"))));
+        return toStackRepresentation(parameterTypes, arg1, arg2, arg3);
     }
 
     @ScalarFunction("test_row")
     @SqlType("row<timestamp>('col0')")
     public static Slice testRowBigintBigint(@Nullable @SqlType(StandardTypes.TIMESTAMP) Long arg1)
     {
-        return toStackRepresentation(arg1);
+        return toStackRepresentation(ImmutableList.of(TIMESTAMP), arg1);
     }
 
-    private static Slice toStackRepresentation(Object... values)
+    private static Slice toStackRepresentation(List<Type> parameterTypes, Object... values)
     {
-        try {
-            return Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(Arrays.asList(values)));
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
+        for (int i = 0; i < values.length; i++) {
+            appendToBlockBuilder(parameterTypes.get(i), values[i], blockBuilder);
         }
-        catch (JsonProcessingException e) {
-            throw Throwables.propagate(e);
-        }
+        return buildStructuralSlice(blockBuilder);
     }
 }

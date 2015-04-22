@@ -16,17 +16,14 @@ package com.facebook.presto.tpch;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
-import com.google.common.base.Objects;
 
 import java.util.Map;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TpchConnectorFactory
@@ -77,27 +74,9 @@ public class TpchConnectorFactory
             }
 
             @Override
-            public ConnectorPageSourceProvider getPageSourceProvider()
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
                 return new TpchRecordSetProvider();
-            }
-
-            @Override
-            public ConnectorRecordSinkProvider getRecordSinkProvider()
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public ConnectorIndexResolver getIndexResolver()
-            {
-                throw new UnsupportedOperationException();
             }
         };
     }
@@ -105,7 +84,7 @@ public class TpchConnectorFactory
     private int getSplitsPerNode(Map<String, String> properties)
     {
         try {
-            return Integer.parseInt(Objects.firstNonNull(properties.get("tpch.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
+            return Integer.parseInt(firstNonNull(properties.get("tpch.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
         }
         catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid property tpch.splits-per-node");

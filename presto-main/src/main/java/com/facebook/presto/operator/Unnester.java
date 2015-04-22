@@ -14,101 +14,12 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.PageBuilder;
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.google.common.base.Throwables;
-import io.airlift.slice.Slice;
 
-import javax.annotation.Nullable;
-
-import java.io.Closeable;
-import java.io.IOException;
-
-import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
-
-public abstract class Unnester
-        implements Closeable
+public interface Unnester
 {
-    protected static final JsonFactory JSON_FACTORY = new JsonFactory().disable(CANONICALIZE_FIELD_NAMES);
-    protected static final int ESTIMATED_JSON_OUTPUT_SIZE = 512;
+    int getChannelCount();
 
-    private final int channelCount;
-    private final JsonParser jsonParser;
-    private boolean closed;
+    void appendNext(PageBuilder pageBuilder, int outputChannelOffset);
 
-    protected Unnester(int channelCount, @Nullable Slice slice)
-    {
-        this.channelCount = channelCount;
-        if (slice == null) {
-            this.jsonParser = null;
-            return;
-        }
-
-        try {
-            this.jsonParser = JSON_FACTORY.createJsonParser(slice.getInput());
-            JsonToken token = jsonParser.nextToken();
-            checkState(token == JsonToken.START_ARRAY || token == JsonToken.START_OBJECT, "Expected start of array or object in input: \"%s\"", slice.toStringUtf8());
-            readNextToken();
-        }
-        catch (IOException e) {
-            close();
-            throw Throwables.propagate(e);
-        }
-    }
-
-    public final int getChannelCount()
-    {
-        return channelCount;
-    }
-
-    public final void appendNext(PageBuilder pageBuilder, int outputChannelOffset)
-    {
-        appendTo(pageBuilder, outputChannelOffset, jsonParser);
-        readNextToken();
-    }
-
-    protected abstract void appendTo(PageBuilder pageBuilder, int outputChannelOffset, JsonParser jsonParser);
-
-    public final boolean hasNext()
-    {
-        return jsonParser != null && !closed;
-    }
-
-    protected final void readNextToken()
-    {
-        JsonToken token;
-        checkNotNull(jsonParser, "jsonParser is null");
-        try {
-            token = jsonParser.nextToken();
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-        if (token == null || token == JsonToken.END_ARRAY || token == JsonToken.END_OBJECT) {
-            close();
-        }
-    }
-
-    @Override
-    public final void close()
-    {
-        if (closed) {
-            return;
-        }
-
-        try {
-            if (jsonParser != null) {
-                jsonParser.close();
-            }
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-        finally {
-            closed = true;
-        }
-    }
+    boolean hasNext();
 }

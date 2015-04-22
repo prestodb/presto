@@ -13,42 +13,42 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.SystemTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.Set;
 
 import static com.facebook.presto.connector.system.SystemColumnHandle.toSystemColumnHandles;
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Predicates.compose;
-import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 
 public class SystemTablesMetadata
         extends ReadOnlyConnectorMetadata
 {
-    private final ConcurrentMap<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
+    private final Map<SchemaTableName, ConnectorTableMetadata> tables;
 
-    public void addTable(ConnectorTableMetadata tableMetadata)
+    public SystemTablesMetadata(Set<SystemTable> tables)
     {
-        checkArgument(tables.putIfAbsent(tableMetadata.getTable(), tableMetadata) == null, "Table %s is already registered", tableMetadata.getTable());
+        this.tables = tables.stream()
+                .map(SystemTable::getTableMetadata)
+                .collect(toMap(ConnectorTableMetadata::getTable, identity()));
     }
 
     private SystemTableHandle checkTableHandle(ConnectorTableHandle tableHandle)
@@ -61,9 +61,10 @@ public class SystemTablesMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        // remove duplicates
-        ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(tables.keySet(), SchemaTableName::getSchemaName));
-        return ImmutableList.copyOf(schemaNames);
+        return tables.keySet().stream()
+                .map(SchemaTableName::getSchemaName)
+                .distinct()
+                .collect(toImmutableList());
     }
 
     @Override
@@ -89,17 +90,19 @@ public class SystemTablesMetadata
             return ImmutableList.copyOf(tables.keySet());
         }
 
-        return ImmutableList.copyOf(filter(tables.keySet(), compose(equalTo(schemaNameOrNull), SchemaTableName::getSchemaName)));
+        return tables.keySet().stream()
+                .filter(table -> table.getSchemaName().equals(schemaNameOrNull))
+                .collect(toImmutableList());
     }
 
     @Override
-    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         SystemTableHandle systemTableHandle = checkTableHandle(tableHandle);
         ConnectorTableMetadata tableMetadata = tables.get(systemTableHandle.getSchemaTableName());
@@ -112,7 +115,7 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
         SystemTableHandle systemTableHandle = checkTableHandle(tableHandle);
 

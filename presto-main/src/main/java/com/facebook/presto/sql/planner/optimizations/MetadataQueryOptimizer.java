@@ -14,13 +14,15 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Partition;
+import com.facebook.presto.metadata.TableLayout;
+import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SerializableNativeValue;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -61,21 +63,18 @@ public class MetadataQueryOptimizer
     private static final Set<String> ALLOWED_FUNCTIONS = ImmutableSet.of("max", "min", "approx_distinct");
 
     private final Metadata metadata;
-    private final SplitManager splitManager;
 
-    public MetadataQueryOptimizer(Metadata metadata, SplitManager splitManager)
+    public MetadataQueryOptimizer(Metadata metadata)
     {
         checkNotNull(metadata, "metadata is null");
-        checkNotNull(splitManager, "splitManager is null");
 
         this.metadata = metadata;
-        this.splitManager = splitManager;
     }
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return PlanRewriter.rewriteWith(new Optimizer(metadata, splitManager, idAllocator), plan, null);
+        return PlanRewriter.rewriteWith(new Optimizer(metadata, idAllocator), plan, null);
     }
 
     private static class Optimizer
@@ -83,12 +82,10 @@ public class MetadataQueryOptimizer
     {
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
-        private final SplitManager splitManager;
 
-        private Optimizer(Metadata metadata, SplitManager splitManager, PlanNodeIdAllocator idAllocator)
+        private Optimizer(Metadata metadata, PlanNodeIdAllocator idAllocator)
         {
             this.metadata = metadata;
-            this.splitManager = splitManager;
             this.idAllocator = idAllocator;
         }
 
@@ -98,13 +95,13 @@ public class MetadataQueryOptimizer
             // supported functions are only MIN/MAX/APPROX_DISTINCT or distinct aggregates
             for (FunctionCall call : node.getAggregations().values()) {
                 if (!ALLOWED_FUNCTIONS.contains(call.getName().toString()) && !call.isDistinct()) {
-                    return null;
+                    return context.defaultRewrite(node);
                 }
             }
 
             Optional<TableScanNode> result = findTableScan(node.getSource());
             if (!result.isPresent()) {
-                return null;
+                return context.defaultRewrite(node);
             }
 
             // verify all outputs of table scan are partition keys
@@ -121,7 +118,7 @@ public class MetadataQueryOptimizer
                 if (!columnMetadata.isPartitionKey()) {
                     // the optimization is only valid if the aggregation node only
                     // relies on partition keys
-                    return null;
+                    return context.defaultRewrite(node);
                 }
 
                 typesBuilder.put(symbol, columnMetadata.getType());
@@ -133,18 +130,24 @@ public class MetadataQueryOptimizer
 
             // Materialize the list of partitions and replace the TableScan node
             // with a Values node
-            List<Partition> partitions;
-            if (tableScan.getGeneratedPartitions().isPresent()) {
-                partitions = tableScan.getGeneratedPartitions().get().getPartitions();
+            TableLayout layout = null;
+            if (!tableScan.getLayout().isPresent()) {
+                List<TableLayoutResult> layouts = metadata.getLayouts(tableScan.getTable(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty());
+                if (layouts.size() == 1) {
+                    layout = Iterables.getOnlyElement(layouts).getLayout();
+                }
             }
             else {
-                partitions = splitManager.getPartitions(result.get().getTable(), Optional.of(tableScan.getPartitionsDomainSummary()))
-                        .getPartitions();
+                layout = metadata.getLayout(tableScan.getLayout().get());
+            }
+
+            if (layout == null || !layout.getDiscretePredicates().isPresent()) {
+                return context.defaultRewrite(node);
             }
 
             ImmutableList.Builder<List<Expression>> rowsBuilder = ImmutableList.builder();
-            for (Partition partition : partitions) {
-                Map<ColumnHandle, SerializableNativeValue> entries = partition.getTupleDomain().extractNullableFixedValues();
+            for (TupleDomain<ColumnHandle> domain : layout.getDiscretePredicates().get()) {
+                Map<ColumnHandle, SerializableNativeValue> entries = domain.extractNullableFixedValues();
 
                 ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
                 // for each input column, add a literal expression using the entry value
@@ -154,7 +157,7 @@ public class MetadataQueryOptimizer
                     SerializableNativeValue value = entries.get(column);
                     if (value == null) {
                         // partition key does not have a single value, so bail out to be safe
-                        return null;
+                        return context.defaultRewrite(node);
                     }
                     else {
                         rowBuilder.add(LiteralInterpreter.toExpression(value.getValue(), type));

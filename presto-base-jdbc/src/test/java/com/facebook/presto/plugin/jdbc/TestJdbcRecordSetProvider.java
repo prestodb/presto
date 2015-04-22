@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.Domain;
@@ -101,52 +101,52 @@ public class TestJdbcRecordSetProvider
     {
         // single value
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ConnectorColumnHandle, Domain>of(textColumn, Domain.singleValue("foo"))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.singleValue("foo"))
         ));
 
         // multiple values (string)
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ConnectorColumnHandle, Domain>of(textColumn, Domain.union(ImmutableList.of(Domain.singleValue("foo"), Domain.singleValue("bar"))))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.union(ImmutableList.of(Domain.singleValue("foo"), Domain.singleValue("bar"))))
         ));
 
         // inequality (string)
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ConnectorColumnHandle, Domain>of(textColumn, Domain.create(SortedRangeSet.of(Range.greaterThan("foo")), false))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(SortedRangeSet.of(Range.greaterThan("foo")), false))
         ));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ConnectorColumnHandle, Domain>of(textColumn, Domain.create(SortedRangeSet.of(Range.greaterThan("foo")), false))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(SortedRangeSet.of(Range.greaterThan("foo")), false))
         ));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ConnectorColumnHandle, Domain>of(textColumn, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual("foo")), false))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual("foo")), false))
         ));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ConnectorColumnHandle, Domain>of(textColumn, Domain.create(SortedRangeSet.of(Range.lessThan("foo")), false))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(SortedRangeSet.of(Range.lessThan("foo")), false))
         ));
 
         // is null
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ConnectorColumnHandle, Domain>of(textColumn, Domain.onlyNull(String.class))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.onlyNull(String.class))
         ));
 
         // not null
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ConnectorColumnHandle, Domain>of(textColumn, Domain.notNull(String.class))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.notNull(String.class))
         ));
 
         // specific value or null
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ConnectorColumnHandle, Domain>of(textColumn, Domain.union(ImmutableList.of(Domain.singleValue("foo"), Domain.onlyNull(String.class))))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.union(ImmutableList.of(Domain.singleValue("foo"), Domain.onlyNull(String.class))))
         ));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ConnectorColumnHandle, Domain>of(textColumn, Domain.create(SortedRangeSet.of(Range.range("bar", true, "foo", true)), false))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(SortedRangeSet.of(Range.range("bar", true, "foo", true)), false))
         ));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ConnectorColumnHandle, Domain>of(textColumn, Domain.create(SortedRangeSet.of(
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(SortedRangeSet.of(
                                 Range.range("bar", true, "foo", true),
                                 Range.range("hello", false, "world", false)),
                         false
@@ -154,7 +154,7 @@ public class TestJdbcRecordSetProvider
         ));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ConnectorColumnHandle, Domain>of(
+                ImmutableMap.<ColumnHandle, Domain>of(
                         textColumn,
                         Domain.create(SortedRangeSet.of(
                                         Range.range("bar", true, "foo", true),
@@ -175,7 +175,7 @@ public class TestJdbcRecordSetProvider
         ));
     }
 
-    private RecordCursor getCursor(JdbcTableHandle jdbcTableHandle, List<JdbcColumnHandle> columns, TupleDomain<ConnectorColumnHandle> domain)
+    private RecordCursor getCursor(JdbcTableHandle jdbcTableHandle, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> domain)
             throws InterruptedException
     {
         ConnectorPartitionResult partitions = jdbcClient.getPartitions(jdbcTableHandle, domain);

@@ -14,34 +14,35 @@
 package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.ParametricFunction;
-import com.facebook.presto.metadata.Partition;
-import com.facebook.presto.metadata.PartitionResult;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.TableLayout;
+import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SerializableNativeValue;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.split.SplitManager;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 
 import javax.inject.Inject;
@@ -72,22 +73,20 @@ public class InformationSchemaPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final Metadata metadata;
-    private final SplitManager splitManager;
 
     @Inject
-    public InformationSchemaPageSourceProvider(Metadata metadata, SplitManager splitManager)
+    public InformationSchemaPageSourceProvider(Metadata metadata)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
-        this.splitManager = checkNotNull(splitManager, "splitManager is null");
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ConnectorColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ColumnHandle> columns)
     {
         InternalTable table = getInternalTable(split, columns);
 
         List<Integer> channels = new ArrayList<>();
-        for (ConnectorColumnHandle column : columns) {
+        for (ColumnHandle column : columns) {
             String columnName = checkType(column, InformationSchemaColumnHandle.class, "column").getColumnName();
             int columnIndex = table.getColumnIndex(columnName);
             channels.add(columnIndex);
@@ -104,7 +103,7 @@ public class InformationSchemaPageSourceProvider
         return new FixedPageSource(pages.build());
     }
 
-    private InternalTable getInternalTable(ConnectorSplit connectorSplit, List<ConnectorColumnHandle> columns)
+    private InternalTable getInternalTable(ConnectorSplit connectorSplit, List<ColumnHandle> columns)
     {
         InformationSchemaSplit split = checkType(connectorSplit, InformationSchemaSplit.class, "split");
 
@@ -248,40 +247,47 @@ public class InformationSchemaPageSourceProvider
         QualifiedTableName tableName = extractQualifiedTableName(catalogName, filters);
 
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_INTERNAL_PARTITIONS));
-        int partitionNumber = 1;
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         checkArgument(tableHandle.isPresent(), "Table %s does not exist", tableName);
         Map<ColumnHandle, String> columnHandles = ImmutableBiMap.copyOf(metadata.getColumnHandles(tableHandle.get())).inverse();
-        PartitionResult partitionResult = splitManager.getPartitions(tableHandle.get(), Optional.empty());
 
-        for (Partition partition : partitionResult.getPartitions()) {
-            for (Entry<ColumnHandle, SerializableNativeValue> entry : partition.getTupleDomain().extractNullableFixedValues().entrySet()) {
-                ColumnHandle columnHandle = entry.getKey();
-                String columnName = columnHandles.get(columnHandle);
-                String value = null;
-                if (entry.getValue().getValue() != null) {
-                    ColumnMetadata columnMetadata  = metadata.getColumnMetadata(tableHandle.get(), columnHandle);
-                    try {
-                        FunctionInfo operator = metadata.getFunctionRegistry().getCoercion(columnMetadata.getType(), VARCHAR);
-                        value = ((Slice) operator.getMethodHandle().invokeWithArguments(entry.getValue().getValue())).toStringUtf8();
+        List<TableLayoutResult> layouts = metadata.getLayouts(tableHandle.get(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty());
+
+        if (layouts.size() == 1) {
+            TableLayout layout = Iterables.getOnlyElement(layouts).getLayout();
+
+            layout.getDiscretePredicates().ifPresent(domains -> {
+                int partitionNumber = 1;
+                for (TupleDomain<ColumnHandle> domain : domains) {
+                    for (Entry<ColumnHandle, SerializableNativeValue> entry : domain.extractNullableFixedValues().entrySet()) {
+                        ColumnHandle columnHandle = entry.getKey();
+                        String columnName = columnHandles.get(columnHandle);
+                        String value = null;
+                        if (entry.getValue().getValue() != null) {
+                            ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableHandle.get(), columnHandle);
+                            try {
+                                FunctionInfo operator = metadata.getFunctionRegistry().getCoercion(columnMetadata.getType(), VARCHAR);
+                                value = ((Slice) operator.getMethodHandle().invokeWithArguments(entry.getValue().getValue())).toStringUtf8();
+                            }
+                            catch (OperatorNotFoundException e) {
+                                value = "<UNREPRESENTABLE VALUE>";
+                            }
+                            catch (Throwable throwable) {
+                                throw Throwables.propagate(throwable);
+                            }
+                        }
+                        table.add(
+                                catalogName,
+                                tableName.getSchemaName(),
+                                tableName.getTableName(),
+                                partitionNumber,
+                                columnName,
+                                value);
                     }
-                    catch (OperatorNotFoundException e) {
-                        value = "<UNREPRESENTABLE VALUE>";
-                    }
-                    catch (Throwable throwable) {
-                        throw Throwables.propagate(throwable);
-                    }
+                    partitionNumber++;
                 }
-                table.add(
-                        catalogName,
-                        tableName.getSchemaName(),
-                        tableName.getTableName(),
-                        partitionNumber,
-                        columnName,
-                        value);
-            }
-            partitionNumber++;
+            });
         }
         return table.build();
     }

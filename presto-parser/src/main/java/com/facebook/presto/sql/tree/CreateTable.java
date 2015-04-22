@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -22,12 +25,12 @@ public class CreateTable
         extends Statement
 {
     private final QualifiedName name;
-    private final Query query;
+    private final List<TableElement> elements;
 
-    public CreateTable(QualifiedName name, Query query)
+    public CreateTable(QualifiedName name, List<TableElement> elements)
     {
-        this.name = checkNotNull(name, "name is null");
-        this.query = checkNotNull(query, "query is null");
+        this.name = checkNotNull(name, "table is null");
+        this.elements = ImmutableList.copyOf(checkNotNull(elements, "elements is null"));
     }
 
     public QualifiedName getName()
@@ -35,9 +38,9 @@ public class CreateTable
         return name;
     }
 
-    public Query getQuery()
+    public List<TableElement> getElements()
     {
-        return query;
+        return elements;
     }
 
     @Override
@@ -49,7 +52,7 @@ public class CreateTable
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, query);
+        return Objects.hash(name, elements);
     }
 
     @Override
@@ -62,8 +65,8 @@ public class CreateTable
             return false;
         }
         CreateTable o = (CreateTable) obj;
-        return Objects.equals(name, o.name)
-                && Objects.equals(query, o.query);
+        return Objects.equals(name, o.name) &&
+                Objects.equals(elements, o.elements);
     }
 
     @Override
@@ -71,7 +74,7 @@ public class CreateTable
     {
         return toStringHelper(this)
                 .add("name", name)
-                .add("query", query)
+                .add("elements", elements)
                 .toString();
     }
 }

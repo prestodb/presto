@@ -24,10 +24,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.serde2.Deserializer;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -36,11 +34,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
-import static com.facebook.presto.hive.HiveUtil.getDeserializer;
+import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactory.createOrcPageSource;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class DwrfPageSourceFactory
         implements HivePageSourceFactory
@@ -48,24 +49,28 @@ public class DwrfPageSourceFactory
     private final TypeManager typeManager;
     private final boolean enabled;
     private final DataSize orcMaxMergeDistance;
+    private final DataSize orcMaxBufferSize;
+    private final DataSize orcStreamBufferSize;
 
     @Inject
     public DwrfPageSourceFactory(TypeManager typeManager, HiveClientConfig config)
     {
         //noinspection deprecation
-        this(typeManager, config.isOptimizedReaderEnabled(), config.getOrcMaxMergeDistance());
+        this(typeManager, config.isOptimizedReaderEnabled(), config.getOrcMaxMergeDistance(), config.getOrcMaxBufferSize(), config.getOrcStreamBufferSize());
     }
 
     public DwrfPageSourceFactory(TypeManager typeManager)
     {
-        this(typeManager, true, new DataSize(1, Unit.MEGABYTE));
+        this(typeManager, true, new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(8, MEGABYTE));
     }
 
-    public DwrfPageSourceFactory(TypeManager typeManager, boolean enabled, DataSize orcMaxMergeDistance)
+    public DwrfPageSourceFactory(TypeManager typeManager, boolean enabled, DataSize orcMaxMergeDistance, DataSize orcMaxBufferSize, DataSize orcStreamBufferSize)
     {
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
         this.enabled = enabled;
         this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
+        this.orcMaxBufferSize = checkNotNull(orcMaxBufferSize, "orcMaxBufferSize is null");
+        this.orcStreamBufferSize = checkNotNull(orcStreamBufferSize, "orcStreamBufferSize is null");
     }
 
     @Override
@@ -84,9 +89,7 @@ public class DwrfPageSourceFactory
             return Optional.empty();
         }
 
-        @SuppressWarnings("deprecation")
-        Deserializer deserializer = getDeserializer(schema);
-        if (!(deserializer instanceof OrcSerde)) {
+        if (!isDeserializerClass(schema, OrcSerde.class)) {
             return Optional.empty();
         }
 
@@ -101,6 +104,8 @@ public class DwrfPageSourceFactory
                 effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager,
-                getOrcMaxMergeDistance(session, orcMaxMergeDistance)));
+                getOrcMaxMergeDistance(session, orcMaxMergeDistance),
+                getOrcMaxBufferSize(session, orcMaxBufferSize),
+                getOrcStreamBufferSize(session, orcStreamBufferSize)));
     }
 }

@@ -60,6 +60,14 @@ public class RunLengthBlockEncoding
     }
 
     @Override
+    public int getEstimatedSize(Block block)
+    {
+        RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) block;
+
+        return 4 + getValueBlockEncoding().getEstimatedSize(rleBlock.getValue());
+    }
+
+    @Override
     public RunLengthEncodedBlock readBlock(SliceInput sliceInput)
     {
         // read the run length
@@ -69,6 +77,12 @@ public class RunLengthBlockEncoding
         Block value = getValueBlockEncoding().readBlock(sliceInput);
 
         return new RunLengthEncodedBlock(value, positionCount);
+    }
+
+    @Override
+    public BlockEncodingFactory getFactory()
+    {
+        return FACTORY;
     }
 
     private static class RunLengthBlockEncodingFactory

@@ -16,7 +16,11 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.RegexpType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Ints;
@@ -30,7 +34,12 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.ArrayType.toStackRepresentation;
+import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Arrays.asList;
 
 public final class RegexpFunctions
 {
@@ -76,6 +85,34 @@ public final class RegexpFunctions
         return Slices.copiedBuffer(replaced, UTF_8);
     }
 
+    @Description("string(s) extracted using the given pattern")
+    @ScalarFunction
+    @SqlType("array<varchar>")
+    public static Slice regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Pattern pattern)
+    {
+        return regexpExtractAll(source, pattern, 0);
+    }
+
+    @Description("group(s) extracted using the given pattern")
+    @ScalarFunction
+    @SqlType("array<varchar>")
+    public static Slice regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Pattern pattern, @SqlType(StandardTypes.BIGINT) long group)
+    {
+        Matcher matcher = pattern.matcher(source.toString(UTF_8));
+        validateGroup(group, matcher);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
+        while (matcher.find()) {
+            String string = matcher.group(Ints.checkedCast(group));
+            if (string == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                VarcharType.VARCHAR.writeString(blockBuilder, string);
+            }
+        }
+        return buildStructuralSlice(blockBuilder);
+    }
+
     @Nullable
     @Description("string extracted using the given pattern")
     @ScalarFunction
@@ -92,13 +129,33 @@ public final class RegexpFunctions
     public static Slice regexpExtract(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Pattern pattern, @SqlType(StandardTypes.BIGINT) long group)
     {
         Matcher matcher = pattern.matcher(source.toString(UTF_8));
-        if ((group < 0) || (group > matcher.groupCount())) {
-            throw new IllegalArgumentException("invalid group count");
-        }
+        validateGroup(group, matcher);
         if (!matcher.find()) {
             return null;
         }
         String extracted = matcher.group(Ints.checkedCast(group));
-        return Slices.copiedBuffer(extracted, UTF_8);
+        if (extracted == null) {
+            return null;
+        }
+        return Slices.utf8Slice(extracted);
+    }
+
+    @ScalarFunction
+    @Description("returns array of strings split by pattern")
+    @SqlType("array<varchar>")
+    public static Slice regexpSplit(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Pattern pattern)
+    {
+        String[] result = pattern.split(source.toStringUtf8());
+        return toStackRepresentation(asList(result), VARCHAR);
+    }
+
+    private static void validateGroup(long group, Matcher matcher)
+    {
+        if (group < 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Group cannot be negative");
+        }
+        if (group > matcher.groupCount()) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Pattern has %d groups. Cannot access group %d", matcher.groupCount(), group));
+        }
     }
 }

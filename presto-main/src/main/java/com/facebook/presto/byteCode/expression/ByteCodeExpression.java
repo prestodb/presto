@@ -16,11 +16,13 @@ package com.facebook.presto.byteCode.expression;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.FieldDefinition;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
@@ -56,7 +58,7 @@ public abstract class ByteCodeExpression
         return type;
     }
 
-    public abstract ByteCodeNode getByteCode();
+    public abstract ByteCodeNode getByteCode(MethodGenerationContext generationContext);
 
     protected abstract String formatOneLine();
 
@@ -114,6 +116,16 @@ public abstract class ByteCodeExpression
     public final ByteCodeExpression cast(ParameterizedType type)
     {
         return new CastByteCodeExpression(this, type);
+    }
+
+    public final ByteCodeExpression invoke(Method method, ByteCodeExpression... parameters)
+    {
+        return invoke(method, ImmutableList.copyOf(checkNotNull(parameters, "parameters is null")));
+    }
+
+    public final ByteCodeExpression invoke(Method method, Iterable<? extends ByteCodeExpression> parameters)
+    {
+        return invoke(method.getName(), type(method.getReturnType()), parameters);
     }
 
     public final ByteCodeExpression invoke(String methodName, Class<?> returnType, ByteCodeExpression... parameters)
@@ -184,9 +196,9 @@ public abstract class ByteCodeExpression
     }
 
     @Override
-    public final void accept(MethodVisitor visitor)
+    public final void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
-        getByteCode().accept(visitor);
+        getByteCode(generationContext).accept(visitor, generationContext);
     }
 
     @Override

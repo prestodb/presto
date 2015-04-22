@@ -54,30 +54,10 @@ public class ClassDefinition
             ParameterizedType superClass,
             ParameterizedType... interfaces)
     {
-        this(new CompilerContext(), access, new ParameterizedType(name), superClass, interfaces);
+        this(access, new ParameterizedType(name), superClass, interfaces);
     }
 
     public ClassDefinition(
-            CompilerContext compilerContext,
-            EnumSet<Access> access,
-            String name,
-            ParameterizedType superClass,
-            ParameterizedType... interfaces)
-    {
-        this(compilerContext, access, new ParameterizedType(name), superClass, interfaces);
-    }
-
-    public ClassDefinition(
-            EnumSet<Access> access,
-            ParameterizedType type,
-            ParameterizedType superClass,
-            ParameterizedType... interfaces)
-    {
-        this(new CompilerContext(), access, type, superClass, interfaces);
-    }
-
-    public ClassDefinition(
-            CompilerContext compilerContext,
             EnumSet<Access> access,
             ParameterizedType type,
             ParameterizedType superClass,
@@ -93,7 +73,7 @@ public class ClassDefinition
         this.superClass = superClass;
         this.interfaces.addAll(ImmutableList.copyOf(interfaces));
 
-        classInitializer = new MethodDefinition(compilerContext, this, a(STATIC), "<clinit>", ParameterizedType.type(void.class), ImmutableList.<NamedParameterDefinition>of());
+        classInitializer = new MethodDefinition(this, a(STATIC), "<clinit>", ParameterizedType.type(void.class), ImmutableList.<Parameter>of());
     }
 
     public Set<Access> getAccess()
@@ -235,32 +215,24 @@ public class ClassDefinition
 
     public MethodDefinition declareConstructor(
             EnumSet<Access> access,
-            NamedParameterDefinition... parameters)
+            Parameter... parameters)
     {
-        return declareConstructor(new CompilerContext(), access, parameters);
+        return declareMethod(access, "<init>", ParameterizedType.type(void.class), ImmutableList.copyOf(parameters));
     }
 
     public MethodDefinition declareConstructor(
-            CompilerContext compilerContext,
             EnumSet<Access> access,
-            NamedParameterDefinition... parameters)
+            Iterable<Parameter> parameters)
     {
-        return declareMethod(compilerContext, access, "<init>", ParameterizedType.type(void.class), ImmutableList.copyOf(parameters));
-    }
-
-    public MethodDefinition declareConstructor(
-            CompilerContext compilerContext,
-            EnumSet<Access> access,
-            Iterable<NamedParameterDefinition> parameters)
-    {
-        return declareMethod(compilerContext, access, "<init>", ParameterizedType.type(void.class), ImmutableList.copyOf(parameters));
+        return declareMethod(access, "<init>", ParameterizedType.type(void.class), ImmutableList.copyOf(parameters));
     }
 
     public ClassDefinition declareDefaultConstructor(EnumSet<Access> access)
     {
-        declareConstructor(new CompilerContext(null), access)
+        MethodDefinition constructor = declareConstructor(access);
+        constructor
                 .getBody()
-                .pushThis()
+                .append(constructor.getThis())
                 .invokeConstructor(superClass)
                 .ret();
         return this;
@@ -283,40 +255,18 @@ public class ClassDefinition
             EnumSet<Access> access,
             String name,
             ParameterizedType returnType,
-            NamedParameterDefinition... parameters)
+            Parameter... parameters)
     {
-        return declareMethod(new CompilerContext(), access, name, returnType, parameters);
-    }
-
-    public MethodDefinition declareMethod(
-            CompilerContext compilerContext,
-            EnumSet<Access> access,
-            String name,
-            ParameterizedType returnType,
-            NamedParameterDefinition... parameters)
-    {
-        MethodDefinition methodDefinition = new MethodDefinition(compilerContext, this, access, name, returnType, ImmutableList.copyOf(parameters));
-        methods.add(methodDefinition);
-        return methodDefinition;
+        return declareMethod(access, name, returnType, ImmutableList.copyOf(parameters));
     }
 
     public MethodDefinition declareMethod(
             EnumSet<Access> access,
             String name,
             ParameterizedType returnType,
-            Iterable<NamedParameterDefinition> parameters)
+            Iterable<Parameter> parameters)
     {
-        return declareMethod(new CompilerContext(), access, name, returnType, parameters);
-    }
-
-    public MethodDefinition declareMethod(
-            CompilerContext compilerContext,
-            EnumSet<Access> access,
-            String name,
-            ParameterizedType returnType,
-            Iterable<NamedParameterDefinition> parameters)
-    {
-        MethodDefinition methodDefinition = new MethodDefinition(compilerContext, this, access, name, returnType, parameters);
+        MethodDefinition methodDefinition = new MethodDefinition(this, access, name, returnType, parameters);
         methods.add(methodDefinition);
         return methodDefinition;
     }

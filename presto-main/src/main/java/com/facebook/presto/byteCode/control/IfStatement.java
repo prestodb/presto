@@ -15,111 +15,35 @@ package com.facebook.presto.byteCode.control;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.ByteCodeNodeFactory;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.ByteCodeNodes.buildBlock;
-import static com.facebook.presto.byteCode.ExpectedType.BOOLEAN;
-import static com.facebook.presto.byteCode.ExpectedType.VOID;
+import static com.google.common.base.Preconditions.checkState;
 
 public class IfStatement
         implements FlowControl
 {
-    public static IfStatementBuilder ifStatementBuilder(CompilerContext context)
-    {
-        return new IfStatementBuilder(context);
-    }
-
-    public static class IfStatementBuilder
-    {
-        private final CompilerContext context;
-
-        private String comment;
-        private ByteCodeNode condition;
-        private ByteCodeNode ifTrue;
-        private ByteCodeNode ifFalse;
-
-        public IfStatementBuilder(CompilerContext context)
-        {
-            this.context = context;
-        }
-
-        public IfStatementBuilder comment(String format, Object... args)
-        {
-            this.comment = String.format(format, args);
-            return this;
-        }
-
-        public IfStatementBuilder condition(ByteCodeNode condition)
-        {
-            this.condition = buildBlock(context, condition, "condition");
-            return this;
-        }
-
-        public IfStatementBuilder condition(ByteCodeNodeFactory condition)
-        {
-            this.condition = buildBlock(context, condition, BOOLEAN, "condition");
-            return this;
-        }
-
-        public IfStatementBuilder ifTrue(ByteCodeNode ifTrue)
-        {
-            this.ifTrue = buildBlock(context, ifTrue, "ifTrue");
-            return this;
-        }
-
-        public IfStatementBuilder ifTrue(ByteCodeNodeFactory ifTrue)
-        {
-            this.ifTrue = buildBlock(context, ifTrue, VOID, "ifTrue");
-            return this;
-        }
-
-        public IfStatementBuilder ifFalse(ByteCodeNode ifFalse)
-        {
-            this.ifFalse = buildBlock(context, ifFalse, "ifFalse");
-            return this;
-        }
-
-        public IfStatementBuilder ifFalse(ByteCodeNodeFactory ifFalse)
-        {
-            this.ifFalse = buildBlock(context, ifFalse, VOID, "ifFalse");
-            return this;
-        }
-
-        public IfStatement build()
-        {
-            IfStatement ifStatement = new IfStatement(context, comment, condition, ifTrue, ifFalse);
-            return ifStatement;
-        }
-    }
-
-    private final CompilerContext context;
     private final String comment;
-    private final ByteCodeNode condition;
-    private final ByteCodeNode ifTrue;
-    private final ByteCodeNode ifFalse;
+    private final Block condition = new Block();
+    private final Block ifTrue = new Block();
+    private final Block ifFalse = new Block();
 
     private final LabelNode falseLabel = new LabelNode("false");
     private final LabelNode outLabel = new LabelNode("out");
 
-    public IfStatement(CompilerContext context, ByteCodeNode condition, ByteCodeNode ifTrue, ByteCodeNode ifFalse)
+    public IfStatement()
     {
-        this(context, null, condition, ifTrue, ifFalse);
+        this.comment = null;
     }
 
-    public IfStatement(CompilerContext context, String comment, ByteCodeNode condition, ByteCodeNode ifTrue, ByteCodeNode ifFalse)
+    public IfStatement(String format, Object... args)
     {
-        this.context = context;
-        this.comment = comment;
-        this.condition = condition;
-        this.ifTrue = ifTrue;
-        this.ifFalse = ifFalse;
+        this.comment = String.format(format, args);
     }
 
     @Override
@@ -128,52 +52,83 @@ public class IfStatement
         return comment;
     }
 
-    public ByteCodeNode getCondition()
+    public Block condition()
     {
         return condition;
     }
 
-    public ByteCodeNode getIfTrue()
+    public IfStatement condition(ByteCodeNode node)
+    {
+        checkState(condition.isEmpty(), "condition already set");
+        condition.append(node);
+        return this;
+    }
+
+    public Block ifTrue()
     {
         return ifTrue;
     }
 
-    public ByteCodeNode getIfFalse()
+    public IfStatement ifTrue(ByteCodeNode node)
+    {
+        checkState(ifTrue.isEmpty(), "ifTrue already set");
+        ifTrue.append(node);
+        return this;
+    }
+
+    public Block ifFalse()
     {
         return ifFalse;
     }
 
-    @Override
-    public void accept(MethodVisitor visitor)
+    public IfStatement ifFalse(ByteCodeNode node)
     {
-        Block block = new Block(context);
+        checkState(ifFalse.isEmpty(), "ifFalse already set");
+        ifFalse.append(node);
+        return this;
+    }
 
-        block.append(condition)
-                .ifZeroGoto(falseLabel)
-                .append(ifTrue);
+    @Override
+    public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
+    {
+        checkState(!condition.isEmpty(), "IfStatement does not have a condition set");
+        checkState(!ifTrue.isEmpty() || !ifFalse.isEmpty(), "IfStatement does not have a true or false block set");
 
-        if (ifFalse != null) {
-            block.gotoLabel(outLabel)
-                    .visitLabel(falseLabel)
-                    .append(ifFalse)
-                    .visitLabel(outLabel);
+        Block block = new Block();
+
+        // if !condition goto false;
+        block.append(new Block()
+                .setDescription("condition")
+                .append(condition));
+        block.ifFalseGoto(falseLabel);
+
+        if (!ifTrue.isEmpty()) {
+            block.append(new Block()
+                    .setDescription("ifTrue")
+                    .append(ifTrue));
+        }
+
+        if (!ifFalse.isEmpty()) {
+            // close true case by skipping to end
+            block.gotoLabel(outLabel);
+
+            block.visitLabel(falseLabel);
+            block.append(new Block()
+                    .setDescription("ifFalse")
+                    .append(ifFalse));
+            block.visitLabel(outLabel);
         }
         else {
             block.visitLabel(falseLabel);
         }
 
-        block.accept(visitor);
+        block.accept(visitor, generationContext);
     }
 
     @Override
     public List<ByteCodeNode> getChildNodes()
     {
-        if (ifFalse == null) {
-            return ImmutableList.of(condition, ifTrue);
-        }
-        else {
-            return ImmutableList.of(condition, ifTrue, ifFalse);
-        }
+        return ImmutableList.of(condition, ifTrue, ifFalse);
     }
 
     @Override

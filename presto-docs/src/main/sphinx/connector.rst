@@ -15,5 +15,5 @@ from different data sources.
     connector/kafka-tutorial
     connector/mysql
     connector/postgresql
-    connector/sys
+    connector/system
     connector/tpch

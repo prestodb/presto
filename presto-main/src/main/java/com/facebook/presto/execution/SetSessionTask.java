@@ -24,6 +24,12 @@ public class SetSessionTask
         implements DataDefinitionTask<SetSession>
 {
     @Override
+    public String getName()
+    {
+        return "SET SESSION";
+    }
+
+    @Override
     public void execute(SetSession statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
     {
         if (statement.getName().getParts().size() > 2) {

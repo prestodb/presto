@@ -16,7 +16,6 @@ package com.facebook.presto.cli;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.sql.parser.StatementSplitter;
-import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -33,6 +32,7 @@ import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import io.airlift.units.Duration;
@@ -56,6 +56,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.cli.ClientOptions.parseServer;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
@@ -68,7 +69,6 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
-import static io.airlift.log.Logging.Level;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -78,7 +78,7 @@ public class PerfTest
 {
     private static final String USER_AGENT_VALUE = PerfTest.class.getSimpleName() +
             "/" +
-            Objects.firstNonNull(PerfTest.class.getPackage().getImplementationVersion(), "unknown");
+            firstNonNull(PerfTest.class.getPackage().getImplementationVersion(), "unknown");
 
     @Inject
     public HelpOption helpOption;
@@ -239,7 +239,7 @@ public class PerfTest
 
             HttpClientConfig clientConfig = new HttpClientConfig();
             clientConfig.setConnectTimeout(new Duration(10, TimeUnit.SECONDS));
-            clientConfig.setReadTimeout(new Duration(timeout, TimeUnit.SECONDS));
+            clientConfig.setIdleTimeout(new Duration(timeout, TimeUnit.SECONDS));
             clientConfig.setKeepAliveInterval(new Duration(timeout, TimeUnit.SECONDS));
             httpClient = new JettyHttpClient(clientConfig);
         }

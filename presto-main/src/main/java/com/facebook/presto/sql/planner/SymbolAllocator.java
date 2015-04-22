@@ -66,11 +66,12 @@ public class SymbolAllocator
             unique = unique + "$" + suffix;
         }
 
-        if (symbols.containsKey(new Symbol(unique))) {
-            unique += "_" + nextId();
+        String attempt = unique;
+        while (symbols.containsKey(new Symbol(attempt))) {
+            attempt = unique + "_" + nextId();
         }
 
-        Symbol symbol = new Symbol(unique);
+        Symbol symbol = new Symbol(attempt);
         symbols.put(symbol, type);
         return symbol;
     }

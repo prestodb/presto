@@ -34,6 +34,7 @@ import java.util.List;
 
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 
@@ -152,6 +153,14 @@ public final class ExpressionUtils
     public static Expression stripNonDeterministicConjuncts(Expression expression)
     {
         return combineConjuncts(filter(extractConjuncts(expression), DeterminismEvaluator::isDeterministic));
+    }
+
+    public static Expression stripDeterministicConjuncts(Expression expression)
+    {
+        return combineConjuncts(extractConjuncts(expression)
+                .stream()
+                .filter((conjunct) -> !DeterminismEvaluator.isDeterministic(conjunct))
+                .collect(toImmutableList()));
     }
 
     public static Function<Expression, Expression> expressionOrNullSymbols(final Predicate<Symbol> nullSymbolScope)

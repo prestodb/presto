@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.90-SNAPSHOT</version>
+        <version>0.101-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-main</artifactId>
@@ -241,6 +241,11 @@
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-all</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jgrapht</groupId>
+            <artifactId>jgrapht-core</artifactId>
         </dependency>
 
         <!-- for testing -->

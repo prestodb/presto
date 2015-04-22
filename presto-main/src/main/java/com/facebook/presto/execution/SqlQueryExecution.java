@@ -36,7 +36,6 @@ import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.units.Duration;
@@ -51,7 +50,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
+import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -66,7 +67,6 @@ public class SqlQueryExecution
 
     private final QueryStateMachine stateMachine;
 
-    private final Session session;
     private final Statement statement;
     private final Metadata metadata;
     private final SqlParser sqlParser;
@@ -78,8 +78,6 @@ public class SqlQueryExecution
     private final int scheduleSplitBatchSize;
     private final int initialHashPartitions;
     private final boolean experimentalSyntaxEnabled;
-    private final boolean distributedIndexJoinsEnabled;
-    private final boolean distributedJoinsEnabled;
     private final ExecutorService queryExecutor;
 
     private final QueryExplainer queryExplainer;
@@ -102,13 +100,10 @@ public class SqlQueryExecution
             int maxPendingSplitsPerNode,
             int initialHashPartitions,
             boolean experimentalSyntaxEnabled,
-            boolean distributedIndexJoinsEnabled,
-            boolean distributedJoinsEnabled,
             ExecutorService queryExecutor,
             NodeTaskMap nodeTaskMap)
     {
-        try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryId)) {
-            this.session = checkNotNull(session, "session is null");
+        try (SetThreadName ignored = new SetThreadName("Query-%s", queryId)) {
             this.statement = checkNotNull(statement, "statement is null");
             this.metadata = checkNotNull(metadata, "metadata is null");
             this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
@@ -119,8 +114,6 @@ public class SqlQueryExecution
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
             this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
-            this.distributedIndexJoinsEnabled = distributedIndexJoinsEnabled;
-            this.distributedJoinsEnabled = distributedJoinsEnabled;
             this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
 
             checkArgument(maxPendingSplitsPerNode > 0, "scheduleSplitBatchSize must be greater than 0");
@@ -142,7 +135,7 @@ public class SqlQueryExecution
     @Override
     public void start()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
+        try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             try {
                 // transition to planning
                 if (!stateMachine.beginPlanning()) {
@@ -182,7 +175,7 @@ public class SqlQueryExecution
     @Override
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
-        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
+        try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             stateMachine.addStateChangeListener(stateChangeListener);
         }
     }
@@ -193,7 +186,7 @@ public class SqlQueryExecution
             return doAnalyzeQuery();
         }
         catch (StackOverflowError e) {
-            throw new RuntimeException("statement is too large (stack overflow during analysis)", e);
+            throw new PrestoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
         }
     }
 
@@ -204,20 +197,25 @@ public class SqlQueryExecution
 
         // analyze query
         Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, Optional.of(queryExplainer), experimentalSyntaxEnabled);
-
         Analysis analysis = analyzer.analyze(statement);
-        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+
+        stateMachine.setUpdateType(analysis.getUpdateType());
+
         // plan query
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata);
         Plan plan = logicalPlanner.plan(analysis);
 
+        // extract inputs
         List<Input> inputs = new InputExtractor(metadata).extract(plan.getRoot());
         stateMachine.setInputs(inputs);
 
         // fragment the plan
         SubPlan subplan = new PlanFragmenter().createSubPlans(plan);
 
+        // record analysis time
         stateMachine.recordAnalysisTime(analysisStart);
+
         return subplan;
     }
 
@@ -256,15 +254,15 @@ public class SqlQueryExecution
         stateMachine.recordDistributedPlanningTime(distributedPlanningStart);
 
         // update state in case output finished before listener was added
-        doUpdateState(outputStage.getStageInfo());
+        doUpdateState(outputStage.getState());
     }
 
     @Override
     public void cancelStage(StageId stageId)
     {
-        Preconditions.checkNotNull(stageId, "stageId is null");
+        checkNotNull(stageId, "stageId is null");
 
-        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
+        try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             SqlStageExecution stageExecution = outputStage.get();
             if (stageExecution != null) {
                 stageExecution.cancelStage(stageId);
@@ -275,7 +273,7 @@ public class SqlQueryExecution
     @Override
     public void fail(Throwable cause)
     {
-        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
+        try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             // transition to failed state, only if not already finished
             stateMachine.fail(cause);
 
@@ -290,7 +288,7 @@ public class SqlQueryExecution
     public Duration waitForStateChange(QueryState currentState, Duration maxWait)
             throws InterruptedException
     {
-        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
+        try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             return stateMachine.waitForStateChange(currentState, maxWait);
         }
     }
@@ -302,9 +300,15 @@ public class SqlQueryExecution
     }
 
     @Override
+    public QueryId getQueryId()
+    {
+        return stateMachine.getQueryId();
+    }
+
+    @Override
     public QueryInfo getQueryInfo()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
+        try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             SqlStageExecution outputStage = this.outputStage.get();
             StageInfo stageInfo = null;
             if (outputStage != null) {
@@ -314,7 +318,7 @@ public class SqlQueryExecution
         }
     }
 
-    private void doUpdateState(StageInfo outputStageInfo)
+    private void doUpdateState(StageState outputStageState)
     {
         // if already complete, just return
         if (stateMachine.isDone()) {
@@ -322,10 +326,9 @@ public class SqlQueryExecution
         }
 
         // if output stage is done, transition to done
-        StageState outputStageState = outputStageInfo.getState();
         if (outputStageState.isDone()) {
             if (outputStageState.isFailure()) {
-                stateMachine.fail(failureCause(outputStageInfo));
+                stateMachine.fail(failureCause(outputStage.get().getStageInfo()));
             }
             else if (outputStageState == StageState.CANCELED) {
                 stateMachine.fail(new PrestoException(USER_CANCELED, "Query was canceled"));
@@ -336,7 +339,7 @@ public class SqlQueryExecution
         }
         else if (stateMachine.getQueryState() == QueryState.STARTING) {
             // if output stage has at least one task, we are running
-            if (!outputStageInfo.getTasks().isEmpty()) {
+            if (!outputStage.get().getStageInfo().getTasks().isEmpty()) {
                 stateMachine.running();
                 stateMachine.recordExecutionStart();
             }
@@ -373,8 +376,6 @@ public class SqlQueryExecution
         private final int initialHashPartitions;
         private final Integer bigQueryInitialHashPartitions;
         private final boolean experimentalSyntaxEnabled;
-        private final boolean distributedIndexJoinsEnabled;
-        private final boolean distributedJoinsEnabled;
         private final Metadata metadata;
         private final SqlParser sqlParser;
         private final SplitManager splitManager;
@@ -414,8 +415,6 @@ public class SqlQueryExecution
             this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
             checkNotNull(featuresConfig, "featuresConfig is null");
             this.experimentalSyntaxEnabled = featuresConfig.isExperimentalSyntaxEnabled();
-            this.distributedIndexJoinsEnabled = featuresConfig.isDistributedIndexJoinsEnabled();
-            this.distributedJoinsEnabled = featuresConfig.isDistributedJoinsEnabled();
             this.executor = checkNotNull(executor, "executor is null");
             this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
             this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
@@ -424,18 +423,12 @@ public class SqlQueryExecution
         @Override
         public SqlQueryExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement)
         {
-            int initialHashPartitions;
+            int initialHashPartitions = this.initialHashPartitions;
             if (isBigQueryEnabled(session, false)) {
-                if (this.bigQueryInitialHashPartitions == null) {
-                    initialHashPartitions = nodeManager.getActiveNodes().size();
-                }
-                else {
-                    initialHashPartitions = this.bigQueryInitialHashPartitions;
-                }
+                initialHashPartitions = (bigQueryInitialHashPartitions == null) ? nodeManager.getActiveNodes().size() : bigQueryInitialHashPartitions;
             }
-            else {
-                initialHashPartitions = this.initialHashPartitions;
-            }
+            initialHashPartitions = getHashPartitionCount(session, initialHashPartitions);
+
             SqlQueryExecution queryExecution = new SqlQueryExecution(queryId,
                     query,
                     session,
@@ -452,8 +445,6 @@ public class SqlQueryExecution
                     maxPendingSplitsPerNode,
                     initialHashPartitions,
                     experimentalSyntaxEnabled,
-                    distributedIndexJoinsEnabled,
-                    isBigQueryEnabled(session, distributedJoinsEnabled),
                     executor,
                     nodeTaskMap);
 

@@ -15,7 +15,7 @@ package com.facebook.presto.kafka;
 
 import com.facebook.presto.kafka.decoder.dummy.DummyKafkaRowDecoder;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -89,7 +89,7 @@ public class KafkaMetadata
     {
         KafkaTopicDescription table = getDefinedTables().get(schemaTableName);
         if (table == null) {
-            throw new TableNotFoundException(schemaTableName);
+            return null;
         }
 
         return new KafkaTableHandle(connectorId,
@@ -126,14 +126,14 @@ public class KafkaMetadata
     }
 
     @Override
-    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;
     }
 
     @SuppressWarnings("ValueOfIncrementOrDecrementUsed")
     @Override
-    public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
         KafkaTableHandle kafkaTableHandle = handleResolver.convertTableHandle(tableHandle);
 
@@ -142,7 +142,7 @@ public class KafkaMetadata
             throw new TableNotFoundException(kafkaTableHandle.toSchemaTableName());
         }
 
-        ImmutableMap.Builder<String, ConnectorColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
 
         int index = 0;
         KafkaTopicFieldGroup key = kafkaTopicDescription.getKey();
@@ -192,7 +192,7 @@ public class KafkaMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         handleResolver.convertTableHandle(tableHandle);
         KafkaColumnHandle kafkaColumnHandle = handleResolver.convertColumnHandle(columnHandle);

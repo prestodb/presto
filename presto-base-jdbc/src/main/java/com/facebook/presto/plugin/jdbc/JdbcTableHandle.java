@@ -18,9 +18,10 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
 
 import javax.annotation.Nullable;
+
+import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -90,14 +91,14 @@ public final class JdbcTableHandle
             return false;
         }
         JdbcTableHandle o = (JdbcTableHandle) obj;
-        return Objects.equal(this.connectorId, o.connectorId) &&
-                Objects.equal(this.schemaTableName, o.schemaTableName);
+        return Objects.equals(this.connectorId, o.connectorId) &&
+                Objects.equals(this.schemaTableName, o.schemaTableName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(connectorId, schemaTableName);
+        return Objects.hash(connectorId, schemaTableName);
     }
 
     @Override

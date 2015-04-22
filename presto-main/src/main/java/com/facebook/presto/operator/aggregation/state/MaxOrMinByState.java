@@ -14,16 +14,11 @@
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 
 @AccumulatorStateMetadata(stateFactoryClass = MaxOrMinByStateFactory.class, stateSerializerClass = MaxOrMinByStateSerializer.class)
 public interface MaxOrMinByState
     extends AccumulatorState
 {
-    Type getKeyType();
-
-    Type getValueType();
-
     Block getKey();
 
     void setKey(Block key);

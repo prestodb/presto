@@ -16,7 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.InputFunction;
 import com.facebook.presto.operator.aggregation.IntermediateInputFunction;
-import com.facebook.presto.operator.aggregation.state.NullableBigintState;
+import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 
@@ -27,7 +27,7 @@ public final class CustomSum
 
     @InputFunction
     @IntermediateInputFunction
-    public static void input(NullableBigintState state, @SqlType(StandardTypes.BIGINT) long value)
+    public static void input(NullableLongState state, @SqlType(StandardTypes.BIGINT) long value)
     {
         state.setLong(state.getLong() + value);
         state.setNull(false);

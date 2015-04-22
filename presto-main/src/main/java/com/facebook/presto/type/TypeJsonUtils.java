@@ -14,20 +14,16 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.type.CollectionType;
 import com.google.common.base.Throwables;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -38,17 +34,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.String.format;
 
 public final class TypeJsonUtils
 {
     private static final JsonFactory JSON_FACTORY = new JsonFactory().disable(CANONICALIZE_FIELD_NAMES);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
-    private static final CollectionType COLLECTION_TYPE = OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, Object.class);
 
     private TypeJsonUtils() {}
 
@@ -112,7 +105,19 @@ public final class TypeJsonUtils
             return Collections.unmodifiableList(list);
         }
 
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        Slice sliceValue = null;
+        if (type.getJavaType() == Slice.class) {
+            sliceValue = Slices.utf8Slice(parser.getValueAsString());
+        }
+
+        BlockBuilder blockBuilder;
+        if (type instanceof FixedWidthType) {
+            blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
+        }
+        else {
+            blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, checkNotNull(sliceValue, "sliceValue is null").length());
+        }
+
         if (type.getJavaType() == boolean.class) {
             type.writeBoolean(blockBuilder, parser.getBooleanValue());
         }
@@ -123,22 +128,28 @@ public final class TypeJsonUtils
             type.writeDouble(blockBuilder, getDoubleValue(parser));
         }
         else if (type.getJavaType() == Slice.class) {
-            type.writeSlice(blockBuilder, Slices.utf8Slice(parser.getValueAsString()));
+            type.writeSlice(blockBuilder, checkNotNull(sliceValue, "sliceValue is null"));
         }
         return type.getObjectValue(session, blockBuilder.build(), 0);
     }
 
     private static Object mapKeyToObject(ConnectorSession session, String jsonKey, Type type)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder;
+        if (type instanceof FixedWidthType) {
+            blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
+        }
+        else {
+            blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, jsonKey.length());
+        }
         if (type.getJavaType() == boolean.class) {
-            type.writeBoolean(blockBuilder, Boolean.valueOf(jsonKey));
+            type.writeBoolean(blockBuilder, Boolean.parseBoolean(jsonKey));
         }
         else if (type.getJavaType() == long.class) {
-            type.writeLong(blockBuilder, Long.valueOf(jsonKey));
+            type.writeLong(blockBuilder, Long.parseLong(jsonKey));
         }
         else if (type.getJavaType() == double.class) {
-            type.writeDouble(blockBuilder, Double.valueOf(jsonKey));
+            type.writeDouble(blockBuilder, Double.parseDouble(jsonKey));
         }
         else if (type.getJavaType() == Slice.class) {
             type.writeSlice(blockBuilder, Slices.utf8Slice(jsonKey));
@@ -146,66 +157,7 @@ public final class TypeJsonUtils
         return type.getObjectValue(session, blockBuilder.build(), 0);
     }
 
-    public static List<Object> getObjectList(Slice slice)
-    {
-        try {
-            return OBJECT_MAPPER.readValue(slice.getInput(), COLLECTION_TYPE);
-        }
-        catch (IOException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
-        }
-    }
-
-    public static Block createBlock(Type type, Object element)
-    {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
-        Class<?> javaType = type.getJavaType();
-
-        if (element == null) {
-            blockBuilder.appendNull();
-        }
-        else if (javaType == boolean.class) {
-            type.writeBoolean(blockBuilder, (Boolean) element);
-        }
-        else if (javaType == long.class) {
-            type.writeLong(blockBuilder, ((Number) element).longValue());
-        }
-        else if (javaType == double.class) {
-            type.writeDouble(blockBuilder, (Double) element);
-        }
-        else if (javaType == Slice.class) {
-            type.writeSlice(blockBuilder, Slices.utf8Slice(element.toString()));
-        }
-        else {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unexpected type %s", javaType.getName()));
-        }
-        return blockBuilder.build();
-    }
-
-    public static Object getValue(Block input, Type type, int position)
-    {
-        if (input.isNull(position)) {
-            return null;
-        }
-
-        if (type.getJavaType() == long.class) {
-            return type.getLong(input, position);
-        }
-        else if (type.getJavaType() == double.class) {
-            return type.getDouble(input, position);
-        }
-        else if (type.getJavaType() == Slice.class) {
-            return type.getObjectValue(null, input, position);
-        }
-        else if (type.getJavaType() == boolean.class) {
-            return type.getBoolean(input, position);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported type: " + type.getJavaType().getSimpleName());
-        }
-    }
-
-    public static double getDoubleValue(JsonParser parser) throws IOException
+    private static double getDoubleValue(JsonParser parser) throws IOException
     {
         double value;
         try {

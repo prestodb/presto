@@ -21,7 +21,7 @@ public interface ByteCodeNode
 {
     List<ByteCodeNode> getChildNodes();
 
-    void accept(MethodVisitor visitor);
+    void accept(MethodVisitor visitor, MethodGenerationContext generationContext);
 
-    public abstract <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor);
+    <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor);
 }

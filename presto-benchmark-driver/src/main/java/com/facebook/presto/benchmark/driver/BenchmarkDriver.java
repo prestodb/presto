@@ -14,12 +14,12 @@
 package com.facebook.presto.benchmark.driver;
 
 import com.facebook.presto.client.ClientSession;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 

@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.spi;
 
+import java.util.Set;
+
+import static java.util.Collections.emptySet;
+
 public interface Connector
 {
     ConnectorHandleResolver getHandleResolver();
@@ -24,22 +28,57 @@ public interface Connector
     /**
      * @throws UnsupportedOperationException if this connector does not support reading tables page at a time
      */
-    ConnectorPageSourceProvider getPageSourceProvider();
+    default ConnectorPageSourceProvider getPageSourceProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * @throws UnsupportedOperationException if this connector does not support reading tables record at a time
      */
-    ConnectorRecordSetProvider getRecordSetProvider();
+    default ConnectorRecordSetProvider getRecordSetProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
-     * @throws UnsupportedOperationException if this connector does not support writing tables
+     * @throws UnsupportedOperationException if this connector does not support writing tables page at a time
      */
-    ConnectorRecordSinkProvider getRecordSinkProvider();
-
-    ConnectorIndexResolver getIndexResolver();
-
     default ConnectorPageSinkProvider getPageSinkProvider()
     {
         throw new UnsupportedOperationException();
     }
+
+    /**
+     * @throws UnsupportedOperationException if this connector does not support writing tables record at a time
+     */
+    default ConnectorRecordSinkProvider getRecordSinkProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * @throws UnsupportedOperationException if this connector does not support indexes
+     */
+    default ConnectorIndexResolver getIndexResolver()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * @return the set of system tables provided by this connector
+     */
+    default Set<SystemTable> getSystemTables()
+    {
+        return emptySet();
+    }
+
+    /**
+     * Shutdown the connector by releasing any held resources such as
+     * threads, sockets, etc. This method will only be called when no
+     * queries are using the connector. After this method is called,
+     * no methods will be called on the connector or any objects that
+     * have been returned from the connector.
+     */
+    default void shutdown() {}
 }

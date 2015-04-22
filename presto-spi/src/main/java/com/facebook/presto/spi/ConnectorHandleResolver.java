@@ -17,25 +17,53 @@ public interface ConnectorHandleResolver
 {
     boolean canHandle(ConnectorTableHandle tableHandle);
 
-    boolean canHandle(ConnectorColumnHandle columnHandle);
+    default boolean canHandle(ConnectorTableLayoutHandle handle)
+    {
+        return false;
+    }
+
+    boolean canHandle(ColumnHandle columnHandle);
 
     boolean canHandle(ConnectorSplit split);
 
-    boolean canHandle(ConnectorIndexHandle indexHandle);
+    default boolean canHandle(ConnectorIndexHandle indexHandle)
+    {
+        return false;
+    }
 
-    boolean canHandle(ConnectorOutputTableHandle tableHandle);
+    default boolean canHandle(ConnectorOutputTableHandle tableHandle)
+    {
+        return false;
+    }
 
-    boolean canHandle(ConnectorInsertTableHandle tableHandle);
+    default boolean canHandle(ConnectorInsertTableHandle tableHandle)
+    {
+        return false;
+    }
 
     Class<? extends ConnectorTableHandle> getTableHandleClass();
 
-    Class<? extends ConnectorColumnHandle> getColumnHandleClass();
+    default Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
 
-    Class<? extends ConnectorIndexHandle> getIndexHandleClass();
+    Class<? extends ColumnHandle> getColumnHandleClass();
 
     Class<? extends ConnectorSplit> getSplitClass();
 
-    Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass();
+    default Class<? extends ConnectorIndexHandle> getIndexHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
 
-    Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass();
+    default Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
 }

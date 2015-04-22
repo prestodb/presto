@@ -22,7 +22,12 @@ import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.raptor.metadata.ColumnStats;
+import com.facebook.presto.raptor.metadata.ShardInfo;
+import com.facebook.presto.raptor.util.CurrentNodeId;
+import com.facebook.presto.raptor.util.PageBuffer;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -33,14 +38,18 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Flatten;
+import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -49,37 +58,67 @@ import java.util.concurrent.TimeoutException;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
+import static com.facebook.presto.raptor.storage.ShardStats.computeColumnStats;
+import static com.facebook.presto.raptor.util.FileUtil.copyFile;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.Duration.nanosSince;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class OrcStorageManager
         implements StorageManager
 {
+    private final String nodeId;
     private final StorageService storageService;
     private final DataSize orcMaxMergeDistance;
     private final ShardRecoveryManager recoveryManager;
     private final Duration recoveryTimeout;
-    private final long rowsPerShard;
+    private final long maxShardRows;
+    private final DataSize maxShardSize;
     private final DataSize maxBufferSize;
+    private final StorageManagerStats stats;
 
     @Inject
-    public OrcStorageManager(StorageService storageService, StorageManagerConfig config, ShardRecoveryManager recoveryManager)
+    public OrcStorageManager(
+            CurrentNodeId currentNodeId,
+            StorageService storageService,
+            StorageManagerConfig config,
+            ShardRecoveryManager recoveryManager)
     {
-        this(storageService, config.getOrcMaxMergeDistance(), recoveryManager, config.getShardRecoveryTimeout(), config.getRowsPerShard(), config.getMaxBufferSize());
+        this(currentNodeId.toString(),
+                storageService,
+                config.getOrcMaxMergeDistance(),
+                recoveryManager,
+                config.getShardRecoveryTimeout(),
+                config.getMaxShardRows(),
+                config.getMaxShardSize(),
+                config.getMaxBufferSize());
     }
 
-    public OrcStorageManager(StorageService storageService, DataSize orcMaxMergeDistance, ShardRecoveryManager recoveryManager, Duration shardRecoveryTimeout, long rowsPerShard, DataSize maxBufferSize)
+    public OrcStorageManager(
+            String nodeId,
+            StorageService storageService,
+            DataSize orcMaxMergeDistance,
+            ShardRecoveryManager recoveryManager,
+            Duration shardRecoveryTimeout,
+            long maxShardRows,
+            DataSize maxShardSize,
+            DataSize maxBufferSize)
     {
+        this.nodeId = checkNotNull(nodeId, "nodeId is null");
         this.storageService = checkNotNull(storageService, "storageService is null");
         this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
         this.recoveryManager = checkNotNull(recoveryManager, "recoveryManager is null");
         this.recoveryTimeout = checkNotNull(shardRecoveryTimeout, "shardRecoveryTimeout is null");
 
-        checkArgument(rowsPerShard > 0, "rowsPerShard must be > 0");
-        this.rowsPerShard = rowsPerShard;
+        checkArgument(maxShardRows > 0, "maxShardRows must be > 0");
+        this.maxShardRows = maxShardRows;
+        this.maxShardSize = checkNotNull(maxShardSize, "maxShardSize is null");
         this.maxBufferSize = checkNotNull(maxBufferSize, "maxBufferSize is null");
+        this.stats = new StorageManagerStats();
     }
 
     @Override
@@ -106,12 +145,7 @@ public class OrcStorageManager
 
             OrcPredicate predicate = getPredicate(effectivePredicate, indexMap);
 
-            OrcRecordReader recordReader = reader.createRecordReader(
-                    includedColumns.build(),
-                    predicate,
-                    0,
-                    dataSource.getSize(),
-                    UTC);
+            OrcRecordReader recordReader = reader.createRecordReader(includedColumns.build(), predicate, UTC);
 
             return new OrcPageSource(recordReader, dataSource, columnIds, columnTypes, columnIndexes.build());
         }
@@ -122,29 +156,14 @@ public class OrcStorageManager
             catch (IOException ex) {
                 e.addSuppressed(ex);
             }
-            throw new PrestoException(RAPTOR_ERROR, "Failed to create page source", e);
+            throw new PrestoException(RAPTOR_ERROR, "Failed to create page source for shard " + shardUuid, e);
         }
     }
 
-    @SuppressWarnings("resource")
     @Override
-    public StorageOutputHandle createStorageOutputHandle(List<Long> columnIds, List<Type> columnTypes)
+    public StoragePageSink createStoragePageSink(List<Long> columnIds, List<Type> columnTypes)
     {
-        return new StorageOutputHandle(new OrcStoragePageSinkProvider(columnIds, columnTypes, storageService));
-    }
-
-    @Override
-    public StoragePageSink createStoragePageSink(StorageOutputHandle storageOutputHandle)
-    {
-        return storageOutputHandle.createStoragePageSink();
-    }
-
-    @Override
-    public List<UUID> commit(StorageOutputHandle storageOutputHandle)
-    {
-        List<UUID> shardUuids = storageOutputHandle.getShardUuids();
-        shardUuids.forEach(this::writeShard);
-        return shardUuids;
+        return new OrcStoragePageSink(columnIds, columnTypes, maxShardRows, maxShardSize);
     }
 
     private void writeShard(UUID shardUuid)
@@ -163,26 +182,25 @@ public class OrcStorageManager
 
         if (isBackupAvailable()) {
             File backupFile = storageService.getBackupFile(shardUuid);
+            long start = System.nanoTime();
             storageService.createParents(backupFile);
+            stats.addCreateParentsTime(Duration.nanosSince(start));
+
             try {
-                Files.copy(storageFile.toPath(), backupFile.toPath());
+                start = System.nanoTime();
+                copyFile(storageFile.toPath(), backupFile.toPath());
             }
             catch (IOException e) {
                 throw new PrestoException(RAPTOR_ERROR, "Failed to create backup shard file", e);
             }
+            stats.addCopyShardDataRate(new DataSize(storageFile.length(), BYTE), nanosSince(start));
         }
     }
 
     @Override
-    public long getMaxRowCount()
+    public PageBuffer createPageBuffer()
     {
-        return rowsPerShard;
-    }
-
-    @Override
-    public DataSize getMaxBufferSize()
-    {
-        return maxBufferSize;
+        return new PageBuffer(maxBufferSize.toBytes(), Integer.MAX_VALUE);
     }
 
     @Override
@@ -221,6 +239,22 @@ public class OrcStorageManager
         }
     }
 
+    private List<ColumnStats> computeShardStats(File file, List<Long> columnIds, List<Type> types)
+    {
+        try (OrcDataSource dataSource = new FileOrcDataSource(file, orcMaxMergeDistance)) {
+            OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader());
+
+            ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
+            for (int i = 0; i < columnIds.size(); i++) {
+                computeColumnStats(reader, columnIds.get(i), types.get(i)).ifPresent(list::add);
+            }
+            return list.build();
+        }
+        catch (IOException e) {
+            throw new PrestoException(RAPTOR_ERROR, "Failed to read file: " + file, e);
+        }
+    }
+
     private static OrcPredicate getPredicate(TupleDomain<RaptorColumnHandle> effectivePredicate, Map<Long, Integer> indexMap)
     {
         ImmutableList.Builder<ColumnReference<RaptorColumnHandle>> columns = ImmutableList.builder();
@@ -240,5 +274,100 @@ public class OrcStorageManager
             map.put(Long.valueOf(columnNames.get(i)), i);
         }
         return map.build();
+    }
+
+    private class OrcStoragePageSink
+            implements StoragePageSink
+    {
+        private final List<Long> columnIds;
+        private final List<Type> columnTypes;
+
+        private final List<ShardInfo> shards = new ArrayList<>();
+        private final long maxShardRows;
+        private final DataSize maxShardSize;
+
+        private boolean committed;
+        private OrcFileWriter writer;
+        private UUID shardUuid;
+
+        public OrcStoragePageSink(List<Long> columnIds, List<Type> columnTypes, long maxShardRows, DataSize maxShardSize)
+        {
+            this.maxShardRows = maxShardRows;
+            this.maxShardSize = maxShardSize;
+            this.columnIds = ImmutableList.copyOf(checkNotNull(columnIds, "columnIds is null"));
+            this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
+        }
+
+        @Override
+        public void appendPages(List<Page> pages)
+        {
+            createWriterIfNecessary();
+            writer.appendPages(pages);
+        }
+
+        @Override
+        public void appendPages(List<Page> inputPages, int[] pageIndexes, int[] positionIndexes)
+        {
+            createWriterIfNecessary();
+            writer.appendPages(inputPages, pageIndexes, positionIndexes);
+        }
+
+        @Override
+        public boolean isFull()
+        {
+            if (writer == null) {
+                return false;
+            }
+            return (writer.getRowCount() >= maxShardRows) || (writer.getUncompressedSize() >= maxShardSize.toBytes());
+        }
+
+        @Override
+        public void flush()
+        {
+            if (writer != null) {
+                writer.close();
+
+                File stagingFile = storageService.getStagingFile(shardUuid);
+                List<ColumnStats> columns = computeShardStats(stagingFile, columnIds, columnTypes);
+                Set<String> nodes = ImmutableSet.of(nodeId);
+                long rowCount = writer.getRowCount();
+                long dataSize = stagingFile.length();  // compressed size
+
+                shards.add(new ShardInfo(shardUuid, nodes, columns, rowCount, dataSize));
+
+                writer = null;
+                shardUuid = null;
+            }
+        }
+
+        @Override
+        public List<ShardInfo> commit()
+        {
+            checkState(!committed, "already committed");
+            committed = true;
+
+            flush();
+            for (ShardInfo shard : shards) {
+                writeShard(shard.getShardUuid());
+            }
+            return ImmutableList.copyOf(shards);
+        }
+
+        private void createWriterIfNecessary()
+        {
+            if (writer == null) {
+                shardUuid = UUID.randomUUID();
+                File stagingFile = storageService.getStagingFile(shardUuid);
+                storageService.createParents(stagingFile);
+                writer = new OrcFileWriter(columnIds, columnTypes, stagingFile);
+            }
+        }
+    }
+
+    @Managed
+    @Flatten
+    public StorageManagerStats getStats()
+    {
+        return stats;
     }
 }

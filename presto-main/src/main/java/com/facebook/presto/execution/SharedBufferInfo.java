@@ -16,10 +16,10 @@ package com.facebook.presto.execution;
 import com.facebook.presto.execution.SharedBuffer.BufferState;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -70,7 +70,7 @@ public final class SharedBufferInfo
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(state, pagesAdded, buffers, masterSequenceId);
+        return Objects.hash(state, pagesAdded, buffers, masterSequenceId);
     }
 
     @Override
@@ -83,10 +83,10 @@ public final class SharedBufferInfo
             return false;
         }
         SharedBufferInfo other = (SharedBufferInfo) obj;
-        return Objects.equal(this.state, other.state) &&
-                Objects.equal(this.pagesAdded, other.pagesAdded) &&
-                Objects.equal(this.buffers, other.buffers) &&
-                Objects.equal(this.masterSequenceId, other.masterSequenceId);
+        return Objects.equals(this.state, other.state) &&
+                Objects.equals(this.pagesAdded, other.pagesAdded) &&
+                Objects.equals(this.buffers, other.buffers) &&
+                Objects.equals(this.masterSequenceId, other.masterSequenceId);
     }
 
     @Override

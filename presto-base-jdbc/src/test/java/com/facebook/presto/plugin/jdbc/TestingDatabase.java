@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.SchemaTableName;
@@ -88,7 +88,7 @@ final class TestingDatabase
             throws InterruptedException
     {
         JdbcTableHandle jdbcTableHandle = jdbcClient.getTableHandle(new SchemaTableName(schemaName, tableName));
-        ConnectorPartitionResult partitions = jdbcClient.getPartitions(jdbcTableHandle, TupleDomain.<ConnectorColumnHandle>all());
+        ConnectorPartitionResult partitions = jdbcClient.getPartitions(jdbcTableHandle, TupleDomain.<ColumnHandle>all());
         ConnectorSplitSource splits = jdbcClient.getPartitionSplits((JdbcPartition) getOnlyElement(partitions.getPartitions()));
         return (JdbcSplit) getOnlyElement(splits.getNextBatch(1000));
     }

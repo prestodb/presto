@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -23,11 +23,11 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 
 import javax.inject.Inject;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -50,7 +50,7 @@ public class ExampleSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
         ExampleTableHandle exampleTableHandle = checkType(tableHandle, ExampleTableHandle.class, "tableHandle");
 
@@ -74,7 +74,7 @@ public class ExampleSplitManager
         // this can happen if table is removed during a query
         checkState(table != null, "Table %s.%s no longer exists", exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName());
 
-        List<ConnectorSplit> splits = Lists.newArrayList();
+        List<ConnectorSplit> splits = new ArrayList<>();
         for (URI uri : table.getSources()) {
             splits.add(new ExampleSplit(connectorId, examplePartition.getSchemaName(), examplePartition.getTableName(), uri));
         }

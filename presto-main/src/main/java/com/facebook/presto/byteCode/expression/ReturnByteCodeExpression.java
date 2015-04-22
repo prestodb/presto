@@ -15,6 +15,7 @@ package com.facebook.presto.byteCode.expression;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.OpCode;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.google.common.collect.ImmutableList;
@@ -38,10 +39,10 @@ class ReturnByteCodeExpression
     }
 
     @Override
-    public ByteCodeNode getByteCode()
+    public ByteCodeNode getByteCode(MethodGenerationContext generationContext)
     {
-        return new Block(null)
-                .append(instance.getByteCode())
+        return new Block()
+                .append(instance.getByteCode(generationContext))
                 .append(returnOpCode);
     }
 

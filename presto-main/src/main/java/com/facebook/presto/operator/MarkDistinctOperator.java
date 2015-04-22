@@ -86,7 +86,6 @@ public class MarkDistinctOperator
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        checkArgument(markDistinctChannels.length >= 0, "markDistinctChannels is empty");
         checkNotNull(hashChannel, "hashChannel is null");
 
         ImmutableList.Builder<Type> distinctTypes = ImmutableList.builder();

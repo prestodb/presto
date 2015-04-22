@@ -20,12 +20,16 @@ import java.util.List;
 
 public interface QueryManager
 {
+    List<QueryId> getAllQueryIds();
+
     List<QueryInfo> getAllQueryInfo();
 
     Duration waitForStateChange(QueryId queryId, QueryState currentState, Duration maxWait)
             throws InterruptedException;
 
     QueryInfo getQueryInfo(QueryId queryId);
+
+    void recordHeartbeat(QueryId queryId);
 
     QueryInfo createQuery(Session session, String query);
 

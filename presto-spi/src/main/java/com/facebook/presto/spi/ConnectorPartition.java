@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+@Deprecated
 public interface ConnectorPartition
 {
     /**
@@ -23,5 +24,5 @@ public interface ConnectorPartition
     /**
      * Gets the TupleDomain that provides a bound on the tuples within this Partition.
      */
-    TupleDomain<ConnectorColumnHandle> getTupleDomain();
+    TupleDomain<ColumnHandle> getTupleDomain();
 }

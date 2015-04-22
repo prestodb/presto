@@ -17,6 +17,7 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
+import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -24,6 +25,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -56,7 +58,6 @@ import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
-import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
@@ -90,6 +91,7 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
@@ -113,6 +115,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import static com.facebook.presto.sql.QueryUtil.mangleFieldReference;
 
 class AstBuilder
         extends SqlBaseBaseVisitor<Node>
@@ -140,19 +144,25 @@ class AstBuilder
     @Override
     public Node visitCreateTableAsSelect(@NotNull SqlBaseParser.CreateTableAsSelectContext context)
     {
-        return new CreateTable(getQualifiedName(context.qualifiedName()), (Query) visit(context.query()));
+        return new CreateTableAsSelect(getQualifiedName(context.qualifiedName()), (Query) visit(context.query()));
+    }
+
+    @Override
+    public Node visitCreateTable(@NotNull SqlBaseParser.CreateTableContext context)
+    {
+        return new CreateTable(getQualifiedName(context.qualifiedName()), visit(context.tableElement(), TableElement.class));
     }
 
     @Override
     public Node visitDropTable(@NotNull SqlBaseParser.DropTableContext context)
     {
-        return new DropTable(getQualifiedName(context.qualifiedName()));
+        return new DropTable(getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
     }
 
     @Override
     public Node visitDropView(@NotNull SqlBaseParser.DropViewContext context)
     {
-        return new DropView(getQualifiedName(context.qualifiedName()));
+        return new DropView(getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
     }
 
     @Override
@@ -443,29 +453,34 @@ class AstBuilder
     public Node visitJoinRelation(@NotNull SqlBaseParser.JoinRelationContext context)
     {
         Relation left = (Relation) visit(context.left);
-        Relation right = (Relation) visit(context.right);
+        Relation right;
 
         if (context.CROSS() != null) {
+            right = (Relation) visit(context.right);
             return new Join(Join.Type.CROSS, left, right, Optional.<JoinCriteria>empty());
         }
 
         JoinCriteria criteria;
         if (context.NATURAL() != null) {
+            right = (Relation) visit(context.right);
             criteria = new NaturalJoin();
         }
-        else if (context.joinCriteria().ON() != null) {
-            criteria = new JoinOn((Expression) visit(context.joinCriteria().booleanExpression()));
-        }
-        else if (context.joinCriteria().USING() != null) {
-            List<String> columns = context.joinCriteria()
-                    .identifier().stream()
-                    .map(ParseTree::getText)
-                    .collect(Collectors.toList());
-
-            criteria = new JoinUsing(columns);
-        }
         else {
-            throw new IllegalArgumentException("Unsupported join criteria");
+            right = (Relation) visit(context.rightRelation);
+            if (context.joinCriteria().ON() != null) {
+                criteria = new JoinOn((Expression) visit(context.joinCriteria().booleanExpression()));
+            }
+            else if (context.joinCriteria().USING() != null) {
+                List<String> columns = context.joinCriteria()
+                        .identifier().stream()
+                        .map(ParseTree::getText)
+                        .collect(Collectors.toList());
+
+                criteria = new JoinUsing(columns);
+            }
+            else {
+                throw new IllegalArgumentException("Unsupported join criteria");
+            }
         }
 
         Join.Type joinType;
@@ -534,7 +549,7 @@ class AstBuilder
     @Override
     public Node visitUnnest(@NotNull SqlBaseParser.UnnestContext context)
     {
-        return new Unnest(visit(context.expression(), Expression.class));
+        return new Unnest(visit(context.expression(), Expression.class), context.ORDINALITY() != null);
     }
 
     @Override
@@ -582,10 +597,16 @@ class AstBuilder
     @Override
     public Node visitBetween(@NotNull SqlBaseParser.BetweenContext context)
     {
-        return new BetweenPredicate(
+        Expression expression = new BetweenPredicate(
                 (Expression) visit(context.value),
                 (Expression) visit(context.lower),
                 (Expression) visit(context.upper));
+
+        if (context.NOT() != null) {
+            expression = new NotExpression(expression);
+        }
+
+        return expression;
     }
 
     @Override
@@ -763,6 +784,13 @@ class AstBuilder
     }
 
     @Override
+    public Node visitFieldReference(@NotNull SqlBaseParser.FieldReferenceContext context)
+    {
+        // TODO: This should be done during the conversion to RowExpression
+        return new FunctionCall(new QualifiedName(mangleFieldReference(context.fieldName.getText())), ImmutableList.of((Expression) visit(context.value)));
+    }
+
+    @Override
     public Node visitSubqueryExpression(@NotNull SqlBaseParser.SubqueryExpressionContext context)
     {
         return new SubqueryExpression((Query) visit(context.query()));
@@ -851,6 +879,12 @@ class AstBuilder
                 visit(context.partition, Expression.class),
                 visit(context.sortItem(), SortItem.class),
                 visitIfPresent(context.windowFrame(), WindowFrame.class));
+    }
+
+    @Override
+    public Node visitTableElement(@NotNull SqlBaseParser.TableElementContext context)
+    {
+        return new TableElement(context.identifier().getText(), getType(context.type()));
     }
 
     @Override

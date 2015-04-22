@@ -57,6 +57,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.createClosedResponse;
 import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.createEmptyPagesResponse;
 import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.createPagesResponse;
+import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -228,18 +229,13 @@ public final class HttpPageBufferClient
         // start before scheduling to include error delay
         errorStopwatch.start();
 
-        executor.schedule(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                try {
-                    initiateRequest();
-                }
-                catch (Throwable t) {
-                    // should not happen, but be safe and fail the operator
-                    clientCallback.clientFailed(HttpPageBufferClient.this, t);
-                }
+        executor.schedule(() -> {
+            try {
+                initiateRequest();
+            }
+            catch (Throwable t) {
+                // should not happen, but be safe and fail the operator
+                clientCallback.clientFailed(HttpPageBufferClient.this, t);
             }
         }, errorDelayMillis, TimeUnit.MILLISECONDS);
 
@@ -325,7 +321,7 @@ public final class HttpPageBufferClient
 
                 Duration errorDuration = elapsedErrorDuration();
                 if (errorDuration.compareTo(minErrorDuration) > 0) {
-                    String message = format("Requests to %s failed for %s", uri, errorDuration);
+                    String message = format("%s (%s - requests failed for %s)", WORKER_NODE_ERROR, uri, errorDuration);
                     clientCallback.clientFailed(HttpPageBufferClient.this, new PageTransportTimeoutException(message, t));
                 }
 
@@ -404,7 +400,7 @@ public final class HttpPageBufferClient
             errorStopwatch.stop();
         }
         long nanos = errorStopwatch.elapsed(TimeUnit.NANOSECONDS);
-        return new Duration(nanos, TimeUnit.NANOSECONDS).convertTo(TimeUnit.MILLISECONDS);
+        return new Duration(nanos, TimeUnit.NANOSECONDS).convertTo(TimeUnit.SECONDS);
     }
 
     private synchronized void increaseErrorDelay()

@@ -16,10 +16,10 @@ package com.facebook.presto.execution;
 import com.facebook.presto.spi.Range;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -72,14 +72,14 @@ public final class SimpleRange
 
         SimpleRange that = (SimpleRange) o;
 
-        return Objects.equal(this.low, that.low) &&
-                Objects.equal(this.high, that.high);
+        return Objects.equals(this.low, that.low) &&
+                Objects.equals(this.high, that.high);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(low, high);
+        return Objects.hash(low, high);
     }
 
     @Override

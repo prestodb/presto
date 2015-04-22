@@ -14,17 +14,18 @@
 package com.facebook.presto.byteCode.expression;
 
 import com.facebook.presto.byteCode.Block;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.ByteCodeNode;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import org.testng.annotations.Test;
 
 import java.awt.Point;
+import java.util.function.Function;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressionAssertions.assertByteCodeNode;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.newInstance;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static org.testng.Assert.assertEquals;
 
 public class TestSetVariableByteCodeExpression
@@ -33,16 +34,17 @@ public class TestSetVariableByteCodeExpression
     public void testGetField()
             throws Exception
     {
-        CompilerContext context = new CompilerContext(BOOTSTRAP_METHOD);
-        Variable point = context.declareVariable(Point.class, "point");
-        ByteCodeExpression setPoint = point.set(newInstance(Point.class, constantInt(3), constantInt(7)));
+        Function<Scope, ByteCodeNode> nodeGenerator = scope -> {
+            Variable point = scope.declareVariable(Point.class, "point");
+            ByteCodeExpression setPoint = point.set(newInstance(Point.class, constantInt(3), constantInt(7)));
 
-        assertEquals(setPoint.toString(), "point = new Point(3, 7);");
+            assertEquals(setPoint.toString(), "point = new Point(3, 7);");
 
-        Block block = new Block(context)
-                .append(setPoint)
-                .append(point.ret());
+            return new Block()
+                    .append(setPoint)
+                    .append(point.ret());
+        };
 
-        assertByteCodeNode(block, type(Point.class), new Point(3, 7));
+        assertByteCodeNode(nodeGenerator, type(Point.class), new Point(3, 7));
     }
 }

@@ -15,8 +15,8 @@ package com.facebook.presto.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -69,15 +69,15 @@ public final class Column
 
         Column that = (Column) o;
 
-        return Objects.equal(this.name, that.name) &&
-                Objects.equal(this.type, that.type) &&
-                Objects.equal(this.domain, that.domain);
+        return Objects.equals(this.name, that.name) &&
+                Objects.equals(this.type, that.type) &&
+                Objects.equals(this.domain, that.domain);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(name, type, domain);
+        return Objects.hash(name, type, domain);
     }
 
     @Override

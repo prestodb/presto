@@ -28,11 +28,11 @@ public class PagesIndexPageSorter
         implements PageSorter
 {
     @Override
-    public long[] sort(List<Type> types, List<Page> pages, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders, int expectedPositions)
+    public long[] sort(List<Type> types, List<Page> pages, List<Integer> sortChannels, List<SortOrder> sortOrders, int expectedPositions)
     {
         PagesIndex pagesIndex = new PagesIndex(types, expectedPositions);
         pages.forEach(pagesIndex::addPage);
-        pagesIndex.sort(sortTypes, sortChannels, sortOrders);
+        pagesIndex.sort(sortChannels, sortOrders);
 
         return pagesIndex.getValueAddresses().toLongArray(null);
     }

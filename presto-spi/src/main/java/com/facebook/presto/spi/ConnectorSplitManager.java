@@ -24,10 +24,23 @@ public interface ConnectorSplitManager
      * data stream produced by this connector. Connectors are encouraged to take advantage of
      * this information to perform connector-specific optimizations.
      */
-    ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain);
+    @Deprecated
+    default ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
+    }
 
     /**
      * Gets the Splits for the specified Partitions in the indicated table.
      */
-    ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions);
+    @Deprecated
+    default ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
+    }
+
+    default ConnectorSplitSource getSplits(ConnectorTableLayoutHandle layout)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
+    }
 }

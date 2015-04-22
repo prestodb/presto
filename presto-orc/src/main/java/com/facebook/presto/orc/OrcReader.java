@@ -31,7 +31,6 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 
@@ -69,6 +68,9 @@ public class OrcReader
 
         // figure out the size of the file using the option or filesystem
         long size = orcDataSource.getSize();
+        if (size <= 0) {
+            throw new OrcCorruptionException("Malformed ORC file %s. Invalid file size %s", orcDataSource, size);
+        }
 
         // Read the tail of the file
         byte[] buffer = new byte[(int) Math.min(size, EXPECTED_FOOTER_SIZE)];
@@ -150,6 +152,12 @@ public class OrcReader
         return bufferSize;
     }
 
+    public OrcRecordReader createRecordReader(Set<Integer> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone)
+            throws IOException
+    {
+        return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone);
+    }
+
     public OrcRecordReader createRecordReader(
             Set<Integer> includedColumns,
             OrcPredicate predicate,
@@ -188,7 +196,9 @@ public class OrcReader
             throws IOException
     {
         int magicLength = MAGIC.length();
-        checkArgument(postScriptSize >= magicLength + 1, "Malformed ORC file %s. Invalid postscript length %s", source, postScriptSize);
+        if (postScriptSize < magicLength + 1) {
+            throw new OrcCorruptionException("Malformed ORC file %s. Invalid postscript length %s", source, postScriptSize);
+        }
 
         if (!MAGIC.equals(Slices.wrappedBuffer(buffer, buffer.length - 1 - magicLength, magicLength))) {
             // Old versions of ORC (0.11) wrote the magic to the head of the file
@@ -196,7 +206,9 @@ public class OrcReader
             source.readFully(0, headerMagic);
 
             // if it isn't there, this isn't an ORC file
-            checkArgument(MAGIC.equals(Slices.wrappedBuffer(headerMagic)), "Malformed ORC file %s. Invalid postscript.", source);
+            if  (!MAGIC.equals(Slices.wrappedBuffer(headerMagic))) {
+                throw new OrcCorruptionException("Malformed ORC file %s. Invalid postscript.", source);
+            }
         }
     }
 

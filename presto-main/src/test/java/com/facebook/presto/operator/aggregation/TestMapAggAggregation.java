@@ -44,7 +44,7 @@ import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 
 public class TestMapAggAggregation
 {
-    private static final MetadataManager metadata = new MetadataManager();
+    private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
 
     @Test
     public void testDuplicateKeysValues()
@@ -139,15 +139,15 @@ public class TestMapAggAggregation
 
         builder.declarePosition();
         DOUBLE.writeDouble(builder.getBlockBuilder(0), 1.0);
-        arrayType.writeSlice(builder.getBlockBuilder(1), toStackRepresentation(ImmutableList.of("a", "b")));
+        arrayType.writeSlice(builder.getBlockBuilder(1), toStackRepresentation(ImmutableList.of("a", "b"), VARCHAR));
 
         builder.declarePosition();
         DOUBLE.writeDouble(builder.getBlockBuilder(0), 2.0);
-        arrayType.writeSlice(builder.getBlockBuilder(1), toStackRepresentation(ImmutableList.of("c", "d")));
+        arrayType.writeSlice(builder.getBlockBuilder(1), toStackRepresentation(ImmutableList.of("c", "d"), VARCHAR));
 
         builder.declarePosition();
         DOUBLE.writeDouble(builder.getBlockBuilder(0), 3.0);
-        arrayType.writeSlice(builder.getBlockBuilder(1), toStackRepresentation(ImmutableList.of("e", "f")));
+        arrayType.writeSlice(builder.getBlockBuilder(1), toStackRepresentation(ImmutableList.of("e", "f"), VARCHAR));
 
         assertAggregation(
                 aggFunc,
@@ -173,15 +173,15 @@ public class TestMapAggAggregation
 
         builder.declarePosition();
         DOUBLE.writeDouble(builder.getBlockBuilder(0), 1.0);
-        innerMapType.writeSlice(builder.getBlockBuilder(1), MapType.toStackRepresentation(ImmutableMap.of("a", "b")));
+        innerMapType.writeSlice(builder.getBlockBuilder(1), MapType.toStackRepresentation(ImmutableMap.of("a", "b"), VARCHAR, VARCHAR));
 
         builder.declarePosition();
         DOUBLE.writeDouble(builder.getBlockBuilder(0), 2.0);
-        innerMapType.writeSlice(builder.getBlockBuilder(1), MapType.toStackRepresentation(ImmutableMap.of("c", "d")));
+        innerMapType.writeSlice(builder.getBlockBuilder(1), MapType.toStackRepresentation(ImmutableMap.of("c", "d"), VARCHAR, VARCHAR));
 
         builder.declarePosition();
         DOUBLE.writeDouble(builder.getBlockBuilder(0), 3.0);
-        innerMapType.writeSlice(builder.getBlockBuilder(1), MapType.toStackRepresentation(ImmutableMap.of("e", "f")));
+        innerMapType.writeSlice(builder.getBlockBuilder(1), MapType.toStackRepresentation(ImmutableMap.of("e", "f"), VARCHAR, VARCHAR));
 
         assertAggregation(
                 aggFunc,

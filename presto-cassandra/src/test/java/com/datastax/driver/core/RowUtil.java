@@ -30,6 +30,6 @@ public final class RowUtil
     {
         ColumnDefinitions definitions = new ColumnDefinitions(new Definition[] {new Definition("keyspace", "table", "column", DataType.ascii())});
         ByteBuffer data = ByteBuffer.wrap(value.getBytes(UTF_8));
-        return ArrayBackedRow.fromData(definitions, protocolVersion, ImmutableList.of(data));
+        return ArrayBackedRow.fromData(definitions, null, ProtocolVersion.fromInt(protocolVersion), ImmutableList.of(data));
     }
 }

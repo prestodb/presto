@@ -30,6 +30,7 @@ public class HandleJsonModule
     public void configure(Binder binder)
     {
         jsonBinder(binder).addModuleBinding().to(TableHandleJacksonModule.class);
+        jsonBinder(binder).addModuleBinding().to(TableLayoutHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(ColumnHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(SplitJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(OutputTableHandleJacksonModule.class);

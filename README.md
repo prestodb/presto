@@ -2,7 +2,7 @@
 
 Presto is a distributed SQL query engine for big data.
 
-See the [User Manual](http://prestodb.io/docs/current/) for deployment instructions and end user documentation.
+See the [User Manual](https://prestodb.io/docs/current/) for deployment instructions and end user documentation.
 
 ## Requirements
 
@@ -66,7 +66,7 @@ Start the CLI to connect to the server and run SQL queries:
 
 Run a query to see the nodes in the cluster:
 
-    SELECT * FROM sys.node;
+    SELECT * FROM system.runtime.nodes;
 
 In the sample configuration, the Hive connector is mounted in the `hive` catalog, so you can run the following queries to show the tables in the Hive database `default`:
 

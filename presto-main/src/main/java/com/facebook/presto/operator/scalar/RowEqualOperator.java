@@ -56,8 +56,8 @@ public class RowEqualOperator
 
     public static boolean equals(Type rowType, Slice leftRow, Slice rightRow)
     {
-        BlockBuilder leftBlockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus());
-        BlockBuilder rightBlockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder leftBlockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1, leftRow.length());
+        BlockBuilder rightBlockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1, rightRow.length());
         leftBlockBuilder.writeBytes(leftRow, 0, leftRow.length());
         rightBlockBuilder.writeBytes(rightRow, 0, rightRow.length());
         return rowType.equalTo(leftBlockBuilder.closeEntry().build(), 0, rightBlockBuilder.closeEntry().build(), 0);

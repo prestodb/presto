@@ -29,13 +29,22 @@ public class DropTableTask
         implements DataDefinitionTask<DropTable>
 {
     @Override
+    public String getName()
+    {
+        return "DROP TABLE";
+    }
+
+    @Override
     public void execute(DropTable statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
     {
         QualifiedTableName tableName = createQualifiedTableName(session, statement.getTableName());
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (!tableHandle.isPresent()) {
-            throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
+            if (!statement.isExists()) {
+                throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
+            }
+            return;
         }
 
         metadata.dropTable(tableHandle.get());

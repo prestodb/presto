@@ -157,16 +157,28 @@ public class DumpByteCodeVisitor
     @Override
     public Void visitBlock(ByteCodeNode parent, Block block)
     {
+        // only indent if we have a block description or more than one child node
+        boolean indented;
         if (block.getDescription() != null) {
             line().add(block.getDescription()).add("{").print();
+            indentLevel++;
+            indented = true;
+        }
+        else if (block.getChildNodes().size() > 1) {
+            printLine("{");
+            indentLevel++;
+            indented = true;
         }
         else {
-            printLine("{");
+            indented = false;
         }
-        indentLevel++;
+
         visitBlockContents(block);
-        indentLevel--;
-        printLine("}");
+        if (indented) {
+            indentLevel--;
+            printLine("}");
+        }
+
         return null;
     }
 
@@ -225,7 +237,7 @@ public class DumpByteCodeVisitor
     public Void visitLoadVariable(ByteCodeNode parent, LoadVariableInstruction loadVariableInstruction)
     {
         Variable variable = loadVariableInstruction.getVariable();
-        printLine("load %s(#%d)", variable.getName(), variable.getSlot());
+        printLine("load %s", variable.getName());
         return null;
     }
 
@@ -233,7 +245,7 @@ public class DumpByteCodeVisitor
     public Void visitStoreVariable(ByteCodeNode parent, StoreVariableInstruction storeVariableInstruction)
     {
         Variable variable = storeVariableInstruction.getVariable();
-        printLine("store %s(#%d)", variable.getName(), variable.getSlot());
+        printLine("store %s)", variable.getName());
         return null;
     }
 
@@ -242,7 +254,7 @@ public class DumpByteCodeVisitor
     {
         Variable variable = incrementVariableInstruction.getVariable();
         byte increment = incrementVariableInstruction.getIncrement();
-        printLine("increment %s(#%d) %s", variable.getName(), variable.getSlot(), increment);
+        printLine("increment %s %s", variable.getName(), increment);
         return null;
     }
 
@@ -306,10 +318,12 @@ public class DumpByteCodeVisitor
         }
         printLine("if {");
         indentLevel++;
-        ifStatement.getCondition().accept(ifStatement, this);
-        ifStatement.getIfTrue().accept(ifStatement, this);
-        if (ifStatement.getIfFalse() != null) {
-            ifStatement.getIfFalse().accept(ifStatement, this);
+        visitNestedNode("condition", ifStatement.condition(), ifStatement);
+        if (ifStatement.ifTrue() != null) {
+            visitNestedNode("ifTrue", ifStatement.ifTrue(), ifStatement);
+        }
+        if (ifStatement.ifFalse() != null) {
+            visitNestedNode("ifFalse", ifStatement.ifFalse(), ifStatement);
         }
         indentLevel--;
         printLine("}");
@@ -325,10 +339,10 @@ public class DumpByteCodeVisitor
         }
         printLine("for {");
         indentLevel++;
-        forLoop.getInitialize().accept(forLoop, this);
-        forLoop.getCondition().accept(forLoop, this);
-        forLoop.getUpdate().accept(forLoop, this);
-        forLoop.getBody().accept(forLoop, this);
+        visitNestedNode("initialize", forLoop.initialize(), forLoop);
+        visitNestedNode("condition", forLoop.condition(), forLoop);
+        visitNestedNode("update", forLoop.update(), forLoop);
+        visitNestedNode("body", forLoop.body(), forLoop);
         indentLevel--;
         printLine("}");
         return null;
@@ -343,8 +357,8 @@ public class DumpByteCodeVisitor
         }
         printLine("while {");
         indentLevel++;
-        whileLoop.getCondition().accept(whileLoop, this);
-        whileLoop.getBody().accept(whileLoop, this);
+        visitNestedNode("condition", whileLoop.condition(), whileLoop);
+        visitNestedNode("body", whileLoop.body(), whileLoop);
         indentLevel--;
         printLine("}");
         return null;
@@ -357,7 +371,13 @@ public class DumpByteCodeVisitor
             printLine();
             printLine("// %s", doWhileLoop.getComment());
         }
-        return super.visitDoWhile(parent, doWhileLoop);
+        printLine("while {");
+        indentLevel++;
+        visitNestedNode("body", doWhileLoop.body(), doWhileLoop);
+        visitNestedNode("condition", doWhileLoop.condition(), doWhileLoop);
+        indentLevel--;
+        printLine("}");
+        return null;
     }
 
     @Override
@@ -530,6 +550,15 @@ public class DumpByteCodeVisitor
             builder.append("    ");
         }
         return builder.toString();
+    }
+
+    private void visitNestedNode(String description, ByteCodeNode node, ByteCodeNode parent)
+    {
+        printLine(description + " {");
+        indentLevel++;
+        node.accept(parent, this);
+        indentLevel--;
+        printLine("}");
     }
 
     private Line line()

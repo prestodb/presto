@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TupleDomain;
+import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
@@ -39,7 +40,7 @@ public interface JdbcClient
 
     List<JdbcColumnHandle> getColumns(JdbcTableHandle tableHandle);
 
-    ConnectorPartitionResult getPartitions(JdbcTableHandle jdbcTableHandle, TupleDomain<ConnectorColumnHandle> tupleDomain);
+    ConnectorPartitionResult getPartitions(JdbcTableHandle jdbcTableHandle, TupleDomain<ColumnHandle> tupleDomain);
 
     ConnectorSplitSource getPartitionSplits(JdbcPartition jdbcPartition);
 
@@ -50,7 +51,7 @@ public interface JdbcClient
 
     JdbcOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata);
 
-    void commitCreateTable(JdbcOutputTableHandle handle, Collection<String> fragments);
+    void commitCreateTable(JdbcOutputTableHandle handle, Collection<Slice> fragments);
 
     String buildInsertSql(JdbcOutputTableHandle handle);
 

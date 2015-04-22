@@ -17,9 +17,11 @@ import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
+import com.facebook.presto.sql.tree.BetweenPredicate;
+import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -37,8 +39,10 @@ import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import com.facebook.presto.sql.tree.IntervalLiteral.Sign;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
+import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -62,6 +66,7 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.Union;
+import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
@@ -294,6 +299,14 @@ public class TestSqlParser
                 ImmutableList.of(),
                 Optional.empty()
         );
+    }
+
+    @Test
+    public void testBetween()
+            throws Exception
+    {
+        assertExpression("1 BETWEEN 2 AND 3", new BetweenPredicate(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("3")));
+        assertExpression("1 NOT BETWEEN 2 AND 3", new NotExpression(new BetweenPredicate(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("3"))));
     }
 
     @Test
@@ -552,13 +565,17 @@ public class TestSqlParser
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: expression is too large \\(stack overflow while parsing\\)")
     public void testStackOverflowExpression()
     {
-        SQL_PARSER.createExpression(Joiner.on(" OR ").join(nCopies(3000, "x = y")));
+        for (int size = 3000; size <= 100_000; size *= 2) {
+            SQL_PARSER.createExpression(Joiner.on(" OR ").join(nCopies(size, "x = y")));
+        }
     }
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: statement is too large \\(stack overflow while parsing\\)")
     public void testStackOverflowStatement()
     {
-        SQL_PARSER.createStatement("SELECT " + Joiner.on(" OR ").join(nCopies(6000, "x = y")));
+        for (int size = 6000; size <= 100_000; size *= 2) {
+            SQL_PARSER.createStatement("SELECT " + Joiner.on(" OR ").join(nCopies(size, "x = y")));
+        }
     }
 
     @Test
@@ -642,7 +659,7 @@ public class TestSqlParser
             throws Exception
     {
         assertStatement("CREATE TABLE foo AS SELECT * FROM t",
-                new CreateTable(QualifiedName.of("foo"),
+                new CreateTableAsSelect(QualifiedName.of("foo"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")))));
     }
 
@@ -650,18 +667,26 @@ public class TestSqlParser
     public void testDropTable()
             throws Exception
     {
-        assertStatement("DROP TABLE a", new DropTable(QualifiedName.of("a")));
-        assertStatement("DROP TABLE a.b", new DropTable(QualifiedName.of("a", "b")));
-        assertStatement("DROP TABLE a.b.c", new DropTable(QualifiedName.of("a", "b", "c")));
+        assertStatement("DROP TABLE a", new DropTable(QualifiedName.of("a"), false));
+        assertStatement("DROP TABLE a.b", new DropTable(QualifiedName.of("a", "b"), false));
+        assertStatement("DROP TABLE a.b.c", new DropTable(QualifiedName.of("a", "b", "c"), false));
+
+        assertStatement("DROP TABLE IF EXISTS a", new DropTable(QualifiedName.of("a"), true));
+        assertStatement("DROP TABLE IF EXISTS a.b", new DropTable(QualifiedName.of("a", "b"), true));
+        assertStatement("DROP TABLE IF EXISTS a.b.c", new DropTable(QualifiedName.of("a", "b", "c"), true));
     }
 
     @Test
     public void testDropView()
             throws Exception
     {
-        assertStatement("DROP VIEW a", new DropView(QualifiedName.of("a")));
-        assertStatement("DROP VIEW a.b", new DropView(QualifiedName.of("a", "b")));
-        assertStatement("DROP VIEW a.b.c", new DropView(QualifiedName.of("a", "b", "c")));
+        assertStatement("DROP VIEW a", new DropView(QualifiedName.of("a"), false));
+        assertStatement("DROP VIEW a.b", new DropView(QualifiedName.of("a", "b"), false));
+        assertStatement("DROP VIEW a.b.c", new DropView(QualifiedName.of("a", "b", "c"), false));
+
+        assertStatement("DROP VIEW IF EXISTS a", new DropView(QualifiedName.of("a"), true));
+        assertStatement("DROP VIEW IF EXISTS a.b", new DropView(QualifiedName.of("a", "b"), true));
+        assertStatement("DROP VIEW IF EXISTS a.b.c", new DropView(QualifiedName.of("a", "b", "c"), true));
     }
 
     @Test
@@ -744,6 +769,68 @@ public class TestSqlParser
                         ImmutableList.of(
                                 new ExplainType(ExplainType.Type.LOGICAL),
                                 new ExplainFormat(ExplainFormat.Type.TEXT))));
+    }
+
+    @Test
+    public void testJoinPrecedence()
+    {
+        assertStatement("SELECT * FROM a CROSS JOIN b LEFT JOIN c ON true",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Join(
+                                Join.Type.LEFT,
+                                new Join(
+                                        Join.Type.CROSS,
+                                        new Table(QualifiedName.of("a")),
+                                        new Table(QualifiedName.of("b")),
+                                        Optional.empty()
+                                ),
+                                new Table(QualifiedName.of("c")),
+                                Optional.of(new JoinOn(BooleanLiteral.TRUE_LITERAL)))));
+        assertStatement("SELECT * FROM a CROSS JOIN b NATURAL JOIN c CROSS JOIN d NATURAL JOIN e",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Join(
+                                Join.Type.INNER,
+                                new Join(
+                                        Join.Type.CROSS,
+                                        new Join(
+                                                Join.Type.INNER,
+                                                new Join(
+                                                        Join.Type.CROSS,
+                                                        new Table(QualifiedName.of("a")),
+                                                        new Table(QualifiedName.of("b")),
+                                                        Optional.empty()
+                                                ),
+                                                new Table(QualifiedName.of("c")),
+                                                Optional.of(new NaturalJoin())),
+                                        new Table(QualifiedName.of("d")),
+                                        Optional.empty()
+                                ),
+                                new Table(QualifiedName.of("e")),
+                                Optional.of(new NaturalJoin()))));
+    }
+
+    @Test
+    public void testUnnest()
+            throws Exception
+    {
+        assertStatement("SELECT * FROM t CROSS JOIN UNNEST(a)",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Join(
+                                Join.Type.CROSS,
+                                new Table(QualifiedName.of("t")),
+                                new Unnest(ImmutableList.of(new QualifiedNameReference(QualifiedName.of("a"))), false),
+                                Optional.empty())));
+        assertStatement("SELECT * FROM t CROSS JOIN UNNEST(a) WITH ORDINALITY",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Join(
+                                Join.Type.CROSS,
+                                new Table(QualifiedName.of("t")),
+                                new Unnest(ImmutableList.of(new QualifiedNameReference(QualifiedName.of("a"))), true),
+                                Optional.empty())));
     }
 
     private static void assertCast(String type)

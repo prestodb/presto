@@ -19,7 +19,6 @@ import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.SharedBuffer.BufferState;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TestSqlTaskManager.MockLocationFactory;
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.PrestoNode;
@@ -29,6 +28,7 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.ConnectorAwareSplitSource;
 import com.facebook.presto.split.SplitSource;
@@ -116,13 +116,7 @@ public class TestSqlStageExecution
         nodeTaskMap = new NodeTaskMap();
         nodeScheduler = new NodeScheduler(nodeManager, nodeSchedulerConfig, nodeTaskMap);
         locationFactory = new MockLocationFactory();
-        splitFactory = new Supplier<ConnectorSplit>() {
-            @Override
-            public ConnectorSplit get()
-            {
-                return TestingSplit.createLocalSplit();
-            }
-        };
+        splitFactory = TestingSplit::createLocalSplit;
     }
 
     @Test(expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*No nodes available to run query")
@@ -133,15 +127,9 @@ public class TestSqlStageExecution
         NodeScheduler nodeScheduler = new NodeScheduler(nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap);
 
         // Start sql stage execution
-        StageExecutionPlan tableScanPlan = createTableScanPlan("test", 20, new Supplier<ConnectorSplit>() {
-            @Override
-            public ConnectorSplit get()
-            {
-                return TestingSplit.createEmptySplit();
-            }
-        });
+        StageExecutionPlan tableScanPlan = createTableScanPlan("test", 20, TestingSplit::createEmptySplit);
         SqlStageExecution sqlStageExecution = createSqlStageExecution(nodeScheduler, 2, tableScanPlan);
-        Future future = sqlStageExecution.start();
+        Future<?> future = sqlStageExecution.start();
         future.get(1, TimeUnit.SECONDS);
     }
 
@@ -152,7 +140,7 @@ public class TestSqlStageExecution
         // Start sql stage execution (schedule 15 splits in batches of 2), there are 3 nodes, each node should get 5 splits
         StageExecutionPlan tableScanPlan = createTableScanPlan("test", 15, splitFactory);
         SqlStageExecution sqlStageExecution1 = createSqlStageExecution(nodeScheduler, 2, tableScanPlan);
-        Future future1 = sqlStageExecution1.start();
+        Future<?> future1 = sqlStageExecution1.start();
         future1.get(1, TimeUnit.SECONDS);
         for (RemoteTask remoteTask : sqlStageExecution1.getAllTasks()) {
             assertEquals(remoteTask.getPartitionedSplitCount(), 5);
@@ -165,7 +153,7 @@ public class TestSqlStageExecution
         // Schedule next query with 5 splits. Since the new node does not have any splits, all 5 splits are assigned to the new node
         StageExecutionPlan tableScanPlan2 = createTableScanPlan("test", 5, splitFactory);
         SqlStageExecution sqlStageExecution2 = createSqlStageExecution(nodeScheduler, 5, tableScanPlan2);
-        Future future2 = sqlStageExecution2.start();
+        Future<?> future2 = sqlStageExecution2.start();
         future2.get(1, TimeUnit.SECONDS);
         List<RemoteTask> tasks2 = sqlStageExecution2.getTasks(additionalNode);
 
@@ -181,13 +169,14 @@ public class TestSqlStageExecution
         // Start sql stage execution with 100 splits. Only 20 will be scheduled on each node as that is the maxSplitsPerNode
         StageExecutionPlan tableScanPlan = createTableScanPlan("test", 100, splitFactory);
         SqlStageExecution sqlStageExecution1 = createSqlStageExecution(nodeScheduler, 100, tableScanPlan);
-        Future future1 = sqlStageExecution1.start();
+        Future<?> future1 = sqlStageExecution1.start();
 
         // The stage scheduler will block and this will cause a timeout exception
         try {
-            future1.get(1, TimeUnit.SECONDS);
+            future1.get(2, TimeUnit.SECONDS);
         }
         catch (TimeoutException e) {
+            // expected
         }
 
         for (RemoteTask task : sqlStageExecution1.getAllTasks()) {
@@ -197,9 +186,9 @@ public class TestSqlStageExecution
 
     private SqlStageExecution createSqlStageExecution(NodeScheduler nodeScheduler, int splitBatchSize, StageExecutionPlan tableScanPlan)
     {
-        ExecutorService remoteTaskExecutor = newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor"));
+        ExecutorService remoteTaskExecutor = newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%s"));
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor"));
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
 
         OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
                 .withBuffer(OUT, new UnpartitionedPagePartitionFunction())
@@ -222,7 +211,7 @@ public class TestSqlStageExecution
     public void testYieldCausesFullSchedule()
             throws Exception
     {
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test"));
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
         SqlStageExecution stageExecution = null;
         try {
             StageExecutionPlan joinPlan = createJoinPlan("A");
@@ -330,7 +319,7 @@ public class TestSqlStageExecution
         );
     }
 
-    private StageExecutionPlan createTableScanPlan(String planId, int splitCount, Supplier<ConnectorSplit> splitFactory)
+    private static StageExecutionPlan createTableScanPlan(String planId, int splitCount, Supplier<ConnectorSplit> splitFactory)
     {
         Symbol symbol = new Symbol("column");
 
@@ -342,9 +331,10 @@ public class TestSqlStageExecution
                         tableScanNodeId,
                         new TableHandle("test", new TestingTableHandle()),
                         ImmutableList.of(symbol),
-                        ImmutableMap.of(symbol, new ColumnHandle("test", new TestingColumnHandle("column"))),
-                        null,
-                        Optional.empty()),
+                        ImmutableMap.of(symbol, new TestingColumnHandle("column")),
+                        Optional.empty(),
+                        TupleDomain.all(),
+                        null),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
                 ImmutableList.of(symbol),
                 PlanDistribution.SOURCE,
@@ -385,7 +375,7 @@ public class TestSqlStageExecution
                 Multimap<PlanNodeId, Split> initialSplits,
                 OutputBuffers outputBuffers)
         {
-            return new MockRemoteTask(taskId, node.getNodeIdentifier(), fragment, executor, initialSplits);
+            return new MockRemoteTask(taskId, node.getNodeIdentifier(), executor, initialSplits);
         }
 
         private static class MockRemoteTask
@@ -399,8 +389,6 @@ public class TestSqlStageExecution
             private final SharedBuffer sharedBuffer;
             private final String nodeId;
 
-            private final PlanFragment fragment;
-
             @GuardedBy("this")
             private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
 
@@ -409,7 +397,6 @@ public class TestSqlStageExecution
 
             public MockRemoteTask(TaskId taskId,
                     String nodeId,
-                    PlanFragment fragment,
                     Executor executor,
                     Multimap<PlanNodeId, Split> initialSplits)
             {
@@ -420,7 +407,6 @@ public class TestSqlStageExecution
                 this.location = URI.create("fake://task/" + taskId);
 
                 this.sharedBuffer = new SharedBuffer(taskId, executor, checkNotNull(new DataSize(1, Unit.BYTE), "maxBufferSize is null"));
-                this.fragment = checkNotNull(fragment, "fragment is null");
                 this.nodeId = nodeId;
                 splits.putAll(initialSplits);
             }
@@ -442,6 +428,7 @@ public class TestSqlStageExecution
 
                 return new TaskInfo(
                         taskStateMachine.getTaskId(),
+                        Optional.empty(),
                         nextTaskInfoVersion.getAndIncrement(),
                         state,
                         location,
@@ -484,16 +471,9 @@ public class TestSqlStageExecution
             }
 
             @Override
-            public void addStateChangeListener(final StateChangeListener<TaskInfo> stateChangeListener)
+            public void addStateChangeListener(StateChangeListener<TaskInfo> stateChangeListener)
             {
-                taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
-                {
-                    @Override
-                    public void stateChanged(TaskState newValue)
-                    {
-                        stateChangeListener.stateChanged(getTaskInfo());
-                    }
-                });
+                taskStateMachine.addStateChangeListener(newValue -> stateChangeListener.stateChanged(getTaskInfo()));
             }
 
             @Override
@@ -533,7 +513,7 @@ public class TestSqlStageExecution
             @Override
             public int getQueuedPartitionedSplitCount()
             {
-                return 0;
+                return getPartitionedSplitCount();
             }
         }
     }

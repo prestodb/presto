@@ -115,18 +115,19 @@ Interval Functions
 
 The functions in this section support the following interval units:
 
-=========== ==================
-Unit        Description
-=========== ==================
-``second``  Seconds
-``minute``  Minutes
-``hour``    Hours
-``day``     Days
-``week``    Weeks
-``month``   Months
-``quarter`` Quarters of a year
-``year``    Years
-=========== ==================
+================= ==================
+Unit              Description
+================= ==================
+``millisecond``   Milliseconds
+``second``        Seconds
+``minute``        Minutes
+``hour``          Hours
+``day``           Days
+``week``          Weeks
+``month``         Months
+``quarter``       Quarters of a year
+``year``          Years
+================= ==================
 
 .. function:: date_add(unit, value, timestamp) -> [same as input]
 

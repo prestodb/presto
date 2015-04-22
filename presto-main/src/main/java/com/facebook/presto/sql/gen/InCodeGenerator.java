@@ -15,7 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.control.LookupSwitch;
@@ -35,9 +35,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.byteCode.OpCode.NOP;
-import static com.facebook.presto.byteCode.control.IfStatement.ifStatementBuilder;
 import static com.facebook.presto.byteCode.control.LookupSwitch.lookupSwitchBuilder;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
 import static com.facebook.presto.byteCode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.ifWasNullPopAndGoto;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
@@ -97,18 +96,18 @@ public class InCodeGenerator
 
         LabelNode defaultLabel = new LabelNode("default");
 
-        CompilerContext context = generatorContext.getContext();
+        Scope scope = generatorContext.getScope();
 
         ByteCodeNode switchBlock;
         if (constantValues.size() < 1000) {
-            Block switchCaseBlocks = new Block(context);
+            Block switchCaseBlocks = new Block();
             LookupSwitch.LookupSwitchBuilder switchBuilder = lookupSwitchBuilder();
             for (Map.Entry<Integer, Collection<ByteCodeNode>> bucket : hashBuckets.asMap().entrySet()) {
                 LabelNode label = new LabelNode("inHash" + bucket.getKey());
                 switchBuilder.addCase(bucket.getKey(), label);
                 Collection<ByteCodeNode> testValues = bucket.getValue();
 
-                Block caseBlock = buildInCase(generatorContext, context, type, label, match, defaultLabel, testValues, false);
+                Block caseBlock = buildInCase(generatorContext, scope, type, label, match, defaultLabel, testValues, false);
                 switchCaseBlocks
                         .append(caseBlock.setDescription("case " + bucket.getKey()));
             }
@@ -118,10 +117,10 @@ public class InCodeGenerator
                     .getCallSiteBinder()
                     .bind(hashCodeFunction.getMethodHandle());
 
-            switchBlock = new Block(context)
+            switchBlock = new Block()
                     .comment("lookupSwitch(hashCode(<stackValue>))")
                     .dup(javaType)
-                    .append(invoke(generatorContext.getContext(), hashCodeBinding, hashCodeFunction.getSignature()))
+                    .append(invoke(hashCodeBinding, hashCodeFunction.getSignature()))
                     .longToInt()
                     .append(switchBuilder.build())
                     .append(switchCaseBlocks);
@@ -131,40 +130,39 @@ public class InCodeGenerator
             // for huge IN lists, use a Set
             Binding constant = generatorContext.getCallSiteBinder().bind(constantValues, Set.class);
 
-            switchBlock = new Block(context)
+            switchBlock = new Block()
                     .comment("inListSet.contains(<stackValue>)")
-                    .append(new IfStatement(context,
-                            new Block(context)
+                    .append(new IfStatement()
+                            .condition(new Block()
                                     .comment("value (+boxing if necessary)")
                                     .dup(javaType)
-                                    .append(ByteCodeUtils.boxPrimitive(context, javaType))
+                                    .append(ByteCodeUtils.boxPrimitive(javaType))
                                     .comment("set")
-                                    .append(loadConstant(context, constant))
+                                    .append(loadConstant(constant))
                                     // TODO: use invokeVirtual on the set instead. This requires swapping the two elements in the stack
-                                    .invokeStatic(CompilerOperations.class, "in", boolean.class, Object.class, Set.class),
-                            jump(match),
-                            NOP));
+                                    .invokeStatic(CompilerOperations.class, "in", boolean.class, Object.class, Set.class))
+                            .ifTrue(jump(match)));
         }
 
-        Block defaultCaseBlock = buildInCase(generatorContext, context, type, defaultLabel, match, noMatch, defaultBucket.build(), true).setDescription("default");
+        Block defaultCaseBlock = buildInCase(generatorContext, scope, type, defaultLabel, match, noMatch, defaultBucket.build(), true).setDescription("default");
 
-        Block block = new Block(context)
+        Block block = new Block()
                 .comment("IN")
                 .append(value)
-                .append(ifWasNullPopAndGoto(context, end, boolean.class, javaType))
+                .append(ifWasNullPopAndGoto(scope, end, boolean.class, javaType))
                 .append(switchBlock)
                 .append(defaultCaseBlock);
 
-        Block matchBlock = new Block(context)
+        Block matchBlock = new Block()
                 .setDescription("match")
                 .visitLabel(match)
                 .pop(javaType)
-                .putVariable("wasNull", false)
+                .append(generatorContext.wasNull().set(constantFalse()))
                 .push(true)
                 .gotoLabel(end);
         block.append(matchBlock);
 
-        Block noMatchBlock = new Block(context)
+        Block noMatchBlock = new Block()
                 .setDescription("noMatch")
                 .visitLabel(noMatch)
                 .pop(javaType)
@@ -178,7 +176,7 @@ public class InCodeGenerator
     }
 
     private Block buildInCase(ByteCodeGeneratorContext generatorContext,
-            CompilerContext context,
+            Scope scope,
             Type type,
             LabelNode caseLabel,
             LabelNode matchLabel,
@@ -188,10 +186,10 @@ public class InCodeGenerator
     {
         Variable caseWasNull = null;
         if (checkForNulls) {
-            caseWasNull = context.createTempVariable(boolean.class);
+            caseWasNull = scope.createTempVariable(boolean.class);
         }
 
-        Block caseBlock = new Block(context)
+        Block caseBlock = new Block()
                 .visitLabel(caseLabel);
 
         if (checkForNulls) {
@@ -199,12 +197,12 @@ public class InCodeGenerator
         }
 
         LabelNode elseLabel = new LabelNode("else");
-        Block elseBlock = new Block(context)
+        Block elseBlock = new Block()
                 .visitLabel(elseLabel);
 
+        Variable wasNull = generatorContext.wasNull();
         if (checkForNulls) {
-            elseBlock.getVariable(caseWasNull)
-                    .putVariable("wasNull");
+            elseBlock.append(wasNull.set(caseWasNull));
         }
 
         elseBlock.gotoLabel(noMatchLabel);
@@ -218,25 +216,26 @@ public class InCodeGenerator
         ByteCodeNode elseNode = elseBlock;
         for (ByteCodeNode testNode : testValues) {
             LabelNode testLabel = new LabelNode("test");
-            IfStatement.IfStatementBuilder test = ifStatementBuilder(context);
+            IfStatement test = new IfStatement();
 
-            Block condition = new Block(context)
+            test.condition()
                     .visitLabel(testLabel)
                     .dup(type.getJavaType())
                     .append(testNode);
 
             if (checkForNulls) {
-                condition.getVariable("wasNull")
+                test.condition()
+                        .append(wasNull)
                         .putVariable(caseWasNull)
-                        .append(ifWasNullPopAndGoto(context, elseLabel, void.class, type.getJavaType(), type.getJavaType()));
+                        .append(ifWasNullPopAndGoto(scope, elseLabel, void.class, type.getJavaType(), type.getJavaType()));
             }
-            condition.append(invoke(generatorContext.getContext(), equalsFunction, operator.getSignature()));
-            test.condition(condition);
+            test.condition()
+                    .append(invoke(equalsFunction, operator.getSignature()));
 
-            test.ifTrue(new Block(context).gotoLabel(matchLabel));
+            test.ifTrue().gotoLabel(matchLabel);
             test.ifFalse(elseNode);
 
-            elseNode = test.build();
+            elseNode = test;
             elseLabel = testLabel;
         }
         caseBlock.append(elseNode);

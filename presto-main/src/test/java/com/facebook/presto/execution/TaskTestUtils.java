@@ -16,14 +16,13 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.connector.system.SystemRecordSetProvider;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import com.facebook.presto.index.IndexManager;
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
@@ -69,9 +68,10 @@ public final class TaskTestUtils
                     TABLE_SCAN_NODE_ID,
                     new TableHandle("test", new TestingTableHandle()),
                     ImmutableList.of(SYMBOL),
-                    ImmutableMap.of(SYMBOL, new ColumnHandle("test", new TestingColumnHandle("column"))),
-                    null,
-                    Optional.empty()),
+                    ImmutableMap.of(SYMBOL, new TestingColumnHandle("column")),
+                    Optional.empty(),
+                    TupleDomain.all(),
+                    null),
             ImmutableMap.<Symbol, Type>of(SYMBOL, VARCHAR),
             ImmutableList.of(SYMBOL),
             PlanDistribution.SOURCE,
@@ -82,9 +82,9 @@ public final class TaskTestUtils
 
     public static LocalExecutionPlanner createTestingPlanner()
     {
-        MetadataManager metadata = new MetadataManager();
+        MetadataManager metadata = MetadataManager.createTestMetadataManager();
 
-        PageSourceManager pageSourceManager = new PageSourceManager(new SystemRecordSetProvider());
+        PageSourceManager pageSourceManager = new PageSourceManager();
         pageSourceManager.addConnectorPageSourceProvider("test", new TestingPageSourceProvider());
         return new LocalExecutionPlanner(
                 metadata,

@@ -105,6 +105,17 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testCreateTable()
+            throws Exception
+    {
+        assertQueryTrue("CREATE TABLE test_create (a bigint, b double, c varchar)");
+        assertTrue(queryRunner.tableExists(getSession(), "test_create"));
+
+        assertQueryTrue("DROP TABLE test_create");
+        assertFalse(queryRunner.tableExists(getSession(), "test_create"));
+    }
+
+    @Test
     public void testCreateTableAsSelect()
             throws Exception
     {
@@ -170,6 +181,15 @@ public abstract class AbstractTestDistributedQueries
         assertQuery("SELECT * FROM test_insert", query + " UNION ALL " + query);
 
         assertQueryTrue("DROP TABLE test_insert");
+    }
+
+    @Test
+    public void testDropTableIfExists()
+            throws Exception
+    {
+        assertFalse(queryRunner.tableExists(getSession(), "test_drop_if_exists"));
+        assertQueryTrue("DROP TABLE IF EXISTS test_create");
+        assertFalse(queryRunner.tableExists(getSession(), "test_drop_if_exists"));
     }
 
     @Test
@@ -256,13 +276,6 @@ public abstract class AbstractTestDistributedQueries
         assertQueryTrue("DROP VIEW meta_test_view");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*statement is too large.*")
-    public void testLargeQueryFailure()
-            throws Exception
-    {
-        assertQuery("SELECT " + Joiner.on(" AND ").join(nCopies(1000, "1 = 1")), "SELECT true");
-    }
-
     @Test
     public void testLargeQuerySuccess()
             throws Exception
@@ -276,7 +289,7 @@ public abstract class AbstractTestDistributedQueries
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS FROM tpch");
         ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertTrue(schemaNames.containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "sys", "tiny")));
+        assertTrue(schemaNames.containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "tiny", "sf1")));
     }
 
     @Test
@@ -317,6 +330,15 @@ public abstract class AbstractTestDistributedQueries
 
         assertTrue(sample.getMaterializedRows().size() > 0);
         assertTrue(all.getMaterializedRows().containsAll(sample.getMaterializedRows()));
+    }
+
+    @Test
+    public void testSymbolAliasing()
+            throws Exception
+    {
+        assertQueryTrue("CREATE TABLE test_symbol_aliasing AS SELECT 1 foo_1, 2 foo_2_4");
+        assertQuery("SELECT foo_1, foo_2_4 FROM test_symbol_aliasing", "SELECT 1, 2");
+        assertQueryTrue("DROP TABLE test_symbol_aliasing");
     }
 
     private static void assertContains(MaterializedResult actual, MaterializedResult expected)

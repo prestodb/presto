@@ -39,7 +39,7 @@ import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.discovery.client.ServiceAnnouncement;
 import io.airlift.discovery.client.ServiceSelectorManager;
 import io.airlift.discovery.client.testing.TestingDiscoveryModule;
-import io.airlift.event.client.InMemoryEventModule;
+import io.airlift.event.client.EventModule;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
@@ -116,7 +116,7 @@ public class TestingPrestoServer
                 .add(new JaxrsModule(true))
                 .add(new MBeanModule())
                 .add(new TestingJmxModule())
-                .add(new InMemoryEventModule())
+                .add(new EventModule())
                 .add(new TraceTokenModule())
                 .add(new ServerMainModule(new SqlParserOptions()));
 

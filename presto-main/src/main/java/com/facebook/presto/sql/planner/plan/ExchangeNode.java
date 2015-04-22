@@ -23,13 +23,14 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
 public class ExchangeNode
         extends PlanNode
 {
-    public static enum Type
+    public enum Type
     {
         GATHER,
         REPARTITION,
@@ -64,6 +65,13 @@ public class ExchangeNode
         checkNotNull(hashSymbol, "hashSymbol is null");
         checkNotNull(outputs, "outputs is null");
         checkNotNull(inputs, "inputs is null");
+        checkArgument(outputs.containsAll(partitionKeys), "outputs must contain all partitionKeys");
+        checkArgument(!hashSymbol.isPresent() || outputs.contains(hashSymbol.get()), "outputs must contain hashSymbol");
+        checkArgument(inputs.stream().allMatch(inputSymbols -> inputSymbols.size() == outputs.size()), "Input symbols do not match output symbols");
+        checkArgument(inputs.size() == sources.size(), "Must have same number of input lists as sources");
+        for (int i = 0; i < inputs.size(); i++) {
+            checkArgument(sources.get(i).getOutputSymbols().containsAll(inputs.get(i)), "Source does not supply all required input symbols");
+        }
 
         this.type = type;
         this.sources = sources;

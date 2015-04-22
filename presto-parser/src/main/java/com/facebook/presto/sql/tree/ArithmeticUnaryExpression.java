@@ -18,7 +18,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class ArithmeticUnaryExpression
         extends Expression
 {
-    public enum Sign {
+    public enum Sign
+    {
         PLUS,
         MINUS
     }

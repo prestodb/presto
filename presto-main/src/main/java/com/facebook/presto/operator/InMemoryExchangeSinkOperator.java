@@ -95,4 +95,11 @@ public class InMemoryExchangeSinkOperator
     {
         return null;
     }
+
+    @Override
+    public void close()
+            throws Exception
+    {
+        finish();
+    }
 }

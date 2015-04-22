@@ -190,17 +190,26 @@ public class DriverContext
         return pipelineContext.getOperatorPreAllocatedMemory();
     }
 
-    public boolean reserveMemory(long bytes)
+    public ListenableFuture<?> reserveMemory(long bytes)
     {
-        boolean result = pipelineContext.reserveMemory(bytes);
-        if (result) {
+        ListenableFuture<?> future = pipelineContext.reserveMemory(bytes);
+        memoryReservation.getAndAdd(bytes);
+        return future;
+    }
+
+    public boolean tryReserveMemory(long bytes)
+    {
+        if (pipelineContext.tryReserveMemory(bytes)) {
             memoryReservation.getAndAdd(bytes);
+            return true;
         }
-        return result;
+        return false;
     }
 
     public void freeMemory(long bytes)
     {
+        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
         pipelineContext.freeMemory(bytes);
         memoryReservation.getAndAdd(-bytes);
     }

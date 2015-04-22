@@ -29,7 +29,7 @@ public class TestBigintType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 15);
         BIGINT.writeLong(blockBuilder, 1111);
         BIGINT.writeLong(blockBuilder, 1111);
         BIGINT.writeLong(blockBuilder, 1111);

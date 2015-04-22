@@ -15,7 +15,7 @@ package com.facebook.presto.byteCode.instruction;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
-import com.facebook.presto.byteCode.ParameterizedType;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.Variable;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -31,11 +31,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 public abstract class VariableInstruction
         implements InstructionNode
 {
-    public static InstructionNode loadVariable(int slot)
-    {
-        return new LoadVariableInstruction(new Variable("unknown", slot, ParameterizedType.type(Object.class)));
-    }
-
     public static InstructionNode loadVariable(Variable variable)
     {
         return new LoadVariableInstruction(variable);
@@ -92,9 +87,9 @@ public abstract class VariableInstruction
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
-            visitor.visitVarInsn(Type.getType(getVariable().getType().getType()).getOpcode(ILOAD.getOpCode()), getVariable().getSlot());
+            visitor.visitVarInsn(Type.getType(getVariable().getType().getType()).getOpcode(ILOAD.getOpCode()), generationContext.getVariableSlot(getVariable()));
         }
 
         @Override
@@ -113,9 +108,9 @@ public abstract class VariableInstruction
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
-            visitor.visitVarInsn(Type.getType(getVariable().getType().getType()).getOpcode(ISTORE.getOpCode()), getVariable().getSlot());
+            visitor.visitVarInsn(Type.getType(getVariable().getType().getType()).getOpcode(ISTORE.getOpCode()), generationContext.getVariableSlot(getVariable()));
         }
 
         @Override
@@ -144,9 +139,9 @@ public abstract class VariableInstruction
         }
 
         @Override
-        public void accept(MethodVisitor visitor)
+        public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
-            visitor.visitIincInsn(getVariable().getSlot(), increment);
+            visitor.visitIincInsn(generationContext.getVariableSlot(getVariable()), increment);
         }
 
         @Override

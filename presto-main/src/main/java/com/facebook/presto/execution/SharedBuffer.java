@@ -45,11 +45,14 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.execution.BufferResult.emptyResults;
+import static com.facebook.presto.execution.PageSplitterUtil.splitPage;
+import static com.facebook.presto.execution.SharedBuffer.BufferState.FAILED;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.FINISHED;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.FLUSHING;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.NO_MORE_BUFFERS;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.NO_MORE_PAGES;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.OPEN;
+import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -65,36 +68,45 @@ public class SharedBuffer
          * Additional buffers can be added.
          * Any next state is allowed.
          */
-        OPEN(true, true),
+        OPEN(true, true, false),
         /**
          * No more buffers can be added.
          * Next state is {@link #FLUSHING}.
          */
-        NO_MORE_BUFFERS(true, false),
+        NO_MORE_BUFFERS(true, false, false),
         /**
          * No more pages can be added.
          * Next state is {@link #FLUSHING}.
          */
-        NO_MORE_PAGES(false, true),
+        NO_MORE_PAGES(false, true, false),
         /**
          * No more pages or buffers can be added, and buffer is waiting
          * for the final pages to be consumed.
          * Next state is {@link #FINISHED}.
          */
-        FLUSHING(false, false),
+        FLUSHING(false, false, false),
         /**
          * No more buffers can be added and all pages have been consumed.
          * This is the terminal state.
          */
-        FINISHED(false, false);
+        FINISHED(false, false, true),
+        /**
+         * Buffer has failed.  No more buffers or pages can be added.  Readers
+         * will be blocked, as to not communicate a finished state.  It is
+         * assumed that the reader will be cleaned up elsewhere.
+         * This is the terminal state.
+         */
+        FAILED(false, false, true);
 
         private final boolean newPagesAllowed;
         private final boolean newBuffersAllowed;
+        private final boolean terminal;
 
-        BufferState(boolean newPagesAllowed, boolean newBuffersAllowed)
+        BufferState(boolean newPagesAllowed, boolean newBuffersAllowed, boolean terminal)
         {
             this.newPagesAllowed = newPagesAllowed;
             this.newBuffersAllowed = newBuffersAllowed;
+            this.terminal = terminal;
         }
 
         public boolean canAddPages()
@@ -105,6 +117,11 @@ public class SharedBuffer
         public boolean canAddBuffers()
         {
             return newBuffersAllowed;
+        }
+
+        public boolean isTerminal()
+        {
+            return terminal;
         }
     }
 
@@ -173,7 +190,7 @@ public class SharedBuffer
         checkNotNull(newOutputBuffers, "newOutputBuffers is null");
         // ignore buffers added after query finishes, which can happen when a query is canceled
         // also ignore old versions, which is normal
-        if (state.get() == FINISHED || outputBuffers.getVersion() >= newOutputBuffers.getVersion()) {
+        if (state.get().isTerminal() || outputBuffers.getVersion() >= newOutputBuffers.getVersion()) {
             return;
         }
 
@@ -230,11 +247,12 @@ public class SharedBuffer
 
     private synchronized void addInternal(Page page)
     {
-        // add page
-        masterBuffer.add(page);
-        pagesAdded.incrementAndGet();
-        bufferedBytes += page.getSizeInBytes();
-
+        List<Page> pages = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        masterBuffer.addAll(pages);
+        pagesAdded.addAndGet(pages.size());
+        for (Page p : pages) {
+            bufferedBytes += p.getSizeInBytes();
+        }
         processPendingReads();
     }
 
@@ -245,7 +263,8 @@ public class SharedBuffer
 
         // if no buffers can be added, and the requested buffer does not exist, return a closed empty result
         // this can happen with limit queries
-        if (!state.get().canAddBuffers() && namedBuffers.get(outputId) == null) {
+        BufferState state = this.state.get();
+        if (state != FAILED && !state.canAddBuffers() && namedBuffers.get(outputId) == null) {
             return immediateFuture(emptyResults(0, true));
         }
 
@@ -256,7 +275,7 @@ public class SharedBuffer
         return getBufferResult.getFuture();
     }
 
-    public synchronized List<Page> getPagesInternal(DataSize maxSize, long sequenceId)
+    private synchronized List<Page> getPagesInternal(DataSize maxSize, long sequenceId)
     {
         long maxBytes = maxSize.toBytes();
         List<Page> pages = new ArrayList<>();
@@ -301,6 +320,11 @@ public class SharedBuffer
      */
     public synchronized void destroy()
     {
+        // ignore destroy if the buffer already in a terminal state.
+        if (state.get().isTerminal()) {
+            return;
+        }
+
         state.set(FINISHED);
 
         // clear the buffer
@@ -313,10 +337,36 @@ public class SharedBuffer
         }
         queuedPages.clear();
 
+        // free readers
         for (NamedBuffer namedBuffer : namedBuffers.values()) {
             namedBuffer.abort();
         }
         processPendingReads();
+    }
+
+    /**
+     * Fail the buffer, discarding all pages, but blocking readers.
+     */
+    public synchronized void fail()
+    {
+        // ignore fail if the buffer already in a terminal state.
+        if (state.get().isTerminal()) {
+            return;
+        }
+
+        state.set(FAILED);
+
+        // clear the buffer
+        masterBuffer.clear();
+        bufferedBytes = 0;
+
+        // free queued page waiters
+        for (QueuedPage queuedPage : queuedPages) {
+            queuedPage.getFuture().set(null);
+        }
+        queuedPages.clear();
+
+        // DO NOT free readers
     }
 
     private void checkFlushComplete()
@@ -341,7 +391,9 @@ public class SharedBuffer
             processPendingReads();
 
             BufferState state = this.state.get();
-            if (state == FINISHED) {
+
+            // do not update if the buffer is already in a terminal state
+            if (state.isTerminal()) {
                 return;
             }
 
@@ -426,7 +478,7 @@ public class SharedBuffer
             //
             // NOTE: this code must be lock free to we are not hanging state machine updates
             //
-            checkState(!Thread.holdsLock(this), "Thread must NOT hold a lock on the %s", SharedBuffer.class.getSimpleName());
+            checkState(!Thread.holdsLock(SharedBuffer.this), "Thread must NOT hold a lock on the %s", SharedBuffer.class.getSimpleName());
 
             long sequenceId = this.sequenceId.get();
             if (finished.get()) {
@@ -553,6 +605,11 @@ public class SharedBuffer
                 return true;
             }
 
+            // Buffer is failed, block the reader.  Eventually, the reader will be aborted by the coordinator.
+            if (state.get() == FAILED) {
+                return false;
+            }
+
             try {
                 NamedBuffer namedBuffer = namedBuffers.get(outputId);
 
@@ -564,7 +621,7 @@ public class SharedBuffer
                     return true;
                 }
 
-                // buffer doesn't exist yet
+                // buffer doesn't exist yet. Block reader until buffer is created
                 if (namedBuffer == null) {
                     return false;
                 }

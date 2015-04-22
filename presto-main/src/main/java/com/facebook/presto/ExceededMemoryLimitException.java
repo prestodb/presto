@@ -23,6 +23,11 @@ public class ExceededMemoryLimitException
 {
     public ExceededMemoryLimitException(DataSize maxMemory)
     {
-        super(EXCEEDED_MEMORY_LIMIT, String.format("Task exceeded max memory size of %s", maxMemory));
+        this("Task", maxMemory);
+    }
+
+    public ExceededMemoryLimitException(String entity, DataSize maxMemory)
+    {
+        super(EXCEEDED_MEMORY_LIMIT, String.format("%s exceeded max memory size of %s", entity, maxMemory));
     }
 }

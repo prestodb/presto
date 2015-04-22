@@ -16,12 +16,13 @@ package com.facebook.presto.orc.metadata;
 import com.facebook.hive.orc.OrcProto;
 import com.facebook.hive.orc.OrcProto.ColumnEncoding.Kind;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
-import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
+import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.protobuf.CodedInputStream;
+import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,6 +31,8 @@ import java.util.List;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
+import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMaxSlice;
+import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMinSlice;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -192,10 +195,10 @@ public class DwrfMetadataReader
             return null;
         }
 
-        // TODO remove this when double statistics are changed to correctly deal with NaNs
-        // if either min or max is NaN, ignore the stat
+        // if either min, max, or sum is NaN, ignore the stat
         if ((doubleStatistics.hasMinimum() && Double.isNaN(doubleStatistics.getMinimum())) ||
-                (doubleStatistics.hasMaximum() && Double.isNaN(doubleStatistics.getMaximum()))) {
+                (doubleStatistics.hasMaximum() && Double.isNaN(doubleStatistics.getMaximum())) ||
+                (doubleStatistics.hasSum() && Double.isNaN(doubleStatistics.getSum()))) {
             return null;
         }
 
@@ -215,15 +218,10 @@ public class DwrfMetadataReader
             return null;
         }
 
-        // temporarily disable string statistics until we figure out the implications of how UTF-16
-        // strings are compared when they contain surrogate pairs and replacement characters
-        if (true) {
-            return null;
-        }
+        Slice minimum = stringStatistics.hasMinimum() ? getMinSlice(stringStatistics.getMinimum()) : null;
+        Slice maximum = stringStatistics.hasMaximum() ? getMaxSlice(stringStatistics.getMaximum()) : null;
 
-        return new StringStatistics(
-                stringStatistics.hasMinimum() ? stringStatistics.getMinimum() : null,
-                stringStatistics.hasMaximum() ? stringStatistics.getMaximum() : null);
+        return new StringStatistics(minimum, maximum);
     }
 
     private static OrcType toType(OrcProto.Type type)

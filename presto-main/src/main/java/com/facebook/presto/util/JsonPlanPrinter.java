@@ -16,7 +16,7 @@ package com.facebook.presto.util;
 import com.facebook.presto.execution.Column;
 import com.facebook.presto.execution.Input;
 import com.facebook.presto.execution.SimpleDomain;
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -24,7 +24,6 @@ import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
@@ -35,6 +34,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -153,24 +153,25 @@ public final class JsonPlanPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Void context)
         {
-            TupleDomain<ColumnHandle> partitionsDomainSummary = node.getPartitionsDomainSummary();
             TableMetadata tableMetadata = metadata.getTableMetadata(node.getTable());
 
             ImmutableList.Builder<Column> columnBuilder = ImmutableList.builder();
 
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
                 ColumnMetadata columnMetadata = metadata.getColumnMetadata(node.getTable(), entry.getValue());
+                TupleDomain<ColumnHandle> constraint = node.getCurrentConstraint();
                 Domain domain = null;
-                if (!partitionsDomainSummary.isNone() && partitionsDomainSummary.getDomains().containsKey(entry.getValue())) {
-                    domain = partitionsDomainSummary.getDomains().get(entry.getValue());
-                }
-                else if (partitionsDomainSummary.isNone()) {
+                if (constraint.isNone()) {
                     domain = Domain.none(columnMetadata.getType().getJavaType());
+                }
+                else if (constraint.getDomains().containsKey(entry.getValue())) {
+                    domain = constraint.getDomains().get(entry.getValue());
                 }
                 Column column = new Column(
                         columnMetadata.getName(),
                         columnMetadata.getType().toString(),
-                        Optional.ofNullable(SimpleDomain.fromDomain(domain)));
+                        Optional.empty());
+                        Optional.ofNullable(SimpleDomain.fromDomain(domain));
                 columnBuilder.add(column);
             }
             Input input = new Input(

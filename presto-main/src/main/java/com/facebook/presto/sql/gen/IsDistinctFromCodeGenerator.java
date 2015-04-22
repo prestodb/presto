@@ -15,7 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.OperatorType;
@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
 
 public class IsDistinctFromCodeGenerator
@@ -37,7 +38,7 @@ public class IsDistinctFromCodeGenerator
     {
         Preconditions.checkArgument(arguments.size() == 2);
 
-        CompilerContext context = generatorContext.getContext();
+        Variable wasNull = generatorContext.wasNull();
 
         RowExpression left = arguments.get(0);
         RowExpression right = arguments.get(1);
@@ -53,37 +54,37 @@ public class IsDistinctFromCodeGenerator
                 .getCallSiteBinder()
                 .bind(operator.getMethodHandle());
 
-        ByteCodeNode equalsCall = new Block(context)
+        ByteCodeNode equalsCall = new Block()
                 .comment("equals(%s, %s)", leftType, rightType)
-                .append(invoke(generatorContext.getContext(), binding, operator.getSignature()));
+                .append(invoke(binding, operator.getSignature()));
 
-        Block block = new Block(context)
+        Block block = new Block()
                 .comment("IS DISTINCT FROM")
                 .comment("left")
                 .append(generatorContext.generate(left))
-                .append(new IfStatement(context,
-                        new Block(context).getVariable("wasNull"),
-                        new Block(context)
+                .append(new IfStatement()
+                        .condition(wasNull)
+                        .ifTrue(new Block()
                                 .pop(leftType.getJavaType())
-                                .putVariable("wasNull", false)
+                                .append(wasNull.set(constantFalse()))
                                 .comment("right is not null")
                                 .append(generatorContext.generate(right))
                                 .pop(rightType.getJavaType())
-                                .getVariable("wasNull")
-                                .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class),
-                        new Block(context)
+                                .append(wasNull)
+                                .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class))
+                        .ifFalse(new Block()
                                 .comment("right")
                                 .append(generatorContext.generate(right))
-                                .append(new IfStatement(context,
-                                        new Block(context).getVariable("wasNull"),
-                                        new Block(context)
+                                .append(new IfStatement()
+                                        .condition(wasNull)
+                                        .ifTrue(new Block()
                                                 .pop(leftType.getJavaType())
                                                 .pop(rightType.getJavaType())
-                                                .push(true),
-                                        new Block(context)
+                                                .push(true))
+                                        .ifFalse(new Block()
                                                 .append(equalsCall)
                                                 .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)))))
-                .putVariable("wasNull", false);
+                .append(wasNull.set(constantFalse()));
 
         return block;
     }

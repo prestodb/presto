@@ -14,18 +14,20 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 
 import javax.inject.Inject;
 
@@ -34,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.plugin.jdbc.Types.checkType;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class JdbcMetadata
@@ -78,17 +81,17 @@ public class JdbcMetadata
     }
 
     @Override
-    public ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
         return null;
     }
 
     @Override
-    public Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
         JdbcTableHandle jdbcTableHandle = checkType(tableHandle, JdbcTableHandle.class, "tableHandle");
 
-        ImmutableMap.Builder<String, ConnectorColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (JdbcColumnHandle column : jdbcClient.getColumns(jdbcTableHandle)) {
             columnHandles.put(column.getColumnMetadata().getName(), column);
         }
@@ -115,7 +118,7 @@ public class JdbcMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         checkType(tableHandle, JdbcTableHandle.class, "tableHandle");
         return checkType(columnHandle, JdbcColumnHandle.class, "columnHandle").getColumnMetadata();
@@ -128,15 +131,15 @@ public class JdbcMetadata
     }
 
     @Override
-    public ConnectorTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating tables");
     }
 
     @Override
     public void dropTable(ConnectorTableHandle tableHandle)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping tables");
     }
 
     @Override
@@ -146,7 +149,7 @@ public class JdbcMetadata
     }
 
     @Override
-    public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments)
+    public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         JdbcOutputTableHandle handle = checkType(tableHandle, JdbcOutputTableHandle.class, "tableHandle");
         jdbcClient.commitCreateTable(handle, fragments);
@@ -155,17 +158,17 @@ public class JdbcMetadata
     @Override
     public void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming tables");
     }
 
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support inserts");
     }
 
     @Override
-    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments)
+    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         throw new UnsupportedOperationException();
     }
@@ -173,13 +176,13 @@ public class JdbcMetadata
     @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating views");
     }
 
     @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
-        throw new UnsupportedOperationException();
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping views");
     }
 
     @Override

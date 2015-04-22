@@ -14,7 +14,8 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.CompilerContext;
+import com.facebook.presto.byteCode.Scope;
+import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -27,30 +28,32 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class ByteCodeGeneratorContext
 {
     private final ByteCodeExpressionVisitor byteCodeGenerator;
-    private final CompilerContext context;
+    private final Scope scope;
     private final CallSiteBinder callSiteBinder;
     private final FunctionRegistry registry;
+    private final Variable wasNull;
 
     public ByteCodeGeneratorContext(
             ByteCodeExpressionVisitor byteCodeGenerator,
-            CompilerContext context,
+            Scope scope,
             CallSiteBinder callSiteBinder,
             FunctionRegistry registry)
     {
         checkNotNull(byteCodeGenerator, "byteCodeGenerator is null");
-        checkNotNull(context, "context is null");
+        checkNotNull(scope, "scope is null");
         checkNotNull(callSiteBinder, "callSiteBinder is null");
         checkNotNull(registry, "registry is null");
 
         this.byteCodeGenerator = byteCodeGenerator;
-        this.context = context;
+        this.scope = scope;
         this.callSiteBinder = callSiteBinder;
         this.registry = registry;
+        this.wasNull = scope.getVariable("wasNull");
     }
 
-    public CompilerContext getContext()
+    public Scope getScope()
     {
-        return context;
+        return scope;
     }
 
     public CallSiteBinder getCallSiteBinder()
@@ -60,7 +63,7 @@ public class ByteCodeGeneratorContext
 
     public ByteCodeNode generate(RowExpression expression)
     {
-        return expression.accept(byteCodeGenerator, context);
+        return expression.accept(byteCodeGenerator, scope);
     }
 
     public FunctionRegistry getRegistry()
@@ -74,6 +77,11 @@ public class ByteCodeGeneratorContext
     public ByteCodeNode generateCall(FunctionInfo function, List<ByteCodeNode> arguments)
     {
         Binding binding = callSiteBinder.bind(function.getMethodHandle());
-        return generateInvocation(context, function, arguments, binding);
+        return generateInvocation(scope, function, arguments, binding);
+    }
+
+    public Variable wasNull()
+    {
+        return wasNull;
     }
 }

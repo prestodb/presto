@@ -228,6 +228,8 @@ UNNEST
 Arrays are expanded into a single column, and maps are expanded into two columns (key, value).
 ``UNNEST`` can also be used with multiple arguments, in which case they are expanded into multiple columns,
 with as many rows as the highest cardinality argument (the other columns are padded with nulls).
+``UNNEST`` can optionally have a ``WITH ORDINALITY`` clause, in which case an additional ordinality column
+is added to the end.
 ``UNNEST`` is normally used with a ``JOIN`` and can reference columns
 from relations on the left side of the join.
 
@@ -258,3 +260,24 @@ Using multiple columns::
      [7, 8, 9] | [cow, pig]       |    8 | pig
      [7, 8, 9] | [cow, pig]       |    9 | NULL
     (6 rows)
+
+``WITH ORDINALITY`` clause::
+
+    SELECT numbers, n, a
+    FROM (
+      VALUES
+        (ARRAY[2, 5]),
+        (ARRAY[7, 8, 9])
+    ) AS x (numbers)
+    CROSS JOIN UNNEST(numbers) WITH ORDINALITY AS t (n, a);
+
+.. code-block:: none
+
+      numbers  | n | a
+    -----------+---+---
+     [2, 5]    | 2 | 1
+     [2, 5]    | 5 | 2
+     [7, 8, 9] | 7 | 1
+     [7, 8, 9] | 8 | 2
+     [7, 8, 9] | 9 | 3
+    (5 rows)

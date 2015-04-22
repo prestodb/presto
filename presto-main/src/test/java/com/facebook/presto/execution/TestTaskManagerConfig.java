@@ -34,16 +34,18 @@ public class TestTaskManagerConfig
         assertRecordedDefaults(recordDefaults(TaskManagerConfig.class)
                 .setVerboseStats(false)
                 .setTaskCpuTimerEnabled(true)
-                .setMaxShardProcessorThreads(Runtime.getRuntime().availableProcessors() * 4)
+                .setMaxWorkerThreads(Runtime.getRuntime().availableProcessors() * 4)
+                .setMinDrivers(Runtime.getRuntime().availableProcessors() * 4 * 2)
                 .setInfoMaxAge(new Duration(15, TimeUnit.MINUTES))
-                .setClientTimeout(new Duration(5, TimeUnit.MINUTES))
+                .setClientTimeout(new Duration(2, TimeUnit.MINUTES))
                 .setMaxTaskMemoryUsage(new DataSize(256, Unit.MEGABYTE))
                 .setBigQueryMaxTaskMemoryUsage(null)
                 .setMaxTaskIndexMemoryUsage(new DataSize(64, Unit.MEGABYTE))
                 .setOperatorPreAllocatedMemory(new DataSize(16, Unit.MEGABYTE))
                 .setMaxPartialAggregationMemoryUsage(new DataSize(16, Unit.MEGABYTE))
                 .setSinkMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
-                .setWriterCount(1));
+                .setWriterCount(1)
+                .setHttpNotificationThreads(25));
     }
 
     @Test
@@ -57,11 +59,13 @@ public class TestTaskManagerConfig
                 .put("task.max-index-memory", "512MB")
                 .put("task.operator-pre-allocated-memory", "2MB")
                 .put("task.max-partial-aggregation-memory", "32MB")
-                .put("task.shard.max-threads", "3")
+                .put("task.max-worker-threads", "3")
+                .put("task.min-drivers", "2")
                 .put("task.info.max-age", "22m")
                 .put("task.client.timeout", "10s")
                 .put("sink.max-buffer-size", "42MB")
                 .put("task.writer-count", "3")
+                .put("task.http-notification-threads", "4")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -72,11 +76,13 @@ public class TestTaskManagerConfig
                 .setMaxTaskIndexMemoryUsage(new DataSize(512, Unit.MEGABYTE))
                 .setOperatorPreAllocatedMemory(new DataSize(2, Unit.MEGABYTE))
                 .setMaxPartialAggregationMemoryUsage(new DataSize(32, Unit.MEGABYTE))
-                .setMaxShardProcessorThreads(3)
+                .setMaxWorkerThreads(3)
+                .setMinDrivers(2)
                 .setInfoMaxAge(new Duration(22, TimeUnit.MINUTES))
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setSinkMaxBufferSize(new DataSize(42, Unit.MEGABYTE))
-                .setWriterCount(3);
+                .setWriterCount(3)
+                .setHttpNotificationThreads(4);
 
         assertFullMapping(properties, expected);
     }

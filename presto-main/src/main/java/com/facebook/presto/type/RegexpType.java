@@ -49,7 +49,13 @@ public class RegexpType
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    {
+        throw new PrestoException(INTERNAL_ERROR, "RegExp type cannot be serialized");
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         throw new PrestoException(INTERNAL_ERROR, "RegExp type cannot be serialized");
     }

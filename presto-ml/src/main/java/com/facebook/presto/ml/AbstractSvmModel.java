@@ -14,7 +14,6 @@
 package com.facebook.presto.ml;
 
 import com.google.common.base.Throwables;
-import com.google.common.io.Files;
 import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
 import libsvm.svm;
@@ -25,6 +24,7 @@ import libsvm.svm_problem;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.Callable;
@@ -59,7 +59,7 @@ public abstract class AbstractSvmModel
             // libsvm doesn't have a method to serialize the model into a buffer, so write it out to a file and then read it back in
             file = File.createTempFile("svm", null);
             svm.svm_save_model(file.getAbsolutePath(), model);
-            return Files.toByteArray(file);
+            return Files.readAllBytes(file.toPath());
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
@@ -79,7 +79,7 @@ public abstract class AbstractSvmModel
 
         svm_problem problem = toSvmProblem(dataset);
 
-        ExecutorService service = newCachedThreadPool(threadsNamed("libsvm-trainer-" + System.identityHashCode(this) + "-%d"));
+        ExecutorService service = newCachedThreadPool(threadsNamed("libsvm-trainer-" + System.identityHashCode(this) + "-%s"));
         try {
             TimeLimiter limiter = new SimpleTimeLimiter(service);
             //TODO: this time limit should be configurable

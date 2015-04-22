@@ -248,15 +248,15 @@ public class TestDriver
     {
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getSchemas()) {
-                assertGetSchemasResult(rs, 11);
+                assertGetSchemasResult(rs, 10);
             }
 
             try (ResultSet rs = connection.getMetaData().getSchemas(null, null)) {
-                assertGetSchemasResult(rs, 11);
+                assertGetSchemasResult(rs, 10);
             }
 
             try (ResultSet rs = connection.getMetaData().getSchemas(TEST_CATALOG, null)) {
-                assertGetSchemasResult(rs, 11);
+                assertGetSchemasResult(rs, 10);
             }
 
             try (ResultSet rs = connection.getMetaData().getSchemas("", null)) {
@@ -264,15 +264,15 @@ public class TestDriver
                 assertGetSchemasResult(rs, 0);
             }
 
-            try (ResultSet rs = connection.getMetaData().getSchemas(TEST_CATALOG, "sys")) {
+            try (ResultSet rs = connection.getMetaData().getSchemas(TEST_CATALOG, "information_schema")) {
                 assertGetSchemasResult(rs, 1);
             }
 
-            try (ResultSet rs = connection.getMetaData().getSchemas(null, "sys")) {
+            try (ResultSet rs = connection.getMetaData().getSchemas(null, "information_schema")) {
                 assertGetSchemasResult(rs, 1);
             }
 
-            try (ResultSet rs = connection.getMetaData().getSchemas(null, "s_s")) {
+            try (ResultSet rs = connection.getMetaData().getSchemas(null, "sf_")) {
                 assertGetSchemasResult(rs, 1);
             }
 
@@ -281,10 +281,6 @@ public class TestDriver
             }
 
             try (ResultSet rs = connection.getMetaData().getSchemas("unknown", null)) {
-                assertGetSchemasResult(rs, 0);
-            }
-
-            try (ResultSet rs = connection.getMetaData().getSchemas("unknown", "sys")) {
                 assertGetSchemasResult(rs, 0);
             }
 
@@ -328,7 +324,6 @@ public class TestDriver
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
                 assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
                 assertTrue(rows.contains(getTablesRow("information_schema", "schemata")));
-                assertTrue(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -339,7 +334,6 @@ public class TestDriver
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
                 assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
                 assertTrue(rows.contains(getTablesRow("information_schema", "schemata")));
-                assertTrue(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -360,7 +354,6 @@ public class TestDriver
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
                 assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
                 assertTrue(rows.contains(getTablesRow("information_schema", "schemata")));
-                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -380,7 +373,6 @@ public class TestDriver
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
                 assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
                 assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
-                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -391,7 +383,6 @@ public class TestDriver
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
                 assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
                 assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
-                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -402,7 +393,6 @@ public class TestDriver
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
                 assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
                 assertTrue(rows.contains(getTablesRow("information_schema", "schemata")));
-                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -413,7 +403,6 @@ public class TestDriver
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
                 assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
                 assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
-                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -424,7 +413,6 @@ public class TestDriver
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
                 assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
                 assertTrue(rows.contains(getTablesRow("information_schema", "schemata")));
-                assertTrue(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -435,7 +423,6 @@ public class TestDriver
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
                 assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
                 assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
-                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -446,7 +433,6 @@ public class TestDriver
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
                 assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
                 assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
-                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -457,7 +443,6 @@ public class TestDriver
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
                 assertFalse(rows.contains(getTablesRow("information_schema", "tables")));
                 assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
-                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -469,7 +454,6 @@ public class TestDriver
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
                 assertFalse(rows.contains(getTablesRow("information_schema", "tables")));
                 assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
-                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -480,7 +464,6 @@ public class TestDriver
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
                 assertFalse(rows.contains(getTablesRow("information_schema", "tables")));
                 assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
-                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -491,7 +474,6 @@ public class TestDriver
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
                 assertFalse(rows.contains(getTablesRow("information_schema", "tables")));
                 assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
-                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -502,7 +484,6 @@ public class TestDriver
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
                 assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
                 assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
-                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
 
@@ -513,7 +494,6 @@ public class TestDriver
                 Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
                 assertTrue(rows.contains(getTablesRow("information_schema", "tables")));
                 assertFalse(rows.contains(getTablesRow("information_schema", "schemata")));
-                assertFalse(rows.contains(getTablesRow("sys", "node")));
             }
         }
     }
@@ -841,7 +821,8 @@ public class TestDriver
                 try (ResultSet rs = statement.executeQuery("" +
                         "SELECT table_catalog, table_schema " +
                         "FROM tables " +
-                        "WHERE table_schema = 'sys' AND table_name = 'node'")) {
+                        "WHERE table_schema = 'information_schema' " +
+                        "  AND table_name = 'tables'")) {
                     ResultSetMetaData metadata = rs.getMetaData();
                     assertEquals(metadata.getColumnCount(), 2);
                     assertEquals(metadata.getColumnLabel(1), "table_catalog");
@@ -862,7 +843,8 @@ public class TestDriver
                 try (ResultSet rs = statement.executeQuery("" +
                         "SELECT table_catalog, table_schema " +
                         "FROM information_schema.tables " +
-                        "WHERE table_schema = 'sys' AND table_name = 'node'")) {
+                        "WHERE table_schema = 'information_schema' " +
+                        "  AND table_name = 'tables'")) {
                     ResultSetMetaData metadata = rs.getMetaData();
                     assertEquals(metadata.getColumnCount(), 2);
                     assertEquals(metadata.getColumnLabel(1), "table_catalog");

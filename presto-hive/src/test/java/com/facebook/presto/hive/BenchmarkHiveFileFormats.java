@@ -72,7 +72,7 @@ import java.io.PrintStream;
 import java.util.List;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveClient.getType;
+import static com.facebook.presto.hive.HiveType.getType;
 import static com.facebook.presto.hive.HiveUtil.setReadColumns;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -206,7 +206,7 @@ public final class BenchmarkHiveFileFormats
                         new MapredParquetOutputFormat(),
                         new ParquetHiveSerDe(),
                         ImmutableList.<HiveRecordCursorProvider>builder()
-                                .add(new ParquetRecordCursorProvider())
+                                .add(new ParquetRecordCursorProvider(false))
                                 .build(),
                         ImmutableList.<HivePageSourceFactory>builder()
                                 .build()))

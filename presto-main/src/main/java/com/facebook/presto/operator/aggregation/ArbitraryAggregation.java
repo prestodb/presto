@@ -27,26 +27,26 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
-import java.lang.reflect.Method;
+import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.util.Reflection.method;
+import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class ArbitraryAggregation
         extends ParametricAggregation
 {
     public static final ArbitraryAggregation ARBITRARY_AGGREGATION = new ArbitraryAggregation();
     private static final String NAME = "arbitrary";
-    private static final Method OUTPUT_FUNCTION = method(ArbitraryAggregation.class, "output", ArbitraryAggregationState.class, BlockBuilder.class);
-    private static final Method INPUT_FUNCTION = method(ArbitraryAggregation.class, "input", ArbitraryAggregationState.class, Block.class, int.class);
-    private static final Method COMBINE_FUNCTION = method(ArbitraryAggregation.class, "combine", ArbitraryAggregationState.class, ArbitraryAggregationState.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ArbitraryAggregation.class, "output", ArbitraryAggregationState.class, BlockBuilder.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(ArbitraryAggregation.class, "input", ArbitraryAggregationState.class, Block.class, int.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(ArbitraryAggregation.class, "combine", ArbitraryAggregationState.class, ArbitraryAggregationState.class);
     private static final Signature SIGNATURE = new Signature(NAME, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("T"), false, false);
 
     @Override
@@ -67,7 +67,7 @@ public class ArbitraryAggregation
         Type valueType = types.get("T");
         Signature signature = new Signature(NAME, valueType.getTypeSignature(), valueType.getTypeSignature());
         InternalAggregationFunction aggregation = generateAggregation(valueType);
-        return new FunctionInfo(signature, getDescription(), aggregation.getIntermediateType().getTypeSignature(), aggregation, false);
+        return new FunctionInfo(signature, getDescription(), aggregation);
     }
 
     private static InternalAggregationFunction generateAggregation(Type valueType)
@@ -100,7 +100,7 @@ public class ArbitraryAggregation
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value)
     {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(INPUT_CHANNEL, value), new ParameterMetadata(BLOCK_INDEX));
+        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(BLOCK_INPUT_CHANNEL, value), new ParameterMetadata(BLOCK_INDEX));
     }
 
     public static void input(ArbitraryAggregationState state, Block value, int position)

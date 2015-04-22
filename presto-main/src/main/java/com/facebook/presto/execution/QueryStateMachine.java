@@ -24,7 +24,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -88,6 +87,9 @@ public class QueryStateMachine
 
     @GuardedBy("this")
     private final Set<String> resetSessionProperties = new LinkedHashSet<>();
+
+    @GuardedBy("this")
+    private String updateType;
 
     @GuardedBy("this")
     private Throwable failureCause;
@@ -195,7 +197,7 @@ public class QueryStateMachine
                 totalUserTime += stageStats.getTotalUserTime().roundTo(NANOSECONDS);
                 totalBlockedTime += stageStats.getTotalBlockedTime().roundTo(NANOSECONDS);
 
-                if (Iterables.any(stageInfo.getPlan().getSources(), Predicates.instanceOf(TableScanNode.class))) {
+                if (stageInfo.getPlan().getPartitionedSourceNode() instanceof TableScanNode) {
                     rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
                     rawInputPositions += stageStats.getRawInputPositions();
 
@@ -252,6 +254,7 @@ public class QueryStateMachine
                 queryStats,
                 setSessionProperties,
                 resetSessionProperties,
+                updateType,
                 rootStage,
                 failureInfo,
                 errorCode,
@@ -288,6 +291,11 @@ public class QueryStateMachine
     public synchronized void addResetSessionProperties(String name)
     {
         resetSessionProperties.add(checkNotNull(name, "name is null"));
+    }
+
+    public synchronized void setUpdateType(String updateType)
+    {
+        this.updateType = updateType;
     }
 
     public synchronized QueryState getQueryState()

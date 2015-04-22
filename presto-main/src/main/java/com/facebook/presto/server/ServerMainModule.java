@@ -35,6 +35,8 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.memory.ClusterMemoryManager;
+import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.CatalogManagerConfig;
 import com.facebook.presto.metadata.HandleJsonModule;
@@ -144,6 +146,9 @@ public class ServerMainModule
         // task execution
         jaxrsBinder(binder).bind(TaskResource.class);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
+        bindConfig(binder).to(MemoryManagerConfig.class);
+        newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
+        binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskManager.class).withGeneratedName();
         binder.bind(TaskExecutor.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskExecutor.class).withGeneratedName();
@@ -154,6 +159,8 @@ public class ServerMainModule
         bindConfig(binder).to(TaskManagerConfig.class);
         binder.bind(IndexJoinLookupStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(IndexJoinLookupStats.class).withGeneratedName();
+        binder.bind(AsyncHttpExecutionMBean.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(AsyncHttpExecutionMBean.class).withGeneratedName();
 
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jaxrsBinder(binder).bind(PagesResponseWriter.class);
@@ -162,6 +169,8 @@ public class ServerMainModule
         binder.bind(new TypeLiteral<Supplier<ExchangeClient>>() {}).to(ExchangeClientFactory.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindHttpClient("exchange", ForExchange.class).withTracing();
         bindConfig(binder).to(ExchangeClientConfig.class);
+        binder.bind(ExchangeExecutionMBean.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(ExchangeExecutionMBean.class).withGeneratedName();
 
         // execution
         binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);
@@ -238,6 +247,7 @@ public class ServerMainModule
         // presto announcement
         discoveryBinder(binder).bindHttpAnnouncement("presto")
                 .addProperty("node_version", nodeVersion.toString())
+                .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()))
                 .addProperty("datasources", nullToEmpty(serverConfig.getDataSources()));
 
         // statement resource
@@ -279,17 +289,17 @@ public class ServerMainModule
     @Provides
     @Singleton
     @ForExchange
-    public ScheduledExecutorService createExchangeExecutor()
+    public ScheduledExecutorService createExchangeExecutor(ExchangeClientConfig config)
     {
-        return newScheduledThreadPool(4, daemonThreadsNamed("exchange-client-%s"));
+        return newScheduledThreadPool(config.getClientThreads(), daemonThreadsNamed("exchange-client-%s"));
     }
 
     @Provides
     @Singleton
     @ForAsyncHttpResponse
-    public static ScheduledExecutorService createAsyncHttpResponseExecutor()
+    public static ScheduledExecutorService createAsyncHttpResponseExecutor(TaskManagerConfig config)
     {
-        return newScheduledThreadPool(10, daemonThreadsNamed("async-http-response-%s"));
+        return newScheduledThreadPool(config.getHttpNotificationThreads(), daemonThreadsNamed("async-http-response-%s"));
     }
 
     private static String detectPrestoVersion()

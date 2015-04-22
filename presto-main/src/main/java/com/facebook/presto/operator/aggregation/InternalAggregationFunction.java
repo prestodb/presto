@@ -30,9 +30,9 @@ public final class InternalAggregationFunction
     private final Type finalType;
     private final boolean decomposable;
     private final boolean approximate;
-    private final GenericAccumulatorFactoryBinder factory;
+    private final AccumulatorFactoryBinder factory;
 
-    public InternalAggregationFunction(String name, List<Type> parameterTypes, Type intermediateType, Type finalType, boolean decomposable, boolean approximate, GenericAccumulatorFactoryBinder factory)
+    public InternalAggregationFunction(String name, List<Type> parameterTypes, Type intermediateType, Type finalType, boolean decomposable, boolean approximate, AccumulatorFactoryBinder factory)
     {
         this.name = checkNotNull(name, "name is null");
         checkArgument(!name.isEmpty(), "name is empty");

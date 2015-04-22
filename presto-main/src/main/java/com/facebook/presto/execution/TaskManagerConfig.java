@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -34,13 +35,15 @@ public class TaskManagerConfig
     private DataSize maxPartialAggregationMemoryUsage = new DataSize(16, Unit.MEGABYTE);
     private DataSize operatorPreAllocatedMemory = new DataSize(16, Unit.MEGABYTE);
     private DataSize maxTaskIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
-    private int maxShardProcessorThreads = Runtime.getRuntime().availableProcessors() * 4;
+    private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 4;
+    private Integer minDrivers;
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
 
-    private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
+    private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
     private int writerCount = 1;
+    private int httpNotificationThreads = 25;
 
     public boolean isVerboseStats()
     {
@@ -134,15 +137,32 @@ public class TaskManagerConfig
     }
 
     @Min(1)
-    public int getMaxShardProcessorThreads()
+    public int getMaxWorkerThreads()
     {
-        return maxShardProcessorThreads;
+        return maxWorkerThreads;
     }
 
-    @Config("task.shard.max-threads")
-    public TaskManagerConfig setMaxShardProcessorThreads(int maxShardProcessorThreads)
+    @LegacyConfig("task.shard.max-threads")
+    @Config("task.max-worker-threads")
+    public TaskManagerConfig setMaxWorkerThreads(int maxWorkerThreads)
     {
-        this.maxShardProcessorThreads = maxShardProcessorThreads;
+        this.maxWorkerThreads = maxWorkerThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getMinDrivers()
+    {
+        if (minDrivers == null) {
+            return 2 * maxWorkerThreads;
+        }
+        return minDrivers;
+    }
+
+    @Config("task.min-drivers")
+    public TaskManagerConfig setMinDrivers(int minDrivers)
+    {
+        this.minDrivers = minDrivers;
         return this;
     }
 
@@ -197,6 +217,19 @@ public class TaskManagerConfig
     public TaskManagerConfig setWriterCount(int writerCount)
     {
         this.writerCount = writerCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getHttpNotificationThreads()
+    {
+        return httpNotificationThreads;
+    }
+
+    @Config("task.http-notification-threads")
+    public TaskManagerConfig setHttpNotificationThreads(int httpNotificationThreads)
+    {
+        this.httpNotificationThreads = httpNotificationThreads;
         return this;
     }
 }

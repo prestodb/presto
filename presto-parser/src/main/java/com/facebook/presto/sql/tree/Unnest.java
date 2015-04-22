@@ -14,10 +14,10 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Joiner;
-import java.util.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -25,16 +25,23 @@ public final class Unnest
         extends Relation
 {
     private final List<Expression> expressions;
+    private final boolean withOrdinality;
 
-    public Unnest(List<Expression> expressions)
+    public Unnest(List<Expression> expressions, boolean withOrdinality)
     {
         checkNotNull(expressions, "expressions is null");
         this.expressions = ImmutableList.copyOf(expressions);
+        this.withOrdinality = withOrdinality;
     }
 
     public List<Expression> getExpressions()
     {
         return expressions;
+    }
+
+    public boolean isWithOrdinality()
+    {
+        return withOrdinality;
     }
 
     @Override
@@ -46,7 +53,11 @@ public final class Unnest
     @Override
     public String toString()
     {
-        return "UNNEST(" + Joiner.on(", ").join(expressions) + ")";
+        String result = "UNNEST(" + Joiner.on(", ").join(expressions) + ")";
+        if (withOrdinality) {
+            result = result + " WITH ORDINALITY";
+        }
+        return result;
     }
 
     @Override

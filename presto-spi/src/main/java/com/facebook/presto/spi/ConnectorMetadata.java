@@ -13,9 +13,13 @@
  */
 package com.facebook.presto.spi;
 
+import io.airlift.slice.Slice;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 public interface ConnectorMetadata
 {
@@ -28,6 +32,21 @@ public interface ConnectorMetadata
      * Returns a table handle for the specified table name, or null if the connector does not contain the table.
      */
     ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName);
+
+    /**
+     * Return a list of table layouts that satisfy the given constraint.
+     *
+     * For each layout, connectors must return an "unenforced constraint" representing the part of the constraint summary that isn't guaranteed by the layout.
+     */
+    default List<ConnectorTableLayoutResult> getTableLayouts(ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
+    }
+
+    default ConnectorTableLayout getTableLayout(ConnectorTableLayoutHandle handle)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
+    }
 
     /**
      * Return the metadata for the specified table handle.
@@ -46,7 +65,7 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if the table handle is no longer valid
      */
-    ConnectorColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle);
+    ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle);
 
     /**
      * Returns true if this catalog supports creation of sampled tables
@@ -58,14 +77,14 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if table handle is no longer valid
      */
-    Map<String, ConnectorColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle);
+    Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle);
 
     /**
      * Gets the metadata for the specified table column.
      *
      * @throws RuntimeException if table or column handles are no longer valid
      */
-    ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ConnectorColumnHandle columnHandle);
+    ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle);
 
     /**
      * Gets the metadata for all columns that match the specified table prefix.
@@ -75,7 +94,7 @@ public interface ConnectorMetadata
     /**
      * Creates a table using the specified table metadata.
      */
-    ConnectorTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
+    void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
     /**
      * Drops the specified table
@@ -97,7 +116,14 @@ public interface ConnectorMetadata
     /**
      * Commit a table creation with data after the data is written.
      */
-    void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<String> fragments);
+    void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments);
+
+    /**
+     * Rollback a table creation
+     */
+    default void rollbackCreateTable(ConnectorOutputTableHandle tableHandle)
+    {
+    }
 
     /**
      * Begin insert query
@@ -107,7 +133,14 @@ public interface ConnectorMetadata
     /**
      * Commit insert query
      */
-    void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<String> fragments);
+    void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments);
+
+    /**
+     * Rollback insert query
+     */
+    default void rollbackInsert(ConnectorInsertTableHandle insertHandle)
+    {
+    }
 
     /**
      * Create the specified view. The data for the view is opaque to the connector.

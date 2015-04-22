@@ -17,9 +17,13 @@ Create a MySQL database with the following table and load it with the queries yo
         test_catalog VARCHAR(256) NOT NULL,
         test_schema VARCHAR(256) NOT NULL,
         test_query TEXT NOT NULL,
+        test_username VARCHAR(256) NOT NULL default 'verifier-test',
+        test_password VARCHAR(256),
         control_catalog VARCHAR(256) NOT NULL,
         control_schema VARCHAR(256) NOT NULL,
         control_query TEXT NOT NULL,
+        control_username VARCHAR(256) NOT NULL default 'verifier-test',
+        control_password VARCHAR(256),
         PRIMARY KEY (id)
     );
 

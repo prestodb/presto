@@ -26,7 +26,6 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.UnknownType;
-import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
 
 import java.lang.invoke.MethodHandle;
@@ -98,6 +97,7 @@ public class ExpressionOptimizer
                     case IF:
                     case NULL_IF:
                     case SWITCH:
+                    case "WHEN":
                     case TRY_CAST:
                     case IS_NULL:
                     case "IS_DISTINCT_FROM":
@@ -105,7 +105,10 @@ public class ExpressionOptimizer
                     case "AND":
                     case "OR":
                     case IN:
-                        return call;
+                        List<RowExpression> arguments = call.getArguments().stream()
+                                .map(argument -> argument.accept(this, null))
+                                .collect(toImmutableList());
+                        return call(signature, call.getType(), arguments);
                     default:
                         function = registry.getExactFunction(signature);
                         if (function == null) {
@@ -126,14 +129,16 @@ public class ExpressionOptimizer
                     method = method.bindTo(session);
                 }
 
+                int index = 0;
                 List<Object> constantArguments = new ArrayList<>();
                 for (RowExpression argument : arguments) {
                     Object value = ((ConstantExpression) argument).getValue();
                     // if any argument is null, return null
-                    if (value == null) {
+                    if (value == null && !function.getNullableArguments().get(index)) {
                         return constantNull(call.getType());
                     }
                     constantArguments.add(value);
+                    index++;
                 }
 
                 try {
@@ -143,7 +148,7 @@ public class ExpressionOptimizer
                     if (e instanceof InterruptedException) {
                         Thread.currentThread().interrupt();
                     }
-                    throw Throwables.propagate(e);
+                    // Do nothing. As a result, this specific tree will be left untouched. But irrelevant expressions will continue to get evaluated and optimized.
                 }
             }
 

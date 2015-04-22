@@ -39,6 +39,7 @@ public abstract class AbstractTestApproximateAggregationFunction
         extends AbstractTestAggregationFunction
 {
     private static final int WEIGHT = 10;
+
     protected abstract Type getType();
 
     // values may contain nulls
@@ -65,9 +66,9 @@ public abstract class AbstractTestApproximateAggregationFunction
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = getType().createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = getType().createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = start; i < start + length; i++) {
-            if (getType() == BIGINT) {
+            if (getType().equals(BIGINT)) {
                 BIGINT.writeLong(blockBuilder, (long) i);
             }
             else {
@@ -82,7 +83,7 @@ public abstract class AbstractTestApproximateAggregationFunction
     {
         List<Number> values = new ArrayList<>();
         for (int i = 0; i < length; i++) {
-            if (getType() == BIGINT) {
+            if (getType().equals(BIGINT)) {
                 for (int j = 0; j < WEIGHT; j++) {
                     values.add((long) start + i);
                 }
@@ -102,7 +103,7 @@ public abstract class AbstractTestApproximateAggregationFunction
     {
         List<Number> values = new ArrayList<>();
         for (int i = 0; i < length; i++) {
-            if (getType() == BIGINT) {
+            if (getType().equals(BIGINT)) {
                 for (int j = 0; j < WEIGHT; j++) {
                     values.add((long) start + i);
                 }
@@ -168,12 +169,13 @@ public abstract class AbstractTestApproximateAggregationFunction
                 }
             }
 
-            BlockBuilder builder = getType().createBlockBuilder(new BlockBuilderStatus());
-            for (Number sample : sampledList.build()) {
-                if (getType() == BIGINT) {
+            ImmutableList<Number> list = sampledList.build();
+            BlockBuilder builder = getType().createBlockBuilder(new BlockBuilderStatus(), list.size());
+            for (Number sample : list) {
+                if (getType().equals(BIGINT)) {
                     BIGINT.writeLong(builder, sample.longValue());
                 }
-                else if (getType() == DOUBLE) {
+                else if (getType().equals(DOUBLE)) {
                     DOUBLE.writeDouble(builder, sample.doubleValue());
                 }
                 else {

@@ -15,6 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
+import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
@@ -22,6 +23,8 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.base.Preconditions;
 
 import java.util.List;
+
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
 
 public class IfCodeGenerator
         implements ByteCodeGenerator
@@ -31,17 +34,18 @@ public class IfCodeGenerator
     {
         Preconditions.checkArgument(arguments.size() == 3);
 
-        Block condition = new Block(context.getContext())
+        Variable wasNull = context.wasNull();
+        Block condition = new Block()
                 .append(context.generate(arguments.get(0)))
                 .comment("... and condition value was not null")
-                .getVariable("wasNull")
+                .append(wasNull)
                 .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)
                 .invokeStatic(CompilerOperations.class, "and", boolean.class, boolean.class, boolean.class)
-                .putVariable("wasNull", false);
+                .append(wasNull.set(constantFalse()));
 
-        return new IfStatement(context.getContext(),
-                condition,
-                context.generate(arguments.get(1)),
-                context.generate(arguments.get(2)));
+        return new IfStatement()
+                .condition(condition)
+                .ifTrue(context.generate(arguments.get(1)))
+                .ifFalse(context.generate(arguments.get(2)));
     }
 }

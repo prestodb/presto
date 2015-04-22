@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
@@ -35,9 +37,11 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -67,7 +71,7 @@ public class Driver
     private Thread lockHolder;
 
     @GuardedBy("exclusiveLock")
-    private Map<PlanNodeId, TaskSource> currentSources = new ConcurrentHashMap<>();
+    private final Map<PlanNodeId, TaskSource> currentSources = new ConcurrentHashMap<>();
 
     private enum State
     {
@@ -310,7 +314,7 @@ public class Driver
         }
     }
 
-    private  ListenableFuture<?> processInternal()
+    private ListenableFuture<?> processInternal()
     {
         checkLockHeld("Lock must be held to call processInternal");
 
@@ -319,21 +323,33 @@ public class Driver
                 processNewSources();
             }
 
+            boolean movedPage = false;
             for (int i = 0; i < operators.size() - 1 && !driverContext.isDone(); i++) {
-                // check if current operator is blocked
                 Operator current = operators.get(i);
-                ListenableFuture<?> blocked = current.isBlocked();
-                if (!blocked.isDone()) {
-                    current.getOperatorContext().recordBlocked(blocked);
-                    return blocked;
+                Operator next = operators.get(i + 1);
+
+                // skip blocked operators
+                if (!isBlocked(current).isDone()) {
+                    continue;
+                }
+                if (!isBlocked(next).isDone()) {
+                    continue;
                 }
 
-                // check if next operator is blocked
-                Operator next = operators.get(i + 1);
-                blocked = next.isBlocked();
-                if (!blocked.isDone()) {
-                    next.getOperatorContext().recordBlocked(blocked);
-                    return blocked;
+                // if the current operator is not finished and next operator needs input...
+                if (!current.isFinished() && next.needsInput()) {
+                    // get an output page from current operator
+                    current.getOperatorContext().startIntervalTimer();
+                    Page page = current.getOutput();
+                    current.getOperatorContext().recordGetOutput(page);
+
+                    // if we got an output page, add it to the next operator
+                    if (page != null) {
+                        next.getOperatorContext().startIntervalTimer();
+                        next.addInput(page);
+                        next.getOperatorContext().recordAddInput(page);
+                        movedPage = true;
+                    }
                 }
 
                 // if current operator is finished...
@@ -343,23 +359,22 @@ public class Driver
                     next.finish();
                     next.getOperatorContext().recordFinish();
                 }
-                else {
-                    // if next operator needs input...
-                    if (next.needsInput()) {
-                        // get an output page from current operator
-                        current.getOperatorContext().startIntervalTimer();
-                        Page page = current.getOutput();
-                        current.getOperatorContext().recordGetOutput(page);
+            }
 
-                        // if we got an output page, add it to the next operator
-                        if (page != null) {
-                            next.getOperatorContext().startIntervalTimer();
-                            next.addInput(page);
-                            next.getOperatorContext().recordAddInput(page);
-                        }
-                    }
+            // if we did not move any pages, check if we are blocked
+            if (!movedPage) {
+                List<ListenableFuture<?>> blockedFutures = operators.stream()
+                        .map(Driver::isBlocked)
+                        .filter(blocked -> !blocked.isDone())
+                        .collect(Collectors.toList());
+
+                if (!blockedFutures.isEmpty()) {
+                    // unblock when the first future is complete
+                    ListenableFuture<?> blocked = firstFinishedFuture(blockedFutures);
+                    return blocked;
                 }
             }
+
             return NOT_BLOCKED;
         }
         catch (Throwable t) {
@@ -422,7 +437,16 @@ public class Driver
         }
     }
 
-    private Throwable addSuppressedException(Throwable inFlightException, Throwable newException, String message, Object... args)
+    private static ListenableFuture<?> isBlocked(Operator operator)
+    {
+        ListenableFuture<?> blocked = operator.isBlocked();
+        if (blocked.isDone()) {
+            blocked = operator.getOperatorContext().isWaitingForMemory();
+        }
+        return blocked;
+    }
+
+    private static Throwable addSuppressedException(Throwable inFlightException, Throwable newException, String message, Object... args)
     {
         if (newException instanceof Error) {
             if (inFlightException == null) {
@@ -457,6 +481,18 @@ public class Driver
     private synchronized void checkLockHeld(String message)
     {
         checkState(Thread.currentThread() == lockHolder, message);
+    }
+
+    private static ListenableFuture<?> firstFinishedFuture(List<ListenableFuture<?>> futures)
+    {
+        SettableFuture<?> result = SettableFuture.create();
+        ExecutorService executor = MoreExecutors.newDirectExecutorService();
+
+        for (ListenableFuture<?> future : futures) {
+            future.addListener(() -> result.set(null), executor);
+        }
+
+        return result;
     }
 
     private class DriverLockResult

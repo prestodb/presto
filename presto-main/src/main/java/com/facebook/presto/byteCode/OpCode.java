@@ -23,6 +23,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+@SuppressWarnings("SpellCheckingInspection")
 public enum OpCode
         implements InstructionNode
 {
@@ -258,7 +259,7 @@ public enum OpCode
     }
 
     @Override
-    public void accept(MethodVisitor visitor)
+    public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
         visitor.visitInsn(opCode);
     }

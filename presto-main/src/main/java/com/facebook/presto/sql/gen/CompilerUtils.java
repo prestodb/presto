@@ -21,6 +21,7 @@ import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.SmartClassWriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
+import com.google.common.reflect.Reflection;
 import io.airlift.log.Logger;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -56,7 +57,16 @@ public final class CompilerUtils
 
     public static ParameterizedType makeClassName(String baseName)
     {
-        return ParameterizedType.typeFromJavaClassName("com.facebook.presto.$gen." + baseName + "_" + CLASS_ID.incrementAndGet());
+        String className = "com.facebook.presto.$gen." + baseName + "_" + CLASS_ID.incrementAndGet();
+        String javaClassName = toJavaIdentifierString(className);
+        return ParameterizedType.typeFromJavaClassName(javaClassName);
+    }
+
+    public static String toJavaIdentifierString(String className)
+    {
+        // replace invalid characters with '_'
+        int[] codePoints = className.codePoints().map(c -> Character.isJavaIdentifierPart(c) ? c : '_').toArray();
+        return new String(codePoints, 0, codePoints.length);
     }
 
     public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
@@ -116,6 +126,15 @@ public final class CompilerUtils
                 classReader.accept(new TraceClassVisitor(new PrintWriter(System.err)), ClassReader.SKIP_FRAMES);
             }
         }
-        return classLoader.defineClasses(byteCodes);
+        Map<String, Class<?>> classes = classLoader.defineClasses(byteCodes);
+        try {
+            for (Class<?> clazz : classes.values()) {
+                Reflection.initialize(clazz);
+            }
+        }
+        catch (VerifyError e) {
+            throw new RuntimeException(e);
+        }
+        return classes;
     }
 }

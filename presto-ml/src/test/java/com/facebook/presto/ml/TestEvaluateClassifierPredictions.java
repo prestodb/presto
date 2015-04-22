@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.ml;
 
+import com.facebook.presto.RowPageBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.ml.type.ClassifierParametricType;
 import com.facebook.presto.ml.type.ModelType;
 import com.facebook.presto.ml.type.RegressorType;
-import com.facebook.presto.RowPageBuilder;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.Page;
@@ -42,7 +42,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestEvaluateClassifierPredictions
 {
-    private final Metadata metadata = new MetadataManager();
+    private final Metadata metadata = MetadataManager.createTestMetadataManager();
 
     @Test
     public void testEvaluateClassifierPredictions()
@@ -56,7 +56,7 @@ public class TestEvaluateClassifierPredictions
         InternalAggregationFunction aggregation = metadata.getExactFunction(new Signature("evaluate_classifier_predictions", StandardTypes.VARCHAR, StandardTypes.BIGINT, StandardTypes.BIGINT)).getAggregationFunction();
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty(), Optional.empty(), 1.0).createAccumulator();
         accumulator.addInput(getPage());
-        BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1);
         accumulator.evaluateFinal(finalOut);
         Block block = finalOut.build();
 

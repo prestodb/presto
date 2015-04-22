@@ -30,7 +30,7 @@ public class TestVariableWidthBlockEncoding
     @Test
     public void testRoundTrip()
     {
-        BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 4);
         VARCHAR.writeString(expectedBlockBuilder, "alice");
         VARCHAR.writeString(expectedBlockBuilder, "bob");
         VARCHAR.writeString(expectedBlockBuilder, "charlie");

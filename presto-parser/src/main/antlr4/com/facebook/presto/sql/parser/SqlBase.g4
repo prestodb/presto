@@ -31,11 +31,13 @@ statement
     | USE schema=identifier                                            #use
     | USE catalog=identifier '.' schema=identifier                     #use
     | CREATE TABLE qualifiedName AS query                              #createTableAsSelect
-    | DROP TABLE qualifiedName                                         #dropTable
+    | CREATE TABLE qualifiedName
+        '(' tableElement (',' tableElement)* ')'                       #createTable
+    | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
     | INSERT INTO qualifiedName query                                  #insertInto
     | ALTER TABLE from=qualifiedName RENAME TO to=qualifiedName        #renameTable
     | CREATE (OR REPLACE)? VIEW qualifiedName AS query                 #createView
-    | DROP VIEW qualifiedName                                          #dropView
+    | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | EXPLAIN ('(' explainOption (',' explainOption)* ')')? statement  #explain
     | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE pattern=STRING)?  #showTables
     | SHOW SCHEMAS ((FROM | IN) identifier)?                           #showSchemas
@@ -59,6 +61,10 @@ query
 
 with
     : WITH RECURSIVE? namedQuery (',' namedQuery)*
+    ;
+
+tableElement
+    : identifier type
     ;
 
 queryNoWith:
@@ -110,9 +116,9 @@ selectItem
 
 relation
     : left=relation
-      ( CROSS JOIN right=relation
-      | joinType JOIN right=relation joinCriteria
-      | NATURAL joinType JOIN right=relation
+      ( CROSS JOIN right=sampledRelation
+      | joinType JOIN rightRelation=relation joinCriteria
+      | NATURAL joinType JOIN right=sampledRelation
       )                                           #joinRelation
     | sampledRelation                             #relationDefault
     ;
@@ -152,10 +158,10 @@ columnAliases
     ;
 
 relationPrimary
-    : qualifiedName                                #tableName
-    | '(' query ')'                                #subqueryRelation
-    | UNNEST '(' expression (',' expression)* ')'  #unnest
-    | '(' relation ')'                             #parenthesizedRelation
+    : qualifiedName                                                   #tableName
+    | '(' query ')'                                                   #subqueryRelation
+    | UNNEST '(' expression (',' expression)* ')' (WITH ORDINALITY)?  #unnest
+    | '(' relation ')'                                                #parenthesizedRelation
     ;
 
 expression
@@ -215,6 +221,7 @@ primaryExpression
     | TRY_CAST '(' expression AS type ')'                                            #cast
     | ARRAY '[' (expression (',' expression)*)? ']'                                  #arrayConstructor
     | value=primaryExpression '[' index=valueExpression ']'                          #subscript
+    | value=primaryExpression '.' fieldName=identifier                               #fieldReference
     | name=CURRENT_DATE                                                              #specialDateTimeFunction
     | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?                           #specialDateTimeFunction
     | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                      #specialDateTimeFunction
@@ -444,6 +451,7 @@ STRATIFY: 'STRATIFY';
 ALTER: 'ALTER';
 RENAME: 'RENAME';
 UNNEST: 'UNNEST';
+ORDINALITY: 'ORDINALITY';
 ARRAY: 'ARRAY';
 MAP: 'MAP';
 SET: 'SET';

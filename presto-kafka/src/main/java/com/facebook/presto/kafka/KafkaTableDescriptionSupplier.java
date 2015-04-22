@@ -15,7 +15,6 @@ package com.facebook.presto.kafka;
 
 import com.facebook.presto.kafka.decoder.dummy.DummyKafkaRowDecoder;
 import com.facebook.presto.spi.SchemaTableName;
-import com.google.common.base.Objects;
 import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -31,6 +30,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Arrays.asList;
 
@@ -59,7 +59,7 @@ public class KafkaTableDescriptionSupplier
             for (File file : listFiles(kafkaConnectorConfig.getTableDescriptionDir())) {
                 if (file.isFile() && file.getName().endsWith(".json")) {
                     KafkaTopicDescription table = topicDescriptionCodec.fromJson(Files.toByteArray(file));
-                    String schemaName = Objects.firstNonNull(table.getSchemaName(), kafkaConnectorConfig.getDefaultSchema());
+                    String schemaName = firstNonNull(table.getSchemaName(), kafkaConnectorConfig.getDefaultSchema());
                     log.debug("Kafka table %s.%s: %s", schemaName, table.getTableName(), table);
                     builder.put(new SchemaTableName(schemaName, table.getTableName()), table);
                 }

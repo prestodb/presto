@@ -18,9 +18,9 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricAggregation;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.aggregation.state.KeyValuePairsStateFactory;
 import com.facebook.presto.operator.aggregation.state.KeyValuePairStateSerializer;
 import com.facebook.presto.operator.aggregation.state.KeyValuePairsState;
+import com.facebook.presto.operator.aggregation.state.KeyValuePairsStateFactory;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -29,28 +29,28 @@ import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
-import java.lang.reflect.Method;
+import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.util.Reflection.method;
+import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class MapAggregation
         extends ParametricAggregation
 {
     public static final MapAggregation MAP_AGG = new MapAggregation();
     public static final String NAME = "map_agg";
-    private static final Method OUTPUT_FUNCTION = method(MapAggregation.class, "output", KeyValuePairsState.class, BlockBuilder.class);
-    private static final Method INPUT_FUNCTION = method(MapAggregation.class, "input", KeyValuePairsState.class, Block.class, Block.class, int.class);
-    private static final Method COMBINE_FUNCTION = method(MapAggregation.class, "combine", KeyValuePairsState.class, KeyValuePairsState.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(MapAggregation.class, "output", KeyValuePairsState.class, BlockBuilder.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(MapAggregation.class, "input", KeyValuePairsState.class, Block.class, Block.class, int.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(MapAggregation.class, "combine", KeyValuePairsState.class, KeyValuePairsState.class);
 
     private static final Signature SIGNATURE = new Signature(NAME, ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")),
                                                                    "map<K,V>", ImmutableList.of("K", "V"), false, false);
@@ -74,7 +74,7 @@ public class MapAggregation
         Type valueType = types.get("V");
         Signature signature = new Signature(NAME, new MapType(keyType, valueType).getTypeSignature(), keyType.getTypeSignature(), valueType.getTypeSignature());
         InternalAggregationFunction aggregation = generateAggregation(keyType, valueType);
-        return new FunctionInfo(signature, getDescription(), aggregation.getIntermediateType().getTypeSignature(), aggregation, false);
+        return new FunctionInfo(signature, getDescription(), aggregation);
     }
 
     private static InternalAggregationFunction generateAggregation(Type keyType, Type valueType)
@@ -106,8 +106,8 @@ public class MapAggregation
     private static List<ParameterMetadata> createInputParameterMetadata(Type keyType, Type valueType)
     {
         return ImmutableList.of(new ParameterMetadata(STATE),
-                                new ParameterMetadata(INPUT_CHANNEL, keyType),
-                                new ParameterMetadata(NULLABLE_INPUT_CHANNEL, valueType),
+                                new ParameterMetadata(BLOCK_INPUT_CHANNEL, keyType),
+                                new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, valueType),
                                 new ParameterMetadata(BLOCK_INDEX));
     }
 
@@ -120,7 +120,7 @@ public class MapAggregation
         }
 
         long startSize = pairs.estimatedInMemorySize();
-        pairs.add(key, value, position);
+        pairs.add(key, value, position, position);
         state.addMemoryUsage(pairs.estimatedInMemorySize() - startSize);
     }
 
@@ -129,9 +129,12 @@ public class MapAggregation
         if (state.get() != null && otherState.get() != null) {
             Block keys = otherState.get().getKeys();
             Block values = otherState.get().getValues();
+            KeyValuePairs pairs = state.get();
+            long startSize = pairs.estimatedInMemorySize();
             for (int i = 0; i < keys.getPositionCount(); i++) {
-                state.get().add(keys, values, i);
+                pairs.add(keys, values, i, i);
             }
+            state.addMemoryUsage(pairs.estimatedInMemorySize() - startSize);
         }
         else if (state.get() == null) {
             state.set(otherState.get());

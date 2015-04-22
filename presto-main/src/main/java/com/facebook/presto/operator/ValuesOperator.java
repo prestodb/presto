@@ -21,7 +21,6 @@ import com.google.common.collect.Iterators;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -74,7 +73,6 @@ public class ValuesOperator
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
 
         checkNotNull(pages, "pages is null");
-        checkArgument(!pages.isEmpty(), "pages is empty");
 
         this.pages = ImmutableList.copyOf(pages).iterator();
     }

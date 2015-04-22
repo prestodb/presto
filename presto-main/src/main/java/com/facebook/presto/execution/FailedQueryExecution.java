@@ -34,6 +34,12 @@ public class FailedQueryExecution
     }
 
     @Override
+    public QueryId getQueryId()
+    {
+        return queryInfo.getQueryId();
+    }
+
+    @Override
     public QueryInfo getQueryInfo()
     {
         return queryInfo;

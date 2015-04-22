@@ -13,27 +13,19 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
-import com.facebook.presto.spi.ConnectorPartition;
-import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
-import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.tpch.Types.checkType;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class TpchSplitManager
@@ -52,22 +44,9 @@ public class TpchSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    public ConnectorSplitSource getSplits(ConnectorTableLayoutHandle layout)
     {
-        ImmutableList<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new TpchPartition((TpchTableHandle) table));
-        return new ConnectorPartitionResult(partitions, tupleDomain);
-    }
-
-    @Override
-    public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions)
-    {
-        checkNotNull(partitions, "partitions is null");
-        if (partitions.isEmpty()) {
-            return new FixedSplitSource(connectorId, ImmutableList.<ConnectorSplit>of());
-        }
-
-        ConnectorPartition partition = Iterables.getOnlyElement(partitions);
-        TpchTableHandle tableHandle = checkType(partition, TpchPartition.class, "partition").getTable();
+        TpchTableHandle tableHandle = checkType(layout, TpchTableLayoutHandle.class, "layout").getTable();
 
         Set<Node> nodes = nodeManager.getActiveDatasourceNodes(connectorId);
         checkState(!nodes.isEmpty(), "No TPCH nodes available");
@@ -84,41 +63,5 @@ public class TpchSplitManager
             }
         }
         return new FixedSplitSource(connectorId, splits.build());
-    }
-
-    public static class TpchPartition
-            implements ConnectorPartition
-    {
-        private final TpchTableHandle table;
-
-        public TpchPartition(TpchTableHandle table)
-        {
-            this.table = checkNotNull(table, "table is null");
-        }
-
-        public TpchTableHandle getTable()
-        {
-            return table;
-        }
-
-        @Override
-        public String getPartitionId()
-        {
-            return table.getTableName();
-        }
-
-        @Override
-        public TupleDomain<ConnectorColumnHandle> getTupleDomain()
-        {
-            return TupleDomain.all();
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("table", table)
-                    .toString();
-        }
     }
 }

@@ -17,13 +17,12 @@ import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.LongState;
-import com.facebook.presto.operator.aggregation.state.NullableBigintState;
+import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.VarcharType;
 import org.testng.annotations.Test;
@@ -38,15 +37,15 @@ public class TestStateCompiler
     {
         StateCompiler compiler = new StateCompiler();
 
-        AccumulatorStateFactory<NullableBigintState> factory = compiler.generateStateFactory(NullableBigintState.class);
-        AccumulatorStateSerializer<NullableBigintState> serializer = compiler.generateStateSerializer(NullableBigintState.class);
-        NullableBigintState state = factory.createSingleState();
-        NullableBigintState deserializedState = factory.createSingleState();
+        AccumulatorStateFactory<NullableLongState> factory = compiler.generateStateFactory(NullableLongState.class);
+        AccumulatorStateSerializer<NullableLongState> serializer = compiler.generateStateSerializer(NullableLongState.class);
+        NullableLongState state = factory.createSingleState();
+        NullableLongState deserializedState = factory.createSingleState();
 
         state.setLong(2);
         state.setNull(false);
 
-        BlockBuilder builder = BigintType.BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 2);
         serializer.serialize(state, builder);
         state.setNull(true);
         serializer.serialize(state, builder);
@@ -74,7 +73,7 @@ public class TestStateCompiler
 
         state.setLong(2);
 
-        BlockBuilder builder = BigintType.BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
         serializer.serialize(state, builder);
 
         Block block = builder.build();
@@ -89,7 +88,7 @@ public class TestStateCompiler
     {
         StateCompiler compiler = new StateCompiler();
         AccumulatorStateSerializer<LongState> serializer = compiler.generateStateSerializer(LongState.class);
-        assertEquals(serializer.getSerializedType(), BigintType.BIGINT);
+        assertEquals(serializer.getSerializedType(), BIGINT);
     }
 
     @Test
@@ -104,7 +103,7 @@ public class TestStateCompiler
 
         state.setBoolean(true);
 
-        BlockBuilder builder = BooleanType.BOOLEAN.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BooleanType.BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), 1);
         serializer.serialize(state, builder);
 
         Block block = builder.build();
@@ -124,7 +123,7 @@ public class TestStateCompiler
 
         state.setByte((byte) 3);
 
-        BlockBuilder builder = BigintType.BIGINT.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
         serializer.serialize(state, builder);
 
         Block block = builder.build();
@@ -146,7 +145,7 @@ public class TestStateCompiler
         singleState.setCount(2);
         singleState.setM2(3);
 
-        BlockBuilder builder = VarcharType.VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = VarcharType.VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1);
         serializer.serialize(singleState, builder);
 
         Block block = builder.build();
@@ -172,7 +171,7 @@ public class TestStateCompiler
         singleState.setDouble(2.0);
         singleState.setByte((byte) 3);
 
-        BlockBuilder builder = VarcharType.VARCHAR.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = VarcharType.VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1);
         serializer.serialize(singleState, builder);
 
         Block block = builder.build();

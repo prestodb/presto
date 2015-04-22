@@ -24,7 +24,7 @@ import java.util.Set;
 /**
  * This is a special-purpose lexer that can identify custom delimiters in addition to every other
  * token in the SQL grammar.
- *
+ * <p>
  * The code in nextToken() is a copy of the implementation in org.antlr.v4.runtime.Lexer, with a
  * bit added to match the token before the default behavior is invoked.
  */

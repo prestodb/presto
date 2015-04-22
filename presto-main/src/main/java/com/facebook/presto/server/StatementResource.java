@@ -27,12 +27,14 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.execution.SharedBufferInfo;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -90,11 +92,12 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.server.ResourceUtil.assertRequest;
 import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.toErrorType;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.collect.Iterables.transform;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -235,6 +238,9 @@ public class StatementResource
         @GuardedBy("this")
         private Set<String> resetSessionProperties;
 
+        @GuardedBy("this")
+        private Long updateCount;
+
         public Query(Session session,
                 String query,
                 QueryManager queryManager,
@@ -257,6 +263,8 @@ public class StatementResource
         public void close()
         {
             queryManager.cancelQuery(queryId);
+            // frees buffers in the client
+            exchangeClient.close();
         }
 
         public QueryId getQueryId()
@@ -282,6 +290,7 @@ public class StatementResource
             if (lastResultPath != null && requestedPath.equals(lastResultPath)) {
                 // tell query manager we are still interested in the query
                 queryManager.getQueryInfo(queryId);
+                queryManager.recordHeartbeat(queryId);
                 return lastResult;
             }
 
@@ -306,11 +315,22 @@ public class StatementResource
             // get the query info before returning
             // force update if query manager is closed
             QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            queryManager.recordHeartbeat(queryId);
 
             // if we have received all of the output data and the query is not marked as done, wait for the query to finish
             if (exchangeClient.isClosed() && !queryInfo.getState().isDone()) {
                 queryManager.waitForStateChange(queryId, queryInfo.getState(), maxWaitTime);
                 queryInfo = queryManager.getQueryInfo(queryId);
+            }
+
+            // TODO: figure out a better way to do this
+            // grab the update count for non-queries
+            if ((data != null) && (queryInfo.getUpdateType() != null) && (updateCount == null) &&
+                    (columns.size() == 1) && (columns.get(0).getType().equals(StandardTypes.BIGINT))) {
+                Iterator<List<Object>> iterator = data.iterator();
+                if (iterator.hasNext()) {
+                    updateCount = ((Number) iterator.next().get(0)).longValue();
+                }
             }
 
             // close exchange client if the query has failed
@@ -323,12 +343,8 @@ public class StatementResource
                     // so close the exchange as soon as the query is done.
                     exchangeClient.close();
 
-                    // this is a hack to suppress the warn message in the client saying that there are no columns.
-                    // The reason for this is that the current API definition assumes that everything is a query,
-                    // so statements without results produce an error in the client otherwise.
-                    //
-                    // TODO: add support to the API for non-query statements.
-                    columns = ImmutableList.of(new Column("result", "boolean", new ClientTypeSignature(StandardTypes.BOOLEAN, ImmutableList.<ClientTypeSignature>of(), ImmutableList.<Object>of())));
+                    // Return a single value for clients that require a result.
+                    columns = ImmutableList.of(new Column("result", "boolean", new ClientTypeSignature(StandardTypes.BOOLEAN, ImmutableList.<ClientTypeSignature>of(), ImmutableList.of())));
                     data = ImmutableSet.<List<Object>>of(ImmutableList.<Object>of(true));
                 }
             }
@@ -352,10 +368,12 @@ public class StatementResource
                     columns,
                     data,
                     toStatementStats(queryInfo),
-                    toQueryError(queryInfo));
+                    toQueryError(queryInfo),
+                    queryInfo.getUpdateType(),
+                    updateCount);
 
             // cache the last results
-            if (lastResult != null) {
+            if (lastResult != null && lastResult.getNextUri() != null) {
                 lastResultPath = lastResult.getNextUri().getPath();
             }
             else {
@@ -371,6 +389,7 @@ public class StatementResource
             // wait for query to start
             QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
             while (maxWait.toMillis() > 1 && !isQueryStarted(queryInfo)) {
+                queryManager.recordHeartbeat(queryId);
                 maxWait = queryManager.waitForStateChange(queryId, queryInfo.getState(), maxWait);
                 queryInfo = queryManager.getQueryInfo(queryId);
             }
@@ -418,11 +437,12 @@ public class StatementResource
 
         private synchronized void updateExchangeClient(StageInfo outputStage)
         {
-            // if the output stage is not done, update the exchange client with any additional locations
+            // add any additional output locations
             if (!outputStage.getState().isDone()) {
                 for (TaskInfo taskInfo : outputStage.getTasks()) {
-                    List<BufferInfo> buffers = taskInfo.getOutputBuffers().getBuffers();
-                    if (buffers.isEmpty()) {
+                    SharedBufferInfo outputBuffers = taskInfo.getOutputBuffers();
+                    List<BufferInfo> buffers = outputBuffers.getBuffers();
+                    if (buffers.isEmpty() || outputBuffers.getState().canAddBuffers()) {
                         // output buffer has not been created yet
                         continue;
                     }
@@ -436,10 +456,29 @@ public class StatementResource
                     exchangeClient.addLocation(uri);
                 }
             }
-            // if the output stage has finished scheduling, set no more locations
-            if ((outputStage.getState() != StageState.PLANNED) && (outputStage.getState() != StageState.SCHEDULING)) {
+
+            if (allOutputBuffersCreated(outputStage)) {
                 exchangeClient.noMoreLocations();
             }
+        }
+
+        private static boolean allOutputBuffersCreated(StageInfo outputStage)
+        {
+            StageState stageState = outputStage.getState();
+
+            // if the stage is already done, then there will be no more buffers
+            if (stageState.isDone()) {
+                return true;
+            }
+
+            // has the stage finished scheduling?
+            if (stageState == StageState.PLANNED || stageState == StageState.SCHEDULING) {
+                return false;
+            }
+
+            // have all tasks finished adding buffers
+            return outputStage.getTasks().stream()
+                    .allMatch(taskInfo -> !taskInfo.getOutputBuffers().getState().canAddBuffers());
         }
 
         private synchronized URI createNextResultsUri(UriInfo uriInfo)
@@ -587,7 +626,23 @@ public class StatementResource
                 log.warn("Query %s in state %s has no failure info", queryInfo.getQueryId(), state);
                 failure = toFailure(new RuntimeException(format("Query is %s (reason unknown)", state))).toFailureInfo();
             }
-            return new QueryError(failure.getMessage(), null, 0, failure.getErrorLocation(), failure);
+
+            ErrorCode errorCode;
+            if (queryInfo.getErrorCode() != null) {
+                errorCode = queryInfo.getErrorCode();
+            }
+            else {
+                errorCode = INTERNAL_ERROR.toErrorCode();
+                log.warn("Failed query %s has no error code", queryInfo.getQueryId());
+            }
+            return new QueryError(
+                    failure.getMessage(),
+                    null,
+                    errorCode.getCode(),
+                    errorCode.getName(),
+                    toErrorType(errorCode.getCode()).toString(),
+                    failure.getErrorLocation(),
+                    failure);
         }
 
         private static class RowIterable
@@ -668,8 +723,7 @@ public class StatementResource
                 // registered between fetching the live queries and inspecting the queryIds set.
 
                 Set<QueryId> queryIdsSnapshot = ImmutableSet.copyOf(queries.keySet());
-                // do not call queryManager.getQueryInfo() since it updates the heartbeat time
-                Set<QueryId> liveQueries = ImmutableSet.copyOf(transform(queryManager.getAllQueryInfo(), QueryInfo::getQueryId));
+                Set<QueryId> liveQueries = ImmutableSet.copyOf(queryManager.getAllQueryIds());
 
                 Set<QueryId> deadQueries = Sets.difference(queryIdsSnapshot, liveQueries);
                 for (QueryId deadQueryId : deadQueries) {

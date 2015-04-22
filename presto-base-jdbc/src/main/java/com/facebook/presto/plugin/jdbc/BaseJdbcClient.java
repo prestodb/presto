@@ -14,7 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
@@ -222,7 +223,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(JdbcTableHandle jdbcTableHandle, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(JdbcTableHandle jdbcTableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
         // currently we don't support partitions
         return new ConnectorPartitionResult(
@@ -334,7 +335,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public void commitCreateTable(JdbcOutputTableHandle handle, Collection<String> fragments)
+    public void commitCreateTable(JdbcOutputTableHandle handle, Collection<Slice> fragments)
     {
         StringBuilder sql = new StringBuilder()
                 .append("ALTER TABLE ")

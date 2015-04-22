@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.testing.RunLengthEncodedBlock;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.testing.RunLengthEncodedBlock;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.Lists;
 import org.testng.annotations.Test;
@@ -28,6 +28,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
 public abstract class AbstractTestAggregationFunction
 {
@@ -88,7 +89,7 @@ public abstract class AbstractTestAggregationFunction
             return;
         }
 
-        Block nullValueBlock = parameterTypes.get(0).createBlockBuilder(new BlockBuilderStatus())
+        Block nullValueBlock = parameterTypes.get(0).createBlockBuilder(new BlockBuilderStatus(), 1, UNKNOWN.getFixedSize())
                 .appendNull()
                 .build();
 
@@ -123,7 +124,7 @@ public abstract class AbstractTestAggregationFunction
 
     public Block createAlternatingNullsBlock(Type type, Block sequenceBlock)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), sequenceBlock.getPositionCount() * 2);
         for (int position = 0; position < sequenceBlock.getPositionCount(); position++) {
             // append null
             blockBuilder.appendNull();

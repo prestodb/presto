@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.testing;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
 import java.math.BigDecimal;
@@ -21,6 +20,7 @@ import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -91,13 +91,13 @@ public class MaterializedRow
             return false;
         }
         MaterializedRow o = (MaterializedRow) obj;
-        return Objects.equal(values, o.values);
+        return Objects.equals(values, o.values);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(values);
+        return Objects.hash(values);
     }
 
     private static class ApproximateDouble
@@ -137,13 +137,13 @@ public class MaterializedRow
                 return false;
             }
             ApproximateDouble o = (ApproximateDouble) obj;
-            return Objects.equal(normalizedValue, o.normalizedValue);
+            return Objects.equals(normalizedValue, o.normalizedValue);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(normalizedValue);
+            return Objects.hash(normalizedValue);
         }
     }
 }

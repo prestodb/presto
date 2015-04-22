@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.NullableBigintState;
+import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 
@@ -26,7 +26,7 @@ public final class LongSumAggregation
 
     @InputFunction
     @IntermediateInputFunction
-    public static void sum(NullableBigintState state, @SqlType(StandardTypes.BIGINT) long value)
+    public static void sum(NullableLongState state, @SqlType(StandardTypes.BIGINT) long value)
     {
         state.setNull(false);
         state.setLong(state.getLong() + value);

@@ -25,6 +25,8 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.ObjectMapperProvider;
@@ -37,7 +39,7 @@ import java.util.Map;
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.Signature.withVariadicBound;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
+import static com.facebook.presto.type.TypeUtils.createBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -45,13 +47,8 @@ public class RowToJsonCast
         extends ParametricOperator
 {
     public static final RowToJsonCast ROW_TO_JSON = new RowToJsonCast();
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()));
-    private static final MethodHandle METHOD_HANDLE;
-
-    static
-    {
-        METHOD_HANDLE = methodHandle(RowToJsonCast.class, "toJson", Type.class, ConnectorSession.class, Slice.class);
-    }
+    private static final Supplier<ObjectMapper> OBJECT_MAPPER = Suppliers.memoize(() -> new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer())));
+    private static final MethodHandle METHOD_HANDLE = methodHandle(RowToJsonCast.class, "toJson", Type.class, ConnectorSession.class, Slice.class);
 
     private RowToJsonCast()
     {
@@ -69,9 +66,9 @@ public class RowToJsonCast
 
     public static Slice toJson(Type rowType, ConnectorSession session, Slice row)
     {
-        Object object = stackRepresentationToObject(session, row, rowType);
+        Object object = rowType.getObjectValue(session, createBlock(rowType, row), 0);
         try {
-            return Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(object));
+            return Slices.utf8Slice(OBJECT_MAPPER.get().writeValueAsString(object));
         }
         catch (JsonProcessingException e) {
             throw Throwables.propagate(e);

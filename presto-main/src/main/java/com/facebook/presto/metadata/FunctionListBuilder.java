@@ -14,8 +14,8 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.Description;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.GenericAggregationFunctionFactory;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.JsonPath;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarOperator;
@@ -119,7 +119,7 @@ public class FunctionListBuilder
 
         String description = getDescription(function.getClass());
         Signature signature = new Signature(name, function.getFinalType().getTypeSignature(), Lists.transform(ImmutableList.copyOf(function.getParameterTypes()), Type::getTypeSignature));
-        functions.add(new FunctionInfo(signature, description, function.getIntermediateType().getTypeSignature(), function, function.isApproximate()));
+        functions.add(new FunctionInfo(signature, description, function));
         return this;
     }
 

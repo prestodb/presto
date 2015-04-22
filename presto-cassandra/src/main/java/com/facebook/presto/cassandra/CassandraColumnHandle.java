@@ -15,18 +15,18 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.MoreObjects.ToStringHelper;
-import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -34,7 +34,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class CassandraColumnHandle
-        implements ConnectorColumnHandle
+        implements ColumnHandle
 {
     public static final String SAMPLE_WEIGHT_COLUMN_NAME = "presto_sample_weight";
 
@@ -147,7 +147,7 @@ public class CassandraColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(
+        return Objects.hash(
                 connectorId,
                 name,
                 ordinalPosition,
@@ -169,15 +169,15 @@ public class CassandraColumnHandle
             return false;
         }
         CassandraColumnHandle other = (CassandraColumnHandle) obj;
-        return Objects.equal(this.connectorId, other.connectorId)
-                && Objects.equal(this.name, other.name)
-                && Objects.equal(this.ordinalPosition, other.ordinalPosition)
-                && Objects.equal(this.cassandraType, other.cassandraType)
-                && Objects.equal(this.typeArguments, other.typeArguments)
-                && Objects.equal(this.partitionKey, other.partitionKey)
-                && Objects.equal(this.clusteringKey, other.clusteringKey)
-                && Objects.equal(this.indexed, other.indexed)
-                && Objects.equal(this.hidden, other.hidden);
+        return Objects.equals(this.connectorId, other.connectorId) &&
+                Objects.equals(this.name, other.name) &&
+                Objects.equals(this.ordinalPosition, other.ordinalPosition) &&
+                Objects.equals(this.cassandraType, other.cassandraType) &&
+                Objects.equals(this.typeArguments, other.typeArguments) &&
+                Objects.equals(this.partitionKey, other.partitionKey) &&
+                Objects.equals(this.clusteringKey, other.clusteringKey) &&
+                Objects.equals(this.indexed, other.indexed) &&
+                Objects.equals(this.hidden, other.hidden);
     }
 
     @Override
@@ -201,24 +201,24 @@ public class CassandraColumnHandle
         return helper.toString();
     }
 
-    public static Function<ConnectorColumnHandle, CassandraColumnHandle> cassandraColumnHandle()
+    public static Function<ColumnHandle, CassandraColumnHandle> cassandraColumnHandle()
     {
-        return new Function<ConnectorColumnHandle, CassandraColumnHandle>()
+        return new Function<ColumnHandle, CassandraColumnHandle>()
         {
             @Override
-            public CassandraColumnHandle apply(ConnectorColumnHandle columnHandle)
+            public CassandraColumnHandle apply(ColumnHandle columnHandle)
             {
                 return checkType(columnHandle, CassandraColumnHandle.class, "columnHandle");
             }
         };
     }
 
-    public static Function<ConnectorColumnHandle, ColumnMetadata> columnMetadataGetter()
+    public static Function<ColumnHandle, ColumnMetadata> columnMetadataGetter()
     {
-        return new Function<ConnectorColumnHandle, ColumnMetadata>()
+        return new Function<ColumnHandle, ColumnMetadata>()
         {
             @Override
-            public ColumnMetadata apply(ConnectorColumnHandle columnHandle)
+            public ColumnMetadata apply(ColumnHandle columnHandle)
             {
                 checkNotNull(columnHandle, "columnHandle is null");
                 checkArgument(columnHandle instanceof CassandraColumnHandle,

@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.command.Command;
 import io.airlift.command.HelpOption;
+import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import jline.console.history.FileHistory;
@@ -49,7 +50,6 @@ import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
 import static com.google.common.io.ByteStreams.nullOutputStream;
-import static io.airlift.log.Logging.Level;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
@@ -66,6 +66,9 @@ public class Console
 
     @Inject
     public HelpOption helpOption;
+
+    @Inject
+    public VersionOption versionOption = new VersionOption();
 
     @Inject
     public ClientOptions clientOptions = new ClientOptions();
@@ -101,7 +104,7 @@ public class Console
             }
         }
 
-        try (QueryRunner queryRunner = QueryRunner.create(session)) {
+        try (QueryRunner queryRunner = QueryRunner.create(session, Optional.ofNullable(clientOptions.socksProxy))) {
             if (hasQuery) {
                 executeCommand(queryRunner, query, clientOptions.outputFormat);
             }
@@ -137,6 +140,7 @@ public class Console
 
                 // exit on EOF
                 if (line == null) {
+                    System.out.println();
                     return;
                 }
 

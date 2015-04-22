@@ -15,20 +15,22 @@ package com.facebook.presto.example;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ExampleConnector
-    implements Connector
+        implements Connector
 {
+    private static final Logger log = Logger.get(ExampleConnector.class);
+
+    private final LifeCycleManager lifeCycleManager;
     private final ExampleMetadata metadata;
     private final ExampleSplitManager splitManager;
     private final ExampleRecordSetProvider recordSetProvider;
@@ -36,11 +38,13 @@ public class ExampleConnector
 
     @Inject
     public ExampleConnector(
+            LifeCycleManager lifeCycleManager,
             ExampleMetadata metadata,
             ExampleSplitManager splitManager,
             ExampleRecordSetProvider recordSetProvider,
             ExampleHandleResolver handleResolver)
     {
+        this.lifeCycleManager = checkNotNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
         this.recordSetProvider = checkNotNull(recordSetProvider, "recordSetProvider is null");
@@ -60,12 +64,6 @@ public class ExampleConnector
     }
 
     @Override
-    public ConnectorPageSourceProvider getPageSourceProvider()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
@@ -78,14 +76,13 @@ public class ExampleConnector
     }
 
     @Override
-    public ConnectorRecordSinkProvider getRecordSinkProvider()
+    public final void shutdown()
     {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ConnectorIndexResolver getIndexResolver()
-    {
-        throw new UnsupportedOperationException();
+        try {
+            lifeCycleManager.stop();
+        }
+        catch (Exception e) {
+            log.error(e, "Error shutting down connector");
+        }
     }
 }

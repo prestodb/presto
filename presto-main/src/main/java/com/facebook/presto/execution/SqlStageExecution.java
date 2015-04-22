@@ -32,7 +32,6 @@ import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.annotations.VisibleForTesting;
@@ -64,6 +63,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -74,6 +74,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
@@ -93,7 +95,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
-public class SqlStageExecution
+public final class SqlStageExecution
         implements StageExecutionNode
 {
     private static final Logger log = Logger.get(SqlStageExecution.class);
@@ -107,6 +109,7 @@ public class SqlStageExecution
     private final StageId stageId;
     private final URI location;
     private final PlanFragment fragment;
+    private final Set<PlanNodeId> allSources;
     private final Map<PlanFragmentId, StageExecutionNode> subStages;
 
     private final Multimap<Node, TaskId> localNodeTaskMap = HashMultimap.create();
@@ -209,6 +212,13 @@ public class SqlStageExecution
             this.initialHashPartitions = initialHashPartitions;
             this.executor = executor;
 
+            this.allSources = Stream.concat(
+                    Stream.of(fragment.getPartitionedSource()),
+                    fragment.getRemoteSourceNodes().stream()
+                            .map(RemoteSourceNode::getId))
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
             ImmutableMap.Builder<PlanFragmentId, StageExecutionNode> subStages = ImmutableMap.builder();
             for (StageExecutionPlan subStagePlan : plan.getSubStages()) {
                 PlanFragmentId subStageFragmentId = subStagePlan.getFragment().getId();
@@ -225,7 +235,7 @@ public class SqlStageExecution
                         executor,
                         nodeTaskMap);
 
-                subStage.addStateChangeListener(stageInfo -> doUpdateState());
+                subStage.addStateChangeListener(stageState -> doUpdateState());
 
                 subStages.put(subStageFragmentId, subStage);
             }
@@ -436,21 +446,15 @@ public class SqlStageExecution
 
         currentOutputBuffers = nextOutputBuffers;
         nextOutputBuffers = null;
+        this.notifyAll();
         return currentOutputBuffers;
     }
 
     @Override
-    public void addStateChangeListener(final StateChangeListener<StageInfo> stateChangeListener)
+    public void addStateChangeListener(StateChangeListener<StageState> stateChangeListener)
     {
         try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
-            stageState.addStateChangeListener(new StateChangeListener<StageState>()
-            {
-                @Override
-                public void stateChanged(StageState newValue)
-                {
-                    stateChangeListener.stateChanged(getStageInfo());
-                }
-            });
+            stageState.addStateChangeListener(stageState -> stateChangeListener.stateChanged(stageState));
         }
     }
 
@@ -459,18 +463,15 @@ public class SqlStageExecution
         Multimap<PlanNodeId, URI> exchangeLocations = this.exchangeLocations.get();
 
         ImmutableMultimap.Builder<PlanNodeId, URI> newExchangeLocations = ImmutableMultimap.builder();
-        for (PlanNode planNode : fragment.getSources()) {
-            if (planNode instanceof RemoteSourceNode) {
-                RemoteSourceNode remoteSourceNode = (RemoteSourceNode) planNode;
-                for (PlanFragmentId planFragmentId : remoteSourceNode.getSourceFragmentIds()) {
-                    StageExecutionNode subStage = subStages.get(planFragmentId);
-                    checkState(subStage != null, "Unknown sub stage %s, known stages %s", planFragmentId, subStages.keySet());
+        for (RemoteSourceNode remoteSourceNode : fragment.getRemoteSourceNodes()) {
+            for (PlanFragmentId planFragmentId : remoteSourceNode.getSourceFragmentIds()) {
+                StageExecutionNode subStage = subStages.get(planFragmentId);
+                checkState(subStage != null, "Unknown sub stage %s, known stages %s", planFragmentId, subStages.keySet());
 
-                    // add new task locations
-                    for (URI taskLocation : subStage.getTaskLocations()) {
-                        if (!exchangeLocations.containsEntry(remoteSourceNode.getId(), taskLocation)) {
-                            newExchangeLocations.putAll(remoteSourceNode.getId(), taskLocation);
-                        }
+                // add new task locations
+                for (URI taskLocation : subStage.getTaskLocations()) {
+                    if (!exchangeLocations.containsEntry(remoteSourceNode.getId(), taskLocation)) {
+                        newExchangeLocations.putAll(remoteSourceNode.getId(), taskLocation);
                     }
                 }
             }
@@ -695,7 +696,7 @@ public class SqlStageExecution
             // otherwise wait for some tasks to complete
             try {
                 // todo this adds latency: replace this wait with an event listener
-                TimeUnit.SECONDS.timedWait(this, 1);
+                TimeUnit.MILLISECONDS.timedWait(this, 100);
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -759,11 +760,6 @@ public class SqlStageExecution
         // update in case task finished before listener was registered
         doUpdateState();
 
-        // stop if stage is already done
-        if (getState().isDone()) {
-            return task;
-        }
-
         return task;
     }
 
@@ -786,7 +782,7 @@ public class SqlStageExecution
     {
         // get new exchanges and update exchange state
         Set<PlanNodeId> completeSources = updateCompleteSources();
-        boolean allSourceComplete = completeSources.containsAll(fragment.getSourceIds());
+        boolean allSourceComplete = completeSources.containsAll(allSources);
         Multimap<PlanNodeId, URI> newExchangeLocations = getNewExchangeLocations();
         exchangeLocations.set(ImmutableMultimap.<PlanNodeId, URI>builder()
                 .putAll(exchangeLocations.get())
@@ -819,23 +815,26 @@ public class SqlStageExecution
         while (!getState().isDone()) {
             // if next loop will finish, don't wait
             Set<PlanNodeId> completeSources = updateCompleteSources();
-            boolean allSourceComplete = completeSources.containsAll(fragment.getSourceIds());
+            boolean allSourceComplete = completeSources.containsAll(allSources);
             if (allSourceComplete && getCurrentOutputBuffers().isNoMoreBufferIds()) {
                 return;
             }
             // do we have a new set of output buffers?
-            synchronized (this) {
-                if (nextOutputBuffers != null) {
-                    return;
-                }
+            if (nextOutputBuffers != null) {
+                return;
             }
+
             // do we have new exchange locations?
             if (!getNewExchangeLocations().isEmpty()) {
                 return;
             }
+
             // wait for a state change
+            //
+            // NOTE this must be a wait with a timeout since there is no notification
+            // for new exchanges from the child stages
             try {
-                TimeUnit.SECONDS.timedWait(this, 1);
+                TimeUnit.MILLISECONDS.timedWait(this, 100);
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -846,9 +845,8 @@ public class SqlStageExecution
 
     private Set<PlanNodeId> updateCompleteSources()
     {
-        for (PlanNode planNode : fragment.getSources()) {
-            if (!completeSources.contains(planNode.getId()) && planNode instanceof RemoteSourceNode) {
-                RemoteSourceNode remoteSourceNode = (RemoteSourceNode) planNode;
+        for (RemoteSourceNode remoteSourceNode : fragment.getRemoteSourceNodes()) {
+            if (!completeSources.contains(remoteSourceNode.getId())) {
                 boolean exchangeFinished = true;
                 for (PlanFragmentId planFragmentId : remoteSourceNode.getSourceFragmentIds()) {
                     StageExecutionNode subStage = subStages.get(planFragmentId);
@@ -860,7 +858,7 @@ public class SqlStageExecution
                     }
                 }
                 if (exchangeFinished) {
-                    completeSources.add(planNode.getId());
+                    completeSources.add(remoteSourceNode.getId());
                 }
             }
         }
@@ -882,7 +880,7 @@ public class SqlStageExecution
                     return;
                 }
 
-                List<StageState> subStageStates = ImmutableList.copyOf(transform(transform(subStages.values(), StageExecutionNode::getStageInfo), StageInfo::getState));
+                List<StageState> subStageStates = ImmutableList.copyOf(transform(subStages.values(), StageExecutionNode::getState));
                 if (subStageStates.stream().anyMatch(StageState::isFailure)) {
                     stageState.set(StageState.ABORTED);
                 }
@@ -894,7 +892,7 @@ public class SqlStageExecution
                     else if (any(taskStates, equalTo(TaskState.ABORTED))) {
                         // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
                         stageState.set(StageState.FAILED);
-                        failureCauses.add(new PrestoException(StandardErrorCode.INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
+                        failureCauses.add(new PrestoException(StandardErrorCode.INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + currentState));
                     }
                     else if (currentState != StageState.PLANNED && currentState != StageState.SCHEDULING) {
                         // all tasks are now scheduled, so we can check the finished state
@@ -928,12 +926,10 @@ public class SqlStageExecution
             // check if the stage already completed naturally
             doUpdateState();
             synchronized (this) {
-                if (stageState.get().isDone()) {
-                    return;
+                if (!stageState.get().isDone()) {
+                    log.debug("Cancelling stage %s", stageId);
+                    stageState.set(StageState.CANCELED);
                 }
-
-                log.debug("Cancelling stage %s", stageId);
-                stageState.set(StageState.CANCELED);
             }
 
             // cancel all tasks
@@ -993,7 +989,7 @@ public class SqlStageExecution
 
     private static Optional<Integer> getHashChannel(PlanFragment fragment)
     {
-        return fragment.getHash().map(symbol -> fragment.getRoot().getOutputSymbols().indexOf(symbol));
+        return fragment.getHash().map(symbol -> fragment.getOutputLayout().indexOf(symbol));
     }
 
     private static List<Integer> getPartitioningChannels(PlanFragment fragment)
@@ -1001,7 +997,7 @@ public class SqlStageExecution
         checkState(fragment.getOutputPartitioning() == OutputPartitioning.HASH, "fragment is not hash partitioned");
         // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
         return fragment.getPartitionBy().stream()
-                .map(symbol -> fragment.getRoot().getOutputSymbols().indexOf(symbol))
+                .map(symbol -> fragment.getOutputLayout().indexOf(symbol))
                 .collect(toImmutableList());
     }
 }
@@ -1024,7 +1020,7 @@ interface StageExecutionNode
 
     Iterable<? extends URI> getTaskLocations();
 
-    void addStateChangeListener(StateChangeListener<StageInfo> stateChangeListener);
+    void addStateChangeListener(StateChangeListener<StageState> stateChangeListener);
 
     void cancelStage(StageId stageId);
 

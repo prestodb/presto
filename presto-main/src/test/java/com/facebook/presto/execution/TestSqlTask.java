@@ -19,6 +19,7 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.SharedBuffer.BufferState;
+import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
@@ -28,13 +29,11 @@ import io.airlift.event.client.NullEventClient;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -49,7 +48,7 @@ import static com.facebook.presto.execution.TaskTestUtils.updateTask;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -69,10 +68,10 @@ public class TestSqlTask
 
     public TestSqlTask()
     {
-        taskExecutor = new TaskExecutor(8);
+        taskExecutor = new TaskExecutor(8, 16);
         taskExecutor.start();
 
-        taskNotificationExecutor = newScheduledThreadPool(5, threadsNamed("task-notification-%d"));
+        taskNotificationExecutor = newScheduledThreadPool(5, threadsNamed("task-notification-%s"));
 
         LocalExecutionPlanner planner = createTestingPlanner();
 
@@ -80,7 +79,7 @@ public class TestSqlTask
                 taskNotificationExecutor,
                 taskExecutor,
                 planner,
-                new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient(), new NodeInfo("test")),
+                new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient(), new NodeInfo("test"), new NodeVersion("testVersion")),
                 new TaskManagerConfig());
     }
 
@@ -132,16 +131,16 @@ public class TestSqlTask
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
-        BufferResult results = sqlTask.getTaskResults(OUT, 0, new DataSize(1, Unit.MEGABYTE)).get();
+        BufferResult results = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE)).get();
         assertEquals(results.isBufferClosed(), false);
         assertEquals(results.getPages().size(), 1);
         assertEquals(results.getPages().get(0).getPositionCount(), 1);
 
-        results = sqlTask.getTaskResults(OUT, results.getToken() + results.getPages().size(), new DataSize(1, Unit.MEGABYTE)).get();
+        results = sqlTask.getTaskResults(OUT, results.getToken() + results.getPages().size(), new DataSize(1, MEGABYTE)).get();
         assertEquals(results.isBufferClosed(), true);
         assertEquals(results.getPages().size(), 0);
 
-        taskInfo = sqlTask.getTaskInfo(taskInfo.getState()).get(1, TimeUnit.SECONDS);
+        taskInfo = sqlTask.getTaskInfo(taskInfo.getState()).get(1, SECONDS);
         assertEquals(taskInfo.getState(), TaskState.FINISHED);
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getState(), TaskState.FINISHED);
@@ -190,7 +189,7 @@ public class TestSqlTask
 
         sqlTask.abortTaskResults(OUT);
 
-        taskInfo = sqlTask.getTaskInfo(taskInfo.getState()).get(1, TimeUnit.SECONDS);
+        taskInfo = sqlTask.getTaskInfo(taskInfo.getState()).get(1, SECONDS);
         assertEquals(taskInfo.getState(), TaskState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo();
@@ -213,8 +212,8 @@ public class TestSqlTask
         updateTask(sqlTask, ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.<ScheduledSplit>of(), true)), outputBuffers);
         assertEquals(sqlTask.getTaskInfo().getState(), TaskState.FINISHED);
 
-        // buffer will be closed by cancel event (wait for 500 MS for event to fire)
-        assertTrue(bufferResult.get(200, MILLISECONDS).isBufferClosed());
+        // buffer will be closed by cancel event (wait for event to fire)
+        assertTrue(bufferResult.get(1, SECONDS).isBufferClosed());
         assertEquals(sqlTask.getTaskInfo().getOutputBuffers().getState(), BufferState.FINISHED);
 
         // verify the buffer is closed
@@ -238,7 +237,7 @@ public class TestSqlTask
         assertEquals(sqlTask.getTaskInfo().getState(), TaskState.CANCELED);
 
         // buffer will be closed by cancel event.. the event is async so wait a bit for event to propagate
-        assertTrue(bufferResult.get(200, MILLISECONDS).isBufferClosed());
+        assertTrue(bufferResult.get(1, SECONDS).isBufferClosed());
 
         bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
         assertTrue(bufferResult.isDone());
@@ -258,14 +257,15 @@ public class TestSqlTask
 
         TaskState taskState = sqlTask.getTaskInfo().getState();
         sqlTask.failed(new Exception("test"));
-        assertEquals(sqlTask.getTaskInfo(taskState).get(200, MILLISECONDS).getState(), TaskState.FAILED);
+        assertEquals(sqlTask.getTaskInfo(taskState).get(1, SECONDS).getState(), TaskState.FAILED);
 
         // buffer will not be closed by fail event.  event is async so wait a bit for event to fire
         try {
-            assertTrue(bufferResult.get(200, MILLISECONDS).isBufferClosed());
+            assertTrue(bufferResult.get(1, SECONDS).isBufferClosed());
             fail("expected TimeoutException");
         }
         catch (TimeoutException expected) {
+            // expected
         }
         assertFalse(sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE)).isDone());
     }
@@ -277,6 +277,7 @@ public class TestSqlTask
 
         return new SqlTask(
                 taskId,
+                "test",
                 location,
                 sqlTaskExecutionFactory,
                 taskNotificationExecutor,

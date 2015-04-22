@@ -46,7 +46,6 @@ public final class ShardManagerDaoUtils
         dao.createTableNodes();
         dao.createTableShards();
         dao.createTableShardNodes();
-        dao.createTableTableShards();
         dao.createTableExternalBatches();
     }
 

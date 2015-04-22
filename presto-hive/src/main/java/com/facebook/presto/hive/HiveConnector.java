@@ -15,36 +15,48 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.SystemTable;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.log.Logger;
+
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HiveConnector
         implements Connector
 {
+    private static final Logger log = Logger.get(HiveConnector.class);
+
+    private final LifeCycleManager lifeCycleManager;
     private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final ConnectorRecordSinkProvider recordSinkProvider;
     private final ConnectorHandleResolver handleResolver;
+    private final Set<SystemTable> systemTables;
 
     public HiveConnector(
+            LifeCycleManager lifeCycleManager,
             ConnectorMetadata metadata,
             ConnectorSplitManager splitManager,
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorRecordSinkProvider recordSinkProvider,
-            ConnectorHandleResolver handleResolver)
+            ConnectorHandleResolver handleResolver,
+            Set<SystemTable> systemTables)
     {
+        this.lifeCycleManager = checkNotNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
         this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceProvider is null");
         this.recordSinkProvider = checkNotNull(recordSinkProvider, "recordSinkProvider is null");
         this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
+        this.systemTables = ImmutableSet.copyOf(checkNotNull(systemTables, "systemTables is null"));
     }
 
     @Override
@@ -66,12 +78,6 @@ public class HiveConnector
     }
 
     @Override
-    public ConnectorRecordSetProvider getRecordSetProvider()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public ConnectorRecordSinkProvider getRecordSinkProvider()
     {
         return recordSinkProvider;
@@ -84,8 +90,19 @@ public class HiveConnector
     }
 
     @Override
-    public ConnectorIndexResolver getIndexResolver()
+    public Set<SystemTable> getSystemTables()
     {
-        throw new UnsupportedOperationException();
+        return systemTables;
+    }
+
+    @Override
+    public final void shutdown()
+    {
+        try {
+            lifeCycleManager.stop();
+        }
+        catch (Exception e) {
+            log.error(e, "Error shutting down connector");
+        }
     }
 }

@@ -92,6 +92,19 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testNonDeterministicFilter()
+    {
+        MaterializedResult materializedResult = computeActual("SELECT u FROM ( SELECT if(rand() > 0.5, 0, 1) AS u ) WHERE u <> u");
+        assertEquals(materializedResult.getRowCount(), 0);
+
+        materializedResult = computeActual("SELECT u, v FROM ( SELECT if(rand() > 0.5, 0, 1) AS u, 4*4 as v ) WHERE u <> u and v > 10");
+        assertEquals(materializedResult.getRowCount(), 0);
+
+        materializedResult = computeActual("SELECT u, v, w FROM ( SELECT if(rand() > 0.5, 0, 1) AS u, 4*4 as v, 'abc' as w ) WHERE v > 10");
+        assertEquals(materializedResult.getRowCount(), 1);
+    }
+
+    @Test
     public void testVarbinary()
             throws Exception
     {
@@ -121,8 +134,15 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT a FROM UNNEST(ARRAY[1, 2, 3]) t(a)", "SELECT * FROM VALUES (1), (2), (3)");
         assertQuery("SELECT a, b FROM UNNEST(ARRAY[1, 2], ARRAY[3, 4]) t(a, b)", "SELECT * FROM VALUES (1, 3), (2, 4)");
         assertQuery("SELECT a, b FROM UNNEST(ARRAY[1, 2, 3], ARRAY[4, 5]) t(a, b)", "SELECT * FROM VALUES (1, 4), (2, 5), (3, NULL)");
+        assertQuery("SELECT a FROM UNNEST(ARRAY[1, 2, 3], ARRAY[4, 5]) t(a, b)", "SELECT * FROM VALUES 1, 2, 3");
+        assertQuery("SELECT b FROM UNNEST(ARRAY[1, 2, 3], ARRAY[4, 5]) t(a, b)", "SELECT * FROM VALUES 4, 5, NULL");
+        assertQuery("SELECT count(*) FROM UNNEST(ARRAY[1, 2, 3], ARRAY[4, 5])", "SELECT 3");
         assertQuery("SELECT a FROM UNNEST(ARRAY['kittens', 'puppies']) t(a)", "SELECT * FROM VALUES ('kittens'), ('puppies')");
-        assertQuery("SELECT a FROM UNNEST(ARRAY[1, NULL, 3]) t(a)", "SELECT * FROM VALUES (1), (NULL), (3)");
+        assertQuery("" +
+                "SELECT c " +
+                "FROM UNNEST(ARRAY[1, 2, 3], ARRAY[4, 5]) t(a, b) " +
+                "CROSS JOIN (values (8), (9)) t2(c)",
+                "SELECT * FROM VALUES 8, 8, 8, 9, 9, 9");
         assertQuery("" +
                 "SELECT a.custkey, t.e " +
                 "FROM (SELECT custkey, ARRAY[1, 2, 3] AS my_array FROM orders ORDER BY orderkey LIMIT 1) a " +
@@ -139,6 +159,27 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM VALUES (0, 0, 0), (0, 0, 1), (0, 1, 0), (0, 1, 1), (1, 0, 0), (1, 0, 1), (1, 1, 0), (1, 1, 1)");
         assertQuery("SELECT a, b FROM UNNEST(MAP(ARRAY[1,2], ARRAY['cat', 'dog'])) t(a, b)", "SELECT * FROM VALUES (1, 'cat'), (2, 'dog')");
         assertQuery("SELECT a, b FROM UNNEST(MAP(ARRAY[1,2], ARRAY['cat', NULL])) t(a, b)", "SELECT * FROM VALUES (1, 'cat'), (2, NULL)");
+
+        assertQuery("SELECT 1 FROM (VALUES (ARRAY[1])) AS t (a) CROSS JOIN UNNEST(a) WITH ORDINALITY", "SELECT 1");
+        assertQuery("SELECT * FROM UNNEST(ARRAY[1, 2, 3]) WITH ORDINALITY", "SELECT * FROM VALUES (1, 1), (2, 2), (3, 3)");
+        assertQuery("SELECT b FROM UNNEST(ARRAY[10, 20, 30]) WITH ORDINALITY t(a, b)", "SELECT * FROM VALUES (1), (2), (3)");
+        assertQuery("SELECT a, b, c FROM UNNEST(ARRAY[10, 20, 30], ARRAY[4, 5]) WITH ORDINALITY t(a, b, c)", "SELECT * FROM VALUES (10, 4, 1), (20, 5, 2), (30, NULL, 3)");
+        assertQuery("SELECT a, b FROM UNNEST(ARRAY['kittens', 'puppies']) WITH ORDINALITY t(a, b)", "SELECT * FROM VALUES ('kittens', 1), ('puppies', 2)");
+        assertQuery("" +
+                        "SELECT c " +
+                        "FROM UNNEST(ARRAY[1, 2, 3], ARRAY[4, 5]) WITH ORDINALITY t(a, b, c) " +
+                        "CROSS JOIN (values (8), (9)) t2(d)",
+                "SELECT * FROM VALUES 1, 1, 2, 2, 3, 3");
+        assertQuery("" +
+                        "SELECT a.custkey, t.e, t.f " +
+                        "FROM (SELECT custkey, ARRAY[10, 20, 30] AS my_array FROM orders ORDER BY orderkey LIMIT 1) a " +
+                        "CROSS JOIN UNNEST(my_array) WITH ORDINALITY t(e, f)",
+                "SELECT * FROM (SELECT custkey FROM orders ORDER BY orderkey LIMIT 1) CROSS JOIN (VALUES (10, 1), (20, 2), (30, 3))");
+        assertQuery("" +
+                        "SELECT a.custkey, t.e, t.f " +
+                        "FROM (SELECT custkey, ARRAY[10, 20, 30] AS my_array FROM orders ORDER BY orderkey LIMIT 1) a, " +
+                        "UNNEST(my_array) WITH ORDINALITY t(e, f)",
+                "SELECT * FROM (SELECT custkey FROM orders ORDER BY orderkey LIMIT 1) CROSS JOIN (VALUES (10, 1), (20, 2), (30, 3))");
     }
 
     @Test
@@ -196,6 +237,20 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT custkey, MAX(NULLIF(orderstatus, 'O')), MIN(NULLIF(orderstatus, 'O')) FROM orders GROUP BY custkey");
+    }
+
+    @Test
+    public void testGroupByPartitioningColumn()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey, count(*) FROM orders GROUP BY orderkey");
+    }
+
+    @Test
+    public void testJoinPartitionedTable()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM orders a JOIN orders b ON a.orderkey = b.orderkey");
     }
 
     @Test
@@ -317,7 +372,7 @@ public abstract class AbstractTestQueries
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
                 .row("O", 995)
                 .row("F", 993)
-                .row("P", 304)
+                .row("P", 303)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -331,7 +386,7 @@ public abstract class AbstractTestQueries
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
                 .row("O", 995)
                 .row("F", 993)
-                .row("P", 304)
+                .row("P", 303)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -568,6 +623,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOrderByLimitZero()
+            throws Exception
+    {
+        assertQuery("SELECT custkey, totalprice FROM orders ORDER BY orderkey LIMIT 0");
+    }
+
+    @Test
     public void testRepeatedAggregations()
             throws Exception
     {
@@ -778,10 +840,24 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByMap()
+            throws Exception
+    {
+        assertQuery("SELECT col[1], count FROM (SELECT MAP(ARRAY[1], ARRAY[custkey]) col, COUNT(*) count FROM ORDERS GROUP BY 1)", "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
+    }
+
+    @Test
     public void testGroupByRow()
             throws Exception
     {
         assertQuery("SELECT col.col1, count FROM (SELECT test_row(custkey, custkey) col, COUNT(*) count FROM ORDERS GROUP BY 1)", "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
+    }
+
+    @Test
+    public void testJoinCoercion()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM orders t join (SELECT * FROM orders LIMIT 1) t2 ON sin(t2.custkey) = 0");
     }
 
     @Test
@@ -937,6 +1013,13 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT sum(totalprice * 2) + sum(totalprice * 2) FROM orders");
+    }
+
+    @Test
+    public void testGroupByOnSupersetOfPartitioning()
+            throws Exception
+    {
+        assertQuery("SELECT orderdate, c, count(*) FROM (SELECT orderdate, count(*) c FROM orders GROUP BY orderdate) GROUP BY orderdate, c");
     }
 
     @Test
@@ -1873,6 +1956,13 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT max(a), max(b) FROM (SELECT custkey a, custkey b FROM orders) x");
     }
 
+    @Test
+    public void testWindowFunctionWithImplicitCoercion()
+            throws Exception
+    {
+        assertQuery("SELECT *, 1.0 * sum(x) OVER () FROM (VALUES 1) t(x)", "SELECT 1, 1.0");
+    }
+
     @SuppressWarnings("PointlessArithmeticExpression")
     @Test
     public void testWindowFunctionsExpressions()
@@ -2235,6 +2325,9 @@ public abstract class AbstractTestQueries
 
         assertQuery("SELECT try_cast('foo' AS BIGINT) FROM orders", "SELECT CAST(null AS BIGINT) FROM orders");
         assertQuery("SELECT try_cast(clerk AS BIGINT) FROM orders", "SELECT CAST(null AS BIGINT) FROM orders");
+        assertQuery("SELECT try_cast(orderkey * orderkey AS VARCHAR) FROM orders", "SELECT CAST(orderkey * orderkey AS VARCHAR) FROM orders");
+        assertQuery("SELECT try_cast(try_cast(orderkey AS VARCHAR) AS BIGINT) FROM orders", "SELECT orderkey FROM orders");
+        assertQuery("SELECT try_cast(clerk AS VARCHAR) || try_cast(clerk AS VARCHAR) FROM orders", "SELECT clerk || clerk FROM orders");
 
         assertQuery("SELECT coalesce(try_cast('foo' AS BIGINT), 456) FROM orders", "SELECT 456 FROM orders");
         assertQuery("SELECT coalesce(try_cast(clerk AS BIGINT), 456) FROM orders", "SELECT 456 FROM orders");
@@ -2524,7 +2617,7 @@ public abstract class AbstractTestQueries
     public void testNodeRoster()
             throws Exception
     {
-        List<MaterializedRow> result = computeActual("SELECT * FROM sys.node").getMaterializedRows();
+        List<MaterializedRow> result = computeActual("SELECT * FROM system.runtime.nodes").getMaterializedRows();
         assertEquals(result.size(), getNodeCount());
     }
 
@@ -2532,7 +2625,7 @@ public abstract class AbstractTestQueries
     public void testCountOnInternalTables()
             throws Exception
     {
-        List<MaterializedRow> rows = computeActual("SELECT count(*) FROM sys.node").getMaterializedRows();
+        List<MaterializedRow> rows = computeActual("SELECT count(*) FROM system.runtime.nodes").getMaterializedRows();
         assertEquals(((Long) rows.get(0).getField(0)).longValue(), getNodeCount());
     }
 
@@ -2632,7 +2725,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS");
         ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertTrue(schemaNames.containsAll(ImmutableSet.of(getSession().getSchema(), INFORMATION_SCHEMA, "sys")));
+        assertTrue(schemaNames.containsAll(ImmutableSet.of(getSession().getSchema(), INFORMATION_SCHEMA)));
     }
 
     @Test
@@ -2641,7 +2734,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", getSession().getCatalog()));
         ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertTrue(schemaNames.containsAll(ImmutableSet.of(getSession().getSchema(), INFORMATION_SCHEMA, "sys")));
+        assertTrue(schemaNames.containsAll(ImmutableSet.of(getSession().getSchema(), INFORMATION_SCHEMA)));
     }
 
     @Test
@@ -3460,10 +3553,22 @@ public abstract class AbstractTestQueries
         computeActual("SELECT length(1)");
     }
 
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\QUnexpected parameters (color) for function greatest. Expected: greatest(E) E:orderable\\E.*")
+    public void testFunctionArgumentTypeConstraint()
+    {
+        computeActual("SELECT greatest(rgb(255, 0, 0))");
+    }
+
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\QOperator NOT_EQUAL(bigint, varchar) not registered\\E")
     public void testTypeMismatch()
     {
         computeActual("SELECT 1 <> 'x'");
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\QUnknown type: ARRAY<FOO>\\E")
+    public void testInvalidType()
+    {
+        computeActual("select cast(null as array<foo>)");
     }
 
     @Test
@@ -3537,7 +3642,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT cardinality(approx_set(custkey)) FROM orders");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT)
-                .row(999)
+                .row(1002)
                 .build();
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -3550,7 +3655,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT cardinality(approx_set(CAST(custkey AS VARCHAR))) FROM orders");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT)
-                .row(1006)
+                .row(1024)
                 .build();
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -3579,8 +3684,8 @@ public abstract class AbstractTestQueries
                 "GROUP BY orderstatus");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 997)
-                .row("F", 995)
+                .row("O", 1001)
+                .row("F", 998)
                 .row("P", 304)
                 .build();
 
@@ -3597,9 +3702,9 @@ public abstract class AbstractTestQueries
                 "GROUP BY orderstatus");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 1004)
-                .row("F", 1002)
-                .row("P", 305)
+                .row("O", 1021)
+                .row("F", 1019)
+                .row("P", 304)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -3615,8 +3720,8 @@ public abstract class AbstractTestQueries
                 "GROUP BY orderstatus");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 1002)
-                .row("F", 1000)
+                .row("O", 1011)
+                .row("F", 1011)
                 .row("P", 304)
                 .build();
 
@@ -3630,7 +3735,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT cardinality(approx_set(IF(orderstatus = 'O', custkey))) FROM orders");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row(997)
+                .row(1001)
                 .build();
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -3660,7 +3765,7 @@ public abstract class AbstractTestQueries
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
                 .row("O", null)
-                .row("F", 995)
+                .row("F", 998)
                 .row("P", 304)
                 .build();
 
@@ -3677,8 +3782,8 @@ public abstract class AbstractTestQueries
                 "GROUP BY orderstatus");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 500)
-                .row("F", 497)
+                .row("O", 499)
+                .row("F", 496)
                 .row("P", 153)
                 .build();
 
@@ -3692,7 +3797,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT cardinality(merge(create_hll(custkey))) FROM orders");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT)
-                .row(999)
+                .row(1002)
                 .build();
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -3708,8 +3813,8 @@ public abstract class AbstractTestQueries
                 "GROUP BY orderstatus");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 997)
-                .row("F", 995)
+                .row("O", 1001)
+                .row("F", 998)
                 .row("P", 304)
                 .build();
 
@@ -3723,7 +3828,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT cardinality(merge(create_hll(IF(orderstatus = 'O', custkey)))) FROM orders");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT)
-                .row(997)
+                .row(1001)
                 .build();
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -3740,7 +3845,7 @@ public abstract class AbstractTestQueries
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
                 .row("O", null)
-                .row("F", 995)
+                .row("F", 998)
                 .row("P", 304)
                 .build();
 
