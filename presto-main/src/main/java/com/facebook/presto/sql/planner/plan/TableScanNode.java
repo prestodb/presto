@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -132,5 +133,18 @@ public class TableScanNode
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitTableScan(this, context);
+    }
+
+    @Override
+    public String toString()
+    {
+        return MoreObjects.toStringHelper(this)
+                .add("table", table)
+                .add("tableLayout", tableLayout)
+                .add("outputSymbols", outputSymbols)
+                .add("assignments", assignments)
+                .add("currentConstraint", currentConstraint)
+                .add("originalConstraint", originalConstraint)
+                .toString();
     }
 }
