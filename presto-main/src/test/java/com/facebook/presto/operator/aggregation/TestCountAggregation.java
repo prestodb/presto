@@ -26,13 +26,13 @@ public class TestCountAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block getSequenceBlock(int start, int length)
+    public Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = start; i < start + length; i++) {
             BIGINT.writeLong(blockBuilder, i);
         }
-        return blockBuilder.build();
+        return new Block[] {blockBuilder.build()};
     }
 
     @Override

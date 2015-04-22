@@ -28,13 +28,13 @@ public class TestArrayMinAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block getSequenceBlock(int start, int length)
+    public Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = start; i < start + length; i++) {
             VARBINARY.writeSlice(blockBuilder, toStackRepresentation(ImmutableList.of(i), BigintType.BIGINT));
         }
-        return blockBuilder.build();
+        return new Block[] {blockBuilder.build()};
     }
 
     @Override

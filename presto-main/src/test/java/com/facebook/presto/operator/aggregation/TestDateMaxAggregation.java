@@ -27,13 +27,13 @@ public class TestDateMaxAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block getSequenceBlock(int start, int length)
+    public Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = DateType.DATE.createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = start; i < start + length; i++) {
             DateType.DATE.writeLong(blockBuilder, i);
         }
-        return blockBuilder.build();
+        return new Block[] {blockBuilder.build()};
     }
 
     @Override
