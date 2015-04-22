@@ -16,7 +16,7 @@ package com.facebook.presto.spi;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -24,52 +24,51 @@ import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
-public class GroupingProperty<T>
-        implements LocalProperty<T>
+public final class GroupingProperty<E>
+        implements LocalProperty<E>
 {
-    private final Set<T> columns;
+    private final Set<E> columns;
 
-    public GroupingProperty(Collection<T> columns)
+    public GroupingProperty(Collection<E> columns)
     {
         requireNonNull(columns, "columns is null");
 
         this.columns = Collections.unmodifiableSet(new HashSet<>(columns));
     }
 
-    public Set<T> getColumns()
+    public Set<E> getColumns()
     {
         return columns;
     }
 
     @Override
-    public String toString()
+    public LocalProperty<E> constrain(Set<E> columns)
     {
-        StringBuilder builder = new StringBuilder();
-        builder.append("G(");
-        Iterator<T> columns = this.columns.iterator();
-        while (columns.hasNext()) {
-            builder.append(columns.next().toString());
-            if (columns.hasNext()) {
-                builder.append(", ");
-            }
+        if (!this.columns.containsAll(columns)) {
+            throw new IllegalArgumentException(String.format("Cannot constrain %s with %s", this, columns));
         }
-        builder.append(")");
 
-        return builder.toString();
+        return new GroupingProperty<>(columns);
+    }
+
+    @Override
+    public boolean isSimplifiedBy(LocalProperty<E> known)
+    {
+        return known instanceof ConstantProperty || getColumns().containsAll(known.getColumns());
     }
 
     /**
      * @return Optional.empty() if any of the columns could not be translated
      */
     @Override
-    public <E> Optional<LocalProperty<E>> translate(Function<T, Optional<E>> translator)
+    public <T> Optional<LocalProperty<T>> translate(Function<E, Optional<T>> translator)
     {
-        Set<Optional<E>> translated = columns.stream()
+        Set<Optional<T>> translated = columns.stream()
                 .map(translator)
                 .collect(Collectors.toSet());
 
         if (translated.stream().allMatch(Optional::isPresent)) {
-            Set<E> columns = translated.stream()
+            Set<T> columns = translated.stream()
                     .map(Optional::get)
                     .collect(Collectors.toSet());
 
@@ -77,5 +76,36 @@ public class GroupingProperty<T>
         }
 
         return Optional.empty();
+    }
+
+    @Override
+    public String toString()
+    {
+        StringBuilder builder = new StringBuilder();
+        builder.append("G(");
+        builder.append(columns.stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(", ")));
+        builder.append(")");
+        return builder.toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        GroupingProperty<?> that = (GroupingProperty<?>) o;
+        return Objects.equals(columns, that.columns);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(columns);
     }
 }
