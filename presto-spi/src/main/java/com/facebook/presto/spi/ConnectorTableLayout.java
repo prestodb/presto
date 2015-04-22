@@ -74,9 +74,10 @@ public class ConnectorTableLayout
     }
 
     /**
-     * Optional.empty() => the table layout is partitioned arbitrarily.
-     * isPresent() => partitioned on the given set of columns (or unpartitioned, if the set is empty)
-     *
+     * The partitioning for the table.
+     * If empty, the table layout is partitioned arbitrarily.
+     * Otherwise, it is partitioned on the given set of columns (or unpartitioned, if the set is empty)
+     * <p>
      * If the table is partitioned, the connector guarantees that each combination of values for
      * the partition columns will be contained within a single split (i.e., partitions cannot
      * straddle multiple splits)
