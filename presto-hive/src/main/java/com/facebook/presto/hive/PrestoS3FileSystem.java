@@ -521,34 +521,8 @@ public class PrestoS3FileSystem
             checkState(!closed, "already closed");
             checkArgument(pos >= 0, "position is negative: %s", pos);
 
-            // this allows a seek beyond the end of the stream but a the next read will fail
+            // this allows a seek beyond the end of the stream but the next read will fail
             nextReadPosition = pos;
-        }
-
-        private void seekStream()
-                throws IOException
-        {
-            if ((in != null) && (nextReadPosition == streamPosition)) {
-                // already at specified position
-                return;
-            }
-
-            if ((in != null) && (nextReadPosition > streamPosition)) {
-                // seeking forwards
-                long skip = nextReadPosition - streamPosition;
-                if (skip <= max(in.available(), MAX_SKIP_SIZE.toBytes())) {
-                    // already buffered or seek is small enough
-                    if (in.skip(skip) == skip) {
-                        streamPosition = nextReadPosition;
-                        return;
-                    }
-                }
-            }
-
-            // close the stream and open at desired position
-            streamPosition = nextReadPosition;
-            closeStream();
-            openStream();
         }
 
         @Override
@@ -606,6 +580,42 @@ public class PrestoS3FileSystem
             return false;
         }
 
+        private void seekStream()
+                throws IOException
+        {
+            if ((in != null) && (nextReadPosition == streamPosition)) {
+                // already at specified position
+                return;
+            }
+
+            if ((in != null) && (nextReadPosition > streamPosition)) {
+                // seeking forwards
+                long skip = nextReadPosition - streamPosition;
+                if (skip <= max(in.available(), MAX_SKIP_SIZE.toBytes())) {
+                    // already buffered or seek is small enough
+                    if (in.skip(skip) == skip) {
+                        streamPosition = nextReadPosition;
+                        return;
+                    }
+                }
+            }
+
+            // close the stream and open at desired position
+            streamPosition = nextReadPosition;
+            closeStream();
+            openStream();
+        }
+
+        private void openStream()
+                throws IOException
+        {
+            if (in == null) {
+                in = getS3Object(path, nextReadPosition).getObjectContent();
+                streamPosition = nextReadPosition;
+                STATS.connectionOpened();
+            }
+        }
+
         private S3Object getS3Object(Path path, long start)
                 throws IOException
         {
@@ -633,16 +643,6 @@ public class PrestoS3FileSystem
             catch (Exception e) {
                 Throwables.propagateIfInstanceOf(e, IOException.class);
                 throw Throwables.propagate(e);
-            }
-        }
-
-        private void openStream()
-                throws IOException
-        {
-            if (in == null) {
-                in = getS3Object(path, nextReadPosition).getObjectContent();
-                streamPosition = nextReadPosition;
-                STATS.connectionOpened();
             }
         }
 
