@@ -13,6 +13,7 @@
  */
 package com.teradata.presto.functions.dateformat;
 
+import com.facebook.presto.spi.PrestoException;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormatter;
 import org.testng.annotations.BeforeClass;
@@ -34,6 +35,12 @@ public class TestTeradataDateFormatterBuilder
     public void testFormatterBuilder()
     {
         testFormat("yyyy/mm/dd", "1988/04/08", new DateTime(1988, 4, 8, 0, 0));
+    }
+
+    @Test(expectedExceptions = PrestoException.class)
+    public void testInvalidToken1()
+    {
+        builder.createDateTimeFormatter("yyym/mm/dd");
     }
 
     private void testFormat(String format, String dateString, DateTime expected)

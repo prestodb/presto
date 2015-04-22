@@ -16,7 +16,10 @@ package com.teradata.presto.functions.dateformat.tokens;
 import com.teradata.presto.functions.dateformat.Token;
 import org.joda.time.format.DateTimeFormatterBuilder;
 
-public class TextToken implements Token
+/**
+ * Literal text token
+ */
+public class TextToken extends Token
 {
     private String text;
 

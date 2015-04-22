@@ -16,7 +16,10 @@ package com.teradata.presto.functions.dateformat.tokens;
 import com.teradata.presto.functions.dateformat.Token;
 import org.joda.time.format.DateTimeFormatterBuilder;
 
-public class HHToken implements Token
+/**
+ * Hour of half day token (0-12)
+ */
+public class HHToken extends Token
 {
     @Override
     public String representation()

@@ -14,12 +14,13 @@
 package com.teradata.presto.functions.dateformat;
 
 import com.facebook.presto.spi.PrestoException;
+import com.teradata.presto.functions.dateformat.tokens.TextToken;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static org.testng.Assert.assertEquals;
+import static org.fest.assertions.Assertions.assertThat;
 
 public class TestDateFormatLexer
 {
@@ -28,15 +29,14 @@ public class TestDateFormatLexer
     @BeforeClass
     public void setUp()
     {
-        yearLexer = DateFormatLexer.builder().add("yyyy").build();
+        yearLexer = DateFormatLexer.builder().add(token("yyyy")).build();
     }
 
     @Test
     public void testSimpleFormat()
     {
         List<Token> tokens = yearLexer.tokenize("yyyy");
-        assertEquals(tokens.size(), 1);
-        assertEquals(tokens.get(0).representation(), "yyyy");
+        assertThat(tokens).containsExactly(token("yyyy"));
     }
 
     @Test(expectedExceptions = PrestoException.class)
@@ -55,51 +55,51 @@ public class TestDateFormatLexer
     public void testYearMonthDay()
     {
         DateFormatLexer yearMonthDayLexer = DateFormatLexer.builder()
-                .add("yyyy")
-                .add("mm")
-                .add("dd")
-                .add("-")
-                .add("/")
+                .add(token("yyyy"))
+                .add(token("mm"))
+                .add(token("dd"))
+                .add(token("-"))
+                .add(token("/"))
                 .build();
 
         List<Token> tokens = yearMonthDayLexer.tokenize("mm-dd/yyyy");
-        assertEquals(tokens.size(), 5);
-        assertEquals(tokens.get(0).representation(), "mm");
-        assertEquals(tokens.get(1).representation(), "-");
-        assertEquals(tokens.get(2).representation(), "dd");
-        assertEquals(tokens.get(3).representation(), "/");
-        assertEquals(tokens.get(4).representation(), "yyyy");
+        assertThat(tokens).containsExactly(token("mm"), token("-"), token("dd"), token("/"), token("yyyy"));
     }
 
     @Test
     public void testGreedinessLongFirst()
     {
         DateFormatLexer lexer = DateFormatLexer.builder()
-                .add("yyy")
-                .add("yy")
-                .add("y")
+                .add(token("yyy"))
+                .add(token("yy"))
+                .add(token("y"))
                 .build();
 
-        assertEquals(lexer.tokenize("y").size(), 1);
-        assertEquals(lexer.tokenize("yy").size(), 1);
-        assertEquals(lexer.tokenize("yyy").size(), 1);
-        assertEquals(lexer.tokenize("yyyy").size(), 2);
-        assertEquals(lexer.tokenize("yyyyy").size(), 2);
-        assertEquals(lexer.tokenize("yyyyyy").size(), 2);
-        assertEquals(lexer.tokenize("yyyyyyy").size(), 3);
+        assertThat(lexer.tokenize("y")).hasSize(1);
+        assertThat(lexer.tokenize("yy")).hasSize(1);
+        assertThat(lexer.tokenize("yyy")).hasSize(1);
+        assertThat(lexer.tokenize("yyyy")).hasSize(2);
+        assertThat(lexer.tokenize("yyyyy")).hasSize(2);
+        assertThat(lexer.tokenize("yyyyyy")).hasSize(2);
+        assertThat(lexer.tokenize("yyyyyyy")).hasSize(3);
     }
 
     @Test
     public void testGreedinessShortFirst()
     {
         DateFormatLexer lexer = DateFormatLexer.builder()
-                .add("y")
-                .add("yy")
-                .add("yyy")
+                .add(token("y"))
+                .add(token("yy"))
+                .add(token("yyy"))
                 .build();
 
-        assertEquals(lexer.tokenize("y").size(), 1);
-        assertEquals(lexer.tokenize("yy").size(), 2);
-        assertEquals(lexer.tokenize("yyy").size(), 3);
+        assertThat(lexer.tokenize("y")).hasSize(1);
+        assertThat(lexer.tokenize("yy")).hasSize(2);
+        assertThat(lexer.tokenize("yyy")).hasSize(3);
+    }
+
+    private static Token token(String text)
+    {
+        return new TextToken(text);
     }
 }

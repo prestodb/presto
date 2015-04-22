@@ -20,7 +20,6 @@ import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
@@ -138,7 +137,7 @@ public class TestTeradataDateFunctions
 
     private void assertTimestamp(String projection, int year, int month, int day, int hour, int minutes, int seconds)
     {
-        assertFunction(
+        functionAssertions.assertFunction(
                 projection,
                 TimestampType.TIMESTAMP,
                 toTimestamp(new DateTime(year, month, day, hour, minutes, seconds, DATE_TIME_ZONE)));
@@ -146,7 +145,7 @@ public class TestTeradataDateFunctions
 
     private void assertDate(String projection, int year, int month, int day)
     {
-        assertFunction(
+        functionAssertions.assertFunction(
                 projection,
                 DateType.DATE,
                 sqlDate(new DateTime(year, month, day, 0, 0, DATE_TIME_ZONE)));
@@ -154,11 +153,6 @@ public class TestTeradataDateFunctions
 
     private void assertVarchar(String projection, String expected)
     {
-        assertFunction(projection, VARCHAR, expected);
-    }
-
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
+        functionAssertions.assertFunction(projection, VARCHAR, expected);
     }
 }

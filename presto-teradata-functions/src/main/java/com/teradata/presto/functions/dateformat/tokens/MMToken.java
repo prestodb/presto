@@ -16,7 +16,10 @@ package com.teradata.presto.functions.dateformat.tokens;
 import com.teradata.presto.functions.dateformat.Token;
 import org.joda.time.format.DateTimeFormatterBuilder;
 
-public class MMToken implements Token
+/**
+ * Month number token
+ */
+public class MMToken extends Token
 {
     @Override
     public String representation()

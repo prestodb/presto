@@ -18,21 +18,40 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 /**
  * Token binds string representation of a date format from Teradata
  * to a particular DateTimeFormatter
- *
+ * <p/>
  * For example if we encounter "YYYY" string as date format, we must
  * call "appendYear" on DateTimeFormatterBuilder
  */
-public interface Token
+public abstract class Token
 {
     /**
      * @return String representation of this token in Teradata.
      */
-    public String representation();
+    public abstract String representation();
 
     /**
-     * @param builder
-     *
-     * Append action associated with this token to the builder
+     * @param builder Append action associated with this token to the builder
      */
-    void appendTo(DateTimeFormatterBuilder builder);
+    public abstract void appendTo(DateTimeFormatterBuilder builder);
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (obj == this) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (!(obj instanceof Token)) {
+            return false;
+        }
+        return representation().equals(((Token) obj).representation());
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return representation().hashCode();
+    }
 }

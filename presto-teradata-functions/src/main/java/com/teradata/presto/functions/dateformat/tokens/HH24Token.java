@@ -16,7 +16,10 @@ package com.teradata.presto.functions.dateformat.tokens;
 import com.teradata.presto.functions.dateformat.Token;
 import org.joda.time.format.DateTimeFormatterBuilder;
 
-public class HH24Token implements Token
+/**
+ * Hour of day (0-24)
+ */
+public class HH24Token extends Token
 {
     @Override
     public String representation()

@@ -16,7 +16,10 @@ package com.teradata.presto.functions.dateformat.tokens;
 import com.teradata.presto.functions.dateformat.Token;
 import org.joda.time.format.DateTimeFormatterBuilder;
 
-public class YYYYToken implements Token
+/**
+ * Year token
+ */
+public class YYYYToken extends Token
 {
     @Override
     public String representation()
