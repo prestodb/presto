@@ -21,7 +21,6 @@ import com.facebook.presto.jdbc.ColumnInfo.Nullable;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Period;
 import org.joda.time.format.DateTimeFormat;
@@ -66,10 +65,12 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Throwables.propagate;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class PrestoResultSet
         implements ResultSet
@@ -329,7 +330,7 @@ public class PrestoResultSet
         return getTimestamp(columnIndex, sessionTimeZone);
     }
 
-    public Timestamp getTimestamp(int columnIndex, DateTimeZone localTimeZone)
+    private Timestamp getTimestamp(int columnIndex, DateTimeZone localTimeZone)
             throws SQLException
     {
         Object value = column(columnIndex);
@@ -547,7 +548,7 @@ public class PrestoResultSet
                 if (columnInfo.getColumnTypeName().equalsIgnoreCase("interval year to month")) {
                     return getIntervalYearMonth(columnIndex);
                 }
-                else if (columnInfo.getColumnTypeName().equalsIgnoreCase("interval day to second")) {
+                if (columnInfo.getColumnTypeName().equalsIgnoreCase("interval day to second")) {
                     return getIntervalDayTime(columnIndex);
                 }
         }
@@ -1146,9 +1147,9 @@ public class PrestoResultSet
             return null;
         }
 
-        String elementTypeName = Iterables.getOnlyElement(columnInfoList.get(columnIndex - 1).getColumnTypeSignature().getParameters()).toString();
-        int elementType = Iterables.getOnlyElement(columnInfoList.get(columnIndex - 1).getColumnParameterTypes());
-        return new PrestoArray(elementTypeName, elementType, (List) value);
+        String elementTypeName = getOnlyElement(columnInfoList.get(columnIndex - 1).getColumnTypeSignature().getParameters()).toString();
+        int elementType = getOnlyElement(columnInfoList.get(columnIndex - 1).getColumnParameterTypes());
+        return new PrestoArray(elementTypeName, elementType, (List<?>) value);
     }
 
     @Override
@@ -1773,7 +1774,7 @@ public class PrestoResultSet
 
     private static SQLException resultsException(QueryResults results)
     {
-        QueryError error = results.getError();
+        QueryError error = requireNonNull(results.getError());
         String message = format("Query failed (#%s): %s", results.getId(), error.getMessage());
         Throwable cause = (error.getFailureInfo() == null) ? null : error.getFailureInfo().toException();
         return new SQLException(message, error.getSqlState(), error.getErrorCode(), cause);

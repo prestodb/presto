@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.google.common.primitives.Ints;
+
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -66,7 +68,7 @@ public class PrestoArray
     public Object getArray(long index, int count)
             throws SQLException
     {
-        int arrayOffset = (int) (index - 1);
+        int arrayOffset = Ints.saturatedCast(index - 1);
         if (index < 1 || count < 0 || (arrayOffset + count) > array.length) {
             throw new SQLException("Index out of bounds");
         }
