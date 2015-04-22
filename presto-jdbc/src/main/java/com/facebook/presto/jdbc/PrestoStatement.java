@@ -34,7 +34,7 @@ public class PrestoStatement
     private final AtomicBoolean escapeProcessing = new AtomicBoolean(true);
     private final AtomicBoolean closeOnCompletion = new AtomicBoolean();
     private final AtomicReference<PrestoConnection> connection;
-    private AtomicReference<ResultSet> currentResult = new AtomicReference<>();
+    private final AtomicReference<ResultSet> currentResult = new AtomicReference<>();
 
     PrestoStatement(PrestoConnection connection)
     {

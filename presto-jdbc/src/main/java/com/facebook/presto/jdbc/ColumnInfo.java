@@ -158,7 +158,7 @@ class ColumnInfo
         }
     }
 
-    public static int getType(TypeSignature type)
+    private static int getType(TypeSignature type)
     {
         if (type.getBase().equals("array")) {
             return Types.ARRAY;

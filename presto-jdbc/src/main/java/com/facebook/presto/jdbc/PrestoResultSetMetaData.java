@@ -33,7 +33,7 @@ public class PrestoResultSetMetaData
 {
     private final List<ColumnInfo> columnInfo;
 
-    public PrestoResultSetMetaData(List<ColumnInfo> columnInfo)
+    PrestoResultSetMetaData(List<ColumnInfo> columnInfo)
     {
         this.columnInfo = ImmutableList.copyOf(checkNotNull(columnInfo, "columnInfo is null"));
     }
