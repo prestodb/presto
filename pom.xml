@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>37</version>
+        <version>38</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -53,6 +53,9 @@
         <air.test.timezone>Asia/Katmandu</air.test.timezone>
         <air.test.parallel>methods</air.test.parallel>
         <air.test.thread-count>4</air.test.thread-count>
+        <air.test.jvmsize>1792m</air.test.jvmsize>
+
+        <air.javadoc.lint>-missing</air.javadoc.lint>
     </properties>
 
     <modules>
@@ -641,22 +644,6 @@
     <build>
         <pluginManagement>
             <plugins>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-surefire-plugin</artifactId>
-                    <configuration combine.children="append">
-                        <argLine>${argLine} -Duser.timezone=${air.test.timezone} -Xmx1792m -Xms1792m -XX:OnOutOfMemoryError="kill -9 %p" -XX:+HeapDumpOnOutOfMemoryError</argLine>
-                    </configuration>
-                </plugin>
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-javadoc-plugin</artifactId>
-                    <configuration combine.children="append">
-                        <additionalparam>-Xdoclint:none</additionalparam>
-                    </configuration>
-                </plugin>
-
                 <plugin>
                     <groupId>org.antlr</groupId>
                     <artifactId>antlr4-maven-plugin</artifactId>
