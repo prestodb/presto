@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.sql.planner.Symbol;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -24,6 +25,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -269,5 +271,42 @@ class ActualProperties
         {
             return new ActualProperties(partitioningColumns, hashingColumns, localProperties, partitioned, coordinatorOnly, constants);
         }
+    }
+
+    @Override
+    public String toString()
+    {
+        return MoreObjects.toStringHelper(this)
+                .add("partitioningColumns", partitioningColumns)
+                .add("hashingColumns", hashingColumns)
+                .add("partitioned", partitioned)
+                .add("coordinatorOnly", coordinatorOnly)
+                .add("localProperties", localProperties)
+                .add("constants", constants)
+                .toString();
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(partitioningColumns, hashingColumns, partitioned, coordinatorOnly, localProperties, constants.keySet());
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        final ActualProperties other = (ActualProperties) obj;
+        return Objects.equals(this.partitioningColumns, other.partitioningColumns)
+                && Objects.equals(this.hashingColumns, other.hashingColumns)
+                && Objects.equals(this.partitioned, other.partitioned)
+                && Objects.equals(this.coordinatorOnly, other.coordinatorOnly)
+                && Objects.equals(this.localProperties, other.localProperties)
+                && Objects.equals(this.constants.keySet(), other.constants.keySet());
     }
 }
