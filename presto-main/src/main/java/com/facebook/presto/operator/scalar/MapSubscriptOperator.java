@@ -15,8 +15,10 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.ParametricOperator;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -29,8 +31,8 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.type.TypeUtils.castValue;
-import static com.facebook.presto.type.TypeUtils.createBlock;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -51,9 +53,10 @@ public class MapSubscriptOperator
         Type keyType = types.get("K");
         Type valueType = types.get("V");
 
+        MethodHandle keyEqualsMethod = functionRegistry.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType)).getMethodHandle();
+
         MethodHandle methodHandle = lookupMethod(keyType, valueType);
-        methodHandle = methodHandle.bindTo(keyType);
-        methodHandle = methodHandle.bindTo(valueType);
+        methodHandle = methodHandle.bindTo(keyEqualsMethod).bindTo(keyType).bindTo(valueType);
 
         Signature signature = new Signature(SUBSCRIPT.name(), valueType.getTypeSignature(), parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature()), keyType.getTypeSignature());
         return new FunctionInfo(signature, "Map subscript", true, methodHandle, true, true, ImmutableList.of(false, false));
@@ -65,123 +68,147 @@ public class MapSubscriptOperator
         methodName += valueType.getJavaType().getSimpleName();
         methodName += "Subscript";
         try {
-            return lookup().unreflect(MapSubscriptOperator.class.getMethod(methodName, Type.class, Type.class, Slice.class, keyType.getJavaType()));
+            return lookup().unreflect(MapSubscriptOperator.class.getMethod(methodName, MethodHandle.class, Type.class, Type.class, Slice.class, keyType.getJavaType()));
         }
         catch (IllegalAccessException | NoSuchMethodException e) {
             throw Throwables.propagate(e);
         }
     }
 
-    public static void longvoidSubscript(Type keyType, Type valueType, Slice map, long key)
+    public static void longvoidSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, long key)
     {
     }
 
-    public static void SlicevoidSubscript(Type keyType, Type valueType, Slice map, Slice key)
+    public static void SlicevoidSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, Slice key)
     {
     }
 
-    public static void booleanvoidSubscript(Type keyType, Type valueType, Slice map, boolean key)
+    public static void booleanvoidSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, boolean key)
     {
     }
 
-    public static void doublevoidSubscript(Type keyType, Type valueType, Slice map, double key)
+    public static void doublevoidSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, double key)
     {
     }
 
-    public static Long SlicelongSubscript(Type keyType, Type valueType, Slice map, Slice key)
+    public static Long SlicelongSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, Slice key)
     {
-        return subscript(keyType, valueType, map, key);
+        return subscript(keyEqualsMethod, keyType, valueType, map, key);
     }
 
-    public static Boolean SlicebooleanSubscript(Type keyType, Type valueType, Slice map, Slice key)
+    public static Boolean SlicebooleanSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, Slice key)
     {
-        return subscript(keyType, valueType, map, key);
+        return subscript(keyEqualsMethod, keyType, valueType, map, key);
     }
 
-    public static Double SlicedoubleSubscript(Type keyType, Type valueType, Slice map, Slice key)
+    public static Double SlicedoubleSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, Slice key)
     {
-        return subscript(keyType, valueType, map, key);
+        return subscript(keyEqualsMethod, keyType, valueType, map, key);
     }
 
-    public static Slice SliceSliceSubscript(Type keyType, Type valueType, Slice map, Slice key)
+    public static Slice SliceSliceSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, Slice key)
     {
-        return subscript(keyType, valueType, map, key);
+        return subscript(keyEqualsMethod, keyType, valueType, map, key);
     }
 
-    public static Long doublelongSubscript(Type keyType, Type valueType, Slice map, double key)
+    public static Long doublelongSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, double key)
     {
-        return subscript(keyType, valueType, map, key);
+        return subscript(keyEqualsMethod, keyType, valueType, map, key);
     }
 
-    public static Boolean doublebooleanSubscript(Type keyType, Type valueType, Slice map, double key)
+    public static Boolean doublebooleanSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, double key)
     {
-        return subscript(keyType, valueType, map, key);
+        return subscript(keyEqualsMethod, keyType, valueType, map, key);
     }
 
-    public static Double doubledoubleSubscript(Type keyType, Type valueType, Slice map, double key)
+    public static Double doubledoubleSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, double key)
     {
-        return subscript(keyType, valueType, map, key);
+        return subscript(keyEqualsMethod, keyType, valueType, map, key);
     }
 
-    public static Slice doubleSliceSubscript(Type keyType, Type valueType, Slice map, double key)
+    public static Slice doubleSliceSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, double key)
     {
-        return subscript(keyType, valueType, map, key);
+        return subscript(keyEqualsMethod, keyType, valueType, map, key);
     }
 
-    public static Long booleanlongSubscript(Type keyType, Type valueType, Slice map, boolean key)
+    public static Long booleanlongSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, boolean key)
     {
-        return subscript(keyType, valueType, map, key);
+        return subscript(keyEqualsMethod, keyType, valueType, map, key);
     }
 
-    public static Boolean booleanbooleanSubscript(Type keyType, Type valueType, Slice map, boolean key)
+    public static Boolean booleanbooleanSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, boolean key)
     {
-        return subscript(keyType, valueType, map, key);
+        return subscript(keyEqualsMethod, keyType, valueType, map, key);
     }
 
-    public static Double booleandoubleSubscript(Type keyType, Type valueType, Slice map, boolean key)
+    public static Double booleandoubleSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, boolean key)
     {
-        return subscript(keyType, valueType, map, key);
+        return subscript(keyEqualsMethod, keyType, valueType, map, key);
     }
 
-    public static Slice booleanSliceSubscript(Type keyType, Type valueType, Slice map, boolean key)
+    public static Slice booleanSliceSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, boolean key)
     {
-        return subscript(keyType, valueType, map, key);
+        return subscript(keyEqualsMethod, keyType, valueType, map, key);
     }
 
-    public static Long longlongSubscript(Type keyType, Type valueType, Slice map, long key)
+    public static Long longlongSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, long key)
     {
-        return subscript(keyType, valueType, map, key);
+        return subscript(keyEqualsMethod, keyType, valueType, map, key);
     }
 
-    public static Boolean longbooleanSubscript(Type keyType, Type valueType, Slice map, long key)
+    public static Boolean longbooleanSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, long key)
     {
-        return subscript(keyType, valueType, map, key);
+        return subscript(keyEqualsMethod, keyType, valueType, map, key);
     }
 
-    public static Double longdoubleSubscript(Type keyType, Type valueType, Slice map, long key)
+    public static Double longdoubleSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, long key)
     {
-        return subscript(keyType, valueType, map, key);
+        return subscript(keyEqualsMethod, keyType, valueType, map, key);
     }
 
-    public static Slice longSliceSubscript(Type keyType, Type valueType, Slice map, long key)
+    public static Slice longSliceSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, long key)
     {
-        return subscript(keyType, valueType, map, key);
+        return subscript(keyEqualsMethod, keyType, valueType, map, key);
     }
 
     @SuppressWarnings("unchecked")
-    private static <T> T subscript(Type keyType, Type valueType, Slice map, Object key)
+    private static <T> T subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, Object key)
     {
         Block block = readStructuralBlock(map);
 
-        Block keyBlock = createBlock(keyType, key);
-
         int position = 0;
-        //TODO: This could be quite slow, it should use parametric equals
+
+        Class<?> keyTypeJavaType = keyType.getJavaType();
+
         for (; position < block.getPositionCount(); position += 2) {
-            if (keyType.equalTo(block, position, keyBlock, 0)) {
-                break;
+            try {
+                boolean equals;
+                if (keyTypeJavaType == long.class) {
+                    equals = (boolean) keyEqualsMethod.invokeExact(keyType.getLong(block, position), (long) key);
+                }
+                else if (keyTypeJavaType == double.class) {
+                    equals = (boolean) keyEqualsMethod.invokeExact(keyType.getDouble(block, position), (double) key);
+                }
+                else if (keyTypeJavaType == boolean.class) {
+                    equals = (boolean) keyEqualsMethod.invokeExact(keyType.getBoolean(block, position), (boolean) key);
+                }
+                else if (keyTypeJavaType == Slice.class) {
+                    equals = (boolean) keyEqualsMethod.invokeExact(keyType.getSlice(block, position), (Slice) key);
+                }
+                else {
+                    throw new IllegalArgumentException("Unsupported type: " + keyTypeJavaType.getSimpleName());
+                }
+
+                if (equals) {
+                    break;
+                }
             }
-        }
+            catch (Throwable t) {
+                    Throwables.propagateIfInstanceOf(t, Error.class);
+                    Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                    throw new PrestoException(INTERNAL_ERROR, t);
+                }
+            }
 
         if (position == block.getPositionCount()) {
             // key not found
