@@ -123,8 +123,15 @@ class PropertyDerivations
         @Override
         public ActualProperties visitWindow(WindowNode node, List<ActualProperties> inputProperties)
         {
+            // If the input is completely pre-partitioned and sorted, then the original input properties will be respected
+            if (ImmutableSet.copyOf(node.getPartitionBy()).equals(node.getPrePartitionedInputs()) && node.getPreSortedOrderPrefix() == node.getOrderBy().size()) {
+                return Iterables.getOnlyElement(inputProperties);
+            }
+
             ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.builder();
-            localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
+            if (!node.getPartitionBy().isEmpty()) {
+                localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
+            }
             for (Symbol column : node.getOrderBy()) {
                 localProperties.add(new SortingProperty<>(column, node.getOrderings().get(column)));
             }

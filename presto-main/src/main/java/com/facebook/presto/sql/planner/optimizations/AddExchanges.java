@@ -22,7 +22,9 @@ import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
+import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -296,7 +298,15 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitWindow(WindowNode node, PreferredProperties preferred)
         {
-            PlanWithProperties child = planChild(node, determineChildPreferences(preferred, node.getPartitionBy(), grouped(node.getPartitionBy())));
+            List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
+            if (!node.getPartitionBy().isEmpty()) {
+                desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
+            }
+            for (Symbol symbol : node.getOrderBy()) {
+                desiredProperties.add(new SortingProperty<>(symbol, node.getOrderings().get(symbol)));
+            }
+
+            PlanWithProperties child = planChild(node, determineChildPreferences(preferred, node.getPartitionBy(), desiredProperties));
 
             if (!child.getProperties().isPartitionedOn(node.getPartitionBy())) {
                 if (node.getPartitionBy().isEmpty()) {
@@ -311,11 +321,23 @@ public class AddExchanges
                 }
             }
 
-            Optional<LocalProperty<Symbol>> matched = getOnlyElement(LocalProperties.match(child.getProperties().getLocalProperties(), grouped(node.getPartitionBy())));
-            Set<Symbol> unPartitionedColumns = matched.map(LocalProperty::getColumns).orElse(ImmutableSet.of());
-            Set<Symbol> prePartitionedColumns = node.getPartitionBy().stream()
-                    .filter(symbol -> !unPartitionedColumns.contains(symbol))
-                    .collect(toImmutableSet());
+            Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
+
+            Set<Symbol> prePartitionedInputs = ImmutableSet.of();
+            if (!node.getPartitionBy().isEmpty()) {
+                Optional<LocalProperty<Symbol>> groupingRequirement = matchIterator.next();
+                Set<Symbol> unPartitionedInputs = groupingRequirement.map(LocalProperty::getColumns).orElse(ImmutableSet.of());
+                prePartitionedInputs = node.getPartitionBy().stream()
+                        .filter(symbol -> !unPartitionedInputs.contains(symbol))
+                        .collect(toImmutableSet());
+            }
+
+            int preSortedOrderPrefix = 0;
+            if (prePartitionedInputs.equals(ImmutableSet.copyOf(node.getPartitionBy()))) {
+                while (matchIterator.hasNext() && !matchIterator.next().isPresent()) {
+                    preSortedOrderPrefix++;
+                }
+            }
 
             return withDerivedProperties(
                     new WindowNode(
@@ -328,7 +350,8 @@ public class AddExchanges
                             node.getWindowFunctions(),
                             node.getSignatures(),
                             node.getHashSymbol(),
-                            prePartitionedColumns),
+                            prePartitionedInputs,
+                            preSortedOrderPrefix),
                     child.getProperties());
         }
 
