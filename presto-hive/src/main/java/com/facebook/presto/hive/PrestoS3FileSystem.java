@@ -37,6 +37,7 @@ import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.services.s3.transfer.Upload;
+import com.facebook.presto.hadoop.HadoopFileStatus;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractSequentialIterator;
@@ -102,6 +103,8 @@ public class PrestoS3FileSystem
     {
         return STATS;
     }
+
+    private static final String DIRECTORY_SUFFIX = "_$folder$";
 
     public static final String S3_SSL_ENABLED = "presto.s3.ssl.enabled";
     public static final String S3_MAX_ERROR_RETRIES = "presto.s3.max-error-retries";
@@ -301,14 +304,86 @@ public class PrestoS3FileSystem
 
     @Override
     public boolean rename(Path src, Path dst)
+            throws IOException
     {
-        throw new UnsupportedOperationException("rename");
+        boolean srcDirectory;
+        try {
+            srcDirectory = directory(src);
+        }
+        catch (FileNotFoundException e) {
+            return false;
+        }
+
+        try {
+            if (!directory(dst)) {
+                // cannot copy a file to an existing file
+                return keysEqual(src, dst);
+            }
+            // move source under destination directory
+            dst = new Path(dst, src.getName());
+        }
+        catch (FileNotFoundException e) {
+            // destination does not exist
+        }
+
+        if (keysEqual(src, dst)) {
+            return true;
+        }
+
+        if (srcDirectory) {
+            for (FileStatus file : listStatus(src)) {
+                rename(file.getPath(), new Path(dst, file.getPath().getName()));
+            }
+            deleteObject(keyFromPath(src) + DIRECTORY_SUFFIX);
+        }
+        else {
+            s3.copyObject(uri.getHost(), keyFromPath(src), uri.getHost(), keyFromPath(dst));
+            delete(src, true);
+        }
+
+        return true;
     }
 
     @Override
-    public boolean delete(Path f, boolean recursive)
+    public boolean delete(Path path, boolean recursive)
+            throws IOException
     {
-        throw new UnsupportedOperationException("delete");
+        try {
+            if (!directory(path)) {
+                return deleteObject(keyFromPath(path));
+            }
+        }
+        catch (FileNotFoundException e) {
+            return false;
+        }
+
+        if (!recursive) {
+            throw new IOException("Directory " + path + " is not empty");
+        }
+
+        for (FileStatus file : listStatus(path)) {
+            delete(file.getPath(), true);
+        }
+        deleteObject(keyFromPath(path) + DIRECTORY_SUFFIX);
+
+        return true;
+    }
+
+    private boolean directory(Path path)
+            throws IOException
+    {
+        return HadoopFileStatus.isDirectory(getFileStatus(path));
+    }
+
+    private boolean deleteObject(String key)
+    {
+        try {
+            s3.deleteObject(uri.getHost(), key);
+            return true;
+        }
+        catch (AmazonClientException e) {
+            return false;
+        }
     }
 
     @Override
@@ -449,6 +524,11 @@ public class PrestoS3FileSystem
     {
         Date date = metadata.getLastModified();
         return (date != null) ? date.getTime() : 0;
+    }
+
+    private static boolean keysEqual(Path p1, Path p2)
+    {
+        return keyFromPath(p1).equals(keyFromPath(p2));
     }
 
     private static String keyFromPath(Path path)
