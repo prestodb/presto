@@ -52,17 +52,6 @@ public class VariableWidthBlockEncoding
 
         encodeNullsAsBits(sliceOutput, variableWidthBlock);
 
-        // write last null bits
-        if ((positionCount & 0b111) > 0) {
-            byte value = 0;
-            int mask = 0b1000_0000;
-            for (int position = positionCount & ~0b111; position < positionCount; position++) {
-                value |= variableWidthBlock.isNull(position) ? mask : 0;
-                mask >>>= 1;
-            }
-            sliceOutput.appendByte(value);
-        }
-
         sliceOutput
                 .appendInt(totalLength)
                 .writeBytes(variableWidthBlock.getRawSlice(0), variableWidthBlock.getPositionOffset(0), totalLength);
