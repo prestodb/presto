@@ -13,6 +13,7 @@ General Changes
 * Add :func:`regexp_split` function.
 * Fix analysis of ``UNION`` queries for tables with hidden columns.
 * Fix ``JOIN`` associativity to be left-associative instead of right-associative.
+* Add ``source`` column to ``runtime.queries`` table in :doc:`/connector/system`.
 
 Hive Changes
 ------------
@@ -28,4 +29,3 @@ Hive Changes
   files are accessed by their ordinal position in the Hive table definition. To access
   columns based on the names recorded in the Parquet file, set
   ``hive.parquet.use-column-names=true`` in your Hive catalog properties file.
-  
