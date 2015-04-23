@@ -176,4 +176,10 @@ public class ArrayType
     {
         return ImmutableList.of(getElementType());
     }
+
+    @Override
+    public String getDisplayName()
+    {
+        return "array<" + elementType.getDisplayName() + ">";
+    }
 }

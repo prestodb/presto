@@ -67,17 +67,17 @@ public class RowType
     public String getDisplayName()
     {
         // Convert to standard sql name
-        List<String> fields = new ArrayList<>();
-        for (int i = 0; i < this.fields.size(); i++) {
-            RowField field = this.fields.get(i);
+        List<String> fieldDisplayNames = new ArrayList<>();
+        for (RowField field : fields) {
+            String typeDisplayName = field.getType().getDisplayName();
             if (field.getName().isPresent()) {
-                fields.add(field.getName() + " " + field.getType().getDisplayName());
+                fieldDisplayNames.add(field.getName().get() + " " + typeDisplayName);
             }
             else {
-                fields.add(field.getType().getDisplayName());
+                fieldDisplayNames.add(typeDisplayName);
             }
         }
-        return "ROW(" + Joiner.on(", ").join(fields) + ")";
+        return "row(" + Joiner.on(", ").join(fieldDisplayNames) + ")";
     }
 
     @Override
