@@ -43,6 +43,7 @@ public class QuerySystemTable
             .column("query_id", VARCHAR)
             .column("state", VARCHAR)
             .column("user", VARCHAR)
+            .column("source", VARCHAR)
             .column("query", VARCHAR)
 
             .column("queued_time_ms", BIGINT)
@@ -88,6 +89,7 @@ public class QuerySystemTable
                     queryInfo.getQueryId().toString(),
                     queryInfo.getState().toString(),
                     queryInfo.getSession().getUser(),
+                    queryInfo.getSession().getSource(),
                     queryInfo.getQuery(),
 
                     toMillis(queryStats.getQueuedTime()),
