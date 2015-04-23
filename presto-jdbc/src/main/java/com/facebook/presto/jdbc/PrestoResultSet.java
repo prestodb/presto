@@ -419,8 +419,9 @@ public class PrestoResultSet
             throws SQLException
     {
         Object value = column(columnLabel);
-        return (value != null) ? ((Number) value).intValue() : 0;
-    }
+        if (value == null) return 0;
+        if (value instanceof Number) return ((Number) value).intValue();
+        return ((Boolean) value) == true ? 1 : 0;    }
 
     @Override
     public long getLong(String columnLabel)
