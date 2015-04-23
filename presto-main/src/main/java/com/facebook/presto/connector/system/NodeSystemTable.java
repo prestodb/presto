@@ -40,6 +40,7 @@ public class NodeSystemTable
             .column("node_id", VARCHAR)
             .column("http_uri", VARCHAR)
             .column("node_version", VARCHAR)
+            .column("coordinator", BOOLEAN)
             .column("active", BOOLEAN)
             .build();
 
@@ -69,10 +70,10 @@ public class NodeSystemTable
         Builder table = InMemoryRecordSet.builder(NODES_TABLE);
         AllNodes allNodes = nodeManager.getAllNodes();
         for (Node node : allNodes.getActiveNodes()) {
-            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), Boolean.TRUE);
+            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), isCoordinator(node), Boolean.TRUE);
         }
         for (Node node : allNodes.getInactiveNodes()) {
-            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), Boolean.FALSE);
+            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), isCoordinator(node), Boolean.FALSE);
         }
         return table.build().cursor();
     }
@@ -83,5 +84,10 @@ public class NodeSystemTable
             return ((PrestoNode) node).getNodeVersion().toString();
         }
         return "";
+    }
+
+    private boolean isCoordinator(Node node)
+    {
+        return nodeManager.getCoordinators().contains(node);
     }
 }
