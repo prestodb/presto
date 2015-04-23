@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.amazonaws.AbortedException;
 import com.amazonaws.AmazonClientException;
-import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentials;
@@ -24,6 +23,7 @@ import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
+import com.amazonaws.internal.StaticCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
@@ -94,6 +94,7 @@ public class PrestoS3FileSystem
     private static final Logger log = Logger.get(PrestoS3FileSystem.class);
 
     private static final PrestoS3FileSystemStats STATS = new PrestoS3FileSystemStats();
+    private static final PrestoS3FileSystemMetricCollector METRIC_COLLECTOR = new PrestoS3FileSystemMetricCollector(STATS);
 
     public static PrestoS3FileSystemStats getFileSystemStats()
     {
@@ -402,12 +403,15 @@ public class PrestoS3FileSystem
                             STATS.newMetadataCall();
                             return s3.getObjectMetadata(uri.getHost(), keyFromPath(path));
                         }
-                        catch (AmazonS3Exception e) {
-                            if (e.getStatusCode() == SC_NOT_FOUND) {
-                                return null;
-                            }
-                            else if (e.getStatusCode() == SC_FORBIDDEN) {
-                                throw new UnrecoverableS3OperationException(e);
+                        catch (RuntimeException e) {
+                            STATS.newGetMetadataError();
+                            if (e instanceof AmazonS3Exception) {
+                                switch (((AmazonS3Exception) e).getStatusCode()) {
+                                    case SC_NOT_FOUND:
+                                        return null;
+                                    case SC_FORBIDDEN:
+                                        throw new UnrecoverableS3OperationException(e);
+                                }
                             }
                             throw Throwables.propagate(e);
                         }
@@ -462,13 +466,13 @@ public class PrestoS3FileSystem
     {
         // first try credentials from URI or static properties
         try {
-            return new AmazonS3Client(getAwsCredentials(uri, hadoopConfig), clientConfig);
+            return new AmazonS3Client(new StaticCredentialsProvider(getAwsCredentials(uri, hadoopConfig)), clientConfig, METRIC_COLLECTOR);
         }
         catch (IllegalArgumentException ignored) {
         }
 
         if (useInstanceCredentials) {
-            return new AmazonS3Client(new InstanceProfileCredentialsProvider(), clientConfig);
+            return new AmazonS3Client(new InstanceProfileCredentialsProvider(), clientConfig, METRIC_COLLECTOR);
         }
 
         throw new RuntimeException("S3 credentials not configured");
@@ -553,6 +557,7 @@ public class PrestoS3FileSystem
                                 return in.read(buffer, offset, length);
                             }
                             catch (Exception e) {
+                                STATS.newReadError(e);
                                 closeStream();
                                 throw e;
                             }
@@ -628,9 +633,12 @@ public class PrestoS3FileSystem
                             try {
                                 return s3.getObject(new GetObjectRequest(host, keyFromPath(path)).withRange(start, Long.MAX_VALUE));
                             }
-                            catch (AmazonServiceException e) {
-                                if (e.getStatusCode() == SC_FORBIDDEN) {
-                                    throw new UnrecoverableS3OperationException(e);
+                            catch (RuntimeException e) {
+                                STATS.newGetObjectError();
+                                if (e instanceof AmazonS3Exception) {
+                                    if (((AmazonS3Exception) e).getStatusCode() == SC_FORBIDDEN) {
+                                        throw new UnrecoverableS3OperationException(e);
+                                    }
                                 }
                                 throw Throwables.propagate(e);
                             }

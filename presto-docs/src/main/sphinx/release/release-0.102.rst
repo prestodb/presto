@@ -6,3 +6,8 @@ General Changes
 ---------------
 
 * Support returning booleans as numbers in JDBC driver
+
+Hive Changes
+------------
+
+* Collect more metrics from ``PrestoS3FileSystem``.
