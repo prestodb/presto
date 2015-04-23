@@ -100,6 +100,9 @@ public class PrestoS3FileSystem
         return STATS;
     }
 
+    // S3 directory suffix
+    private static final String DIRECTORY_SUFFIX = "_$folder$";
+
     public static final String S3_SSL_ENABLED = "presto.s3.ssl.enabled";
     public static final String S3_MAX_ERROR_RETRIES = "presto.s3.max-error-retries";
     public static final String S3_MAX_CLIENT_RETRIES = "presto.s3.max-client-retries";
@@ -298,14 +301,95 @@ public class PrestoS3FileSystem
 
     @Override
     public boolean rename(Path src, Path dst)
+        throws IOException
     {
-        throw new UnsupportedOperationException("rename");
+        FileStatus srcStatus;
+        try {
+            srcStatus = getFileStatus(src);
+        }
+        catch (FileNotFoundException e) {
+            log.debug("Try to rename file: %s, But file does not exist", src.toString());
+            return false;
+        }
+
+        String srcKey = keyFromPath(src);
+        String dstKey = keyFromPath(dst);
+
+        FileStatus dstStatus;
+        try {
+            dstStatus = getFileStatus(dst);
+            if (dstStatus.isDirectory()) {
+                // move source under destination directory
+                dstKey = keyFromPath(new Path(dst, src.getName()));
+            }
+            else if (dstStatus.isFile()) {
+                // not copy a file to an existing file
+                return srcKey.equals(dstKey);
+            }
+        }
+        catch (FileNotFoundException e) {
+            // destination does not exist
+        }
+
+        if (srcKey.equals(dstKey)) {
+            return true;
+        }
+
+        if (srcStatus.isFile()) {
+            s3.copyObject(uri.getHost(), srcKey, uri.getHost(), dstKey);
+            delete(src, true);
+        }
+
+        if (srcStatus.isDirectory()) {
+            FileStatus[] files = listStatus(src);
+            for (FileStatus file : files) {
+                rename(file.getPath(), new Path(dst, file.getPath().getName()));
+            }
+            s3.deleteObject(uri.getHost(), keyFromPath(src) + DIRECTORY_SUFFIX);
+        }
+        return true;
     }
 
     @Override
-    public boolean delete(Path f, boolean recursive)
+    public boolean delete(Path path, boolean recursive)
+        throws IOException
     {
-        throw new UnsupportedOperationException("delete");
+        FileStatus status;
+        try {
+            status = getFileStatus(path);
+        }
+        catch (FileNotFoundException e) {
+            log.debug("Try to delete file: %s, But file does not exist", path.toString());
+            return false;
+        }
+
+        if (status.isFile()) {
+            try {
+                s3.deleteObject(uri.getHost(), keyFromPath(path));
+                return true;
+            }
+            catch (AmazonClientException e) {
+                log.debug("Errors occurred when delete file: %s", path.toString());
+            }
+        }
+
+        if (status.isDirectory()) {
+            if (!recursive) {
+                throw new IOException("Can not delete " + path.toString() + ". It is a directory and recurse option is false");
+            }
+
+            FileStatus[] files = listStatus(path);
+            for (FileStatus file : files) {
+                delete(file.getPath(), recursive);
+            }
+
+            // directory marker not required
+            s3.deleteObject(uri.getHost(), keyFromPath(path) + DIRECTORY_SUFFIX);
+            return true;
+        }
+
+        log.debug("Try to delete a non-file, non-directory, return false");
+        return false;
     }
 
     @Override
