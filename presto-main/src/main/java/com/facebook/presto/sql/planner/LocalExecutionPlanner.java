@@ -499,6 +499,7 @@ public class LocalExecutionPlanner
             List<Symbol> partitionBySymbols = node.getPartitionBy();
             List<Symbol> orderBySymbols = node.getOrderBy();
             List<Integer> partitionChannels = ImmutableList.copyOf(getChannelsForSymbols(partitionBySymbols, source.getLayout()));
+            List<Integer> preGroupedChannels = ImmutableList.copyOf(getChannelsForSymbols(ImmutableList.copyOf(node.getPrePartitionedInputs()), source.getLayout()));
 
             List<Integer> sortChannels = getChannelsForSymbols(orderBySymbols, source.getLayout());
             List<SortOrder> sortOrder = orderBySymbols.stream()
@@ -558,10 +559,10 @@ public class LocalExecutionPlanner
                     outputChannels.build(),
                     windowFunctions,
                     partitionChannels,
-                    ImmutableList.of(),
+                    preGroupedChannels,
                     sortChannels,
                     sortOrder,
-                    0,
+                    node.getPreSortedOrderPrefix(),
                     new FrameInfo(frame.getType(), frame.getStartType(), frameStartChannel, frame.getEndType(), frameEndChannel),
                     1_000_000);
 

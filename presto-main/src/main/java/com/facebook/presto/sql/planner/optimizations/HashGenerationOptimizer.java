@@ -274,7 +274,8 @@ public class HashGenerationOptimizer
                         node.getWindowFunctions(),
                         node.getSignatures(),
                         Optional.empty(),
-                        node.getPrePartitionedInputs());
+                        node.getPrePartitionedInputs(),
+                        node.getPreSortedOrderPrefix());
             }
             Symbol hashSymbol = symbolAllocator.newHashSymbol();
             PlanNode hashProjectNode = getHashProjectNode(idAllocator, rewrittenSource, hashSymbol, node.getPartitionBy());
@@ -287,7 +288,8 @@ public class HashGenerationOptimizer
                     node.getWindowFunctions(),
                     node.getSignatures(),
                     Optional.of(hashSymbol),
-                    node.getPrePartitionedInputs());
+                    node.getPrePartitionedInputs(),
+                    node.getPreSortedOrderPrefix());
         }
     }
 

@@ -2189,6 +2189,126 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testPartialPrePartitionedWindowFunction()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderkey, COUNT(*) OVER (PARTITION BY orderkey, custkey)\n" +
+                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
+                "ORDER BY orderkey LIMIT 5");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
+                .row(1, 1)
+                .row(2, 1)
+                .row(3, 1)
+                .row(4, 1)
+                .row(5, 1)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testFullPrePartitionedWindowFunction()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderkey, COUNT(*) OVER (PARTITION BY orderkey)\n" +
+                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
+                "ORDER BY orderkey LIMIT 5");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
+                .row(1, 1)
+                .row(2, 1)
+                .row(3, 1)
+                .row(4, 1)
+                .row(5, 1)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testPartialPreSortedWindowFunction()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderkey, COUNT(*) OVER (ORDER BY orderkey, custkey)\n" +
+                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
+                "ORDER BY orderkey LIMIT 5");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
+                .row(1, 1)
+                .row(2, 2)
+                .row(3, 3)
+                .row(4, 4)
+                .row(5, 5)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testFullPreSortedWindowFunction()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderkey, COUNT(*) OVER (ORDER BY orderkey)\n" +
+                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
+                "ORDER BY orderkey LIMIT 5");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
+                .row(1, 1)
+                .row(2, 2)
+                .row(3, 3)
+                .row(4, 4)
+                .row(5, 5)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testFullyPartitionedAndPartiallySortedWindowFunction()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderkey, custkey, orderPriority, COUNT(*) OVER (PARTITION BY orderkey ORDER BY custkey, orderPriority)\n" +
+                "FROM (SELECT * FROM orders ORDER BY orderkey, custkey LIMIT 10)\n" +
+                "ORDER BY orderkey LIMIT 5");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR, BIGINT)
+                .row(1, 370, "5-LOW", 1)
+                .row(2, 781, "1-URGENT", 1)
+                .row(3, 1234, "5-LOW", 1)
+                .row(4, 1369, "5-LOW", 1)
+                .row(5, 445, "5-LOW", 1)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testFullyPartitionedAndFullySortedWindowFunction()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderkey, custkey, COUNT(*) OVER (PARTITION BY orderkey ORDER BY custkey)\n" +
+                "FROM (SELECT * FROM orders ORDER BY orderkey, custkey LIMIT 10)\n" +
+                "ORDER BY orderkey LIMIT 5");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR, BIGINT)
+                .row(1, 370, 1)
+                .row(2, 781, 1)
+                .row(3, 1234, 1)
+                .row(4, 1369, 1)
+                .row(5, 445, 1)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
     public void testOrderByWindowFunctionWithNulls()
             throws Exception
     {

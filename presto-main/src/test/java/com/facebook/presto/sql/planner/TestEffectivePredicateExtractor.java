@@ -285,7 +285,8 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.<Symbol, FunctionCall>of(),
                 ImmutableMap.<Symbol, Signature>of(),
                 Optional.empty(),
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                0);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 

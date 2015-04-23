@@ -337,7 +337,8 @@ public class PruneUnreferencedOutputs
                     functionCalls.build(),
                     functions.build(),
                     node.getHashSymbol(),
-                    node.getPrePartitionedInputs());
+                    node.getPrePartitionedInputs(),
+                    node.getPreSortedOrderPrefix());
         }
 
         @Override

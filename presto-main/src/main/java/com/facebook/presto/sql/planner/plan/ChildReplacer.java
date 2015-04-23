@@ -177,7 +177,8 @@ public class ChildReplacer
                 node.getWindowFunctions(),
                 node.getSignatures(),
                 node.getHashSymbol(),
-                node.getPrePartitionedInputs());
+                node.getPrePartitionedInputs(),
+                node.getPreSortedOrderPrefix());
     }
 
     @Override

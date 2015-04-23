@@ -77,6 +77,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.DomainUtils.simplifyDomain;
@@ -329,7 +331,14 @@ public class PlanPrinter
                 args.add(format("partition by (%s)", builder));
             }
             if (!orderBy.isEmpty()) {
-                args.add(format("order by (%s)", Joiner.on(", ").join(orderBy)));
+                args.add(format("order by (%s)", Stream.concat(
+                        node.getOrderBy().stream()
+                                .limit(node.getPreSortedOrderPrefix())
+                                .map(symbol -> "<" + symbol + ">"),
+                        node.getOrderBy().stream()
+                                .skip(node.getPreSortedOrderPrefix())
+                                .map(Symbol::toString))
+                        .collect(Collectors.joining(", "))));
             }
 
             print(indent, "- Window[%s] => [%s]", Joiner.on(", ").join(args), formatOutputs(node.getOutputSymbols()));
