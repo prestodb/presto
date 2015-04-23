@@ -40,6 +40,17 @@ final class EncoderUtil
             value |= block.isNull(position + 7) ? 0b0000_0001 : 0;
             sliceOutput.appendByte(value);
         }
+
+        // write last null bits
+        if ((positionCount & 0b111) > 0) {
+            byte value = 0;
+            int mask = 0b1000_0000;
+            for (int position = positionCount & ~0b111; position < positionCount; position++) {
+                value |= block.isNull(position) ? mask : 0;
+                mask >>>= 1;
+            }
+            sliceOutput.appendByte(value);
+        }
     }
 
     /**
