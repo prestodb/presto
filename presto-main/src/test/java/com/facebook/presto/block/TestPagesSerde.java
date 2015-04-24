@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -31,12 +32,13 @@ import static com.facebook.presto.block.PagesSerde.writePages;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
 public class TestPagesSerde
 {
+    private static final BlockEncodingManager blockEncodingManager = new BlockEncodingManager(new TypeRegistry());
+
     @Test
     public void testRoundTrip()
     {
@@ -50,10 +52,10 @@ public class TestPagesSerde
         Page expectedPage = new Page(expectedBlock, expectedBlock, expectedBlock);
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        writePages(createTestingBlockEncodingManager(), sliceOutput, expectedPage, expectedPage, expectedPage);
+        writePages(blockEncodingManager, sliceOutput, expectedPage, expectedPage, expectedPage);
 
         List<Type> types = ImmutableList.<Type>of(VARCHAR, VARCHAR, VARCHAR);
-        Iterator<Page> pageIterator = readPages(createTestingBlockEncodingManager(), sliceOutput.slice().getInput());
+        Iterator<Page> pageIterator = readPages(blockEncodingManager, sliceOutput.slice().getInput());
         assertPageEquals(types, pageIterator.next(), expectedPage);
         assertPageEquals(types, pageIterator.next(), expectedPage);
         assertPageEquals(types, pageIterator.next(), expectedPage);
@@ -109,10 +111,10 @@ public class TestPagesSerde
     private static int serializedSize(List<? extends Type> types, Page expectedPage)
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        writePages(createTestingBlockEncodingManager(), sliceOutput, expectedPage);
+        writePages(blockEncodingManager, sliceOutput, expectedPage);
         Slice slice = sliceOutput.slice();
 
-        Iterator<Page> pageIterator = readPages(createTestingBlockEncodingManager(), slice.getInput());
+        Iterator<Page> pageIterator = readPages(blockEncodingManager, slice.getInput());
         if (pageIterator.hasNext()) {
             assertPageEquals(types, pageIterator.next(), expectedPage);
         }

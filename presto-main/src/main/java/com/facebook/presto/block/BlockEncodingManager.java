@@ -16,6 +16,10 @@ package com.facebook.presto.block;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.block.FixedWidthBlockEncoding;
+import com.facebook.presto.spi.block.LazySliceArrayBlockEncoding;
+import com.facebook.presto.spi.block.SliceArrayBlockEncoding;
+import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.SliceInput;
@@ -45,7 +49,16 @@ public final class BlockEncodingManager
     @Inject
     public BlockEncodingManager(TypeManager typeManager, Set<BlockEncodingFactory<?>> blockEncodingFactories)
     {
+        // This function should be called from Guice and tests only
+
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
+
+        // always add the built-in BlockEncodingFactories
+        addBlockEncodingFactory(VariableWidthBlockEncoding.FACTORY);
+        addBlockEncodingFactory(FixedWidthBlockEncoding.FACTORY);
+        addBlockEncodingFactory(SliceArrayBlockEncoding.FACTORY);
+        addBlockEncodingFactory(LazySliceArrayBlockEncoding.FACTORY);
+
         for (BlockEncodingFactory<?> factory : checkNotNull(blockEncodingFactories, "blockEncodingFactories is null")) {
             addBlockEncodingFactory(factory);
         }
