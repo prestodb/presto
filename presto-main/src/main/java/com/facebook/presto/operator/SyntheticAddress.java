@@ -17,7 +17,7 @@ package com.facebook.presto.operator;
  * Methods for creating and decoding synthetic addresses.
  * A synthetic address is a physical position within an array of Slices.  The address is encoded
  * as a long with the high 32 bits containing the index of the slice in the array and the low 32
- * bits containing an offset with the slice.
+ * bits containing an offset within the slice.
  */
 public final class SyntheticAddress
 {
