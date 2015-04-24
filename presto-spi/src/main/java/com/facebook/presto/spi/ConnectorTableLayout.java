@@ -14,6 +14,7 @@
 package com.facebook.presto.spi;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -103,5 +104,29 @@ public class ConnectorTableLayout
     public List<LocalProperty<ColumnHandle>> getLocalProperties()
     {
         return localProperties;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(handle, columns, predicate, discretePredicates, partitioningColumns, localProperties);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        final ConnectorTableLayout other = (ConnectorTableLayout) obj;
+        return Objects.equals(this.handle, other.handle)
+                && Objects.equals(this.columns, other.columns)
+                && Objects.equals(this.predicate, other.predicate)
+                && Objects.equals(this.discretePredicates, other.discretePredicates)
+                && Objects.equals(this.partitioningColumns, other.partitioningColumns)
+                && Objects.equals(this.localProperties, other.localProperties);
     }
 }
