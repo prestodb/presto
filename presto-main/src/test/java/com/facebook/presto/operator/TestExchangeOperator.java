@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.PagesSerde;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
@@ -20,6 +21,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Function;
 import com.google.common.base.Splitter;
 import com.google.common.base.Supplier;
@@ -58,7 +60,6 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -72,6 +73,7 @@ public class TestExchangeOperator
 {
     private static final List<Type> TYPES = ImmutableList.<Type>of(VARCHAR);
     private static final Page PAGE = createSequencePage(TYPES, 10, 100);
+    private static final BlockEncodingManager blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
 
     private static final String TASK_1_ID = "task1";
     private static final String TASK_2_ID = "task2";
@@ -105,7 +107,7 @@ public class TestExchangeOperator
             public ExchangeClient get()
             {
                 return new ExchangeClient(
-                        createTestingBlockEncodingManager(),
+                        blockEncodingSerde,
                         new DataSize(32, MEGABYTE),
                         new DataSize(10, MEGABYTE),
                         3,
@@ -356,7 +358,7 @@ public class TestExchangeOperator
                 headers.put(CONTENT_TYPE, PRESTO_PAGES);
                 headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
                 DynamicSliceOutput output = new DynamicSliceOutput(256);
-                PagesSerde.writePages(createTestingBlockEncodingManager(), output, page);
+                PagesSerde.writePages(blockEncodingSerde, output, page);
                 return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
             }
             else if (taskBuffer.isFinished()) {

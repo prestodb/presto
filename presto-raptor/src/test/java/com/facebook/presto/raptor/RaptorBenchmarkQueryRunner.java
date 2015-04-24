@@ -15,6 +15,7 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.benchmark.BenchmarkSuite;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
@@ -33,7 +34,6 @@ import java.io.IOException;
 import java.util.Map;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Locale.ENGLISH;
@@ -98,8 +98,8 @@ public final class RaptorBenchmarkQueryRunner
                     .put("storage.compress", "false")
                     .build();
 
-            BlockEncodingSerde blockEncodingSerde = createTestingBlockEncodingManager();
             TypeManager typeManager = new TypeRegistry();
+            BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
 
             RaptorPlugin plugin = new RaptorPlugin();
 

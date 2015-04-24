@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Function;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -50,7 +52,6 @@ import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TOO_LARGE;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
-import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -62,6 +63,8 @@ import static org.testng.Assert.assertEquals;
 public class TestHttpPageBufferClient
 {
     private ScheduledExecutorService executor;
+
+    private static final BlockEncodingManager blockEncodingManager = new BlockEncodingManager(new TypeRegistry());
 
     @BeforeClass
     public void setUp()
@@ -97,7 +100,7 @@ public class TestHttpPageBufferClient
                 new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                createTestingBlockEncodingManager(),
+                blockEncodingManager,
                 executor,
                 Stopwatch.createUnstarted());
 
@@ -172,7 +175,7 @@ public class TestHttpPageBufferClient
                 new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                createTestingBlockEncodingManager(),
+                blockEncodingManager,
                 executor,
                 Stopwatch.createUnstarted());
 
@@ -208,7 +211,7 @@ public class TestHttpPageBufferClient
                 new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                createTestingBlockEncodingManager(),
+                blockEncodingManager,
                 executor,
                 Stopwatch.createUnstarted());
 
@@ -275,7 +278,7 @@ public class TestHttpPageBufferClient
                 new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                createTestingBlockEncodingManager(),
+                blockEncodingManager,
                 executor,
                 Stopwatch.createUnstarted());
 
@@ -319,7 +322,7 @@ public class TestHttpPageBufferClient
                 new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                createTestingBlockEncodingManager(),
+                blockEncodingManager,
                 executor,
                 Stopwatch.createUnstarted(ticker));
 
