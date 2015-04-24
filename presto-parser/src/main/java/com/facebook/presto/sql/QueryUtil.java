@@ -85,7 +85,7 @@ public final class QueryUtil
         return new Select(false, items);
     }
 
-    public static Relation table(QualifiedName name)
+    public static Table table(QualifiedName name)
     {
         return new Table(name);
     }

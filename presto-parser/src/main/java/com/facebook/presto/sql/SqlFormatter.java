@@ -19,6 +19,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Except;
@@ -571,6 +572,20 @@ public final class SqlFormatter
         protected Void visitShowSession(ShowSession node, Integer context)
         {
             builder.append("SHOW SESSION");
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDelete(Delete node, Integer context)
+        {
+            builder.append("DELETE FROM ")
+                    .append(node.getTable().getName());
+
+            if (node.getWhere().isPresent()) {
+                builder.append(" WHERE ")
+                        .append(formatExpression(node.getWhere().get()));
+            }
 
             return null;
         }

@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -696,6 +697,17 @@ public class TestSqlParser
     {
         assertStatement("INSERT INTO a SELECT * FROM t",
                 new Insert(QualifiedName.of("a"), simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")))));
+    }
+
+    @Test
+    public void testDelete()
+    {
+        assertStatement("DELETE FROM t", new Delete(table(QualifiedName.of("t")), Optional.empty()));
+
+        assertStatement("DELETE FROM t WHERE a = b", new Delete(table(QualifiedName.of("t")), Optional.of(
+                new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                        new QualifiedNameReference(QualifiedName.of("a")),
+                        new QualifiedNameReference(QualifiedName.of("b"))))));
     }
 
     @Test

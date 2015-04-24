@@ -28,6 +28,7 @@ import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -170,6 +171,14 @@ class AstBuilder
     public Node visitInsertInto(@NotNull SqlBaseParser.InsertIntoContext context)
     {
         return new Insert(getQualifiedName(context.qualifiedName()), (Query) visit(context.query()));
+    }
+
+    @Override
+    public Node visitDelete(@NotNull SqlBaseParser.DeleteContext context)
+    {
+        return new Delete(
+                new Table(getQualifiedName(context.qualifiedName())),
+                visitIfPresent(context.booleanExpression(), Expression.class));
     }
 
     @Override

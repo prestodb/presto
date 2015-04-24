@@ -129,6 +129,9 @@ public class TestStatementBuilder
 
         printStatement("insert into foo select * from abc");
 
+        printStatement("delete from foo");
+        printStatement("delete from foo where a = b");
+
         printStatement("values ('a', 1, 2.2), ('b', 2, 3.3)");
 
         printStatement("table foo");
