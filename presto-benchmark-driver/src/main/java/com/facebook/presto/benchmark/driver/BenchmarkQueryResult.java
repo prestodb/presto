@@ -33,7 +33,7 @@ public class BenchmarkQueryResult
 
     public static BenchmarkQueryResult passResult(Suite suite, BenchmarkQuery benchmarkQuery, Stat wallTimeNanos, Stat processCpuTimeNanos, Stat queryCpuTimeNanos)
     {
-        return new BenchmarkQueryResult(suite, benchmarkQuery, Status.PASS, null, wallTimeNanos, processCpuTimeNanos, queryCpuTimeNanos);
+        return new BenchmarkQueryResult(suite, benchmarkQuery, Status.PASS, Optional.empty(), wallTimeNanos, processCpuTimeNanos, queryCpuTimeNanos);
     }
 
     public static BenchmarkQueryResult failResult(Suite suite, BenchmarkQuery benchmarkQuery, String errorMessage)
