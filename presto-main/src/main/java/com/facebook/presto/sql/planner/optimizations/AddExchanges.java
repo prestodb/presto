@@ -733,18 +733,24 @@ public class AddExchanges
         {
             List<Symbol> joinColumns = Lists.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getProbe);
             PlanWithProperties probeSource = node.getProbeSource().accept(this, determineChildPreferences(preferredProperties, joinColumns, grouped(joinColumns)));
+            ActualProperties probeProperties = probeSource.getProperties();
 
-            if (distributedIndexJoins && !probeSource.getProperties().isPartitionedOn(joinColumns)) {
-                probeSource = withDerivedProperties(
-                        partitionedExchange(idAllocator.getNextId(), probeSource.getNode(), joinColumns, node.getProbeHashSymbol()),
-                        probeSource.getProperties());
+            // TODO: allow repartitioning if unpartitioned to increase parallelism
+            if (distributedIndexJoins && probeProperties.isPartitioned()) {
+                // Force partitioned exchange if we are not effectively partitioned on the join keys, or if the probe is currently executing as a single stream
+                // and the repartitioning will make a difference.
+                if (!probeProperties.isPartitionedOn(joinColumns) || (probeProperties.isSingleStream() && probeProperties.isRepartitionEffective(joinColumns))) {
+                    probeSource = withDerivedProperties(
+                            partitionedExchange(idAllocator.getNextId(), probeSource.getNode(), joinColumns, node.getProbeHashSymbol()),
+                            probeProperties);
+                }
             }
 
             // TODO: if input is grouped, create streaming join
 
             // index side is really a nested-loops plan, so don't add exchanges
             PlanNode result = ChildReplacer.replaceChildren(node, ImmutableList.of(probeSource.getNode(), node.getIndexSource()));
-            return new PlanWithProperties(result, deriveProperties(result, probeSource.getProperties()));
+            return new PlanWithProperties(result, deriveProperties(result, probeProperties));
         }
 
         @Override
