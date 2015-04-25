@@ -750,7 +750,7 @@ public class AddExchanges
 
             // index side is really a nested-loops plan, so don't add exchanges
             PlanNode result = ChildReplacer.replaceChildren(node, ImmutableList.of(probeSource.getNode(), node.getIndexSource()));
-            return new PlanWithProperties(result, deriveProperties(result, probeProperties));
+            return new PlanWithProperties(result, deriveProperties(result, probeSource.getProperties()));
         }
 
         @Override
