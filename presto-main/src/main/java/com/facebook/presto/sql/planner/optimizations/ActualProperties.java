@@ -131,6 +131,30 @@ class ActualProperties
         return partitioningColumns.isPresent() && ImmutableSet.copyOf(columns).containsAll(getPartitioningColumnsWithoutConstants().get());
     }
 
+    /**
+     * @return true if all the data will effectively land in a single stream
+     */
+    public boolean isSingleStream()
+    {
+        Optional<Set<Symbol>> partitioningWithoutConstants = getPartitioningColumnsWithoutConstants();
+        return partitioningWithoutConstants.isPresent() && partitioningWithoutConstants.get().isEmpty();
+    }
+
+    /**
+     * @return true if repartitioning on the keys will yield some difference
+     */
+    public boolean isRepartitionEffective(Collection<Symbol> keys)
+    {
+        Optional<Set<Symbol>> partitioningWithoutConstants = getPartitioningColumnsWithoutConstants();
+        if (!partitioningWithoutConstants.isPresent()) {
+            return true;
+        }
+        Set<Symbol> keysWithoutConstants = keys.stream()
+                .filter(symbol -> !constants.containsKey(symbol))
+                .collect(toImmutableSet());
+        return !partitioningWithoutConstants.get().equals(keysWithoutConstants);
+    }
+
     public boolean hasKnownPartitioningScheme()
     {
         return partitioningColumns.isPresent();
