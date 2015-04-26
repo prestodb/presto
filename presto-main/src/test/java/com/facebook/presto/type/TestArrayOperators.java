@@ -244,10 +244,10 @@ public class TestArrayOperators
     {
         String outOfBounds = "Index out of bounds";
         assertInvalidFunction("ARRAY [][1]", outOfBounds);
-        assertInvalidFunction("ARRAY [null][-1]", outOfBounds);
+        assertInvalidFunction("ARRAY [][-1]", outOfBounds);
         assertInvalidFunction("ARRAY [1, 2, 3][0]", outOfBounds);
-        assertInvalidFunction("ARRAY [1, 2, 3][-1]", outOfBounds);
         assertInvalidFunction("ARRAY [1, 2, 3][4]", outOfBounds);
+        assertInvalidFunction("ARRAY [1, 2, 3][-4]", outOfBounds);
 
         try {
             assertFunction("ARRAY [1, 2, 3][1.1]", BIGINT, null);
@@ -257,22 +257,48 @@ public class TestArrayOperators
             assertTrue(e.getCode() == SemanticErrorCode.TYPE_MISMATCH);
         }
 
+        try {
+            assertFunction("ARRAY [1, 2, 3][-1.1]", BIGINT, null);
+            fail("Access to array with negative double subscript should fail");
+        }
+        catch (SemanticException e) {
+            assertTrue(e.getCode() == SemanticErrorCode.TYPE_MISMATCH);
+        }
+
         assertFunction("ARRAY[NULL][1]", UNKNOWN, null);
+        assertFunction("ARRAY[NULL][-1]", UNKNOWN, null);
         assertFunction("ARRAY[NULL, NULL, NULL][3]", UNKNOWN, null);
+        assertFunction("ARRAY[NULL, NULL, NULL][-1]", UNKNOWN, null);
         assertFunction("1 + ARRAY [2, 1, 3][2]", BIGINT, 2);
+        assertFunction("1 + ARRAY [2, 1, 3][-2]", BIGINT, 2);
         assertFunction("ARRAY [2, 1, 3][2]", BIGINT, 1);
+        assertFunction("ARRAY [2, 1, 3][-2]", BIGINT, 1);
         assertFunction("ARRAY [2, NULL, 3][2]", BIGINT, null);
+        assertFunction("ARRAY [2, NULL, 3][-2]", BIGINT, null);
         assertFunction("ARRAY [1.0, 2.5, 3.5][3]", DOUBLE, 3.5);
+        assertFunction("ARRAY [1.0, 2.5, 3.5][-1]", DOUBLE, 3.5);
         assertFunction("ARRAY [ARRAY[1, 2], ARRAY[3]][2]", new ArrayType(BIGINT), ImmutableList.of(3L));
+        assertFunction("ARRAY [ARRAY[1, 2], ARRAY[3]][-1]", new ArrayType(BIGINT), ImmutableList.of(3L));
         assertFunction("ARRAY [ARRAY[1, 2], NULL, ARRAY[3]][2]", new ArrayType(BIGINT), null);
+        assertFunction("ARRAY [ARRAY[1, 2], NULL, ARRAY[3]][-2]", new ArrayType(BIGINT), null);
         assertFunction("ARRAY [ARRAY[1, 2], ARRAY[3]][2][1]", BIGINT, 3);
+        assertFunction("ARRAY [ARRAY[1, 2], ARRAY[3]][2][-1]", BIGINT, 3);
+        assertFunction("ARRAY [ARRAY[1, 2], ARRAY[3]][-1][1]", BIGINT, 3);
+        assertFunction("ARRAY [ARRAY[1, 2], ARRAY[3]][-1][-1]", BIGINT, 3);
         assertFunction("ARRAY ['puppies', 'kittens'][2]", VARCHAR, "kittens");
+        assertFunction("ARRAY ['puppies', 'kittens'][-1]", VARCHAR, "kittens");
         assertFunction("ARRAY ['puppies', 'kittens', NULL][3]", VARCHAR, null);
+        assertFunction("ARRAY ['puppies', 'kittens', NULL][-1]", VARCHAR, null);
         assertFunction("ARRAY [TRUE, FALSE][2]", BOOLEAN, false);
+        assertFunction("ARRAY [TRUE, FALSE][-1]", BOOLEAN, false);
         assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)][1]", TIMESTAMP, sqlTimestamp(1000));
+        assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)][-2]", TIMESTAMP, sqlTimestamp(1000));
         assertFunction("ARRAY [infinity()][1]", DOUBLE, POSITIVE_INFINITY);
+        assertFunction("ARRAY [infinity()][-1]", DOUBLE, POSITIVE_INFINITY);
         assertFunction("ARRAY [-infinity()][1]", DOUBLE, NEGATIVE_INFINITY);
+        assertFunction("ARRAY [-infinity()][-1]", DOUBLE, NEGATIVE_INFINITY);
         assertFunction("ARRAY [sqrt(-1)][1]", DOUBLE, NaN);
+        assertFunction("ARRAY [sqrt(-1)][-1]", DOUBLE, NaN);
     }
 
     @Test
