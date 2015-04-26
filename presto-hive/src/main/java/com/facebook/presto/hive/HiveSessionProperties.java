@@ -18,10 +18,12 @@ import com.facebook.presto.spi.PrestoException;
 import io.airlift.units.DataSize;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public final class HiveSessionProperties
 {
     public static final String STORAGE_FORMAT_PROPERTY = "storage_format";
+    private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String OPTIMIZED_READER_ENABLED = "optimized_reader_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
@@ -104,5 +106,20 @@ public final class HiveSessionProperties
         }
 
         return Boolean.valueOf(enabled);
+    }
+
+    public static boolean getForceLocalScheduling(ConnectorSession session, boolean defaultValue)
+    {
+        String forceLocalScheduling = session.getProperties().get(FORCE_LOCAL_SCHEDULING);
+        if (forceLocalScheduling == null) {
+            return defaultValue;
+        }
+
+        try {
+            return Boolean.valueOf(forceLocalScheduling);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(NOT_SUPPORTED, "Invalid Hive session property '" + FORCE_LOCAL_SCHEDULING + "=" + forceLocalScheduling + "'");
+        }
     }
 }

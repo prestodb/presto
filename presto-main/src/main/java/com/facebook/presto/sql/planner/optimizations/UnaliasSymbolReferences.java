@@ -188,7 +188,8 @@ public class UnaliasSymbolReferences
                     functionCalls.build(),
                     functionInfos.build(),
                     node.getHashSymbol().map(this::canonicalize),
-                    canonicalize(node.getPrePartitionedInputs()));
+                    canonicalize(node.getPrePartitionedInputs()),
+                    node.getPreSortedOrderPrefix());
         }
 
         @Override

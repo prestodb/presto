@@ -53,17 +53,6 @@ public class SliceArrayBlockEncoding
 
         encodeNullsAsBits(sliceOutput, sliceArrayBlock);
 
-        // write last null bits
-        if ((positionCount & 0b111) > 0) {
-            byte value = 0;
-            int mask = 0b1000_0000;
-            for (int position = positionCount & ~0b111; position < positionCount; position++) {
-                value |= sliceArrayBlock.isNull(position) ? mask : 0;
-                mask >>>= 1;
-            }
-            sliceOutput.appendByte(value);
-        }
-
         for (Slice value : sliceArrayBlock.getValues()) {
             if (value != null) {
                 sliceOutput.writeBytes(value);

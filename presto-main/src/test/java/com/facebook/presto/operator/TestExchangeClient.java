@@ -14,7 +14,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.units.DataSize;
@@ -28,7 +30,6 @@ import java.net.URI;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -44,6 +45,8 @@ import static org.testng.Assert.assertTrue;
 public class TestExchangeClient
 {
     private ScheduledExecutorService executor;
+
+    private static final BlockEncodingManager blockEncodingManager = new BlockEncodingManager(new TypeRegistry());
 
     @BeforeClass
     public void setUp()
@@ -74,7 +77,8 @@ public class TestExchangeClient
         processor.setComplete(location);
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(createTestingBlockEncodingManager(),
+        ExchangeClient exchangeClient = new ExchangeClient(
+                blockEncodingManager,
                 new DataSize(32, Unit.MEGABYTE),
                 maxResponseSize,
                 1,
@@ -110,7 +114,8 @@ public class TestExchangeClient
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(createTestingBlockEncodingManager(),
+        ExchangeClient exchangeClient = new ExchangeClient(
+                blockEncodingManager,
                 new DataSize(32, Unit.MEGABYTE),
                 maxResponseSize,
                 1,
@@ -180,7 +185,8 @@ public class TestExchangeClient
         processor.setComplete(location);
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(createTestingBlockEncodingManager(),
+        ExchangeClient exchangeClient = new ExchangeClient(
+                blockEncodingManager,
                 new DataSize(1, Unit.BYTE),
                 maxResponseSize,
                 1,
@@ -259,7 +265,8 @@ public class TestExchangeClient
         processor.addPage(location, createPage(3));
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(createTestingBlockEncodingManager(),
+        ExchangeClient exchangeClient = new ExchangeClient(
+                blockEncodingManager,
                 new DataSize(1, Unit.BYTE),
                 maxResponseSize, 1,
                 new Duration(1, TimeUnit.MINUTES),

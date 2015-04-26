@@ -22,64 +22,107 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 class PreferredProperties
 {
-    private final boolean hasPartitioningRequirements;
-    private final Optional<Set<Symbol>> partitioningColumns;
+    private final Optional<PartitioningPreferences> partitioningRequirements;
     private final List<LocalProperty<Symbol>> localProperties;
 
     public PreferredProperties(
-            boolean hasPartitioningRequirements,
-            Optional<Set<Symbol>> partitioningColumns,
+            Optional<PartitioningPreferences> partitioningRequirements,
             List<? extends LocalProperty<Symbol>> localProperties)
     {
-        requireNonNull(partitioningColumns, "partitioningColumns is null");
+        requireNonNull(partitioningRequirements, "partitioningRequirements is null");
         requireNonNull(localProperties, "localProperties is null");
 
-        this.hasPartitioningRequirements = hasPartitioningRequirements;
-        this.partitioningColumns = partitioningColumns;
+        this.partitioningRequirements = partitioningRequirements;
         this.localProperties = ImmutableList.copyOf(localProperties);
     }
 
     public static PreferredProperties any()
     {
-        return new PreferredProperties(false, Optional.<Set<Symbol>>empty(), ImmutableList.of());
+        return new PreferredProperties(Optional.empty(), ImmutableList.of());
     }
 
     public static PreferredProperties unpartitioned()
     {
-        return new PreferredProperties(true, Optional.of(ImmutableSet.of()), ImmutableList.of());
+        return new PreferredProperties(Optional.of(PartitioningPreferences.unpartitioned()), ImmutableList.of());
     }
 
     public static PreferredProperties partitioned(Set<Symbol> columns)
     {
-        return new PreferredProperties(true, Optional.of(ImmutableSet.copyOf(columns)), ImmutableList.of());
+        return new PreferredProperties(Optional.of(PartitioningPreferences.partitioned(columns)), ImmutableList.of());
     }
 
     public static PreferredProperties partitioned()
     {
-        return new PreferredProperties(true, Optional.<Set<Symbol>>empty(), ImmutableList.of());
+        return new PreferredProperties(Optional.of(PartitioningPreferences.partitioned()), ImmutableList.of());
     }
 
     public static PreferredProperties partitionedWithLocal(Set<Symbol> columns, List<? extends LocalProperty<Symbol>> localProperties)
     {
-        return new PreferredProperties(true, Optional.of(ImmutableSet.copyOf(columns)), ImmutableList.copyOf(localProperties));
+        return new PreferredProperties(Optional.of(PartitioningPreferences.partitioned(columns)), ImmutableList.copyOf(localProperties));
     }
 
-    public boolean hasPartitioningRequirements()
+    public static PreferredProperties unpartitionedWithLocal(List<? extends LocalProperty<Symbol>> localProperties)
     {
-        return hasPartitioningRequirements;
+        return new PreferredProperties(Optional.of(PartitioningPreferences.unpartitioned()), ImmutableList.copyOf(localProperties));
     }
 
-    public Optional<Set<Symbol>> getPartitioningColumns()
+    public static PreferredProperties local(List<? extends LocalProperty<Symbol>> localProperties)
     {
-        return partitioningColumns;
+        return new PreferredProperties(Optional.empty(), ImmutableList.copyOf(localProperties));
+    }
+
+    public Optional<PartitioningPreferences> getPartitioningProperties()
+    {
+        return partitioningRequirements;
     }
 
     public List<LocalProperty<Symbol>> getLocalProperties()
     {
         return localProperties;
+    }
+
+    public static class PartitioningPreferences
+    {
+        private final boolean partitioned;
+        private final Optional<Set<Symbol>> partitioningColumns;
+
+        private PartitioningPreferences(boolean partitioned, Optional<Set<Symbol>> partitioningColumns)
+        {
+            requireNonNull(partitioningColumns, "partitioningColumns is null");
+            checkArgument(partitioned || (partitioningColumns.isPresent() && partitioningColumns.get().isEmpty()), "unpartitioned implies partitioned on the empty set");
+
+            this.partitioned = partitioned;
+            this.partitioningColumns = partitioningColumns.map(ImmutableSet::copyOf);
+        }
+
+        public static PartitioningPreferences unpartitioned()
+        {
+            return new PartitioningPreferences(false, Optional.<Set<Symbol>>of(ImmutableSet.of()));
+        }
+
+        public static PartitioningPreferences partitioned(Set<Symbol> columns)
+        {
+            return new PartitioningPreferences(true, Optional.of(columns));
+        }
+
+        public static PartitioningPreferences partitioned()
+        {
+            return new PartitioningPreferences(true, Optional.empty());
+        }
+
+        public boolean isPartitioned()
+        {
+            return partitioned;
+        }
+
+        public Optional<Set<Symbol>> getPartitioningColumns()
+        {
+            return partitioningColumns;
+        }
     }
 }

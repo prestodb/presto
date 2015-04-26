@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 import static java.util.Objects.requireNonNull;
 
@@ -40,6 +41,14 @@ public class ClassLoaderSafeConnectorHandleResolver
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.canHandle(tableHandle);
+        }
+    }
+
+    @Override
+    public boolean canHandle(ConnectorTableLayoutHandle handle)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canHandle(handle);
         }
     }
 
@@ -88,6 +97,14 @@ public class ClassLoaderSafeConnectorHandleResolver
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getTableHandleClass();
+        }
+    }
+
+    @Override
+    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getTableLayoutHandleClass();
         }
     }
 

@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.PagesSerde;
 import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.execution.BufferResult;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Function;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -41,7 +43,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
-import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static org.testng.Assert.assertEquals;
@@ -98,7 +99,7 @@ public class MockExchangeRequestProcessor
         HttpStatus status;
         if (!pages.isEmpty()) {
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(64);
-            PagesSerde.writePages(createTestingBlockEncodingManager(), sliceOutput, pages);
+            PagesSerde.writePages(new BlockEncodingManager(new TypeRegistry()), sliceOutput, pages);
             bytes = sliceOutput.slice().getBytes();
             status = HttpStatus.OK;
         }

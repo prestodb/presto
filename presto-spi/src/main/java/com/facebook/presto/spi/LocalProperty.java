@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.spi;
 
-import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -25,50 +23,35 @@ public interface LocalProperty<E>
     <T> Optional<LocalProperty<T>> translate(Function<E, Optional<T>> translator);
 
     /**
-     * Rules:
-     * <p>
-     * 1. G => {}
-     * 2. G => G - C where every c in C is constant
-     * 3. G1, G2 => G1 U G2
-     * 4. Gi, ..., Gk  => Gi, ..., Gk-1
-     * 5. Gi, ..., Gk <=> Gi, ..., Gi U Gk
+     * Return true if the actual LocalProperty can be used to simplify this LocalProperty
      */
-    static <T> Set<T> getMaxGroupingSubset(List<LocalProperty<T>> properties, Set<T> constants, Collection<T> groupKeys)
+    boolean isSimplifiedBy(LocalProperty<E> actual);
+
+    /**
+     * Simplfies this LocalProperty provided that the specified inputs are constants
+     */
+    default Optional<LocalProperty<E>> withConstants(Set<E> constants)
     {
-        // Any columns matching those in the requirement or known to be constant
-        // can be used to make inferences
-        Set<T> candidates = new HashSet<>();
-        candidates.addAll(constants);
-        candidates.addAll(groupKeys);
+        Set<E> set = new HashSet<>(getColumns());
+        set.removeAll(constants);
 
-        // constant keys are a trivial result
-        Set<T> result = new HashSet<>(constants);
-        result.retainAll(groupKeys);
-
-        for (LocalProperty<T> property : properties) {
-            Set<T> columns = new HashSet<>();
-            if (property instanceof GroupingProperty) {
-                columns.addAll(((GroupingProperty<T>) property).getColumns());
-            }
-            else if (property instanceof SortingProperty) {
-                columns.add(((SortingProperty<T>) property).getColumn());
-            }
-            else {
-                throw new UnsupportedOperationException("Local property type not supported: " + property.getClass().getName());
-            }
-
-            if (!candidates.containsAll(columns)) {
-                break;
-            }
-
-            // Grouping may be satisfied due to a combination of constants and columns
-            // present in the requirement, but we only care about the ones coming from
-            // the requirement
-            columns.retainAll(groupKeys);
-
-            result.addAll(columns);
+        if (set.isEmpty()) {
+            return Optional.empty();
         }
 
-        return result;
+        return Optional.of(constrain(set));
     }
+
+    /**
+     * Return a new instance with the give (reduced) set of columns
+     */
+    default LocalProperty<E> constrain(Set<E> columns)
+    {
+        if (!columns.equals(getColumns())) {
+            throw new IllegalArgumentException(String.format("Cannot constrain %s with %s", this, columns));
+        }
+        return this;
+    }
+
+    Set<E> getColumns();
 }
