@@ -21,3 +21,9 @@ which is configured with a carefully selected set of options. This behavior
 can be overridden by setting the environment variable ``PRESTO_PAGER`` to the
 name of a different program such as ``more``, or set it to an empty value
 to completely disable pagination.
+
+Exit Status
++-----------
+When run with the ``--execute`` argument, the Presto CLI returns ``0`` if
+all the given queries complete successfully, otherwise it returns the errorCode
+returned from the coordinator.

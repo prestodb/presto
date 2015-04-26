@@ -104,13 +104,16 @@ public class PerfTest
     @Option(name = "--timeout", title = "timeout", description = "Timeout for HTTP-Client to wait for query results (default: 600)")
     public int timeout = 600;
 
+    @Option(name = "--stop-on-error", title = "stop-on-error", description = "Whether to stop execution immediately if any query fails in batch mode (default: true)", arity = 1)
+    public boolean stopOnError = true;
+
     public void run()
             throws Exception
     {
         initializeLogging(debug);
         List<String> queries = loadQueries();
 
-        try (ParallelQueryRunner parallelQueryRunner = new ParallelQueryRunner(16, parseServer(server), catalog, schema, debug, timeout)) {
+        try (ParallelQueryRunner parallelQueryRunner = new ParallelQueryRunner(16, parseServer(server), catalog, schema, debug, stopOnError, timeout)) {
             for (int loop = 0; loop < runs; loop++) {
                 executeQueries(queries, parallelQueryRunner, 1);
                 executeQueries(queries, parallelQueryRunner, 2);
@@ -146,7 +149,7 @@ public class PerfTest
         private final ListeningExecutorService executor;
         private final List<QueryRunner> runners;
 
-        public ParallelQueryRunner(int maxParallelism, URI server, String catalog, String schema, boolean debug, int timeout)
+        public ParallelQueryRunner(int maxParallelism, URI server, String catalog, String schema, boolean debug, boolean stopOnError, int timeout)
         {
             executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("query-runner-%s")));
 
@@ -161,7 +164,8 @@ public class PerfTest
                         TimeZone.getDefault().getID(),
                         Locale.getDefault(),
                         ImmutableMap.<String, String>of(),
-                        debug);
+                        debug,
+                        stopOnError);
                 runners.add(new QueryRunner(session, executor, timeout));
             }
             this.runners = runners.build();

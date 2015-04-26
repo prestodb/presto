@@ -24,7 +24,6 @@ import com.facebook.presto.sql.tree.Use;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import io.airlift.command.Command;
 import io.airlift.command.HelpOption;
 import io.airlift.log.Level;
@@ -32,7 +31,6 @@ import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import jline.console.history.FileHistory;
 import jline.console.history.MemoryHistory;
-import org.fusesource.jansi.AnsiConsole;
 
 import javax.inject.Inject;
 
@@ -50,8 +48,6 @@ import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
 import static com.google.common.io.ByteStreams.nullOutputStream;
-import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static jline.internal.Configuration.getUserHome;
 
@@ -73,44 +69,22 @@ public class Console
     @Inject
     public ClientOptions clientOptions = new ClientOptions();
 
+    private ClientSession session;
+
+    private synchronized void ensureSession()
+    {
+        if (session == null) {
+            session = clientOptions.toClientSession();
+            initializeLogging(session.isDebug());
+        }
+    }
+
     @Override
     public void run()
     {
-        ClientSession session = clientOptions.toClientSession();
-        boolean hasQuery = !Strings.isNullOrEmpty(clientOptions.execute);
-        boolean isFromFile = !Strings.isNullOrEmpty(clientOptions.file);
-
-        if (!hasQuery || !isFromFile) {
-            AnsiConsole.systemInstall();
-        }
-
-        initializeLogging(session.isDebug());
-
-        String query = clientOptions.execute;
-        if (hasQuery) {
-            query += ";";
-        }
-
-        if (isFromFile) {
-            if (hasQuery) {
-                throw new RuntimeException("both --execute and --file specified");
-            }
-            try {
-                query = Files.toString(new File(clientOptions.file), UTF_8);
-                hasQuery = true;
-            }
-            catch (IOException e) {
-                throw new RuntimeException(format("Error reading from file %s: %s", clientOptions.file, e.getMessage()));
-            }
-        }
-
-        try (QueryRunner queryRunner = QueryRunner.create(session, Optional.ofNullable(clientOptions.socksProxy))) {
-            if (hasQuery) {
-                executeCommand(queryRunner, query, clientOptions.outputFormat);
-            }
-            else {
-                runConsole(queryRunner, session);
-            }
+        ensureSession();
+        try (QueryRunner queryRunner = QueryRunner.create(session, Optional.empty())) {
+            runConsole(queryRunner, session);
         }
     }
 
@@ -222,23 +196,34 @@ public class Console
         return statement instanceof Use;
     }
 
-    private static void executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
+    public int executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
     {
+        int returnCode = 0;
+        ensureSession();
+        boolean shouldStopOnError = session.isStopOnError();
         StatementSplitter splitter = new StatementSplitter(query);
         for (Statement split : splitter.getCompleteStatements()) {
             if (!isEmptyStatement(split.statement())) {
-                process(queryRunner, split.statement(), outputFormat, false);
+                returnCode = process(queryRunner, split.statement(), outputFormat, false);
+                if (shouldStopOnError && returnCode != 0) {
+                    return returnCode;
+                }
             }
         }
         if (!isEmptyStatement(splitter.getPartialStatement())) {
             System.err.println("Non-terminated statement: " + splitter.getPartialStatement());
+            if (shouldStopOnError) {
+                return 1;
+            }
         }
+        return returnCode;
     }
 
-    private static void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, boolean interactive)
+    private static int process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, boolean interactive)
     {
+        int returnCode = 0;
         try (Query query = queryRunner.startQuery(sql)) {
-            query.renderOutput(System.out, outputFormat, interactive);
+            returnCode = query.renderOutput(System.out, outputFormat, interactive);
 
             // update session properties if present
             if (!query.getSetSessionProperties().isEmpty() || !query.getResetSessionProperties().isEmpty()) {
@@ -254,6 +239,7 @@ public class Console
                 e.printStackTrace();
             }
         }
+        return returnCode;
     }
 
     private static MemoryHistory getHistory()

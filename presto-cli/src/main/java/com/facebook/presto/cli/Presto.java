@@ -13,7 +13,18 @@
  */
 package com.facebook.presto.cli;
 
+import com.facebook.presto.client.ClientSession;
+import com.google.common.io.Files;
+import org.fusesource.jansi.AnsiConsole;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Optional;
+
+import static com.google.common.base.Charsets.UTF_8;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.command.SingleCommand.singleCommand;
+import static java.lang.String.format;
 
 public final class Presto
 {
@@ -29,6 +40,41 @@ public final class Presto
             return;
         }
 
-        console.run();
+        ClientOptions clientOptions = console.clientOptions;
+
+        boolean hasQuery = !isNullOrEmpty(clientOptions.execute);
+        boolean isFromFile = !isNullOrEmpty(clientOptions.file);
+
+        if (!hasQuery || !isFromFile) {
+            AnsiConsole.systemInstall();
+        }
+
+        String query = clientOptions.execute;
+        if (hasQuery) {
+            query += ";";
+        }
+
+        if (isFromFile) {
+            if (hasQuery) {
+                throw new RuntimeException("both --execute and --file specified");
+            }
+            try {
+                query = Files.toString(new File(clientOptions.file), UTF_8);
+                hasQuery = true;
+            }
+            catch (IOException e) {
+                throw new RuntimeException(format("Error reading from file %s: %s", clientOptions.file, e.getMessage()));
+            }
+        }
+
+        ClientSession session = clientOptions.toClientSession();
+        try (QueryRunner queryRunner = QueryRunner.create(session, Optional.ofNullable(clientOptions.socksProxy))) {
+            if (hasQuery) {
+                System.exit(console.executeCommand(queryRunner, query, clientOptions.outputFormat));
+            }
+            else {
+                console.run();
+            }
+        }
     }
 }

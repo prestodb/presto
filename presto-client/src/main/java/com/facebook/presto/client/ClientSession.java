@@ -38,6 +38,7 @@ public class ClientSession
     private final Locale locale;
     private final Map<String, String> properties;
     private final boolean debug;
+    private final boolean stopOnError;
 
     public static ClientSession withCatalogAndSchema(ClientSession session, String catalog, String schema)
     {
@@ -50,7 +51,8 @@ public class ClientSession
                 session.getTimeZoneId(),
                 session.getLocale(),
                 session.getProperties(),
-                session.isDebug());
+                session.isDebug(),
+                session.isStopOnError());
     }
 
     public static ClientSession withSessionProperties(ClientSession session, Map<String, String> sessionProperties)
@@ -67,7 +69,8 @@ public class ClientSession
                 session.getTimeZoneId(),
                 session.getLocale(),
                 properties,
-                session.isDebug());
+                session.isDebug(),
+                session.isStopOnError());
     }
 
     public static ClientSession withProperties(ClientSession session, Map<String, String> properties)
@@ -81,10 +84,11 @@ public class ClientSession
                 session.getTimeZoneId(),
                 session.getLocale(),
                 properties,
-                session.isDebug());
+                session.isDebug(),
+                session.isStopOnError());
     }
 
-    public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, boolean debug)
+    public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, boolean debug, boolean stopOnError)
     {
         this.server = checkNotNull(server, "server is null");
         this.user = user;
@@ -94,6 +98,7 @@ public class ClientSession
         this.locale = locale;
         this.timeZoneId = checkNotNull(timeZoneId, "timeZoneId is null");
         this.debug = debug;
+        this.stopOnError = stopOnError;
         this.properties = ImmutableMap.copyOf(checkNotNull(properties, "properties is null"));
 
         // verify the properties are valid
@@ -149,6 +154,11 @@ public class ClientSession
     public boolean isDebug()
     {
         return debug;
+    }
+
+    public boolean isStopOnError()
+    {
+        return stopOnError;
     }
 
     @Override

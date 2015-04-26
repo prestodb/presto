@@ -237,7 +237,8 @@ public final class Session
                 timeZoneKey.getId(),
                 locale,
                 properties.build(),
-                debug);
+                debug,
+                true);
     }
 
     @Override
