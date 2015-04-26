@@ -78,7 +78,7 @@ public class PrestoResultSet
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
     private static final DateTimeFormatter TIME_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
             .append(DateTimeFormat.forPattern("HH:mm:ss.SSS ZZZ").getPrinter(),
-                    new DateTimeParser[]{
+                    new DateTimeParser[] {
                             DateTimeFormat.forPattern("HH:mm:ss.SSS Z").getParser(),
                             DateTimeFormat.forPattern("HH:mm:ss.SSS ZZZ").getParser(),
                     }
@@ -89,7 +89,7 @@ public class PrestoResultSet
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
     private static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
             .append(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getPrinter(),
-                    new DateTimeParser[]{
+                    new DateTimeParser[] {
                             DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS Z").getParser(),
                             DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getParser(),
                     }
