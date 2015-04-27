@@ -33,9 +33,9 @@ import java.util.Map;
 import static com.facebook.presto.metadata.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
+import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -72,13 +72,14 @@ public class ArraySubscriptOperator
 
     public static void arrayWithUnknownType(Type elementType, Slice array, long index)
     {
-        readBlockAndCheckIndex(array, index);
+        final Block block = readStructuralBlock(array);
+        checkedIndexToBlockPosition(block, index);
     }
 
     public static Long longSubscript(Type elementType, Slice array, long index)
     {
-        Block block = readBlockAndCheckIndex(array, index);
-        int position = Ints.checkedCast(index - 1);
+        final Block block = readStructuralBlock(array);
+        final int position = checkedIndexToBlockPosition(block, index);
         if (block.isNull(position)) {
             return null;
         }
@@ -88,8 +89,8 @@ public class ArraySubscriptOperator
 
     public static Boolean booleanSubscript(Type elementType, Slice array, long index)
     {
-        Block block = readBlockAndCheckIndex(array, index);
-        int position = Ints.checkedCast(index - 1);
+        final Block block = readStructuralBlock(array);
+        final int position = checkedIndexToBlockPosition(block, index);
         if (block.isNull(position)) {
             return null;
         }
@@ -99,8 +100,8 @@ public class ArraySubscriptOperator
 
     public static Double doubleSubscript(Type elementType, Slice array, long index)
     {
-        Block block = readBlockAndCheckIndex(array, index);
-        int position = Ints.checkedCast(index - 1);
+        final Block block = readStructuralBlock(array);
+        final int position = checkedIndexToBlockPosition(block, index);
         if (block.isNull(position)) {
             return null;
         }
@@ -110,8 +111,8 @@ public class ArraySubscriptOperator
 
     public static Slice sliceSubscript(Type elementType, Slice array, long index)
     {
-        Block block = readBlockAndCheckIndex(array, index);
-        int position = Ints.checkedCast(index - 1);
+        final Block block = readStructuralBlock(array);
+        final int position = checkedIndexToBlockPosition(block, index);
         if (block.isNull(position)) {
             return null;
         }
@@ -119,15 +120,18 @@ public class ArraySubscriptOperator
         return elementType.getSlice(block, position);
     }
 
-    public static Block readBlockAndCheckIndex(Slice array, long index)
+    private static int checkedIndexToBlockPosition(final Block block, final long index)
     {
-        if (index <= 0) {
+        final int arrayLength = block.getPositionCount();
+        if (index == 0 || Math.abs(index) > arrayLength) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Index out of bounds");
         }
-        Block block = readStructuralBlock(array);
-        if (index > block.getPositionCount()) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Index out of bounds");
+
+        if (index > 0) {
+            return Ints.checkedCast(index - 1);
         }
-        return block;
+        else {
+            return Ints.checkedCast(arrayLength + index);
+        }
     }
 }
