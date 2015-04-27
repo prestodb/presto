@@ -184,7 +184,7 @@ public class OperatorContext
         }
 
         blocked.addListener(monitor, executor);
-        driverContext.recordBlocked(blocked);
+        // Do not register blocked with driver context.  The driver handles this directly.
     }
 
     public void recordFinish()
