@@ -11,11 +11,15 @@ General Changes
 * Add :func:`array_intersect` function.
 * Add :func:`array_position` function.
 * Add :func:`regexp_split` function.
+* Add support for ``millisecond`` to :func:`date_diff` and :func:`date_add`.
+* Fix excessive memory usage in :func:`map_agg`.
+* Optimize :ref:`array_type` comparison operators.
 * Fix analysis of ``UNION`` queries for tables with hidden columns.
 * Fix ``JOIN`` associativity to be left-associative instead of right-associative.
 * Add ``source`` column to ``runtime.queries`` table in :doc:`/connector/system`.
 * Add ``coordinator`` column to ``runtime.nodes`` table in :doc:`/connector/system`.
-* Add ``errorName`` and ``errorType`` to ``error`` object in REST API.
+* Add ``errorCode``, ``errorName`` and ``errorType`` to ``error`` object in REST API
+  (``errorCode`` previously existed but was always zero).
 * Fix ``DatabaseMetaData.getIdentifierQuoteString()`` in JDBC driver.
 * Handle thread interruption in JDBC driver ``ResultSet``.
 * Add ``history`` command and support for running previous commands via ``!n`` to the CLI.
@@ -25,6 +29,13 @@ General Changes
 * Add predicate push down support to JMX connector.
 * Add support for unary ``PLUS`` operator.
 * Improve scheduling speed by reducing lock contention.
+
+Web UI Changes
+--------------
+
+The main page of the web UI has been completely rewritten to use ReactJS. It also has
+a number of new features, such as the ability to pause auto-refresh via the "Z" key and
+also with a toggle in the UI.
 
 Hive Changes
 ------------
@@ -38,6 +49,8 @@ Hive Changes
 * Lower the Hive metadata refresh interval from two minutes to one second.
 * Invalidate Hive metadata cache for failed operations.
 * Support ``s3a`` file system scheme.
+* Fix discovery of splits to correctly backoff when the queue is full.
+* Add support for non-canonical Parquet structs.
 * Add support for accessing Parquet columns by name. By default, columns in Parquet
   files are accessed by their ordinal position in the Hive table definition. To access
   columns based on the names recorded in the Parquet file, set
