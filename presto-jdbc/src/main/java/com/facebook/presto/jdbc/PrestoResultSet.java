@@ -198,7 +198,8 @@ public class PrestoResultSet
     public boolean getBoolean(int columnIndex)
             throws SQLException
     {
-        return numberColumn(column(columnIndex)).intValue() == 1;
+        Object value = column(columnIndex);
+        return (value != null) ? (Boolean) value : false;
     }
 
     @Override
@@ -387,8 +388,8 @@ public class PrestoResultSet
     public boolean getBoolean(String columnLabel)
             throws SQLException
     {
-        return numberColumn(column(columnLabel)).intValue() == 1;
-
+        Object value = column(columnLabel);
+        return (value != null) ? (Boolean) value : false;
     }
 
     @Override
@@ -1695,15 +1696,13 @@ public class PrestoResultSet
         if (value == null) {
             return 0;
         }
-        else if (value instanceof Number) {
+        if (value instanceof Number) {
             return ((Number) value);
         }
-        else if (value instanceof Boolean) {
+        if (value instanceof Boolean) {
             return (((Boolean) value) ? 1 : 0);
         }
-        else {
-            throw new SQLException("Value is not a valid Number");
-        }
+        throw new SQLException("Value is not a valid Number");
     }
 
     private ColumnInfo columnInfo(int index)
