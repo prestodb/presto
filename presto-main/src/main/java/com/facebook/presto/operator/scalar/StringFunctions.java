@@ -29,6 +29,7 @@ import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -39,6 +40,8 @@ import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
 import static io.airlift.slice.SliceUtf8.toLowerCase;
 import static io.airlift.slice.SliceUtf8.toUpperCase;
+import static java.lang.Character.MAX_CODE_POINT;
+import static java.lang.Character.SURROGATE;
 
 /**
  * Current implementation is based on code points from Unicode and does ignore grapheme cluster boundaries.
@@ -424,5 +427,57 @@ public final class StringFunctions
         catch (InvalidCodePointException | InvalidUtf8Exception e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
         }
+    }
+
+    @Description("decodes the UTF-8 encoded string")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return SliceUtf8.fixInvalidUtf8(slice);
+    }
+
+    @Description("decodes the UTF-8 encoded string")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.VARCHAR) Slice replacementCharacter)
+    {
+        int count = countCodePoints(replacementCharacter);
+        if (count > 1) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Replacement character string must empty or a single character");
+        }
+
+        OptionalInt replacementCodePoint;
+        if (count == 1) {
+            try {
+                replacementCodePoint = OptionalInt.of(SliceUtf8.getCodePointAt(replacementCharacter, 0));
+            }
+            catch (InvalidUtf8Exception e) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid replacement character");
+            }
+        }
+        else {
+            replacementCodePoint = OptionalInt.empty();
+        }
+        return SliceUtf8.fixInvalidUtf8(slice, replacementCodePoint);
+    }
+
+    @Description("decodes the UTF-8 encoded string")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.BIGINT) long replacementCodePoint)
+    {
+        if (replacementCodePoint > MAX_CODE_POINT || Character.getType((int) replacementCodePoint) == SURROGATE) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid replacement character");
+        }
+        return SliceUtf8.fixInvalidUtf8(slice, OptionalInt.of((int) replacementCodePoint));
+    }
+
+    @Description("encodes the string to UTF-8")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice toUtf8(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    {
+        return slice;
     }
 }

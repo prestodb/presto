@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
@@ -344,5 +345,21 @@ public class TestStringFunctions
     {
         int[] upperCodePoints = string.codePoints().map(Character::toUpperCase).toArray();
         return new String(upperCodePoints, 0, upperCodePoints.length);
+    }
+
+    @Test
+    public void testFromUtf8()
+    {
+        assertFunction("from_utf8(to_utf8('hello'))", VARCHAR, "hello");
+        assertFunction("from_utf8(from_hex('58BF'))", VARCHAR, "X\uFFFD");
+        assertFunction("from_utf8(from_hex('58DF'))", VARCHAR, "X\uFFFD");
+        assertFunction("from_utf8(from_hex('58F7'))", VARCHAR, "X\uFFFD");
+
+        assertFunction("from_utf8(from_hex('58BF'), '#')", VARCHAR, "X#");
+        assertFunction("from_utf8(from_hex('58DF'), 35)", VARCHAR, "X#");
+        assertFunction("from_utf8(from_hex('58BF'), '')", VARCHAR, "X");
+
+        assertInvalidFunction("from_utf8(to_utf8('hello'), 'foo')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("from_utf8(to_utf8('hello'), 1114112)", INVALID_FUNCTION_ARGUMENT);
     }
 }
