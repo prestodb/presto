@@ -61,6 +61,11 @@ class PreferredProperties
         return new PreferredProperties(Optional.of(PartitioningPreferences.partitioned()), ImmutableList.of());
     }
 
+    public static PreferredProperties hashPartitioned(List<Symbol> columns)
+    {
+        return new PreferredProperties(Optional.of(PartitioningPreferences.hashPartitioned(columns)), ImmutableList.of());
+    }
+
     public static PreferredProperties partitionedWithLocal(Set<Symbol> columns, List<? extends LocalProperty<Symbol>> localProperties)
     {
         return new PreferredProperties(Optional.of(PartitioningPreferences.partitioned(columns)), ImmutableList.copyOf(localProperties));
@@ -90,29 +95,40 @@ class PreferredProperties
     {
         private final boolean partitioned;
         private final Optional<Set<Symbol>> partitioningColumns;
+        private final Optional<List<Symbol>> hashingColumns;
 
-        private PartitioningPreferences(boolean partitioned, Optional<Set<Symbol>> partitioningColumns)
+        private PartitioningPreferences(boolean partitioned, Optional<Set<Symbol>> partitioningColumns, Optional<List<Symbol>> hashingColumns)
         {
             requireNonNull(partitioningColumns, "partitioningColumns is null");
             checkArgument(partitioned || (partitioningColumns.isPresent() && partitioningColumns.get().isEmpty()), "unpartitioned implies partitioned on the empty set");
+            if (hashingColumns.isPresent()) {
+                checkArgument(partitioningColumns.isPresent(), "partitioningColumns not present");
+                checkArgument(partitioningColumns.get().containsAll(hashingColumns.get()), "partitioningColumns does not include hashingColumns");
+            }
 
             this.partitioned = partitioned;
             this.partitioningColumns = partitioningColumns.map(ImmutableSet::copyOf);
+            this.hashingColumns = hashingColumns.map(ImmutableList::copyOf);
         }
 
         public static PartitioningPreferences unpartitioned()
         {
-            return new PartitioningPreferences(false, Optional.<Set<Symbol>>of(ImmutableSet.of()));
+            return new PartitioningPreferences(false, Optional.<Set<Symbol>>of(ImmutableSet.of()), Optional.empty());
         }
 
         public static PartitioningPreferences partitioned(Set<Symbol> columns)
         {
-            return new PartitioningPreferences(true, Optional.of(columns));
+            return new PartitioningPreferences(true, Optional.of(columns), Optional.empty());
         }
 
         public static PartitioningPreferences partitioned()
         {
-            return new PartitioningPreferences(true, Optional.empty());
+            return new PartitioningPreferences(true, Optional.empty(), Optional.empty());
+        }
+
+        public static PartitioningPreferences hashPartitioned(List<Symbol> columns)
+        {
+            return new PartitioningPreferences(true, Optional.of(ImmutableSet.copyOf(columns)), Optional.of(ImmutableList.copyOf(columns)));
         }
 
         public boolean isPartitioned()
@@ -123,6 +139,16 @@ class PreferredProperties
         public Optional<Set<Symbol>> getPartitioningColumns()
         {
             return partitioningColumns;
+        }
+
+        public boolean isHashPartitioned()
+        {
+            return hashingColumns.isPresent();
+        }
+
+        public Optional<List<Symbol>> getHashPartitioningColumns()
+        {
+            return hashingColumns;
         }
     }
 }
