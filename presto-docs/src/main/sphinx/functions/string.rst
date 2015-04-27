@@ -112,3 +112,19 @@ String Functions
 .. function:: upper(string) -> varchar
 
     Converts ``string`` to uppercase.
+
+.. function:: to_utf8(string) -> varbinary
+
+    Encodes ``string`` into a UTF-8 varbinary representation.
+
+.. function:: from_utf8(binary) -> varchar
+
+    Decodes a UTF-8 encoded string from ``binary``. Invalid UTF-8 sequences
+    are replaced with the Unicode replacement character ``U+FFFD``.
+
+.. function:: from_utf8(binary, replace) -> varchar
+
+    Decodes a UTF-8 encoded string from ``binary``. Invalid UTF-8 sequences
+    are replaced with `replace`. The replacement string `replace` must either
+    be a single character or empty (in which case invalid characters are
+    removed).
