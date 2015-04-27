@@ -3081,6 +3081,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testUnionWithJoin()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT * FROM (" +
+                        "   SELECT orderdate ds, orderkey FROM orders " +
+                        "   UNION ALL " +
+                        "   SELECT shipdate ds, orderkey FROM lineitem) a " +
+                        "JOIN orders o ON (a.orderkey = o.orderkey)");
+    }
+
+    @Test
     public void testSubqueryUnion()
             throws Exception
     {

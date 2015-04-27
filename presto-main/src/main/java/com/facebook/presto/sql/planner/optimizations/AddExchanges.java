@@ -653,10 +653,13 @@ public class AddExchanges
             List<Symbol> leftSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft);
             List<Symbol> rightSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
 
-            PlanWithProperties left = node.getLeft().accept(this, PreferredProperties.any());
-            PlanWithProperties right = node.getRight().accept(this, PreferredProperties.any());
+            PlanWithProperties left;
+            PlanWithProperties right;
 
             if (distributedJoins) {
+                 left  = node.getLeft().accept(this, PreferredProperties.hashPartitioned(leftSymbols));
+                 right = node.getRight().accept(this, PreferredProperties.hashPartitioned(rightSymbols));
+
                 // force partitioning
                 if (!left.getProperties().isHashPartitionedOn(leftSymbols)) {
                     left = withDerivedProperties(
@@ -670,21 +673,26 @@ public class AddExchanges
                             right.getProperties());
                 }
             }
-            else if (!left.getProperties().isPartitioned() && right.getProperties().isPartitioned()) {
-                // force single-node join
-                // TODO: if inner join, flip order and do a broadcast join
-                right = withDerivedProperties(gatheringExchange(idAllocator.getNextId(), right.getNode()), right.getProperties());
-            }
-            else if (left.getProperties().isPartitioned() && !(left.getProperties().isHashPartitionedOn(leftSymbols) && right.getProperties().isHashPartitionedOn(rightSymbols))) {
-                right = withDerivedProperties(new ExchangeNode(
-                                idAllocator.getNextId(),
-                                ExchangeNode.Type.REPLICATE,
-                                ImmutableList.of(),
-                                Optional.<Symbol>empty(),
-                                ImmutableList.of(right.getNode()),
-                                right.getNode().getOutputSymbols(),
-                                ImmutableList.of(right.getNode().getOutputSymbols())),
-                        right.getProperties());
+            else {
+                left = node.getLeft().accept(this, PreferredProperties.any());
+                right = node.getRight().accept(this, PreferredProperties.any());
+
+                if (!left.getProperties().isPartitioned() && right.getProperties().isPartitioned()) {
+                    // force single-node join
+                    // TODO: if inner join, flip order and do a broadcast join
+                    right = withDerivedProperties(gatheringExchange(idAllocator.getNextId(), right.getNode()), right.getProperties());
+                }
+                else if (left.getProperties().isPartitioned() && !(left.getProperties().isHashPartitionedOn(leftSymbols) && right.getProperties().isHashPartitionedOn(rightSymbols))) {
+                    right = withDerivedProperties(new ExchangeNode(
+                                    idAllocator.getNextId(),
+                                    ExchangeNode.Type.REPLICATE,
+                                    ImmutableList.of(),
+                                    Optional.<Symbol>empty(),
+                                    ImmutableList.of(right.getNode()),
+                                    right.getNode().getOutputSymbols(),
+                                    ImmutableList.of(right.getNode().getOutputSymbols())),
+                            right.getProperties());
+                }
             }
 
             JoinNode result = new JoinNode(node.getId(),
