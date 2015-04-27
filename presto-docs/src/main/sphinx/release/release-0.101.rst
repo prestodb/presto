@@ -6,7 +6,7 @@ General Changes
 ---------------
 
 * Add support for :doc:`/sql/create-table` (in addition to :doc:`/sql/create-table-as`).
-* Add `IF EXISTS` support to :doc:`/sql/drop-table` and :doc:`/sql/drop-view`.
+* Add ``IF EXISTS`` support to :doc:`/sql/drop-table` and :doc:`/sql/drop-view`.
 * Add :func:`array_agg` function.
 * Add :func:`array_intersect` function.
 * Add :func:`array_position` function.
@@ -14,6 +14,11 @@ General Changes
 * Fix analysis of ``UNION`` queries for tables with hidden columns.
 * Fix ``JOIN`` associativity to be left-associative instead of right-associative.
 * Add ``source`` column to ``runtime.queries`` table in :doc:`/connector/system`.
+* Add ``coordinator`` column to ``runtime.nodes`` table in :doc:`/connector/system`.
+* Add ``errorName`` and ``errorType`` to ``error`` object in REST API.
+* Fix ``DatabaseMetaData.getIdentifierQuoteString()`` in JDBC driver.
+* Handle thread interruption in JDBC driver ``ResultSet``.
+* Add ``history`` command and support for running previous commands via ``!n`` to the CLI.
 
 Hive Changes
 ------------
