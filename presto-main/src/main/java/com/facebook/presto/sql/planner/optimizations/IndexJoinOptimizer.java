@@ -53,6 +53,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -246,8 +247,13 @@ public class IndexJoinOptimizer
         @NotNull
         private PlanNode planTableScan(TableScanNode node, Expression predicate, Context context)
         {
-            TupleDomain<ColumnHandle> constraint = DomainTranslator.fromPredicate(metadata, session, predicate, symbolAllocator.getTypes())
-                    .getTupleDomain()
+            DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
+                    metadata,
+                    session,
+                    predicate,
+                    symbolAllocator.getTypes());
+
+            TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
                     .transform(node.getAssignments()::get)
                     .intersect(node.getCurrentConstraint());
 
@@ -257,7 +263,7 @@ public class IndexJoinOptimizer
                     .transform(Functions.forMap(node.getAssignments()))
                     .toSet();
 
-            Optional<ResolvedIndex> optionalResolvedIndex = indexManager.resolveIndex(node.getTable(), lookupColumns, constraint);
+            Optional<ResolvedIndex> optionalResolvedIndex = indexManager.resolveIndex(node.getTable(), lookupColumns, simplifiedConstraint);
             if (!optionalResolvedIndex.isPresent()) {
                 // No index available, so give up by returning something
                 return node;
@@ -265,7 +271,6 @@ public class IndexJoinOptimizer
             ResolvedIndex resolvedIndex = optionalResolvedIndex.get();
 
             Map<ColumnHandle, Symbol> inverseAssignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
-            Expression unresolvedExpression = DomainTranslator.toPredicate(resolvedIndex.getUnresolvedTupleDomain().transform(inverseAssignments::get), symbolAllocator.getTypes());
 
             PlanNode source = new IndexSourceNode(
                     idAllocator.getNextId(),
@@ -274,11 +279,17 @@ public class IndexJoinOptimizer
                     context.getLookupSymbols(),
                     node.getOutputSymbols(),
                     node.getAssignments(),
-                    constraint);
+                    simplifiedConstraint);
 
-            if (!unresolvedExpression.equals(TRUE_LITERAL)) {
+            Expression resultingPredicate = combineConjuncts(
+                    DomainTranslator.toPredicate(
+                            resolvedIndex.getUnresolvedTupleDomain().transform(inverseAssignments::get),
+                            symbolAllocator.getTypes()),
+                    decomposedPredicate.getRemainingExpression());
+
+            if (!resultingPredicate.equals(TRUE_LITERAL)) {
                 // todo it is likely we end up with redundant filters here because the predicate push down has already been run... the fix is to run predicate push down again
-                source = new FilterNode(idAllocator.getNextId(), source, unresolvedExpression);
+                source = new FilterNode(idAllocator.getNextId(), source, resultingPredicate);
             }
             context.markSuccess();
             return source;
@@ -305,12 +316,7 @@ public class IndexJoinOptimizer
         public PlanNode visitFilter(FilterNode node, RewriteContext<Context> context)
         {
             if (node.getSource() instanceof TableScanNode) {
-                TableScanNode tableScan = (TableScanNode) node.getSource();
-
-                return new FilterNode(
-                        node.getId(),
-                        planTableScan(tableScan, node.getPredicate(), context.get()),
-                        node.getPredicate());
+                return planTableScan((TableScanNode) node.getSource(), node.getPredicate(), context.get());
             }
 
             return context.defaultRewrite(node, new Context(context.get().getLookupSymbols(), context.get().getSuccess()));
