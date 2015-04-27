@@ -29,9 +29,9 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
-import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
+import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -216,5 +216,11 @@ public class MapType
     public List<Type> getTypeParameters()
     {
         return ImmutableList.of(getKeyType(), getValueType());
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return "map<" + keyType.getDisplayName() + ", " + valueType.getDisplayName() + ">";
     }
 }
