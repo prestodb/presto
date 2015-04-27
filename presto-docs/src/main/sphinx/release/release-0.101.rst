@@ -12,6 +12,7 @@ General Changes
 * Add :func:`array_position` function.
 * Add :func:`regexp_split` function.
 * Fix analysis of ``UNION`` queries for tables with hidden columns.
+* Fix ``JOIN`` associativity to be left-associative instead of right-associative.
 
 Hive Changes
 ------------
