@@ -25,6 +25,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.discovery.client.Announcer;
+import io.airlift.discovery.client.DiscoveryClientConfig;
 import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.discovery.client.ServiceAnnouncement;
 import io.airlift.event.client.HttpEventModule;
@@ -40,6 +41,7 @@ import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import org.weakref.jmx.guice.MBeanModule;
 
+import java.net.URI;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +56,7 @@ import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncemen
 public class PrestoServer
         implements Runnable
 {
+    private static DiscoveryClientConfig discoveryClientConfig;
     public static void main(String[] args)
     {
         new PrestoServer().run();
@@ -114,6 +117,7 @@ public class PrestoServer
                     injector.getInstance(NodeSchedulerConfig.class));
 
             injector.getInstance(Announcer.class).start();
+            discoveryClientConfig = injector.getInstance(DiscoveryClientConfig.class);
 
             log.info("======== SERVER STARTED ========");
         }
@@ -164,6 +168,11 @@ public class PrestoServer
         // update announcement
         announcer.removeServiceAnnouncement(announcement.getId());
         announcer.addServiceAnnouncement(builder.build());
+    }
+
+    public static URI getDiscoveryUri()
+    {
+        return discoveryClientConfig.getDiscoveryServiceURI();
     }
 
     private static ServiceAnnouncement getPrestoAnnouncement(Set<ServiceAnnouncement> announcements)

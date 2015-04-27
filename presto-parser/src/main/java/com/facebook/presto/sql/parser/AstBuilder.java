@@ -54,6 +54,7 @@ import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
+import com.facebook.presto.sql.tree.KillQuery;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -388,6 +389,12 @@ class AstBuilder
     public Node visitShowCatalogs(@NotNull SqlBaseParser.ShowCatalogsContext context)
     {
         return new ShowCatalogs();
+    }
+
+    @Override
+    public Node visitKillQuery(@NotNull SqlBaseParser.KillQueryContext context)
+    {
+        return new KillQuery(context.DIGIT_IDENTIFIER().getText());
     }
 
     @Override

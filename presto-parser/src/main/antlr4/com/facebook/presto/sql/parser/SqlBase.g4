@@ -53,6 +53,7 @@ statement
         (WHERE booleanExpression)?
         (ORDER BY sortItem (',' sortItem)*)?
         (LIMIT limit=INTEGER_VALUE)?                                   #showPartitions
+    | KILL DIGIT_IDENTIFIER                                            #killQuery
     ;
 
 query
@@ -457,6 +458,7 @@ MAP: 'MAP';
 SET: 'SET';
 RESET: 'RESET';
 SESSION: 'SESSION';
+KILL: 'KILL';
 
 IF: 'IF';
 NULLIF: 'NULLIF';
