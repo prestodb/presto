@@ -25,7 +25,8 @@ import java.io.Closeable;
 import java.util.List;
 
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.FULL_OUTER;
-import static com.facebook.presto.operator.LookupJoinOperators.JoinType.INNER;
+import static com.facebook.presto.operator.LookupJoinOperators.JoinType.LOOKUP_OUTER;
+import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
 import static com.facebook.presto.util.MoreFutures.tryGetUnchecked;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -37,10 +38,12 @@ public class LookupJoinOperator
 
     private final OperatorContext operatorContext;
     private final JoinProbeFactory joinProbeFactory;
-    private final JoinType joinType;
     private final List<Type> types;
     private final List<Type> probeTypes;
     private final PageBuilder pageBuilder;
+
+    private final boolean lookupOnOuterSide;
+    private final boolean probeOnOuterSide;
 
     private LookupSource lookupSource;
     private JoinProbe probe;
@@ -65,7 +68,10 @@ public class LookupJoinOperator
 
         this.lookupSourceFuture = lookupSourceSupplier.getLookupSource(operatorContext);
         this.joinProbeFactory = joinProbeFactory;
-        this.joinType = joinType;
+
+        // Cannot use switch case here, because javac will synthesize an inner class and cause IllegalAccessError
+        probeOnOuterSide = joinType == PROBE_OUTER || joinType == FULL_OUTER;
+        lookupOnOuterSide = joinType == LOOKUP_OUTER || joinType == FULL_OUTER;
 
         this.types = ImmutableList.<Type>builder()
                 .addAll(probeTypes)
@@ -100,7 +106,7 @@ public class LookupJoinOperator
                 finishing &&
                 probe == null &&
                 pageBuilder.isEmpty() &&
-                (joinType != FULL_OUTER || (unvisitedJoinPositions != null && !unvisitedJoinPositions.hasNext()));
+                (!lookupOnOuterSide || (unvisitedJoinPositions != null && !unvisitedJoinPositions.hasNext()));
 
         // if finished drop references so memory is freed early
         if (finished) {
@@ -171,7 +177,7 @@ public class LookupJoinOperator
             }
         }
 
-        if (joinType == FULL_OUTER && finishing && probe == null) {
+        if (lookupOnOuterSide && finishing && probe == null) {
             buildSideOuterJoinUnvisitedPositions();
         }
 
@@ -229,7 +235,7 @@ public class LookupJoinOperator
 
     private boolean outerJoinCurrentPosition()
     {
-        if (joinType != INNER && joinPosition < 0) {
+        if (probeOnOuterSide && joinPosition < 0) {
             // write probe columns
             pageBuilder.declarePosition();
             probe.appendTo(pageBuilder);

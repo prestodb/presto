@@ -28,7 +28,6 @@ import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
 import com.facebook.presto.sql.planner.optimizations.MergeProjections;
 import com.facebook.presto.sql.planner.optimizations.MetadataQueryOptimizer;
-import com.facebook.presto.sql.planner.optimizations.NormalizeJoinOrder;
 import com.facebook.presto.sql.planner.optimizations.PickLayout;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
@@ -89,7 +88,6 @@ public class PlanOptimizersFactory
             builder.add(new PruneUnreferencedOutputs());
         }
 
-        builder.add(new NormalizeJoinOrder());
         builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
 
         if (!forceSingleNode) {
