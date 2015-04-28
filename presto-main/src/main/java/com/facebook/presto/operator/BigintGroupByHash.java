@@ -190,8 +190,7 @@ public class BigintGroupByHash
         if (block.isNull(position)) {
             if (nullGroupId < 0) {
                 // set null group id
-                int groupId = nextGroupId++;
-                nullGroupId = groupId;
+                nullGroupId = nextGroupId++;
             }
 
             return nullGroupId;
