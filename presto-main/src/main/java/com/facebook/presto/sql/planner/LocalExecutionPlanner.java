@@ -438,7 +438,7 @@ public class LocalExecutionPlanner
                     partitionTypes,
                     node.getMaxRowCountPerPartition(),
                     hashChannel,
-                    1_000_000);
+                    10_000);
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
 
@@ -564,7 +564,7 @@ public class LocalExecutionPlanner
                     sortOrder,
                     node.getPreSortedOrderPrefix(),
                     new FrameInfo(frame.getType(), frame.getStartType(), frameStartChannel, frame.getEndType(), frameEndChannel),
-                    1_000_000);
+                    10_000);
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
@@ -1220,7 +1220,7 @@ public class LocalExecutionPlanner
                     buildSource.getTypes(),
                     buildChannels,
                     buildHashChannel,
-                    100_000);
+                    10_000);
             LookupSourceSupplier lookupSourceSupplier = hashBuilderOperatorFactory.getLookupSourceSupplier();
             DriverFactory buildDriverFactory = new DriverFactory(
                     buildContext.isInputDriver(),
@@ -1281,7 +1281,7 @@ public class LocalExecutionPlanner
             Optional<Integer> probeHashChannel = node.getSourceHashSymbol().map(channelGetter(probeSource));
             Optional<Integer> buildHashChannel = node.getFilteringSourceHashSymbol().map(channelGetter(buildSource));
 
-            SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(buildContext.getNextOperatorId(), buildSource.getTypes(), buildChannel, buildHashChannel, 100_000);
+            SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(buildContext.getNextOperatorId(), buildSource.getTypes(), buildChannel, buildHashChannel, 10_000);
             SetSupplier setProvider = setBuilderOperatorFactory.getSetProvider();
             DriverFactory buildDriverFactory = new DriverFactory(
                     buildContext.isInputDriver(),
