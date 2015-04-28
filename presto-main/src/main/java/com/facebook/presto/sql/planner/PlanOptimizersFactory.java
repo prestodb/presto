@@ -36,6 +36,7 @@ import com.facebook.presto.sql.planner.optimizations.PruneRedundantProjections;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SimplifyExpressions;
+import com.facebook.presto.sql.planner.optimizations.SingleDistinctOptimizer;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.sql.planner.optimizations.WindowFilterPushDown;
 import com.google.common.collect.ImmutableList;
@@ -81,6 +82,11 @@ public class PlanOptimizersFactory
 
         if (featuresConfig.isOptimizeMetadataQueries()) {
             builder.add(new MetadataQueryOptimizer(metadata));
+        }
+
+        if (featuresConfig.isOptimizeSingleDistinct()) {
+            builder.add(new SingleDistinctOptimizer());
+            builder.add(new PruneUnreferencedOutputs());
         }
 
         builder.add(new NormalizeJoinOrder());

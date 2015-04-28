@@ -33,7 +33,8 @@ public class TestFeaturesConfig
                 .setDistributedIndexJoinsEnabled(false)
                 .setDistributedJoinsEnabled(false)
                 .setOptimizeMetadataQueries(false)
-                .setOptimizeHashGeneration(false));
+                .setOptimizeHashGeneration(false)
+                .setOptimizeSingleDistinct(true));
     }
 
     @Test
@@ -45,6 +46,7 @@ public class TestFeaturesConfig
                 .put("distributed-joins-enabled", "true")
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-hash-generation", "true")
+                .put("optimizer.optimize-single-distinct", "false")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental-syntax-enabled", "true")
@@ -52,6 +54,7 @@ public class TestFeaturesConfig
                 .put("distributed-joins-enabled", "true")
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-hash-generation", "true")
+                .put("optimizer.optimize-single-distinct", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -59,7 +62,8 @@ public class TestFeaturesConfig
                 .setDistributedIndexJoinsEnabled(true)
                 .setDistributedJoinsEnabled(true)
                 .setOptimizeMetadataQueries(true)
-                .setOptimizeHashGeneration(true);
+                .setOptimizeHashGeneration(true)
+                .setOptimizeSingleDistinct(false);
 
         assertFullMapping(properties, expected);
         assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);
