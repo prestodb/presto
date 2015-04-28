@@ -17,6 +17,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 
 import static com.facebook.presto.spi.block.EncoderUtil.decodeNullBits;
 import static com.facebook.presto.spi.block.EncoderUtil.encodeNullsAsBits;
@@ -88,7 +89,7 @@ public class FixedWidthBlockEncoding
         int blockSize = sliceInput.readInt();
         Slice slice = sliceInput.readSlice(blockSize);
 
-        return new FixedWidthBlock(fixedSize, positionCount, slice, valueIsNull);
+        return new FixedWidthBlock(fixedSize, positionCount, slice, Slices.wrappedBooleanArray(valueIsNull));
     }
 
     @Override
