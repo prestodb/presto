@@ -13,6 +13,8 @@ General Changes
 * Add :func:`regexp_split` function.
 * Add support for ``millisecond`` to :func:`date_diff` and :func:`date_add`.
 * Fix excessive memory usage in :func:`map_agg`.
+* Fix excessive memory usage in queries that perform partitioned top-N operations
+  with :func:`row_number`.
 * Optimize :ref:`array_type` comparison operators.
 * Fix analysis of ``UNION`` queries for tables with hidden columns.
 * Fix ``JOIN`` associativity to be left-associative instead of right-associative.
@@ -25,10 +27,11 @@ General Changes
 * Add ``history`` command and support for running previous commands via ``!n`` to the CLI.
 * Change Driver to make as much progress as possible before blocking.  This improves
   responsiveness of some limit queries.
-* Add connector callback for rollback of ``INSERT`` and ``CREATE TABLE AS``.
 * Add predicate push down support to JMX connector.
 * Add support for unary ``PLUS`` operator.
 * Improve scheduling speed by reducing lock contention.
+* Extend optimizer to understand physical properties such as local grouping and sorting.
+* Add support for streaming execution of window functions.
 
 Web UI Changes
 --------------
@@ -58,3 +61,18 @@ Hive Changes
 * Add JMX stats to PrestoS3FileSystem.
 * Add ``hive.recursive-directories`` config option to recursively scan
   partition directories for data.
+
+SPI Changes
+-----------
+
+* Add connector callback for rollback of ``INSERT`` and ``CREATE TABLE AS``.
+* Introduce an abstraction for representing physical organizations of a table
+  and describing properties such as partitioning, grouping, predicate and columns.
+  ``ConnectorPartition`` and related interfaces are deprecated and will be removed
+  in a future version.
+* Rename ``ConnectorColumnHandle`` to ``ColumnHandle``.
+
+.. note::
+    This is a backwards incompatible change with the previous connector SPI.
+    If you have written a connector, you will need to update your code
+    before deploying this release.
