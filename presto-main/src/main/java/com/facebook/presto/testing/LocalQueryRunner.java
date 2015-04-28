@@ -353,7 +353,8 @@ public class LocalQueryRunner
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setExperimentalSyntaxEnabled(true)
                 .setDistributedIndexJoinsEnabled(false)
-                .setOptimizeHashGeneration(true);
+                .setOptimizeHashGeneration(true)
+                .setOptimizeSingleDistinct(true);
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, sqlParser, splitManager, indexManager, featuresConfig, true);
 
         QueryExplainer queryExplainer = new QueryExplainer(session, planOptimizersFactory.get(), metadata, sqlParser, featuresConfig.isExperimentalSyntaxEnabled());
