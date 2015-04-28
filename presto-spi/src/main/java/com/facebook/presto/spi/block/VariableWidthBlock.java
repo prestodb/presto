@@ -24,9 +24,9 @@ public class VariableWidthBlock
     private final int positionCount;
     private final Slice slice;
     private final int[] offsets;
-    private final boolean[] valueIsNull;
+    private final Slice valueIsNull;
 
-    public VariableWidthBlock(int positionCount, Slice slice, int[] offsets, boolean[] valueIsNull)
+    public VariableWidthBlock(int positionCount, Slice slice, int[] offsets, Slice valueIsNull)
     {
         this.positionCount = positionCount;
         this.slice = slice;
@@ -36,7 +36,7 @@ public class VariableWidthBlock
         }
         this.offsets = offsets;
 
-        if (valueIsNull.length < positionCount) {
+        if (valueIsNull.length() < positionCount) {
             throw new IllegalArgumentException("valueIsNull length is less than positionCount");
         }
         this.valueIsNull = valueIsNull;
@@ -57,7 +57,7 @@ public class VariableWidthBlock
     @Override
     protected boolean isEntryNull(int position)
     {
-        return valueIsNull[position];
+        return valueIsNull.getByte(position) != 0;
     }
 
     @Override
@@ -69,7 +69,7 @@ public class VariableWidthBlock
     @Override
     public int getSizeInBytes()
     {
-        long size = slice.length() + SizeOf.sizeOf(offsets) + SizeOf.sizeOf(valueIsNull);
+        long size = slice.length() + SizeOf.sizeOf(offsets) + valueIsNull.length();
         if (size > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;
         }
@@ -91,7 +91,7 @@ public class VariableWidthBlock
         }
 
         int[] newOffsets = Arrays.copyOfRange(offsets, positionOffset, positionOffset + length + 1);
-        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
+        Slice newValueIsNull = valueIsNull.slice(positionOffset, length);
         return new VariableWidthBlock(length, slice, newOffsets, newValueIsNull);
     }
 

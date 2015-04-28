@@ -160,7 +160,7 @@ public abstract class AbstractFixedWidthBlock
 
         Slice copy = Slices.copyOf(getRawSlice(), valueOffset(position), fixedSize);
 
-        return new FixedWidthBlock(fixedSize, 1, copy, new boolean[] {isNull(position)});
+        return new FixedWidthBlock(fixedSize, 1, copy, Slices.wrappedBooleanArray(isNull(position)));
     }
 
     @Override

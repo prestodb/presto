@@ -34,10 +34,10 @@ public class VariableWidthBlockBuilder
 {
     private final BlockBuilderStatus blockBuilderStatus;
     private final SliceOutput sliceOutput;
+    private final SliceOutput valueIsNull;
 
     private int positions;
     private int[] offsets = new int[1024];
-    private boolean[] valueIsNull = new boolean[1024];
 
     private int currentEntrySize;
 
@@ -50,6 +50,7 @@ public class VariableWidthBlockBuilder
     {
         this.blockBuilderStatus = Objects.requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
         this.sliceOutput = new DynamicSliceOutput(expectedSizeInBytes);
+        this.valueIsNull = new DynamicSliceOutput(1024);
     }
 
     @Override
@@ -97,7 +98,7 @@ public class VariableWidthBlockBuilder
     @Override
     public int getSizeInBytes()
     {
-        long size = sliceOutput.getUnderlyingSlice().length() + SizeOf.sizeOf(offsets) + SizeOf.sizeOf(valueIsNull);
+        long size = sliceOutput.getUnderlyingSlice().length() + SizeOf.sizeOf(offsets) + valueIsNull.getUnderlyingSlice().length();
         if (size > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;
         }
@@ -183,10 +184,9 @@ public class VariableWidthBlockBuilder
     {
         if (positions + 1 >= offsets.length) {
             offsets = Arrays.copyOf(offsets, offsets.length * 2);
-            valueIsNull = Arrays.copyOf(valueIsNull, valueIsNull.length * 2);
         }
 
-        valueIsNull[positions] = isNull;
+        valueIsNull.appendByte(isNull ?  1 : 0);
 
         positions++;
 
@@ -201,7 +201,7 @@ public class VariableWidthBlockBuilder
     @Override
     protected boolean isEntryNull(int position)
     {
-        return valueIsNull[position];
+        return valueIsNull.getUnderlyingSlice().getByte(position) != 0;
     }
 
     @Override
@@ -213,7 +213,7 @@ public class VariableWidthBlockBuilder
         }
 
         int[] newOffsets = Arrays.copyOfRange(offsets, positionOffset, positionOffset + length + 1);
-        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
+        Slice newValueIsNull = valueIsNull.getUnderlyingSlice().slice(positionOffset, length);
         return new VariableWidthBlock(length, sliceOutput.slice(), newOffsets, newValueIsNull);
     }
 
@@ -223,7 +223,7 @@ public class VariableWidthBlockBuilder
         if (currentEntrySize > 0) {
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
-        return new VariableWidthBlock(positions, sliceOutput.slice(), Arrays.copyOf(offsets, positions + 1), Arrays.copyOf(valueIsNull, positions));
+        return new VariableWidthBlock(positions, sliceOutput.slice(), Arrays.copyOf(offsets, positions + 1), valueIsNull.slice());
     }
 
     @Override
