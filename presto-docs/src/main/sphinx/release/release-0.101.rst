@@ -32,6 +32,8 @@ General Changes
 * Improve scheduling speed by reducing lock contention.
 * Extend optimizer to understand physical properties such as local grouping and sorting.
 * Add support for streaming execution of window functions.
+* Make ``UNION`` run partitioned, if underlying plan is partitioned.
+* Add ``hash_partition_count`` session property to control hash partitions.
 
 Web UI Changes
 --------------
