@@ -100,6 +100,8 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -648,15 +650,13 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitJoin(JoinNode node, PreferredProperties preferred)
         {
-            checkArgument(node.getType() != JoinNode.Type.RIGHT, "Expected RIGHT joins to be normalized to LEFT joins");
-
             List<Symbol> leftSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft);
             List<Symbol> rightSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
 
             PlanWithProperties left;
             PlanWithProperties right;
 
-            if (distributedJoins || node.getType() == JoinNode.Type.FULL) {
+            if (distributedJoins || node.getType() == FULL || node.getType() == RIGHT) {
                 // The implementation of full outer join only works if the data is hash partitioned. See LookupJoinOperators#buildSideOuterJoinUnvisitedPositions
 
                 left  = node.getLeft().accept(this, PreferredProperties.hashPartitioned(leftSymbols));
@@ -676,6 +676,8 @@ public class AddExchanges
                 }
             }
             else {
+                // It can only be INNER or LEFT here. Therefore, no flipping is necessary even though the below code assumes the node is not RIGHT.
+
                 left = node.getLeft().accept(this, PreferredProperties.any());
                 right = node.getRight().accept(this, PreferredProperties.any());
 
