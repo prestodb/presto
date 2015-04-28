@@ -94,7 +94,7 @@ public class VariableWidthBlockEncoding
         int blockSize = sliceInput.readInt();
         Slice slice = sliceInput.readSlice(blockSize);
 
-        return new VariableWidthBlock(positionCount, slice, offsets, Slices.wrappedBooleanArray(valueIsNull));
+        return new VariableWidthBlock(positionCount, slice, Slices.wrappedIntArray(offsets), Slices.wrappedBooleanArray(valueIsNull));
     }
 
     @Override
