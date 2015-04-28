@@ -498,6 +498,24 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testSingleDistinctOptimizer()
+            throws Exception
+    {
+        assertQuery("SELECT custkey, orderstatus, COUNT(DISTINCT orderkey) FROM orders GROUP BY custkey, orderstatus");
+        assertQuery("SELECT custkey, orderstatus, COUNT(DISTINCT orderkey), SUM(DISTINCT orderkey) FROM orders GROUP BY custkey, orderstatus");
+        assertQuery("" +
+                "SELECT custkey, COUNT(DISTINCT orderstatus) FROM (" +
+                "   SELECT orders.custkey AS custkey, orders.orderstatus AS orderstatus " +
+                "   FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.orderkey = lineitem.partkey " +
+                "   GROUP BY orders.custkey, orders.orderstatus" +
+                ") " +
+                "GROUP BY custkey");
+        assertQuery("SELECT custkey, COUNT(DISTINCT orderkey), COUNT(DISTINCT orderstatus) FROM orders GROUP BY custkey");
+
+        assertQuery("SELECT SUM(DISTINCT x) FROM (SELECT custkey, COUNT(DISTINCT orderstatus) x FROM orders GROUP BY custkey) t");
+    }
+
+    @Test
     public void testDistinctHaving()
             throws Exception
     {
