@@ -21,8 +21,8 @@ import com.facebook.presto.hive.orc.OrcHiveRecordCursor;
 import com.facebook.presto.hive.orc.OrcPageSource;
 import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSource;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -836,7 +836,7 @@ public abstract class AbstractTestHiveClient
                 for (MaterializedRow row : result) {
                     rowNumber++;
 
-                    assertEquals(row.getField(columnIndex.get("t_double")),  6.2 + rowNumber);
+                    assertEquals(row.getField(columnIndex.get("t_double")), 6.2 + rowNumber);
                     assertEquals(row.getField(columnIndex.get("ds")), ds);
                     assertEquals(row.getField(columnIndex.get("file_format")), fileFormat);
                     assertEquals(row.getField(columnIndex.get("dummy")), dummyPartition);
