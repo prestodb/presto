@@ -90,6 +90,7 @@ import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.all;
 import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -126,7 +127,7 @@ public final class SqlStageExecution
 
     private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
 
-    private final Set<PlanNodeId> completeSources = new HashSet<>();
+    private final Set<PlanNodeId> completeSources = newConcurrentHashSet();
 
     @GuardedBy("this")
     private OutputBuffers currentOutputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS;
