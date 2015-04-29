@@ -14,7 +14,6 @@
 package com.facebook.presto.orc;
 
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -25,12 +24,6 @@ public class FileOrcDataSource
         extends AbstractOrcDataSource
 {
     private final RandomAccessFile input;
-
-    public FileOrcDataSource(File path, DataSize maxMergeDistance)
-            throws IOException
-    {
-        this(path, maxMergeDistance, new DataSize(Integer.MAX_VALUE, Unit.BYTE), new DataSize(0, Unit.BYTE));
-    }
 
     public FileOrcDataSource(File path, DataSize maxMergeDistance, DataSize maxReadSize, DataSize streamBufferSize)
             throws FileNotFoundException

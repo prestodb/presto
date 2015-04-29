@@ -37,6 +37,8 @@ public class StorageManagerConfig
     private Duration shardRecoveryTimeout = new Duration(30, TimeUnit.SECONDS);
     private Duration missingShardDiscoveryInterval = new Duration(5, TimeUnit.MINUTES);
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
+    private DataSize orcMaxReadSize = new DataSize(8, MEGABYTE);
+    private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
     private int recoveryThreads = 10;
 
     private long maxShardRows = 1_000_000;
@@ -81,6 +83,32 @@ public class StorageManagerConfig
     public StorageManagerConfig setOrcMaxMergeDistance(DataSize orcMaxMergeDistance)
     {
         this.orcMaxMergeDistance = orcMaxMergeDistance;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getOrcMaxReadSize()
+    {
+        return orcMaxReadSize;
+    }
+
+    @Config("storage.orc.max-read-size")
+    public StorageManagerConfig setOrcMaxReadSize(DataSize orcMaxReadSize)
+    {
+        this.orcMaxReadSize = orcMaxReadSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getOrcStreamBufferSize()
+    {
+        return orcStreamBufferSize;
+    }
+
+    @Config("storage.orc.stream-buffer-size")
+    public StorageManagerConfig setOrcStreamBufferSize(DataSize orcStreamBufferSize)
+    {
+        this.orcStreamBufferSize = orcStreamBufferSize;
         return this;
     }
 

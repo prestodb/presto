@@ -85,7 +85,7 @@ public class TestShardWriter
             writer.appendPages(rowPagesBuilder.build());
         }
 
-        try (FileOrcDataSource dataSource = new FileOrcDataSource(file, new DataSize(1, Unit.MEGABYTE))) {
+        try (FileOrcDataSource dataSource = new FileOrcDataSource(file, new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE))) {
             OrcRecordReader reader = createReader(dataSource, columnIds);
             assertEquals(reader.getTotalRowCount(), 3);
             assertEquals(reader.getPosition(), 0);
@@ -151,7 +151,7 @@ public class TestShardWriter
             // no rows
         }
 
-        try (FileOrcDataSource dataSource = new FileOrcDataSource(file, new DataSize(1, Unit.MEGABYTE))) {
+        try (FileOrcDataSource dataSource = new FileOrcDataSource(file, new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE))) {
             OrcRecordReader reader = createReaderNoRows(dataSource);
             assertEquals(reader.getTotalRowCount(), 0);
             assertEquals(reader.getPosition(), 0);

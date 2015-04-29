@@ -74,6 +74,8 @@ public class OrcStorageManager
     private final String nodeId;
     private final StorageService storageService;
     private final DataSize orcMaxMergeDistance;
+    private final DataSize orcMaxReadSize;
+    private final DataSize orcStreamBufferSize;
     private final ShardRecoveryManager recoveryManager;
     private final Duration recoveryTimeout;
     private final long maxShardRows;
@@ -91,6 +93,8 @@ public class OrcStorageManager
         this(currentNodeId.toString(),
                 storageService,
                 config.getOrcMaxMergeDistance(),
+                config.getOrcMaxReadSize(),
+                config.getOrcStreamBufferSize(),
                 recoveryManager,
                 config.getShardRecoveryTimeout(),
                 config.getMaxShardRows(),
@@ -102,6 +106,8 @@ public class OrcStorageManager
             String nodeId,
             StorageService storageService,
             DataSize orcMaxMergeDistance,
+            DataSize orcMaxReadSize,
+            DataSize orcStreamBufferSize,
             ShardRecoveryManager recoveryManager,
             Duration shardRecoveryTimeout,
             long maxShardRows,
@@ -111,6 +117,9 @@ public class OrcStorageManager
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
         this.storageService = checkNotNull(storageService, "storageService is null");
         this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
+        this.orcMaxReadSize = checkNotNull(orcMaxReadSize, "orcMaxReadSize is null");
+        this.orcStreamBufferSize = checkNotNull(orcStreamBufferSize, "orcStreamBufferSize is null");
+
         this.recoveryManager = checkNotNull(recoveryManager, "recoveryManager is null");
         this.recoveryTimeout = checkNotNull(shardRecoveryTimeout, "shardRecoveryTimeout is null");
 
@@ -232,7 +241,7 @@ public class OrcStorageManager
         }
 
         try {
-            return new FileOrcDataSource(file, orcMaxMergeDistance);
+            return new FileOrcDataSource(file, orcMaxMergeDistance, orcMaxMergeDistance, orcMaxMergeDistance);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to open shard file: " + file, e);
@@ -241,7 +250,7 @@ public class OrcStorageManager
 
     private List<ColumnStats> computeShardStats(File file, List<Long> columnIds, List<Type> types)
     {
-        try (OrcDataSource dataSource = new FileOrcDataSource(file, orcMaxMergeDistance)) {
+        try (OrcDataSource dataSource = new FileOrcDataSource(file, orcMaxMergeDistance, orcMaxReadSize, orcStreamBufferSize)) {
             OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader());
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
