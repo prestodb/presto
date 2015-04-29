@@ -49,6 +49,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
@@ -367,7 +368,7 @@ public class SqlQueryManager
     public void enforceMemoryLimits()
     {
         memoryManager.process(queries.values().stream()
-                .filter(query -> !query.getQueryInfo().getState().isDone())
+                .filter(query -> query.getQueryInfo().getState() == RUNNING)
                 .collect(toImmutableList()));
     }
 

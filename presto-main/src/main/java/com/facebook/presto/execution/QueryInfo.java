@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.memory.MemoryPoolId;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.StandardErrorCode.ErrorType;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -34,6 +35,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.toErrorType;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class QueryInfo
@@ -41,6 +43,7 @@ public class QueryInfo
     private final QueryId queryId;
     private final Session session;
     private final QueryState state;
+    private final MemoryPoolId memoryPool;
     private final boolean scheduled;
     private final URI self;
     private final List<String> fieldNames;
@@ -60,6 +63,7 @@ public class QueryInfo
             @JsonProperty("queryId") QueryId queryId,
             @JsonProperty("session") Session session,
             @JsonProperty("state") QueryState state,
+            @JsonProperty("memoryPool") MemoryPoolId memoryPool,
             @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("self") URI self,
             @JsonProperty("fieldNames") List<String> fieldNames,
@@ -87,6 +91,7 @@ public class QueryInfo
         this.queryId = queryId;
         this.session = session;
         this.state = state;
+        this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.scheduled = scheduled;
         this.self = self;
         this.fieldNames = ImmutableList.copyOf(fieldNames);
@@ -118,6 +123,12 @@ public class QueryInfo
     public QueryState getState()
     {
         return state;
+    }
+
+    @JsonProperty
+    public MemoryPoolId getMemoryPool()
+    {
+        return memoryPool;
     }
 
     @JsonProperty

@@ -83,6 +83,7 @@ public class MemoryPool
      */
     public synchronized boolean tryReserve(long bytes)
     {
+        checkArgument(bytes >= 0, "bytes is negative");
         if (freeBytes - bytes < 0) {
             return false;
         }
@@ -93,7 +94,7 @@ public class MemoryPool
     public synchronized void free(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(freeBytes <= maxBytes, "tried to free more memory than is reserved");
+        checkArgument(freeBytes + bytes <= maxBytes, "tried to free more memory than is reserved");
         freeBytes += bytes;
         if (freeBytes > 0 && future != null) {
             future.set(null);

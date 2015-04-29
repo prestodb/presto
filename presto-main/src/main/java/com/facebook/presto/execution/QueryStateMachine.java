@@ -17,6 +17,7 @@ import com.facebook.presto.ErrorCodes;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.base.Preconditions;
@@ -44,9 +45,11 @@ import java.util.concurrent.Executor;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
+import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -62,6 +65,9 @@ public class QueryStateMachine
     private final String query;
     private final Session session;
     private final URI self;
+
+    @GuardedBy("this")
+    private VersionedMemoryPoolId memoryPool = new VersionedMemoryPoolId(GENERAL_POOL, 0);
 
     @GuardedBy("this")
     private DateTime lastHeartbeat = DateTime.now();
@@ -247,6 +253,7 @@ public class QueryStateMachine
         return new QueryInfo(queryId,
                 session,
                 state,
+                memoryPool.getId(),
                 isScheduled(rootStage),
                 self,
                 outputFieldNames,
@@ -259,6 +266,16 @@ public class QueryStateMachine
                 failureInfo,
                 errorCode,
                 inputs);
+    }
+
+    public synchronized VersionedMemoryPoolId getMemoryPool()
+    {
+        return memoryPool;
+    }
+
+    public synchronized void setMemoryPool(VersionedMemoryPoolId memoryPool)
+    {
+        this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
     }
 
     public synchronized void setOutputFieldNames(List<String> outputFieldNames)

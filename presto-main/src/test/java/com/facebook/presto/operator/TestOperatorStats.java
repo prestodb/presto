@@ -20,6 +20,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -53,6 +54,7 @@ public class TestOperatorStats
             new Duration(17, NANOSECONDS),
 
             new DataSize(18, BYTE),
+            Optional.empty(),
             "19");
 
     public static final OperatorStats MERGEABLE = new OperatorStats(
@@ -81,6 +83,7 @@ public class TestOperatorStats
             new Duration(17, NANOSECONDS),
 
             new DataSize(18, BYTE),
+            Optional.empty(),
             new LongMergeable(19));
 
     @Test

@@ -41,6 +41,9 @@ public class ClusterMemoryPool
     @GuardedBy("this")
     private int blockedNodes;
 
+    @GuardedBy("this")
+    private int queries;
+
     public ClusterMemoryPool(MemoryPoolId id)
     {
         this.id = requireNonNull(id, "id is null");
@@ -75,12 +78,19 @@ public class ClusterMemoryPool
         return blockedNodes;
     }
 
-    public synchronized void update(List<MemoryInfo> memoryInfos)
+    @Managed
+    public synchronized int getQueries()
+    {
+        return queries;
+    }
+
+    public synchronized void update(List<MemoryInfo> memoryInfos, int queries)
     {
         nodes = 0;
         blockedNodes = 0;
         totalDistributedBytes = 0;
         freeDistributedBytes = 0;
+        this.queries = queries;
 
         for (MemoryInfo info : memoryInfos) {
             MemoryPoolInfo poolInfo = info.getPools().get(id);
@@ -123,6 +133,7 @@ public class ClusterMemoryPool
                 .add("freeDistributedBytes", freeDistributedBytes)
                 .add("nodes", nodes)
                 .add("blockedNodes", blockedNodes)
+                .add("queries", queries)
                 .toString();
     }
 }

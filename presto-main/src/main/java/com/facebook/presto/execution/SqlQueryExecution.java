@@ -17,6 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
@@ -139,6 +140,32 @@ public final class SqlQueryExecution
 
             this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled);
         }
+    }
+
+    @Override
+    public VersionedMemoryPoolId getMemoryPool()
+    {
+        return stateMachine.getMemoryPool();
+    }
+
+    @Override
+    public void setMemoryPool(VersionedMemoryPoolId poolId)
+    {
+        stateMachine.setMemoryPool(poolId);
+    }
+
+    @Override
+    public long getTotalMemoryReservation()
+    {
+        // acquire reference to outputStage before checking finalQueryInfo, because
+        // state change listener sets finalQueryInfo and then clears outputStage when
+        // the query finishes.
+        SqlStageExecution stage = outputStage.get();
+        QueryInfo queryInfo = finalQueryInfo.get();
+        if (queryInfo != null) {
+            return queryInfo.getQueryStats().getTotalMemoryReservation().toBytes();
+        }
+        return stage.getTotalMemoryReservation();
     }
 
     @Override
@@ -332,6 +359,7 @@ public final class SqlQueryExecution
                 queryInfo.getQueryId(),
                 queryInfo.getSession(),
                 queryInfo.getState(),
+                getMemoryPool().getId(),
                 queryInfo.isScheduled(),
                 queryInfo.getSelf(),
                 queryInfo.getFieldNames(),

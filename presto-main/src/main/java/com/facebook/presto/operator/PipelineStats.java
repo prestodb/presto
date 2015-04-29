@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -23,9 +24,11 @@ import io.airlift.units.Duration;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class PipelineStats
@@ -49,6 +52,8 @@ public class PipelineStats
     private final Duration totalCpuTime;
     private final Duration totalUserTime;
     private final Duration totalBlockedTime;
+    private final boolean fullyBlocked;
+    private final Set<BlockedReason> blockedReasons;
 
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
@@ -83,6 +88,8 @@ public class PipelineStats
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
             @JsonProperty("totalUserTime") Duration totalUserTime,
             @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
+            @JsonProperty("fullyBlocked") boolean fullyBlocked,
+            @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
 
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
@@ -121,6 +128,8 @@ public class PipelineStats
         this.totalCpuTime = checkNotNull(totalCpuTime, "totalCpuTime is null");
         this.totalUserTime = checkNotNull(totalUserTime, "totalUserTime is null");
         this.totalBlockedTime = checkNotNull(totalBlockedTime, "totalBlockedTime is null");
+        this.fullyBlocked = fullyBlocked;
+        this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
         this.rawInputDataSize = checkNotNull(rawInputDataSize, "rawInputDataSize is null");
         checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
@@ -229,6 +238,18 @@ public class PipelineStats
     }
 
     @JsonProperty
+    public boolean isFullyBlocked()
+    {
+        return fullyBlocked;
+    }
+
+    @JsonProperty
+    public Set<BlockedReason> getBlockedReasons()
+    {
+        return blockedReasons;
+    }
+
+    @JsonProperty
     public DataSize getRawInputDataSize()
     {
         return rawInputDataSize;
@@ -294,6 +315,8 @@ public class PipelineStats
                 totalCpuTime,
                 totalUserTime,
                 totalBlockedTime,
+                fullyBlocked,
+                blockedReasons,
                 rawInputDataSize,
                 rawInputPositions,
                 processedInputDataSize,

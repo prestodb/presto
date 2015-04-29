@@ -163,6 +163,11 @@ public class DistributedQueryRunner
         return coordinator;
     }
 
+    public List<TestingPrestoServer> getServers()
+    {
+        return ImmutableList.copyOf(servers);
+    }
+
     @Override
     public void installPlugin(Plugin plugin)
     {

@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -49,6 +50,8 @@ public interface TaskManager
      * queried.
      */
     ListenableFuture<TaskInfo> getTaskInfo(TaskId taskId, TaskState currentState);
+
+    void updateMemoryPoolAssignments(MemoryPoolAssignmentsRequest assignments);
 
     /**
      * Updates the task plan, sources and output buffers.  If the task does not

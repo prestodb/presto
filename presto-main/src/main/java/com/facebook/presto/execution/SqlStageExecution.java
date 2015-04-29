@@ -276,6 +276,19 @@ public final class SqlStageExecution
     }
 
     @Override
+    public long getTotalMemoryReservation()
+    {
+        long memory = 0;
+        for (RemoteTask task : tasks.values()) {
+            memory += task.getTaskInfo().getStats().getMemoryReservation().toBytes();
+        }
+        for (StageExecutionNode subStage : subStages.values()) {
+            memory += subStage.getTotalMemoryReservation();
+        }
+        return memory;
+    }
+
+    @Override
     public StageInfo getStageInfo()
     {
         try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
@@ -981,6 +994,8 @@ public final class SqlStageExecution
 interface StageExecutionNode
 {
     StageInfo getStageInfo();
+
+    long getTotalMemoryReservation();
 
     StageState getState();
 

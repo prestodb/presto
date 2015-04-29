@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.memory;
 
+import com.facebook.presto.execution.TaskManager;
+
 import javax.inject.Inject;
-import javax.ws.rs.GET;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
@@ -28,17 +31,21 @@ import static java.util.Objects.requireNonNull;
 public class MemoryResource
 {
     private final LocalMemoryManager memoryManager;
+    private final TaskManager taskManager;
 
     @Inject
-    public MemoryResource(LocalMemoryManager memoryManager)
+    public MemoryResource(LocalMemoryManager memoryManager, TaskManager taskManager)
     {
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
+        this.taskManager = requireNonNull(taskManager, "taskManager is null");
     }
 
-    @GET
+    @POST
     @Produces(MediaType.APPLICATION_JSON)
-    public MemoryInfo getMemoryInfo()
+    @Consumes(MediaType.APPLICATION_JSON)
+    public MemoryInfo getMemoryInfo(MemoryPoolAssignmentsRequest request)
     {
+        taskManager.updateMemoryPoolAssignments(request);
         return memoryManager.getInfo();
     }
 }

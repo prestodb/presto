@@ -15,10 +15,13 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.memory.VersionedMemoryPoolId;
 import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.util.concurrent.Executor;
+
+import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 
 public class FailedQueryExecution
         implements QueryExecution
@@ -43,6 +46,24 @@ public class FailedQueryExecution
     public QueryInfo getQueryInfo()
     {
         return queryInfo;
+    }
+
+    @Override
+    public VersionedMemoryPoolId getMemoryPool()
+    {
+        return new VersionedMemoryPoolId(GENERAL_POOL, 0);
+    }
+
+    @Override
+    public void setMemoryPool(VersionedMemoryPoolId poolId)
+    {
+        // no-op
+    }
+
+    @Override
+    public long getTotalMemoryReservation()
+    {
+        return 0;
     }
 
     @Override

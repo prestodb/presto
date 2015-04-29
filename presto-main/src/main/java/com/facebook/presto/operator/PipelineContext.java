@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -223,6 +224,11 @@ public class PipelineContext
         memoryReservation.getAndAdd(-bytes);
     }
 
+    public void moreMemoryAvailable()
+    {
+        drivers.stream().forEach(DriverContext::moreMemoryAvailable);
+    }
+
     public boolean isVerboseStats()
     {
         return taskContext.isVerboseStats();
@@ -377,6 +383,8 @@ public class PipelineContext
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                drivers.stream().allMatch(DriverStats::isFullyBlocked),
+                drivers.stream().flatMap(driver -> driver.getBlockedReasons().stream()).collect(ImmutableCollectors.toImmutableSet()),
 
                 new DataSize(rawInputDataSize, BYTE).convertToMostSuccinctDataSize(),
                 rawInputPositions,
