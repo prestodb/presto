@@ -36,8 +36,11 @@ import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.ClusterMemoryManager;
+import com.facebook.presto.memory.ForMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
+import com.facebook.presto.memory.MemoryInfo;
 import com.facebook.presto.memory.MemoryManagerConfig;
+import com.facebook.presto.memory.MemoryResource;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.CatalogManagerConfig;
 import com.facebook.presto.metadata.HandleJsonModule;
@@ -175,6 +178,11 @@ public class ServerMainModule
         binder.bind(RemoteTaskFactory.class).to(HttpRemoteTaskFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(RemoteTaskFactory.class).withGeneratedName();
         httpClientBinder(binder).bindHttpClient("scheduler", ForScheduler.class).withTracing();
+
+        // memory manager
+        jaxrsBinder(binder).bind(MemoryResource.class);
+        httpClientBinder(binder).bindHttpClient("memoryManager", ForMemoryManager.class).withTracing();
+        jsonCodecBinder(binder).bindJsonCodec(MemoryInfo.class);
 
         // data stream provider
         binder.bind(PageSourceManager.class).in(Scopes.SINGLETON);
