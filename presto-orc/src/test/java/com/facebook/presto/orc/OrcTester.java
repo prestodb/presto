@@ -418,7 +418,7 @@ public class OrcTester
     private static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, MetadataReader metadataReader, OrcPredicate predicate)
             throws IOException
     {
-        OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE));
+        OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE));
         OrcReader orcReader = new OrcReader(orcDataSource, metadataReader);
 
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
