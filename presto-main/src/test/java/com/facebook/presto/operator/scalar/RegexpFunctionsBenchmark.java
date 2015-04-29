@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import io.airlift.joni.Regex;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -33,7 +34,6 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.operator.scalar.RegexpFunctions.regexpLike;
@@ -65,7 +65,7 @@ public class RegexpFunctionsBenchmark
         @Param({ "1024", "32768" })
         private int sourceLength;
 
-        private Pattern pattern;
+        private Regex pattern;
         private Slice source;
 
         @Setup
@@ -105,7 +105,7 @@ public class RegexpFunctionsBenchmark
             return source;
         }
 
-        public Pattern getPattern()
+        public Regex getPattern()
         {
             return pattern;
         }
