@@ -60,13 +60,6 @@ public final class JsonFunctions
         return new JsonPath(pattern.toString(UTF_8));
     }
 
-    @ScalarOperator(OperatorType.CAST)
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice castToVarchar(@SqlType(StandardTypes.JSON) Slice slice)
-    {
-        return slice;
-    }
-
     @Nullable
     @ScalarFunction("json_array_length")
     @SqlType(StandardTypes.BIGINT)

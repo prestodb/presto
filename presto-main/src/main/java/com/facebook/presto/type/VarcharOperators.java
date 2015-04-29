@@ -13,17 +13,10 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.airlift.json.ObjectMapperProvider;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
-
-import java.io.IOException;
 
 import static com.facebook.presto.metadata.OperatorType.BETWEEN;
 import static com.facebook.presto.metadata.OperatorType.CAST;
@@ -35,14 +28,11 @@ import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
 import static com.facebook.presto.metadata.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class VarcharOperators
 {
-    private static final ObjectMapper SORTED_MAPPER = new ObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
-
     private VarcharOperators()
     {
     }
@@ -166,21 +156,6 @@ public final class VarcharOperators
     public static Slice castToBinary(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         return slice;
-    }
-
-    @ScalarOperator(OperatorType.CAST)
-    @SqlType(StandardTypes.JSON)
-    public static Slice castToJson(@SqlType(StandardTypes.VARCHAR) Slice slice) throws IOException
-    {
-        try {
-            byte[] in = slice.getBytes();
-            SliceOutput dynamicSliceOutput = new DynamicSliceOutput(in.length);
-            SORTED_MAPPER.writeValue(dynamicSliceOutput, SORTED_MAPPER.readValue(in, Object.class));
-            return dynamicSliceOutput.slice();
-        }
-        catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to JSON", slice.toStringUtf8()));
-        }
     }
 
     @ScalarOperator(HASH_CODE)
