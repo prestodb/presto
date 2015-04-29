@@ -45,21 +45,15 @@ public class TestHiveIntegrationSmokeTest
     public void testInformationSchemaTablesWithoutEqualityConstraint()
             throws Exception
     {
-        @Language("SQL")
-        String actual = "" +
-                "SELECT LOWER(table_name) FROM " +
-                "  information_schema.tables " +
-                "WHERE " +
-                "  table_catalog = 'hive' " +
-                "  and table_schema LIKE 'tpch' " +
-                "  and table_name LIKE '%orders'";
+        @Language("SQL") String actual = "" +
+                "SELECT lower(table_name) " +
+                "FROM information_schema.tables " +
+                "WHERE table_catalog = 'hive' AND table_schema LIKE 'tpch' AND table_name LIKE '%orders'";
 
-        @Language("SQL")
-        String expected = "" +
-                "SELECT LOWER(table_name) FROM " +
-                "  information_schema.tables " +
-                "WHERE " +
-                "  table_name LIKE '%ORDERS'";
+        @Language("SQL") String expected = "" +
+                "SELECT lower(table_name) " +
+                "FROM information_schema.tables " +
+                "WHERE table_name LIKE '%ORDERS'";
 
         assertQuery(actual, expected);
     }
@@ -68,21 +62,15 @@ public class TestHiveIntegrationSmokeTest
     public void testInformationSchemaColumnsWithoutEqualityConstraint()
             throws Exception
     {
-        @Language("SQL")
-        String actual = "" +
-                "SELECT LOWER(table_name), LOWER(column_name) FROM " +
-                "  information_schema.columns " +
-                "WHERE " +
-                "  table_catalog = 'hive' " +
-                "  and table_schema = 'tpch' " +
-                "  and table_name LIKE '%orders%'";
+        @Language("SQL") String actual = "" +
+                "SELECT lower(table_name), lower(column_name) " +
+                "FROM information_schema.columns " +
+                "WHERE table_catalog = 'hive' AND table_schema = 'tpch' AND table_name LIKE '%orders%'";
 
-        @Language("SQL")
-        String expected = "" +
-                "SELECT LOWER(table_name), LOWER(column_name) FROM " +
-                "  information_schema.columns " +
-                "WHERE " +
-                "  table_name LIKE '%ORDERS%'";
+        @Language("SQL") String expected = "" +
+                "SELECT lower(table_name), lower(column_name) " +
+                "FROM information_schema.columns " +
+                "WHERE table_name LIKE '%ORDERS%'";
 
         assertQuery(actual, expected);
     }
