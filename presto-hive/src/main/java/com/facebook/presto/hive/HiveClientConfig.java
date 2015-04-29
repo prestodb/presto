@@ -57,6 +57,7 @@ public class HiveClientConfig
 
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(1, TimeUnit.SECONDS);
+    private int metastoreBatchPartitionRefreshSize = 100;
     private int maxMetastoreRefreshThreads = 100;
     private HostAndPort metastoreSocksProxy;
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
@@ -282,6 +283,19 @@ public class HiveClientConfig
     public HiveClientConfig setMetastoreRefreshInterval(Duration metastoreRefreshInterval)
     {
         this.metastoreRefreshInterval = metastoreRefreshInterval;
+        return this;
+    }
+
+    @Min(1)
+    public int getMetastoreBatchPartitionRefreshSize()
+    {
+        return metastoreBatchPartitionRefreshSize;
+    }
+
+    @Config("hive.metastore-partition-batch-refresh-size")
+    public HiveClientConfig setMetastoreBatchPartitionRefreshSize(int metastoreBatchPartitionRefreshSize)
+    {
+        this.metastoreBatchPartitionRefreshSize = metastoreBatchPartitionRefreshSize;
         return this;
     }
 
