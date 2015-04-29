@@ -19,8 +19,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.AbstractType;
-
-import java.util.regex.Pattern;
+import io.airlift.joni.Regex;
 
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
@@ -33,7 +32,7 @@ public class RegexpType
 
     public RegexpType()
     {
-        super(parameterizedTypeName(NAME), Pattern.class);
+        super(parameterizedTypeName(NAME), Regex.class);
     }
 
     @Override
