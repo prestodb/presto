@@ -356,8 +356,7 @@ public abstract class AbstractTestHiveClient
     @Test
     public void testGetAllTableColumns()
     {
-        Map<SchemaTableName, List<ColumnMetadata>> allColumns
-                = metadata.listTableColumns(SESSION, new SchemaTablePrefix());
+        Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.listTableColumns(SESSION, new SchemaTablePrefix());
         assertTrue(allColumns.containsKey(tablePartitionFormat));
         assertTrue(allColumns.containsKey(tableUnpartitioned));
     }
@@ -365,8 +364,7 @@ public abstract class AbstractTestHiveClient
     @Test
     public void testGetAllTableColumnsInSchema()
     {
-        Map<SchemaTableName, List<ColumnMetadata>> allColumns
-                = metadata.listTableColumns(SESSION, new SchemaTablePrefix(database));
+        Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.listTableColumns(SESSION, new SchemaTablePrefix(database));
         assertTrue(allColumns.containsKey(tablePartitionFormat));
         assertTrue(allColumns.containsKey(tableUnpartitioned));
     }
