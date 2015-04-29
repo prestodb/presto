@@ -23,7 +23,6 @@ import javax.inject.Inject;
 
 import java.util.Map;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 
@@ -51,10 +50,11 @@ public final class LocalMemoryManager
 
     public MemoryInfo getInfo()
     {
-        return new MemoryInfo(maxMemory,
-                pools.values().stream()
-                .map(MemoryPool::getInfo)
-                .collect(toImmutableList()));
+        ImmutableMap.Builder<MemoryPoolId, MemoryPoolInfo> builder = ImmutableMap.builder();
+        for (Map.Entry<MemoryPoolId, MemoryPool> entry : pools.entrySet()) {
+            builder.put(entry.getKey(), entry.getValue().getInfo());
+        }
+        return new MemoryInfo(maxMemory, builder.build());
     }
 
     public MemoryPool getPool(MemoryPoolId id)

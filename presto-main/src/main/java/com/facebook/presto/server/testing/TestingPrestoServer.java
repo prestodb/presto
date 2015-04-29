@@ -15,6 +15,7 @@ package com.facebook.presto.server.testing;
 
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -76,6 +77,7 @@ public class TestingPrestoServer
     private final ConnectorManager connectorManager;
     private final TestingHttpServer server;
     private final Metadata metadata;
+    private final ClusterMemoryManager clusterMemoryManager;
     private final InternalNodeManager nodeManager;
     private final ServiceSelectorManager serviceSelectorManager;
     private final Announcer announcer;
@@ -157,6 +159,7 @@ public class TestingPrestoServer
 
         server = injector.getInstance(TestingHttpServer.class);
         metadata = injector.getInstance(Metadata.class);
+        clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
         announcer = injector.getInstance(Announcer.class);
@@ -226,6 +229,11 @@ public class TestingPrestoServer
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    public ClusterMemoryManager getClusterMemoryManager()
+    {
+        return clusterMemoryManager;
     }
 
     public final AllNodes refreshNodes()

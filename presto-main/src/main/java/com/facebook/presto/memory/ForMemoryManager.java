@@ -11,21 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.memory;
 
-import com.facebook.presto.spi.Node;
+import javax.inject.Qualifier;
 
-import java.net.URI;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-public interface LocationFactory
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@Qualifier
+public @interface ForMemoryManager
 {
-    URI createQueryLocation(QueryId queryId);
-
-    URI createStageLocation(StageId stageId);
-
-    URI createLocalTaskLocation(TaskId taskId);
-
-    URI createTaskLocation(Node node, TaskId taskId);
-
-    URI createMemoryInfoLocation(Node node);
 }

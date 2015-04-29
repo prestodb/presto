@@ -294,5 +294,11 @@ public class TestSqlTaskManager
         {
             return URI.create("fake://task/" + node.getNodeIdentifier() + "/" + taskId);
         }
+
+        @Override
+        public URI createMemoryInfoLocation(Node node)
+        {
+            return URI.create("fake://" + node.getNodeIdentifier() + "/memory");
+        }
     }
 }

@@ -56,7 +56,7 @@ public class MemoryPool
 
     public synchronized MemoryPoolInfo getInfo()
     {
-        return new MemoryPoolInfo(id, maxBytes, freeBytes);
+        return new MemoryPoolInfo(maxBytes, freeBytes);
     }
 
     /**
@@ -117,7 +117,7 @@ public class MemoryPool
     }
 
     @Override
-    public String toString()
+    public synchronized String toString()
     {
         return MoreObjects.toStringHelper(this)
                 .add("id", id)

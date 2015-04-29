@@ -16,23 +16,23 @@ package com.facebook.presto.memory;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 
-import java.util.List;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
 public class MemoryInfo
 {
     private final DataSize totalNodeMemory;
-    private final List<MemoryPoolInfo> pools;
+    private final Map<MemoryPoolId, MemoryPoolInfo> pools;
 
     @JsonCreator
-    public MemoryInfo(@JsonProperty("totalNodeMemory") DataSize totalNodeMemory, @JsonProperty("pools") List<MemoryPoolInfo> pools)
+    public MemoryInfo(@JsonProperty("totalNodeMemory") DataSize totalNodeMemory, @JsonProperty("pools") Map<MemoryPoolId, MemoryPoolInfo> pools)
     {
         this.totalNodeMemory = requireNonNull(totalNodeMemory, "totalNodeMemory is null");
-        this.pools = ImmutableList.copyOf(requireNonNull(pools, "pools is null"));
+        this.pools = ImmutableMap.copyOf(requireNonNull(pools, "pools is null"));
     }
 
     @JsonProperty
@@ -42,7 +42,7 @@ public class MemoryInfo
     }
 
     @JsonProperty
-    public List<MemoryPoolInfo> getPools()
+    public Map<MemoryPoolId, MemoryPoolInfo> getPools()
     {
         return pools;
     }

@@ -17,28 +17,16 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects;
 
-import static java.util.Objects.requireNonNull;
-
 public class MemoryPoolInfo
 {
-    private final MemoryPoolId id;
     private final long maxBytes;
     private final long freeBytes;
 
     @JsonCreator
-    public MemoryPoolInfo(@JsonProperty("id") MemoryPoolId id,
-            @JsonProperty("maxBytes") long maxBytes,
-            @JsonProperty("freeBytes") long freeBytes)
+    public MemoryPoolInfo(@JsonProperty("maxBytes") long maxBytes, @JsonProperty("freeBytes") long freeBytes)
     {
-        this.id = requireNonNull(id, "id is null");
         this.maxBytes = maxBytes;
         this.freeBytes = freeBytes;
-    }
-
-    @JsonProperty
-    public MemoryPoolId getId()
-    {
-        return id;
     }
 
     @JsonProperty
@@ -57,7 +45,6 @@ public class MemoryPoolInfo
     public String toString()
     {
         return MoreObjects.toStringHelper(this)
-                .add("id", id)
                 .add("maxBytes", maxBytes)
                 .add("freeBytes", freeBytes)
                 .toString();
