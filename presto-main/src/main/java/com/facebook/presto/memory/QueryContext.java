@@ -17,6 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
@@ -36,12 +38,14 @@ public class QueryContext
 {
     private final long maxMemory;
     private final boolean enforceLimit;
-    private final MemoryPool memoryPool;
     private final Executor executor;
     private final List<TaskContext> taskContexts = new CopyOnWriteArrayList<>();
 
     @GuardedBy("this")
     private long reserved;
+
+    @GuardedBy("this")
+    private MemoryPool memoryPool;
 
     public QueryContext(boolean enforceLimit, DataSize maxMemory, MemoryPool memoryPool, Executor executor)
     {
@@ -81,6 +85,37 @@ public class QueryContext
     {
         checkArgument(reserved - bytes >= 0, "tried to free more memory than is reserved");
         reserved -= bytes;
+        memoryPool.free(bytes);
+    }
+
+    public synchronized void setMemoryPool(MemoryPool pool)
+    {
+        requireNonNull(pool, "pool is null");
+        if (pool.getId().equals(memoryPool.getId())) {
+            // Don't unblock our tasks and thrash the pools, if this is a no-op
+            return;
+        }
+        MemoryPool originalPool = memoryPool;
+        long originalReserved = reserved;
+        memoryPool = pool;
+        ListenableFuture<?> future = pool.reserve(reserved);
+        Futures.addCallback(future, new FutureCallback<Object>() {
+            @Override
+            public void onSuccess(Object result)
+            {
+                originalPool.free(originalReserved);
+                // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
+                taskContexts.stream().forEach(TaskContext::moreMemoryAvailable);
+            }
+
+            @Override
+            public void onFailure(Throwable t)
+            {
+                originalPool.free(originalReserved);
+                // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
+                taskContexts.stream().forEach(TaskContext::moreMemoryAvailable);
+            }
+        });
     }
 
     public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, DataSize maxTaskMemory, DataSize operatorPreAllocatedMemory, boolean verboseStats, boolean cpuTimerEnabled)

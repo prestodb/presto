@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.memory;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.weakref.jmx.MBeanExporter;
@@ -21,6 +23,7 @@ import org.weakref.jmx.ObjectNames;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.Map;
 
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -44,9 +47,9 @@ public final class LocalMemoryManager
         maxMemory = new DataSize(Runtime.getRuntime().maxMemory() - systemMemoryConfig.getReservedSystemMemory().toBytes(), BYTE);
 
         ImmutableMap.Builder<MemoryPoolId, MemoryPool> builder = ImmutableMap.builder();
-        builder.put(RESERVED_POOL, createPool(RESERVED_POOL, config.getMaxQueryMemoryPerNode(), exporter));
+        builder.put(RESERVED_POOL, createPool(RESERVED_POOL, config.getMaxQueryMemoryPerNode(), exporter, config.isClusterMemoryManagerEnabled()));
         DataSize generalPoolSize = new DataSize(maxMemory.toBytes() - config.getMaxQueryMemoryPerNode().toBytes(), BYTE);
-        builder.put(GENERAL_POOL, createPool(GENERAL_POOL, generalPoolSize, exporter));
+        builder.put(GENERAL_POOL, createPool(GENERAL_POOL, generalPoolSize, exporter, config.isClusterMemoryManagerEnabled()));
         this.pools = builder.build();
     }
 
@@ -59,15 +62,20 @@ public final class LocalMemoryManager
         return new MemoryInfo(maxMemory, builder.build());
     }
 
+    @VisibleForTesting
+    public List<MemoryPool> getPools()
+    {
+        return ImmutableList.copyOf(pools.values());
+    }
+
     public MemoryPool getPool(MemoryPoolId id)
     {
         return pools.get(id);
     }
 
-    private static MemoryPool createPool(MemoryPoolId id, DataSize size, MBeanExporter exporter)
+    private static MemoryPool createPool(MemoryPoolId id, DataSize size, MBeanExporter exporter, boolean enableBlocking)
     {
-        // TODO: Once these pools are integrated with the coordinator, we should enable blocking
-        MemoryPool pool = new MemoryPool(id, size, false);
+        MemoryPool pool = new MemoryPool(id, size, enableBlocking);
         String objectName = ObjectNames.builder(MemoryPool.class, pool.getId().toString()).build();
         exporter.export(objectName, pool);
         return pool;

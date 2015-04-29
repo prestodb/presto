@@ -85,6 +85,9 @@
         <dt>Elapsed</dt>
         <dd id="elapsedTime"></dd>
 
+        <dt>Memory Pool</dt>
+        <dd id="memoryPool"></dd>
+
         <dt>Memory</dt>
         <dd id="memory"></dd>
 
@@ -159,6 +162,7 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
     d3.select('#sessionCatalog').text(query.session.catalog);
     d3.select('#sessionSchema').text(query.session.schema);
     d3.select('#elapsedTime').text(query.queryStats.elapsedTime);
+    d3.select('#memoryPool').text(query.memoryPool);
     d3.select('#memory').text(query.queryStats.totalMemoryReservation);
     d3.select('#cpuTime').text(query.queryStats.totalCpuTime);
     d3.select('#rows').text(formatCount(query.queryStats.rawInputPositions));

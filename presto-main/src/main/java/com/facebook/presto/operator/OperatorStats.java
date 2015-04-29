@@ -22,6 +22,8 @@ import io.airlift.units.Duration;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Optional;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -55,6 +57,7 @@ public class OperatorStats
     private final Duration finishUser;
 
     private final DataSize memoryReservation;
+    private final Optional<BlockedReason> blockedReason;
 
     private final Object info;
 
@@ -85,6 +88,7 @@ public class OperatorStats
             @JsonProperty("finishUser") Duration finishUser,
 
             @JsonProperty("memoryReservation") DataSize memoryReservation,
+            @JsonProperty("blockedReason") Optional<BlockedReason> blockedReason,
 
             @JsonProperty("info") Object info)
     {
@@ -116,6 +120,7 @@ public class OperatorStats
         this.finishUser = checkNotNull(finishUser, "finishUser is null");
 
         this.memoryReservation = checkNotNull(memoryReservation, "memoryReservation is null");
+        this.blockedReason = blockedReason;
 
         this.info = info;
     }
@@ -240,6 +245,12 @@ public class OperatorStats
         return memoryReservation;
     }
 
+    @JsonProperty
+    public Optional<BlockedReason> getBlockedReason()
+    {
+        return blockedReason;
+    }
+
     @Nullable
     @JsonProperty
     public Object getInfo()
@@ -276,6 +287,7 @@ public class OperatorStats
         long finishUser = this.finishUser.roundTo(NANOSECONDS);
 
         long memoryReservation = this.memoryReservation.toBytes();
+        Optional<BlockedReason> blockedReason = this.blockedReason;
 
         Mergeable<?> base = null;
         if (info instanceof Mergeable) {
@@ -306,6 +318,9 @@ public class OperatorStats
             blockedWall += operator.getBlockedWall().roundTo(NANOSECONDS);
 
             memoryReservation += operator.getMemoryReservation().toBytes();
+            if (operator.getBlockedReason().isPresent()) {
+                blockedReason = operator.getBlockedReason();
+            }
 
             Object info = operator.getInfo();
             if (base != null && info != null && base.getClass() == info.getClass()) {
@@ -339,6 +354,7 @@ public class OperatorStats
                 new Duration(finishUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 new DataSize(memoryReservation, BYTE).convertToMostSuccinctDataSize(),
+                blockedReason,
 
                 base);
     }

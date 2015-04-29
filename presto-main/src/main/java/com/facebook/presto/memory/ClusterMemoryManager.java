@@ -19,6 +19,7 @@ import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.http.client.HttpClient;
@@ -41,6 +42,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
@@ -54,8 +57,10 @@ public class ClusterMemoryManager
     private final HttpClient httpClient;
     private final MBeanExporter exporter;
     private final JsonCodec<MemoryInfo> memoryInfoCodec;
+    private final JsonCodec<MemoryPoolAssignmentsRequest> assignmentsRequestJsonCodec;
     private final DataSize maxQueryMemory;
     private final boolean enabled;
+    private final AtomicLong memoryPoolAssignmentsVersion = new AtomicLong();
     private final AtomicLong clusterMemoryUsageBytes = new AtomicLong();
     private final AtomicLong clusterMemoryBytes = new AtomicLong();
     private final Map<String, RemoteNodeMemory> nodes = new HashMap<>();
@@ -70,6 +75,7 @@ public class ClusterMemoryManager
             LocationFactory locationFactory,
             MBeanExporter exporter,
             JsonCodec<MemoryInfo> memoryInfoCodec,
+            JsonCodec<MemoryPoolAssignmentsRequest> assignmentsRequestJsonCodec,
             MemoryManagerConfig config)
     {
         requireNonNull(config, "config is null");
@@ -78,6 +84,7 @@ public class ClusterMemoryManager
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.exporter = requireNonNull(exporter, "exporter is null");
         this.memoryInfoCodec = requireNonNull(memoryInfoCodec, "memoryInfoCodec is null");
+        this.assignmentsRequestJsonCodec = requireNonNull(assignmentsRequestJsonCodec, "assignmentsRequestJsonCodec is null");
         this.maxQueryMemory = config.getMaxQueryMemory();
         this.enabled = config.isClusterMemoryManagerEnabled();
     }
@@ -89,7 +96,7 @@ public class ClusterMemoryManager
         }
         long totalBytes = 0;
         for (QueryExecution query : queries) {
-            long bytes = query.getQueryInfo().getQueryStats().getTotalMemoryReservation().toBytes();
+            long bytes = query.getTotalMemoryReservation();
             totalBytes += bytes;
             if (bytes > maxQueryMemory.toBytes()) {
                 query.fail(new ExceededMemoryLimitException("Query", maxQueryMemory));
@@ -97,8 +104,15 @@ public class ClusterMemoryManager
         }
         clusterMemoryUsageBytes.set(totalBytes);
 
-        updateNodes();
-        updatePools();
+        Map<MemoryPoolId, Integer> countByPool = new HashMap<>();
+        for (QueryExecution query : queries) {
+            MemoryPoolId id = query.getMemoryPool().getId();
+            countByPool.put(id, countByPool.getOrDefault(id, 0) + 1);
+        }
+
+        updatePools(countByPool);
+
+        updateNodes(updateAssignments(queries));
     }
 
     @VisibleForTesting
@@ -107,7 +121,60 @@ public class ClusterMemoryManager
         return ImmutableMap.copyOf(pools);
     }
 
-    private void updateNodes()
+    private MemoryPoolAssignmentsRequest updateAssignments(Iterable<QueryExecution> queries)
+    {
+        ClusterMemoryPool reservedPool = pools.get(RESERVED_POOL);
+        ClusterMemoryPool generalPool = pools.get(GENERAL_POOL);
+        long version = memoryPoolAssignmentsVersion.incrementAndGet();
+        // Check that all previous assignments have propagated to the visible nodes. This doesn't account for temporary network issues,
+        // and is more of a safety check than a guarantee
+        if (reservedPool != null && generalPool != null && allAssignmentsHavePropagated(queries)) {
+            if (reservedPool.getQueries() == 0 && generalPool.getBlockedNodes() > 0) {
+                QueryExecution biggestQuery = null;
+                long maxMemory = -1;
+                for (QueryExecution queryExecution : queries) {
+                    long bytesUsed = queryExecution.getTotalMemoryReservation();
+                    if (bytesUsed > maxMemory) {
+                        biggestQuery = queryExecution;
+                        maxMemory = bytesUsed;
+                    }
+                }
+                for (QueryExecution queryExecution : queries) {
+                    if (queryExecution.getQueryId().equals(biggestQuery.getQueryId())) {
+                        queryExecution.setMemoryPool(new VersionedMemoryPoolId(RESERVED_POOL, version));
+                    }
+                }
+            }
+        }
+
+        ImmutableList.Builder<MemoryPoolAssignment> assignments = ImmutableList.builder();
+        for (QueryExecution queryExecution : queries) {
+            assignments.add(new MemoryPoolAssignment(queryExecution.getQueryId(), queryExecution.getMemoryPool().getId()));
+        }
+        return new MemoryPoolAssignmentsRequest(version, assignments.build());
+    }
+
+    private boolean allAssignmentsHavePropagated(Iterable<QueryExecution> queries)
+    {
+        if (nodes.isEmpty()) {
+            // Assignments can't have propagated, if there are no visible nodes.
+            return false;
+        }
+        long newestAssignment = ImmutableList.copyOf(queries).stream()
+                .map(QueryExecution::getMemoryPool)
+                .mapToLong(VersionedMemoryPoolId::getVersion)
+                .min()
+                .orElse(-1);
+
+        long mostOutOfDateNode = nodes.values().stream()
+                .mapToLong(RemoteNodeMemory::getCurrentAssignmentVersion)
+                .min()
+                .orElse(Long.MAX_VALUE);
+
+        return newestAssignment <= mostOutOfDateNode;
+    }
+
+    private void updateNodes(MemoryPoolAssignmentsRequest assignments)
     {
         Set<Node> activeNodes = nodeManager.getActiveNodes();
         ImmutableSet<String> activeNodeIds = activeNodes.stream()
@@ -120,17 +187,17 @@ public class ClusterMemoryManager
         // Add new nodes
         for (Node node : activeNodes) {
             if (!nodes.containsKey(node.getNodeIdentifier())) {
-                nodes.put(node.getNodeIdentifier(), new RemoteNodeMemory(httpClient, memoryInfoCodec, locationFactory.createMemoryInfoLocation(node)));
+                nodes.put(node.getNodeIdentifier(), new RemoteNodeMemory(httpClient, memoryInfoCodec, assignmentsRequestJsonCodec, locationFactory.createMemoryInfoLocation(node)));
             }
         }
 
         // Schedule refresh
         for (RemoteNodeMemory node : nodes.values()) {
-            node.asyncRefresh();
+            node.asyncRefresh(assignments);
         }
     }
 
-    private synchronized void updatePools()
+    private synchronized void updatePools(Map<MemoryPoolId, Integer> queryCounts)
     {
         // Update view of cluster memory and pools
         List<MemoryInfo> nodeMemoryInfos = nodes.values().stream()
@@ -166,7 +233,7 @@ public class ClusterMemoryManager
                 }
                 return newPool;
             });
-            pool.update(nodeMemoryInfos);
+            pool.update(nodeMemoryInfos, queryCounts.getOrDefault(pool.getId(), 0));
         }
     }
 

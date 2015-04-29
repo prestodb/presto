@@ -19,6 +19,8 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
+import com.facebook.presto.memory.MemoryPoolAssignment;
+import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -40,6 +42,7 @@ import org.weakref.jmx.Nested;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.io.Closeable;
@@ -54,6 +57,7 @@ import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
@@ -71,11 +75,15 @@ public class SqlTaskManager
     private final Duration infoCacheTime;
     private final Duration clientTimeout;
 
+    private final LocalMemoryManager localMemoryManager;
     private final LoadingCache<QueryId, QueryContext> queryContexts;
     private final LoadingCache<TaskId, SqlTask> tasks;
 
     private final SqlTaskIoStats cachedStats = new SqlTaskIoStats();
     private final SqlTaskIoStats finishedTaskStats = new SqlTaskIoStats();
+
+    @GuardedBy("this")
+    private long currentMemoryPoolAssignmentVersion;
 
     @Inject
     public SqlTaskManager(
@@ -103,6 +111,7 @@ public class SqlTaskManager
 
         SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, queryMonitor, config);
 
+        this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
         DataSize maxQueryMemoryPerNode = memoryManagerConfig.getMaxQueryMemoryPerNode();
         boolean clusterMemoryManagerEnabled = memoryManagerConfig.isClusterMemoryManagerEnabled();
 
@@ -112,7 +121,6 @@ public class SqlTaskManager
             public QueryContext load(QueryId key)
                     throws Exception
             {
-                // TODO: Queries should be assigned to pools dynamically
                 return new QueryContext(clusterMemoryManagerEnabled, maxQueryMemoryPerNode, localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL), taskNotificationExecutor);
             }
         });
@@ -138,6 +146,19 @@ public class SqlTaskManager
                 );
             }
         });
+    }
+
+    @Override
+    public synchronized void updateMemoryPoolAssignments(MemoryPoolAssignmentsRequest assignments)
+    {
+        if (assignments.getVersion() <= currentMemoryPoolAssignmentVersion) {
+            return;
+        }
+        currentMemoryPoolAssignmentVersion = assignments.getVersion();
+
+        for (MemoryPoolAssignment assignment : assignments.getAssignments()) {
+            queryContexts.getUnchecked(assignment.getQueryId()).setMemoryPool(localMemoryManager.getPool(assignment.getPoolId()));
+        }
     }
 
     @PostConstruct

@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
@@ -214,6 +215,11 @@ public class DriverContext
         memoryReservation.getAndAdd(-bytes);
     }
 
+    public void moreMemoryAvailable()
+    {
+        operatorContexts.stream().forEach(OperatorContext::moreMemoryAvailable);
+    }
+
     public boolean isVerboseStats()
     {
         return pipelineContext.isVerboseStats();
@@ -328,6 +334,14 @@ public class DriverContext
             elapsedTime = new Duration(0, NANOSECONDS);
         }
 
+        ImmutableSet.Builder<BlockedReason> builder = ImmutableSet.builder();
+
+        for (OperatorStats operator : operators) {
+            if (operator.getBlockedReason().isPresent()) {
+                builder.add(operator.getBlockedReason().get());
+            }
+        }
+
         return new DriverStats(
                 createdTime,
                 executionStartTime.get(),
@@ -339,6 +353,8 @@ public class DriverContext
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                blockedMonitor != null,
+                builder.build(),
                 rawInputDataSize.convertToMostSuccinctDataSize(),
                 rawInputPositions,
                 rawInputReadTime,
