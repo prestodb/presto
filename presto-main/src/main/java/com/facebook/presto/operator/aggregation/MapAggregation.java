@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
@@ -21,6 +22,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.state.KeyValuePairStateSerializer;
 import com.facebook.presto.operator.aggregation.state.KeyValuePairsState;
 import com.facebook.presto.operator.aggregation.state.KeyValuePairsStateFactory;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -41,7 +43,9 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static java.lang.String.format;
 
 public class MapAggregation
         extends ParametricAggregation
@@ -120,7 +124,12 @@ public class MapAggregation
         }
 
         long startSize = pairs.estimatedInMemorySize();
-        pairs.add(key, value, position, position);
+        try {
+            pairs.add(key, value, position, position);
+        }
+        catch (ExceededMemoryLimitException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("The result of map_agg may not exceed %s", e.getMaxMemory()));
+        }
         state.addMemoryUsage(pairs.estimatedInMemorySize() - startSize);
     }
 
@@ -132,7 +141,12 @@ public class MapAggregation
             KeyValuePairs pairs = state.get();
             long startSize = pairs.estimatedInMemorySize();
             for (int i = 0; i < keys.getPositionCount(); i++) {
-                pairs.add(keys, values, i, i);
+                try {
+                    pairs.add(keys, values, i, i);
+                }
+                catch (ExceededMemoryLimitException e) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("The result of map_agg may not exceed %s", e.getMaxMemory()));
+                }
             }
             state.addMemoryUsage(pairs.estimatedInMemorySize() - startSize);
         }

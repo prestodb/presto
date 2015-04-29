@@ -136,6 +136,11 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    public static Block createEmptyLongsBlock()
+    {
+        return BIGINT.createFixedSizeBlockBuilder(0).build();
+    }
+
     // This method makes it easy to create blocks without having to add an L to every value
     public static Block createLongsBlock(int... values)
     {
