@@ -33,8 +33,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
+import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;
-import org.joni.Regex;
 
 import javax.annotation.Nullable;
 

@@ -60,8 +60,8 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;
-import org.joni.Regex;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
