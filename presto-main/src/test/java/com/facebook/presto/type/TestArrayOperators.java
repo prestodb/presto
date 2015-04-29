@@ -29,6 +29,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -203,6 +204,51 @@ public class TestArrayOperators
         assertFunction("CONTAINS(ARRAY ['puppies', 'kittens'], 'lizards')", BOOLEAN, false);
         assertFunction("CONTAINS(ARRAY [TRUE, FALSE], TRUE)", BOOLEAN, true);
         assertFunction("CONTAINS(ARRAY [FALSE], TRUE)", BOOLEAN, false);
+    }
+
+    @Test
+    public void testArrayJoin()
+            throws Exception
+    {
+        assertFunction("ARRAY_JOIN(ARRAY [1, 2, 3], ';', 'N/A')", VARCHAR, "1;2;3");
+        assertFunction("ARRAY_JOIN(ARRAY [1, 2, null], ';', 'N/A')", VARCHAR, "1;2;N/A");
+        assertFunction("ARRAY_JOIN(ARRAY [1, 2, 3], null, null)", VARCHAR, null);
+        assertFunction("ARRAY_JOIN(ARRAY [null], null, null)", VARCHAR, null);
+        assertFunction("ARRAY_JOIN(ARRAY [], null, null)", VARCHAR, null);
+        assertFunction("ARRAY_JOIN(ARRAY [''], '', '')", VARCHAR, "");
+        assertFunction("ARRAY_JOIN(ARRAY [1, 2, 3, null, 5], ',', '*')", VARCHAR, "1,2,3,*,5");
+        assertFunction("ARRAY_JOIN(ARRAY ['a', 'b', 'c', null, null, 'd', null], '-', 'N/A')", VARCHAR, "a-b-c-N/A-N/A-d-N/A");
+        assertFunction("ARRAY_JOIN(ARRAY ['a', 'b', 'c', null, null, 'd', null], '-', null)", VARCHAR, "a-b-c---d-");
+        assertFunction("ARRAY_JOIN(ARRAY [null, null, null, null], 'X', null)", VARCHAR, "XXX");
+        assertFunction("ARRAY_JOIN(ARRAY [true, false], 'XX', null)", VARCHAR, "trueXXfalse");
+        assertFunction("ARRAY_JOIN(ARRAY [sqrt(-1), infinity()], ',', null)", VARCHAR, "NaN,Infinity");
+        assertFunction("ARRAY_JOIN(ARRAY [from_unixtime(1), from_unixtime(10)], '|', null)", VARCHAR, sqlTimestamp(1000).toString() + "|" + sqlTimestamp(10_000).toString());
+        assertFunction("ARRAY_JOIN(ARRAY [null, from_unixtime(10)], '|', null)", VARCHAR, "|" + sqlTimestamp(10_000).toString());
+        assertFunction("ARRAY_JOIN(ARRAY [null, from_unixtime(10)], '|', 'XYZ')", VARCHAR, "XYZ|" + sqlTimestamp(10_000).toString());
+
+        try {
+            assertFunction("ARRAY_JOIN(ARRAY [ARRAY [1], ARRAY [2]], '-', null)", UNKNOWN, null);
+            fail("Nested array should fail");
+        }
+        catch (PrestoException e) {
+            assertTrue(e.getErrorCode() == INVALID_FUNCTION_ARGUMENT.toErrorCode());
+        }
+
+        try {
+            assertFunction("ARRAY_JOIN(ARRAY [MAP(ARRAY [1], ARRAY [2])], '-', null)", UNKNOWN, null);
+            fail("Nested map should fail");
+        }
+        catch (PrestoException e) {
+            assertTrue(e.getErrorCode() == INVALID_FUNCTION_ARGUMENT.toErrorCode());
+        }
+
+        try {
+            assertFunction("ARRAY_JOIN(ARRAY [test_row(1, 2)], '-', null)", UNKNOWN, null);
+            fail("Nested row should fail");
+        }
+        catch (PrestoException e) {
+            assertTrue(e.getErrorCode() == INVALID_FUNCTION_ARGUMENT.toErrorCode());
+        }
     }
 
     @Test

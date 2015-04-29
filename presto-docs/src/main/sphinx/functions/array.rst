@@ -29,9 +29,9 @@ Array Functions
 
     Returns an array of the elements in the intersection of ``x`` and ``y``, without duplicates.
 
-.. function:: array_position(array, element) -> bigint
+.. function:: array_position(x, element) -> bigint
 
-    Returns the position of the first occurrence of the ``element`` in ``array`` (or 0 if not found).
+    Returns the position of the first occurrence of the ``element`` in array ``x`` (or 0 if not found).
 
 .. function:: array_sort(x) -> array
 
@@ -47,6 +47,10 @@ Array Functions
     Concatenates the arrays ``x`` and ``y``. This function provides the same
     functionality as the SQL-standard concatenation operator (``||``).
 
-.. function:: contains(array, element) -> boolean
+.. function:: contains(x, element) -> boolean
 
-    Returns true if the ``array`` contains the ``element``.
+    Returns true if the array ``x`` contains the ``element``.
+
+.. function:: array_join(x, delimiter, null_replacement) -> varchar
+
+    Concatenates the elements of the given array using the delimiter and an optional string to replace nulls.
