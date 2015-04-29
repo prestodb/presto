@@ -21,6 +21,8 @@ import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_MEMORY_LIMIT;
 public class ExceededMemoryLimitException
         extends PrestoException
 {
+    private final DataSize maxMemory;
+
     public ExceededMemoryLimitException(DataSize maxMemory)
     {
         this("Task", maxMemory);
@@ -29,5 +31,11 @@ public class ExceededMemoryLimitException
     public ExceededMemoryLimitException(String entity, DataSize maxMemory)
     {
         super(EXCEEDED_MEMORY_LIMIT, String.format("%s exceeded max memory size of %s", entity, maxMemory));
+        this.maxMemory = maxMemory;
+    }
+
+    public DataSize getMaxMemory()
+    {
+        return maxMemory;
     }
 }
