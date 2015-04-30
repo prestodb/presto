@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
+import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.internal.StaticCredentialsProvider;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.google.common.base.Throwables;
@@ -51,6 +52,19 @@ public class TestPrestoS3FileSystem
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
             assertInstanceOf(getAwsCredentialsProvider(fs), StaticCredentialsProvider.class);
+        }
+    }
+
+    @Test
+    public void testSTSAssumeRoleSessionCredentialsProvider()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        config.set(PrestoS3FileSystem.S3_ROLE_ARN, "test_aws_role");
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            assertInstanceOf(getAwsCredentialsProvider(fs), STSAssumeRoleSessionCredentialsProvider.class);
         }
     }
 

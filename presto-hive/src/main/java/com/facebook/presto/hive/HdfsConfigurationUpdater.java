@@ -55,6 +55,7 @@ public class HdfsConfigurationUpdater
     private final DataSize s3MultipartMinPartSize;
     private final File s3StagingDirectory;
     private final List<String> resourcePaths;
+    private final String s3AwsRoleArn;
 
     @Inject
     public HdfsConfigurationUpdater(HiveClientConfig hiveClientConfig)
@@ -82,6 +83,7 @@ public class HdfsConfigurationUpdater
         this.s3MultipartMinPartSize = hiveClientConfig.getS3MultipartMinPartSize();
         this.s3StagingDirectory = hiveClientConfig.getS3StagingDirectory();
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
+        this.s3AwsRoleArn = hiveClientConfig.getS3AwsRoleArn();
     }
 
     public void updateConfiguration(Configuration config)
@@ -143,6 +145,9 @@ public class HdfsConfigurationUpdater
         config.setInt(PrestoS3FileSystem.S3_MAX_CONNECTIONS, s3MaxConnections);
         config.setLong(PrestoS3FileSystem.S3_MULTIPART_MIN_FILE_SIZE, s3MultipartMinFileSize.toBytes());
         config.setLong(PrestoS3FileSystem.S3_MULTIPART_MIN_PART_SIZE, s3MultipartMinPartSize.toBytes());
+        if (s3AwsRoleArn != null) {
+            config.set(PrestoS3FileSystem.S3_ROLE_ARN, s3AwsRoleArn);
+        }
     }
 
     public static class NoOpDNSToSwitchMapping

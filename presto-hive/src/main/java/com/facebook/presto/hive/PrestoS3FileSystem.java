@@ -21,6 +21,7 @@ import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
+import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
@@ -78,6 +79,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.RetryDriver.retry;
@@ -107,6 +109,8 @@ public class PrestoS3FileSystem
         return STATS;
     }
 
+    // AWSSecurityTokenService: roleSessionName must have length less than or equal to 32
+    private static final int AWS_ROLE_SESSION_NAME_MAX_LENGTH = 32;
     private static final String DIRECTORY_SUFFIX = "_$folder$";
 
     public static final String S3_SSL_ENABLED = "presto.s3.ssl.enabled";
@@ -121,6 +125,7 @@ public class PrestoS3FileSystem
     public static final String S3_MULTIPART_MIN_FILE_SIZE = "presto.s3.multipart.min-file-size";
     public static final String S3_MULTIPART_MIN_PART_SIZE = "presto.s3.multipart.min-part-size";
     public static final String S3_USE_INSTANCE_CREDENTIALS = "presto.s3.use-instance-credentials";
+    public static final String S3_ROLE_ARN = "presto.s3.aws-role-arn";
 
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
@@ -135,6 +140,7 @@ public class PrestoS3FileSystem
     private Duration maxBackoffTime;
     private Duration maxRetryTime;
     private boolean useInstanceCredentials;
+    private String s3RoleArn;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -161,6 +167,7 @@ public class PrestoS3FileSystem
         long minFileSize = conf.getLong(S3_MULTIPART_MIN_FILE_SIZE, defaults.getS3MultipartMinFileSize().toBytes());
         long minPartSize = conf.getLong(S3_MULTIPART_MIN_PART_SIZE, defaults.getS3MultipartMinPartSize().toBytes());
         this.useInstanceCredentials = conf.getBoolean(S3_USE_INSTANCE_CREDENTIALS, defaults.isS3UseInstanceCredentials());
+        this.s3RoleArn = conf.get(S3_ROLE_ARN, defaults.getS3AwsRoleArn());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -564,6 +571,10 @@ public class PrestoS3FileSystem
 
     private AWSCredentialsProvider getAwsCredentialsProvider(URI uri, Configuration conf)
     {
+        if (this.s3RoleArn != null) {
+            return new STSAssumeRoleSessionCredentialsProvider(this.s3RoleArn, Long.toString(UUID.randomUUID().getLeastSignificantBits(), AWS_ROLE_SESSION_NAME_MAX_LENGTH));
+        }
+
         // first try credentials from URI or static properties
         try {
             return new StaticCredentialsProvider(getAwsCredentials(uri, conf));
