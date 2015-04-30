@@ -76,53 +76,81 @@ public final class ArrayContains
         MethodHandle methodHandle = methodHandle(ArrayContains.class, "contains", Type.class, Slice.class, type.getJavaType());
         Signature signature = new Signature(FUNCTION_NAME, RETURN_TYPE, arrayType, valueType);
 
-        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle.bindTo(type), isDeterministic(), false, ImmutableList.of(false, false));
+        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle.bindTo(type), isDeterministic(), true, ImmutableList.of(false, false));
     }
 
-    public static boolean contains(Type type, Slice slice, Slice value)
+    public static Boolean contains(Type type, Slice slice, Slice value)
     {
         Block arrayBlock = readStructuralBlock(slice);
         Block valueBlock = createBlock(type, value);
+        boolean foundNull = false;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
+            if (arrayBlock.isNull(i)) {
+                foundNull = true;
+            }
             if (type.equalTo(arrayBlock, i, valueBlock, 0)) {
                 return true;
             }
         }
-        return false;
-    }
-
-    public static boolean contains(Type type, Slice slice, long value)
-    {
-        Block arrayBlock = readStructuralBlock(slice);
-        Block valueBlock = createBlock(type, value);
-        for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-            if (type.equalTo(arrayBlock, i, valueBlock, 0)) {
-                return true;
-            }
+        if (foundNull) {
+            return null;
         }
         return false;
     }
 
-    public static boolean contains(Type type, Slice slice, boolean value)
+    public static Boolean contains(Type type, Slice slice, long value)
     {
         Block arrayBlock = readStructuralBlock(slice);
         Block valueBlock = createBlock(type, value);
+        boolean foundNull = false;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
+            if (arrayBlock.isNull(i)) {
+                foundNull = true;
+            }
             if (type.equalTo(arrayBlock, i, valueBlock, 0)) {
                 return true;
             }
         }
+        if (foundNull) {
+            return null;
+        }
         return false;
     }
 
-    public static boolean contains(Type type, Slice slice, double value)
+    public static Boolean contains(Type type, Slice slice, boolean value)
     {
         Block arrayBlock = readStructuralBlock(slice);
         Block valueBlock = createBlock(type, value);
+        boolean foundNull = false;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
+            if (arrayBlock.isNull(i)) {
+                foundNull = true;
+            }
             if (type.equalTo(arrayBlock, i, valueBlock, 0)) {
                 return true;
             }
+        }
+        if (foundNull) {
+            return null;
+        }
+        return false;
+    }
+
+    public static Boolean contains(Type type, Slice slice, double value)
+    {
+        Block arrayBlock = readStructuralBlock(slice);
+        Block valueBlock = createBlock(type, value);
+        boolean foundNull = false;
+        for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
+            if (arrayBlock.isNull(i)) {
+                foundNull = true;
+            }
+            if (type.equalTo(arrayBlock, i, valueBlock, 0)) {
+                return true;
+            }
+        }
+        if (foundNull) {
+            return null;
         }
         return false;
     }
