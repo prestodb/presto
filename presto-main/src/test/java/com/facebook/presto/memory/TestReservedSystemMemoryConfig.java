@@ -14,40 +14,42 @@
 package com.facebook.presto.memory;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static org.testng.Assert.fail;
 
-public class TestMemoryManagerConfig
+public class TestReservedSystemMemoryConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(MemoryManagerConfig.class)
-                .setMaxQueryMemory(new DataSize(20, GIGABYTE))
-                .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE))
-                .setClusterMemoryManagerEnabled(false));
+        // This can't use assertRecordedDefaults because the default value is dependent on the current max heap size, which varies based on the current size of the survivor space.
+        for (int i = 0; i < 1_000; i++) {
+            DataSize expected = new DataSize(Runtime.getRuntime().maxMemory() * 0.2, BYTE);
+            ReservedSystemMemoryConfig config = new ReservedSystemMemoryConfig();
+            if (expected.equals(config.getReservedSystemMemory())) {
+                return;
+            }
+        }
+        // We can't make this 100% deterministic, since we don't know when the survivor space will change sizes, but assume that something is broken if we got the wrong answer 1000 times
+        fail();
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("query.max-memory", "2GB")
-                .put("query.max-memory-per-node", "2GB")
-                .put("experimental.cluster-memory-manager-enabled", "true")
+                .put("resources.reserved-system-memory", "1GB")
                 .build();
 
-        MemoryManagerConfig expected = new MemoryManagerConfig()
-                .setMaxQueryMemory(new DataSize(2, GIGABYTE))
-                .setMaxQueryMemoryPerNode(new DataSize(2, GIGABYTE))
-                .setClusterMemoryManagerEnabled(true);
+        ReservedSystemMemoryConfig expected = new ReservedSystemMemoryConfig()
+                .setReservedSystemMemory(new DataSize(1, GIGABYTE));
 
         assertFullMapping(properties, expected);
     }

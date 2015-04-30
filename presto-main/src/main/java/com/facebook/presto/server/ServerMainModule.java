@@ -41,6 +41,7 @@ import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.MemoryInfo;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.MemoryResource;
+import com.facebook.presto.memory.ReservedSystemMemoryConfig;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.CatalogManagerConfig;
 import com.facebook.presto.metadata.HandleJsonModule;
@@ -146,6 +147,7 @@ public class ServerMainModule
         jaxrsBinder(binder).bind(TaskResource.class);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(MemoryManagerConfig.class);
+        bindConfig(binder).to(ReservedSystemMemoryConfig.class);
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
         binder.bind(LocalMemoryManager.class).in(Scopes.SINGLETON);

@@ -19,6 +19,7 @@ import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
+import com.facebook.presto.memory.ReservedSystemMemoryConfig;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.spi.Node;
@@ -61,7 +62,7 @@ public class TestSqlTaskManager
 
     public TestSqlTaskManager()
     {
-        localMemoryManager = new LocalMemoryManager(new MemoryManagerConfig(), new MBeanExporter(new TestingMBeanServer()));
+        localMemoryManager = new LocalMemoryManager(new MemoryManagerConfig(), new ReservedSystemMemoryConfig(), new MBeanExporter(new TestingMBeanServer()));
         taskExecutor = new TaskExecutor(8, 16);
         taskExecutor.start();
     }
