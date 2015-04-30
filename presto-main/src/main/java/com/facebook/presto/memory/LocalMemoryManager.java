@@ -36,10 +36,12 @@ public final class LocalMemoryManager
     private final Map<MemoryPoolId, MemoryPool> pools;
 
     @Inject
-    public LocalMemoryManager(MemoryManagerConfig config, MBeanExporter exporter)
+    public LocalMemoryManager(MemoryManagerConfig config, ReservedSystemMemoryConfig systemMemoryConfig, MBeanExporter exporter)
     {
         this.exporter = requireNonNull(exporter, "exporter is null");
-        maxMemory = new DataSize(Runtime.getRuntime().maxMemory() - config.getReservedSystemMemory().toBytes(), BYTE);
+        requireNonNull(config, "config is null");
+        requireNonNull(systemMemoryConfig, "systemMemoryConfig is null");
+        maxMemory = new DataSize(Runtime.getRuntime().maxMemory() - systemMemoryConfig.getReservedSystemMemory().toBytes(), BYTE);
 
         ImmutableMap.Builder<MemoryPoolId, MemoryPool> builder = ImmutableMap.builder();
         builder.put(RESERVED_POOL, createPool(RESERVED_POOL, config.getMaxQueryMemoryPerNode(), exporter));

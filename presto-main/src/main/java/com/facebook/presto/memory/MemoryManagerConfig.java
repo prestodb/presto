@@ -18,28 +18,13 @@ import io.airlift.units.DataSize;
 
 import javax.validation.constraints.NotNull;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 
 public class MemoryManagerConfig
 {
     private DataSize maxQueryMemory = new DataSize(20, GIGABYTE);
     private DataSize maxQueryMemoryPerNode = new DataSize(1, GIGABYTE);
-    private DataSize reservedSystemMemory = new DataSize(Runtime.getRuntime().maxMemory() * 0.2, BYTE);
     private boolean clusterMemoryManagerEnabled;
-
-    @NotNull
-    public DataSize getReservedSystemMemory()
-    {
-        return reservedSystemMemory;
-    }
-
-    @Config("resources.reserved-system-memory")
-    public MemoryManagerConfig setReservedSystemMemory(DataSize reservedSystemMemory)
-    {
-        this.reservedSystemMemory = reservedSystemMemory;
-        return this;
-    }
 
     @NotNull
     public DataSize getMaxQueryMemory()
