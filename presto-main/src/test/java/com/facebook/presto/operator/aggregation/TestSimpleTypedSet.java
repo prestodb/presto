@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -26,6 +27,9 @@ import static com.facebook.presto.block.BlockAssertions.createEmptyLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -48,6 +52,14 @@ public class TestSimpleTypedSet
             fail("Should throw exception if type is null");
         }
         catch (Exception e) {
+        }
+    }
+
+    @Test
+    public void testGetType() throws Exception
+    {
+        for (final Type type : ImmutableList.of(BIGINT, BOOLEAN, DOUBLE, VARCHAR)) {
+            assertEquals(type, new SimpleTypedSet(type, 1).getType());
         }
     }
 
