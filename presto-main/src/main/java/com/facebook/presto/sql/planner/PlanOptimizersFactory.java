@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
@@ -51,12 +50,12 @@ public class PlanOptimizersFactory
     private final List<PlanOptimizer> optimizers;
 
     @Inject
-    public PlanOptimizersFactory(Metadata metadata, SqlParser sqlParser, SplitManager splitManager, IndexManager indexManager, FeaturesConfig featuresConfig)
+    public PlanOptimizersFactory(Metadata metadata, SqlParser sqlParser, IndexManager indexManager, FeaturesConfig featuresConfig)
     {
-        this(metadata, sqlParser, splitManager, indexManager, featuresConfig, false);
+        this(metadata, sqlParser, indexManager, featuresConfig, false);
     }
 
-    public PlanOptimizersFactory(Metadata metadata, SqlParser sqlParser, SplitManager splitManager, IndexManager indexManager, FeaturesConfig featuresConfig, boolean forceSingleNode)
+    public PlanOptimizersFactory(Metadata metadata, SqlParser sqlParser, IndexManager indexManager, FeaturesConfig featuresConfig, boolean forceSingleNode)
     {
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
