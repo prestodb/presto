@@ -14,10 +14,10 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
@@ -185,7 +185,12 @@ class RelationPlanner
         if (node.getType() == SampledRelation.Type.POISSONIZED) {
             sampleWeightSymbol = symbolAllocator.newSymbol("$sampleWeight", BIGINT);
         }
-        PlanNode planNode = new SampleNode(idAllocator.getNextId(), subPlan.getRoot(), ratio, SampleNode.Type.fromType(node.getType()), node.isRescaled(), Optional.ofNullable(sampleWeightSymbol));
+        PlanNode planNode = new SampleNode(idAllocator.getNextId(),
+                subPlan.getRoot(),
+                ratio,
+                SampleNode.Type.fromType(node.getType()),
+                node.isRescaled(),
+                Optional.ofNullable(sampleWeightSymbol));
         return new RelationPlan(planNode, outputDescriptor, subPlan.getOutputSymbols(), Optional.ofNullable(sampleWeightSymbol));
     }
 
@@ -196,7 +201,7 @@ class RelationPlanner
         RelationPlan leftPlan = process(node.getLeft(), context);
 
         // Convert CROSS JOIN UNNEST to an UnnestNode
-        if (node.getRight() instanceof Unnest || (node.getRight() instanceof  AliasedRelation  && ((AliasedRelation) node.getRight()).getRelation() instanceof Unnest)) {
+        if (node.getRight() instanceof Unnest || (node.getRight() instanceof AliasedRelation && ((AliasedRelation) node.getRight()).getRelation() instanceof Unnest)) {
             Unnest unnest;
             if (node.getRight() instanceof AliasedRelation) {
                 unnest = (Unnest) ((AliasedRelation) node.getRight()).getRelation();
@@ -314,7 +319,9 @@ class RelationPlanner
         }
         Optional<Symbol> sampleWeight = Optional.empty();
         if (leftPlanBuilder.getSampleWeight().isPresent() || rightPlanBuilder.getSampleWeight().isPresent()) {
-            Expression expression = new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.MULTIPLY, oneIfNull(leftPlanBuilder.getSampleWeight()), oneIfNull(rightPlanBuilder.getSampleWeight()));
+            Expression expression = new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.MULTIPLY,
+                    oneIfNull(leftPlanBuilder.getSampleWeight()),
+                    oneIfNull(rightPlanBuilder.getSampleWeight()));
             sampleWeight = Optional.of(symbolAllocator.newSymbol(expression, BIGINT));
             ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
             projections.put(sampleWeight.get(), expression);
@@ -566,7 +573,7 @@ class RelationPlanner
     }
 
     @Override
-    protected RelationPlan visitUnion(Union node, final Void context)
+    protected RelationPlan visitUnion(Union node, Void context)
     {
         checkArgument(!node.getRelations().isEmpty(), "No relations specified for UNION");
 
@@ -591,14 +598,14 @@ class RelationPlanner
                 relationPlan = addConstantSampleWeight(relationPlan);
             }
 
-            List<Symbol> childOutputSymobls = relationPlan.getOutputSymbols();
+            List<Symbol> childOutputSymbols = relationPlan.getOutputSymbols();
             if (unionOutputSymbols == null) {
                 // Use the first Relation to derive output symbol names
                 TupleDescriptor descriptor = relationPlan.getDescriptor();
                 ImmutableList.Builder<Symbol> outputSymbolBuilder = ImmutableList.builder();
                 for (Field field : descriptor.getVisibleFields()) {
                     int fieldIndex = descriptor.indexOf(field);
-                    Symbol symbol = childOutputSymobls.get(fieldIndex);
+                    Symbol symbol = childOutputSymbols.get(fieldIndex);
                     outputSymbolBuilder.add(symbolAllocator.newSymbol(symbol.getName(), symbolAllocator.getTypes().get(symbol)));
                 }
                 unionOutputSymbols = outputSymbolBuilder.build();
@@ -614,7 +621,7 @@ class RelationPlanner
             int unionFieldId = 0;
             for (Field field : descriptor.getVisibleFields()) {
                 int fieldIndex = descriptor.indexOf(field);
-                symbolMapping.put(unionOutputSymbols.get(unionFieldId), childOutputSymobls.get(fieldIndex));
+                symbolMapping.put(unionOutputSymbols.get(unionFieldId), childOutputSymbols.get(fieldIndex));
                 unionFieldId++;
             }
 
