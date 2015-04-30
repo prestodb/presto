@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.beust.jcommander.internal.Sets;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -81,7 +81,7 @@ public class TestSimpleTypedSet
     private void testBigint(final Block longBlock, final int expectedSetSize)
     {
         final SimpleTypedSet simpleTypedSet = new SimpleTypedSet(BIGINT, expectedSetSize);
-        final Set<Long> set = Sets.newHashSet();
+        final Set<Long> set = new HashSet<>();
         for (int blockPosition = 0; blockPosition < longBlock.getPositionCount(); blockPosition++) {
             final long number = BIGINT.getLong(longBlock, blockPosition);
             assertEquals(set.contains(number), simpleTypedSet.contains(longBlock, blockPosition));
