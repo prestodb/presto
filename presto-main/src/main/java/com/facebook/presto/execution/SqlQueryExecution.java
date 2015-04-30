@@ -39,6 +39,7 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.units.Duration;
 
@@ -505,7 +506,7 @@ public final class SqlQueryExecution
         }
 
         @Override
-        public SqlQueryExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement)
+        public SqlQueryExecution createQueryExecution(QueryManager queryManager, QueryId queryId, String query, Session session, Statement statement)
         {
             int initialHashPartitions = this.initialHashPartitions;
             if (isBigQueryEnabled(session, false)) {

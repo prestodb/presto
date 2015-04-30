@@ -292,7 +292,7 @@ public class SqlQueryManager
             return execution.getQueryInfo();
         }
 
-        QueryExecution queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement);
+        QueryExecution queryExecution = queryExecutionFactory.createQueryExecution(this, queryId, query, session, statement);
         queryMonitor.createdEvent(queryExecution.getQueryInfo());
 
         queryExecution.addStateChangeListener(newValue -> {

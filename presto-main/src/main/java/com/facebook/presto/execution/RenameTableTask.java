@@ -37,7 +37,7 @@ public class RenameTableTask
     }
 
     @Override
-    public void execute(RenameTable statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
+    public void execute(RenameTable statement, Session session, Metadata metadata, QueryStateMachine stateMachine, QueryManager queryManager)
     {
         QualifiedTableName tableName = createQualifiedTableName(session, statement.getSource());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);

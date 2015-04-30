@@ -29,6 +29,7 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
+
 import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
@@ -68,7 +69,7 @@ public class CreateViewTask
     }
 
     @Override
-    public void execute(CreateView statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
+    public void execute(CreateView statement, Session session, Metadata metadata, QueryStateMachine stateMachine, QueryManager queryManager)
     {
         QualifiedTableName name = createQualifiedTableName(session, statement.getName());
 

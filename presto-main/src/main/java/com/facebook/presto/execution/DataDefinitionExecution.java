@@ -19,6 +19,7 @@ import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.tree.Statement;
+
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
@@ -38,19 +39,22 @@ public class DataDefinitionExecution<T extends Statement>
     private final Session session;
     private final Metadata metadata;
     private final QueryStateMachine stateMachine;
+    private final QueryManager queryManager;
 
     private DataDefinitionExecution(
             DataDefinitionTask<T> task,
             T statement,
             Session session,
             Metadata metadata,
-            QueryStateMachine stateMachine)
+            QueryStateMachine stateMachine,
+            QueryManager queryManager)
     {
         this.task = checkNotNull(task, "task is null");
         this.statement = checkNotNull(statement, "statement is null");
         this.session = checkNotNull(session, "session is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.stateMachine = checkNotNull(stateMachine, "stateMachine is null");
+        this.queryManager = checkNotNull(queryManager, "queryManager is null");
     }
 
     @Override
@@ -83,7 +87,7 @@ public class DataDefinitionExecution<T extends Statement>
 
             stateMachine.recordExecutionStart();
 
-            task.execute(statement, session, metadata, stateMachine);
+            task.execute(statement, session, metadata, stateMachine, queryManager);
 
             stateMachine.finished();
         }
@@ -164,6 +168,7 @@ public class DataDefinitionExecution<T extends Statement>
 
         @Override
         public DataDefinitionExecution<?> createQueryExecution(
+                QueryManager queryManager,
                 QueryId queryId,
                 String query,
                 Session session,
@@ -171,18 +176,19 @@ public class DataDefinitionExecution<T extends Statement>
         {
             URI self = locationFactory.createQueryLocation(queryId);
             QueryStateMachine stateMachine = new QueryStateMachine(queryId, query, session, self, executor);
-            return createExecution(statement, session, stateMachine);
+            return createExecution(statement, session, stateMachine, queryManager);
         }
 
         private <T extends Statement> DataDefinitionExecution<?> createExecution(
                 T statement,
                 Session session,
-                QueryStateMachine stateMachine)
+                QueryStateMachine stateMachine,
+                QueryManager queryManager)
         {
             DataDefinitionTask<T> task = getTask(statement);
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
             stateMachine.setUpdateType(task.getName());
-            return new DataDefinitionExecution<>(task, statement, session, metadata, stateMachine);
+            return new DataDefinitionExecution<>(task, statement, session, metadata, stateMachine, queryManager);
         }
 
         @SuppressWarnings("unchecked")

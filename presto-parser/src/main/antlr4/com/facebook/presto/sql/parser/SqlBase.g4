@@ -49,11 +49,11 @@ statement
     | SHOW SESSION                                                     #showSession
     | SET SESSION qualifiedName EQ STRING                              #setSession
     | RESET SESSION qualifiedName                                      #resetSession
+    | ALTER SESSION KILL queryId=identifier                            #killQuery
     | SHOW PARTITIONS (FROM | IN) qualifiedName
         (WHERE booleanExpression)?
         (ORDER BY sortItem (',' sortItem)*)?
         (LIMIT limit=INTEGER_VALUE)?                                   #showPartitions
-    | KILL DIGIT_IDENTIFIER                                            #killQuery
     ;
 
 query

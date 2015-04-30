@@ -46,7 +46,7 @@ public class CreateTableTask
     }
 
     @Override
-    public void execute(CreateTable statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
+    public void execute(CreateTable statement, Session session, Metadata metadata, QueryStateMachine stateMachine, QueryManager queryManager)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 

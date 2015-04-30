@@ -21,5 +21,5 @@ public interface DataDefinitionTask<T extends Statement>
 {
     String getName();
 
-    void execute(T statement, Session session, Metadata metadata, QueryStateMachine stateMachine);
+    void execute(T statement, Session session, Metadata metadata, QueryStateMachine stateMachine, QueryManager queryManager);
 }

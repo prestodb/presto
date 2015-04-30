@@ -21,16 +21,16 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class KillQuery
         extends Statement
 {
-    private final String queryID;
+    private final String queryId;
 
-    public KillQuery(String queryID)
+    public KillQuery(String queryId)
     {
-        this.queryID = checkNotNull(queryID, "queryID is null");
+        this.queryId = checkNotNull(queryId, "queryId is null");
     }
 
-    public String getQueryID()
+    public String getQueryId()
     {
-        return queryID;
+        return queryId;
     }
 
     @Override
@@ -42,7 +42,7 @@ public class KillQuery
     @Override
     public int hashCode()
     {
-        return Objects.hash(queryID);
+        return Objects.hash(queryId);
     }
 
     @Override
@@ -55,14 +55,14 @@ public class KillQuery
             return false;
         }
         KillQuery o = (KillQuery) obj;
-        return Objects.equals(queryID, o.queryID);
+        return Objects.equals(queryId, o.queryId);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("queryID", queryID)
+                .add("queryId", queryId)
                 .toString();
     }
 }

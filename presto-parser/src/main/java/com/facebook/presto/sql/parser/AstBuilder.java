@@ -394,7 +394,7 @@ class AstBuilder
     @Override
     public Node visitKillQuery(@NotNull SqlBaseParser.KillQueryContext context)
     {
-        return new KillQuery(context.DIGIT_IDENTIFIER().getText());
+        return new KillQuery(removeQuoteIfExists(context.queryId.getText()));
     }
 
     @Override
@@ -1038,6 +1038,14 @@ class AstBuilder
     {
         return string.substring(1, string.length() - 1)
                 .replace("''", "'");
+    }
+
+    private static String removeQuoteIfExists(String string)
+    {
+        if (string.startsWith("`") || string.startsWith("\"")) {
+            return string.substring(1, string.length() - 1);
+        }
+        return string;
     }
 
     private static QualifiedName getQualifiedName(SqlBaseParser.QualifiedNameContext context)
