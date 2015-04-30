@@ -13,8 +13,12 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -23,6 +27,19 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 public class TestStringFunctions
         extends AbstractTestFunctions
 {
+    @BeforeClass
+    public void setUp()
+    {
+        functionAssertions.addScalarFunctions(TestStringFunctions.class);
+    }
+
+    @ScalarFunction("utf8")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice convertBinaryToVarchar(@SqlType(StandardTypes.VARBINARY) Slice binary)
+    {
+        return binary;
+    }
+
     @Test
     public void testChr()
     {
@@ -45,6 +62,11 @@ public class TestStringFunctions
         assertFunction("CONCAT('', 'what')", VARCHAR, "what");
         assertFunction("CONCAT(CONCAT('this', ' is'), ' cool')", VARCHAR, "this is cool");
         assertFunction("CONCAT('this', CONCAT(' is', ' cool'))", VARCHAR, "this is cool");
+        //
+        // Test concat for non-ASCII
+        assertFunction("CONCAT('hello na\u00EFve', ' world')", VARCHAR, "hello na\u00EFve world");
+        assertFunction("CONCAT('\uD801\uDC2D', 'end')", VARCHAR, "\uD801\uDC2Dend");
+        assertFunction("CONCAT(CONCAT('\u4FE1\u5FF5', ',\u7231'), ',\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
     }
 
     @Test
@@ -53,6 +75,11 @@ public class TestStringFunctions
         assertFunction("LENGTH('')", BIGINT, 0);
         assertFunction("LENGTH('hello')", BIGINT, 5);
         assertFunction("LENGTH('Quadratically')", BIGINT, 13);
+        //
+        // Test length for non-ASCII
+        assertFunction("LENGTH('hello na\u00EFve world')", BIGINT, 17);
+        assertFunction("LENGTH('\uD801\uDC2Dend')", BIGINT, 4);
+        assertFunction("LENGTH('\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", BIGINT, 7);
     }
 
     @Test
@@ -68,8 +95,14 @@ public class TestStringFunctions
         assertFunction("REPLACE('0000123', '0', ' ')", VARCHAR, "    123");
         assertFunction("REPLACE('foo', '')", VARCHAR, "foo");
         assertFunction("REPLACE('foo', '', '')", VARCHAR, "foo");
+        assertFunction("REPLACE('foo', 'foo', '')", VARCHAR, "");
+        assertFunction("REPLACE('abc', '', 'xx')", VARCHAR, "xxaxxbxxcxx");
+        assertFunction("REPLACE('', '', 'xx')", VARCHAR, "xx");
         assertFunction("REPLACE('', '')", VARCHAR, "");
         assertFunction("REPLACE('', '', '')", VARCHAR, "");
+        assertFunction("REPLACE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', '\u2014')", VARCHAR, "\u4FE1\u5FF5\u2014\u7231\u2014\u5E0C\u671B");
+        assertFunction("REPLACE('::\uD801\uDC2D::', ':', '')", VARCHAR, "\uD801\uDC2D");
+        assertFunction("REPLACE('\u00D6sterreich', '\u00D6', 'Oe')", VARCHAR, "Oesterreich");
     }
 
     @Test
@@ -79,6 +112,14 @@ public class TestStringFunctions
         assertFunction("REVERSE('hello')", VARCHAR, "olleh");
         assertFunction("REVERSE('Quadratically')", VARCHAR, "yllacitardauQ");
         assertFunction("REVERSE('racecar')", VARCHAR, "racecar");
+        // Test REVERSE for non-ASCII
+        assertFunction("REVERSE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", VARCHAR, "\u671B\u5E0C,\u7231,\u5FF5\u4FE1");
+        assertFunction("REVERSE('\u00D6sterreich')", VARCHAR, "hcierrets\u00D6");
+        assertFunction("REVERSE('na\u00EFve')", VARCHAR, "ev\u00EFan");
+        assertFunction("REVERSE('\uD801\uDC2Dend')", VARCHAR, "dne\uD801\uDC2D");
+
+        assertInvalidFunction("REVERSE(utf8(from_hex('CE')))", "Invalid utf8 encoding");
+        assertInvalidFunction("REVERSE(utf8(from_hex('68656C6C6FCE')))", "Invalid utf8 encoding");
     }
 
     @Test
@@ -92,6 +133,10 @@ public class TestStringFunctions
         assertFunction("STRPOS('zoo!', '!')", BIGINT, 4);
         assertFunction("STRPOS('x', '')", BIGINT, 1);
         assertFunction("STRPOS('', '')", BIGINT, 1);
+
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u7231')", BIGINT, 4);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u5E0C\u671B')", BIGINT, 6);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', 'nice')", BIGINT, 0);
     }
 
     @Test
@@ -121,16 +166,39 @@ public class TestStringFunctions
 
         assertFunction("SUBSTRING('Quadratically' FROM 5 FOR 6)", VARCHAR, "ratica");
         assertFunction("SUBSTRING('Quadratically' FROM 5 FOR 50)", VARCHAR, "ratically");
+        //
+        // Test SUBSTRING for non-ASCII
+        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 1 FOR 1)", VARCHAR, "\u4FE1");
+        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 3 FOR 5)", VARCHAR, ",\u7231,\u5E0C\u671B");
+        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 4)", VARCHAR, "\u7231,\u5E0C\u671B");
+        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM -2)", VARCHAR, "\u5E0C\u671B");
+        assertFunction("SUBSTRING('\uD801\uDC2Dend' FROM 1 FOR 1)", VARCHAR, "\uD801\uDC2D");
+        assertFunction("SUBSTRING('\uD801\uDC2Dend' FROM 2 FOR 3)", VARCHAR, "end");
     }
 
     @Test
     public void testSplit()
     {
+        assertFunction("SPLIT('ab', '.', 1)", new ArrayType(VARCHAR), ImmutableList.of("ab"));
+        assertFunction("SPLIT('a.b', '.', 1)", new ArrayType(VARCHAR), ImmutableList.of("a.b"));
         assertFunction("SPLIT('a.b.c', '.')", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c"));
         assertFunction("SPLIT('a..b..c', '..')", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c"));
         assertFunction("SPLIT('a.b.c', '.', 2)", new ArrayType(VARCHAR), ImmutableList.of("a", "b.c"));
         assertFunction("SPLIT('a.b.c', '.', 3)", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c"));
         assertFunction("SPLIT('a.b.c', '.', 4)", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c"));
+        assertFunction("SPLIT('a.b.c.', '.', 4)", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c"));
+        assertFunction("SPLIT('a.b.c.', '.', 3)", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c."));
+        // Test SPLIT for non-ASCII
+        assertFunction("SPLIT('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 3)", new ArrayType(VARCHAR), ImmutableList.of("\u4FE1\u5FF5", "\u7231", "\u5E0C\u671B"));
+        assertFunction("SPLIT('\u8B49\u8BC1\u8A3C', '\u8BC1', 2)", new ArrayType(VARCHAR), ImmutableList.of("\u8B49", "\u8A3C"));
+
+        assertFunction("SPLIT('.a.b.c', '.', 4)", new ArrayType(VARCHAR), ImmutableList.of("", "a", "b", "c"));
+        assertFunction("SPLIT('.a.b.c', '.', 3)", new ArrayType(VARCHAR), ImmutableList.of("", "a", "b.c"));
+        assertFunction("SPLIT('.a.b.c', '.', 2)", new ArrayType(VARCHAR), ImmutableList.of("", "a.b.c"));
+        assertFunction("SPLIT('a..b..c', '.', 3)", new ArrayType(VARCHAR), ImmutableList.of("a", "", "b..c"));
+        assertFunction("SPLIT('a.b..', '.', 3)", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "."));
+
+        assertInvalidFunction("SPLIT('a.b.c', '', 1)", "The delimiter may not be the empty string");
         assertInvalidFunction("SPLIT('a.b.c', '.', 0)", "Limit must be positive");
         assertInvalidFunction("SPLIT('a.b.c', '.', -1)", "Limit must be positive");
         assertInvalidFunction("SPLIT('a.b.c', '.', 2147483648)", "Limit is too large");
@@ -169,9 +237,20 @@ public class TestStringFunctions
         assertFunction("SPLIT_PART('abcdddddef', 'dd', 3)", VARCHAR, "def");
         assertFunction("SPLIT_PART('a/b/c', '/', 4)", VARCHAR, null);
         assertFunction("SPLIT_PART('a/b/c/', '/', 4)", VARCHAR, "");
+        //
+        // Test SPLIT_PART for non-ASCII
+        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 1)", VARCHAR, "\u4FE1\u5FF5");
+        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 2)", VARCHAR, "\u7231");
+        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 3)", VARCHAR, "\u5E0C\u671B");
+        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 4)", VARCHAR, null);
+        assertFunction("SPLIT_PART('\u8B49\u8BC1\u8A3C', '\u8BC1', 1)", VARCHAR, "\u8B49");
+        assertFunction("SPLIT_PART('\u8B49\u8BC1\u8A3C', '\u8BC1', 2)", VARCHAR, "\u8A3C");
+        assertFunction("SPLIT_PART('\u8B49\u8BC1\u8A3C', '\u8BC1', 3)", VARCHAR, null);
 
         assertInvalidFunction("SPLIT_PART('abc', '', 0)", "Index must be greater than zero");
         assertInvalidFunction("SPLIT_PART('abc', '', -1)", "Index must be greater than zero");
+
+        assertInvalidFunction("SPLIT_PART(utf8(from_hex('CE')), '', 1)", "Invalid utf8 encoding");
     }
 
     @Test(expectedExceptions = RuntimeException.class)
@@ -189,6 +268,10 @@ public class TestStringFunctions
         assertFunction("LTRIM('  hello')", VARCHAR, "hello");
         assertFunction("LTRIM('hello  ')", VARCHAR, "hello  ");
         assertFunction("LTRIM(' hello world ')", VARCHAR, "hello world ");
+
+        assertFunction("LTRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ");
+        assertFunction("LTRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B ");
+        assertFunction("LTRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
     }
 
     @Test
@@ -200,6 +283,10 @@ public class TestStringFunctions
         assertFunction("RTRIM('  hello')", VARCHAR, "  hello");
         assertFunction("RTRIM('hello  ')", VARCHAR, "hello");
         assertFunction("RTRIM(' hello world ')", VARCHAR, " hello world");
+
+        assertFunction("RTRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("RTRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", VARCHAR, " \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("RTRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", VARCHAR, "  \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
     }
 
     @Test
@@ -211,6 +298,10 @@ public class TestStringFunctions
         assertFunction("TRIM('  hello')", VARCHAR, "hello");
         assertFunction("TRIM('hello  ')", VARCHAR, "hello");
         assertFunction("TRIM(' hello world ')", VARCHAR, "hello world");
+
+        assertFunction("TRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("TRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("TRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
     }
 
     @Test
@@ -219,6 +310,10 @@ public class TestStringFunctions
         assertFunction("LOWER('')", VARCHAR, "");
         assertFunction("LOWER('Hello World')", VARCHAR, "hello world");
         assertFunction("LOWER('WHAT!!')", VARCHAR, "what!!");
+        //
+        // LOWER only supports A-Z
+        assertFunction("LOWER('\u00D6STERREICH')", VARCHAR, "\u00D6sterreich");
+        assertFunction("LOWER('From\uD801\uDC2DTo')", VARCHAR, "from\uD801\uDC2Dto");
     }
 
     @Test
@@ -227,5 +322,9 @@ public class TestStringFunctions
         assertFunction("UPPER('')", VARCHAR, "");
         assertFunction("UPPER('Hello World')", VARCHAR, "HELLO WORLD");
         assertFunction("UPPER('what!!')", VARCHAR, "WHAT!!");
+        //
+        // UPPER only supports A-Z
+        assertFunction("UPPER('\u00D6sterreich')", VARCHAR, "\u00D6STERREICH");
+        assertFunction("UPPER('From\uD801\uDC2DTo')", VARCHAR, "FROM\uD801\uDC2DTO");
     }
 }
