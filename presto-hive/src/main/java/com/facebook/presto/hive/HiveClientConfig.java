@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
@@ -34,6 +35,10 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
+@DefunctConfig({
+        "hive.file-system-cache-ttl",
+        "hive.max-split-iterator-threads",
+})
 public class HiveClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
@@ -43,7 +48,6 @@ public class HiveClientConfig
     private DataSize maxSplitSize = new DataSize(64, MEGABYTE);
     private int maxOutstandingSplits = 1_000;
     private int maxGlobalSplitIteratorThreads = 1_000;
-    private int maxSplitIteratorThreads = 50;
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
     private int maxInitialSplits = 200;
@@ -189,19 +193,6 @@ public class HiveClientConfig
     public HiveClientConfig setMaxOutstandingSplits(int maxOutstandingSplits)
     {
         this.maxOutstandingSplits = maxOutstandingSplits;
-        return this;
-    }
-
-    @Min(1)
-    public int getMaxSplitIteratorThreads()
-    {
-        return maxSplitIteratorThreads;
-    }
-
-    @Config("hive.max-split-iterator-threads")
-    public HiveClientConfig setMaxSplitIteratorThreads(int maxSplitIteratorThreads)
-    {
-        this.maxSplitIteratorThreads = maxSplitIteratorThreads;
         return this;
     }
 
