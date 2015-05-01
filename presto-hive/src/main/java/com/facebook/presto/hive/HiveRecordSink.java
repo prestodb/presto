@@ -237,7 +237,6 @@ public class HiveRecordSink
         checkState(field != -1, "not in record");
         checkState(field < fieldCount, "all fields already set");
 
-        Type type = columnTypes.get(field);
         tableInspector.setStructFieldData(row, structFields.get(field), value);
         field++;
         if (field == sampleWeightField) {

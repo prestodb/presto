@@ -77,7 +77,6 @@ public class CursorProcessorCompiler
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(int.class), session, cursor, count, pageBuilder);
 
         Scope scope = method.getScope();
-        Variable thisVariable = method.getThis();
         Variable completedPositionsVariable = scope.declareVariable(int.class, "completedPositions");
 
         method.getBody()
