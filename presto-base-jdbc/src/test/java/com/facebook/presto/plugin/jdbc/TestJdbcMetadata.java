@@ -52,7 +52,7 @@ public class TestJdbcMetadata
             throws Exception
     {
         database = new TestingDatabase();
-        metadata = new JdbcMetadata(new JdbcConnectorId(CONNECTOR_ID), database.getJdbcClient(), new BaseJdbcConfig());
+        metadata = new JdbcMetadata(new JdbcConnectorId(CONNECTOR_ID), database.getJdbcClient(), new JdbcMetadataConfig());
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
     }
 
@@ -175,7 +175,7 @@ public class TestJdbcMetadata
             assertEquals(e.getErrorCode(), PERMISSION_DENIED.toErrorCode());
         }
 
-        BaseJdbcConfig config = new BaseJdbcConfig().setAllowDropTable(true);
+        JdbcMetadataConfig config = new JdbcMetadataConfig().setAllowDropTable(true);
         metadata = new JdbcMetadata(new JdbcConnectorId(CONNECTOR_ID), database.getJdbcClient(), config);
         metadata.dropTable(tableHandle);
 
