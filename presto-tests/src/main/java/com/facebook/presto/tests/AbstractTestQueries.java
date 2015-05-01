@@ -3230,6 +3230,20 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testUnionWithJoinOnNonTranslateableSymbols()
+            throws Exception
+    {
+        assertQuery("SELECT *\n" +
+                "FROM (SELECT orderdate ds, orderkey\n" +
+                "      FROM orders\n" +
+                "      UNION ALL\n" +
+                "      SELECT shipdate ds, orderkey\n" +
+                "      FROM lineitem) a\n" +
+                "JOIN orders o\n" +
+                "ON (substr(cast(a.ds AS VARCHAR), 6, 2) = substr(cast(o.orderdate AS VARCHAR), 6, 2) AND a.orderkey = o.orderkey)\n");
+    }
+
+    @Test
     public void testSubqueryUnion()
             throws Exception
     {
