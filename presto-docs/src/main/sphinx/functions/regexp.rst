@@ -2,11 +2,42 @@
 Regular Expression Functions
 ============================
 
-All of the regular expression functions use the `Java pattern`_ syntax.
+All of the regular expression functions use the `Java pattern`_ syntax,
+with a few notable exceptions:
 
-    .. _Java pattern: http://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
+* When using multi-line mode (enabled via the ``(?m)`` flag),
+  only ``\n`` is recognized as a line terminator. Additionally,
+  the ``(?d)`` flag is not supported and must not be used.
+* Case-insensitive matching (enabled via the ``(?i)`` flag) is always
+  performed in a Unicode-aware manner. However, context-sensitive and
+  local-sensitive matching is not supported. Additionally, the
+  ``(?u)`` flag is not supported and must not be used.
+* Surrogate pairs are not supported. For example, ``\uD800\uDC00`` is
+  not treated as ``U+10000`` and must be specified as ``\x{10000}``.
+* Boundaries (``\b``) are incorrectly handled for a non-spacing mark
+  without a base character.
+* ``\Q`` and ``\E`` are not supported in character classes
+  (such as ``[A-Z123]``) and are instead treated as literals.
+* Unicode character classes (``\p{prop}``) are supported with
+  the following differences:
 
-    .. _capturing group number: http://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html#gnumber
+  * All underscores in names must be removed. For example, use
+    ``OldItalic`` instead of ``Old_Italic``.
+  * Scripts must be specified directly, without the
+    ``Is``, ``script=`` or ``sc=`` prefixes.
+    Example: ``\p{Hiragana}``
+  * Blocks must be specified with the ``In`` prefix.
+    The ``block=`` and ``blk=`` prefixes are not supported.
+    Example: ``\p{Mongolian}``
+  * Categories must be specified directly, without the ``Is``,
+    ``general_category=`` or ``gc=`` prefixes.
+    Example: ``\p{L}``
+  * Binary properties must be specified directly, without the ``Is``.
+    Example: ``\p{NoncharacterCodePoint}``
+
+    .. _Java pattern: http://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html
+
+    .. _capturing group number: http://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html#gnumber
 
 .. function:: regexp_extract_all(string, pattern) -> array<varchar>
 
@@ -52,8 +83,9 @@ All of the regular expression functions use the `Java pattern`_ syntax.
     ``${name}`` for a named group. A dollar sign (``$``) may be included in the
     replacement by escaping it with a backslash (``\$``).
 
-    .. _Capturing groups: http://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html#cg
+    .. _Capturing groups: http://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html#cg
 
 .. function:: regexp_split(string, pattern) -> array<varchar>
 
-    Splits ``string`` using the regular expression ``pattern`` and returns an array.
+    Splits ``string`` using the regular expression ``pattern`` and returns an
+    array. Trailing empty strings are preserved.
