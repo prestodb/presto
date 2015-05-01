@@ -139,7 +139,8 @@ public class JdbcMetadata
     @Override
     public void dropTable(ConnectorTableHandle tableHandle)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping tables");
+        JdbcTableHandle handle = checkType(tableHandle, JdbcTableHandle.class, "tableHandle");
+        jdbcClient.dropTable(handle);
     }
 
     @Override
