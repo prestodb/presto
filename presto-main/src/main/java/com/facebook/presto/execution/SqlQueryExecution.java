@@ -58,7 +58,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @ThreadSafe
-public class SqlQueryExecution
+public final class SqlQueryExecution
         implements QueryExecution
 {
     private static final OutputBuffers ROOT_OUTPUT_BUFFERS = INITIAL_EMPTY_OUTPUT_BUFFERS
@@ -82,6 +82,7 @@ public class SqlQueryExecution
 
     private final QueryExplainer queryExplainer;
     private final AtomicReference<SqlStageExecution> outputStage = new AtomicReference<>();
+    private final AtomicReference<QueryInfo> finalQueryInfo = new AtomicReference<>();
     private final NodeTaskMap nodeTaskMap;
 
     public SqlQueryExecution(QueryId queryId,
@@ -127,6 +128,14 @@ public class SqlQueryExecution
             checkNotNull(session, "session is null");
             checkNotNull(self, "self is null");
             this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryExecutor);
+
+            // when the query finishes cache the final query info, and clear the reference to the output stage
+            stateMachine.addStateChangeListener(state -> {
+                if (state.isDone() && finalQueryInfo.get() == null) {
+                    finalQueryInfo.compareAndSet(null, getQueryInfo());
+                    outputStage.set(null);
+                }
+            });
 
             this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled);
         }
@@ -309,7 +318,16 @@ public class SqlQueryExecution
     public QueryInfo getQueryInfo()
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
+            // acquire reference to outputStage before checking finalQueryInfo, because
+            // state change listener sets finalQueryInfo and then clears outputStage when
+            // the query finishes.
             SqlStageExecution outputStage = this.outputStage.get();
+
+            QueryInfo finalQueryInfo = this.finalQueryInfo.get();
+            if (finalQueryInfo != null) {
+                return finalQueryInfo;
+            }
+
             StageInfo stageInfo = null;
             if (outputStage != null) {
                 stageInfo = outputStage.getStageInfo();
