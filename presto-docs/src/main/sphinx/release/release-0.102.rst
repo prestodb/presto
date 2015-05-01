@@ -27,6 +27,15 @@ processed to produce additional rows in the result.
 Full outer join support has also been added. It is executed in a way that
 combines how left joins and right joins are executed.
 
+Regular Expression Functions
+----------------------------
+
+All :doc:`/functions/regexp` have been rewritten to improve performance.
+The new versions are often twice as fast and in some cases can be many
+orders of magnitude faster (due to removal of quadratic behavior).
+This change introduced some minor incompatibilities that are explained
+in the documentation for the functions.
+
 General Changes
 ---------------
 
