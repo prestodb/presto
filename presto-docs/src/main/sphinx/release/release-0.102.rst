@@ -20,6 +20,10 @@ General Changes
 ---------------
 
 * Support returning booleans as numbers in JDBC driver
+* Fix :func:`contains` to return ``NULL`` if the value was not found, but a ``NULL`` was.
+* Fix nested :ref:`row_type` rendering in ``DESCRIBE``.
+* Add :func:`array_join`.
+* Optimize map subscript operator.
 * Add :func:`from_utf8` and :func:`to_utf8` functions.
 * Add ``task_writer_count`` session property to set ``task.writer-count``.
 
@@ -30,3 +34,4 @@ Hive Changes
 * Retry when seeking in ``PrestoS3FileSystem``.
 * Ignore ``InvalidRange`` error in ``PrestoS3FileSystem``.
 * Implement rename and delete in ``PrestoS3FileSystem``.
+* Fix assertion failure when running ``SHOW TABLES FROM schema``.
