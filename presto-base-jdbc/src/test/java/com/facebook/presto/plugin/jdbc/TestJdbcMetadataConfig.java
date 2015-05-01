@@ -14,36 +14,33 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-public class TestBaseJdbcConfig
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+
+public class TestJdbcMetadataConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(BaseJdbcConfig.class)
-                .setConnectionUrl(null)
-                .setConnectionUser(null)
-                .setConnectionPassword(null));
+        assertRecordedDefaults(recordDefaults(JdbcMetadataConfig.class)
+                .setAllowDropTable(false));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("connection-url", "jdbc:h2:mem:config")
-                .put("connection-user", "user")
-                .put("connection-password", "password")
+                .put("allow-drop-table", "true")
                 .build();
 
-        BaseJdbcConfig expected = new BaseJdbcConfig()
-                .setConnectionUrl("jdbc:h2:mem:config")
-                .setConnectionUser("user")
-                .setConnectionPassword("password");
+        JdbcMetadataConfig expected = new JdbcMetadataConfig()
+                .setAllowDropTable(true);
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

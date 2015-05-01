@@ -47,12 +47,12 @@ public class JdbcMetadata
     private final boolean allowDropTable;
 
     @Inject
-    public JdbcMetadata(JdbcConnectorId connectorId, JdbcClient jdbcClient, BaseJdbcConfig config)
+    public JdbcMetadata(JdbcConnectorId connectorId, JdbcClient jdbcClient, JdbcMetadataConfig config)
     {
         this.jdbcClient = checkNotNull(jdbcClient, "client is null");
 
         checkNotNull(config, "config is null");
-        allowDropTable = config.getAllowDropTable();
+        allowDropTable = config.isAllowDropTable();
     }
 
     @Override
