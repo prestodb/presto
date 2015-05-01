@@ -54,7 +54,10 @@ public final class MySqlQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            Map<String, String> properties = ImmutableMap.of("connection-url", server.getJdbcUrl());
+            Map<String, String> properties = ImmutableMap.<String, String>builder()
+                    .put("connection-url", server.getJdbcUrl())
+                    .put("allow-drop-table", "true")
+                    .build();
 
             queryRunner.installPlugin(new MySqlPlugin());
             queryRunner.createCatalog("mysql", "mysql", properties);

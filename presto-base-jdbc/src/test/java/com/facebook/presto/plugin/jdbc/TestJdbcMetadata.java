@@ -22,11 +22,13 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.plugin.jdbc.TestingDatabase.CONNECTOR_ID;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -45,7 +47,7 @@ public class TestJdbcMetadata
     private JdbcMetadata metadata;
     private JdbcTableHandle tableHandle;
 
-    @BeforeClass
+    @BeforeMethod
     public void setUp()
             throws Exception
     {
@@ -54,7 +56,7 @@ public class TestJdbcMetadata
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
     }
 
-    @AfterClass
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
@@ -162,9 +164,27 @@ public class TestJdbcMetadata
                 ImmutableList.of(new ColumnMetadata("text", VARCHAR, 0, false))));
     }
 
-    @Test(expectedExceptions = PrestoException.class)
+    @Test
     public void testDropTableTable()
     {
+        try {
+            metadata.dropTable(tableHandle);
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), PERMISSION_DENIED.toErrorCode());
+        }
+
+        BaseJdbcConfig config = new BaseJdbcConfig().setAllowDropTable(true);
+        metadata = new JdbcMetadata(new JdbcConnectorId(CONNECTOR_ID), database.getJdbcClient(), config);
         metadata.dropTable(tableHandle);
+
+        try {
+            metadata.getTableMetadata(tableHandle);
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), NOT_FOUND.toErrorCode());
+        }
     }
 }

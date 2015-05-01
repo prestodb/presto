@@ -23,6 +23,8 @@ import java.io.IOException;
 
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestPostgreSqlDistributedQueries
@@ -48,5 +50,16 @@ public class TestPostgreSqlDistributedQueries
             throws IOException
     {
         closeAllRuntimeException(postgreSqlServer);
+    }
+
+    @Test
+    public void testDropTable()
+            throws Exception
+    {
+        assertQueryTrue("CREATE TABLE test_drop AS SELECT 123 x");
+        assertTrue(queryRunner.tableExists(getSession(), "test_drop"));
+
+        assertQueryTrue("DROP TABLE test_drop");
+        assertFalse(queryRunner.tableExists(getSession(), "test_drop"));
     }
 }

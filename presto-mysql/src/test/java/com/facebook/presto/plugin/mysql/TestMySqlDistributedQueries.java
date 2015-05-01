@@ -21,6 +21,8 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestMySqlDistributedQueries
@@ -45,5 +47,16 @@ public class TestMySqlDistributedQueries
     public final void destroy()
     {
         closeAllRuntimeException(mysqlServer);
+    }
+
+    @Test
+    public void testDropTable()
+            throws Exception
+    {
+        assertQueryTrue("CREATE TABLE test_drop AS SELECT 123 x");
+        assertTrue(queryRunner.tableExists(getSession(), "test_drop"));
+
+        assertQueryTrue("DROP TABLE test_drop");
+        assertFalse(queryRunner.tableExists(getSession(), "test_drop"));
     }
 }
