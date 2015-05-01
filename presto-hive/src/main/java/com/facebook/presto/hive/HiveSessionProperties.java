@@ -23,6 +23,7 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public final class HiveSessionProperties
@@ -34,6 +35,7 @@ public final class HiveSessionProperties
     private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
     private static final String PARQUET_PREDICATE_PUSHDOWN_ENABLED = "parquet_predicate_pushdown_enabled";
     private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
+    private static final String AWS_IAM_ROLE = "aws_iam_role";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -51,6 +53,11 @@ public final class HiveSessionProperties
                         "Enable optimized readers",
                         config.isOptimizedReaderEnabled(),
                         true),
+                stringSessionProperty(
+                        AWS_IAM_ROLE,
+                        "Amazon IAM role to access S3FileSystem",
+                        config.getS3AwsRoleArn(),
+                        false),
                 dataSizeSessionProperty(
                         ORC_MAX_MERGE_DISTANCE,
                         "ORC: Maximum size of gap between to reads to merge into a single read",
@@ -96,6 +103,11 @@ public final class HiveSessionProperties
     public static boolean isParquetOptimizedReaderEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_OPTIMIZED_READER_ENABLED, Boolean.class);
+    }
+
+    public static String getAwsIamRole(ConnectorSession session)
+    {
+        return session.getProperty(AWS_IAM_ROLE, String.class);
     }
 
     public static DataSize getOrcMaxMergeDistance(ConnectorSession session)

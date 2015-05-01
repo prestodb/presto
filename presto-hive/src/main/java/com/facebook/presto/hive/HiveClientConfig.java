@@ -94,7 +94,7 @@ public class HiveClientConfig
     private DataSize s3MultipartMinFileSize = new DataSize(16, MEGABYTE);
     private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
     private boolean useParquetColumnNames;
-    private String s3AwsRoleArn;
+    private String s3AwsRoleArn = null;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
     private boolean respectTableFormat = true;

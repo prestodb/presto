@@ -1790,7 +1790,7 @@ public abstract class AbstractTestHiveClient
             throws IOException
     {
         Set<String> result = new HashSet<>();
-        FileSystem fileSystem = hdfsEnvironment.getFileSystem(path);
+        FileSystem fileSystem = hdfsEnvironment.getFileSystem(path, SESSION);
         if (fileSystem.exists(path)) {
             for (FileStatus fileStatus : fileSystem.listStatus(path)) {
                 if (HadoopFileStatus.isFile(fileStatus)) {

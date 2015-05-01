@@ -229,7 +229,9 @@ public class BackgroundHiveSplitLoader
                 }
             }
             else {
-                boolean splittable = isSplittable(files.getInputFormat(), hdfsEnvironment.getFileSystem(file.getPath()), file.getPath());
+                boolean splittable = isSplittable(files.getInputFormat(),
+                                                hdfsEnvironment.getFileSystem(file.getPath(), session),
+                                                file.getPath());
 
                 CompletableFuture<?> future = hiveSplitSource.addToQueue(createHiveSplits(
                         files.getPartitionName(),
@@ -262,7 +264,7 @@ public class BackgroundHiveSplitLoader
         TupleDomain<HiveColumnHandle> effectivePredicate = partition.getHivePartition().getEffectivePredicate();
 
         Path path = new Path(getPartitionLocation(table, partition.getPartition()));
-        Configuration configuration = hdfsEnvironment.getConfiguration(path);
+        Configuration configuration = hdfsEnvironment.getConfiguration(path, session);
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, false);
 
         if (inputFormat instanceof SymlinkTextInputFormat) {
@@ -275,7 +277,7 @@ public class BackgroundHiveSplitLoader
                 FileSplit split = ((SymlinkTextInputFormat.SymlinkTextInputSplit) rawSplit).getTargetSplit();
 
                 // get the filesystem for the target path -- it may be a different hdfs instance
-                FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(split.getPath());
+                FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(split.getPath(), session);
                 FileStatus file = targetFilesystem.getFileStatus(split.getPath());
                 hiveSplitSource.addToQueue(createHiveSplits(
                         partitionName,
@@ -295,7 +297,7 @@ public class BackgroundHiveSplitLoader
             return;
         }
 
-        FileSystem fs = hdfsEnvironment.getFileSystem(path);
+        FileSystem fs = hdfsEnvironment.getFileSystem(path, session);
         if (bucket.isPresent()) {
             Optional<FileStatus> bucketFile = getBucketFile(bucket.get(), fs, path);
             if (bucketFile.isPresent()) {
