@@ -44,7 +44,7 @@ public final class SystemSessionProperties
         String count = session.getSystemProperties().get(propertyName);
         if (count != null) {
             try {
-                return Integer.valueOf(count);
+                return Integer.parseInt(count);
             }
             catch (NumberFormatException ignored) {
             }
