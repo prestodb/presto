@@ -452,13 +452,16 @@ public class HiveSplitManager
                                 String tableType = tableColumns.get(i).getType();
                                 String partitionType = partitionColumns.get(i).getType();
                                 if (!tableType.equals(partitionType)) {
-                                    throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
-                                            "Table '%s' partition '%s' column '%s' type '%s' does not match table column type '%s'",
+                                    throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
+                                                    "There is a mismatch between the table and partition schemas. " +
+                                                    "The column '%s' in table '%s' is declared as type '%s', " +
+                                                    "but partition '%s' declared column '%s' as type '%s'.",
+                                            tableColumns.get(i).getName(),
                                             tableName,
+                                            tableType,
                                             partName,
                                             partitionColumns.get(i).getName(),
-                                            partitionType,
-                                            tableType));
+                                            partitionType));
                                 }
                             }
 
