@@ -48,7 +48,7 @@ public class TestHiveClientConfig
                 .setAllowCorruptWritesForTesting(false)
                 .setMetastoreCacheTtl(new Duration(1, TimeUnit.HOURS))
                 .setMetastoreRefreshInterval(new Duration(1, TimeUnit.SECONDS))
-                .setMetastoreBatchPartitionLoadInterval(new Duration(2, TimeUnit.MINUTES))
+                .setMetastoreBatchPartitionLoadInterval(new Duration(10, TimeUnit.SECONDS))
                 .setMetastoreBatchPartitionLoadSize(100)
                 .setMaxMetastoreRefreshThreads(100)
                 .setMetastoreSocksProxy(null)

@@ -29,6 +29,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -254,24 +256,26 @@ public class TestCachingHiveMetastore
     public void testBatchCacheLoader()
             throws Exception
     {
-        final int batchSize = 25;
+        int batchSize = 25;
         AtomicInteger loadAllCalls = new AtomicInteger();
         CountDownLatch done = new CountDownLatch(2);
+        ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1, daemonThreadsNamed("batch-cache-loader-%s"));
+
         LoadingCache<Integer, String> cache = CacheBuilder.newBuilder()
                 //test batch loading based on size as we don't want to depend on timing in tests
-                .build(new BackgroundBatchCacheLoader<Integer, String>(Long.MAX_VALUE, batchSize)
+                .build(new BackgroundBatchCacheLoader<Integer, String>(Long.MAX_VALUE, batchSize, scheduledExecutorService)
                 {
                     @Override
                     public Map<Integer, String> loadAll(Iterable<? extends Integer> keys)
                             throws Exception
                     {
-                        Map m = new HashMap();
+                        Map map = new HashMap();
                         for (Integer k : keys) {
-                            m.put(k, String.valueOf(k));
+                            map.put(k, String.valueOf(k));
                         }
                         done.countDown();
                         loadAllCalls.incrementAndGet();
-                        return m;
+                        return map;
                     }
                 });
         List<Integer> keys = IntStream.rangeClosed(1, batchSize).boxed().collect(Collectors.toList());

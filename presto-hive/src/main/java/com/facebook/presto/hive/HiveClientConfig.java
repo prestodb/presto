@@ -57,7 +57,7 @@ public class HiveClientConfig
 
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(1, TimeUnit.SECONDS);
-    private Duration metastoreBatchPartitionLoadInterval = new Duration(2, TimeUnit.MINUTES);
+    private Duration metastoreBatchPartitionLoadInterval = new Duration(10, TimeUnit.SECONDS);
     private int metastoreBatchPartitionLoadSize = 100;
     private int maxMetastoreRefreshThreads = 100;
     private HostAndPort metastoreSocksProxy;

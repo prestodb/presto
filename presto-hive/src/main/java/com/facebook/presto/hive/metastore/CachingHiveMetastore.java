@@ -59,6 +59,8 @@ import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
@@ -69,6 +71,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.Iterables.transform;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
 
@@ -89,6 +92,7 @@ public class CachingHiveMetastore
     private final LoadingCache<HiveTableName, Table> tableCache;
     private final LoadingCache<HivePartitionName, Partition> partitionCache;
     private final LoadingCache<PartitionFilter, List<String>> partitionFilterCache;
+    private final ScheduledExecutorService batchCacheLoaderExecutorService = Executors.newScheduledThreadPool(5, daemonThreadsNamed("batch-cache-loader-%s"));
 
     @Inject
     public CachingHiveMetastore(HiveCluster hiveCluster, @ForHiveMetastore ExecutorService executor, HiveClientConfig hiveClientConfig)
@@ -107,7 +111,7 @@ public class CachingHiveMetastore
 
         long expiresAfterWriteMillis = checkNotNull(cacheTtl, "cacheTtl is null").toMillis();
         long refreshMills = checkNotNull(refreshInterval, "refreshInterval is null").toMillis();
-        final Long batchPartitionLoadIntervalMillis = checkNotNull(batchPartitionLoadInterval, "batchPartitionLoadInterval is null").toMillis();
+        long batchPartitionLoadIntervalMillis = checkNotNull(batchPartitionLoadInterval, "batchPartitionLoadInterval is null").toMillis();
 
         databaseNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
@@ -200,18 +204,20 @@ public class CachingHiveMetastore
                     }
                 }, executor));
 
+        BackgroundBatchCacheLoader backgroundBatchCacheLoader = new BackgroundBatchCacheLoader<HivePartitionName, Partition>(batchPartitionLoadIntervalMillis, batchPartitionLoadSize, batchCacheLoaderExecutorService)
+        {
+            @Override
+            public Map<HivePartitionName, Partition> loadAll(Iterable<? extends HivePartitionName> partitionNames)
+                    throws Exception
+            {
+                return loadPartitionsByNames(partitionNames);
+            }
+        };
+        backgroundBatchCacheLoader.start();
         partitionCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(new BackgroundBatchCacheLoader<HivePartitionName, Partition>(batchPartitionLoadIntervalMillis, batchPartitionLoadSize)
-                {
-                    @Override
-                    public Map<HivePartitionName, Partition> loadAll(Iterable<? extends HivePartitionName> partitionNames)
-                            throws Exception
-                    {
-                        return loadPartitionsByNames(partitionNames);
-                    }
-                });
+                .build(backgroundBatchCacheLoader);
     }
 
     @Managed

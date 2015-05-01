@@ -14,70 +14,87 @@
 package com.facebook.presto.hive.util;
 
 import com.google.common.cache.CacheLoader;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public abstract class BackgroundBatchCacheLoader<K, V>
         extends CacheLoader<K, V>
 {
     private static final Logger logger = Logger.get(BackgroundBatchCacheLoader.class);
-    private final ConcurrentMap<K, SettableFuture<V>> futureMap = Maps.newConcurrentMap();
-    private final Runnable batchLoader;
-    private final AtomicLong lastBatchLoadTime = new AtomicLong();
-    private final int batchPartitionLoadSize;
+    private final ConcurrentMap<K, SettableFuture<V>> pendingReloadMap = Maps.newConcurrentMap();
+    private final int batchLoadSize;
+    private final ScheduledExecutorService scheduledExecutorService;
     private final long batchLoadIntervalMillis;
+    private volatile boolean started = false;
 
-    //let just a single thread do the batch loading
-    private final ScheduledExecutorService scheduledExecutorService =
-                    Executors.newScheduledThreadPool(1, daemonThreadsNamed("batch-cache-loader-%d"));
-
-    protected BackgroundBatchCacheLoader(final long batchLoadIntervalMillis, final int batchPartitionLoadSize)
+    protected BackgroundBatchCacheLoader(long batchLoadIntervalMillis, int batchLoadSize, ScheduledExecutorService scheduledExecutorService)
     {
-        this.batchPartitionLoadSize = batchPartitionLoadSize;
+        checkArgument(batchLoadIntervalMillis > 0, "batchLoadIntervalMillis must be a positive integer.");
+        checkArgument(batchLoadSize > 0, "batchLoadSize must be a positive integer.");
+        checkNotNull(scheduledExecutorService, "scheduledExecutorService cannot be null.");
         this.batchLoadIntervalMillis = batchLoadIntervalMillis;
-        lastBatchLoadTime.set(System.currentTimeMillis());
+        this.batchLoadSize = batchLoadSize;
+        this.scheduledExecutorService = scheduledExecutorService;
+    }
 
-        batchLoader = new Runnable() {
-            @Override
-            public void run()
+    public synchronized void start()
+    {
+        if (!started) {
+            Runnable timeThresholdReachedRunnable = new Runnable()
             {
-                try {
-                    int partitionsLoaded = 0;
-                    while (futureMap.size() > 0) {
-                        ImmutableList<K> keys = FluentIterable.from(futureMap.keySet()).limit(batchPartitionLoadSize).toList();
-                        Map<K, V> values = loadAll(keys);
-                        for (Map.Entry<K, V> entry : values.entrySet()) {
-                            SettableFuture<V> f = futureMap.remove(entry.getKey());
-                            f.set(entry.getValue());
-                        }
-                        partitionsLoaded += values.size();
-                    }
-
-                    if (partitionsLoaded > 0) {
-                        //update lastBatchLoadTime iff we load any partitions
-                        lastBatchLoadTime.set(System.currentTimeMillis());
-                    }
+                @Override
+                public void run()
+                {
+                    ConcurrentMap<K, SettableFuture<V>> refreshingMap = emptyPendingMap(true);
+                    refresh(refreshingMap);
                 }
-                catch (Throwable t) {
-                    logger.error(t);
+            };
+            scheduledExecutorService.scheduleWithFixedDelay(timeThresholdReachedRunnable, batchLoadIntervalMillis, batchLoadIntervalMillis, MILLISECONDS);
+            started = true;
+        }
+    }
+
+    private void refresh(ConcurrentMap<K, SettableFuture<V>> refreshingMap)
+    {
+        try {
+            while (refreshingMap != null && refreshingMap.size() > 0) {
+                List<K> keys = refreshingMap.keySet().stream().limit(batchLoadSize).collect(Collectors.toList());
+                Map<K, V> values = loadAll(keys);
+                for (Map.Entry<K, V> entry : values.entrySet()) {
+                    SettableFuture<V> settableFuture = refreshingMap.remove(entry.getKey());
+                    settableFuture.set(entry.getValue());
                 }
             }
-        };
+        }
+        catch (Exception t) {
+            // loadAll may throw Exception.
+            logger.error(t);
+        }
+    }
 
-        scheduledExecutorService.scheduleAtFixedRate(batchLoader, 0, batchLoadIntervalMillis, MILLISECONDS);
+    private synchronized ConcurrentMap<K, SettableFuture<V>> emptyPendingMap(boolean ignoreSize)
+    {
+        int minimumSize = ignoreSize ? 1 : batchLoadSize;
+        if (pendingReloadMap.size() >= minimumSize) {
+            ConcurrentMap<K, SettableFuture<V>> pendingReloadMapSnapshot = Maps.newConcurrentMap();
+            pendingReloadMapSnapshot.putAll(pendingReloadMap);
+            pendingReloadMap.keySet().removeAll(pendingReloadMapSnapshot.keySet());
+            return pendingReloadMapSnapshot;
+        }
+        return null;
     }
 
     @Override
@@ -92,14 +109,23 @@ public abstract class BackgroundBatchCacheLoader<K, V>
             throws Exception
     {
         SettableFuture<V> newFuture = SettableFuture.create();
-        SettableFuture<V> existingFuture = futureMap.putIfAbsent(key, newFuture);
+        SettableFuture<V> existingFuture = pendingReloadMap.putIfAbsent(key, newFuture);
 
         if (existingFuture == null) {
             existingFuture = newFuture;
-        }
-
-        if (futureMap.size() >= batchPartitionLoadSize) {
-            scheduledExecutorService.submit(batchLoader);
+            if (pendingReloadMap.size() >= batchLoadSize) {
+                scheduledExecutorService.submit(
+                        new Runnable()
+                        {
+                            @Override
+                            public void run()
+                            {
+                                // get a snapshot and refresh the snapshot
+                                ConcurrentMap<K, SettableFuture<V>> refreshingMap = emptyPendingMap(true);
+                                refresh(refreshingMap);
+                            }
+                        });
+            }
         }
 
         return existingFuture;
