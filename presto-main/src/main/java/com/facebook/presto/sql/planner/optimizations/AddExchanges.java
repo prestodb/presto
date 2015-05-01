@@ -896,7 +896,7 @@ public class AddExchanges
                     .addAll(preferencesFromParent.getLocalProperties())
                     .build();
 
-            Set<Symbol> partitioning = ImmutableSet.of();
+            Set<Symbol> partitioning = ImmutableSet.copyOf(partitioningColumns);
 
             // if the child plan is partitioned by the common columns between our requirements and
             // our parent's, it can satisfy both in one shot
