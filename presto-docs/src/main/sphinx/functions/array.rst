@@ -54,3 +54,7 @@ Array Functions
 .. function:: array_join(x, delimiter, null_replacement) -> varchar
 
     Concatenates the elements of the given array using the delimiter and an optional string to replace nulls.
+
+.. function:: array_remove(x, element) -> array
+
+    Remove specified values from the array ``x``.

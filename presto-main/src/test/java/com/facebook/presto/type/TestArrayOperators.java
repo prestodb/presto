@@ -466,6 +466,26 @@ public class TestArrayOperators
         assertInvalidFunction("ARRAY[1, NULL] = ARRAY[1, 2]", NOT_SUPPORTED.toErrorCode());
     }
 
+    @Test
+    public void testArrayRemove()
+            throws Exception
+    {
+        assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'bar', 'baz'], 'foo')", new ArrayType(VARCHAR), ImmutableList.of("bar", "baz"));
+        assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'bar', 'baz'], 'bar')", new ArrayType(VARCHAR), ImmutableList.of("foo", "baz"));
+        assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'bar', 'baz'], 'baz')", new ArrayType(VARCHAR), ImmutableList.of("foo", "bar"));
+        assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'bar', 'baz'], 'zzz')", new ArrayType(VARCHAR), ImmutableList.of("foo", "bar", "baz"));
+        assertFunction("ARRAY_REMOVE(ARRAY ['foo', 'foo', 'foo'], 'foo')", new ArrayType(VARCHAR), ImmutableList.of());
+        assertFunction("ARRAY_REMOVE(ARRAY [1, 2, 3], 1)", new ArrayType(BIGINT), ImmutableList.of(2L, 3L));
+        assertFunction("ARRAY_REMOVE(ARRAY [1, 2, 3], 2)", new ArrayType(BIGINT), ImmutableList.of(1L, 3L));
+        assertFunction("ARRAY_REMOVE(ARRAY [1, 2, 3], 3)", new ArrayType(BIGINT), ImmutableList.of(1L, 2L));
+        assertFunction("ARRAY_REMOVE(ARRAY [1, 2, 3], 4)", new ArrayType(BIGINT), ImmutableList.of(1L, 2L, 3L));
+        assertFunction("ARRAY_REMOVE(ARRAY [1, 1, 1], 1)", new ArrayType(BIGINT), ImmutableList.of());
+        assertFunction("ARRAY_REMOVE(ARRAY [-1.23, 3.14], 3.14)", new ArrayType(DOUBLE), ImmutableList.of(-1.23));
+        assertFunction("ARRAY_REMOVE(ARRAY [3.14], 0.0)", new ArrayType(DOUBLE), ImmutableList.of(3.14));
+        assertFunction("ARRAY_REMOVE(ARRAY [TRUE, FALSE, TRUE], TRUE)", new ArrayType(BOOLEAN), ImmutableList.of(false));
+        assertFunction("ARRAY_REMOVE(ARRAY [TRUE, FALSE, TRUE], FALSE)", new ArrayType(BOOLEAN), ImmutableList.of(true, true));
+    }
+
     public void assertInvalidFunction(String projection, ErrorCode errorCode)
     {
         try {
