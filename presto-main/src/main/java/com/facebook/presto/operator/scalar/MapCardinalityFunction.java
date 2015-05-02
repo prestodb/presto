@@ -55,7 +55,7 @@ public final class MapCardinalityFunction
     @Override
     public boolean isDeterministic()
     {
-        return false;
+        return true;
     }
 
     @Override
@@ -70,11 +70,18 @@ public final class MapCardinalityFunction
         checkArgument(arity == 1, "Cardinality expects only one argument");
         Type keyType = types.get("K");
         Type valueType = types.get("V");
-        return new FunctionInfo(new Signature("cardinality", parseTypeSignature(StandardTypes.BIGINT), parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature())), "Returns the cardinality (size) of the map", false, METHOD_HANDLE, true, true, ImmutableList.of(false));
+        return new FunctionInfo(
+                new Signature("cardinality", parseTypeSignature(StandardTypes.BIGINT), parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature())),
+                "Returns the cardinality (size) of the map",
+                isHidden(),
+                METHOD_HANDLE,
+                isDeterministic(),
+                false,
+                ImmutableList.of(false));
     }
 
-    public static Long mapCardinality(Slice slice)
+    public static long mapCardinality(Slice slice)
     {
-        return (long) readStructuralBlock(slice).getPositionCount() / 2;
+        return readStructuralBlock(slice).getPositionCount() / 2;
     }
 }
