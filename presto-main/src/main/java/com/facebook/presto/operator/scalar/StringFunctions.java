@@ -37,6 +37,7 @@ import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
+import static io.airlift.slice.SliceUtf8.lengthOfCodePointSafe;
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
 import static io.airlift.slice.SliceUtf8.toLowerCase;
 import static io.airlift.slice.SliceUtf8.toUpperCase;
@@ -106,8 +107,7 @@ public final class StringFunctions
             // After every code point insert `replace`
             int index = 0;
             while (index < str.length()) {
-                int startByte = str.getUnsignedByte(index);
-                int codePointLength = lengthOfCodePoint(startByte);
+                int codePointLength = lengthOfCodePointSafe(str, index);
                 // Append current code point
                 buffer.setBytes(indexBuffer, str, index, codePointLength);
                 indexBuffer += codePointLength;
@@ -162,12 +162,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice reverse(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
-        try {
-            return SliceUtf8.reverse(slice);
-        }
-        catch (InvalidCodePointException | InvalidUtf8Exception e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
-        }
+        return SliceUtf8.reverse(slice);
     }
 
     @Description("returns index of first occurrence of a substring (or 0 if not found)")
@@ -369,12 +364,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice leftTrim(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
-        try {
-            return SliceUtf8.leftTrim(slice);
-        }
-        catch (InvalidCodePointException | InvalidUtf8Exception e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
-        }
+        return SliceUtf8.leftTrim(slice);
     }
 
     @Description("removes whitespace from the end of a string")
@@ -382,12 +372,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice rightTrim(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
-        try {
-            return SliceUtf8.rightTrim(slice);
-        }
-        catch (InvalidCodePointException | InvalidUtf8Exception e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
-        }
+        return SliceUtf8.rightTrim(slice);
     }
 
     @Description("removes whitespace from the beginning and end of a string")
@@ -395,12 +380,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice trim(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
-        try {
-            return SliceUtf8.trim(slice);
-        }
-        catch (InvalidCodePointException | InvalidUtf8Exception e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
-        }
+        return SliceUtf8.trim(slice);
     }
 
     @Description("converts the string to lower case")
@@ -408,12 +388,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice lower(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
-        try {
-            return toLowerCase(slice);
-        }
-        catch (InvalidCodePointException | InvalidUtf8Exception e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
-        }
+        return toLowerCase(slice);
     }
 
     @Description("converts the string to upper case")
@@ -421,12 +396,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice upper(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
-        try {
-            return toUpperCase(slice);
-        }
-        catch (InvalidCodePointException | InvalidUtf8Exception e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
-        }
+        return toUpperCase(slice);
     }
 
     @Description("decodes the UTF-8 encoded string")

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.SqlType;
@@ -22,6 +23,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestStringFunctions
@@ -102,6 +104,20 @@ public class TestStringFunctions
         assertFunction("REPLACE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', '\u2014')", VARCHAR, "\u4FE1\u5FF5\u2014\u7231\u2014\u5E0C\u671B");
         assertFunction("REPLACE('::\uD801\uDC2D::', ':', '')", VARCHAR, "\uD801\uDC2D");
         assertFunction("REPLACE('\u00D6sterreich', '\u00D6', 'Oe')", VARCHAR, "Oesterreich");
+
+        assertFunction("CAST(REPLACE(utf8(from_hex('CE')), '', 'X') AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {'X', (byte) 0xCE, 'X'}));
+
+        assertFunction("CAST(REPLACE('abc' || utf8(from_hex('CE')), '', 'X') AS VARBINARY)",
+                VARBINARY,
+                new SqlVarbinary(new byte[] {'X', 'a', 'X', 'b', 'X', 'c', 'X', (byte) 0xCE, 'X'}));
+
+        assertFunction("CAST(REPLACE(utf8(from_hex('CE')) || 'xyz', '', 'X') AS VARBINARY)",
+                VARBINARY,
+                new SqlVarbinary(new byte[] {'X', (byte) 0xCE, 'X', 'x', 'X', 'y', 'X', 'z', 'X'}));
+
+        assertFunction("CAST(REPLACE('abc' || utf8(from_hex('CE')) || 'xyz', '', 'X') AS VARBINARY)",
+                VARBINARY,
+                new SqlVarbinary(new byte[] {'X', 'a', 'X', 'b', 'X', 'c', 'X', (byte) 0xCE, 'X', 'x', 'X', 'y', 'X', 'z', 'X'}));
     }
 
     @Test
@@ -117,8 +133,8 @@ public class TestStringFunctions
         assertFunction("REVERSE('na\u00EFve')", VARCHAR, "ev\u00EFan");
         assertFunction("REVERSE('\uD801\uDC2Dend')", VARCHAR, "dne\uD801\uDC2D");
 
-        assertInvalidFunction("REVERSE(utf8(from_hex('CE')))", "UTF-8 is not well formed");
-        assertInvalidFunction("REVERSE(utf8(from_hex('68656C6C6FCE')))", "UTF-8 is not well formed");
+        assertFunction("CAST(REVERSE(utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE}));
+        assertFunction("CAST(REVERSE('hello' || utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE, 'o', 'l', 'l', 'e', 'h'}));
     }
 
     @Test
@@ -320,6 +336,10 @@ public class TestStringFunctions
         assertFunction("LOWER('WHAT!!')", VARCHAR, "what!!");
         assertFunction("LOWER('\u00D6STERREICH')", VARCHAR, lowerByCodePoint("\u00D6sterreich"));
         assertFunction("LOWER('From\uD801\uDC2DTo')", VARCHAR, lowerByCodePoint("from\uD801\uDC2Dto"));
+
+        assertFunction("CAST(LOWER(utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE}));
+        assertFunction("CAST(LOWER('HELLO' || utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {'h', 'e', 'l', 'l', 'o', (byte) 0xCE}));
+        assertFunction("CAST(LOWER(utf8(from_hex('CE')) || 'HELLO') AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE, 'h', 'e', 'l', 'l', 'o'}));
     }
 
     @Test
@@ -330,6 +350,10 @@ public class TestStringFunctions
         assertFunction("UPPER('what!!')", VARCHAR, "WHAT!!");
         assertFunction("UPPER('\u00D6sterreich')", VARCHAR, upperByCodePoint("\u00D6STERREICH"));
         assertFunction("UPPER('From\uD801\uDC2DTo')", VARCHAR, upperByCodePoint("FROM\uD801\uDC2DTO"));
+
+        assertFunction("CAST(UPPER(utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE}));
+        assertFunction("CAST(UPPER('hello' || utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {'H', 'E', 'L', 'L', 'O', (byte) 0xCE}));
+        assertFunction("CAST(UPPER(utf8(from_hex('CE')) || 'hello') AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE, 'H', 'E', 'L', 'L', 'O'}));
     }
 
     // We do not use String toLowerCase or toUpperCase here because they can do multi character transforms
