@@ -897,7 +897,7 @@ public abstract class AbstractTestHiveClient
         pageSourceProvider.createPageSource(split, ImmutableList.of(invalidColumnHandle));
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Table '.*\\.presto_test_partition_schema_change' partition 'ds=2012-12-29' column 't_data' type 'string' does not match table column type 'bigint'")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = ".*The column 't_data' in table '.*\\.presto_test_partition_schema_change' is declared as type 'bigint', but partition 'ds=2012-12-29' declared column 't_data' as type 'string'.")
     public void testPartitionSchemaMismatch()
             throws Exception
     {
