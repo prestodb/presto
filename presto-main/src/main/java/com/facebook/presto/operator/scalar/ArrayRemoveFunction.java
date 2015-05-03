@@ -85,29 +85,29 @@ public final class ArrayRemoveFunction
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle.bindTo(type), isDeterministic(), true, ImmutableList.of(false, false));
     }
 
-    public static Slice remove(Type type, Slice jsonArray, Slice value)
+    public static Slice remove(Type type, Slice array, Slice value)
     {
-        return remove(type, jsonArray, createBlock(type, value));
+        return remove(type, array, createBlock(type, value));
     }
 
-    public static Slice remove(Type type, Slice jsonArray, long value)
+    public static Slice remove(Type type, Slice array, long value)
     {
-        return remove(type, jsonArray, createBlock(type, value));
+        return remove(type, array, createBlock(type, value));
     }
 
-    public static Slice remove(Type type, Slice jsonArray, double value)
+    public static Slice remove(Type type, Slice array, double value)
     {
-        return remove(type, jsonArray, createBlock(type, value));
+        return remove(type, array, createBlock(type, value));
     }
 
-    public static Slice remove(Type type, Slice jsonArray, boolean value)
+    public static Slice remove(Type type, Slice array, boolean value)
     {
-        return remove(type, jsonArray, createBlock(type, value));
+        return remove(type, array, createBlock(type, value));
     }
 
-    private static Slice remove(Type type, Slice jsonArray, Block valueBlock)
+    private static Slice remove(Type type, Slice array, Block valueBlock)
     {
-        Block elementsBlock = readStructuralBlock(jsonArray);
+        Block elementsBlock = readStructuralBlock(array);
 
         int sizeAfterRemove = 0;
         List<Integer> positions = new ArrayList<>();
@@ -118,7 +118,7 @@ public final class ArrayRemoveFunction
             }
         }
         if (elementsBlock.getPositionCount() == positions.size()) {
-            return jsonArray;
+            return array;
         }
 
         BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), sizeAfterRemove);
