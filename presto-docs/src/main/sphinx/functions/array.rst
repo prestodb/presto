@@ -57,4 +57,4 @@ Array Functions
 
 .. function:: array_remove(x, element) -> array
 
-    Remove specified values from the array ``x``.
+    Remove all elements that equal ``element`` from array ``x``.
