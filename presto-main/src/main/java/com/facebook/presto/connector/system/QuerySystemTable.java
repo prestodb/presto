@@ -69,7 +69,7 @@ public class QuerySystemTable
     @Override
     public boolean isDistributed()
     {
-        return true;
+        return false;
     }
 
     @Override
