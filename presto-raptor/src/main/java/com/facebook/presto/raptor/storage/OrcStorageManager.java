@@ -179,7 +179,7 @@ public class OrcStorageManager
     @Override
     public StoragePageSink createStoragePageSink(List<Long> columnIds, List<Type> columnTypes)
     {
-        return new OrcStoragePageSink(columnIds, columnTypes, maxShardRows, maxShardSize);
+        return new OrcStoragePageSink(columnIds, columnTypes);
     }
 
     private void writeShard(UUID shardUuid)
@@ -213,6 +213,13 @@ public class OrcStorageManager
     public boolean isBackupAvailable()
     {
         return backupStore.isPresent();
+    }
+
+    @Managed
+    @Flatten
+    public StorageManagerStats getStats()
+    {
+        return stats;
     }
 
     @VisibleForTesting
@@ -294,17 +301,13 @@ public class OrcStorageManager
         private final List<Type> columnTypes;
 
         private final List<ShardInfo> shards = new ArrayList<>();
-        private final long maxShardRows;
-        private final DataSize maxShardSize;
 
         private boolean committed;
         private OrcFileWriter writer;
         private UUID shardUuid;
 
-        public OrcStoragePageSink(List<Long> columnIds, List<Type> columnTypes, long maxShardRows, DataSize maxShardSize)
+        public OrcStoragePageSink(List<Long> columnIds, List<Type> columnTypes)
         {
-            this.maxShardRows = maxShardRows;
-            this.maxShardSize = maxShardSize;
             this.columnIds = ImmutableList.copyOf(checkNotNull(columnIds, "columnIds is null"));
             this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
         }
@@ -389,12 +392,5 @@ public class OrcStorageManager
                 writer = new OrcFileWriter(columnIds, columnTypes, stagingFile);
             }
         }
-    }
-
-    @Managed
-    @Flatten
-    public StorageManagerStats getStats()
-    {
-        return stats;
     }
 }
