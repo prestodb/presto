@@ -59,3 +59,4 @@ Hive Changes
 * Ignore ``InvalidRange`` error in ``PrestoS3FileSystem``.
 * Implement rename and delete in ``PrestoS3FileSystem``.
 * Fix assertion failure when running ``SHOW TABLES FROM schema``.
+* Fix S3 socket leak when reading ORC files.
