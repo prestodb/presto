@@ -190,7 +190,7 @@ public class AddExchanges
 
             PreferredProperties preferredProperties = node.getGroupBy().isEmpty()
                     ? PreferredProperties.any()
-                    : PreferredProperties.derivePreferences(preferred, ImmutableSet.copyOf(node.getGroupBy()), grouped(node.getGroupBy()));
+                    : PreferredProperties.derivePreferences(preferred, ImmutableSet.copyOf(node.getGroupBy()), node.getGroupBy(), grouped(node.getGroupBy()));
             PlanWithProperties child = planChild(node, preferredProperties);
 
             if (!child.getProperties().isPartitioned()) {
@@ -287,7 +287,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitMarkDistinct(MarkDistinctNode node, PreferredProperties preferred)
         {
-            PreferredProperties preferredChildProperties = PreferredProperties.derivePreferences(preferred, ImmutableSet.copyOf(node.getDistinctSymbols()), grouped(node.getDistinctSymbols()));
+            PreferredProperties preferredChildProperties = PreferredProperties.derivePreferences(preferred, ImmutableSet.copyOf(node.getDistinctSymbols()), node.getDistinctSymbols(), grouped(node.getDistinctSymbols()));
             PlanWithProperties child = node.getSource().accept(this, preferredChildProperties);
 
             if ((!child.getProperties().isPartitioned() && isBigQueryEnabled(session, false)) ||

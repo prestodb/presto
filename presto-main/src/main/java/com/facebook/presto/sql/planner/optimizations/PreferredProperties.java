@@ -112,6 +112,20 @@ class PreferredProperties
         return derivePreferences(parentProperties, translations, Optional.of(partitioningColumns), Optional.empty(), localProperties);
     }
 
+    public static PreferredProperties derivePreferences(
+            PreferredProperties parentProperties,
+            Set<Symbol> partitioningColumns,
+            List<Symbol> hashingColumns,
+            List<LocalProperty<Symbol>> localProperties)
+    {
+        checkState(partitioningColumns.equals(ImmutableSet.copyOf(hashingColumns)), "hashingColumns and paprtitioningColumns must be the same");
+
+        // Build identity translations
+        Map<Symbol, Symbol> translations = partitioningColumns.stream().collect(toMap(item -> item, item -> item));
+        return derivePreferences(parentProperties, translations, Optional.of(partitioningColumns), Optional.of(hashingColumns), localProperties);
+    }
+
+
     /**
      * Derive current node's preferred properties based on parent's properties
      * @param parentProperties Parent's preferences
@@ -128,7 +142,9 @@ class PreferredProperties
             Optional<List<Symbol>> hashingColumns,
             List<LocalProperty<Symbol>> localProperties)
     {
-        checkState(hashingColumns.isPresent() && partitioningColumns.isPresent() && partitioningColumns.get().equals(ImmutableSet.copyOf(hashingColumns.get())), "hashingColumns and partitioningColumns must be the same");
+        if (hashingColumns.isPresent()) {
+            checkState(partitioningColumns.isPresent() && partitioningColumns.get().equals(ImmutableSet.copyOf(hashingColumns.get())), "hashingColumns and partitioningColumns must be the same");
+        }
 
         List<LocalProperty<Symbol>> parentLocalProperties = LocalProperties.translate(parentProperties.getLocalProperties(), column -> Optional.ofNullable(translations.get(column)));
 
