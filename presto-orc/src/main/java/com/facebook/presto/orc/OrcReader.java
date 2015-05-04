@@ -34,6 +34,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static java.lang.Math.min;
 
 public class OrcReader
 {
@@ -74,7 +75,7 @@ public class OrcReader
         }
 
         // Read the tail of the file
-        byte[] buffer = new byte[(int) Math.min(size, EXPECTED_FOOTER_SIZE)];
+        byte[] buffer = new byte[Ints.checkedCast(min(size, EXPECTED_FOOTER_SIZE))];
         orcDataSource.readFully(size - buffer.length, buffer);
 
         // get length of PostScript - last byte of the file
