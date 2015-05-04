@@ -1,0 +1,141 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.13. Release 0.90 &mdash; Presto 0.102 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.102',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.102 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.14. Release 0.89" href="release-0.89.html" />
+    <link rel="prev" title="10.12. Release 0.91" href="release-0.91.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.102 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.13. Release 0.90</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.91.html">10.12. Release 0.91</a>
+    </span>
+    <span class="right">
+        <a href="release-0.89.html">10.14. Release 0.89</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-90">
+<h1>10.13. Release 0.90</h1>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">This release has a memory leak and should not be used.</p>
+</div>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Initial support for partition and placement awareness in the query planner. This can
+result in better plans for queries involving <tt class="docutils literal"><span class="pre">JOIN</span></tt> and <tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt> over the same
+key columns.</li>
+<li>Improve planning of UNION queries.</li>
+<li>Add presto version to query creation and completion events.</li>
+<li>Add property <tt class="docutils literal"><span class="pre">task.writer-count</span></tt> to configure the number of writers per task.</li>
+<li>Fix a bug when optimizing constant expressions involving binary types.</li>
+<li>Fix bug where a table writer commits partial results while cleaning up a failed query.</li>
+<li>Fix a bug when unnesting an array of doubles containing NaN or Infinity.</li>
+<li>Fix failure when accessing elements in an empty array.</li>
+<li>Fix <em>&#8220;Remote page is too large&#8221;</em> errors.</li>
+<li>Improve error message when attempting to cast a value to <tt class="docutils literal"><span class="pre">UNKNOWN</span></tt>.</li>
+<li>Update the <a class="reference internal" href="../functions/aggregate.html#approx_distinct" title="approx_distinct"><tt class="xref py py-func docutils literal"><span class="pre">approx_distinct()</span></tt></a> documentation with correct standard error bounds.</li>
+<li>Disable falling back to the interpreter when expressions fail to be compiled
+to bytecode. To enable this option, add <tt class="docutils literal"><span class="pre">compiler.interpreter-enabled=true</span></tt>
+to the coordinator and worker config properties. Enabling this option will
+allow certain queries to run slowly rather than failing.</li>
+<li>Improve <a class="reference internal" href="../installation/jdbc.html"><em>JDBC Driver</em></a> conformance. In particular, all unimplemented
+methods now throw <tt class="docutils literal"><span class="pre">SQLException</span></tt> rather than <tt class="docutils literal"><span class="pre">UnsupportedOperationException</span></tt>.</li>
+</ul>
+</div>
+<div class="section" id="functions-and-language-features">
+<h2>Functions and Language Features</h2>
+<ul class="simple">
+<li>Add <a class="reference internal" href="../functions/aggregate.html#bool_and" title="bool_and"><tt class="xref py py-func docutils literal"><span class="pre">bool_and()</span></tt></a> and <a class="reference internal" href="../functions/aggregate.html#bool_or" title="bool_or"><tt class="xref py py-func docutils literal"><span class="pre">bool_or()</span></tt></a> aggregation functions.</li>
+<li>Add standard SQL function <a class="reference internal" href="../functions/aggregate.html#every" title="every"><tt class="xref py py-func docutils literal"><span class="pre">every()</span></tt></a> as an alias for <a class="reference internal" href="../functions/aggregate.html#bool_and" title="bool_and"><tt class="xref py py-func docutils literal"><span class="pre">bool_and()</span></tt></a>.</li>
+<li>Add <a class="reference internal" href="../functions/datetime.html#year_of_week" title="year_of_week"><tt class="xref py py-func docutils literal"><span class="pre">year_of_week()</span></tt></a> function.</li>
+<li>Add <a class="reference internal" href="../functions/regexp.html#regexp_extract_all" title="regexp_extract_all"><tt class="xref py py-func docutils literal"><span class="pre">regexp_extract_all()</span></tt></a> function.</li>
+<li>Add <a class="reference internal" href="../functions/aggregate.html#map_agg" title="map_agg"><tt class="xref py py-func docutils literal"><span class="pre">map_agg()</span></tt></a> aggregation function.</li>
+<li>Add support for casting <tt class="docutils literal"><span class="pre">JSON</span></tt> to <tt class="docutils literal"><span class="pre">ARRAY</span></tt> or <tt class="docutils literal"><span class="pre">MAP</span></tt> types.</li>
+<li>Add support for unparenthesized expressions in <tt class="docutils literal"><span class="pre">VALUES</span></tt> clause.</li>
+<li>Added <a class="reference internal" href="../sql/set-session.html"><em>SET SESSION</em></a>, <a class="reference internal" href="../sql/reset-session.html"><em>RESET SESSION</em></a> and <a class="reference internal" href="../sql/show-session.html"><em>SHOW SESSION</em></a>.</li>
+<li>Improve formatting of <tt class="docutils literal"><span class="pre">EXPLAIN</span> <span class="pre">(TYPE</span> <span class="pre">DISTRIBUTED)</span></tt> output and include additional
+information such as output layout, task placement policy and partitioning functions.</li>
+</ul>
+</div>
+<div class="section" id="hive-changes">
+<h2>Hive Changes</h2>
+<ul class="simple">
+<li>Disable optimized metastore partition fetching for non-string partition keys.
+This fixes an issue were Presto might silently ignore data with non-canonical
+partition values. To enable this option, add <tt class="docutils literal"><span class="pre">hive.assume-canonical-partition-keys=true</span></tt>
+to the coordinator and worker config properties.</li>
+<li>Don&#8217;t retry operations against S3 that fail due to lack of permissions.</li>
+</ul>
+</div>
+<div class="section" id="spi-changes">
+<h2>SPI Changes</h2>
+<ul class="simple">
+<li>Add <tt class="docutils literal"><span class="pre">getColumnTypes</span></tt> to <tt class="docutils literal"><span class="pre">RecordSink</span></tt>.</li>
+<li>Use <tt class="docutils literal"><span class="pre">Slice</span></tt> for table writer fragments.</li>
+<li>Add <tt class="docutils literal"><span class="pre">ConnectorPageSink</span></tt> which is a more efficient interface for column-oriented sources.</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This is a backwards incompatible change with the previous connector SPI.
+If you have written a connector, you will need to update your code
+before deploying this release.</p>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.91.html">10.12. Release 0.91</a>
+    </span>
+    <span class="right">
+        <a href="release-0.89.html">10.14. Release 0.89</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

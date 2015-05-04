@@ -1,0 +1,628 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>4.5. Kafka Connector Tutorial &mdash; Presto 0.102 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.102',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.102 Documentation" href="../index.html" />
+    <link rel="up" title="4. Connectors" href="../connector.html" />
+    <link rel="next" title="4.6. MySQL Connector" href="mysql.html" />
+    <link rel="prev" title="4.4. Kafka Connector" href="kafka.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.102 Documentation</span></a></h1>
+    <h2 class="heading"><span>4.5. Kafka Connector Tutorial</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="kafka.html">4.4. Kafka Connector</a>
+    </span>
+    <span class="right">
+        <a href="mysql.html">4.6. MySQL Connector</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="kafka-connector-tutorial">
+<h1>4.5. Kafka Connector Tutorial</h1>
+<div class="section" id="introduction">
+<h2>Introduction</h2>
+<p>The Kafka Connector for Presto allows access to live topic data from
+Apache Kafka using Presto. This tutorial shows how to set up topics and
+how to create the topic description files that back Presto tables.</p>
+</div>
+<div class="section" id="installation">
+<h2>Installation</h2>
+<p>This tutorial assumes familiarity with Presto and a working local Presto
+installation (see <a class="reference internal" href="../installation/deployment.html"><em>Deploying Presto</em></a>). It will focus on
+setting up Apache Kafka and integrating it with Presto.</p>
+<div class="section" id="step-1-install-apache-kafka">
+<h3>Step 1: Install Apache Kafka</h3>
+<p>Download and extract <a class="reference external" href="https://kafka.apache.org/">Apache Kafka</a>.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This tutorial was tested with Apache Kafka 0.8.1.
+It should work with any 0.8.x version of Apache Kafka.</p>
+</div>
+<p>Start ZooKeeper and the Kafka server:</p>
+<div class="highlight-none"><div class="highlight"><pre>$ bin/zookeeper-server-start.sh config/zookeeper.properties
+[2013-04-22 15:01:37,495] INFO Reading configuration from: config/zookeeper.properties (org.apache.zookeeper.server.quorum.QuorumPeerConfig)
+...
+</pre></div>
+</div>
+<div class="highlight-none"><div class="highlight"><pre>$ bin/kafka-server-start.sh config/server.properties
+[2013-04-22 15:01:47,028] INFO Verifying properties (kafka.utils.VerifiableProperties)
+[2013-04-22 15:01:47,051] INFO Property socket.send.buffer.bytes is overridden to 1048576 (kafka.utils.VerifiableProperties)
+...
+</pre></div>
+</div>
+<p>This will start Zookeeper on port <tt class="docutils literal"><span class="pre">2181</span></tt> and Kafka on port <tt class="docutils literal"><span class="pre">9092</span></tt>.</p>
+</div>
+<div class="section" id="step-2-load-data">
+<h3>Step 2: Load data</h3>
+<p>Download the tpch-kafka loader from Maven central:</p>
+<div class="highlight-none"><div class="highlight"><pre>$ curl -o kafka-tpch https://repo1.maven.org/maven2/de/softwareforge/kafka_tpch_0811/1.0/kafka_tpch_0811-1.0.sh
+$ chmod 755 kafka-tpch
+</pre></div>
+</div>
+<p>Now run the <tt class="docutils literal"><span class="pre">kafka-tpch</span></tt> program to preload a number of topics with tpch data:</p>
+<div class="highlight-none"><div class="highlight"><pre>$ ./kafka-tpch load --brokers localhost:9092 --prefix tpch. --tpch-type tiny
+2014-07-28T17:17:07.594-0700     INFO    main    io.airlift.log.Logging    Logging to stderr
+2014-07-28T17:17:07.623-0700     INFO    main    de.softwareforge.kafka.LoadCommand    Processing tables: [customer, orders, lineitem, part, partsupp, supplier, nation, region]
+2014-07-28T17:17:07.981-0700     INFO    pool-1-thread-1    de.softwareforge.kafka.LoadCommand    Loading table &#39;customer&#39; into topic &#39;tpch.customer&#39;...
+2014-07-28T17:17:07.981-0700     INFO    pool-1-thread-2    de.softwareforge.kafka.LoadCommand    Loading table &#39;orders&#39; into topic &#39;tpch.orders&#39;...
+2014-07-28T17:17:07.981-0700     INFO    pool-1-thread-3    de.softwareforge.kafka.LoadCommand    Loading table &#39;lineitem&#39; into topic &#39;tpch.lineitem&#39;...
+2014-07-28T17:17:07.982-0700     INFO    pool-1-thread-4    de.softwareforge.kafka.LoadCommand    Loading table &#39;part&#39; into topic &#39;tpch.part&#39;...
+2014-07-28T17:17:07.982-0700     INFO    pool-1-thread-5    de.softwareforge.kafka.LoadCommand    Loading table &#39;partsupp&#39; into topic &#39;tpch.partsupp&#39;...
+2014-07-28T17:17:07.982-0700     INFO    pool-1-thread-6    de.softwareforge.kafka.LoadCommand    Loading table &#39;supplier&#39; into topic &#39;tpch.supplier&#39;...
+2014-07-28T17:17:07.982-0700     INFO    pool-1-thread-7    de.softwareforge.kafka.LoadCommand    Loading table &#39;nation&#39; into topic &#39;tpch.nation&#39;...
+2014-07-28T17:17:07.982-0700     INFO    pool-1-thread-8    de.softwareforge.kafka.LoadCommand    Loading table &#39;region&#39; into topic &#39;tpch.region&#39;...
+2014-07-28T17:17:10.612-0700    ERROR    pool-1-thread-8    kafka.producer.async.DefaultEventHandler    Failed to collate messages by topic, partition due to: Failed to fetch topic metadata for topic: tpch.region
+2014-07-28T17:17:10.781-0700     INFO    pool-1-thread-8    de.softwareforge.kafka.LoadCommand    Generated 5 rows for table &#39;region&#39;.
+2014-07-28T17:17:10.797-0700    ERROR    pool-1-thread-3    kafka.producer.async.DefaultEventHandler    Failed to collate messages by topic, partition due to: Failed to fetch topic metadata for topic: tpch.lineitem
+2014-07-28T17:17:10.932-0700    ERROR    pool-1-thread-1    kafka.producer.async.DefaultEventHandler    Failed to collate messages by topic, partition due to: Failed to fetch topic metadata for topic: tpch.customer
+2014-07-28T17:17:11.068-0700    ERROR    pool-1-thread-2    kafka.producer.async.DefaultEventHandler    Failed to collate messages by topic, partition due to: Failed to fetch topic metadata for topic: tpch.orders
+2014-07-28T17:17:11.200-0700    ERROR    pool-1-thread-6    kafka.producer.async.DefaultEventHandler    Failed to collate messages by topic, partition due to: Failed to fetch topic metadata for topic: tpch.supplier
+2014-07-28T17:17:11.319-0700     INFO    pool-1-thread-6    de.softwareforge.kafka.LoadCommand    Generated 100 rows for table &#39;supplier&#39;.
+2014-07-28T17:17:11.333-0700    ERROR    pool-1-thread-4    kafka.producer.async.DefaultEventHandler    Failed to collate messages by topic, partition due to: Failed to fetch topic metadata for topic: tpch.part
+2014-07-28T17:17:11.466-0700    ERROR    pool-1-thread-5    kafka.producer.async.DefaultEventHandler    Failed to collate messages by topic, partition due to: Failed to fetch topic metadata for topic: tpch.partsupp
+2014-07-28T17:17:11.597-0700    ERROR    pool-1-thread-7    kafka.producer.async.DefaultEventHandler    Failed to collate messages by topic, partition due to: Failed to fetch topic metadata for topic: tpch.nation
+2014-07-28T17:17:11.706-0700     INFO    pool-1-thread-7    de.softwareforge.kafka.LoadCommand    Generated 25 rows for table &#39;nation&#39;.
+2014-07-28T17:17:12.180-0700     INFO    pool-1-thread-1    de.softwareforge.kafka.LoadCommand    Generated 1500 rows for table &#39;customer&#39;.
+2014-07-28T17:17:12.251-0700     INFO    pool-1-thread-4    de.softwareforge.kafka.LoadCommand    Generated 2000 rows for table &#39;part&#39;.
+2014-07-28T17:17:12.905-0700     INFO    pool-1-thread-2    de.softwareforge.kafka.LoadCommand    Generated 15000 rows for table &#39;orders&#39;.
+2014-07-28T17:17:12.919-0700     INFO    pool-1-thread-5    de.softwareforge.kafka.LoadCommand    Generated 8000 rows for table &#39;partsupp&#39;.
+2014-07-28T17:17:13.877-0700     INFO    pool-1-thread-3    de.softwareforge.kafka.LoadCommand    Generated 60175 rows for table &#39;lineitem&#39;.
+</pre></div>
+</div>
+<p>Kafka now has a number of topics that are preloaded with data to query.</p>
+</div>
+<div class="section" id="step-3-make-the-kafka-topics-known-to-presto">
+<h3>Step 3: Make the Kafka topics known to Presto</h3>
+<p>In your Presto installation, add a catalog properties file
+<tt class="docutils literal"><span class="pre">etc/catalog/kafka.properties</span></tt> for the Kafka connector.
+This file lists the Kafka nodes and topics:</p>
+<div class="highlight-none"><div class="highlight"><pre>connector.name=kafka
+kafka.nodes=localhost:9092
+kafka.table-names=tpch.customer,tpch.orders,tpch.lineitem,tpch.part,tpch.partsupp,tpch.supplier,tpch.nation,tpch.region
+kafka.hide-internal-columns=false
+</pre></div>
+</div>
+<p>Now start Presto:</p>
+<div class="highlight-none"><div class="highlight"><pre>$ bin/launcher start
+</pre></div>
+</div>
+<p>Because the Kafka tables all have the <tt class="docutils literal"><span class="pre">tpch.</span></tt> prefix in the configuration,
+the tables are in the <tt class="docutils literal"><span class="pre">tpch</span></tt> schema. The connector is mounted into the
+<tt class="docutils literal"><span class="pre">kafka</span></tt> catalog because the properties file is named <tt class="docutils literal"><span class="pre">kafka.properties</span></tt>.</p>
+<p>Start the <a class="reference internal" href="../installation/cli.html"><em>Presto CLI</em></a>:</p>
+<div class="highlight-none"><div class="highlight"><pre>$ ./presto --catalog kafka --schema tpch
+</pre></div>
+</div>
+<p>List the tables to verify that things are working:</p>
+<div class="highlight-none"><div class="highlight"><pre>presto:tpch&gt; SHOW TABLES;
+  Table
+----------
+ customer
+ lineitem
+ nation
+ orders
+ part
+ partsupp
+ region
+ supplier
+(8 rows)
+</pre></div>
+</div>
+</div>
+<div class="section" id="step-4-basic-data-querying">
+<h3>Step 4: Basic data querying</h3>
+<p>Kafka data is unstructured and it has no metadata to describe the format of
+the messages. Without further configuration, the Kafka connector can access
+the data and map it in raw form but there are no actual columns besides the
+built-in ones:</p>
+<div class="highlight-none"><div class="highlight"><pre>presto:tpch&gt; DESCRIBE customer;
+      Column       |  Type   | Null | Partition Key |                   Comment
+-------------------+---------+------+---------------+---------------------------------------------
+ _partition_id     | bigint  | true | false         | Partition Id
+ _partition_offset | bigint  | true | false         | Offset for the message within the partition
+ _segment_start    | bigint  | true | false         | Segment start offset
+ _segment_end      | bigint  | true | false         | Segment end offset
+ _segment_count    | bigint  | true | false         | Running message count per segment
+ _key              | varchar | true | false         | Key text
+ _key_corrupt      | boolean | true | false         | Key data is corrupt
+ _key_length       | bigint  | true | false         | Total number of key bytes
+ _message          | varchar | true | false         | Message text
+ _message_corrupt  | boolean | true | false         | Message data is corrupt
+ _message_length   | bigint  | true | false         | Total number of message bytes
+(11 rows)
+
+presto:tpch&gt; SELECT count(*) FROM customer;
+ _col0
+-------
+  1500
+
+presto:tpch&gt; SELECT _message FROM customer LIMIT 5;
+                                                                                                                                                 _message
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ {&quot;rowNumber&quot;:1,&quot;customerKey&quot;:1,&quot;name&quot;:&quot;Customer#000000001&quot;,&quot;address&quot;:&quot;IVhzIApeRb ot,c,E&quot;,&quot;nationKey&quot;:15,&quot;phone&quot;:&quot;25-989-741-2988&quot;,&quot;accountBalance&quot;:711.56,&quot;marketSegment&quot;:&quot;BUILDING&quot;,&quot;comment&quot;:&quot;to the even, regular platelets. regular, ironic epitaphs nag e&quot;}
+ {&quot;rowNumber&quot;:3,&quot;customerKey&quot;:3,&quot;name&quot;:&quot;Customer#000000003&quot;,&quot;address&quot;:&quot;MG9kdTD2WBHm&quot;,&quot;nationKey&quot;:1,&quot;phone&quot;:&quot;11-719-748-3364&quot;,&quot;accountBalance&quot;:7498.12,&quot;marketSegment&quot;:&quot;AUTOMOBILE&quot;,&quot;comment&quot;:&quot; deposits eat slyly ironic, even instructions. express foxes detect slyly. blithel
+ {&quot;rowNumber&quot;:5,&quot;customerKey&quot;:5,&quot;name&quot;:&quot;Customer#000000005&quot;,&quot;address&quot;:&quot;KvpyuHCplrB84WgAiGV6sYpZq7Tj&quot;,&quot;nationKey&quot;:3,&quot;phone&quot;:&quot;13-750-942-6364&quot;,&quot;accountBalance&quot;:794.47,&quot;marketSegment&quot;:&quot;HOUSEHOLD&quot;,&quot;comment&quot;:&quot;n accounts will have to unwind. foxes cajole accor&quot;}
+ {&quot;rowNumber&quot;:7,&quot;customerKey&quot;:7,&quot;name&quot;:&quot;Customer#000000007&quot;,&quot;address&quot;:&quot;TcGe5gaZNgVePxU5kRrvXBfkasDTea&quot;,&quot;nationKey&quot;:18,&quot;phone&quot;:&quot;28-190-982-9759&quot;,&quot;accountBalance&quot;:9561.95,&quot;marketSegment&quot;:&quot;AUTOMOBILE&quot;,&quot;comment&quot;:&quot;ainst the ironic, express theodolites. express, even pinto bean
+ {&quot;rowNumber&quot;:9,&quot;customerKey&quot;:9,&quot;name&quot;:&quot;Customer#000000009&quot;,&quot;address&quot;:&quot;xKiAFTjUsCuxfeleNqefumTrjS&quot;,&quot;nationKey&quot;:8,&quot;phone&quot;:&quot;18-338-906-3675&quot;,&quot;accountBalance&quot;:8324.07,&quot;marketSegment&quot;:&quot;FURNITURE&quot;,&quot;comment&quot;:&quot;r theodolites according to the requests wake thinly excuses: pending
+(5 rows)
+
+presto:tpch&gt; SELECT sum(cast(json_extract_scalar(_message, &#39;$.accountBalance&#39;) AS double)) FROM customer LIMIT 10;
+   _col0
+------------
+ 6681865.59
+(1 row)
+</pre></div>
+</div>
+<p>The data from Kafka can be queried using Presto but it is not yet in
+actual table shape. The raw data is available through the <tt class="docutils literal"><span class="pre">_message</span></tt> and
+<tt class="docutils literal"><span class="pre">_key</span></tt> columns but it is not decoded into columns. As the sample data is
+in JSON format, the <a class="reference internal" href="../functions/json.html"><em>JSON Functions</em></a> built into Presto can be used
+to slice the data.</p>
+</div>
+<div class="section" id="step-5-add-a-topic-decription-file">
+<h3>Step 5: Add a topic decription file</h3>
+<p>The Kafka connector supports topic description files to turn raw data into
+table format. These files are located in the <tt class="docutils literal"><span class="pre">etc/kafka</span></tt> folder in the
+Presto installation and must end with <tt class="docutils literal"><span class="pre">.json</span></tt>. It is recommended that
+the file name matches the table name but this is not necessary.</p>
+<p>Add the following file as <tt class="docutils literal"><span class="pre">etc/kafka/tpch.customer.json</span></tt> and restart Presto:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span>
+    <span class="nt">&quot;tableName&quot;</span><span class="p">:</span> <span class="s2">&quot;customer&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;schemaName&quot;</span><span class="p">:</span> <span class="s2">&quot;tpch&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;topicName&quot;</span><span class="p">:</span> <span class="s2">&quot;tpch.customer&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;key&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;dataFormat&quot;</span><span class="p">:</span> <span class="s2">&quot;raw&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;fields&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;kafka_key&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;dataFormat&quot;</span><span class="p">:</span> <span class="s2">&quot;LONG&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;BIGINT&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;hidden&quot;</span><span class="p">:</span> <span class="s2">&quot;false&quot;</span>
+            <span class="p">}</span>
+        <span class="p">]</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The customer table now has an additional column: <tt class="docutils literal"><span class="pre">kafka_key</span></tt>.</p>
+<div class="highlight-none"><div class="highlight"><pre>presto:tpch&gt; DESCRIBE customer;
+      Column       |  Type   | Null | Partition Key |                   Comment
+-------------------+---------+------+---------------+---------------------------------------------
+ kafka_key         | bigint  | true | false         |
+ _partition_id     | bigint  | true | false         | Partition Id
+ _partition_offset | bigint  | true | false         | Offset for the message within the partition
+ _segment_start    | bigint  | true | false         | Segment start offset
+ _segment_end      | bigint  | true | false         | Segment end offset
+ _segment_count    | bigint  | true | false         | Running message count per segment
+ _key              | varchar | true | false         | Key text
+ _key_corrupt      | boolean | true | false         | Key data is corrupt
+ _key_length       | bigint  | true | false         | Total number of key bytes
+ _message          | varchar | true | false         | Message text
+ _message_corrupt  | boolean | true | false         | Message data is corrupt
+ _message_length   | bigint  | true | false         | Total number of message bytes
+(12 rows)
+
+presto:tpch&gt; SELECT kafka_key FROM customer ORDER BY kafka_key LIMIT 10;
+ kafka_key
+-----------
+         0
+         1
+         2
+         3
+         4
+         5
+         6
+         7
+         8
+         9
+(10 rows)
+</pre></div>
+</div>
+<p>The topic definition file maps the internal Kafka key (which is a raw long
+in eight bytes) onto a Presto <tt class="docutils literal"><span class="pre">BIGINT</span></tt> column.</p>
+</div>
+<div class="section" id="step-6-map-all-the-values-from-the-topic-message-onto-columns">
+<h3>Step 6: Map all the values from the topic message onto columns</h3>
+<p>Update the <tt class="docutils literal"><span class="pre">etc/kafka/tpch.customer.json</span></tt> file to add fields for the
+message and restart Presto. As the fields in the message are JSON, it uses
+the <tt class="docutils literal"><span class="pre">json</span></tt> data format. This is an example where different data formats
+are used for the key and the message.</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span>
+    <span class="nt">&quot;tableName&quot;</span><span class="p">:</span> <span class="s2">&quot;customer&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;schemaName&quot;</span><span class="p">:</span> <span class="s2">&quot;tpch&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;topicName&quot;</span><span class="p">:</span> <span class="s2">&quot;tpch.customer&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;key&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;dataFormat&quot;</span><span class="p">:</span> <span class="s2">&quot;raw&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;fields&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;kafka_key&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;dataFormat&quot;</span><span class="p">:</span> <span class="s2">&quot;LONG&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;BIGINT&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;hidden&quot;</span><span class="p">:</span> <span class="s2">&quot;false&quot;</span>
+            <span class="p">}</span>
+        <span class="p">]</span>
+    <span class="p">},</span>
+    <span class="nt">&quot;message&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;dataFormat&quot;</span><span class="p">:</span> <span class="s2">&quot;json&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;fields&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;row_number&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;rowNumber&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;BIGINT&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;customer_key&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;customerKey&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;BIGINT&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;VARCHAR&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;address&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;address&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;VARCHAR&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;nation_key&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;nationKey&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;BIGINT&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;phone&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;phone&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;VARCHAR&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;account_balance&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;accountBalance&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;DOUBLE&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;market_segment&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;marketSegment&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;VARCHAR&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;comment&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;comment&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;VARCHAR&quot;</span>
+            <span class="p">}</span>
+        <span class="p">]</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Now for all the fields in the JSON of the message, columns are defined and
+the sum query from earlier can operate on the <tt class="docutils literal"><span class="pre">account_balance</span></tt> column directly:</p>
+<div class="highlight-none"><div class="highlight"><pre>presto:tpch&gt; DESCRIBE customer;
+      Column       |  Type   | Null | Partition Key |                   Comment
+-------------------+---------+------+---------------+---------------------------------------------
+ kafka_key         | bigint  | true | false         |
+ row_number        | bigint  | true | false         |
+ customer_key      | bigint  | true | false         |
+ name              | varchar | true | false         |
+ address           | varchar | true | false         |
+ nation_key        | bigint  | true | false         |
+ phone             | varchar | true | false         |
+ account_balance   | double  | true | false         |
+ market_segment    | varchar | true | false         |
+ comment           | varchar | true | false         |
+ _partition_id     | bigint  | true | false         | Partition Id
+ _partition_offset | bigint  | true | false         | Offset for the message within the partition
+ _segment_start    | bigint  | true | false         | Segment start offset
+ _segment_end      | bigint  | true | false         | Segment end offset
+ _segment_count    | bigint  | true | false         | Running message count per segment
+ _key              | varchar | true | false         | Key text
+ _key_corrupt      | boolean | true | false         | Key data is corrupt
+ _key_length       | bigint  | true | false         | Total number of key bytes
+ _message          | varchar | true | false         | Message text
+ _message_corrupt  | boolean | true | false         | Message data is corrupt
+ _message_length   | bigint  | true | false         | Total number of message bytes
+(21 rows)
+
+presto:tpch&gt; SELECT * FROM customer LIMIT 5;
+ kafka_key | row_number | customer_key |        name        |                address                | nation_key |      phone      | account_balance | market_segment |                                                      comment
+-----------+------------+--------------+--------------------+---------------------------------------+------------+-----------------+-----------------+----------------+---------------------------------------------------------------------------------------------------------
+         1 |          2 |            2 | Customer#000000002 | XSTf4,NCwDVaWNe6tEgvwfmRchLXak        |         13 | 23-768-687-3665 |          121.65 | AUTOMOBILE     | l accounts. blithely ironic theodolites integrate boldly: caref
+         3 |          4 |            4 | Customer#000000004 | XxVSJsLAGtn                           |          4 | 14-128-190-5944 |         2866.83 | MACHINERY      |  requests. final, regular ideas sleep final accou
+         5 |          6 |            6 | Customer#000000006 | sKZz0CsnMD7mp4Xd0YrBvx,LREYKUWAh yVn  |         20 | 30-114-968-4951 |         7638.57 | AUTOMOBILE     | tions. even deposits boost according to the slyly bold packages. final accounts cajole requests. furious
+         7 |          8 |            8 | Customer#000000008 | I0B10bB0AymmC, 0PrRYBCP1yGJ8xcBPmWhl5 |         17 | 27-147-574-9335 |         6819.74 | BUILDING       | among the slyly regular theodolites kindle blithely courts. carefully even theodolites haggle slyly alon
+         9 |         10 |           10 | Customer#000000010 | 6LrEaV6KR6PLVcgl2ArL Q3rqzLzcT1 v2    |          5 | 15-741-346-9870 |         2753.54 | HOUSEHOLD      | es regular deposits haggle. fur
+(5 rows)
+
+presto:tpch&gt; SELECT sum(account_balance) FROM customer LIMIT 10;
+   _col0
+------------
+ 6681865.59
+(1 row)
+</pre></div>
+</div>
+<p>Now all the fields from the <tt class="docutils literal"><span class="pre">customer</span></tt> topic messages are available as
+Presto table columns.</p>
+</div>
+<div class="section" id="step-7-use-live-data">
+<h3>Step 7: Use live data</h3>
+<p>Presto can query live data in Kafka as it arrives. To simulate a live feed
+of data, this tutorial sets up a feed of live tweets into Kafka.</p>
+<div class="section" id="setup-a-live-twitter-feed">
+<h4>Setup a live Twitter feed</h4>
+<ul class="simple">
+<li>Download the twistr tool</li>
+</ul>
+<div class="highlight-none"><div class="highlight"><pre>$ curl -o twistr https://repo1.maven.org/maven2/de/softwareforge/twistr_kafka_0811/1.2/twistr_kafka_0811-1.2.sh
+$ chmod 755 twistr
+</pre></div>
+</div>
+<ul class="simple">
+<li>Create a developer account at <a class="reference external" href="https://dev.twitter.com/">https://dev.twitter.com/</a> and set up an
+access and consumer token.</li>
+<li>Create a <tt class="docutils literal"><span class="pre">twistr.properties</span></tt> file and put the access and consumer key
+and secrets into it:</li>
+</ul>
+<div class="highlight-none"><div class="highlight"><pre>twistr.access-token-key=...
+twistr.access-token-secret=...
+twistr.consumer-key=...
+twistr.consumer-secret=...
+twistr.kafka.brokers=localhost:9092
+</pre></div>
+</div>
+</div>
+<div class="section" id="create-a-tweets-table-on-presto">
+<h4>Create a tweets table on Presto</h4>
+<p>Add the tweets table to the <tt class="docutils literal"><span class="pre">etc/catalog/kafka.properties</span></tt> file:</p>
+<div class="highlight-none"><div class="highlight"><pre>connector.name=kafka
+kafka.nodes=localhost:9092
+kafka.table-names=tpch.customer,tpch.orders,tpch.lineitem,tpch.part,tpch.partsupp,tpch.supplier,tpch.nation,tpch.region,tweets
+kafka.hide-internal-columns=false
+</pre></div>
+</div>
+<p>Add a topic definition file for the Twitter feed as <tt class="docutils literal"><span class="pre">etc/kafka/tweets.json</span></tt>:</p>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span>
+    <span class="nt">&quot;tableName&quot;</span><span class="p">:</span> <span class="s2">&quot;tweets&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;topicName&quot;</span><span class="p">:</span> <span class="s2">&quot;twitter_feed&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;dataFormat&quot;</span><span class="p">:</span> <span class="s2">&quot;json&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;key&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;dataFormat&quot;</span><span class="p">:</span> <span class="s2">&quot;raw&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;fields&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;kafka_key&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;dataFormat&quot;</span><span class="p">:</span> <span class="s2">&quot;LONG&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;BIGINT&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;hidden&quot;</span><span class="p">:</span> <span class="s2">&quot;false&quot;</span>
+            <span class="p">}</span>
+        <span class="p">]</span>
+    <span class="p">},</span>
+    <span class="nt">&quot;message&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;dataFormat&quot;</span><span class="p">:</span><span class="s2">&quot;json&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;fields&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;VARCHAR&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;user_name&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;user/screen_name&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;VARCHAR&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;lang&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;lang&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;VARCHAR&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;created_at&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;created_at&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;TIMESTAMP&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;dataFormat&quot;</span><span class="p">:</span> <span class="s2">&quot;rfc2822&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;favorite_count&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;favorite_count&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;BIGINT&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;retweet_count&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;retweet_count&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;BIGINT&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;favorited&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;favorited&quot;</span><span class="p">,</span>
+                    <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;BOOLEAN&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;id&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;id_str&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;VARCHAR&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;in_reply_to_screen_name&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;in_reply_to_screen_name&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;VARCHAR&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;place_name&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;mapping&quot;</span><span class="p">:</span> <span class="s2">&quot;place/full_name&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;VARCHAR&quot;</span>
+            <span class="p">}</span>
+        <span class="p">]</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>As this table does not have an explicit schema name, it will be placed
+into the <tt class="docutils literal"><span class="pre">default</span></tt> schema.</p>
+</div>
+<div class="section" id="feed-live-data">
+<h4>Feed live data</h4>
+<p>Start the twistr tool:</p>
+<div class="highlight-none"><div class="highlight"><pre>$ java -Dness.config.location=file:$(pwd) -Dness.config=twistr -jar ./twistr
+</pre></div>
+</div>
+<p><tt class="docutils literal"><span class="pre">twistr</span></tt> connects to the Twitter API and feeds the &#8220;sample tweet&#8221; feed
+into a Kafka topic called <tt class="docutils literal"><span class="pre">twitter_feed</span></tt>.</p>
+<p>Now run queries against live data:</p>
+<div class="highlight-none"><div class="highlight"><pre>$ ./presto-cli --catalog kafka --schema default
+
+presto:default&gt; SELECT count(*) FROM tweets;
+ _col0
+-------
+  4467
+(1 row)
+
+presto:default&gt; SELECT count(*) FROM tweets;
+ _col0
+-------
+  4517
+(1 row)
+
+presto:default&gt; SELECT count(*) FROM tweets;
+ _col0
+-------
+  4572
+(1 row)
+
+presto:default&gt; SELECT kafka_key, user_name, lang, created_at FROM tweets LIMIT 10;
+     kafka_key      |    user_name    | lang |       created_at
+--------------------+-----------------+------+-------------------------
+ 494227746231685121 | burncaniff      | en   | 2014-07-29 14:07:31.000
+ 494227746214535169 | gu8tn           | ja   | 2014-07-29 14:07:31.000
+ 494227746219126785 | pequitamedicen  | es   | 2014-07-29 14:07:31.000
+ 494227746201931777 | josnyS          | ht   | 2014-07-29 14:07:31.000
+ 494227746219110401 | Cafe510         | en   | 2014-07-29 14:07:31.000
+ 494227746210332673 | Da_JuanAnd_Only | en   | 2014-07-29 14:07:31.000
+ 494227746193956865 | Smile_Kidrauhl6 | pt   | 2014-07-29 14:07:31.000
+ 494227750426017793 | CashforeverCD   | en   | 2014-07-29 14:07:32.000
+ 494227750396653569 | FilmArsivimiz   | tr   | 2014-07-29 14:07:32.000
+ 494227750388256769 | jmolas          | es   | 2014-07-29 14:07:32.000
+(10 rows)
+</pre></div>
+</div>
+<p>There is now a live feed into Kafka which can be queried using Presto.</p>
+</div>
+</div>
+<div class="section" id="epilogue-time-stamps">
+<h3>Epilogue: Time stamps</h3>
+<p>The tweets feed that was set up in the last step contains a time stamp in
+RFC 2822 format as <tt class="docutils literal"><span class="pre">created_at</span></tt> attribute in each tweet.</p>
+<div class="highlight-none"><div class="highlight"><pre>presto:default&gt; SELECT DISTINCT json_extract_scalar(_message, &#39;$.created_at&#39;)) AS raw_date
+             -&gt; FROM tweets LIMIT 5;
+            raw_date
+--------------------------------
+ Tue Jul 29 21:07:31 +0000 2014
+ Tue Jul 29 21:07:32 +0000 2014
+ Tue Jul 29 21:07:33 +0000 2014
+ Tue Jul 29 21:07:34 +0000 2014
+ Tue Jul 29 21:07:35 +0000 2014
+(5 rows)
+</pre></div>
+</div>
+<p>The topic definition file for the tweets table contains a mapping onto a
+timestamp using the <tt class="docutils literal"><span class="pre">rfc2822</span></tt> converter:</p>
+<div class="highlight-json"><pre>...
+{
+    "name": "created_at",
+    "mapping": "created_at",
+    "type": "TIMESTAMP",
+    "dataFormat": "rfc2822"
+},
+...</pre>
+</div>
+<p>This allows the raw data to be mapped onto a Presto timestamp column:</p>
+<div class="highlight-none"><div class="highlight"><pre>presto:default&gt; SELECT created_at, raw_date FROM (
+             -&gt;   SELECT created_at, json_extract_scalar(_message, &#39;$.created_at&#39;) AS raw_date
+             -&gt;   FROM tweets)
+             -&gt; GROUP BY 1, 2 LIMIT 5;
+       created_at        |            raw_date
+-------------------------+--------------------------------
+ 2014-07-29 14:07:20.000 | Tue Jul 29 21:07:20 +0000 2014
+ 2014-07-29 14:07:21.000 | Tue Jul 29 21:07:21 +0000 2014
+ 2014-07-29 14:07:22.000 | Tue Jul 29 21:07:22 +0000 2014
+ 2014-07-29 14:07:23.000 | Tue Jul 29 21:07:23 +0000 2014
+ 2014-07-29 14:07:24.000 | Tue Jul 29 21:07:24 +0000 2014
+(5 rows)
+</pre></div>
+</div>
+<p>The Kafka connector contains converters for ISO 8601, RFC 2822 text
+formats and for number-based timestamps using seconds or miilliseconds
+since the epoch. There is also a generic, text-based formatter which uses
+Joda-Time format strings to parse text columns.</p>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="kafka.html">4.4. Kafka Connector</a>
+    </span>
+    <span class="right">
+        <a href="mysql.html">4.6. MySQL Connector</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
