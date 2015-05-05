@@ -43,7 +43,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.configuration.ConfigurationModule.bindConfig;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -73,8 +73,8 @@ public class HiveClientModule
         binder.bind(HdfsConfiguration.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
         binder.bind(DirectoryLister.class).to(HadoopDirectoryLister.class).in(Scopes.SINGLETON);
-        bindConfig(binder).to(HiveClientConfig.class);
-        bindConfig(binder).to(HivePluginConfig.class);
+        configBinder(binder).bindConfig(HiveClientConfig.class);
+        configBinder(binder).bindConfig(HivePluginConfig.class);
 
         if (metastore != null) {
             binder.bind(HiveMetastore.class).toInstance(metastore);

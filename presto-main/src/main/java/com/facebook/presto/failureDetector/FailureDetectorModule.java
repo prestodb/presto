@@ -18,7 +18,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import org.weakref.jmx.guice.ExportBinder;
 
-import static io.airlift.configuration.ConfigurationModule.bindConfig;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 
 public class FailureDetectorModule
@@ -32,7 +32,7 @@ public class FailureDetectorModule
                 .withPrivateIoThreadPool()
                 .withTracing();
 
-        bindConfig(binder).to(FailureDetectorConfig.class);
+        configBinder(binder).bindConfig(FailureDetectorConfig.class);
 
         binder.bind(HeartbeatFailureDetector.class).in(Scopes.SINGLETON);
 

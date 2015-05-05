@@ -21,7 +21,7 @@ import org.h2.Driver;
 
 import java.util.Map;
 
-import static io.airlift.configuration.ConfigurationModule.bindConfig;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.lang.String.format;
 
 class TestingH2JdbcModule
@@ -30,7 +30,7 @@ class TestingH2JdbcModule
     @Override
     public void configure(Binder binder)
     {
-        bindConfig(binder).to(BaseJdbcConfig.class);
+        configBinder(binder).bindConfig(BaseJdbcConfig.class);
     }
 
     @Provides

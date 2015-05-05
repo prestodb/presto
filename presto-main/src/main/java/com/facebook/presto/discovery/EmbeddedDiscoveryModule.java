@@ -42,6 +42,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
@@ -57,7 +58,7 @@ public class EmbeddedDiscoveryModule
             return;
         }
 
-        bindConfig(binder).to(DiscoveryConfig.class);
+        configBinder(binder).bindConfig(DiscoveryConfig.class);
         jaxrsBinder(binder).bind(ServiceResource.class);
 
         discoveryBinder(binder).bindHttpAnnouncement("discovery");

@@ -18,7 +18,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.airlift.configuration.ConfigurationModule.bindConfig;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class JdbcModule
         implements Module
@@ -40,6 +40,6 @@ public class JdbcModule
         binder.bind(JdbcHandleResolver.class).in(Scopes.SINGLETON);
         binder.bind(JdbcRecordSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(JdbcConnector.class).in(Scopes.SINGLETON);
-        bindConfig(binder).to(JdbcMetadataConfig.class);
+        configBinder(binder).bindConfig(JdbcMetadataConfig.class);
     }
 }
