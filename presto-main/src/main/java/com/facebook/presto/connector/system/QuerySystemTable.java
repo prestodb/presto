@@ -69,7 +69,13 @@ public class QuerySystemTable
     @Override
     public boolean isDistributed()
     {
-        return false;
+        return true;
+    }
+
+    @Override
+    public boolean isCoordinatorOnly()
+    {
+        return true;
     }
 
     @Override

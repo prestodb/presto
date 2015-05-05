@@ -43,6 +43,12 @@ public class ExampleSystemTable
     }
 
     @Override
+    public boolean isCoordinatorOnly()
+    {
+        return true;
+    }
+
+    @Override
     public ConnectorTableMetadata getTableMetadata()
     {
         return METADATA;

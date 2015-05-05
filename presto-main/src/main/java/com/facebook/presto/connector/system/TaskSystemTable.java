@@ -89,6 +89,12 @@ public class TaskSystemTable
     }
 
     @Override
+    public boolean isCoordinatorOnly()
+    {
+        return false;
+    }
+
+    @Override
     public ConnectorTableMetadata getTableMetadata()
     {
         return TASK_TABLE;

@@ -59,6 +59,12 @@ public class NodeSystemTable
     }
 
     @Override
+    public boolean isCoordinatorOnly()
+    {
+        return true;
+    }
+
+    @Override
     public ConnectorTableMetadata getTableMetadata()
     {
         return NODES_TABLE;
