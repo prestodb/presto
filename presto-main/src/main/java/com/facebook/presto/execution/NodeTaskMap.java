@@ -69,18 +69,13 @@ public class NodeTaskMap
             return partitionedSplitCount;
         }
 
-        private synchronized void addTask(final RemoteTask task)
+        private synchronized void addTask(RemoteTask task)
         {
             remoteTasks.add(task);
-            task.addStateChangeListener(new StateMachine.StateChangeListener<TaskInfo>()
-            {
-                @Override
-                public void stateChanged(TaskInfo taskInfo)
-                {
-                    if (taskInfo.getState().isDone()) {
-                        synchronized (NodeTasks.this) {
-                            remoteTasks.remove(task);
-                        }
+            task.addStateChangeListener(taskInfo -> {
+                if (taskInfo.getState().isDone()) {
+                    synchronized (NodeTasks.this) {
+                        remoteTasks.remove(task);
                     }
                 }
             });

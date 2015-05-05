@@ -106,6 +106,7 @@ public final class SqlStageExecution
     // holding a lock on the 'this' could cause a deadlock.
     // This is only here to aid in debugging
     @Nullable
+    @SuppressWarnings({"FieldCanBeLocal", "unused"})
     private final StageExecutionNode parent;
     private final StageId stageId;
     private final URI location;
@@ -202,7 +203,7 @@ public final class SqlStageExecution
         checkNotNull(nodeTaskMap, "nodeTaskMap is null");
 
         this.stageId = new StageId(queryId, String.valueOf(nextStageId.getAndIncrement()));
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
             this.parent = parent;
             this.location = locationFactory.createStageLocation(stageId);
             this.fragment = plan.getFragment();
@@ -253,7 +254,7 @@ public final class SqlStageExecution
     @Override
     public void cancelStage(StageId stageId)
     {
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
             if (stageId.equals(this.stageId)) {
                 cancel();
             }
@@ -269,7 +270,7 @@ public final class SqlStageExecution
     @VisibleForTesting
     public StageState getState()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
             return stageState.get();
         }
     }
@@ -277,7 +278,7 @@ public final class SqlStageExecution
     @Override
     public StageInfo getStageInfo()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
             // stage state must be captured first in order to provide a
             // consistent view of the stage For example, building this
             // information, the stage could finish, and the task states would
@@ -454,8 +455,8 @@ public final class SqlStageExecution
     @Override
     public void addStateChangeListener(StateChangeListener<StageState> stateChangeListener)
     {
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
-            stageState.addStateChangeListener(stageState -> stateChangeListener.stateChanged(stageState));
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
+            stageState.addStateChangeListener(stateChangeListener::stateChanged);
         }
     }
 
@@ -484,7 +485,7 @@ public final class SqlStageExecution
     @VisibleForTesting
     public synchronized List<URI> getTaskLocations()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
             ImmutableList.Builder<URI> locations = ImmutableList.builder();
             for (RemoteTask task : tasks.values()) {
                 locations.add(task.getTaskInfo().getSelf());
@@ -507,7 +508,7 @@ public final class SqlStageExecution
 
     public Future<?> start()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
             return scheduleStartTasks();
         }
     }
@@ -516,18 +517,16 @@ public final class SqlStageExecution
     @VisibleForTesting
     public Future<?> scheduleStartTasks()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
             // start sub-stages (starts bottom-up)
-            for (StageExecutionNode subStage : subStages.values()) {
-                subStage.scheduleStartTasks();
-            }
+            subStages.values().forEach(StageExecutionNode::scheduleStartTasks);
             return executor.submit(this::startTasks);
         }
     }
 
     private void startTasks()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
             try {
                 checkState(!Thread.holdsLock(this), "Can not start while holding a lock on this");
 
@@ -815,9 +814,7 @@ public final class SqlStageExecution
                 task.addSplits(entry.getKey(), ImmutableList.of(remoteSplit));
             }
             task.setOutputBuffers(outputBuffers);
-            for (PlanNodeId completeSource : completeSources) {
-                task.noMoreSplits(completeSource);
-            }
+            completeSources.forEach(task::noMoreSplits);
         }
 
         return finished;
@@ -846,11 +843,12 @@ public final class SqlStageExecution
     }
 
     @VisibleForTesting
+    @SuppressWarnings("NakedNotify")
     public void doUpdateState()
     {
         checkState(!Thread.holdsLock(this), "Can not doUpdateState while holding a lock on this");
 
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
             synchronized (this) {
                 // wake up worker thread waiting for state changes
                 this.notifyAll();
@@ -902,7 +900,7 @@ public final class SqlStageExecution
     {
         checkState(!Thread.holdsLock(this), "Can not cancel while holding a lock on this");
 
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
             // check if the stage already completed naturally
             doUpdateState();
             synchronized (this) {
@@ -913,14 +911,10 @@ public final class SqlStageExecution
             }
 
             // cancel all tasks
-            for (RemoteTask task : tasks.values()) {
-                task.cancel();
-            }
+            tasks.values().forEach(RemoteTask::cancel);
 
             // propagate cancel to sub-stages
-            for (StageExecutionNode subStage : subStages.values()) {
-                subStage.cancel();
-            }
+            subStages.values().forEach(StageExecutionNode::cancel);
         }
     }
 
@@ -929,7 +923,7 @@ public final class SqlStageExecution
     {
         checkState(!Thread.holdsLock(this), "Can not abort while holding a lock on this");
 
-        try (SetThreadName setThreadName = new SetThreadName("Stage-%s", stageId)) {
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
             // transition to aborted state, only if not already finished
             doUpdateState();
             synchronized (this) {
@@ -940,14 +934,10 @@ public final class SqlStageExecution
             }
 
             // abort all tasks
-            for (RemoteTask task : tasks.values()) {
-                task.abort();
-            }
+            tasks.values().forEach(RemoteTask::abort);
 
             // propagate abort to sub-stages
-            for (StageExecutionNode subStage : subStages.values()) {
-                subStage.abort();
-            }
+            subStages.values().forEach(StageExecutionNode::abort);
         }
     }
 

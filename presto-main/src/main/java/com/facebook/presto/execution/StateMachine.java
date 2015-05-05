@@ -181,34 +181,26 @@ public class StateMachine<T>
         return true;
     }
 
-    private void fireStateChanged(
-            final T newState,
-            final ImmutableList<SettableFuture<T>> futureStateChanges,
-            final ImmutableList<StateChangeListener<T>> stateChangeListeners)
+    private void fireStateChanged(T newState, List<SettableFuture<T>> futureStateChanges, List<StateChangeListener<T>> stateChangeListeners)
     {
         checkState(!Thread.holdsLock(this), "Can not fire state change event while holding a lock on this");
 
-        executor.execute(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                checkState(!Thread.holdsLock(StateMachine.this), "Can not notify while holding a lock on this");
-                for (SettableFuture<T> futureStateChange : futureStateChanges) {
-                    try {
-                        futureStateChange.set(newState);
-                    }
-                    catch (Throwable e) {
-                        log.error(e, "Error setting future state for %s", name);
-                    }
+        executor.execute(() -> {
+            checkState(!Thread.holdsLock(StateMachine.this), "Can not notify while holding a lock on this");
+            for (SettableFuture<T> futureStateChange : futureStateChanges) {
+                try {
+                    futureStateChange.set(newState);
                 }
-                for (StateChangeListener<T> stateChangeListener : stateChangeListeners) {
-                    try {
-                        stateChangeListener.stateChanged(newState);
-                    }
-                    catch (Throwable e) {
-                        log.error(e, "Error notifying state change listener for %s", name);
-                    }
+                catch (Throwable e) {
+                    log.error(e, "Error setting future state for %s", name);
+                }
+            }
+            for (StateChangeListener<T> stateChangeListener : stateChangeListeners) {
+                try {
+                    stateChangeListener.stateChanged(newState);
+                }
+                catch (Throwable e) {
+                    log.error(e, "Error notifying state change listener for %s", name);
                 }
             }
         });
