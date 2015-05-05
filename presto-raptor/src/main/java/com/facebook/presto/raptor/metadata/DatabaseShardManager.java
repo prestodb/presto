@@ -35,6 +35,7 @@ import org.skife.jdbi.v2.util.ByteArrayMapper;
 import javax.inject.Inject;
 
 import java.sql.JDBCType;
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -122,33 +123,45 @@ public class DatabaseShardManager
             throw new PrestoException(RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS, "External batch already exists: " + externalBatchId.get());
         }
 
-        Set<String> identifiers = shards.stream()
-                .map(ShardInfo::getNodeIdentifiers)
-                .flatMap(Collection::stream)
-                .collect(toSet());
-        Map<String, Integer> nodeIds = Maps.toMap(identifiers, this::getOrCreateNodeId);
+        Map<String, Integer> nodeIds = toNodeIdMap(shards);
 
         dbi.inTransaction((handle, status) -> {
             ShardManagerDao dao = handle.attach(ShardManagerDao.class);
 
-            try (IndexInserter indexInserter = new IndexInserter(handle.getConnection(), tableId, columns)) {
-                for (ShardInfo shard : shards) {
-                    long shardId = dao.insertShard(shard.getShardUuid(), tableId, shard.getRowCount(), shard.getDataSize());
-
-                    Set<Integer> shardNodes = shard.getNodeIdentifiers().stream().map(nodeIds::get).collect(toSet());
-                    for (int nodeId : shardNodes) {
-                        dao.insertShardNode(shardId, nodeId);
-                    }
-
-                    indexInserter.insert(shardId, shard.getShardUuid(), shardNodes, shard.getColumnStats());
-                }
-            }
+            insertShardsAndIndex(tableId, columns, shards, nodeIds, handle, dao);
 
             if (externalBatchId.isPresent()) {
                 dao.insertExternalBatch(externalBatchId.get());
             }
             return null;
         });
+    }
+
+    private void insertShardsAndIndex(long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Map<String, Integer> nodeIds, Handle handle, ShardManagerDao dao)
+            throws SQLException
+    {
+        try (IndexInserter indexInserter = new IndexInserter(handle.getConnection(), tableId, columns)) {
+            for (ShardInfo shard : shards) {
+                long shardId = dao.insertShard(shard.getShardUuid(), tableId, shard.getRowCount(), shard.getDataSize());
+                Set<Integer> shardNodes = shard.getNodeIdentifiers().stream()
+                        .map(nodeIds::get)
+                        .collect(toSet());
+                for (int nodeId : shardNodes) {
+                    dao.insertShardNode(shardId, nodeId);
+                }
+
+                indexInserter.insert(shardId, shard.getShardUuid(), shardNodes, shard.getColumnStats());
+            }
+        }
+    }
+
+    private Map<String, Integer> toNodeIdMap(Collection<ShardInfo> shards)
+    {
+        Set<String> identifiers = shards.stream()
+                .map(ShardInfo::getNodeIdentifiers)
+                .flatMap(Collection::stream)
+            .collect(toSet());
+        return Maps.toMap(identifiers, this::getOrCreateNodeId);
     }
 
     @Override
