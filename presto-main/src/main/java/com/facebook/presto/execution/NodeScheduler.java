@@ -17,7 +17,6 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.AbstractIterator;
@@ -105,43 +104,38 @@ public class NodeScheduler
         scheduleRandom.set(0);
     }
 
-    public NodeSelector createNodeSelector(final String dataSourceName)
+    public NodeSelector createNodeSelector(String dataSourceName)
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
-        Supplier<NodeMap> nodeMap = Suppliers.memoizeWithExpiration(new Supplier<NodeMap>()
-        {
-            @Override
-            public NodeMap get()
-            {
-                ImmutableSetMultimap.Builder<HostAddress, Node> byHostAndPort = ImmutableSetMultimap.builder();
-                ImmutableSetMultimap.Builder<InetAddress, Node> byHost = ImmutableSetMultimap.builder();
-                ImmutableSetMultimap.Builder<Rack, Node> byRack = ImmutableSetMultimap.builder();
+        Supplier<NodeMap> nodeMap = Suppliers.memoizeWithExpiration(() -> {
+            ImmutableSetMultimap.Builder<HostAddress, Node> byHostAndPort = ImmutableSetMultimap.builder();
+            ImmutableSetMultimap.Builder<InetAddress, Node> byHost = ImmutableSetMultimap.builder();
+            ImmutableSetMultimap.Builder<Rack, Node> byRack = ImmutableSetMultimap.builder();
 
-                Set<Node> nodes;
-                if (dataSourceName != null) {
-                    nodes = nodeManager.getActiveDatasourceNodes(dataSourceName);
-                }
-                else {
-                    nodes = nodeManager.getActiveNodes();
-                }
-
-                for (Node node : nodes) {
-                    try {
-                        byHostAndPort.put(node.getHostAndPort(), node);
-
-                        InetAddress host = InetAddress.getByName(node.getHttpUri().getHost());
-                        byHost.put(host, node);
-
-                        byRack.put(Rack.of(host), node);
-                    }
-                    catch (UnknownHostException e) {
-                        // ignore
-                    }
-                }
-
-                return new NodeMap(byHostAndPort.build(), byHost.build(), byRack.build());
+            Set<Node> nodes;
+            if (dataSourceName != null) {
+                nodes = nodeManager.getActiveDatasourceNodes(dataSourceName);
             }
+            else {
+                nodes = nodeManager.getActiveNodes();
+            }
+
+            for (Node node : nodes) {
+                try {
+                    byHostAndPort.put(node.getHostAndPort(), node);
+
+                    InetAddress host = InetAddress.getByName(node.getHttpUri().getHost());
+                    byHost.put(host, node);
+
+                    byRack.put(Rack.of(host), node);
+                }
+                catch (UnknownHostException e) {
+                    // ignore
+                }
+            }
+
+            return new NodeMap(byHostAndPort.build(), byHost.build(), byRack.build());
         }, 5, TimeUnit.SECONDS);
 
         return new NodeSelector(nodeMap);
@@ -176,17 +170,10 @@ public class NodeScheduler
         {
             checkArgument(limit > 0, "limit must be at least 1");
 
-            final String coordinatorIdentifier = nodeManager.getCurrentNode().getNodeIdentifier();
+            String coordinatorIdentifier = nodeManager.getCurrentNode().getNodeIdentifier();
 
             FluentIterable<Node> nodes = FluentIterable.from(lazyShuffle(nodeMap.get().get().getNodesByHostAndPort().values()))
-                    .filter(new Predicate<Node>()
-                    {
-                        @Override
-                        public boolean apply(Node node)
-                        {
-                            return includeCoordinator || !coordinatorIdentifier.equals(node.getNodeIdentifier());
-                        }
-                    });
+                    .filter(node -> includeCoordinator || !coordinatorIdentifier.equals(node.getNodeIdentifier()));
 
             if (doubleScheduling) {
                 nodes = nodes.cycle();
@@ -195,12 +182,11 @@ public class NodeScheduler
         }
 
         /**
-         * Identifies the nodes for runnning the specified splits.
+         * Identifies the nodes for running the specified splits.
          *
          * @param splits the splits that need to be assigned to nodes
-         *
          * @return a multimap from node to splits only for splits for which we could identify a node to schedule on.
-         *      If we cannot find an assignment for a split, it is not included in the map.
+         * If we cannot find an assignment for a split, it is not included in the map.
          */
         public Multimap<Node, Split> computeAssignments(Set<Split> splits, Iterable<RemoteTask> existingTasks)
         {
@@ -231,11 +217,10 @@ public class NodeScheduler
                 checkCondition(!candidateNodes.isEmpty(), NO_NODES_AVAILABLE, "No nodes available to run query");
 
                 // compute and cache number of splits currently assigned to each node
-                for (Node node : candidateNodes) {
-                    if (!splitCountByNode.containsKey(node)) {
-                        splitCountByNode.put(node, nodeTaskMap.getPartitionedSplitsOnNode(node));
-                    }
-                }
+                candidateNodes.stream()
+                        .filter(node -> !splitCountByNode.containsKey(node))
+                        .forEach(node -> splitCountByNode.put(node, nodeTaskMap.getPartitionedSplitsOnNode(node)));
+
                 Node chosenNode = null;
                 int min = Integer.MAX_VALUE;
 
@@ -271,20 +256,17 @@ public class NodeScheduler
             return assignment;
         }
 
-        private List<Node> selectCandidateNodes(NodeMap nodeMap, final Split split)
+        private List<Node> selectCandidateNodes(NodeMap nodeMap, Split split)
         {
             Set<Node> chosen = new LinkedHashSet<>(minCandidates);
             String coordinatorIdentifier = nodeManager.getCurrentNode().getNodeIdentifier();
 
             // first look for nodes that match the hint
             for (HostAddress hint : split.getAddresses()) {
-                for (Node node : nodeMap.getNodesByHostAndPort().get(hint)) {
-                    if (includeCoordinator || !coordinatorIdentifier.equals(node.getNodeIdentifier())) {
-                        if (chosen.add(node)) {
-                            scheduleLocal.incrementAndGet();
-                        }
-                    }
-                }
+                nodeMap.getNodesByHostAndPort().get(hint).stream()
+                        .filter(node -> includeCoordinator || !coordinatorIdentifier.equals(node.getNodeIdentifier()))
+                        .filter(chosen::add)
+                        .forEach(node -> scheduleLocal.incrementAndGet());
 
                 InetAddress address;
                 try {
@@ -298,13 +280,10 @@ public class NodeScheduler
                 // consider a split with a host hint without a port as being accessible
                 // by all nodes in that host
                 if (!hint.hasPort() || split.isRemotelyAccessible()) {
-                    for (Node node : nodeMap.getNodesByHost().get(address)) {
-                        if (includeCoordinator || !coordinatorIdentifier.equals(node.getNodeIdentifier())) {
-                            if (chosen.add(node)) {
-                                scheduleLocal.incrementAndGet();
-                            }
-                        }
-                    }
+                    nodeMap.getNodesByHost().get(address).stream()
+                            .filter(node -> includeCoordinator || !coordinatorIdentifier.equals(node.getNodeIdentifier()))
+                            .filter(chosen::add)
+                            .forEach(node -> scheduleLocal.incrementAndGet());
                 }
             }
 
@@ -355,30 +334,29 @@ public class NodeScheduler
             // if the chosen set is empty and the hint includes the coordinator,
             // force pick the coordinator
             if (chosen.isEmpty() && !includeCoordinator) {
-                final HostAddress coordinatorHostAddress = nodeManager.getCurrentNode().getHostAndPort();
-                if (FluentIterable.from(split.getAddresses()).anyMatch(new Predicate<HostAddress>() {
-                    @Override
-                    public boolean apply(HostAddress hostAddress)
-                    {
-                        // Exact match of the coordinator
-                        if (hostAddress.equals(coordinatorHostAddress)) {
-                            return true;
-                        }
-                        // If the split is remotely accessible or the split location doesn't specify a port,
-                        // we can ignore the coordinator's port and match just the ip address
-                        return (!hostAddress.hasPort() || split.isRemotelyAccessible()) &&
-                                hostAddress.getHostText().equals(coordinatorHostAddress.getHostText());
-                    }
-                })) {
-                   chosen.add(nodeManager.getCurrentNode());
+                HostAddress coordinatorHostAddress = nodeManager.getCurrentNode().getHostAndPort();
+                if (split.getAddresses().stream().anyMatch(host -> canSplitRunOnHost(split, coordinatorHostAddress, host))) {
+                    chosen.add(nodeManager.getCurrentNode());
                 }
             }
 
             return ImmutableList.copyOf(chosen);
         }
+
+        private boolean canSplitRunOnHost(Split split, HostAddress coordinatorHost, HostAddress host)
+        {
+            // Exact match of the coordinator
+            if (host.equals(coordinatorHost)) {
+                return true;
+            }
+            // If the split is remotely accessible or the split location doesn't specify a port,
+            // we can ignore the coordinator's port and match just the ip address
+            return (!host.hasPort() || split.isRemotelyAccessible()) &&
+                    host.getHostText().equals(coordinatorHost.getHostText());
+        }
     }
 
-    private static <T> Iterable<T> lazyShuffle(final Iterable<T> iterable)
+    private static <T> Iterable<T> lazyShuffle(Iterable<T> iterable)
     {
         return new Iterable<T>()
         {
@@ -387,8 +365,8 @@ public class NodeScheduler
             {
                 return new AbstractIterator<T>()
                 {
-                    List<T> list = Lists.newArrayList(iterable);
-                    int limit = list.size();
+                    private final List<T> list = Lists.newArrayList(iterable);
+                    private int limit = list.size();
 
                     @Override
                     protected T computeNext()
@@ -441,11 +419,11 @@ public class NodeScheduler
 
     private static class Rack
     {
-        private int id;
+        private final int id;
 
         public static Rack of(InetAddress address)
         {
-            // TODO: this needs to be pluggable
+            // TODO: we need a plugin for this
             int id = InetAddresses.coerceToInteger(address) & 0xFF_FF_FF_00;
             return new Rack(id);
         }

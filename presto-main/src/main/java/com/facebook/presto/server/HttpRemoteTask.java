@@ -300,21 +300,6 @@ public class HttpRemoteTask
         }
     }
 
-    @Override
-    public Duration waitForTaskToFinish(Duration maxWait)
-            throws InterruptedException
-    {
-        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            while (true) {
-                TaskInfo currentState = taskInfo.get();
-                if (maxWait.toMillis() <= 1 || currentState.getState().isDone()) {
-                    return maxWait;
-                }
-                maxWait = taskInfo.waitForStateChange(currentState, maxWait);
-            }
-        }
-    }
-
     private synchronized void updateTaskInfo(TaskInfo newValue)
     {
         updateTaskInfo(newValue, ImmutableList.of());
@@ -442,8 +427,8 @@ public class HttpRemoteTask
             }
 
             // send cancel to task and ignore response
-            final long start = System.nanoTime();
-            final Request request = prepareDelete()
+            long start = System.nanoTime();
+            Request request = prepareDelete()
                     .setUri(uriBuilderFrom(uri).addParameter("abort", "false").addParameter("summarize").build())
                     .build();
             Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()
@@ -504,8 +489,8 @@ public class HttpRemoteTask
                     ImmutableList.<ExecutionFailureInfo>of()));
 
             // send abort to task and ignore response
-            final long start = System.nanoTime();
-            final Request request = prepareDelete()
+            long start = System.nanoTime();
+            Request request = prepareDelete()
                     .setUri(uriBuilderFrom(uri).addParameter("summarize").build())
                     .build();
             Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()

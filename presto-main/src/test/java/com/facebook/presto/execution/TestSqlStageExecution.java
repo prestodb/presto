@@ -57,7 +57,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -491,19 +490,6 @@ public class TestSqlStageExecution
             public void abort()
             {
                 taskStateMachine.abort();
-            }
-
-            @Override
-            public Duration waitForTaskToFinish(Duration maxWait)
-                    throws InterruptedException
-            {
-                while (true) {
-                    TaskState currentState = taskStateMachine.getState();
-                    if (maxWait.toMillis() <= 1 || currentState.isDone()) {
-                        return maxWait;
-                    }
-                    maxWait = taskStateMachine.waitForStateChange(currentState, maxWait);
-                }
             }
 
             @Override

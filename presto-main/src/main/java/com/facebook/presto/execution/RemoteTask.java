@@ -17,7 +17,6 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import io.airlift.units.Duration;
 
 public interface RemoteTask
 {
@@ -42,7 +41,4 @@ public interface RemoteTask
     int getPartitionedSplitCount();
 
     int getQueuedPartitionedSplitCount();
-
-    Duration waitForTaskToFinish(Duration maxWait)
-            throws InterruptedException;
 }

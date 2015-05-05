@@ -39,7 +39,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -253,17 +252,5 @@ public class MockRemoteTaskFactory
             return splits.size();
         }
 
-        @Override
-        public Duration waitForTaskToFinish(Duration maxWait)
-                throws InterruptedException
-        {
-            while (true) {
-                TaskState currentState = taskStateMachine.getState();
-                if (maxWait.toMillis() <= 1 || currentState.isDone()) {
-                    return maxWait;
-                }
-                maxWait = taskStateMachine.waitForStateChange(currentState, maxWait);
-            }
-        }
     }
 }
