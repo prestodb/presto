@@ -135,7 +135,7 @@ public final class TestingRowConstructor
     public static Slice testRowBooleanArrayMap(@Nullable @SqlType(StandardTypes.BOOLEAN) Boolean arg1, @Nullable @SqlType("array<bigint>") Slice arg2,
                                                @Nullable @SqlType("map<bigint,double>") Slice arg3)
     {
-        List<Type> parameterTypes = ImmutableList.of(BIGINT, new ArrayType(BIGINT), new MapType(BIGINT, DOUBLE));
+        List<Type> parameterTypes = ImmutableList.of(BOOLEAN, new ArrayType(BIGINT), new MapType(BIGINT, DOUBLE));
         return toStackRepresentation(parameterTypes, arg1, arg2, arg3);
     }
 

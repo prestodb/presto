@@ -19,6 +19,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -105,17 +106,15 @@ public class TestRowOperators
             assertFunction("test_row(cast(cast ('' as varbinary) as hyperloglog)) = test_row(cast(cast ('' as varbinary) as hyperloglog))", BOOLEAN, true);
             fail("hyperloglog is not comparable");
         }
-        catch (RuntimeException e) {
+        catch (SemanticException e) {
+            if (!e.getMessage().matches("Operator EQUAL.* not registered")) {
+                throw e;
+            }
             //Expected
         }
 
-        try {
-            assertFunction("test_row(TRUE, ARRAY [1], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])) = test_row(TRUE, ARRAY [1,2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0]))", BOOLEAN, false);
-            fail("map is not comparable");
-        }
-        catch (RuntimeException e) {
-            //Expected
-        }
+        assertFunction("test_row(TRUE, ARRAY [1], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])) = test_row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0]))", BOOLEAN, false);
+        assertFunction("test_row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])) = test_row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0]))", BOOLEAN, true);
 
         try {
             assertFunction("test_row(1, CAST(NULL AS BIGINT)) = test_row(1, 2)", BOOLEAN, false);
