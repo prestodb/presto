@@ -87,7 +87,6 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.TypeUtils;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -108,11 +107,12 @@ import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class LocalQueryRunner
-    implements QueryRunner
+        implements QueryRunner
 {
     private final Session defaultSession;
     private final ExecutorService executor;
@@ -305,7 +305,7 @@ public class LocalQueryRunner
     @Override
     public boolean tableExists(Session session, String table)
     {
-        QualifiedTableName name =  new QualifiedTableName(session.getCatalog(), session.getSchema(), table);
+        QualifiedTableName name = new QualifiedTableName(session.getCatalog(), session.getSchema(), table);
         return getMetadata().getTableHandle(session, name).isPresent();
     }
 
@@ -402,14 +402,8 @@ public class LocalQueryRunner
 
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
             while (!splitSource.isFinished()) {
-                try {
-                    for (Split split : splitSource.getNextBatch(1000)) {
-                        scheduledSplits.add(new ScheduledSplit(sequenceId++, split));
-                    }
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw Throwables.propagate(e);
+                for (Split split : getFutureValue(splitSource.getNextBatch(1000))) {
+                    scheduledSplits.add(new ScheduledSplit(sequenceId++, split));
                 }
             }
 
@@ -512,18 +506,14 @@ public class LocalQueryRunner
 
     private Split getLocalQuerySplit(TableLayoutHandle handle)
     {
-        try {
-            SplitSource splitSource = splitManager.getSplits(handle);
-            Split split = Iterables.getOnlyElement(splitSource.getNextBatch(1000));
-            while (!splitSource.isFinished()) {
-                checkState(splitSource.getNextBatch(1000).isEmpty(), "Expected only one split for a local query");
-            }
-            return split;
+        SplitSource splitSource = splitManager.getSplits(handle);
+        List<Split> splits = new ArrayList<>();
+        splits.addAll(getFutureValue(splitSource.getNextBatch(1000)));
+        while (!splitSource.isFinished()) {
+            splits.addAll(getFutureValue(splitSource.getNextBatch(1000)));
         }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw Throwables.propagate(e);
-        }
+        checkArgument(splits.size() == 1, "Expected only one split for a local query, but got %s splits", splits.size());
+        return splits.get(0);
     }
 
     private static List<TableScanNode> findTableScanNodes(PlanNode node)

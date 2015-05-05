@@ -25,7 +25,6 @@ import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -34,6 +33,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -179,8 +180,8 @@ public class TestJdbcRecordSetProvider
             throws InterruptedException
     {
         ConnectorPartitionResult partitions = jdbcClient.getPartitions(jdbcTableHandle, domain);
-        ConnectorSplitSource splits = jdbcClient.getPartitionSplits((JdbcPartition) Iterables.getOnlyElement(partitions.getPartitions()));
-        JdbcSplit split = (JdbcSplit) Iterables.getOnlyElement(splits.getNextBatch(1000));
+        ConnectorSplitSource splits = jdbcClient.getPartitionSplits((JdbcPartition) getOnlyElement(partitions.getPartitions()));
+        JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(1000)));
 
         JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
         RecordSet recordSet = recordSetProvider.getRecordSet(split, columns);

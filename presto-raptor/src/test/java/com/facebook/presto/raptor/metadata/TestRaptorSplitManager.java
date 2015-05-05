@@ -30,6 +30,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -38,7 +39,6 @@ import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.testing.FileUtils;
@@ -63,6 +63,8 @@ import static com.facebook.presto.raptor.storage.TestOrcStorageManager.createOrc
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -151,14 +153,14 @@ public class TestRaptorSplitManager
         assertTrue(partitionResult.getUndeterminedTupleDomain().isAll());
 
         List<ConnectorPartition> partitions = partitionResult.getPartitions();
-        ConnectorPartition partition = Iterables.getOnlyElement(partitions);
+        ConnectorPartition partition = getOnlyElement(partitions);
         TupleDomain<ColumnHandle> columnUnionedTupleDomain = TupleDomain.columnWiseUnion(partition.getTupleDomain(), partition.getTupleDomain());
         assertEquals(columnUnionedTupleDomain, TupleDomain.<ColumnHandle>all());
 
         ConnectorSplitSource splitSource = raptorSplitManager.getPartitionSplits(tableHandle, partitions);
         int splitCount = 0;
         while (!splitSource.isFinished()) {
-            splitCount += splitSource.getNextBatch(1000).size();
+            splitCount += getFutureValue(splitSource.getNextBatch(1000)).size();
         }
         assertEquals(splitCount, 4);
     }
@@ -171,7 +173,8 @@ public class TestRaptorSplitManager
 
         ConnectorPartitionResult result = raptorSplitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
 
-        raptorSplitManager.getPartitionSplits(tableHandle, result.getPartitions()).getNextBatch(1000);
+        ConnectorSplitSource splitSource = raptorSplitManager.getPartitionSplits(tableHandle, result.getPartitions());
+        getFutureValue(splitSource.getNextBatch(1000));
     }
 
     @Test
@@ -187,7 +190,8 @@ public class TestRaptorSplitManager
 
         ConnectorPartitionResult result = raptorSplitManagerWithBackup.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
         ConnectorSplitSource partitionSplit = raptorSplitManagerWithBackup.getPartitionSplits(tableHandle, result.getPartitions());
-        assertEquals(Iterables.getOnlyElement(Iterables.getOnlyElement(partitionSplit.getNextBatch(1)).getAddresses()), node.getHostAndPort());
+        List<ConnectorSplit> batch = getFutureValue(partitionSplit.getNextBatch(1), PrestoException.class);
+        assertEquals(getOnlyElement(getOnlyElement(batch).getAddresses()), node.getHostAndPort());
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "No nodes available to run query")
@@ -198,7 +202,8 @@ public class TestRaptorSplitManager
 
         RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), new InMemoryNodeManager(), shardManager, storageManagerWithBackup);
         ConnectorPartitionResult result = raptorSplitManagerWithBackup.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
-        raptorSplitManagerWithBackup.getPartitionSplits(tableHandle, result.getPartitions()).getNextBatch(1000);
+        ConnectorSplitSource splitSource = raptorSplitManagerWithBackup.getPartitionSplits(tableHandle, result.getPartitions());
+        getFutureValue(splitSource.getNextBatch(1000), PrestoException.class);
     }
 
     private void deleteShardNodes()

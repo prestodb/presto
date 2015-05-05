@@ -38,6 +38,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
@@ -94,7 +95,7 @@ public class TestJmxSplitManager
     {
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         while (!splitSource.isFinished()) {
-            List<ConnectorSplit> batch = splitSource.getNextBatch(1000);
+            List<ConnectorSplit> batch = getFutureValue(splitSource.getNextBatch(1000));
             splits.addAll(batch);
         }
         return splits.build();
