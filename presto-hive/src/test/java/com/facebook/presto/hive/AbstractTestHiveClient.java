@@ -117,6 +117,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -1706,7 +1707,7 @@ public abstract class AbstractTestHiveClient
     {
         int splitCount = 0;
         while (!splitSource.isFinished()) {
-            List<ConnectorSplit> batch = splitSource.getNextBatch(1000);
+            List<ConnectorSplit> batch = getFutureValue(splitSource.getNextBatch(1000));
             splitCount += batch.size();
         }
         return splitCount;
@@ -1717,7 +1718,7 @@ public abstract class AbstractTestHiveClient
     {
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         while (!splitSource.isFinished()) {
-            List<ConnectorSplit> batch = splitSource.getNextBatch(1000);
+            List<ConnectorSplit> batch = getFutureValue(splitSource.getNextBatch(1000));
             splits.addAll(batch);
         }
         return splits.build();

@@ -20,13 +20,14 @@ import com.facebook.presto.spi.PrestoException;
 
 import java.io.FileNotFoundException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.concurrent.MoreFutures.failedFuture;
 
 class HiveSplitSource
         implements ConnectorSplitSource
@@ -98,28 +99,29 @@ class HiveSplitSource
     }
 
     @Override
-    public List<ConnectorSplit> getNextBatch(int maxSize)
-            throws InterruptedException
+    public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize)
     {
         checkState(!closed, "Provider is already closed");
 
-        List<ConnectorSplit> splits = getFutureValue(queue.getBatchAsync(maxSize));
+        CompletableFuture<List<ConnectorSplit>> future = queue.getBatchAsync(maxSize);
 
         // Before returning, check if there is a registered failure.
         // If so, we want to throw the error, instead of returning because the scheduler can block
         // while scheduling splits and wait for work to finish before continuing.  In this case,
         // we want to end the query as soon as possible and abort the work
         if (throwable.get() != null) {
-            throw propagatePrestoException(throwable.get());
+            return failedFuture(throwable.get());
         }
 
-        // decrement the outstanding split count by the number of splits we took
-        if (outstandingSplitCount.addAndGet(-splits.size()) < maxOutstandingSplits) {
-            // we are below the low water mark (and there isn't a failure) so resume scanning hdfs
-            splitLoader.resume();
-        }
+        // when future completes, decrement the outstanding split count by the number of splits we took
+        future.thenAccept(splits -> {
+            if (outstandingSplitCount.addAndGet(-splits.size()) < maxOutstandingSplits) {
+                // we are below the low water mark (and there isn't a failure) so resume scanning hdfs
+                splitLoader.resume();
+            }
+        });
 
-        return splits;
+        return future;
     }
 
     @Override

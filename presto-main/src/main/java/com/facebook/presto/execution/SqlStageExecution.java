@@ -92,6 +92,7 @@ import static com.google.common.collect.Iterables.all;
 import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -651,7 +652,7 @@ public final class SqlStageExecution
                 }
 
                 long start = System.nanoTime();
-                Set<Split> pendingSplits = ImmutableSet.copyOf(splitSource.getNextBatch(splitBatchSize));
+                Set<Split> pendingSplits = ImmutableSet.copyOf(getFutureValue(splitSource.getNextBatch(splitBatchSize)));
                 getSplitDistribution.add(System.nanoTime() - start);
 
                 while (!pendingSplits.isEmpty() && !getState().isDone()) {

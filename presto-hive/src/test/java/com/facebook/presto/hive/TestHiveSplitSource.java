@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
@@ -43,15 +44,15 @@ public class TestHiveSplitSource
         }
 
         // remove 1 split
-        assertEquals(hiveSplitSource.getNextBatch(1).size(), 1);
+        assertEquals(getFutureValue(hiveSplitSource.getNextBatch(1)).size(), 1);
         assertEquals(hiveSplitSource.getOutstandingSplitCount(), 9);
 
         // remove 4 splits
-        assertEquals(hiveSplitSource.getNextBatch(4).size(), 4);
+        assertEquals(getFutureValue(hiveSplitSource.getNextBatch(4)).size(), 4);
         assertEquals(hiveSplitSource.getOutstandingSplitCount(), 5);
 
         // try to remove 20 splits, and verify we only got 5
-        assertEquals(hiveSplitSource.getNextBatch(20).size(), 5);
+        assertEquals(getFutureValue(hiveSplitSource.getNextBatch(20)).size(), 5);
         assertEquals(hiveSplitSource.getOutstandingSplitCount(), 0);
     }
 
@@ -75,7 +76,7 @@ public class TestHiveSplitSource
         assertFalse(splitLoader.isResumed());
 
         // remove one split so the source is no longer full and verify the loader is resumed
-        assertEquals(hiveSplitSource.getNextBatch(1).size(), 1);
+        assertEquals(getFutureValue(hiveSplitSource.getNextBatch(1)).size(), 1);
         assertEquals(hiveSplitSource.getOutstandingSplitCount(), 9);
         assertTrue(splitLoader.isResumed());
     }
@@ -93,7 +94,7 @@ public class TestHiveSplitSource
         }
 
         // remove a split and verify
-        assertEquals(hiveSplitSource.getNextBatch(1).size(), 1);
+        assertEquals(getFutureValue(hiveSplitSource.getNextBatch(1)).size(), 1);
         assertEquals(hiveSplitSource.getOutstandingSplitCount(), 4);
 
         // fail source
@@ -102,11 +103,11 @@ public class TestHiveSplitSource
 
         // try to remove a split and verify we got the expected exception
         try {
-            hiveSplitSource.getNextBatch(1);
+            getFutureValue(hiveSplitSource.getNextBatch(1));
             fail("expected RuntimeException");
         }
         catch (RuntimeException e) {
-            assertEquals(e.getCause().getMessage(), "test");
+            assertEquals(e.getMessage(), "test");
         }
         assertEquals(hiveSplitSource.getOutstandingSplitCount(), 4);
 
@@ -120,11 +121,11 @@ public class TestHiveSplitSource
 
         // try to remove a split and verify we got the first exception
         try {
-            hiveSplitSource.getNextBatch(1);
+            getFutureValue(hiveSplitSource.getNextBatch(1));
             fail("expected RuntimeException");
         }
         catch (RuntimeException e) {
-            assertEquals(e.getCause().getMessage(), "test");
+            assertEquals(e.getMessage(), "test");
         }
     }
 
@@ -145,7 +146,7 @@ public class TestHiveSplitSource
             {
                 try {
                     started.countDown();
-                    List<ConnectorSplit> batch = hiveSplitSource.getNextBatch(1);
+                    List<ConnectorSplit> batch = getFutureValue(hiveSplitSource.getNextBatch(1));
                     assertEquals(batch.size(), 1);
                     splits.set(batch.get(0));
                 }

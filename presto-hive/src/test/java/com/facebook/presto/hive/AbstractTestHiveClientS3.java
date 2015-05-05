@@ -65,6 +65,7 @@ import static com.facebook.presto.testing.MaterializedResult.materializeSourceDa
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -364,7 +365,7 @@ public abstract class AbstractTestHiveClientS3
     {
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         while (!source.isFinished()) {
-            splits.addAll(source.getNextBatch(1000));
+            splits.addAll(getFutureValue(source.getNextBatch(1000)));
         }
         return splits.build();
     }
