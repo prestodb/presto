@@ -53,6 +53,12 @@ public class CatalogSystemTable
     }
 
     @Override
+    public boolean isCoordinatorOnly()
+    {
+        return true;
+    }
+
+    @Override
     public ConnectorTableMetadata getTableMetadata()
     {
         return CATALOG_TABLE;

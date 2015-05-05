@@ -76,7 +76,14 @@ public class SystemSplitManager
         SystemTable systemTable = tables.get(systemPartition.getTableHandle().getSchemaTableName());
         checkArgument(systemTable != null, "Table %s does not exist", systemPartition.getTableHandle().getTableName());
 
-        if (systemTable.isDistributed()) {
+        if (systemTable.isCoordinatorOnly()) {
+            ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
+            for (Node node : nodeManager.getCoordinators()) {
+                splits.add(new SystemSplit(systemPartition.getTableHandle(), node.getHostAndPort()));
+            }
+            return new FixedSplitSource(SystemConnector.NAME, splits.build());
+        }
+        else if (systemTable.isDistributed()) {
             ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
             for (Node node : nodeManager.getActiveNodes()) {
                 splits.add(new SystemSplit(systemPartition.getTableHandle(), node.getHostAndPort()));

@@ -27,6 +27,12 @@ public interface SystemTable
      */
     boolean isDistributed();
 
+    /**
+     * 
+     * True if table is only on coordinators
+     */
+    boolean isCoordinatorOnly();
+
     ConnectorTableMetadata getTableMetadata();
 
     @Override
