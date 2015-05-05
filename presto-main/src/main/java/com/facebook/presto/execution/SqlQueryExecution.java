@@ -98,7 +98,6 @@ public final class SqlQueryExecution
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
             int scheduleSplitBatchSize,
-            int maxPendingSplitsPerNode,
             int initialHashPartitions,
             boolean experimentalSyntaxEnabled,
             ExecutorService queryExecutor,
@@ -117,7 +116,7 @@ public final class SqlQueryExecution
             this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
             this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
 
-            checkArgument(maxPendingSplitsPerNode > 0, "scheduleSplitBatchSize must be greater than 0");
+            checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
 
             checkArgument(initialHashPartitions > 0, "initialHashPartitions must be greater than 0");
@@ -390,7 +389,6 @@ public final class SqlQueryExecution
             implements QueryExecutionFactory<SqlQueryExecution>
     {
         private final int scheduleSplitBatchSize;
-        private final int maxPendingSplitsPerNode;
         private final int initialHashPartitions;
         private final Integer bigQueryInitialHashPartitions;
         private final boolean experimentalSyntaxEnabled;
@@ -421,7 +419,6 @@ public final class SqlQueryExecution
         {
             checkNotNull(config, "config is null");
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
-            this.maxPendingSplitsPerNode = config.getMaxPendingSplitsPerNode();
             this.initialHashPartitions = config.getInitialHashPartitions();
             this.bigQueryInitialHashPartitions = config.getBigQueryInitialHashPartitions();
             this.metadata = checkNotNull(metadata, "metadata is null");
@@ -460,7 +457,6 @@ public final class SqlQueryExecution
                     remoteTaskFactory,
                     locationFactory,
                     scheduleSplitBatchSize,
-                    maxPendingSplitsPerNode,
                     initialHashPartitions,
                     experimentalSyntaxEnabled,
                     executor,

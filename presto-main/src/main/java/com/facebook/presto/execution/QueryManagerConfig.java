@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -23,6 +24,7 @@ import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
+@DefunctConfig("query.max-pending-splits-per-node")
 public class QueryManagerConfig
 {
     private int scheduleSplitBatchSize = 1000;
@@ -31,7 +33,6 @@ public class QueryManagerConfig
     private int maxConcurrentBigQueries = 10;
     private int maxQueuedBigQueries = 500;
     private String queueConfigFile;
-    private int maxPendingSplitsPerNode = 100;
 
     private int initialHashPartitions = 8;
     private Integer bigQueryInitialHashPartitions;
@@ -127,19 +128,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxQueuedQueries(int maxQueuedQueries)
     {
         this.maxQueuedQueries = maxQueuedQueries;
-        return this;
-    }
-
-    @Min(1)
-    public int getMaxPendingSplitsPerNode()
-    {
-        return maxPendingSplitsPerNode;
-    }
-
-    @Config("query.max-pending-splits-per-node")
-    public QueryManagerConfig setMaxPendingSplitsPerNode(int maxPendingSplitsPerNode)
-    {
-        this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
         return this;
     }
 
