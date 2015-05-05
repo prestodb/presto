@@ -15,18 +15,6 @@ Additionally, the functions operate on Unicode code points and not user visible
 into a single user-perceived *character*, the basic unit of a writing system for a
 language, but the functions will treat each code point as a separate unit.
 
-Full and Right Outer Join
--------------------------
-
-Execution of right outer joins has changed. Right joins are no longer flipped
-and executed as left outer joins. Instead, they are hash partitioned. For each
-partition, an index is built on the right side. Left side is used to probe the
-index to produce the inner join result. At the end, unvisited index entries are
-processed to produce additional rows in the result.
-
-Full outer join support has also been added. It is executed in a way that
-combines how left joins and right joins are executed.
-
 Regular Expression Functions
 ----------------------------
 
@@ -39,6 +27,9 @@ in the documentation for the functions.
 General Changes
 ---------------
 
+* Add support for partitioned right outer joins, which allows for larger tables to
+  be joined on the inner side.
+* Add support for full outer joins.
 * Support returning booleans as numbers in JDBC driver
 * Fix :func:`contains` to return ``NULL`` if the value was not found, but a ``NULL`` was.
 * Fix nested :ref:`row_type` rendering in ``DESCRIBE``.
