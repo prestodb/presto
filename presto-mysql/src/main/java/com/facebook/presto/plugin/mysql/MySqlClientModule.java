@@ -19,7 +19,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
-import static io.airlift.configuration.ConfigurationModule.bindConfig;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class MySqlClientModule
         implements Module
@@ -28,7 +28,7 @@ public class MySqlClientModule
     public void configure(Binder binder)
     {
         binder.bind(JdbcClient.class).to(MySqlClient.class).in(Scopes.SINGLETON);
-        bindConfig(binder).to(BaseJdbcConfig.class);
-        bindConfig(binder).to(MySqlConfig.class);
+        configBinder(binder).bindConfig(BaseJdbcConfig.class);
+        configBinder(binder).bindConfig(MySqlConfig.class);
     }
 }

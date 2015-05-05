@@ -73,7 +73,7 @@ import static com.facebook.presto.execution.QueryExecution.QueryExecutionFactory
 import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.configuration.ConfigurationModule.bindConfig;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
@@ -101,10 +101,10 @@ public class CoordinatorModule
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
         binder.bind(QueryQueueManager.class).to(SqlQueryQueueManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryManager.class).withGeneratedName();
-        bindConfig(binder).to(QueryManagerConfig.class);
+        configBinder(binder).bindConfig(QueryManagerConfig.class);
 
         // analyzer
-        bindConfig(binder).to(FeaturesConfig.class);
+        configBinder(binder).bindConfig(FeaturesConfig.class);
 
         // split manager
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
@@ -112,7 +112,7 @@ public class CoordinatorModule
         // node scheduler
         binder.bind(InternalNodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
         binder.bind(NodeManager.class).to(Key.get(InternalNodeManager.class)).in(Scopes.SINGLETON);
-        bindConfig(binder).to(NodeSchedulerConfig.class);
+        configBinder(binder).bindConfig(NodeSchedulerConfig.class);
         binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
         binder.bind(NodeTaskMap.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NodeScheduler.class).withGeneratedName();
