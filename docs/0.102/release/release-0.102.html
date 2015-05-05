@@ -62,16 +62,6 @@ invalid UTF-8.  Invalid UTF-8 data can be corrected with <a class="reference int
 into a single user-perceived <em>character</em>, the basic unit of a writing system for a
 language, but the functions will treat each code point as a separate unit.</p>
 </div>
-<div class="section" id="full-and-right-outer-join">
-<h2>Full and Right Outer Join</h2>
-<p>Execution of right outer joins has changed. Right joins are no longer flipped
-and executed as left outer joins. Instead, they are hash partitioned. For each
-partition, an index is built on the right side. Left side is used to probe the
-index to produce the inner join result. At the end, unvisited index entries are
-processed to produce additional rows in the result.</p>
-<p>Full outer join support has also been added. It is executed in a way that
-combines how left joins and right joins are executed.</p>
-</div>
 <div class="section" id="regular-expression-functions">
 <h2>Regular Expression Functions</h2>
 <p>All <a class="reference internal" href="../functions/regexp.html"><em>Regular Expression Functions</em></a> have been rewritten to improve performance.
@@ -83,6 +73,9 @@ in the documentation for the functions.</p>
 <div class="section" id="general-changes">
 <h2>General Changes</h2>
 <ul class="simple">
+<li>Add support for partitioned right outer joins, which allows for larger tables to
+be joined on the inner side.</li>
+<li>Add support for full outer joins.</li>
 <li>Support returning booleans as numbers in JDBC driver</li>
 <li>Fix <a class="reference internal" href="../functions/array.html#contains" title="contains"><tt class="xref py py-func docutils literal"><span class="pre">contains()</span></tt></a> to return <tt class="docutils literal"><span class="pre">NULL</span></tt> if the value was not found, but a <tt class="docutils literal"><span class="pre">NULL</span></tt> was.</li>
 <li>Fix nested <a class="reference internal" href="../language/types.html#row-type"><em>ROW</em></a> rendering in <tt class="docutils literal"><span class="pre">DESCRIBE</span></tt>.</li>
