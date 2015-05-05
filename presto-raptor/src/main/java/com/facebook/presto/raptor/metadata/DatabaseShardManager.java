@@ -18,6 +18,7 @@ import com.facebook.presto.raptor.util.CloseableIterator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -35,6 +36,7 @@ import org.skife.jdbi.v2.util.ByteArrayMapper;
 import javax.inject.Inject;
 
 import java.sql.JDBCType;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
@@ -55,6 +57,8 @@ import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
+import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toSet;
 
 public class DatabaseShardManager
@@ -137,6 +141,40 @@ public class DatabaseShardManager
         });
     }
 
+    @Override
+    public void replaceShards(long tableId, List<ColumnInfo> columns, Set<Long> oldShardIds, Collection<ShardInfo> newShards)
+    {
+        Map<String, Integer> nodeIds = toNodeIdMap(newShards);
+
+        dbi.inTransaction((handle, status) -> {
+            ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+            insertShardsAndIndex(tableId, columns, newShards, nodeIds, handle, dao);
+            deleteShardsAndIndex(tableId, oldShardIds, handle);
+            return null;
+        });
+    }
+
+    private void deleteShardsAndIndex(long tableId, Set<Long> shardIds, Handle handle)
+            throws SQLException
+    {
+        String args = Joiner.on(",").join(nCopies(shardIds.size(), "?"));
+        String where = " WHERE shard_id IN (" + args + ")";
+        String deleteFromShardNodes = "DELETE FROM shard_nodes " + where;
+        String deleteFromShards = "DELETE FROM shards " + where;
+        String deleteFromShardIndex = "DELETE FROM " + shardIndexTable(tableId) + where;
+
+        for (String sql : asList(deleteFromShardNodes, deleteFromShards, deleteFromShardIndex)) {
+            try (PreparedStatement statement = handle.getConnection().prepareStatement(sql)) {
+                int i = 1;
+                for (long shardId : shardIds) {
+                    statement.setLong(i, shardId);
+                    i++;
+                }
+                statement.executeUpdate();
+            }
+        }
+    }
+
     private void insertShardsAndIndex(long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Map<String, Integer> nodeIds, Handle handle, ShardManagerDao dao)
             throws SQLException
     {
@@ -162,6 +200,12 @@ public class DatabaseShardManager
                 .flatMap(Collection::stream)
             .collect(toSet());
         return Maps.toMap(identifiers, this::getOrCreateNodeId);
+    }
+
+    @Override
+    public Set<ShardMetadata> getNodeTableShards(String nodeIdentifier, long tableId)
+    {
+        return dao.getNodeTableShards(nodeIdentifier, tableId);
     }
 
     @Override
