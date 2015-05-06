@@ -24,7 +24,6 @@ import java.util.Set;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.event.client.EventBinder.eventBinder;
 
 public class PrestoVerifierModule
