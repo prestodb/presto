@@ -105,6 +105,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public void pruneInfo()
+    {
+        // no-op
+    }
+
+    @Override
     public QueryId getQueryId()
     {
         return stateMachine.getQueryId();

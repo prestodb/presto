@@ -35,6 +35,9 @@ public interface QueryExecution
 
     void recordHeartbeat();
 
+    // XXX: This should be removed when the client protocol is improved, so that we don't need to hold onto so much query history
+    void pruneInfo();
+
     void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
 
     interface QueryExecutionFactory<T extends QueryExecution>

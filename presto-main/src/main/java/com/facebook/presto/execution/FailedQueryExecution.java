@@ -81,4 +81,10 @@ public class FailedQueryExecution
     {
         // no-op
     }
+
+    @Override
+    public void pruneInfo()
+    {
+        // no-op
+    }
 }

@@ -149,6 +149,13 @@ public class SqlQueryManager
                 catch (Throwable e) {
                     log.warn(e, "Error removing expired queries");
                 }
+
+                try {
+                    pruneExpiredQueries();
+                }
+                catch (Throwable e) {
+                    log.warn(e, "Error pruning expired queries");
+                }
             }
         }, 1, 1, TimeUnit.SECONDS);
     }
@@ -365,9 +372,29 @@ public class SqlQueryManager
     }
 
     /**
+     * Prune extraneous info from old queries
+     */
+    private void pruneExpiredQueries()
+    {
+        if (expirationQueue.size() <= maxQueryHistory) {
+            return;
+        }
+
+        int count = 0;
+        // we're willing to keep full info for up to maxQueryHistory queries
+        for (QueryExecution query : expirationQueue) {
+            if (expirationQueue.size() - count <= maxQueryHistory) {
+                break;
+            }
+            query.pruneInfo();
+            count++;
+        }
+    }
+
+    /**
      * Remove completed queries after a waiting period
      */
-    public void removeExpiredQueries()
+    private void removeExpiredQueries()
     {
         DateTime timeHorizon = DateTime.now().minus(maxQueryAge.toMillis());
 
