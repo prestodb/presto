@@ -32,13 +32,18 @@ import com.google.common.primitives.Ints;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Comparator.comparingLong;
 
 public class OrcRecordReader
 {
@@ -54,6 +59,10 @@ public class OrcRecordReader
     private final List<StripeInformation> stripes;
     private final StripeReader stripeReader;
     private int currentStripe = -1;
+
+    private final long fileRowCount;
+    private final List<Long> stripeFilePositions;
+    private long filePosition = -1;
 
     private Iterator<RowGroup> rowGroups = ImmutableList.<RowGroup>of().iterator();
     private long currentGroupRowCount;
@@ -106,20 +115,38 @@ public class OrcRecordReader
         // it is possible that old versions of orc use 0 to mean there are no row groups
         checkArgument(rowsInRowGroup > 0, "rowsInRowGroup must be greater than zero");
 
+        // sort stripes by file position
+        List<StripeInfo> stripeInfos = new ArrayList<>();
+        for (int i = 0; i < fileStripes.size(); i++) {
+            Optional<StripeStatistics> stats = Optional.empty();
+            // ignore all stripe stats if too few or too many
+            if (stripeStats.size() == fileStripes.size()) {
+                stats = Optional.of(stripeStats.get(i));
+            }
+            stripeInfos.add(new StripeInfo(fileStripes.get(i), stats));
+        }
+        Collections.sort(stripeInfos, comparingLong(info -> info.getStripe().getOffset()));
+
         long totalRowCount = 0;
+        long fileRowCount = 0;
         ImmutableList.Builder<StripeInformation> stripes = ImmutableList.builder();
+        ImmutableList.Builder<Long> stripeFilePositions = ImmutableList.builder();
         if (predicate.matches(numberOfRows, getStatisticsByColumnOrdinal(root, fileStats))) {
             // select stripes that start within the specified split
-            for (int stripeIndex = 0; stripeIndex < fileStripes.size(); stripeIndex++) {
-                StripeInformation stripe = fileStripes.get(stripeIndex);
-                if (splitContainsStripe(splitOffset, splitLength, stripe) && isStripeIncluded(root, stripe, stripeStats, predicate, stripeIndex)) {
+            for (StripeInfo info : stripeInfos) {
+                StripeInformation stripe = info.getStripe();
+                if (splitContainsStripe(splitOffset, splitLength, stripe) && isStripeIncluded(root, stripe, info.getStats(), predicate)) {
                     stripes.add(stripe);
+                    stripeFilePositions.add(fileRowCount);
                     totalRowCount += stripe.getNumberOfRows();
                 }
+                fileRowCount += stripe.getNumberOfRows();
             }
         }
         this.totalRowCount = totalRowCount;
         this.stripes = stripes.build();
+        this.stripeFilePositions = stripeFilePositions.build();
+        this.fileRowCount = fileRowCount;
 
         stripeReader = new StripeReader(
                 orcDataSource,
@@ -143,23 +170,47 @@ public class OrcRecordReader
     private static boolean isStripeIncluded(
             OrcType rootStructType,
             StripeInformation stripe,
-            List<StripeStatistics> stripeStats,
-            OrcPredicate predicate,
-            int stripeIndex)
+            Optional<StripeStatistics> stripeStats,
+            OrcPredicate predicate)
     {
         // if there are no stats, include the column
-        if (stripeIndex >= stripeStats.size()) {
+        if (!stripeStats.isPresent()) {
             return true;
         }
-
-        return predicate.matches(stripe.getNumberOfRows(), getStatisticsByColumnOrdinal(rootStructType, stripeStats.get(stripeIndex).getColumnStatistics()));
+        return predicate.matches(stripe.getNumberOfRows(), getStatisticsByColumnOrdinal(rootStructType, stripeStats.get().getColumnStatistics()));
     }
 
+    /**
+     * Return the row position relative to the start of the file.
+     */
+    public long getFilePosition()
+    {
+        checkState(filePosition >= 0, "file position is only valid after nextBatch()");
+        return filePosition;
+    }
+
+    /**
+     * Returns the total number of rows in the file. This count includes rows
+     * for stripes that were completely excluded due to stripe statistics.
+     */
+    public long getFileRowCount()
+    {
+        return fileRowCount;
+    }
+
+    /**
+     * Return the row position within the stripes being read by this reader.
+     */
     public long getPosition()
     {
         return currentPosition;
     }
 
+    /**
+     * Returns the total number of rows that are available for this reader.
+     * This count may be fewer than the number of rows in the file if some
+     * stripes were excluded due to stripe statistics.
+     */
     public long getTotalRowCount()
     {
         return totalRowCount;
@@ -204,6 +255,7 @@ public class OrcRecordReader
                 column.prepareNextRead(batchSize);
             }
         }
+        filePosition += batchSize;
         nextRowInGroup += batchSize;
         currentPosition += batchSize;
         return batchSize;
@@ -250,6 +302,7 @@ public class OrcRecordReader
         if (currentStripe >= stripes.size()) {
             return;
         }
+        filePosition = stripeFilePositions.get(currentStripe);
 
         StripeInformation stripeInformation = stripes.get(currentStripe);
         Stripe stripe = stripeReader.readStripe(stripeInformation);
@@ -326,5 +379,27 @@ public class OrcRecordReader
             }
         }
         return statistics.build();
+    }
+
+    private static class StripeInfo
+    {
+        private final StripeInformation stripe;
+        private final Optional<StripeStatistics> stats;
+
+        public StripeInfo(StripeInformation stripe, Optional<StripeStatistics> stats)
+        {
+            this.stripe = checkNotNull(stripe, "stripe is null");
+            this.stats = checkNotNull(stats, "metadata is null");
+        }
+
+        public StripeInformation getStripe()
+        {
+            return stripe;
+        }
+
+        public Optional<StripeStatistics> getStats()
+        {
+            return stats;
+        }
     }
 }
