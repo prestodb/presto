@@ -381,6 +381,8 @@ public class OrcTester
                 }
             }
             rowsProcessed += batchSize;
+            assertEquals(recordReader.getPosition(), rowsProcessed);
+            assertEquals(recordReader.getFilePosition(), rowsProcessed);
         }
         assertFalse(iterator.hasNext());
         recordReader.close();
@@ -416,7 +418,7 @@ public class OrcTester
         }
     }
 
-    private static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, MetadataReader metadataReader, OrcPredicate predicate, Type type)
+    static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, MetadataReader metadataReader, OrcPredicate predicate, Type type)
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE));
@@ -504,7 +506,7 @@ public class OrcTester
         }
     }
 
-    private static RecordWriter createOrcRecordWriter(File outputFile, Format format, Compression compression, ObjectInspector columnObjectInspector)
+    static RecordWriter createOrcRecordWriter(File outputFile, Format format, Compression compression, ObjectInspector columnObjectInspector)
             throws IOException
     {
         JobConf jobConf = new JobConf();
@@ -543,7 +545,7 @@ public class OrcTester
         );
     }
 
-    private static SettableStructObjectInspector createSettableStructObjectInspector(String name, ObjectInspector objectInspector)
+    static SettableStructObjectInspector createSettableStructObjectInspector(String name, ObjectInspector objectInspector)
     {
         return getStandardStructObjectInspector(ImmutableList.of(name), ImmutableList.of(objectInspector));
     }
@@ -556,12 +558,12 @@ public class OrcTester
         return orderTableProperties;
     }
 
-    private static class TempFile
+    static class TempFile
             implements Closeable
     {
         private final File file;
 
-        private TempFile(String prefix, String suffix)
+        public TempFile(String prefix, String suffix)
         {
             try {
                 file = File.createTempFile(prefix, suffix);
