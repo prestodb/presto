@@ -20,7 +20,6 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.configuration.ConfigurationModule.bindConfig;
 
 public class PostgreSqlClientModule
         implements Module

@@ -21,7 +21,6 @@ import com.google.inject.Scopes;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
