@@ -62,13 +62,14 @@
     <modules>
         <module>presto-spi</module>
         <module>presto-kafka</module>
-        <module>presto-cassandra</module>
+        <module>presto-kinesis</module>
+        <!--<module>presto-cassandra</module>
         <module>presto-orc</module>
         <module>presto-hive</module>
         <module>presto-hive-hadoop1</module>
         <module>presto-hive-hadoop2</module>
         <module>presto-hive-cdh4</module>
-        <module>presto-hive-cdh5</module>
+        <module>presto-hive-cdh5</module> -->
         <module>presto-example-http</module>
         <module>presto-tpch</module>
         <module>presto-raptor</module>
