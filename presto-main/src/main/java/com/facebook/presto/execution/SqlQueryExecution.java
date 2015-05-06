@@ -37,6 +37,7 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.units.Duration;
 
@@ -305,6 +306,46 @@ public final class SqlQueryExecution
     public void recordHeartbeat()
     {
         stateMachine.recordHeartbeat();
+    }
+
+    @Override
+    public void pruneInfo()
+    {
+        QueryInfo queryInfo = finalQueryInfo.get();
+        if (queryInfo == null || queryInfo.getOutputStage() == null) {
+            return;
+        }
+
+        StageInfo prunedOutputStage = new StageInfo(
+                queryInfo.getOutputStage().getStageId(),
+                queryInfo.getOutputStage().getState(),
+                queryInfo.getOutputStage().getSelf(),
+                null, // Remove the plan
+                queryInfo.getOutputStage().getTypes(),
+                queryInfo.getOutputStage().getStageStats(),
+                ImmutableList.of(), // Remove the tasks
+                ImmutableList.of(), // Remove the substages
+                queryInfo.getOutputStage().getFailures()
+        );
+
+        QueryInfo prunedQueryInfo = new QueryInfo(
+                queryInfo.getQueryId(),
+                queryInfo.getSession(),
+                queryInfo.getState(),
+                queryInfo.isScheduled(),
+                queryInfo.getSelf(),
+                queryInfo.getFieldNames(),
+                queryInfo.getQuery(),
+                queryInfo.getQueryStats(),
+                queryInfo.getSetSessionProperties(),
+                queryInfo.getResetSessionProperties(),
+                queryInfo.getUpdateType(),
+                prunedOutputStage,
+                queryInfo.getFailureInfo(),
+                queryInfo.getErrorCode(),
+                queryInfo.getInputs()
+        );
+        finalQueryInfo.compareAndSet(queryInfo, prunedQueryInfo);
     }
 
     @Override
