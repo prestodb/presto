@@ -52,6 +52,7 @@ import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
+import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
@@ -347,7 +348,7 @@ public class TupleAnalyzer
 
         TupleDescriptor tupleDescriptor = analyzeFrom(node, context);
 
-        analyzeWhere(node, tupleDescriptor, context);
+        node.getWhere().ifPresent(where -> analyzeWhere(node, tupleDescriptor, context, where));
 
         List<FieldOrExpression> outputExpressions = analyzeSelect(node, tupleDescriptor, context);
         List<FieldOrExpression> groupByExpressions = analyzeGroupBy(node, tupleDescriptor, context, outputExpressions);
@@ -929,27 +930,23 @@ public class TupleAnalyzer
         return result;
     }
 
-    private void analyzeWhere(QuerySpecification node, TupleDescriptor tupleDescriptor, AnalysisContext context)
+    public void analyzeWhere(Node node, TupleDescriptor tupleDescriptor, AnalysisContext context, Expression predicate)
     {
-        if (node.getWhere().isPresent()) {
-            Expression predicate = node.getWhere().get();
+        Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, predicate, "WHERE");
 
-            Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, predicate, "WHERE");
+        ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, tupleDescriptor, context);
+        analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
 
-            ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, tupleDescriptor, context);
-            analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
-
-            Type predicateType = expressionAnalysis.getType(predicate);
-            if (!predicateType.equals(BOOLEAN)) {
-                if (!predicateType.equals(UNKNOWN)) {
-                    throw new SemanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", predicateType);
-                }
-                // coerce null to boolean
-                analysis.addCoercion(predicate, BOOLEAN);
+        Type predicateType = expressionAnalysis.getType(predicate);
+        if (!predicateType.equals(BOOLEAN)) {
+            if (!predicateType.equals(UNKNOWN)) {
+                throw new SemanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", predicateType);
             }
-
-            analysis.setWhere(node, predicate);
+            // coerce null to boolean
+            analysis.addCoercion(predicate, BOOLEAN);
         }
+
+        analysis.setWhere(node, predicate);
     }
 
     private TupleDescriptor analyzeFrom(QuerySpecification node, AnalysisContext context)
