@@ -172,7 +172,7 @@ public class AddExchanges
         {
             PlanWithProperties child = planChild(node, PreferredProperties.any());
 
-            if (child.getProperties().isPartitioned()) {
+            if (child.getProperties().isDistributed()) {
                 child = withDerivedProperties(
                         gatheringExchange(idAllocator.getNextId(), child.getNode()),
                         child.getProperties());
@@ -196,7 +196,7 @@ public class AddExchanges
 
             PlanWithProperties child = planChild(node, preferredProperties);
 
-            if (!child.getProperties().isPartitioned()) {
+            if (!child.getProperties().isDistributed()) {
                 // If already unpartitioned, just drop the single aggregation back on
                 return rebaseAndDeriveProperties(node, child);
             }
@@ -293,7 +293,7 @@ public class AddExchanges
             PreferredProperties preferredChildProperties = PreferredProperties.derivePreferences(preferred, ImmutableSet.copyOf(node.getDistinctSymbols()), Optional.of(node.getDistinctSymbols()), grouped(node.getDistinctSymbols()));
             PlanWithProperties child = node.getSource().accept(this, preferredChildProperties);
 
-            if ((!child.getProperties().isPartitioned() && isBigQueryEnabled(session, false)) ||
+            if ((!child.getProperties().isDistributed() && isBigQueryEnabled(session, false)) ||
                     !child.getProperties().isPartitionedOn(node.getDistinctSymbols())) {
                 child = withDerivedProperties(
                         partitionedExchange(
@@ -373,7 +373,7 @@ public class AddExchanges
             if (node.getPartitionBy().isEmpty()) {
                 PlanWithProperties child = planChild(node, PreferredProperties.unpartitioned());
 
-                if (child.getProperties().isPartitioned()) {
+                if (child.getProperties().isDistributed()) {
                     child = withDerivedProperties(
                             gatheringExchange(idAllocator.getNextId(), child.getNode()),
                             child.getProperties());
@@ -442,7 +442,7 @@ public class AddExchanges
         {
             PlanWithProperties child = planChild(node, PreferredProperties.any());
 
-            if (child.getProperties().isPartitioned()) {
+            if (child.getProperties().isDistributed()) {
                 child = withDerivedProperties(
                         new TopNNode(idAllocator.getNextId(), child.getNode(), node.getCount(), node.getOrderBy(), node.getOrderings(), true),
                         child.getProperties());
@@ -460,7 +460,7 @@ public class AddExchanges
         {
             PlanWithProperties child = planChild(node, PreferredProperties.unpartitioned());
 
-            if (child.getProperties().isPartitioned()) {
+            if (child.getProperties().isDistributed()) {
                 child = withDerivedProperties(
                         gatheringExchange(idAllocator.getNextId(), child.getNode()),
                         child.getProperties());
@@ -474,7 +474,7 @@ public class AddExchanges
         {
             PlanWithProperties child = planChild(node, PreferredProperties.any());
 
-            if (child.getProperties().isPartitioned()) {
+            if (child.getProperties().isDistributed()) {
                 child = withDerivedProperties(
                         new LimitNode(idAllocator.getNextId(), child.getNode(), node.getCount()),
                         child.getProperties());
@@ -492,7 +492,7 @@ public class AddExchanges
         {
             PlanWithProperties child = planChild(node, PreferredProperties.any());
 
-            if (child.getProperties().isPartitioned()) {
+            if (child.getProperties().isDistributed()) {
                 child = withDerivedProperties(
                         new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), node.getHashSymbol()),
                         child.getProperties());
@@ -557,7 +557,7 @@ public class AddExchanges
             if (layouts.isEmpty()) {
                 return new PlanWithProperties(
                         new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()),
-                        ActualProperties.unpartitioned());
+                        ActualProperties.undistributed());
             }
 
             // Filter out layouts that cannot supply all the required columns
@@ -641,14 +641,14 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitValues(ValuesNode node, PreferredProperties preferred)
         {
-            return new PlanWithProperties(node, ActualProperties.unpartitioned());
+            return new PlanWithProperties(node, ActualProperties.undistributed());
         }
 
         @Override
         public PlanWithProperties visitTableCommit(TableCommitNode node, PreferredProperties preferred)
         {
             PlanWithProperties child = planChild(node, PreferredProperties.any());
-            if (child.getProperties().isPartitioned() || !child.getProperties().isCoordinatorOnly()) {
+            if (child.getProperties().isDistributed() || !child.getProperties().isCoordinatorOnly()) {
                 child = withDerivedProperties(
                         gatheringExchange(idAllocator.getNextId(), child.getNode()),
                         child.getProperties());
@@ -691,12 +691,12 @@ public class AddExchanges
                 left = node.getLeft().accept(this, PreferredProperties.any());
                 right = node.getRight().accept(this, PreferredProperties.any());
 
-                if (!left.getProperties().isPartitioned() && right.getProperties().isPartitioned()) {
+                if (!left.getProperties().isDistributed() && right.getProperties().isDistributed()) {
                     // force single-node join
                     // TODO: if inner join, flip order and do a broadcast join
                     right = withDerivedProperties(gatheringExchange(idAllocator.getNextId(), right.getNode()), right.getProperties());
                 }
-                else if (left.getProperties().isPartitioned() && !(left.getProperties().isHashPartitionedOn(leftSymbols) && right.getProperties().isHashPartitionedOn(rightSymbols))) {
+                else if (left.getProperties().isDistributed() && !(left.getProperties().isHashPartitionedOn(leftSymbols) && right.getProperties().isHashPartitionedOn(rightSymbols))) {
                     right = withDerivedProperties(new ExchangeNode(
                                     idAllocator.getNextId(),
                                     ExchangeNode.Type.REPLICATE,
@@ -727,7 +727,7 @@ public class AddExchanges
             PlanWithProperties filteringSource = node.getFilteringSource().accept(this, PreferredProperties.any());
 
             // make filtering source match requirements of source
-            if (source.getProperties().isPartitioned()) {
+            if (source.getProperties().isDistributed()) {
                 filteringSource = withDerivedProperties(
                         new ExchangeNode(
                                 idAllocator.getNextId(),
@@ -758,10 +758,10 @@ public class AddExchanges
             ActualProperties probeProperties = probeSource.getProperties();
 
             // TODO: allow repartitioning if unpartitioned to increase parallelism
-            if (distributedIndexJoins && probeProperties.isPartitioned()) {
+            if (distributedIndexJoins && probeProperties.isDistributed()) {
                 // Force partitioned exchange if we are not effectively partitioned on the join keys, or if the probe is currently executing as a single stream
                 // and the repartitioning will make a difference.
-                if (!probeProperties.isPartitionedOn(joinColumns) || (probeProperties.isSingleStream() && probeProperties.isRepartitionEffective(joinColumns))) {
+                if (!probeProperties.isPartitionedOn(joinColumns) || (probeProperties.isEffectivelySinglePartition() && probeProperties.isRepartitionEffective(joinColumns))) {
                     probeSource = withDerivedProperties(
                             partitionedExchange(idAllocator.getNextId(), probeSource.getNode(), joinColumns, node.getProbeHashSymbol()),
                             probeProperties);
@@ -789,7 +789,7 @@ public class AddExchanges
                 List<PlanNode> sources = node.getSources();
                 for (int i = 0; i < sources.size(); i++) {
                     PlanWithProperties child = sources.get(i).accept(this, PreferredProperties.any());
-                    if (!child.getProperties().isPartitioned()) {
+                    if (!child.getProperties().isDistributed()) {
                         unpartitionedChildren.add(child.getNode());
                         unpartitionedOutputLayouts.add(node.sourceOutputLayout(i));
                     }
@@ -829,7 +829,7 @@ public class AddExchanges
                     result = new UnionNode(node.getId(), unpartitionedChildren, mappings.build());
                 }
 
-                return new PlanWithProperties(result, ActualProperties.unpartitioned());
+                return new PlanWithProperties(result, ActualProperties.undistributed());
             }
 
             // hash partition the sources
@@ -952,10 +952,10 @@ public class AddExchanges
         }
         PartitioningPreferences partitioningPreferences = preferred.getPartitioningProperties().get();
         if (!partitioningPreferences.isPartitioned()) {
-            return !actual.isPartitioned();
+            return !actual.isDistributed();
         }
         if (!partitioningPreferences.getPartitioningColumns().isPresent()) {
-            return actual.isPartitioned();
+            return actual.isDistributed();
         }
         return actual.isPartitionedOn(partitioningPreferences.getPartitioningColumns().get());
     }

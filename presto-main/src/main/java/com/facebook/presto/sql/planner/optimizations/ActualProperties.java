@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import javax.annotation.concurrent.Immutable;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -28,41 +30,29 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 
 class ActualProperties
 {
-    private final Optional<Set<Symbol>> partitioningColumns; // if missing => partitioned with some unknown scheme
-    private final Optional<List<Symbol>> hashingColumns; // if present => hash partitioned on the given columns. partitioningColumns and hashingColumns must contain the same columns
-    private final boolean partitioned; // true if executing on multiple instances; false if executing on a single instance, which implies partitioned on the empty set of columns
-    private final boolean coordinatorOnly;
+    private final Global global;
     private final List<LocalProperty<Symbol>> localProperties;
     private final Map<Symbol, Object> constants;
 
     private ActualProperties(
-            Optional<Set<Symbol>> partitioningColumns,
-            Optional<List<Symbol>> hashingColumns,
+            Global global,
             List<? extends LocalProperty<Symbol>> localProperties,
-            boolean partitioned,
-            boolean coordinatorOnly,
             Map<Symbol, Object> constants)
     {
-        requireNonNull(partitioningColumns, "partitioningColumns is null");
-        requireNonNull(hashingColumns, "hashingColumns is null");
-        checkArgument(!hashingColumns.isPresent() || hashingColumns.map(ImmutableSet::copyOf).equals(partitioningColumns), "hashColumns must contain the columns as partitioningColumns if present");
-        checkArgument(partitioned || partitioningColumns.isPresent() && partitioningColumns.get().isEmpty(), "partitioningColumns must contain the empty set when unpartitioned");
-        checkArgument(!coordinatorOnly || !partitioned, "must not be partitioned when running as coordinatorOnly");
+        requireNonNull(global, "globalProperties is null");
         requireNonNull(localProperties, "localProperties is null");
         requireNonNull(constants, "constants is null");
 
-        this.partitioningColumns = partitioningColumns.map(ImmutableSet::copyOf);
-        this.hashingColumns = hashingColumns.map(ImmutableList::copyOf);
-        this.partitioned = partitioned;
-        this.coordinatorOnly = coordinatorOnly;
+        this.global = global;
 
         // There is some overlap between the localProperties (ConstantProperty) and constants fields.
         // Let's normalize both of those structures here so that they are consistent with each other
@@ -83,61 +73,55 @@ class ActualProperties
         this.constants = ImmutableMap.copyOf(updatedConstants);
     }
 
-    public static ActualProperties unpartitioned()
+    public static ActualProperties distributed()
     {
-        return new ActualProperties(Optional.of(ImmutableSet.of()), Optional.empty(), ImmutableList.of(), false, false, ImmutableMap.of());
+        return builder()
+                .global(Global.distributed())
+                .build();
+    }
+
+    public static ActualProperties undistributed()
+    {
+        return builder()
+                .global(Global.undistributed())
+                .build();
+    }
+
+    public static ActualProperties partitioned(Set<Symbol> columns)
+    {
+        return builder()
+                .global(Global.distributed(Partitioning.partitioned(columns)))
+                .build();
     }
 
     public static ActualProperties hashPartitioned(List<Symbol> columns)
     {
-        return new ActualProperties(
-                Optional.of(ImmutableSet.copyOf(columns)),
-                Optional.of(ImmutableList.copyOf(columns)),
-                ImmutableList.of(),
-                true,
-                false,
-                ImmutableMap.of());
-    }
-
-    public static ActualProperties partitioned()
-    {
-        return new ActualProperties(Optional.<Set<Symbol>>empty(), Optional.<List<Symbol>>empty(), ImmutableList.of(), true, false, ImmutableMap.of());
-    }
-
-    public static ActualProperties partitioned(Collection<Symbol> columns)
-    {
-        return new ActualProperties(Optional.<Set<Symbol>>of(ImmutableSet.copyOf(columns)), Optional.<List<Symbol>>empty(), ImmutableList.of(), true, false, ImmutableMap.of());
-    }
-
-    public static ActualProperties partitioned(ActualProperties other)
-    {
-        return new ActualProperties(other.partitioningColumns, other.hashingColumns, ImmutableList.of(), other.partitioned, false, ImmutableMap.of());
+        return builder()
+                .global(Global.distributed(Partitioning.hashPartitioned(columns)))
+                .build();
     }
 
     public boolean isCoordinatorOnly()
     {
-        return coordinatorOnly;
+        return global.isCoordinatorOnly();
     }
 
-    public boolean isPartitioned()
+    public boolean isDistributed()
     {
-        return partitioned;
+        return global.isDistributed();
     }
 
     public boolean isPartitionedOn(Collection<Symbol> columns)
     {
-        // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
-        // can safely ignore all constant columns when comparing partition properties
-        return partitioningColumns.isPresent() && ImmutableSet.copyOf(columns).containsAll(getPartitioningColumnsWithoutConstants().get());
+        return global.getPartitioningProperties().isPresent() && global.getPartitioningProperties().get().isPartitionedOn(columns, constants.keySet());
     }
 
     /**
      * @return true if all the data will effectively land in a single stream
      */
-    public boolean isSingleStream()
+    public boolean isEffectivelySinglePartition()
     {
-        Optional<Set<Symbol>> partitioningWithoutConstants = getPartitioningColumnsWithoutConstants();
-        return partitioningWithoutConstants.isPresent() && partitioningWithoutConstants.get().isEmpty();
+        return global.getPartitioningProperties().isPresent() && global.getPartitioningProperties().get().isEffectivelySinglePartition(constants.keySet());
     }
 
     /**
@@ -145,50 +129,28 @@ class ActualProperties
      */
     public boolean isRepartitionEffective(Collection<Symbol> keys)
     {
-        Optional<Set<Symbol>> partitioningWithoutConstants = getPartitioningColumnsWithoutConstants();
-        if (!partitioningWithoutConstants.isPresent()) {
-            return true;
+        return !global.getPartitioningProperties().isPresent() || global.getPartitioningProperties().get().isRepartitionEffective(keys, constants.keySet());
+    }
+
+    public ActualProperties translate(Function<Symbol, Optional<Symbol>> translator)
+    {
+        Map<Symbol, Object> translatedConstants = new HashMap<>();
+        for (Map.Entry<Symbol, Object> entry : constants.entrySet()) {
+            Optional<Symbol> translatedKey = translator.apply(entry.getKey());
+            if (translatedKey.isPresent()) {
+                translatedConstants.put(translatedKey.get(), entry.getValue());
+            }
         }
-        Set<Symbol> keysWithoutConstants = keys.stream()
-                .filter(symbol -> !constants.containsKey(symbol))
-                .collect(toImmutableSet());
-        return !partitioningWithoutConstants.get().equals(keysWithoutConstants);
-    }
-
-    public boolean hasKnownPartitioningScheme()
-    {
-        return partitioningColumns.isPresent();
-    }
-
-    public Optional<Set<Symbol>> getPartitioningColumns()
-    {
-        // can safely ignore all constant columns when comparing partition properties
-        return getPartitioningColumnsWithoutConstants();
-    }
-
-    private Optional<Set<Symbol>> getPartitioningColumnsWithoutConstants()
-    {
-        return partitioningColumns.map(symbols -> {
-                    return symbols.stream()
-                            .filter(symbol -> !constants.containsKey(symbol))
-                            .collect(toImmutableSet());
-                }
-        );
+        return builder()
+                .global(global.translate(translator))
+                .local(LocalProperties.translate(localProperties, translator))
+                .constants(translatedConstants)
+                .build();
     }
 
     public boolean isHashPartitionedOn(List<Symbol> columns)
     {
-        return hashingColumns.isPresent() && hashingColumns.get().equals(columns);
-    }
-
-    public boolean isHashPartitioned()
-    {
-        return hashingColumns.isPresent();
-    }
-
-    public Optional<List<Symbol>> getHashPartitioningColumns()
-    {
-        return hashingColumns;
+        return global.getPartitioningProperties().isPresent() && global.getPartitioningProperties().get().isHashPartitionedOn(columns);
     }
 
     public Map<Symbol, Object> getConstants()
@@ -206,64 +168,40 @@ class ActualProperties
         return new Builder();
     }
 
+    public static Builder builderFrom(ActualProperties properties)
+    {
+        return new Builder(properties.global, properties.localProperties, properties.constants);
+    }
+
     public static class Builder
     {
-        private Optional<Set<Symbol>> partitioningColumns; // if missing => partitioned with some unknown scheme
-        private Optional<List<Symbol>> hashingColumns; // if present => hash partitioned on the given columns. partitioningColumns and hashingColumns must contain the same columns
-        private boolean partitioned; // true if executing on multiple instances; false if executing on a single instance, which implies partitioned on the empty set of columns
-        private boolean coordinatorOnly;
-        private List<LocalProperty<Symbol>> localProperties = ImmutableList.of();
-        private Map<Symbol, Object> constants = ImmutableMap.of();
+        private Global global;
+        private List<LocalProperty<Symbol>> localProperties;
+        private Map<Symbol, Object> constants;
 
-        public Builder unpartitioned()
+        public Builder(Global global, List<LocalProperty<Symbol>> localProperties, Map<Symbol, Object> constants)
         {
-            partitioningColumns = Optional.of(ImmutableSet.of());
-            hashingColumns = Optional.empty();
-            partitioned = false;
+            this.global = global;
+            this.localProperties = localProperties;
+            this.constants = constants;
+        }
 
+        public Builder()
+        {
+            this.global = null;
+            this.localProperties = ImmutableList.of();
+            this.constants = ImmutableMap.of();
+        }
+
+        public Builder global(Global global)
+        {
+            this.global = global;
             return this;
         }
 
-        public Builder partitioned(ActualProperties other)
+        public Builder global(ActualProperties other)
         {
-            partitioningColumns = other.partitioningColumns;
-            hashingColumns = other.hashingColumns;
-            partitioned = other.partitioned;
-
-            return this;
-        }
-
-        public Builder partitioned()
-        {
-            partitioningColumns = Optional.empty();
-            hashingColumns = Optional.empty();
-            partitioned = true;
-
-            return this;
-        }
-
-        public Builder coordinatorOnly(ActualProperties other)
-        {
-            coordinatorOnly = other.coordinatorOnly;
-
-            return this;
-        }
-
-        public Builder partitioned(Set<Symbol> columns)
-        {
-            partitioningColumns = Optional.of(ImmutableSet.copyOf(columns));
-            hashingColumns = Optional.empty();
-            partitioned = true;
-
-            return this;
-        }
-
-        public Builder hashPartitioned(List<Symbol> columns)
-        {
-            partitioningColumns = Optional.of(ImmutableSet.copyOf(columns));
-            hashingColumns = Optional.of(ImmutableList.copyOf(columns));
-            partitioned = true;
-
+            this.global = other.global;
             return this;
         }
 
@@ -293,27 +231,14 @@ class ActualProperties
 
         public ActualProperties build()
         {
-            return new ActualProperties(partitioningColumns, hashingColumns, localProperties, partitioned, coordinatorOnly, constants);
+            return new ActualProperties(global, localProperties, constants);
         }
-    }
-
-    @Override
-    public String toString()
-    {
-        return MoreObjects.toStringHelper(this)
-                .add("partitioningColumns", partitioningColumns)
-                .add("hashingColumns", hashingColumns)
-                .add("partitioned", partitioned)
-                .add("coordinatorOnly", coordinatorOnly)
-                .add("localProperties", localProperties)
-                .add("constants", constants)
-                .toString();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(partitioningColumns, hashingColumns, partitioned, coordinatorOnly, localProperties, constants.keySet());
+        return Objects.hash(global, localProperties, constants.keySet());
     }
 
     @Override
@@ -326,11 +251,220 @@ class ActualProperties
             return false;
         }
         final ActualProperties other = (ActualProperties) obj;
-        return Objects.equals(this.partitioningColumns, other.partitioningColumns)
-                && Objects.equals(this.hashingColumns, other.hashingColumns)
-                && Objects.equals(this.partitioned, other.partitioned)
-                && Objects.equals(this.coordinatorOnly, other.coordinatorOnly)
+        return Objects.equals(this.global, other.global)
                 && Objects.equals(this.localProperties, other.localProperties)
                 && Objects.equals(this.constants.keySet(), other.constants.keySet());
+    }
+
+    @Override
+    public String toString()
+    {
+        return MoreObjects.toStringHelper(this)
+                .add("globalProperties", global)
+                .add("localProperties", localProperties)
+                .add("constants", constants)
+                .toString();
+    }
+
+    @Immutable
+    public static final class Global
+    {
+        private final boolean distributed; // true => plan will be distributed to multiple servers, false => plan is locked to a single server
+        private final boolean coordinatorOnly;
+        private final Optional<Partitioning> partitioningProperties; // if missing => partitioned with some unknown scheme
+
+        // NOTE: Partitioning on zero columns (or effectively zero columns if the columns are constant) indicates that all
+        // the rows will be partitioned into a single stream. However, this can still be a distributed plan in that the plan
+        // will be distributed to multiple servers, but only one server will get all the data.
+
+        private Global(boolean distributed, boolean coordinatorOnly, Optional<Partitioning> partitioningProperties)
+        {
+            this.distributed = distributed;
+            this.coordinatorOnly = coordinatorOnly;
+            this.partitioningProperties = Objects.requireNonNull(partitioningProperties, "partitioningProperties is null");
+        }
+
+        public static Global coordinatorOnly()
+        {
+            return new Global(false, true, Optional.of(Partitioning.singlePartition()));
+        }
+
+        public static Global undistributed()
+        {
+            return new Global(false, false, Optional.of(Partitioning.singlePartition()));
+        }
+
+        public static Global distributed(Optional<Partitioning> partitioningProperties)
+        {
+            return new Global(true, false, partitioningProperties);
+        }
+
+        public static Global distributed()
+        {
+            return distributed(Optional.<Partitioning>empty());
+        }
+
+        public static Global distributed(Partitioning partitioning)
+        {
+            return distributed(Optional.of(partitioning));
+        }
+
+        public boolean isDistributed()
+        {
+            return distributed;
+        }
+
+        public boolean isCoordinatorOnly()
+        {
+            return coordinatorOnly;
+        }
+
+        public Optional<Partitioning> getPartitioningProperties()
+        {
+            return partitioningProperties;
+        }
+
+        public Global translate(Function<Symbol, Optional<Symbol>> translator)
+        {
+            return new Global(distributed, coordinatorOnly, partitioningProperties.flatMap(properties -> properties.translate(translator)));
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(distributed, coordinatorOnly, partitioningProperties);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            final Global other = (Global) obj;
+            return Objects.equals(this.distributed, other.distributed)
+                    && Objects.equals(this.coordinatorOnly, other.coordinatorOnly)
+                    && Objects.equals(this.partitioningProperties, other.partitioningProperties);
+        }
+
+        @Override
+        public String toString()
+        {
+            return MoreObjects.toStringHelper(this)
+                    .add("distributed", distributed)
+                    .add("coordinatorOnly", coordinatorOnly)
+                    .add("partitioningProperties", partitioningProperties)
+                    .toString();
+        }
+    }
+
+    @Immutable
+    public static final class Partitioning
+    {
+        private final Set<Symbol> partitioningColumns;
+        private final Optional<List<Symbol>> hashingOrder; // If populated, this list will contain the same symbols as partitioningColumns
+
+        private Partitioning(Set<Symbol> partitioningColumns, Optional<List<Symbol>> hashingOrder)
+        {
+            this.partitioningColumns = ImmutableSet.copyOf(Objects.requireNonNull(partitioningColumns, "partitioningColumns is null"));
+            this.hashingOrder = Objects.requireNonNull(hashingOrder, "hashingOrder is null").map(ImmutableList::copyOf);
+        }
+
+        public static Partitioning hashPartitioned(List<Symbol> columns)
+        {
+            return new Partitioning(ImmutableSet.copyOf(columns), Optional.of(columns));
+        }
+
+        public static Partitioning partitioned(Set<Symbol> columns)
+        {
+            return new Partitioning(columns, Optional.<List<Symbol>>empty());
+        }
+
+        public static Partitioning singlePartition()
+        {
+            return partitioned(ImmutableSet.of());
+        }
+
+        public boolean isPartitionedOn(Collection<Symbol> columns, Set<Symbol> knownConstants)
+        {
+            // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
+            // can safely ignore all constant columns when comparing partition properties
+            return partitioningColumns.stream()
+                    .filter(symbol -> !knownConstants.contains(symbol))
+                    .allMatch(columns::contains);
+        }
+
+        public boolean isHashPartitionedOn(List<Symbol> columns)
+        {
+            return hashingOrder.isPresent() && hashingOrder.get().equals(columns);
+        }
+
+        public boolean isEffectivelySinglePartition(Set<Symbol> knownConstants)
+        {
+            return isPartitionedOn(ImmutableSet.of(), knownConstants);
+        }
+
+        public boolean isRepartitionEffective(Collection<Symbol> keys, Set<Symbol> knownConstants)
+        {
+            Set<Symbol> keysWithoutConstants = keys.stream()
+                    .filter(symbol -> !knownConstants.contains(symbol))
+                    .collect(toImmutableSet());
+            return !partitioningColumns.stream()
+                    .filter(symbol -> !knownConstants.contains(symbol))
+                    .collect(toImmutableSet())
+                    .equals(keysWithoutConstants);
+        }
+
+        public Optional<Partitioning> translate(Function<Symbol, Optional<Symbol>> translator)
+        {
+            ImmutableSet.Builder<Symbol> newPartitioningColumns = ImmutableSet.builder();
+            for (Symbol partitioningColumn : partitioningColumns) {
+                Optional<Symbol> translated = translator.apply(partitioningColumn);
+                if (!translated.isPresent()) {
+                    return Optional.empty();
+                }
+                newPartitioningColumns.add(translated.get());
+            }
+
+            // If all partitioningColumns can be translated, then shouldn't have any problems with hashingOrder
+            Optional<List<Symbol>> newHashingOrder = hashingOrder.map(columns -> columns.stream()
+                    .map(translator::apply)
+                    .map(Optional::get)
+                    .collect(toImmutableList()));
+
+            return Optional.of(new Partitioning(newPartitioningColumns.build(), newHashingOrder));
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(partitioningColumns, hashingOrder);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            final Partitioning other = (Partitioning) obj;
+            return Objects.equals(this.partitioningColumns, other.partitioningColumns)
+                    && Objects.equals(this.hashingOrder, other.hashingOrder);
+        }
+
+        @Override
+        public String toString()
+        {
+            return MoreObjects.toStringHelper(this)
+                    .add("partitioningColumns", partitioningColumns)
+                    .add("hashingOrder", hashingOrder)
+                    .toString();
+        }
     }
 }
