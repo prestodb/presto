@@ -15,10 +15,12 @@ package com.facebook.presto.spi;
 
 public interface SystemTable
 {
-    /**
-     * True if table is distributed across all nodes.
-     */
-    boolean isDistributed();
+    enum Distribution
+    {
+        ALL_NODES, ALL_COORDINATORS, SINGLE_COORDINATOR
+    }
+
+    Distribution getDistribution();
 
     ConnectorTableMetadata getTableMetadata();
 

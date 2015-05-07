@@ -31,6 +31,7 @@ import org.joda.time.DateTime;
 import javax.inject.Inject;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static com.facebook.presto.spi.SystemTable.Distribution.ALL_COORDINATORS;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -69,9 +70,9 @@ public class QuerySystemTable
     }
 
     @Override
-    public boolean isDistributed()
+    public Distribution getDistribution()
     {
-        return true;
+        return ALL_COORDINATORS;
     }
 
     @Override
