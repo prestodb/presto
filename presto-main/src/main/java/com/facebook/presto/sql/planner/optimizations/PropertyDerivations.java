@@ -57,7 +57,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -68,9 +68,15 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.coordinatorOnly;
+import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.distributed;
+import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.undistributed;
+import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Partitioning.hashPartitioned;
+import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Partitioning.partitioned;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.stream.Collectors.toMap;
 
 class PropertyDerivations
@@ -124,9 +130,11 @@ class PropertyDerivations
         @Override
         public ActualProperties visitWindow(WindowNode node, List<ActualProperties> inputProperties)
         {
+            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+
             // If the input is completely pre-partitioned and sorted, then the original input properties will be respected
             if (ImmutableSet.copyOf(node.getPartitionBy()).equals(node.getPrePartitionedInputs()) && node.getPreSortedOrderPrefix() == node.getOrderBy().size()) {
-                return Iterables.getOnlyElement(inputProperties);
+                return properties;
             }
 
             ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.builder();
@@ -137,13 +145,8 @@ class PropertyDerivations
                 localProperties.add(new SortingProperty<>(column, node.getOrderings().get(column)));
             }
 
-            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
-
-            return ActualProperties.builder()
-                    .partitioned(properties)
-                    .coordinatorOnly(properties)
+            return ActualProperties.builderFrom(properties)
                     .local(localProperties.build())
-                    .constants(properties)
                     .build();
         }
 
@@ -152,19 +155,10 @@ class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            if (!properties.isPartitioned()) {
-                return ActualProperties.builder()
-                        .unpartitioned()
-                        .coordinatorOnly(properties)
-                        .local(LocalProperties.grouped(node.getGroupBy()))
-                        .constants(Maps.filterKeys(properties.getConstants(), ImmutableSet.of(node.getGroupBy())::contains))
-                        .build();
-            }
+            ActualProperties translated = properties.translate(symbol -> node.getGroupBy().contains(symbol) ? Optional.of(symbol) : Optional.<Symbol>empty());
 
-            return ActualProperties.builder()
-                    .partitioned(properties)
+            return ActualProperties.builderFrom(translated)
                     .local(LocalProperties.grouped(node.getGroupBy()))
-                    .constants(Maps.filterKeys(properties.getConstants(), ImmutableSet.of(node.getGroupBy())::contains))
                     .build();
         }
 
@@ -173,11 +167,8 @@ class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            return ActualProperties.builder()
-                    .partitioned(properties)
-                    .coordinatorOnly(properties)
+            return ActualProperties.builderFrom(properties)
                     .local(LocalProperties.grouped(node.getPartitionBy()))
-                    .constants(properties)
                     .build();
         }
 
@@ -192,11 +183,8 @@ class PropertyDerivations
                 localProperties.add(new SortingProperty<>(column, node.getOrderings().get(column)));
             }
 
-            return ActualProperties.builder()
-                    .partitioned(properties)
-                    .coordinatorOnly(properties)
+            return ActualProperties.builderFrom(properties)
                     .local(localProperties.build())
-                    .constants(properties)
                     .build();
         }
 
@@ -209,11 +197,8 @@ class PropertyDerivations
                     .map(column -> new SortingProperty<>(column, node.getOrderings().get(column)))
                     .collect(toImmutableList());
 
-            return ActualProperties.builder()
-                    .partitioned(properties)
-                    .coordinatorOnly(properties)
+            return ActualProperties.builderFrom(properties)
                     .local(localProperties)
-                    .constants(properties)
                     .build();
         }
 
@@ -226,11 +211,8 @@ class PropertyDerivations
                     .map(column -> new SortingProperty<>(column, node.getOrderings().get(column)))
                     .collect(toImmutableList());
 
-            return ActualProperties.builder()
-                    .partitioned(properties)
-                    .coordinatorOnly(properties)
+            return ActualProperties.builderFrom(properties)
                     .local(localProperties)
-                    .constants(properties)
                     .build();
         }
 
@@ -245,22 +227,16 @@ class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            return ActualProperties.builder()
-                    .partitioned(properties)
-                    .coordinatorOnly(properties)
+            return ActualProperties.builderFrom(properties)
                     .local(LocalProperties.grouped(node.getDistinctSymbols()))
-                    .constants(properties)
                     .build();
         }
 
         @Override
         public ActualProperties visitTableCommit(TableCommitNode node, List<ActualProperties> inputProperties)
         {
-            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
-
             return ActualProperties.builder()
-                    .unpartitioned()
-                    .coordinatorOnly(properties)
+                    .global(coordinatorOnly())
                     .build();
         }
 
@@ -287,29 +263,51 @@ class PropertyDerivations
         @Override
         public ActualProperties visitIndexJoin(IndexJoinNode node, List<ActualProperties> inputProperties)
         {
+            // TODO: include all equivalent columns in partitioning properties
             return inputProperties.get(0);
+        }
+
+        public static Map<Symbol, Symbol> exchangeInputToOutput(ExchangeNode node, int sourceIndex)
+        {
+            List<Symbol> inputSymbols = node.getInputs().get(sourceIndex);
+            Map<Symbol, Symbol> inputToOutput = new HashMap<>();
+            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                inputToOutput.put(inputSymbols.get(i), node.getOutputSymbols().get(i));
+            }
+            return inputToOutput;
         }
 
         @Override
         public ActualProperties visitExchange(ExchangeNode node, List<ActualProperties> inputProperties)
         {
-            ActualProperties properties = inputProperties.get(0);
+            Set<Map.Entry<Symbol, Object>> entries = null;
+            for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
+                Map<Symbol, Symbol> inputToOutput = exchangeInputToOutput(node, sourceIndex);
+                ActualProperties translated = inputProperties.get(sourceIndex).translate(symbol -> Optional.of(inputToOutput.get(symbol)));
+
+                entries = (entries == null) ? translated.getConstants().entrySet() : Sets.intersection(entries, translated.getConstants().entrySet());
+            }
+            checkState(entries != null);
+
+            Map<Symbol, Object> constants = entries.stream()
+                    .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
             switch (node.getType()) {
                 case GATHER:
                     return ActualProperties.builder()
-                            .unpartitioned()
-                            .constants(properties)
+                            .global(undistributed())
+                            .constants(constants)
                             .build();
                 case REPARTITION:
                     return ActualProperties.builder()
-                            .hashPartitioned(node.getPartitionKeys())
-                            .constants(properties)
+                            .global(distributed(hashPartitioned(node.getPartitionKeys())))
+                            .constants(constants)
                             .build();
                 case REPLICATE:
+                    // TODO: this should have the same global properties as the stream taking the replicated data
                     return ActualProperties.builder()
-                            .partitioned(properties)
-                            .constants(properties)
+                            .global(distributed())
+                            .constants(constants)
                             .build();
             }
 
@@ -330,10 +328,7 @@ class PropertyDerivations
             Map<Symbol, Object> constants = new HashMap<>(properties.getConstants());
             constants.putAll(decomposedPredicate.getTupleDomain().extractFixedValues());
 
-            return ActualProperties.builder()
-                    .partitioned(properties)
-                    .coordinatorOnly(properties)
-                    .local(properties)
+            return ActualProperties.builderFrom(properties)
                     .constants(constants)
                     .build();
         }
@@ -345,8 +340,9 @@ class PropertyDerivations
 
             Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments());
 
-            List<LocalProperty<Symbol>> localProperties = LocalProperties.translate(properties.getLocalProperties(), column -> Optional.ofNullable(identities.get(column)));
+            ActualProperties translatedProperties = properties.translate(column -> Optional.ofNullable(identities.get(column)));
 
+            // Extract additional constants
             Map<Symbol, Object> constants = new HashMap<>();
             for (Map.Entry<Symbol, Expression> assignment : node.getAssignments().entrySet()) {
                 Expression expression = assignment.getValue();
@@ -370,49 +366,9 @@ class PropertyDerivations
                     constants.put(assignment.getKey(), value);
                 }
             }
-            properties.getConstants().entrySet().stream()
-                    .filter(entry -> identities.containsKey(entry.getKey()))
-                    .forEach(entry -> constants.put(identities.get(entry.getKey()), entry.getValue()));
+            constants.putAll(translatedProperties.getConstants());
 
-            if (!properties.isPartitioned()) {
-                return ActualProperties.builder()
-                        .coordinatorOnly(properties)
-                        .unpartitioned()
-                        .local(localProperties)
-                        .constants(constants)
-                        .build();
-            }
-
-            if (properties.isHashPartitioned()) {
-                Optional<List<Symbol>> translated = translate(properties.getHashPartitioningColumns().get(), identities);
-
-                if (translated.isPresent()) {
-                    return ActualProperties.builder()
-                            .coordinatorOnly(properties)
-                            .hashPartitioned(translated.get())
-                            .local(localProperties)
-                            .constants(constants)
-                            .build();
-                }
-            }
-
-            if (properties.hasKnownPartitioningScheme()) {
-                Optional<List<Symbol>> translated = translate(properties.getPartitioningColumns().get(), identities);
-
-                if (translated.isPresent()) {
-                    return ActualProperties.builder()
-                            .coordinatorOnly(properties)
-                            .partitioned(ImmutableSet.copyOf(translated.get()))
-                            .local(localProperties)
-                            .constants(constants)
-                            .build();
-                }
-            }
-
-            return ActualProperties.builder()
-                    .coordinatorOnly(properties)
-                    .partitioned()
-                    .local(localProperties)
+            return ActualProperties.builderFrom(translatedProperties)
                     .constants(constants)
                     .build();
         }
@@ -422,17 +378,12 @@ class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            ActualProperties.Builder derived = ActualProperties.builder()
-                    .coordinatorOnly(properties);
-
-            if (properties.isPartitioned()) {
-                derived.partitioned();
+            if (properties.isCoordinatorOnly()) {
+                return ActualProperties.builder()
+                        .global(coordinatorOnly())
+                        .build();
             }
-            else {
-                derived.unpartitioned();
-            }
-
-            return derived.build();
+            return properties.isDistributed() ? ActualProperties.distributed() : ActualProperties.undistributed();
         }
 
         @Override
@@ -481,10 +432,10 @@ class PropertyDerivations
             }
 
             if (partitioningColumns.isPresent()) {
-                properties.partitioned(ImmutableSet.copyOf(partitioningColumns.get()));
+                properties.global(distributed(partitioned(ImmutableSet.copyOf(partitioningColumns.get()))));
             }
             else {
-                properties.partitioned();
+                properties.global(distributed());
             }
 
             // Append the constants onto the local properties to maximize their translation potential
