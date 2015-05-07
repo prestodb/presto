@@ -67,9 +67,9 @@ public class QuerySystemTable
     }
 
     @Override
-    public boolean isDistributed()
+    public TableDistributionEnum getDistributionMode()
     {
-        return true;
+        return TableDistributionEnum.ALL_COORDINATORS;
     }
 
     @Override
