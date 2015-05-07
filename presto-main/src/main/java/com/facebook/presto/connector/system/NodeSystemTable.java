@@ -29,6 +29,7 @@ import com.facebook.presto.spi.TupleDomain;
 import javax.inject.Inject;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
@@ -55,9 +56,9 @@ public class NodeSystemTable
     }
 
     @Override
-    public boolean isDistributed()
+    public Distribution getDistribution()
     {
-        return false;
+        return SINGLE_COORDINATOR;
     }
 
     @Override

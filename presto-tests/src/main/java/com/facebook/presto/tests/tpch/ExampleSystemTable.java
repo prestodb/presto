@@ -23,6 +23,7 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TupleDomain;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class ExampleSystemTable
@@ -39,9 +40,9 @@ public class ExampleSystemTable
             .build();
 
     @Override
-    public boolean isDistributed()
+    public Distribution getDistribution()
     {
-        return false;
+        return SINGLE_COORDINATOR;
     }
 
     @Override
