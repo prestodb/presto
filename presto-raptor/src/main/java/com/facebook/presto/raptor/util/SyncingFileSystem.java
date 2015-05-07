@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.util;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RawLocalFileSystem;
@@ -27,6 +28,12 @@ import java.io.OutputStream;
 public final class SyncingFileSystem
         extends RawLocalFileSystem
 {
+    public SyncingFileSystem(Configuration configuration)
+            throws IOException
+    {
+        initialize(getUri(), configuration);
+    }
+
     @Override
     public FSDataOutputStream create(Path path, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress)
             throws IOException

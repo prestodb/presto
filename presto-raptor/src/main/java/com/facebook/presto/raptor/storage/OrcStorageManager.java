@@ -66,12 +66,15 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.Duration.nanosSince;
+import static java.lang.Math.min;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class OrcStorageManager
         implements StorageManager
 {
+    private static final long MAX_ROWS = 1_000_000_000;
+
     private final String nodeId;
     private final StorageService storageService;
     private final Optional<BackupStore> backupStore;
@@ -130,7 +133,7 @@ public class OrcStorageManager
         this.recoveryTimeout = checkNotNull(shardRecoveryTimeout, "shardRecoveryTimeout is null");
 
         checkArgument(maxShardRows > 0, "maxShardRows must be > 0");
-        this.maxShardRows = maxShardRows;
+        this.maxShardRows = min(maxShardRows, MAX_ROWS);
         this.maxShardSize = checkNotNull(maxShardSize, "maxShardSize is null");
         this.maxBufferSize = checkNotNull(maxBufferSize, "maxBufferSize is null");
         this.stats = new StorageManagerStats();

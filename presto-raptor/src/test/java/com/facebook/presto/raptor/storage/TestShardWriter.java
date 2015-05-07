@@ -16,8 +16,8 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.orc.BooleanVector;
 import com.facebook.presto.orc.DoubleVector;
-import com.facebook.presto.orc.FileOrcDataSource;
 import com.facebook.presto.orc.LongVector;
+import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
@@ -25,8 +25,6 @@ import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -36,6 +34,7 @@ import java.util.List;
 
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReader;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReaderNoRows;
+import static com.facebook.presto.raptor.storage.OrcTestingUtil.fileOrcDataSource;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.octets;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -85,7 +84,7 @@ public class TestShardWriter
             writer.appendPages(rowPagesBuilder.build());
         }
 
-        try (FileOrcDataSource dataSource = new FileOrcDataSource(file, new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE))) {
+        try (OrcDataSource dataSource = fileOrcDataSource(file)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
             assertEquals(reader.getTotalRowCount(), 3);
             assertEquals(reader.getPosition(), 0);
@@ -151,7 +150,7 @@ public class TestShardWriter
             // no rows
         }
 
-        try (FileOrcDataSource dataSource = new FileOrcDataSource(file, new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE))) {
+        try (OrcDataSource dataSource = fileOrcDataSource(file)) {
             OrcRecordReader reader = createReaderNoRows(dataSource);
             assertEquals(reader.getTotalRowCount(), 0);
             assertEquals(reader.getPosition(), 0);
