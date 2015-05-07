@@ -26,8 +26,10 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.SystemTable.TableDistributionEnum;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
@@ -76,17 +78,26 @@ public class SystemSplitManager
         SystemTable systemTable = tables.get(systemPartition.getTableHandle().getSchemaTableName());
         checkArgument(systemTable != null, "Table %s does not exist", systemPartition.getTableHandle().getTableName());
 
-        if (systemTable.isDistributed()) {
-            ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-            for (Node node : nodeManager.getActiveNodes()) {
-                splits.add(new SystemSplit(systemPartition.getTableHandle(), node.getHostAndPort()));
-            }
-            return new FixedSplitSource(SystemConnector.NAME, splits.build());
+        TableDistributionEnum tableDistributionMode = systemTable.getDistributionMode();
+        if (tableDistributionMode == TableDistributionEnum.SINGLE_COORDINATOR) {
+            HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
+            ConnectorSplit split = new SystemSplit(systemPartition.getTableHandle(), address);
+            return new FixedSplitSource(SystemConnector.NAME, ImmutableList.of(split));
         }
 
-        HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
-        ConnectorSplit split = new SystemSplit(systemPartition.getTableHandle(), address);
-        return new FixedSplitSource(SystemConnector.NAME, ImmutableList.of(split));
+        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
+        ImmutableSet.Builder<Node> nodes = ImmutableSet.builder();
+        if (tableDistributionMode == TableDistributionEnum.ALL_COORDINATORS) {
+            nodes.addAll(nodeManager.getCoordinators());
+        }
+        else if (tableDistributionMode == TableDistributionEnum.ALL_NODES) {
+            nodes.addAll(nodeManager.getActiveNodes());
+        }
+        Set<Node> nodeSet = nodes.build();
+        for (Node node : nodeSet) {
+            splits.add(new SystemSplit(systemPartition.getTableHandle(), node.getHostAndPort()));
+        }
+        return new FixedSplitSource(SystemConnector.NAME, splits.build());
     }
 
     public static class SystemPartition

@@ -22,10 +22,9 @@ import static java.util.stream.Collectors.toList;
 public interface SystemTable
         extends RecordSet
 {
-    /**
-     * True if table is distributed across all nodes.
-     */
-    boolean isDistributed();
+    public enum TableDistributionEnum { ALL_NODES, ALL_COORDINATORS, SINGLE_COORDINATOR }
+
+    TableDistributionEnum getDistributionMode();
 
     ConnectorTableMetadata getTableMetadata();
 
