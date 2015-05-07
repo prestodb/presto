@@ -37,15 +37,9 @@ public class ExampleSystemTable
             .build();
 
     @Override
-    public boolean isDistributed()
+    public TableDistributionEnum getDistributionMode()
     {
-        return false;
-    }
-
-    @Override
-    public boolean isCoordinatorOnly()
-    {
-        return true;
+        return TableDistributionEnum.SINGLE_COORDINATOR;
     }
 
     @Override

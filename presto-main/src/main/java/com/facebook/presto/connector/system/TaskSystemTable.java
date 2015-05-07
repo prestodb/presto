@@ -83,15 +83,9 @@ public class TaskSystemTable
     }
 
     @Override
-    public boolean isDistributed()
+    public TableDistributionEnum getDistributionMode()
     {
-        return true;
-    }
-
-    @Override
-    public boolean isCoordinatorOnly()
-    {
-        return false;
+        return TableDistributionEnum.ALL_NODES;
     }
 
     @Override
