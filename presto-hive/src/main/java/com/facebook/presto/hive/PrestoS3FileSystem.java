@@ -729,6 +729,7 @@ public class PrestoS3FileSystem
                                             // ignore request for start past end of object
                                             return new ByteArrayInputStream(new byte[0]);
                                         case SC_FORBIDDEN:
+                                        case SC_NOT_FOUND:
                                             throw new UnrecoverableS3OperationException(e);
                                     }
                                 }
