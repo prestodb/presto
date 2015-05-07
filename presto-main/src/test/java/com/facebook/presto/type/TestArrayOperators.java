@@ -488,10 +488,10 @@ public class TestArrayOperators
         assertFunction("ARRAY_REMOVE(ARRAY [3.14], 0.0)", new ArrayType(DOUBLE), ImmutableList.of(3.14));
         assertFunction("ARRAY_REMOVE(ARRAY [sqrt(-1), 3.14], 3.14)", new ArrayType(DOUBLE), ImmutableList.of(NaN));
         assertFunction("ARRAY_REMOVE(ARRAY [-1.23, sqrt(-1)], nan())", new ArrayType(DOUBLE), ImmutableList.of(-1.23, NaN));
-        assertFunction("ARRAY_REMOVE(ARRAY [-1.23, nan()], nan())", new ArrayType(DOUBLE), ImmutableList.of(-1.23));
+        assertFunction("ARRAY_REMOVE(ARRAY [-1.23, nan()], nan())", new ArrayType(DOUBLE), ImmutableList.of(-1.23, NaN));
         assertFunction("ARRAY_REMOVE(ARRAY [-1.23, infinity()], -1.23)", new ArrayType(DOUBLE), ImmutableList.of(POSITIVE_INFINITY));
         assertFunction("ARRAY_REMOVE(ARRAY [infinity(), 3.14], infinity())", new ArrayType(DOUBLE), ImmutableList.of(3.14));
-        assertFunction("ARRAY_REMOVE(ARRAY [-1.23, NULL, 3.14], 3.14)", new ArrayType(DOUBLE), ImmutableList.of(-1.23));
+        assertFunction("ARRAY_REMOVE(ARRAY [-1.23, NULL, 3.14], 3.14)", new ArrayType(DOUBLE), asList(-1.23, null));
         assertFunction("ARRAY_REMOVE(ARRAY [TRUE, FALSE, TRUE], TRUE)", new ArrayType(BOOLEAN), ImmutableList.of(false));
         assertFunction("ARRAY_REMOVE(ARRAY [TRUE, FALSE, TRUE], FALSE)", new ArrayType(BOOLEAN), ImmutableList.of(true, true));
         assertFunction("ARRAY_REMOVE(ARRAY [NULL, FALSE, TRUE], TRUE)", new ArrayType(BOOLEAN), asList(null, false));

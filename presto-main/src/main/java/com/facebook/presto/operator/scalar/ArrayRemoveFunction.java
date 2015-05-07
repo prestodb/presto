@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -25,6 +26,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -33,8 +35,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
+import static com.facebook.presto.type.TypeUtils.castValue;
 import static com.facebook.presto.type.TypeUtils.createBlock;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
@@ -80,43 +85,59 @@ public final class ArrayRemoveFunction
         Type type = types.get("E");
         TypeSignature valueType = type.getTypeSignature();
         TypeSignature arrayType = parameterizedTypeName(StandardTypes.ARRAY, valueType);
-        MethodHandle methodHandle = methodHandle(ArrayRemoveFunction.class, "remove", Type.class, Slice.class, type.getJavaType());
+
+        MethodHandle equalsFunction = functionRegistry.resolveOperator(EQUAL, ImmutableList.of(type, type)).getMethodHandle();
+        MethodHandle baseMethodHandle = methodHandle(ArrayRemoveFunction.class, "remove", MethodHandle.class, Type.class, Slice.class, type.getJavaType());
+        MethodHandle methodHandle = baseMethodHandle.bindTo(equalsFunction).bindTo(type);
         Signature signature = new Signature(FUNCTION_NAME, arrayType, arrayType, valueType);
-        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle.bindTo(type), isDeterministic(), true, ImmutableList.of(false, false));
+        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false, false));
     }
 
-    public static Slice remove(Type type, Slice array, Slice value)
+    public static Slice remove(MethodHandle equalsFunction, Type type, Slice array, Slice value)
     {
-        return remove(type, array, createBlock(type, value));
+        return remove(equalsFunction, type, array, createBlock(type, value));
     }
 
-    public static Slice remove(Type type, Slice array, long value)
+    public static Slice remove(MethodHandle equalsFunction, Type type, Slice array, long value)
     {
-        return remove(type, array, createBlock(type, value));
+        return remove(equalsFunction, type, array, createBlock(type, value));
     }
 
-    public static Slice remove(Type type, Slice array, double value)
+    public static Slice remove(MethodHandle equalsFunction, Type type, Slice array, double value)
     {
-        return remove(type, array, createBlock(type, value));
+        return remove(equalsFunction, type, array, createBlock(type, value));
     }
 
-    public static Slice remove(Type type, Slice array, boolean value)
+    public static Slice remove(MethodHandle equalsFunction, Type type, Slice array, boolean value)
     {
-        return remove(type, array, createBlock(type, value));
+        return remove(equalsFunction, type, array, createBlock(type, value));
     }
 
-    private static Slice remove(Type type, Slice array, Block valueBlock)
+    private static Slice remove(MethodHandle equalsFunction, Type type, Slice array, Block valueBlock)
     {
         Block elementsBlock = readStructuralBlock(array);
 
         int sizeAfterRemove = 0;
         List<Integer> positions = new ArrayList<>();
+
         for (int i = 0; i < elementsBlock.getPositionCount(); i++) {
-            if (!type.equalTo(elementsBlock, i, valueBlock, 0)) {
-                positions.add(i);
-                sizeAfterRemove += type.getSlice(elementsBlock, i).length();
+            Object element = castValue(type, elementsBlock, i);
+            Object value = castValue(type, valueBlock, 0);
+
+            try {
+                if (element == null || !(boolean) equalsFunction.invoke(element, value)) {
+                    positions.add(i);
+                    sizeAfterRemove += type.getSlice(elementsBlock, i).length();
+                }
+            }
+            catch (Throwable t) {
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+
+                throw new PrestoException(INTERNAL_ERROR, t);
             }
         }
+
         if (elementsBlock.getPositionCount() == positions.size()) {
             return array;
         }
