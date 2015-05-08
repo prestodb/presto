@@ -15,6 +15,9 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
+import com.facebook.presto.memory.MemoryPool;
+import com.facebook.presto.memory.MemoryPoolId;
+import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.TaskContext;
@@ -36,7 +39,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -56,6 +58,7 @@ import static com.facebook.presto.execution.StateMachine.StateChangeListener;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class MockRemoteTaskFactory
@@ -112,7 +115,7 @@ public class MockRemoteTaskFactory
         return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, initialSplits);
     }
 
-    private class MockRemoteTask
+    private static class MockRemoteTask
             implements RemoteTask
     {
         private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskInfo.STARTING_VERSION);
@@ -139,7 +142,8 @@ public class MockRemoteTaskFactory
         {
             this.taskStateMachine = new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotNull(executor, "executor is null"));
 
-            this.taskContext = new TaskContext(taskStateMachine, executor, TEST_SESSION, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true, true);
+            MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE), false);
+            this.taskContext = new QueryContext(false, new DataSize(1, MEGABYTE), memoryPool, executor).addTaskContext(taskStateMachine, TEST_SESSION, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true, true);
 
             this.location = URI.create("fake://task/" + taskId);
 
@@ -213,16 +217,9 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public void addStateChangeListener(final StateChangeListener<TaskInfo> stateChangeListener)
+        public void addStateChangeListener(StateChangeListener<TaskInfo> stateChangeListener)
         {
-            taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
-            {
-                @Override
-                public void stateChanged(TaskState newValue)
-                {
-                    stateChangeListener.stateChanged(getTaskInfo());
-                }
-            });
+            taskStateMachine.addStateChangeListener(newValue -> stateChangeListener.stateChanged(getTaskInfo()));
         }
 
         @Override
@@ -255,17 +252,5 @@ public class MockRemoteTaskFactory
             return splits.size();
         }
 
-        @Override
-        public Duration waitForTaskToFinish(Duration maxWait)
-                throws InterruptedException
-        {
-            while (true) {
-                TaskState currentState = taskStateMachine.getState();
-                if (maxWait.toMillis() <= 1 || currentState.isDone()) {
-                    return maxWait;
-                }
-                maxWait = taskStateMachine.waitForStateChange(currentState, maxWait);
-            }
-        }
     }
 }

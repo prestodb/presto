@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.spi.block;
 
-import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 
-import java.util.Arrays;
 import java.util.Objects;
 
 public class FixedWidthBlock
@@ -24,9 +22,9 @@ public class FixedWidthBlock
 {
     private final int positionCount;
     private final Slice slice;
-    private final boolean[] valueIsNull;
+    private final Slice valueIsNull;
 
-    public FixedWidthBlock(int fixedSize, int positionCount, Slice slice, boolean[] valueIsNull)
+    public FixedWidthBlock(int fixedSize, int positionCount, Slice slice, Slice valueIsNull)
     {
         super(fixedSize);
 
@@ -37,7 +35,7 @@ public class FixedWidthBlock
 
         this.slice = Objects.requireNonNull(slice, "slice is null");
 
-        if (valueIsNull.length < positionCount) {
+        if (valueIsNull.length() < positionCount) {
             throw new IllegalArgumentException("valueIsNull length is less than positionCount");
         }
         this.valueIsNull = valueIsNull;
@@ -52,7 +50,7 @@ public class FixedWidthBlock
     @Override
     protected boolean isEntryNull(int position)
     {
-        return valueIsNull[position];
+        return valueIsNull.getByte(position) != 0;
     }
 
     @Override
@@ -64,7 +62,7 @@ public class FixedWidthBlock
     @Override
     public int getSizeInBytes()
     {
-        long size = getRawSlice().length() + SizeOf.sizeOf(valueIsNull);
+        long size = getRawSlice().length() + valueIsNull.length();
         if (size > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;
         }
@@ -79,7 +77,7 @@ public class FixedWidthBlock
         }
 
         Slice newSlice = slice.slice(positionOffset * fixedSize, length * fixedSize);
-        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
+        Slice newValueIsNull = valueIsNull.slice(positionOffset, length);
         return new FixedWidthBlock(fixedSize, length, newSlice, newValueIsNull);
     }
 

@@ -15,18 +15,21 @@ package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.block.SortOrder;
 
+import java.util.Collections;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
-public class SortingProperty<T>
-    implements LocalProperty<T>
+public final class SortingProperty<E>
+        implements LocalProperty<E>
 {
-    private final T column;
+    private final E column;
     private final SortOrder order;
 
-    public SortingProperty(T column, SortOrder order)
+    public SortingProperty(E column, SortOrder order)
     {
         requireNonNull(column, "column is null");
         requireNonNull(order, "order is null");
@@ -35,9 +38,14 @@ public class SortingProperty<T>
         this.order = order;
     }
 
-    public T getColumn()
+    public E getColumn()
     {
         return column;
+    }
+
+    public Set<E> getColumns()
+    {
+        return Collections.singleton(column);
     }
 
     public SortOrder getOrder()
@@ -45,36 +53,71 @@ public class SortingProperty<T>
         return order;
     }
 
-    @Override
-    public String toString()
-    {
-        String ordering = "";
-        switch (order) {
-            case ASC_NULLS_FIRST:
-            case ASC_NULLS_LAST:
-                ordering = "\u2191";
-                break;
-            case DESC_NULLS_FIRST:
-            case DESC_NULLS_LAST:
-                ordering = "\u2193";
-                break;
-        }
-
-        return "S" + ordering + "(" + column + ")";
-    }
-
     /**
      * Returns Optional.empty() if the column could not be translated
      */
     @Override
-    public <E> Optional<LocalProperty<E>> translate(Function<T, Optional<E>> translator)
+    public <T> Optional<LocalProperty<T>> translate(Function<E, Optional<T>> translator)
     {
-        Optional<E> translated = translator.apply(column);
+        Optional<T> translated = translator.apply(column);
 
         if (translated.isPresent()) {
             return Optional.of(new SortingProperty<>(translated.get(), order));
         }
 
         return Optional.empty();
+    }
+
+    @Override
+    public boolean isSimplifiedBy(LocalProperty<E> known)
+    {
+        return known instanceof ConstantProperty || known.equals(this);
+    }
+
+    @Override
+    public String toString()
+    {
+        String ordering = "";
+        String nullOrdering = "";
+        switch (order) {
+            case ASC_NULLS_FIRST:
+                ordering = "\u2191";
+                nullOrdering = "\u2190";
+                break;
+            case ASC_NULLS_LAST:
+                ordering = "\u2191";
+                nullOrdering = "\u2190";
+                break;
+            case DESC_NULLS_FIRST:
+                ordering = "\u2193";
+                nullOrdering = "\u2192";
+                break;
+            case DESC_NULLS_LAST:
+                ordering = "\u2193";
+                nullOrdering = "\u2192";
+                break;
+        }
+
+        return "S" + ordering + nullOrdering + "(" + column + ")";
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        SortingProperty<?> that = (SortingProperty<?>) o;
+        return Objects.equals(column, that.column) &&
+                Objects.equals(order, that.order);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(column, order);
     }
 }

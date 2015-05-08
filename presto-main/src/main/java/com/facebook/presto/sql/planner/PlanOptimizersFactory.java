@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
@@ -28,7 +27,6 @@ import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
 import com.facebook.presto.sql.planner.optimizations.MergeProjections;
 import com.facebook.presto.sql.planner.optimizations.MetadataQueryOptimizer;
-import com.facebook.presto.sql.planner.optimizations.NormalizeJoinOrder;
 import com.facebook.presto.sql.planner.optimizations.PickLayout;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
@@ -36,6 +34,7 @@ import com.facebook.presto.sql.planner.optimizations.PruneRedundantProjections;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SimplifyExpressions;
+import com.facebook.presto.sql.planner.optimizations.SingleDistinctOptimizer;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.sql.planner.optimizations.WindowFilterPushDown;
 import com.google.common.collect.ImmutableList;
@@ -51,12 +50,12 @@ public class PlanOptimizersFactory
     private final List<PlanOptimizer> optimizers;
 
     @Inject
-    public PlanOptimizersFactory(Metadata metadata, SqlParser sqlParser, SplitManager splitManager, IndexManager indexManager, FeaturesConfig featuresConfig)
+    public PlanOptimizersFactory(Metadata metadata, SqlParser sqlParser, IndexManager indexManager, FeaturesConfig featuresConfig)
     {
-        this(metadata, sqlParser, splitManager, indexManager, featuresConfig, false);
+        this(metadata, sqlParser, indexManager, featuresConfig, false);
     }
 
-    public PlanOptimizersFactory(Metadata metadata, SqlParser sqlParser, SplitManager splitManager, IndexManager indexManager, FeaturesConfig featuresConfig, boolean forceSingleNode)
+    public PlanOptimizersFactory(Metadata metadata, SqlParser sqlParser, IndexManager indexManager, FeaturesConfig featuresConfig, boolean forceSingleNode)
     {
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
@@ -83,7 +82,11 @@ public class PlanOptimizersFactory
             builder.add(new MetadataQueryOptimizer(metadata));
         }
 
-        builder.add(new NormalizeJoinOrder());
+        if (featuresConfig.isOptimizeSingleDistinct()) {
+            builder.add(new SingleDistinctOptimizer());
+            builder.add(new PruneUnreferencedOutputs());
+        }
+
         builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
 
         if (!forceSingleNode) {

@@ -32,7 +32,7 @@ import java.util.concurrent.ExecutorService;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.configuration.ConfigurationModule.bindConfig;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
@@ -62,7 +62,7 @@ public class CassandraClientModule
 
         binder.bind(CassandraThriftConnectionFactory.class).in(Scopes.SINGLETON);
 
-        bindConfig(binder).to(CassandraClientConfig.class);
+        configBinder(binder).bindConfig(CassandraClientConfig.class);
 
         binder.bind(CassandraThriftConnectionFactory.class).in(Scopes.SINGLETON);
 

@@ -21,8 +21,8 @@ import com.facebook.presto.hive.orc.OrcHiveRecordCursor;
 import com.facebook.presto.hive.orc.OrcPageSource;
 import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSource;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -315,7 +315,6 @@ public abstract class AbstractTestHiveClient
                 timeZone,
                 newDirectExecutorService(),
                 maxOutstandingSplits,
-                maxThreads,
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxSplitSize(),
@@ -342,6 +341,32 @@ public abstract class AbstractTestHiveClient
     {
         List<SchemaTableName> tables = metadata.listTables(SESSION, database);
         assertTrue(tables.contains(tablePartitionFormat));
+        assertTrue(tables.contains(tableUnpartitioned));
+    }
+
+    @Test
+    public void testGetAllTableNames()
+            throws Exception
+    {
+        List<SchemaTableName> tables = metadata.listTables(SESSION, null);
+        assertTrue(tables.contains(tablePartitionFormat));
+        assertTrue(tables.contains(tableUnpartitioned));
+    }
+
+    @Test
+    public void testGetAllTableColumns()
+    {
+        Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.listTableColumns(SESSION, new SchemaTablePrefix());
+        assertTrue(allColumns.containsKey(tablePartitionFormat));
+        assertTrue(allColumns.containsKey(tableUnpartitioned));
+    }
+
+    @Test
+    public void testGetAllTableColumnsInSchema()
+    {
+        Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.listTableColumns(SESSION, new SchemaTablePrefix(database));
+        assertTrue(allColumns.containsKey(tablePartitionFormat));
+        assertTrue(allColumns.containsKey(tableUnpartitioned));
     }
 
     @Test
@@ -809,7 +834,7 @@ public abstract class AbstractTestHiveClient
                 for (MaterializedRow row : result) {
                     rowNumber++;
 
-                    assertEquals(row.getField(columnIndex.get("t_double")),  6.2 + rowNumber);
+                    assertEquals(row.getField(columnIndex.get("t_double")), 6.2 + rowNumber);
                     assertEquals(row.getField(columnIndex.get("ds")), ds);
                     assertEquals(row.getField(columnIndex.get("file_format")), fileFormat);
                     assertEquals(row.getField(columnIndex.get("dummy")), dummyPartition);
@@ -872,7 +897,7 @@ public abstract class AbstractTestHiveClient
         pageSourceProvider.createPageSource(split, ImmutableList.of(invalidColumnHandle));
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Table '.*\\.presto_test_partition_schema_change' partition 'ds=2012-12-29' column 't_data' type 'string' does not match table column type 'bigint'")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = ".*The column 't_data' in table '.*\\.presto_test_partition_schema_change' is declared as type 'bigint', but partition 'ds=2012-12-29' declared column 't_data' as type 'string'.")
     public void testPartitionSchemaMismatch()
             throws Exception
     {

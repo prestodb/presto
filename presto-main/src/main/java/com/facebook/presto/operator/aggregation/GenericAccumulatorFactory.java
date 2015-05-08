@@ -100,7 +100,7 @@ public class GenericAccumulatorFactory
     public GroupedAccumulator createGroupedIntermediateAccumulator()
     {
         try {
-            return groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), Optional.empty(), Optional.empty(), confidence);
+            return groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), maskChannel, Optional.empty(), confidence);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw Throwables.propagate(e);

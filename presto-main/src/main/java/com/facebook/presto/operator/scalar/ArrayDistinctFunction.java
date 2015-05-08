@@ -86,16 +86,16 @@ public final class ArrayDistinctFunction
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false));
     }
 
-    public static Slice distinct(Type type, Slice jsonArray)
+    public static Slice distinct(Type type, Slice array)
     {
-        Block elementsBlock = readStructuralBlock(jsonArray);
+        Block elementsBlock = readStructuralBlock(array);
 
         if (elementsBlock.getPositionCount() == 0) {
-            return jsonArray;
+            return array;
         }
 
-        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), new int[] {0}, Optional.empty(), elementsBlock.getPositionCount());
-        groupByHash.addPage(new Page(elementsBlock));
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), new int[] {0}, Optional.<Integer>empty(), Optional.empty(), elementsBlock.getPositionCount());
+        groupByHash.getGroupIds(new Page(elementsBlock));
 
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
         for (int i = 0; i < groupByHash.getGroupCount(); i++) {

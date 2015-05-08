@@ -14,11 +14,10 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.SequencePageBuilder;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TestingSplit;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.index.PageRecordSet;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
@@ -37,6 +36,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -141,7 +141,7 @@ public class TestScanFilterAndProjectOperator
 
     private DriverContext newDriverContext()
     {
-        return new TaskContext(new TaskId("query", "stage", "task"), executor, TEST_SESSION)
+        return createTaskContext(executor, TEST_SESSION)
                 .addPipelineContext(true, true)
                 .addDriverContext();
     }

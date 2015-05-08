@@ -58,6 +58,9 @@
         .bg-danger-warning {
             background-color: #F7EBE1;
         }
+        .bg-info-light {
+            background-color: #EBF3F7;
+        }
     </style>
 </head>
 
@@ -108,9 +111,13 @@ var Query = React.createClass({
                         return "bg-success-warning";
                     case "EXTERNAL":
                         return "bg-danger-warning";
+                    case "INSUFFICIENT_RESOURCES":
+                        return "bg-success-warning";
                     default:
                         return "bg-danger";
                 }
+            case "QUEUED":
+                return "bg-info-light";
             default:
                 return "bg-info";
         }

@@ -33,8 +33,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
+import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;
-import org.joni.Regex;
 
 import javax.annotation.Nullable;
 
@@ -47,7 +47,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -72,7 +71,6 @@ public class FunctionListBuilder
             Slice.class,
             boolean.class,
             Boolean.class,
-            Pattern.class,
             Regex.class,
             JsonPath.class);
 
@@ -82,7 +80,6 @@ public class FunctionListBuilder
             Slice.class,
             boolean.class,
             int.class,
-            Pattern.class,
             Regex.class,
             JsonPath.class);
 

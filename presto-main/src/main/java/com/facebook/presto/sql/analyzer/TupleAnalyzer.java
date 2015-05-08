@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
@@ -22,6 +21,7 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.BigintType;
@@ -56,6 +56,7 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SingleColumn;
@@ -83,13 +84,13 @@ import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.EnumSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -413,10 +414,6 @@ public class TupleAnalyzer
     @Override
     protected TupleDescriptor visitJoin(Join node, AnalysisContext context)
     {
-        if (EnumSet.of(Join.Type.FULL).contains(node.getType())) {
-            throw new SemanticException(NOT_SUPPORTED, node, "Full outer joins are not supported");
-        }
-
         JoinCriteria criteria = node.getCriteria().orElse(null);
         if (criteria instanceof NaturalJoin) {
             throw new SemanticException(NOT_SUPPORTED, node, "Natural join not supported");
@@ -539,32 +536,60 @@ public class TupleAnalyzer
     {
         checkState(node.getRows().size() >= 1);
 
-        Set<Type> types = node.getRows().stream()
-                .map((row) -> analyzeExpression(row, new TupleDescriptor(), context).getType(row))
+        // get unique row types
+        Set<List<Type>> rowTypes = node.getRows().stream()
+                .map(row -> analyzeExpression(row, new TupleDescriptor(), context).getType(row))
+                .map(type -> {
+                    if (type instanceof RowType) {
+                        return type.getTypeParameters();
+                    }
+                    return ImmutableList.of(type);
+                })
                 .collect(ImmutableCollectors.toImmutableSet());
 
-        if (types.size() > 1) {
-            throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
-                    node,
-                    "Values rows have mismatched types: %s vs %s",
-                    Iterables.get(types, 0),
-                    Iterables.get(types, 1));
+        // determine common super type of the rows
+        List<Type> fieldTypes = new ArrayList<>(rowTypes.iterator().next());
+        for (List<Type> rowType : rowTypes) {
+            for (int i = 0; i < rowType.size(); i++) {
+                Type fieldType = rowType.get(i);
+                Type superType = fieldTypes.get(i);
+
+                Optional<Type> commonSuperType = getCommonSuperType(fieldType, superType);
+                if (!commonSuperType.isPresent()) {
+                    throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
+                            node,
+                            "Values rows have mismatched types: %s vs %s",
+                            Iterables.get(rowTypes, 0),
+                            Iterables.get(rowTypes, 1));
+                }
+                fieldTypes.set(i, commonSuperType.get());
+            }
         }
 
-        Type type = Iterables.getOnlyElement(types);
-
-        List<Field> fields;
-        if (type instanceof RowType) {
-            fields = ((RowType) type).getFields().stream()
-                    .map(RowType.RowField::getType)
-                    .map((valueType) -> Field.newUnqualified(Optional.empty(), valueType))
-                    .collect(toImmutableList());
+        // add coercions for the rows
+        for (Expression row : node.getRows()) {
+            if (row instanceof Row) {
+                List<Expression> items = ((Row) row).getItems();
+                for (int i = 0; i < items.size(); i++) {
+                    Type expectedType = fieldTypes.get(i);
+                    Expression item = items.get(i);
+                    if (!analysis.getType(item).equals(expectedType)) {
+                        analysis.addCoercion(item, expectedType);
+                    }
+                }
+            }
+            else {
+                Type expectedType = fieldTypes.get(0);
+                if (!analysis.getType(row).equals(expectedType)) {
+                    analysis.addCoercion(row, expectedType);
+                }
+            }
         }
-        else {
-            fields = ImmutableList.of(Field.newUnqualified(Optional.empty(), type));
-        }
 
-        TupleDescriptor descriptor = new TupleDescriptor(fields);
+        TupleDescriptor descriptor = new TupleDescriptor(fieldTypes.stream()
+                .map(valueType -> Field.newUnqualified(Optional.empty(), valueType))
+                .collect(toImmutableList()));
+
         analysis.setOutputDescriptor(node, descriptor);
         return descriptor;
     }

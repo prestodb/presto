@@ -43,6 +43,7 @@ public class HashAggregationOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final Optional<Integer> maskChannel;
         private final List<Type> groupByTypes;
         private final List<Integer> groupByChannels;
         private final Step step;
@@ -60,11 +61,13 @@ public class HashAggregationOperator
                 List<Integer> groupByChannels,
                 Step step,
                 List<AccumulatorFactory> accumulatorFactories,
+                Optional<Integer> maskChannel,
                 Optional<Integer> hashChannel,
                 int expectedGroups,
                 DataSize maxPartialMemory)
         {
             this.operatorId = operatorId;
+            this.maskChannel = checkNotNull(maskChannel, "maskChannel is null");
             this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
             this.groupByTypes = ImmutableList.copyOf(groupByTypes);
             this.groupByChannels = ImmutableList.copyOf(groupByChannels);
@@ -94,14 +97,16 @@ public class HashAggregationOperator
             else {
                 operatorContext = driverContext.addOperatorContext(operatorId, HashAggregationOperator.class.getSimpleName());
             }
-            return new HashAggregationOperator(
+            HashAggregationOperator hashAggregationOperator = new HashAggregationOperator(
                     operatorContext,
                     groupByTypes,
                     groupByChannels,
                     step,
                     accumulatorFactories,
+                    maskChannel,
                     hashChannel,
                     expectedGroups);
+            return hashAggregationOperator;
         }
 
         @Override
@@ -116,6 +121,7 @@ public class HashAggregationOperator
     private final List<Integer> groupByChannels;
     private final Step step;
     private final List<AccumulatorFactory> accumulatorFactories;
+    private final Optional<Integer> maskChannel;
     private final Optional<Integer> hashChannel;
     private final int expectedGroups;
 
@@ -131,6 +137,7 @@ public class HashAggregationOperator
             List<Integer> groupByChannels,
             Step step,
             List<AccumulatorFactory> accumulatorFactories,
+            Optional<Integer> maskChannel,
             Optional<Integer> hashChannel,
             int expectedGroups)
     {
@@ -142,6 +149,7 @@ public class HashAggregationOperator
         this.groupByTypes = ImmutableList.copyOf(groupByTypes);
         this.groupByChannels = ImmutableList.copyOf(groupByChannels);
         this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
+        this.maskChannel = checkNotNull(maskChannel, "maskChannel is null");
         this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
         this.step = step;
         this.expectedGroups = expectedGroups;
@@ -190,6 +198,7 @@ public class HashAggregationOperator
                     expectedGroups,
                     groupByTypes,
                     groupByChannels,
+                    maskChannel,
                     hashChannel,
                     operatorContext);
 
@@ -257,10 +266,11 @@ public class HashAggregationOperator
                 int expectedGroups,
                 List<Type> groupByTypes,
                 List<Integer> groupByChannels,
+                Optional<Integer> maskChannel,
                 Optional<Integer> hashChannel,
                 OperatorContext operatorContext)
         {
-            this.groupByHash = createGroupByHash(groupByTypes, Ints.toArray(groupByChannels), hashChannel, expectedGroups);
+            this.groupByHash = createGroupByHash(groupByTypes, Ints.toArray(groupByChannels), maskChannel, hashChannel, expectedGroups);
             this.operatorContext = operatorContext;
             this.partial = (step == Step.PARTIAL);
 

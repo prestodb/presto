@@ -30,6 +30,7 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +42,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -323,6 +323,27 @@ public class Driver
                 processNewSources();
             }
 
+            // special handling for drivers with a single operator
+            if (operators.size() == 1) {
+                if (driverContext.isDone()) {
+                    return NOT_BLOCKED;
+                }
+
+                // check if operator is blocked
+                Operator current = operators.get(0);
+                ListenableFuture<?> blocked = isBlocked(current);
+                if (!blocked.isDone()) {
+                    current.getOperatorContext().recordBlocked(blocked);
+                    return blocked;
+                }
+
+                // there is only one operator so just finish it
+                current.getOperatorContext().startIntervalTimer();
+                current.finish();
+                current.getOperatorContext().recordFinish();
+                return NOT_BLOCKED;
+            }
+
             boolean movedPage = false;
             for (int i = 0; i < operators.size() - 1 && !driverContext.isDone(); i++) {
                 Operator current = operators.get(i);
@@ -363,14 +384,26 @@ public class Driver
 
             // if we did not move any pages, check if we are blocked
             if (!movedPage) {
-                List<ListenableFuture<?>> blockedFutures = operators.stream()
-                        .map(Driver::isBlocked)
-                        .filter(blocked -> !blocked.isDone())
-                        .collect(Collectors.toList());
+                List<Operator> blockedOperators = new ArrayList<>();
+                List<ListenableFuture<?>> blockedFutures = new ArrayList<>();
+                for (Operator operator : operators) {
+                    ListenableFuture<?> blocked = isBlocked(operator);
+                    if (!blocked.isDone()) {
+                        blockedOperators.add(operator);
+                        blockedFutures.add(blocked);
+                    }
+                }
 
                 if (!blockedFutures.isEmpty()) {
                     // unblock when the first future is complete
                     ListenableFuture<?> blocked = firstFinishedFuture(blockedFutures);
+                    // driver records serial blocked time
+                    driverContext.recordBlocked(blocked);
+                    // each blocked operator is responsible for blocking the execution
+                    // until one of the operators can continue
+                    for (Operator operator : blockedOperators) {
+                        operator.getOperatorContext().recordBlocked(blocked);
+                    }
                     return blocked;
                 }
             }

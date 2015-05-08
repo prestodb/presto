@@ -36,6 +36,7 @@ import java.util.Optional;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -133,6 +134,38 @@ public class PagesIndex
         for (int position = 0; position < page.getPositionCount(); position++) {
             long sliceAddress = encodeSyntheticAddress(pageIndex, position);
             valueAddresses.add(sliceAddress);
+        }
+
+        estimatedSize = calculateEstimatedSize();
+    }
+
+    /**
+     * Add positions in page with the specified partitionId.
+     * NOTE: this method does not track memory used in the page, since
+     * only part of the page will be used.
+     */
+    public void addPage(Page page, int partitionId, Block partitionIds)
+    {
+        // ignore empty pages
+        if (page.getPositionCount() == 0) {
+            return;
+        }
+
+        positionCount += page.getPositionCount();
+
+        int pageIndex = (channels.length > 0) ? channels[0].size() : 0;
+        for (int i = 0; i < channels.length; i++) {
+            Block block = page.getBlock(i);
+            channels[i].add(block);
+        }
+
+        for (int position = 0; position < page.getPositionCount(); position++) {
+            if (partitionId == BIGINT.getLong(partitionIds, position)) {
+                long sliceAddress = encodeSyntheticAddress(pageIndex, position);
+                valueAddresses.add(sliceAddress);
+
+                positionCount++;
+            }
         }
 
         estimatedSize = calculateEstimatedSize();

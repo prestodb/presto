@@ -23,6 +23,7 @@ public class FeaturesConfig
     private boolean distributedJoinsEnabled;
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration;
+    private boolean optimizeSingleDistinct = true;
 
     @LegacyConfig("analyzer.experimental-syntax-enabled")
     @Config("experimental-syntax-enabled")
@@ -82,6 +83,18 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeHashGeneration(boolean optimizeHashGeneration)
     {
         this.optimizeHashGeneration = optimizeHashGeneration;
+        return this;
+    }
+
+    public boolean isOptimizeSingleDistinct()
+    {
+        return optimizeSingleDistinct;
+    }
+
+    @Config("optimizer.optimize-single-distinct")
+    public FeaturesConfig setOptimizeSingleDistinct(boolean optimizeSingleDistinct)
+    {
+        this.optimizeSingleDistinct = optimizeSingleDistinct;
         return this;
     }
 }

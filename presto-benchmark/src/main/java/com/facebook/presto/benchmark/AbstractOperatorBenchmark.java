@@ -16,6 +16,9 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
+import com.facebook.presto.memory.MemoryPool;
+import com.facebook.presto.memory.MemoryPoolId;
+import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
@@ -34,6 +37,7 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -99,14 +103,14 @@ public abstract class AbstractOperatorBenchmark
                 .setSystemProperties(ImmutableMap.of("optimizer.optimize-hash-generation", "true"))
                 .build();
         ExecutorService executor = localQueryRunner.getExecutor();
-        TaskContext taskContext = new TaskContext(
-                new TaskStateMachine(new TaskId("query", "stage", "task"), executor),
-                executor,
-                session,
-                new DataSize(256, MEGABYTE),
-                new DataSize(1, MEGABYTE),
-                false,
-                false);
+        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE), false);
+        TaskContext taskContext = new QueryContext(false, new DataSize(256, MEGABYTE), memoryPool, executor)
+                .addTaskContext(new TaskStateMachine(new TaskId("query", "stage", "task"), executor),
+                        session,
+                        new DataSize(256, MEGABYTE),
+                        new DataSize(1, MEGABYTE),
+                        false,
+                        false);
 
         CpuTimer cpuTimer = new CpuTimer();
         execute(taskContext);

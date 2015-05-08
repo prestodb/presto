@@ -18,6 +18,7 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
@@ -59,6 +60,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.google.common.collect.Maps.immutableEnumMap;
 import static java.lang.String.format;
 
@@ -284,6 +286,21 @@ public final class GraphvizPrinter
         public Void visitRemoteSource(RemoteSourceNode node, Void context)
         {
             printNode(node, "Exchange 1:N", NODE_COLORS.get(NodeType.EXCHANGE));
+            return null;
+        }
+
+        @Override
+        public Void visitExchange(ExchangeNode node, Void context)
+        {
+            List<Symbol> symbols = node.getOutputSymbols();
+            if (node.getType() == REPARTITION) {
+                symbols = node.getPartitionKeys();
+            }
+            String columns = Joiner.on(", ").join(symbols);
+            printNode(node, format("ExchangeNode[%s]", node.getType()), columns, NODE_COLORS.get(NodeType.EXCHANGE));
+            for (PlanNode planNode : node.getSources()) {
+                planNode.accept(this, context);
+            }
             return null;
         }
 

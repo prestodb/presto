@@ -39,6 +39,7 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SortItem;
@@ -408,6 +409,13 @@ public class AggregationAnalyzer
             }
 
             return true;
+        }
+
+        @Override
+        public Boolean visitRow(Row node, final Void context)
+        {
+            return node.getItems().stream()
+                    .allMatch(item -> process(item, context));
         }
 
         @Override

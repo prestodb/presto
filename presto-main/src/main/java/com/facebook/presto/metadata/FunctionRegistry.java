@@ -70,11 +70,13 @@ import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.DateOperators;
@@ -140,12 +142,16 @@ import static com.facebook.presto.operator.scalar.ArrayGreaterThanOperator.ARRAY
 import static com.facebook.presto.operator.scalar.ArrayGreaterThanOrEqualOperator.ARRAY_GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.operator.scalar.ArrayHashCodeOperator.ARRAY_HASH_CODE;
 import static com.facebook.presto.operator.scalar.ArrayIntersectFunction.ARRAY_INTERSECT_FUNCTION;
+import static com.facebook.presto.operator.scalar.ArrayJoin.ARRAY_JOIN;
+import static com.facebook.presto.operator.scalar.ArrayJoin.ARRAY_JOIN_WITH_NULL_REPLACEMENT;
 import static com.facebook.presto.operator.scalar.ArrayLessThanOperator.ARRAY_LESS_THAN;
 import static com.facebook.presto.operator.scalar.ArrayLessThanOrEqualOperator.ARRAY_LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.operator.scalar.ArrayNotEqualOperator.ARRAY_NOT_EQUAL;
 import static com.facebook.presto.operator.scalar.ArrayPositionFunction.ARRAY_POSITION;
 import static com.facebook.presto.operator.scalar.ArraySortFunction.ARRAY_SORT_FUNCTION;
+import static com.facebook.presto.operator.scalar.ArrayRemoveFunction.ARRAY_REMOVE_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
+import static com.facebook.presto.operator.scalar.ArrayToArrayCast.ARRAY_TO_ARRAY_CAST;
 import static com.facebook.presto.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
 import static com.facebook.presto.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
@@ -203,12 +209,14 @@ public class FunctionRegistry
     private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
 
     private final TypeManager typeManager;
+    private final BlockEncodingSerde blockEncodingSerde;
     private final LoadingCache<SpecializedFunctionKey, FunctionInfo> specializedFunctionCache;
     private volatile FunctionMap functions = new FunctionMap();
 
-    public FunctionRegistry(TypeManager typeManager, boolean experimentalSyntaxEnabled)
+    public FunctionRegistry(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, boolean experimentalSyntaxEnabled)
     {
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
+        this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingSerde is null");
 
         specializedFunctionCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
@@ -306,13 +314,13 @@ public class FunctionRegistry
                 .scalar(ArrayFunctions.class)
                 .scalar(CombineHashFunction.class)
                 .scalar(JsonOperators.class)
-                .functions(ARRAY_CONTAINS)
-                .functions(ARRAY_HASH_CODE, ARRAY_EQUAL, ARRAY_NOT_EQUAL, ARRAY_LESS_THAN, ARRAY_LESS_THAN_OR_EQUAL, ARRAY_GREATER_THAN, ARRAY_GREATER_THAN_OR_EQUAL)
+                .function(IDENTITY_CAST)
+                .functions(ARRAY_CONTAINS, ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
+                .functions(ARRAY_TO_ARRAY_CAST, ARRAY_HASH_CODE, ARRAY_EQUAL, ARRAY_NOT_EQUAL, ARRAY_LESS_THAN, ARRAY_LESS_THAN_OR_EQUAL, ARRAY_GREATER_THAN, ARRAY_GREATER_THAN_OR_EQUAL)
                 .functions(ARRAY_CONCAT_FUNCTION, ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
                 .functions(MAP_EQUAL, MAP_NOT_EQUAL, MAP_HASH_CODE)
-                .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_CARDINALITY, ARRAY_POSITION, ARRAY_SORT_FUNCTION, ARRAY_INTERSECT_FUNCTION, ARRAY_TO_JSON, JSON_TO_ARRAY, ARRAY_DISTINCT_FUNCTION)
+                .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_CARDINALITY, ARRAY_POSITION, ARRAY_SORT_FUNCTION, ARRAY_INTERSECT_FUNCTION, ARRAY_TO_JSON, JSON_TO_ARRAY, ARRAY_DISTINCT_FUNCTION, ARRAY_REMOVE_FUNCTION)
                 .functions(MAP_CONSTRUCTOR, MAP_CARDINALITY, MAP_SUBSCRIPT, MAP_TO_JSON, JSON_TO_MAP, MAP_KEYS, MAP_VALUES, MAP_AGG)
-                .function(IDENTITY_CAST)
                 .function(ARBITRARY_AGGREGATION)
                 .function(ARRAY_AGGREGATION)
                 .function(LEAST)
@@ -519,11 +527,9 @@ public class FunctionRegistry
 
     public FunctionInfo getCoercion(Type fromType, Type toType)
     {
-        List<? extends Type> argumentTypes = ImmutableList.of(fromType);
-        FunctionInfo functionInfo = getExactFunction(Signature.internalOperator(OperatorType.CAST.name(), toType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)));
-
+        FunctionInfo functionInfo = getExactFunction(Signature.internalOperator(OperatorType.CAST.name(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
         if (functionInfo == null) {
-            throw new OperatorNotFoundException(OperatorType.CAST, argumentTypes, toType);
+            throw new OperatorNotFoundException(OperatorType.CAST, ImmutableList.of(fromType), toType);
         }
         return functionInfo;
     }
@@ -586,6 +592,12 @@ public class FunctionRegistry
             return true;
         }
 
+        if (actualType instanceof ArrayType && expectedType instanceof ArrayType) {
+            Type actualElementType = ((ArrayType) actualType).getElementType();
+            Type expectedElementType = ((ArrayType) expectedType).getElementType();
+            return canCoerce(actualElementType, expectedElementType);
+        }
+
         return false;
     }
 
@@ -628,6 +640,15 @@ public class FunctionRegistry
         if ((firstType.equals(TIMESTAMP) || firstType.equals(TIMESTAMP_WITH_TIME_ZONE)) && (secondType.equals(TIMESTAMP) || secondType.equals(TIMESTAMP_WITH_TIME_ZONE))) {
             return Optional.<Type>of(TIMESTAMP_WITH_TIME_ZONE);
         }
+
+        if (firstType instanceof ArrayType && secondType instanceof ArrayType) {
+            Optional<Type> elementType = getCommonSuperType(((ArrayType) firstType).getElementType(), ((ArrayType) secondType).getElementType());
+            if (elementType.isPresent()) {
+                return Optional.of(new ArrayType(elementType.get()));
+            }
+        }
+
+        // TODO add row and map type
 
         return Optional.empty();
     }

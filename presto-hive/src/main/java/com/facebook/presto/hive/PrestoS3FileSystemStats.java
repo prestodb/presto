@@ -13,14 +13,16 @@
  */
 package com.facebook.presto.hive;
 
+import com.amazonaws.AbortedException;
 import io.airlift.stats.CounterStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
+
 public class PrestoS3FileSystemStats
 {
-    public PrestoS3FileSystemStats() {}
-
     private final CounterStat activeConnections = new CounterStat();
     private final CounterStat startedUploads = new CounterStat();
     private final CounterStat failedUploads = new CounterStat();
@@ -29,6 +31,17 @@ public class PrestoS3FileSystemStats
     private final CounterStat listStatusCalls = new CounterStat();
     private final CounterStat listLocatedStatusCalls = new CounterStat();
     private final CounterStat listObjectsCalls = new CounterStat();
+    private final CounterStat otherReadErrors = new CounterStat();
+    private final CounterStat awsAbortedExceptions = new CounterStat();
+    private final CounterStat socketExceptions = new CounterStat();
+    private final CounterStat socketTimeoutExceptions = new CounterStat();
+    private final CounterStat getObjectErrors = new CounterStat();
+    private final CounterStat getMetadataErrors = new CounterStat();
+
+    // see AWSRequestMetrics
+    private final CounterStat awsRequestCount = new CounterStat();
+    private final CounterStat awsRetryCount = new CounterStat();
+    private final CounterStat awsThrottleExceptions = new CounterStat();
 
     @Managed
     @Nested
@@ -86,6 +99,69 @@ public class PrestoS3FileSystemStats
         return listObjectsCalls;
     }
 
+    @Managed
+    @Nested
+    public CounterStat getGetObjectErrors()
+    {
+        return getObjectErrors;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getGetMetadataErrors()
+    {
+        return getMetadataErrors;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getOtherReadErrors()
+    {
+        return otherReadErrors;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getSocketExceptions()
+    {
+        return socketExceptions;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getSocketTimeoutExceptions()
+    {
+        return socketTimeoutExceptions;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getAwsAbortedExceptions()
+    {
+        return awsAbortedExceptions;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getAwsRequestCount()
+    {
+        return awsRequestCount;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getAwsRetryCount()
+    {
+        return awsRetryCount;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getAwsThrottleExceptions()
+    {
+        return awsThrottleExceptions;
+    }
+
     public void connectionOpened()
     {
         activeConnections.update(1);
@@ -129,5 +205,46 @@ public class PrestoS3FileSystemStats
     public void newListObjectsCall()
     {
         listObjectsCalls.update(1);
+    }
+
+    public void newReadError(Exception e)
+    {
+        if (e instanceof SocketException) {
+            socketExceptions.update(1);
+        }
+        else if (e instanceof SocketTimeoutException) {
+            socketTimeoutExceptions.update(1);
+        }
+        else if (e instanceof AbortedException) {
+            awsAbortedExceptions.update(1);
+        }
+        else {
+            otherReadErrors.update(1);
+        }
+    }
+
+    public void newGetObjectError()
+    {
+        getObjectErrors.update(1);
+    }
+
+    public void newGetMetadataError()
+    {
+        getMetadataErrors.update(1);
+    }
+
+    public void updateAwsRequestCount(long requestCount)
+    {
+        awsRequestCount.update(requestCount);
+    }
+
+    public void updateAwsRetryCount(long retryCount)
+    {
+        awsRetryCount.update(retryCount);
+    }
+
+    public void updateAwsThrottleExceptionsCount(long throttleExceptionsCount)
+    {
+        awsThrottleExceptions.update(throttleExceptionsCount);
     }
 }

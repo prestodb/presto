@@ -14,14 +14,16 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.AnalysisContext;
+import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -42,12 +44,16 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -179,7 +185,12 @@ class RelationPlanner
         if (node.getType() == SampledRelation.Type.POISSONIZED) {
             sampleWeightSymbol = symbolAllocator.newSymbol("$sampleWeight", BIGINT);
         }
-        PlanNode planNode = new SampleNode(idAllocator.getNextId(), subPlan.getRoot(), ratio, SampleNode.Type.fromType(node.getType()), node.isRescaled(), Optional.ofNullable(sampleWeightSymbol));
+        PlanNode planNode = new SampleNode(idAllocator.getNextId(),
+                subPlan.getRoot(),
+                ratio,
+                SampleNode.Type.fromType(node.getType()),
+                node.isRescaled(),
+                Optional.ofNullable(sampleWeightSymbol));
         return new RelationPlan(planNode, outputDescriptor, subPlan.getOutputSymbols(), Optional.ofNullable(sampleWeightSymbol));
     }
 
@@ -190,7 +201,7 @@ class RelationPlanner
         RelationPlan leftPlan = process(node.getLeft(), context);
 
         // Convert CROSS JOIN UNNEST to an UnnestNode
-        if (node.getRight() instanceof Unnest || (node.getRight() instanceof  AliasedRelation  && ((AliasedRelation) node.getRight()).getRelation() instanceof Unnest)) {
+        if (node.getRight() instanceof Unnest || (node.getRight() instanceof AliasedRelation && ((AliasedRelation) node.getRight()).getRelation() instanceof Unnest)) {
             Unnest unnest;
             if (node.getRight() instanceof AliasedRelation) {
                 unnest = (Unnest) ((AliasedRelation) node.getRight()).getRelation();
@@ -308,7 +319,9 @@ class RelationPlanner
         }
         Optional<Symbol> sampleWeight = Optional.empty();
         if (leftPlanBuilder.getSampleWeight().isPresent() || rightPlanBuilder.getSampleWeight().isPresent()) {
-            Expression expression = new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.MULTIPLY, oneIfNull(leftPlanBuilder.getSampleWeight()), oneIfNull(rightPlanBuilder.getSampleWeight()));
+            Expression expression = new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.MULTIPLY,
+                    oneIfNull(leftPlanBuilder.getSampleWeight()),
+                    oneIfNull(rightPlanBuilder.getSampleWeight()));
             sampleWeight = Optional.of(symbolAllocator.newSymbol(expression, BIGINT));
             ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
             projections.put(sampleWeight.get(), expression);
@@ -438,14 +451,17 @@ class RelationPlanner
         ImmutableList.Builder<List<Expression>> rows = ImmutableList.builder();
         for (Expression row : node.getRows()) {
             ImmutableList.Builder<Expression> values = ImmutableList.builder();
-
             if (row instanceof Row) {
-                for (Expression expression : ((Row) row).getItems()) {
-                    values.add(evaluateConstantExpression(expression));
+                List<Expression> items = ((Row) row).getItems();
+                for (int i = 0; i < items.size(); i++) {
+                    Expression expression = items.get(i);
+                    Object constantValue = evaluateConstantExpression(expression);
+                    values.add(LiteralInterpreter.toExpression(constantValue, descriptor.getFieldByIndex(i).getType()));
                 }
             }
             else {
-                values.add(row);
+                Object constantValue = evaluateConstantExpression(row);
+                values.add(LiteralInterpreter.toExpression(constantValue, descriptor.getFieldByIndex(0).getType()));
             }
 
             rows.add(values.build());
@@ -472,8 +488,9 @@ class RelationPlanner
         ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
         Iterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
         for (Expression expression : node.getExpressions()) {
-            values.add(evaluateConstantExpression(expression));
+            Object constantValue = evaluateConstantExpression(expression);
             Type type = analysis.getType(expression);
+            values.add(LiteralInterpreter.toExpression(constantValue, type));
             Symbol inputSymbol = symbolAllocator.newSymbol(expression, type);
             argumentSymbols.add(inputSymbol);
             if (type instanceof ArrayType) {
@@ -494,27 +511,61 @@ class RelationPlanner
         return new RelationPlan(unnestNode, descriptor, unnestedSymbols, Optional.empty());
     }
 
-    private Expression evaluateConstantExpression(final Expression expression)
+    private Object evaluateConstantExpression(Expression expression)
     {
+        // verify expression is constant
+        expression.accept(new DefaultTraversalVisitor<Void, Void>()
+        {
+            @Override
+            protected Void visitQualifiedNameReference(QualifiedNameReference node, Void context)
+            {
+                throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
+            }
+
+            @Override
+            protected Void visitInputReference(InputReference node, Void context)
+            {
+                throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain input references");
+            }
+        }, null);
+
+        // add coercions
+        Expression rewrite = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+        {
+            @Override
+            public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
+
+                // cast expression if coercion is registered
+                Type coercion = analysis.getCoercion(node);
+                if (coercion != null) {
+                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getTypeSignature().toString());
+                }
+
+                return rewrittenExpression;
+            }
+        }, expression);
+
         try {
             // expressionInterpreter/optimizer only understands a subset of expression types
             // TODO: remove this when the new expression tree is implemented
-            Expression canonicalized = CanonicalizeExpressions.canonicalizeExpression(expression);
+            Expression canonicalized = CanonicalizeExpressions.canonicalizeExpression(rewrite);
 
-            // verify the expression is constant (has no inputs)
-            ExpressionInterpreter.expressionOptimizer(canonicalized, metadata, session, analysis.getTypes()).optimize(new SymbolResolver() {
-                @Override
-                public Object getValue(Symbol symbol)
-                {
-                    throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
-                }
-            });
+            // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
+            // to re-analyze coercions that might be necessary
+            ExpressionAnalyzer analyzer = ExpressionAnalyzer.createWithoutSubqueries(
+                    metadata.getFunctionRegistry(),
+                    metadata.getTypeManager(),
+                    EXPRESSION_NOT_CONSTANT,
+                    "Constant expression cannot contain as sub-query");
+            analyzer.analyze(canonicalized, new TupleDescriptor(), new AnalysisContext());
 
             // evaluate the expression
-            Object result = ExpressionInterpreter.expressionInterpreter(canonicalized, metadata, session, analysis.getTypes()).evaluate(0);
+            Object result = ExpressionInterpreter.expressionInterpreter(canonicalized, metadata, session, analyzer.getExpressionTypes()).evaluate(0);
             checkState(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
 
-            return LiteralInterpreter.toExpression(result, analysis.getType(expression));
+            return result;
         }
         catch (Exception e) {
             throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Error evaluating constant expression: %s", e.getMessage());
@@ -522,7 +573,7 @@ class RelationPlanner
     }
 
     @Override
-    protected RelationPlan visitUnion(Union node, final Void context)
+    protected RelationPlan visitUnion(Union node, Void context)
     {
         checkArgument(!node.getRelations().isEmpty(), "No relations specified for UNION");
 
@@ -547,14 +598,14 @@ class RelationPlanner
                 relationPlan = addConstantSampleWeight(relationPlan);
             }
 
-            List<Symbol> childOutputSymobls = relationPlan.getOutputSymbols();
+            List<Symbol> childOutputSymbols = relationPlan.getOutputSymbols();
             if (unionOutputSymbols == null) {
                 // Use the first Relation to derive output symbol names
                 TupleDescriptor descriptor = relationPlan.getDescriptor();
                 ImmutableList.Builder<Symbol> outputSymbolBuilder = ImmutableList.builder();
                 for (Field field : descriptor.getVisibleFields()) {
                     int fieldIndex = descriptor.indexOf(field);
-                    Symbol symbol = childOutputSymobls.get(fieldIndex);
+                    Symbol symbol = childOutputSymbols.get(fieldIndex);
                     outputSymbolBuilder.add(symbolAllocator.newSymbol(symbol.getName(), symbolAllocator.getTypes().get(symbol)));
                 }
                 unionOutputSymbols = outputSymbolBuilder.build();
@@ -570,7 +621,7 @@ class RelationPlanner
             int unionFieldId = 0;
             for (Field field : descriptor.getVisibleFields()) {
                 int fieldIndex = descriptor.indexOf(field);
-                symbolMapping.put(unionOutputSymbols.get(unionFieldId), childOutputSymobls.get(fieldIndex));
+                symbolMapping.put(unionOutputSymbols.get(unionFieldId), childOutputSymbols.get(fieldIndex));
                 unionFieldId++;
             }
 

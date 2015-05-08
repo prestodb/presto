@@ -14,8 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ParametricFunction;
@@ -32,7 +30,7 @@ import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
-import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
@@ -94,6 +92,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.planner.LocalExecutionPlanner.toTypes;
 import static com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions.canonicalizeExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -615,7 +614,7 @@ public final class FunctionAssertions
 
     private static DriverContext createDriverContext(Session session)
     {
-        return new TaskContext(new TaskId("query", "stage", "task"), EXECUTOR, session)
+        return createTaskContext(EXECUTOR, session)
                 .addPipelineContext(true, true)
                 .addDriverContext();
     }

@@ -26,7 +26,7 @@ public class PrestoIntervalYearMonth
 
     public PrestoIntervalYearMonth(int year, int months)
     {
-        this.months = (12 * year) + months;
+        this.months = (12L * year) + months;
     }
 
     public long getMonths()

@@ -17,6 +17,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 
 import static com.facebook.presto.spi.block.EncoderUtil.decodeNullBits;
 import static com.facebook.presto.spi.block.EncoderUtil.encodeNullsAsBits;
@@ -51,17 +52,6 @@ public class VariableWidthBlockEncoding
         }
 
         encodeNullsAsBits(sliceOutput, variableWidthBlock);
-
-        // write last null bits
-        if ((positionCount & 0b111) > 0) {
-            byte value = 0;
-            int mask = 0b1000_0000;
-            for (int position = positionCount & ~0b111; position < positionCount; position++) {
-                value |= variableWidthBlock.isNull(position) ? mask : 0;
-                mask >>>= 1;
-            }
-            sliceOutput.appendByte(value);
-        }
 
         sliceOutput
                 .appendInt(totalLength)
@@ -104,7 +94,7 @@ public class VariableWidthBlockEncoding
         int blockSize = sliceInput.readInt();
         Slice slice = sliceInput.readSlice(blockSize);
 
-        return new VariableWidthBlock(positionCount, slice, offsets, valueIsNull);
+        return new VariableWidthBlock(positionCount, slice, Slices.wrappedIntArray(offsets), Slices.wrappedBooleanArray(valueIsNull));
     }
 
     @Override

@@ -13,22 +13,44 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestRegexpFunctions
         extends AbstractTestFunctions
 {
+    {
+        registerScalar(TestRegexpFunctions.class);
+    }
+
+    @ScalarFunction(deterministic = false) // if not non-deterministic, constant folding code accidentally fix invalid characters
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice invalidUtf8()
+    {
+        return Slices.wrappedBuffer(new byte[] {
+                // AAA\uD800AAAA\uDFFFAAA, D800 and DFFF are valid unicode code points, but not valid UTF8
+                (byte) 0x41, 0x41, (byte) 0xed, (byte) 0xa0, (byte) 0x80, 0x41, 0x41,
+                0x41, 0x41, (byte) 0xed, (byte) 0xbf, (byte) 0xbf, 0x41, 0x41, 0x41,
+        });
+    }
+
     @Test
     public void testRegexpLike()
     {
+        assertFunction("REGEXP_LIKE(invalid_utf8(), invalid_utf8())", BOOLEAN, true); // can potentially cause infinite loop
+
         assertFunction("REGEXP_LIKE('Stephen', 'Ste(v|ph)en')", BOOLEAN, true);
         assertFunction("REGEXP_LIKE('Stevens', 'Ste(v|ph)en')", BOOLEAN, true);
         assertFunction("REGEXP_LIKE('Stephen', '^Ste(v|ph)en$')", BOOLEAN, true);
@@ -54,6 +76,30 @@ public class TestRegexpFunctions
                 "REGEXP_REPLACE('call 555.123.4444 now', '(\\d{3})\\.(\\d{3}).(\\d{4})', '($1) $2-$3')",
                 VARCHAR,
                 "call (555) 123-4444 now");
+
+        assertFunction("REGEXP_REPLACE('xxx xxx xxx', 'x', 'x')", VARCHAR, "xxx xxx xxx");
+        assertFunction("REGEXP_REPLACE('xxx xxx xxx', 'x', '\\x')", VARCHAR, "xxx xxx xxx");
+        assertFunction("REGEXP_REPLACE('xxx', '', 'y')", VARCHAR, "yxyxyxy");
+        assertInvalidFunction("REGEXP_REPLACE('xxx', 'x', '\\')", INVALID_FUNCTION_ARGUMENT);
+
+        assertFunction("REGEXP_REPLACE('xxx xxx xxx', 'x', '$0')", VARCHAR, "xxx xxx xxx");
+        assertFunction("REGEXP_REPLACE('xxx', '(x)', '$01')", VARCHAR, "xxx");
+        assertFunction("REGEXP_REPLACE('xxx', 'x', '$05')", VARCHAR, "x5x5x5");
+        assertFunction("REGEXP_REPLACE('123456789', '(1)(2)(3)(4)(5)(6)(7)(8)(9)', '$10')", VARCHAR, "10");
+        assertFunction("REGEXP_REPLACE('1234567890', '(1)(2)(3)(4)(5)(6)(7)(8)(9)(0)', '$10')", VARCHAR, "0");
+        assertFunction("REGEXP_REPLACE('1234567890', '(1)(2)(3)(4)(5)(6)(7)(8)(9)(0)', '$11')", VARCHAR, "11");
+        assertFunction("REGEXP_REPLACE('1234567890', '(1)(2)(3)(4)(5)(6)(7)(8)(9)(0)', '$1a')", VARCHAR, "1a");
+        assertInvalidFunction("REGEXP_REPLACE('xxx', 'x', '$1')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REGEXP_REPLACE('xxx', 'x', '$a')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REGEXP_REPLACE('xxx', 'x', '$')", INVALID_FUNCTION_ARGUMENT);
+
+        assertFunction("REGEXP_REPLACE('wxyz', '(?<xyz>[xyz])', '${xyz}${xyz}')", VARCHAR, "wxxyyzz");
+        assertFunction("REGEXP_REPLACE('wxyz', '(?<w>w)|(?<xyz>[xyz])', '[${w}](${xyz})')", VARCHAR, "[w]()[](x)[](y)[](z)");
+        assertFunction("REGEXP_REPLACE('xyz', '(?<xyz>[xyz])+', '${xyz}')", VARCHAR, "z");
+        assertFunction("REGEXP_REPLACE('xyz', '(?<xyz>[xyz]+)', '${xyz}')", VARCHAR, "xyz");
+        assertInvalidFunction("REGEXP_REPLACE('xxx', '(?<name>x)', '${}')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REGEXP_REPLACE('xxx', '(?<name>x)', '${0}')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REGEXP_REPLACE('xxx', '(?<name>x)', '${nam}')", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
@@ -62,6 +108,10 @@ public class TestRegexpFunctions
         assertFunction("REGEXP_EXTRACT('Hello world bye', '\\b[a-z]([a-z]*)')", VARCHAR, "world");
         assertFunction("REGEXP_EXTRACT('Hello world bye', '\\b[a-z]([a-z]*)', 1)", VARCHAR, "orld");
         assertFunction("REGEXP_EXTRACT('rat cat\nbat dog', 'ra(.)|blah(.)(.)', 2)", VARCHAR, null);
+        assertFunction("REGEXP_EXTRACT('12345', 'x')", VARCHAR, null);
+
+        assertInvalidFunction("REGEXP_EXTRACT('Hello world bye', '\\b[a-z]([a-z]*)', -1)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("REGEXP_EXTRACT('Hello world bye', '\\b[a-z]([a-z]*)', 2)", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
@@ -73,6 +123,9 @@ public class TestRegexpFunctions
         nullList.add(null);
         assertFunction("REGEXP_EXTRACT_ALL('rat cat\nbat dog', 'ra(.)|blah(.)(.)', 2)", new ArrayType(VARCHAR), nullList);
         assertInvalidFunction("REGEXP_EXTRACT_ALL('hello', '(.)', 2)", "Pattern has 1 groups. Cannot access group 2");
+
+        assertFunction("REGEXP_EXTRACT_ALL('12345', '')", new ArrayType(VARCHAR), ImmutableList.of("", "", "", "", "", ""));
+        assertInvalidFunction("REGEXP_EXTRACT_ALL('12345', '(')", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
@@ -85,5 +138,12 @@ public class TestRegexpFunctions
         assertFunction("REGEXP_SPLIT('a1b2c3d', '\\d')", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c", "d"));
         assertFunction("REGEXP_SPLIT('a1b2346c3d', '\\d+')", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c", "d"));
         assertFunction("REGEXP_SPLIT('abcd', 'x')", new ArrayType(VARCHAR), ImmutableList.of("abcd"));
+        assertFunction("REGEXP_SPLIT('abcd', '')", new ArrayType(VARCHAR), ImmutableList.of("", "a", "b", "c", "d", ""));
+        assertFunction("REGEXP_SPLIT('', 'x')", new ArrayType(VARCHAR), ImmutableList.of(""));
+
+        // test empty splits, leading & trailing empty splits, consecutive empty splits
+        assertFunction("REGEXP_SPLIT('a,b,c,d', ',')", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c", "d"));
+        assertFunction("REGEXP_SPLIT(',,a,,,b,c,d,,', ',')", new ArrayType(VARCHAR), ImmutableList.of("", "", "a", "", "", "b", "c", "d", "", ""));
+        assertFunction("REGEXP_SPLIT(',,,', ',')", new ArrayType(VARCHAR), ImmutableList.of("", "", "", ""));
     }
 }

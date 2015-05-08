@@ -17,6 +17,9 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.memory.LocalMemoryManager;
+import com.facebook.presto.memory.MemoryManagerConfig;
+import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.base.Preconditions;
@@ -68,6 +71,7 @@ public class SqlTaskManager
     private final Duration infoCacheTime;
     private final Duration clientTimeout;
 
+    private final LoadingCache<QueryId, QueryContext> queryContexts;
     private final LoadingCache<TaskId, SqlTask> tasks;
 
     private final SqlTaskIoStats cachedStats = new SqlTaskIoStats();
@@ -76,18 +80,20 @@ public class SqlTaskManager
     @Inject
     public SqlTaskManager(
             LocalExecutionPlanner planner,
-            final LocationFactory locationFactory,
+            LocationFactory locationFactory,
             TaskExecutor taskExecutor,
             QueryMonitor queryMonitor,
             NodeInfo nodeInfo,
-            TaskManagerConfig config)
+            LocalMemoryManager localMemoryManager,
+            TaskManagerConfig config,
+            MemoryManagerConfig memoryManagerConfig)
     {
         checkNotNull(nodeInfo, "nodeInfo is null");
         checkNotNull(config, "config is null");
         infoCacheTime = config.getInfoMaxAge();
         clientTimeout = config.getClientTimeout();
 
-        final DataSize maxBufferSize = config.getSinkMaxBufferSize();
+        DataSize maxBufferSize = config.getSinkMaxBufferSize();
 
         taskNotificationExecutor = newCachedThreadPool(threadsNamed("task-notification-%s"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
@@ -95,7 +101,21 @@ public class SqlTaskManager
         taskManagementExecutor = newScheduledThreadPool(5, threadsNamed("task-management-%s"));
         taskManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskManagementExecutor);
 
-        final SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, queryMonitor, config);
+        SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, queryMonitor, config);
+
+        DataSize maxQueryMemoryPerNode = memoryManagerConfig.getMaxQueryMemoryPerNode();
+        boolean clusterMemoryManagerEnabled = memoryManagerConfig.isClusterMemoryManagerEnabled();
+
+        queryContexts = CacheBuilder.newBuilder().weakValues().build(new CacheLoader<QueryId, QueryContext>()
+        {
+            @Override
+            public QueryContext load(QueryId key)
+                    throws Exception
+            {
+                // TODO: Queries should be assigned to pools dynamically
+                return new QueryContext(clusterMemoryManagerEnabled, maxQueryMemoryPerNode, localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL), taskNotificationExecutor);
+            }
+        });
 
         tasks = CacheBuilder.newBuilder().build(new CacheLoader<TaskId, SqlTask>()
         {
@@ -107,6 +127,7 @@ public class SqlTaskManager
                         taskId,
                         nodeInfo.getInstanceId(),
                         locationFactory.createLocalTaskLocation(taskId),
+                        queryContexts.getUnchecked(taskId.getQueryId()),
                         sqlTaskExecutionFactory,
                         taskNotificationExecutor,
                         sqlTask -> {

@@ -17,20 +17,24 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.byteCode.instruction.InvokeInstruction;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 
 import java.lang.reflect.Method;
 import java.util.List;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 
 public class SqlTypeByteCodeExpression
         extends ByteCodeExpression
 {
-    public static ByteCodeExpression constantType(CallSiteBinder callSiteBinder, Type type)
+    public static SqlTypeByteCodeExpression constantType(CallSiteBinder callSiteBinder, Type type)
     {
         checkNotNull(callSiteBinder, "callSiteBinder is null");
         checkNotNull(type, "type is null");
@@ -68,5 +72,43 @@ public class SqlTypeByteCodeExpression
     protected String formatOneLine()
     {
         return type.getTypeSignature().toString();
+    }
+
+    public ByteCodeExpression getValue(ByteCodeExpression block, ByteCodeExpression position)
+    {
+        Class<?> fromJavaElementType = type.getJavaType();
+
+        if (fromJavaElementType == boolean.class) {
+            return invoke("getBoolean", boolean.class, block, position);
+        }
+        if (fromJavaElementType == long.class) {
+            return invoke("getLong", long.class, block, position);
+        }
+        if (fromJavaElementType == double.class) {
+            return invoke("getDouble", double.class, block, position);
+        }
+        if (fromJavaElementType == Slice.class) {
+            return invoke("getSlice", Slice.class, block, position);
+        }
+        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unexpected type %s", fromJavaElementType.getName()));
+    }
+
+    public ByteCodeExpression writeValue(ByteCodeExpression blockBuilder, ByteCodeExpression value)
+    {
+        Class<?> fromJavaElementType = type.getJavaType();
+
+        if (fromJavaElementType == boolean.class) {
+            return invoke("writeBoolean", void.class, blockBuilder, value);
+        }
+        if (fromJavaElementType == long.class) {
+            return invoke("writeLong", void.class, blockBuilder, value);
+        }
+        if (fromJavaElementType == double.class) {
+            return invoke("writeDouble", void.class, blockBuilder, value);
+        }
+        if (fromJavaElementType == Slice.class) {
+            return invoke("writeSlice", void.class, blockBuilder, value);
+        }
+        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unexpected type %s", fromJavaElementType.getName()));
     }
 }

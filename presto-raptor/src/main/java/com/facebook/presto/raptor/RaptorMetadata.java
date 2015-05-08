@@ -22,8 +22,8 @@ import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.raptor.metadata.ViewResult;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -34,7 +34,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.ViewNotFoundException;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -57,7 +56,6 @@ import java.util.function.Predicate;
 import static com.facebook.presto.raptor.RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.metadata.MetadataDaoUtils.createMetadataTablesWithRetry;
-import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -215,24 +213,7 @@ public class RaptorMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        Long newTableId = dbi.inTransaction((handle, status) -> runIgnoringConstraintViolation(() -> {
-            MetadataDao dao = handle.attach(MetadataDao.class);
-            long tableId = dao.insertTable(connectorId, tableMetadata.getTable().getSchemaName(), tableMetadata.getTable().getTableName());
-            int ordinalPosition = 0;
-            for (ColumnMetadata column : tableMetadata.getColumns()) {
-                long columnId = ordinalPosition + 1;
-                dao.insertColumn(tableId, columnId, column.getName(), ordinalPosition, column.getType().getTypeSignature().toString());
-                ordinalPosition++;
-            }
-            if (tableMetadata.isSampled()) {
-                dao.insertColumn(tableId, ordinalPosition + 1, SAMPLE_WEIGHT_COLUMN_NAME, ordinalPosition, StandardTypes.BIGINT);
-            }
-            return tableId;
-        }));
-
-        if (newTableId == null) {
-            throw new PrestoException(ALREADY_EXISTS, "Table already exists: " + tableMetadata.getTable());
-        }
+        commitCreateTable(beginCreateTable(session, tableMetadata), ImmutableList.of());
     }
 
     @Override

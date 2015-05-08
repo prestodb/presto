@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.101-SNAPSHOT</version>
+        <version>0.103-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-main</artifactId>
@@ -17,16 +17,6 @@
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>org.jruby.joni</groupId>
-            <artifactId>joni</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jruby.jcodings</groupId>
-            <artifactId>jcodings</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>it.unimi.dsi</groupId>
             <artifactId>fastutil</artifactId>
@@ -145,6 +135,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>joni</artifactId>
         </dependency>
 
         <dependency>

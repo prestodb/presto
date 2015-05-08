@@ -31,6 +31,7 @@ import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import jline.console.history.FileHistory;
+import jline.console.history.History;
 import jline.console.history.MemoryHistory;
 import org.fusesource.jansi.AnsiConsole;
 
@@ -43,13 +44,17 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
+import static com.facebook.presto.cli.Completion.commandCompleter;
+import static com.facebook.presto.cli.Completion.lowerCaseCommandCompleter;
 import static com.facebook.presto.cli.Help.getHelpText;
 import static com.facebook.presto.client.ClientSession.withProperties;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
 import static com.google.common.io.ByteStreams.nullOutputStream;
+import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
@@ -63,6 +68,8 @@ public class Console
 
     // create a parser with all identifier options enabled, since this is only used for USE statements
     private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(EnumSet.allOf(IdentifierSymbol.class)));
+
+    private static final Pattern HISTORY_INDEX_PATTERN = Pattern.compile("!\\d+");
 
     @Inject
     public HelpOption helpOption;
@@ -117,7 +124,7 @@ public class Console
     private static void runConsole(QueryRunner queryRunner, ClientSession session)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
-                LineReader reader = new LineReader(getHistory(), tableNameCompleter)) {
+                LineReader reader = new LineReader(getHistory(), commandCompleter(), lowerCaseCommandCompleter(), tableNameCompleter)) {
             tableNameCompleter.populateCache();
             StringBuilder buffer = new StringBuilder();
             while (true) {
@@ -126,7 +133,8 @@ public class Console
                 if (buffer.length() > 0) {
                     prompt = Strings.repeat(" ", prompt.length() - 1) + "-";
                 }
-                String line = reader.readLine(prompt + "> ");
+                String commandPrompt = prompt + "> ";
+                String line = reader.readLine(commandPrompt);
 
                 // add buffer to history and clear on user interrupt
                 if (reader.interrupted()) {
@@ -147,13 +155,31 @@ public class Console
                 // check for special commands if this is the first line
                 if (buffer.length() == 0) {
                     String command = line.trim();
+
+                    if (HISTORY_INDEX_PATTERN.matcher(command).matches()) {
+                        int historyIndex = parseInt(command.substring(1));
+                        History history = reader.getHistory();
+                        if ((historyIndex <= 0) || (historyIndex > history.index())) {
+                            System.err.println("Command does not exist");
+                            continue;
+                        }
+                        line = history.get(historyIndex - 1).toString();
+                        System.out.println(commandPrompt + line);
+                    }
+
                     if (command.endsWith(";")) {
                         command = command.substring(0, command.length() - 1).trim();
                     }
+
                     switch (command.toLowerCase(ENGLISH)) {
                         case "exit":
                         case "quit":
                             return;
+                        case "history":
+                            for (History.Entry entry : reader.getHistory()) {
+                                System.out.printf("%5d  %s%n", entry.index() + 1, entry.value());
+                            }
+                            continue;
                         case "help":
                             System.out.println();
                             System.out.println(getHelpText());

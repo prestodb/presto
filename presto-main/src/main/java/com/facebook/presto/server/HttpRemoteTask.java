@@ -29,7 +29,6 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -190,7 +189,7 @@ public class HttpRemoteTask
                     .map(outputId -> new BufferInfo(outputId, false, 0, 0))
                     .collect(toImmutableList());
 
-            TaskStats taskStats = new TaskContext(taskId, executor, session).getTaskStats();
+            TaskStats taskStats = new TaskStats(DateTime.now(), null);
 
             taskInfo = new StateMachine<>("task " + taskId, executor, new TaskInfo(
                     taskId,
@@ -298,21 +297,6 @@ public class HttpRemoteTask
     {
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             taskInfo.addStateChangeListener(stateChangeListener);
-        }
-    }
-
-    @Override
-    public Duration waitForTaskToFinish(Duration maxWait)
-            throws InterruptedException
-    {
-        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            while (true) {
-                TaskInfo currentState = taskInfo.get();
-                if (maxWait.toMillis() <= 1 || currentState.getState().isDone()) {
-                    return maxWait;
-                }
-                maxWait = taskInfo.waitForStateChange(currentState, maxWait);
-            }
         }
     }
 
@@ -443,8 +427,8 @@ public class HttpRemoteTask
             }
 
             // send cancel to task and ignore response
-            final long start = System.nanoTime();
-            final Request request = prepareDelete()
+            long start = System.nanoTime();
+            Request request = prepareDelete()
                     .setUri(uriBuilderFrom(uri).addParameter("abort", "false").addParameter("summarize").build())
                     .build();
             Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()
@@ -505,8 +489,8 @@ public class HttpRemoteTask
                     ImmutableList.<ExecutionFailureInfo>of()));
 
             // send abort to task and ignore response
-            final long start = System.nanoTime();
-            final Request request = prepareDelete()
+            long start = System.nanoTime();
+            Request request = prepareDelete()
                     .setUri(uriBuilderFrom(uri).addParameter("summarize").build())
                     .build();
             Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()

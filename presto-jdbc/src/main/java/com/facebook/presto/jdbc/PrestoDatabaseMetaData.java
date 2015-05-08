@@ -33,7 +33,7 @@ public class PrestoDatabaseMetaData
 {
     private final PrestoConnection connection;
 
-    public PrestoDatabaseMetaData(PrestoConnection connection)
+    PrestoDatabaseMetaData(PrestoConnection connection)
     {
         this.connection = checkNotNull(connection, "connection is null");
     }
@@ -929,7 +929,7 @@ public class PrestoDatabaseMetaData
 
         List<String> filters = new ArrayList<>(4);
         if (catalog != null) {
-            if (catalog.length() == 0) {
+            if (catalog.isEmpty()) {
                 filters.add("table_catalog IS NULL");
             }
             else {
@@ -938,7 +938,7 @@ public class PrestoDatabaseMetaData
         }
 
         if (schemaPattern != null) {
-            if (schemaPattern.length() == 0) {
+            if (schemaPattern.isEmpty()) {
                 filters.add("table_schema IS NULL");
             }
             else {
@@ -967,7 +967,7 @@ public class PrestoDatabaseMetaData
             filters.add(filter.toString());
         }
 
-        if (filters.size() > 0) {
+        if (!filters.isEmpty()) {
             query.append(" WHERE ");
             Joiner.on(" AND ").appendTo(query, filters);
         }
@@ -1396,7 +1396,7 @@ public class PrestoDatabaseMetaData
 
         List<String> filters = new ArrayList<>(4);
         if (catalog != null) {
-            if (catalog.length() == 0) {
+            if (catalog.isEmpty()) {
                 filters.add("catalog_name IS NULL");
             }
             else {
@@ -1408,7 +1408,7 @@ public class PrestoDatabaseMetaData
             filters.add(stringColumnLike("schema_name", schemaPattern));
         }
 
-        if (filters.size() > 0) {
+        if (!filters.isEmpty()) {
             query.append(" WHERE ");
             Joiner.on(" AND ").appendTo(query, filters);
         }
@@ -1513,11 +1513,11 @@ public class PrestoDatabaseMetaData
         return filter.toString();
     }
 
-    private static void quoteStringLiteral(StringBuilder out, String string)
+    private static void quoteStringLiteral(StringBuilder out, String value)
     {
         out.append('\'');
-        for (int i = 0; i < string.length(); i++) {
-            char c = string.charAt(i);
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
             out.append(c);
             if (c == '\'') {
                 out.append('\'');

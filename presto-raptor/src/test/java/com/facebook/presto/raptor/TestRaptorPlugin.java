@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.PagesIndexPageSorter;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
@@ -28,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 
-import static com.facebook.presto.testing.TestingBlockEncodingManager.createTestingBlockEncodingManager;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
@@ -41,8 +41,11 @@ public class TestRaptorPlugin
         RaptorPlugin plugin = loadPlugin(RaptorPlugin.class);
 
         plugin.setNodeManager(new InMemoryNodeManager());
-        plugin.setBlockEncodingSerde(createTestingBlockEncodingManager());
-        plugin.setTypeManager(new TypeRegistry());
+
+        TypeRegistry typeRegistry = new TypeRegistry();
+        plugin.setTypeManager(typeRegistry);
+        plugin.setBlockEncodingSerde(new BlockEncodingManager(typeRegistry));
+
         plugin.setPageSorter(new PagesIndexPageSorter());
 
         List<ConnectorFactory> factories = plugin.getServices(ConnectorFactory.class);

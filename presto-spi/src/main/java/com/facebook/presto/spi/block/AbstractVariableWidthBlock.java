@@ -134,7 +134,7 @@ public abstract class AbstractVariableWidthBlock
     public Block getSingleValueBlock(int position)
     {
         if (isNull(position)) {
-            return new VariableWidthBlock(1, Slices.wrappedBuffer(new byte[0]), new int[] {0, 0}, new boolean[] {true});
+            return new VariableWidthBlock(1, Slices.wrappedBuffer(new byte[0]), Slices.wrappedIntArray(0, 0), Slices.wrappedBooleanArray(true));
         }
 
         int offset = getPositionOffset(position);
@@ -142,7 +142,7 @@ public abstract class AbstractVariableWidthBlock
 
         Slice copy = Slices.copyOf(getRawSlice(position), offset, entrySize);
 
-        return new VariableWidthBlock(1, copy, new int[] {0, copy.length()}, new boolean[] {false});
+        return new VariableWidthBlock(1, copy, Slices.wrappedIntArray(0, copy.length()), Slices.wrappedBooleanArray(false));
     }
 
     @Override

@@ -22,7 +22,6 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.NodeSystemTable;
 import com.facebook.presto.connector.system.SystemConnector;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.HandleResolver;
@@ -105,6 +104,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
+import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -251,7 +251,7 @@ public class LocalQueryRunner
         return hashEnabled;
     }
 
-    private static class MaterializedOutputFactory
+    public static class MaterializedOutputFactory
             implements OutputFactory
     {
         private final AtomicReference<MaterializingOperator> materializingOperator = new AtomicReference<>();
@@ -320,7 +320,7 @@ public class LocalQueryRunner
     {
         MaterializedOutputFactory outputFactory = new MaterializedOutputFactory();
 
-        TaskContext taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session);
+        TaskContext taskContext = createTaskContext(executor, session);
         List<Driver> drivers = createDrivers(session, sql, outputFactory, taskContext);
 
         boolean done = false;
@@ -354,7 +354,7 @@ public class LocalQueryRunner
                 .setExperimentalSyntaxEnabled(true)
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
-        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, sqlParser, splitManager, indexManager, featuresConfig, true);
+        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, sqlParser, indexManager, featuresConfig, true);
 
         QueryExplainer queryExplainer = new QueryExplainer(session, planOptimizersFactory.get(), metadata, sqlParser, featuresConfig.isExperimentalSyntaxEnabled());
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
@@ -381,7 +381,7 @@ public class LocalQueryRunner
                 compiler,
                 new IndexJoinLookupStats(),
                 new CompilerConfig().setInterpreterEnabled(false), // make sure tests fail if compiler breaks
-                new TaskManagerConfig()
+                new TaskManagerConfig().setTaskDefaultConcurrency(4)
         );
 
         // plan query
@@ -389,6 +389,7 @@ public class LocalQueryRunner
                 subplan.getFragment().getRoot(),
                 subplan.getFragment().getOutputLayout(),
                 plan.getTypes(),
+                subplan.getFragment().getDistribution(),
                 outputFactory);
 
         // generate sources
@@ -419,11 +420,13 @@ public class LocalQueryRunner
         List<Driver> drivers = new ArrayList<>();
         Map<PlanNodeId, Driver> driversBySource = new HashMap<>();
         for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
-            DriverContext driverContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
-            Driver driver = driverFactory.createDriver(driverContext);
-            drivers.add(driver);
-            for (PlanNodeId sourceId : driver.getSourceIds()) {
-                driversBySource.put(sourceId, driver);
+            for (int i = 0; i < driverFactory.getDriverInstances(); i++) {
+                DriverContext driverContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver()).addDriverContext();
+                Driver driver = driverFactory.createDriver(driverContext);
+                drivers.add(driver);
+                for (PlanNodeId sourceId : driver.getSourceIds()) {
+                    driversBySource.put(sourceId, driver);
+                }
             }
             driverFactory.close();
         }

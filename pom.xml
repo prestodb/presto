@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>37</version>
+        <version>38</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.101-SNAPSHOT</version>
+    <version>0.103-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -43,8 +43,9 @@
         <air.check.skip-checkstyle>false</air.check.skip-checkstyle>
 
         <dep.antlr.version>4.3</dep.antlr.version>
-        <dep.airlift.version>0.107-SNAPSHOT</dep.airlift.version>
+        <dep.airlift.version>0.109-SNAPSHOT</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
+        <dep.slice.version>0.12</dep.slice.version>
 
         <cli.skip-execute>true</cli.skip-execute>
         <cli.main-class>None</cli.main-class>
@@ -53,6 +54,9 @@
         <air.test.timezone>Asia/Katmandu</air.test.timezone>
         <air.test.parallel>methods</air.test.parallel>
         <air.test.thread-count>4</air.test.thread-count>
+        <air.test.jvmsize>1792m</air.test.jvmsize>
+
+        <air.javadoc.lint>-missing</air.javadoc.lint>
     </properties>
 
     <modules>
@@ -393,6 +397,12 @@
             </dependency>
 
             <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>joni</artifactId>
+                <version>2.1.5.1</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.airlift.tpch</groupId>
                 <artifactId>tpch</artifactId>
                 <version>0.4</version>
@@ -453,12 +463,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.jruby.joni</groupId>
-                <artifactId>joni</artifactId>
-                <version>2.0.0</version>
-            </dependency>
-
-            <dependency>
                 <groupId>com.facebook.thirdparty</groupId>
                 <artifactId>libsvm</artifactId>
                 <version>3.18.1</version>
@@ -474,12 +478,6 @@
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
                 <version>9.3-1102-jdbc41</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.jruby.jcodings</groupId>
-                <artifactId>jcodings</artifactId>
-                <version>1.0.8</version>
             </dependency>
 
             <dependency>
@@ -641,22 +639,6 @@
     <build>
         <pluginManagement>
             <plugins>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-surefire-plugin</artifactId>
-                    <configuration combine.children="append">
-                        <argLine>${argLine} -Duser.timezone=${air.test.timezone} -Xmx1792m -Xms1792m -XX:OnOutOfMemoryError="kill -9 %p" -XX:+HeapDumpOnOutOfMemoryError</argLine>
-                    </configuration>
-                </plugin>
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-javadoc-plugin</artifactId>
-                    <configuration combine.children="append">
-                        <additionalparam>-Xdoclint:none</additionalparam>
-                    </configuration>
-                </plugin>
-
                 <plugin>
                     <groupId>org.antlr</groupId>
                     <artifactId>antlr4-maven-plugin</artifactId>

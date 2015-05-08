@@ -11,15 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.util;
+package com.facebook.presto.memory;
 
-import org.apache.hadoop.fs.BlockLocation;
-import org.apache.hadoop.fs.FileStatus;
+import javax.inject.Qualifier;
 
-public interface FileStatusCallback
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@Qualifier
+public @interface ForMemoryManager
 {
-    /**
-     * Called once for each FileStatus encountered in the path traversal
-     */
-    void process(FileStatus fileStatus, BlockLocation[] blockLocations);
 }

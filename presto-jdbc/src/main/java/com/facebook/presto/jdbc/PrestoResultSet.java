@@ -17,10 +17,10 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.jdbc.ColumnInfo.Nullable;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Period;
 import org.joda.time.format.DateTimeFormat;
@@ -64,11 +64,12 @@ import static com.facebook.presto.jdbc.ColumnInfo.setTypeInfo;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Throwables.propagate;
-import static com.google.common.base.Throwables.propagateIfInstanceOf;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class PrestoResultSet
         implements ResultSet
@@ -80,19 +81,17 @@ public class PrestoResultSet
                     new DateTimeParser[] {
                             DateTimeFormat.forPattern("HH:mm:ss.SSS Z").getParser(),
                             DateTimeFormat.forPattern("HH:mm:ss.SSS ZZZ").getParser(),
-                    }
-            )
+                    })
             .toFormatter()
             .withOffsetParsed();
 
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
-    private static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER  = new DateTimeFormatterBuilder()
+    private static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
             .append(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getPrinter(),
                     new DateTimeParser[] {
                             DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS Z").getParser(),
                             DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getParser(),
-                    }
-            )
+                    })
             .toFormatter()
             .withOffsetParsed();
 
@@ -164,7 +163,9 @@ public class PrestoResultSet
             return true;
         }
         catch (RuntimeException e) {
-            propagateIfInstanceOf(e, SQLException.class);
+            if (e.getCause() instanceof SQLException) {
+                throw (SQLException) e.getCause();
+            }
             throw new SQLException("Error fetching results", e);
         }
     }
@@ -203,48 +204,42 @@ public class PrestoResultSet
     public byte getByte(int columnIndex)
             throws SQLException
     {
-        Object value = column(columnIndex);
-        return (value != null) ? ((Number) value).byteValue() : 0;
+        return toNumber(column(columnIndex)).byteValue();
     }
 
     @Override
     public short getShort(int columnIndex)
             throws SQLException
     {
-        Object value = column(columnIndex);
-        return (value != null) ? ((Number) value).shortValue() : 0;
+        return toNumber(column(columnIndex)).shortValue();
     }
 
     @Override
     public int getInt(int columnIndex)
             throws SQLException
     {
-        Object value = column(columnIndex);
-        return (value != null) ? ((Number) value).intValue() : 0;
+        return toNumber(column(columnIndex)).intValue();
     }
 
     @Override
     public long getLong(int columnIndex)
             throws SQLException
     {
-        Object value = column(columnIndex);
-        return (value != null) ? ((Number) value).longValue() : 0;
+        return toNumber(column(columnIndex)).longValue();
     }
 
     @Override
     public float getFloat(int columnIndex)
             throws SQLException
     {
-        Object value = column(columnIndex);
-        return (value != null) ? ((Number) value).floatValue() : 0;
+        return toNumber(column(columnIndex)).floatValue();
     }
 
     @Override
     public double getDouble(int columnIndex)
             throws SQLException
     {
-        Object value = column(columnIndex);
-        return (value != null) ? ((Number) value).doubleValue() : 0;
+        return toNumber(column(columnIndex)).doubleValue();
     }
 
     @Override
@@ -299,7 +294,7 @@ public class PrestoResultSet
             return null;
         }
 
-        ColumnInfo columnInfo = columnInfoList.get(columnIndex - 1);
+        ColumnInfo columnInfo = columnInfo(columnIndex);
         if (columnInfo.getColumnTypeName().equalsIgnoreCase("time")) {
             try {
                 return new Time(TIME_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value)));
@@ -328,7 +323,7 @@ public class PrestoResultSet
         return getTimestamp(columnIndex, sessionTimeZone);
     }
 
-    public Timestamp getTimestamp(int columnIndex, DateTimeZone localTimeZone)
+    private Timestamp getTimestamp(int columnIndex, DateTimeZone localTimeZone)
             throws SQLException
     {
         Object value = column(columnIndex);
@@ -336,7 +331,7 @@ public class PrestoResultSet
             return null;
         }
 
-        ColumnInfo columnInfo = columnInfoList.get(columnIndex - 1);
+        ColumnInfo columnInfo = columnInfo(columnIndex);
         if (columnInfo.getColumnTypeName().equalsIgnoreCase("timestamp")) {
             try {
                 return new Timestamp(TIMESTAMP_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value)));
@@ -399,48 +394,42 @@ public class PrestoResultSet
     public byte getByte(String columnLabel)
             throws SQLException
     {
-        Object value = column(columnLabel);
-        return (value != null) ? ((Number) value).byteValue() : 0;
+        return toNumber(column(columnLabel)).byteValue();
     }
 
     @Override
     public short getShort(String columnLabel)
             throws SQLException
     {
-        Object value = column(columnLabel);
-        return (value != null) ? ((Number) value).shortValue() : 0;
+        return toNumber(column(columnLabel)).shortValue();
     }
 
     @Override
     public int getInt(String columnLabel)
             throws SQLException
     {
-        Object value = column(columnLabel);
-        return (value != null) ? ((Number) value).intValue() : 0;
+        return toNumber(column(columnLabel)).intValue();
     }
 
     @Override
     public long getLong(String columnLabel)
             throws SQLException
     {
-        Object value = column(columnLabel);
-        return (value != null) ? ((Number) value).longValue() : 0;
+        return toNumber(column(columnLabel)).longValue();
     }
 
     @Override
     public float getFloat(String columnLabel)
             throws SQLException
     {
-        Object value = column(columnLabel);
-        return (value != null) ? ((Number) value).floatValue() : 0;
+        return toNumber(column(columnLabel)).floatValue();
     }
 
     @Override
     public double getDouble(String columnLabel)
             throws SQLException
     {
-        Object value = column(columnLabel);
-        return (value != null) ? ((Number) value).doubleValue() : 0;
+        return toNumber(column(columnLabel)).doubleValue();
     }
 
     @Override
@@ -532,7 +521,7 @@ public class PrestoResultSet
     public Object getObject(int columnIndex)
             throws SQLException
     {
-        ColumnInfo columnInfo = columnInfoList.get(columnIndex - 1);
+        ColumnInfo columnInfo = columnInfo(columnIndex);
         switch (columnInfo.getColumnType()) {
             case Types.DATE:
                 return getDate(columnIndex);
@@ -546,7 +535,7 @@ public class PrestoResultSet
                 if (columnInfo.getColumnTypeName().equalsIgnoreCase("interval year to month")) {
                     return getIntervalYearMonth(columnIndex);
                 }
-                else if (columnInfo.getColumnTypeName().equalsIgnoreCase("interval day to second")) {
+                if (columnInfo.getColumnTypeName().equalsIgnoreCase("interval day to second")) {
                     return getIntervalDayTime(columnIndex);
                 }
         }
@@ -1145,9 +1134,10 @@ public class PrestoResultSet
             return null;
         }
 
-        String elementTypeName = Iterables.getOnlyElement(columnInfoList.get(columnIndex - 1).getColumnTypeSignature().getParameters()).toString();
-        int elementType = Iterables.getOnlyElement(columnInfoList.get(columnIndex - 1).getColumnParameterTypes());
-        return new PrestoArray(elementTypeName, elementType, (List) value);
+        ColumnInfo columnInfo = columnInfo(columnIndex);
+        String elementTypeName = getOnlyElement(columnInfo.getColumnTypeSignature().getParameters()).toString();
+        int elementType = getOnlyElement(columnInfo.getColumnParameterTypes());
+        return new PrestoArray(elementTypeName, elementType, (List<?>) value);
     }
 
     @Override
@@ -1695,6 +1685,17 @@ public class PrestoResultSet
         return value;
     }
 
+    private ColumnInfo columnInfo(int index)
+            throws SQLException
+    {
+        checkOpen();
+        checkValidRow();
+        if ((index <= 0) || (index > columnInfoList.size())) {
+            throw new SQLException("Invalid column index: " + index);
+        }
+        return columnInfoList.get(index - 1);
+    }
+
     private Object column(String label)
             throws SQLException
     {
@@ -1716,6 +1717,21 @@ public class PrestoResultSet
             throw new SQLException("Invalid column label: " + label);
         }
         return index;
+    }
+
+    private static Number toNumber(Object value)
+            throws SQLException
+    {
+        if (value == null) {
+            return 0;
+        }
+        if (value instanceof Number) {
+            return (Number) value;
+        }
+        if (value instanceof Boolean) {
+            return ((Boolean) value) ? 1 : 0;
+        }
+        throw new SQLException("Value is not a number: " + value.getClass().getCanonicalName());
     }
 
     private static List<Column> getColumns(StatementClient client)
@@ -1755,6 +1771,11 @@ public class PrestoResultSet
         protected Iterable<List<Object>> computeNext()
         {
             while (client.isValid()) {
+                if (Thread.currentThread().isInterrupted()) {
+                    client.close();
+                    throw propagate(new SQLException("ResultSet thread was interrupted"));
+                }
+
                 Iterable<List<Object>> data = client.current().getData();
                 client.advance();
                 if (data != null) {
@@ -1772,7 +1793,7 @@ public class PrestoResultSet
 
     private static SQLException resultsException(QueryResults results)
     {
-        QueryError error = results.getError();
+        QueryError error = requireNonNull(results.getError());
         String message = format("Query failed (#%s): %s", results.getId(), error.getMessage());
         Throwable cause = (error.getFailureInfo() == null) ? null : error.getFailureInfo().toException();
         return new SQLException(message, error.getSqlState(), error.getErrorCode(), cause);
@@ -1801,7 +1822,7 @@ public class PrestoResultSet
                     .setColumnLabel(column.getName())
                     .setColumnName(column.getName()) // TODO
                     .setColumnTypeSignature(parseTypeSignature(column.getType().toUpperCase(ENGLISH)))
-                    .setNullable(ResultSetMetaData.columnNullableUnknown)
+                    .setNullable(Nullable.UNKNOWN)
                     .setCurrency(false);
             setTypeInfo(builder, parseTypeSignature(column.getType()));
             list.add(builder.build());

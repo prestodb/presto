@@ -32,7 +32,7 @@ import org.testng.annotations.Test;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 
-import static io.airlift.configuration.ConfigurationModule.bindConfig;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.discovery.client.ServiceTypes.serviceType;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
@@ -59,7 +59,7 @@ public class TestHeartbeatFailureDetector
                     @Override
                     public void configure(Binder binder)
                     {
-                        bindConfig(binder).to(QueryManagerConfig.class);
+                        configBinder(binder).bindConfig(QueryManagerConfig.class);
                         discoveryBinder(binder).bindSelector("presto");
                         discoveryBinder(binder).bindHttpAnnouncement("presto");
 

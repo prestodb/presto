@@ -23,7 +23,7 @@ import io.airlift.event.client.EventClient;
 import java.util.Set;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.configuration.ConfigurationModule.bindConfig;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.event.client.EventBinder.eventBinder;
 
 public class PrestoVerifierModule
@@ -32,7 +32,7 @@ public class PrestoVerifierModule
     @Override
     protected void setup(Binder binder)
     {
-        bindConfig(binder).to(VerifierConfig.class);
+        configBinder(binder).bindConfig(VerifierConfig.class);
         eventBinder(binder).bindEventClient(VerifierQueryEvent.class);
 
         Multibinder<String> supportedClients = newSetBinder(binder, String.class, Names.named(PrestoVerifier.SUPPORTED_EVENT_CLIENTS));

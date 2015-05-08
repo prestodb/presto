@@ -31,6 +31,13 @@ public class HdfsOrcDataSource
     }
 
     @Override
+    public void close()
+            throws IOException
+    {
+        inputStream.close();
+    }
+
+    @Override
     protected void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
             throws IOException
     {

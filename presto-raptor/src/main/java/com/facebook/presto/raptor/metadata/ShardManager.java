@@ -36,6 +36,16 @@ public interface ShardManager
     void commitShards(long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Optional<String> externalBatchId);
 
     /**
+     * Replace oldShardsIds with newShards.
+     */
+    void replaceShards(long tableId, List<ColumnInfo> columns, Set<Long> oldShardIds, Collection<ShardInfo> newShards);
+
+    /**
+     * Get shard metadata for table shards on a given node.
+     */
+    Set<ShardMetadata> getNodeTableShards(String nodeIdentifier, long tableId);
+
+    /**
      * Return the shard nodes a given table.
      */
     CloseableIterator<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate);

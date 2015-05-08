@@ -37,17 +37,22 @@ import java.util.Map;
 
 import static com.facebook.presto.plugin.jdbc.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class JdbcMetadata
         implements ConnectorMetadata
 {
     private final JdbcClient jdbcClient;
+    private final boolean allowDropTable;
 
     @Inject
-    public JdbcMetadata(JdbcConnectorId connectorId, JdbcClient jdbcClient)
+    public JdbcMetadata(JdbcConnectorId connectorId, JdbcClient jdbcClient, JdbcMetadataConfig config)
     {
         this.jdbcClient = checkNotNull(jdbcClient, "client is null");
+
+        checkNotNull(config, "config is null");
+        allowDropTable = config.isAllowDropTable();
     }
 
     @Override
@@ -139,7 +144,11 @@ public class JdbcMetadata
     @Override
     public void dropTable(ConnectorTableHandle tableHandle)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping tables");
+        if (!allowDropTable) {
+            throw new PrestoException(PERMISSION_DENIED, "DROP TABLE is disabled in this catalog");
+        }
+        JdbcTableHandle handle = checkType(tableHandle, JdbcTableHandle.class, "tableHandle");
+        jdbcClient.dropTable(handle);
     }
 
     @Override

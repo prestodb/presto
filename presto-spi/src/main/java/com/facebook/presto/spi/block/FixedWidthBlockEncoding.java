@@ -17,6 +17,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 
 import static com.facebook.presto.spi.block.EncoderUtil.decodeNullBits;
 import static com.facebook.presto.spi.block.EncoderUtil.encodeNullsAsBits;
@@ -58,17 +59,6 @@ public class FixedWidthBlockEncoding
         // write null bits 8 at a time
         encodeNullsAsBits(sliceOutput, fixedWidthBlock);
 
-        // write last null bits
-        if ((positionCount & 0b111) > 0) {
-            byte value = 0;
-            int mask = 0b1000_0000;
-            for (int position = positionCount & ~0b111; position < positionCount; position++) {
-                value |= fixedWidthBlock.isNull(position) ? mask : 0;
-                mask >>>= 1;
-            }
-            sliceOutput.appendByte(value);
-        }
-
         Slice slice = fixedWidthBlock.getRawSlice();
         sliceOutput
                 .appendInt(slice.length())
@@ -99,7 +89,7 @@ public class FixedWidthBlockEncoding
         int blockSize = sliceInput.readInt();
         Slice slice = sliceInput.readSlice(blockSize);
 
-        return new FixedWidthBlock(fixedSize, positionCount, slice, valueIsNull);
+        return new FixedWidthBlock(fixedSize, positionCount, slice, Slices.wrappedBooleanArray(valueIsNull));
     }
 
     @Override

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql;
 
+import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.joni.Regex;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.type.LikeFunctions.like;

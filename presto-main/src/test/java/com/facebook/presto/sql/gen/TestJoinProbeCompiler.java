@@ -15,7 +15,6 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.JoinProbe;
 import com.facebook.presto.operator.JoinProbeFactory;
@@ -44,6 +43,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -60,7 +60,7 @@ public class TestJoinProbeCompiler
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
-        taskContext = new TaskContext(new TaskId("query", "stage", "task"), executor, TEST_SESSION);
+        taskContext = createTaskContext(executor, TEST_SESSION);
     }
 
     @AfterMethod

@@ -17,6 +17,9 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.memory.LocalMemoryManager;
+import com.facebook.presto.memory.MemoryManagerConfig;
+import com.facebook.presto.memory.ReservedSystemMemoryConfig;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.spi.Node;
@@ -31,6 +34,8 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
+import org.weakref.jmx.MBeanExporter;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.net.URI;
 import java.util.concurrent.TimeUnit;
@@ -53,9 +58,11 @@ public class TestSqlTaskManager
     public static final TaskId OUT = new TaskId("query", "stage", "out");
 
     private final TaskExecutor taskExecutor;
+    private final LocalMemoryManager localMemoryManager;
 
     public TestSqlTaskManager()
     {
+        localMemoryManager = new LocalMemoryManager(new MemoryManagerConfig(), new ReservedSystemMemoryConfig(), new MBeanExporter(new TestingMBeanServer()));
         taskExecutor = new TaskExecutor(8, 16);
         taskExecutor.start();
     }
@@ -65,6 +72,7 @@ public class TestSqlTaskManager
             throws Exception
     {
         taskExecutor.stop();
+        localMemoryManager.destroy();
     }
 
     @Test
@@ -246,7 +254,9 @@ public class TestSqlTaskManager
                 taskExecutor,
                 new QueryMonitor(new ObjectMapperProvider().get(), new NullEventClient(), new NodeInfo("test"), new NodeVersion("testVersion")),
                 new NodeInfo("test"),
-                config);
+                localMemoryManager,
+                config,
+                new MemoryManagerConfig());
     }
 
     public static class MockExchangeClientSupplier
@@ -284,6 +294,12 @@ public class TestSqlTaskManager
         public URI createTaskLocation(Node node, TaskId taskId)
         {
             return URI.create("fake://task/" + node.getNodeIdentifier() + "/" + taskId);
+        }
+
+        @Override
+        public URI createMemoryInfoLocation(Node node)
+        {
+            return URI.create("fake://" + node.getNodeIdentifier() + "/memory");
         }
     }
 }

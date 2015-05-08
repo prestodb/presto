@@ -19,6 +19,9 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.SharedBuffer.BufferState;
+import com.facebook.presto.memory.MemoryPool;
+import com.facebook.presto.memory.MemoryPoolId;
+import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.google.common.base.Functions;
@@ -46,6 +49,7 @@ import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static com.facebook.presto.execution.TaskTestUtils.createTestingPlanner;
 import static com.facebook.presto.execution.TaskTestUtils.updateTask;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -279,6 +283,7 @@ public class TestSqlTask
                 taskId,
                 "test",
                 location,
+                new QueryContext(false, new DataSize(1, MEGABYTE), new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE), false), taskNotificationExecutor),
                 sqlTaskExecutionFactory,
                 taskNotificationExecutor,
                 Functions.<SqlTask>identity(),

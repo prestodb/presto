@@ -20,7 +20,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.airlift.configuration.ConfigurationModule.bindConfig;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -37,7 +37,7 @@ public class StorageModule
     @Override
     public void configure(Binder binder)
     {
-        bindConfig(binder).to(StorageManagerConfig.class);
+        configBinder(binder).bindConfig(StorageManagerConfig.class);
         binder.bind(StorageManager.class).to(OrcStorageManager.class).in(Scopes.SINGLETON);
         binder.bind(StorageService.class).to(FileStorageService.class).in(Scopes.SINGLETON);
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);

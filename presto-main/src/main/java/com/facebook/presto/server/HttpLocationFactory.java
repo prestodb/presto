@@ -27,6 +27,7 @@ import javax.inject.Inject;
 import java.net.URI;
 
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static java.util.Objects.requireNonNull;
 
 public class HttpLocationFactory
         implements LocationFactory
@@ -81,5 +82,13 @@ public class HttpLocationFactory
                 .appendPath("/v1/task")
                 .appendPath(taskId.toString())
                 .build();
+    }
+
+    @Override
+    public URI createMemoryInfoLocation(Node node)
+    {
+        requireNonNull(node, "node is null");
+        return uriBuilderFrom(node.getHttpUri())
+                .appendPath("/v1/memory").build();
     }
 }

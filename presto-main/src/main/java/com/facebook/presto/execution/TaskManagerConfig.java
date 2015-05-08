@@ -43,6 +43,7 @@ public class TaskManagerConfig
     private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
     private int writerCount = 1;
+    private int taskDefaultConcurrency = 1;
     private int httpNotificationThreads = 25;
 
     public boolean isVerboseStats()
@@ -217,6 +218,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setWriterCount(int writerCount)
     {
         this.writerCount = writerCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getTaskDefaultConcurrency()
+    {
+        return taskDefaultConcurrency;
+    }
+
+    @Config("task.default-concurrency")
+    @ConfigDescription("Default local concurrency for parallel operators")
+    public TaskManagerConfig setTaskDefaultConcurrency(int taskDefaultConcurrency)
+    {
+        this.taskDefaultConcurrency = taskDefaultConcurrency;
         return this;
     }
 

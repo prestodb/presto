@@ -37,6 +37,7 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.units.Duration;
 
@@ -58,7 +59,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @ThreadSafe
-public class SqlQueryExecution
+public final class SqlQueryExecution
         implements QueryExecution
 {
     private static final OutputBuffers ROOT_OUTPUT_BUFFERS = INITIAL_EMPTY_OUTPUT_BUFFERS
@@ -82,6 +83,7 @@ public class SqlQueryExecution
 
     private final QueryExplainer queryExplainer;
     private final AtomicReference<SqlStageExecution> outputStage = new AtomicReference<>();
+    private final AtomicReference<QueryInfo> finalQueryInfo = new AtomicReference<>();
     private final NodeTaskMap nodeTaskMap;
 
     public SqlQueryExecution(QueryId queryId,
@@ -97,7 +99,6 @@ public class SqlQueryExecution
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
             int scheduleSplitBatchSize,
-            int maxPendingSplitsPerNode,
             int initialHashPartitions,
             boolean experimentalSyntaxEnabled,
             ExecutorService queryExecutor,
@@ -116,7 +117,7 @@ public class SqlQueryExecution
             this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
             this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
 
-            checkArgument(maxPendingSplitsPerNode > 0, "scheduleSplitBatchSize must be greater than 0");
+            checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
 
             checkArgument(initialHashPartitions > 0, "initialHashPartitions must be greater than 0");
@@ -127,6 +128,14 @@ public class SqlQueryExecution
             checkNotNull(session, "session is null");
             checkNotNull(self, "self is null");
             this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryExecutor);
+
+            // when the query finishes cache the final query info, and clear the reference to the output stage
+            stateMachine.addStateChangeListener(state -> {
+                if (state.isDone() && finalQueryInfo.get() == null) {
+                    finalQueryInfo.compareAndSet(null, getQueryInfo());
+                    outputStage.set(null);
+                }
+            });
 
             this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled);
         }
@@ -300,6 +309,46 @@ public class SqlQueryExecution
     }
 
     @Override
+    public void pruneInfo()
+    {
+        QueryInfo queryInfo = finalQueryInfo.get();
+        if (queryInfo == null || queryInfo.getOutputStage() == null) {
+            return;
+        }
+
+        StageInfo prunedOutputStage = new StageInfo(
+                queryInfo.getOutputStage().getStageId(),
+                queryInfo.getOutputStage().getState(),
+                queryInfo.getOutputStage().getSelf(),
+                null, // Remove the plan
+                queryInfo.getOutputStage().getTypes(),
+                queryInfo.getOutputStage().getStageStats(),
+                ImmutableList.of(), // Remove the tasks
+                ImmutableList.of(), // Remove the substages
+                queryInfo.getOutputStage().getFailures()
+        );
+
+        QueryInfo prunedQueryInfo = new QueryInfo(
+                queryInfo.getQueryId(),
+                queryInfo.getSession(),
+                queryInfo.getState(),
+                queryInfo.isScheduled(),
+                queryInfo.getSelf(),
+                queryInfo.getFieldNames(),
+                queryInfo.getQuery(),
+                queryInfo.getQueryStats(),
+                queryInfo.getSetSessionProperties(),
+                queryInfo.getResetSessionProperties(),
+                queryInfo.getUpdateType(),
+                prunedOutputStage,
+                queryInfo.getFailureInfo(),
+                queryInfo.getErrorCode(),
+                queryInfo.getInputs()
+        );
+        finalQueryInfo.compareAndSet(queryInfo, prunedQueryInfo);
+    }
+
+    @Override
     public QueryId getQueryId()
     {
         return stateMachine.getQueryId();
@@ -309,7 +358,16 @@ public class SqlQueryExecution
     public QueryInfo getQueryInfo()
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
+            // acquire reference to outputStage before checking finalQueryInfo, because
+            // state change listener sets finalQueryInfo and then clears outputStage when
+            // the query finishes.
             SqlStageExecution outputStage = this.outputStage.get();
+
+            QueryInfo finalQueryInfo = this.finalQueryInfo.get();
+            if (finalQueryInfo != null) {
+                return finalQueryInfo;
+            }
+
             StageInfo stageInfo = null;
             if (outputStage != null) {
                 stageInfo = outputStage.getStageInfo();
@@ -372,7 +430,6 @@ public class SqlQueryExecution
             implements QueryExecutionFactory<SqlQueryExecution>
     {
         private final int scheduleSplitBatchSize;
-        private final int maxPendingSplitsPerNode;
         private final int initialHashPartitions;
         private final Integer bigQueryInitialHashPartitions;
         private final boolean experimentalSyntaxEnabled;
@@ -403,7 +460,6 @@ public class SqlQueryExecution
         {
             checkNotNull(config, "config is null");
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
-            this.maxPendingSplitsPerNode = config.getMaxPendingSplitsPerNode();
             this.initialHashPartitions = config.getInitialHashPartitions();
             this.bigQueryInitialHashPartitions = config.getBigQueryInitialHashPartitions();
             this.metadata = checkNotNull(metadata, "metadata is null");
@@ -442,7 +498,6 @@ public class SqlQueryExecution
                     remoteTaskFactory,
                     locationFactory,
                     scheduleSplitBatchSize,
-                    maxPendingSplitsPerNode,
                     initialHashPartitions,
                     experimentalSyntaxEnabled,
                     executor,

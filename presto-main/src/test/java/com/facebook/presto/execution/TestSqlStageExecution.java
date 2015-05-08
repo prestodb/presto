@@ -19,6 +19,9 @@ import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.SharedBuffer.BufferState;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TestSqlTaskManager.MockLocationFactory;
+import com.facebook.presto.memory.MemoryPool;
+import com.facebook.presto.memory.MemoryPoolId;
+import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.PrestoNode;
@@ -54,7 +57,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -80,6 +82,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -402,7 +405,8 @@ public class TestSqlStageExecution
             {
                 this.taskStateMachine = new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotNull(executor, "executor is null"));
 
-                this.taskContext = new TaskContext(taskStateMachine, executor, TEST_SESSION, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true, true);
+                MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE), false);
+                this.taskContext = new QueryContext(false, new DataSize(1, MEGABYTE), memoryPool, executor).addTaskContext(taskStateMachine, TEST_SESSION, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true, true);
 
                 this.location = URI.create("fake://task/" + taskId);
 
@@ -486,19 +490,6 @@ public class TestSqlStageExecution
             public void abort()
             {
                 taskStateMachine.abort();
-            }
-
-            @Override
-            public Duration waitForTaskToFinish(Duration maxWait)
-                    throws InterruptedException
-            {
-                while (true) {
-                    TaskState currentState = taskStateMachine.getState();
-                    if (maxWait.toMillis() <= 1 || currentState.isDone()) {
-                        return maxWait;
-                    }
-                    maxWait = taskStateMachine.waitForStateChange(currentState, maxWait);
-                }
             }
 
             @Override

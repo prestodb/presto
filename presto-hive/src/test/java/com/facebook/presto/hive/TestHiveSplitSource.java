@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.HiveSplitSourceProvider.HiveSplitSource;
-import com.facebook.presto.hive.util.SuspendingExecutor;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.util.concurrent.SettableFuture;
@@ -22,7 +20,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 import static org.testng.Assert.assertEquals;
@@ -37,8 +34,7 @@ public class TestHiveSplitSource
     public void testOutstandingSplitCount()
             throws Exception
     {
-        SuspendingExecutor suspendingExecutor = createSuspendingExecutor();
-        HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, suspendingExecutor);
+        HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, new TestingHiveSplitLoader());
 
         // add 10 splits
         for (int i = 0; i < 10; i++) {
@@ -63,44 +59,32 @@ public class TestHiveSplitSource
     public void testSuspendResume()
             throws Exception
     {
-        SuspendingExecutor suspendingExecutor = createSuspendingExecutor();
-        HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, suspendingExecutor);
+        TestingHiveSplitLoader splitLoader = new TestingHiveSplitLoader();
+        HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, splitLoader);
 
         // almost fill the source
         for (int i = 0; i < 9; i++) {
             hiveSplitSource.addToQueue(new TestSplit(i));
             assertEquals(hiveSplitSource.getOutstandingSplitCount(), i + 1);
-            assertFalse(suspendingExecutor.isSuspended());
+            assertFalse(splitLoader.isResumed());
         }
 
-        // add one more split so the source is now full and verify that the executor is suspended
+        // add one more split so the source is now full
         hiveSplitSource.addToQueue(new TestSplit(10));
         assertEquals(hiveSplitSource.getOutstandingSplitCount(), 10);
-        assertTrue(suspendingExecutor.isSuspended());
+        assertFalse(splitLoader.isResumed());
 
-        // remove one split so the source is no longer full and verify the executor is resumed
+        // remove one split so the source is no longer full and verify the loader is resumed
         assertEquals(hiveSplitSource.getNextBatch(1).size(), 1);
         assertEquals(hiveSplitSource.getOutstandingSplitCount(), 9);
-        assertFalse(suspendingExecutor.isSuspended());
-
-        // add two more splits so the source is now full and verify that the executor is suspended
-        hiveSplitSource.addToQueue(new TestSplit(11));
-        hiveSplitSource.addToQueue(new TestSplit(12));
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 11);
-        assertTrue(suspendingExecutor.isSuspended());
-
-        // remove two splits so the source is no longer full and verify the executor is resumed
-        assertEquals(hiveSplitSource.getNextBatch(2).size(), 2);
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 9);
-        assertFalse(suspendingExecutor.isSuspended());
+        assertTrue(splitLoader.isResumed());
     }
 
     @Test
     public void testFail()
             throws Exception
     {
-        SuspendingExecutor suspendingExecutor = createSuspendingExecutor();
-        HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, suspendingExecutor);
+        HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, new TestingHiveSplitLoader());
 
         // add some splits
         for (int i = 0; i < 5; i++) {
@@ -148,8 +132,7 @@ public class TestHiveSplitSource
     public void testReaderWaitsForSplits()
             throws Exception
     {
-        SuspendingExecutor suspendingExecutor = createSuspendingExecutor();
-        final HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, suspendingExecutor);
+        final HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, new TestingHiveSplitLoader());
 
         final SettableFuture<ConnectorSplit> splits = SettableFuture.create();
 
@@ -194,16 +177,31 @@ public class TestHiveSplitSource
         }
     }
 
-    private SuspendingExecutor createSuspendingExecutor()
+    private static class TestingHiveSplitLoader
+            implements HiveSplitLoader
     {
-        return new SuspendingExecutor(new Executor()
+        private boolean resumed;
+
+        @Override
+        public void start(HiveSplitSource splitSource)
         {
-            @Override
-            public void execute(Runnable command)
-            {
-                throw new UnsupportedOperationException();
-            }
-        });
+        }
+
+        @Override
+        public void resume()
+        {
+            resumed = true;
+        }
+
+        @Override
+        public void stop()
+        {
+        }
+
+        public boolean isResumed()
+        {
+            return resumed;
+        }
     }
 
     private static class TestSplit

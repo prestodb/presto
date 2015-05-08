@@ -40,7 +40,7 @@ public class ArrayType
         extends AbstractVariableWidthType
 {
     private final Type elementType;
-    private static final String ARRAY_NULL_ELEMENT_MSG = "ARRAY comparison not supported for arrays with null elements";
+    public static final String ARRAY_NULL_ELEMENT_MSG = "ARRAY comparison not supported for arrays with null elements";
 
     public ArrayType(Type elementType)
     {
@@ -175,5 +175,11 @@ public class ArrayType
     public List<Type> getTypeParameters()
     {
         return ImmutableList.of(getElementType());
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return "array<" + elementType.getDisplayName() + ">";
     }
 }

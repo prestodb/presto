@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -62,7 +62,6 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -352,6 +351,21 @@ public class BaseJdbcClient
     }
 
     @Override
+    public void dropTable(JdbcTableHandle handle)
+    {
+        StringBuilder sql = new StringBuilder()
+                .append("DROP TABLE ")
+                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()));
+
+        try (Connection connection = driver.connect(connectionUrl, connectionProperties)) {
+            execute(connection, sql.toString());
+        }
+        catch (SQLException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    @Override
     public String buildInsertSql(JdbcOutputTableHandle handle)
     {
         String vars = Joiner.on(',').join(nCopies(handle.getColumnNames().size(), "?"));
@@ -449,7 +463,6 @@ public class BaseJdbcClient
     {
         StringBuilder sb = new StringBuilder();
         if (!isNullOrEmpty(catalog)) {
-            checkArgument(!isNullOrEmpty(schema), "catalog is present but schema is not");
             sb.append(quoted(catalog)).append(".");
         }
         if (!isNullOrEmpty(schema)) {
