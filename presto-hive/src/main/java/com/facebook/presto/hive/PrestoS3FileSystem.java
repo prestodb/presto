@@ -467,7 +467,8 @@ public class PrestoS3FileSystem
         }
     }
 
-    private ObjectMetadata getS3ObjectMetadata(Path path)
+    @VisibleForTesting
+    ObjectMetadata getS3ObjectMetadata(Path path)
             throws IOException
     {
         try {
@@ -872,5 +873,11 @@ public class PrestoS3FileSystem
     AmazonS3 getS3Client()
     {
         return s3;
+    }
+
+    @VisibleForTesting
+    void setS3Client(AmazonS3 client)
+    {
+        s3 = client;
     }
 }
