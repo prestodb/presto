@@ -154,7 +154,7 @@ public class DatabaseShardManager
         });
     }
 
-    private void deleteShardsAndIndex(long tableId, Set<Long> shardIds, Handle handle)
+    private static void deleteShardsAndIndex(long tableId, Set<Long> shardIds, Handle handle)
             throws SQLException
     {
         String args = Joiner.on(",").join(nCopies(shardIds.size(), "?"));
@@ -175,7 +175,7 @@ public class DatabaseShardManager
         }
     }
 
-    private void insertShardsAndIndex(long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Map<String, Integer> nodeIds, Handle handle, ShardManagerDao dao)
+    private static void insertShardsAndIndex(long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Map<String, Integer> nodeIds, Handle handle, ShardManagerDao dao)
             throws SQLException
     {
         try (IndexInserter indexInserter = new IndexInserter(handle.getConnection(), tableId, columns)) {
