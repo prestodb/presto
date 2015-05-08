@@ -18,6 +18,8 @@ import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.internal.StaticCredentialsProvider;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Field;
@@ -25,6 +27,10 @@ import java.net.URI;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static org.apache.http.HttpStatus.SC_FORBIDDEN;
+import static org.apache.http.HttpStatus.SC_NOT_FOUND;
+import static org.apache.http.HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE;
+import static org.testng.Assert.assertEquals;
 
 public class TestPrestoS3FileSystem
 {
@@ -65,6 +71,79 @@ public class TestPrestoS3FileSystem
 
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
+        }
+    }
+
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Failing getObject call with " + SC_NOT_FOUND + ".*")
+    public void testReadNotFound()
+            throws Exception
+    {
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            s3.setGetObjectHttpErrorCode(SC_NOT_FOUND);
+            fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
+            fs.setS3Client(s3);
+            try (FSDataInputStream inputStream = fs.open(new Path("s3n://test-bucket/test"))) {
+                inputStream.read();
+            }
+        }
+    }
+
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Failing getObject call with " + SC_FORBIDDEN + ".*")
+    public void testReadForbidden()
+            throws Exception
+    {
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            s3.setGetObjectHttpErrorCode(SC_FORBIDDEN);
+            fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
+            fs.setS3Client(s3);
+            try (FSDataInputStream inputStream = fs.open(new Path("s3n://test-bucket/test"))) {
+                inputStream.read();
+            }
+        }
+    }
+
+    @Test
+    public void testReadRequestRangeNotSatisfiable()
+            throws Exception
+    {
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            s3.setGetObjectHttpErrorCode(SC_REQUESTED_RANGE_NOT_SATISFIABLE);
+            fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
+            fs.setS3Client(s3);
+            try (FSDataInputStream inputStream = fs.open(new Path("s3n://test-bucket/test"))) {
+                assertEquals(inputStream.read(), -1);
+            }
+        }
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Failing getObjectMetadata call with " + SC_FORBIDDEN + ".*")
+    public void testGetMetadataForbidden()
+            throws Exception
+    {
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            s3.setGetObjectMetadataHttpCode(SC_FORBIDDEN);
+            fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
+            fs.setS3Client(s3);
+            fs.getS3ObjectMetadata(new Path("s3n://test-bucket/test"));
+        }
+    }
+
+    @Test
+    public void testGetMetadataNotFound()
+            throws Exception
+    {
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            s3.setGetObjectMetadataHttpCode(SC_NOT_FOUND);
+            fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
+            fs.setS3Client(s3);
+            assertEquals(fs.getS3ObjectMetadata(new Path("s3n://test-bucket/test")), null);
         }
     }
 
