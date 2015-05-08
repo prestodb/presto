@@ -68,6 +68,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/presto-kinesis">
+        <artifact id="${project.groupId}:presto-kinesis:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/ml">
         <artifact id="${project.groupId}:presto-ml:zip:${project.version}">
             <unpack />
