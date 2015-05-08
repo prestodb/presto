@@ -15,14 +15,19 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.aggregation.state.MaxOrMinByState;
+import com.facebook.presto.operator.aggregation.state.MaxOrMinByStateFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.FixedWidthBlock;
 import com.facebook.presto.spi.type.AbstractFixedWidthType;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
+import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -73,6 +78,21 @@ public class TestMinByAggregation
                 createPage(
                         new Double[] {1.0, null},
                         new Double[] {1.0, 2.0}));
+    }
+
+    @Test
+    public void testNullKeyCompare()
+    {
+        MaxOrMinByStateFactory stateFactory = new MaxOrMinByStateFactory(DoubleType.DOUBLE, DoubleType.DOUBLE);
+        MaxOrMinByState state = stateFactory.createSingleState();
+        MaxOrMinByState other = stateFactory.createSingleState();
+
+        DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(16);
+        for (int index = 0; index < 16; index++) {
+            dynamicSliceOutput.writeByte(16 * (index + 1));
+        }
+        state.setKey(new FixedWidthBlock(1028, 0, dynamicSliceOutput.slice(), new boolean[0]));
+        MaxBy.combine(state, other);
     }
 
     @Test
