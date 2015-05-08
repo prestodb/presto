@@ -44,7 +44,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static com.facebook.presto.raptor.storage.ShardStats.MAX_BINARY_INDEX_SIZE;
@@ -152,7 +151,7 @@ public class TestDatabaseShardManager
         for (String node : nodes) {
             Set<ShardMetadata> shardMetadata = shardManager.getNodeTableShards(node, tableId);
             Set<UUID> expectedUuids = ImmutableSet.copyOf(nodeShardMap.get(node));
-            Set<UUID> actualUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(Collectors.toSet());
+            Set<UUID> actualUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
             assertEquals(actualUuids, expectedUuids);
         }
 
@@ -188,13 +187,13 @@ public class TestDatabaseShardManager
                 .build();
 
         Set<ShardMetadata> shardMetadata = shardManager.getNodeTableShards(nodes.get(0), tableId);
-        Set<Long> shardIds = shardMetadata.stream().map(ShardMetadata::getShardId).collect(Collectors.toSet());
-        Set<UUID> replacedUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(Collectors.toSet());
+        Set<Long> shardIds = shardMetadata.stream().map(ShardMetadata::getShardId).collect(toSet());
+        Set<UUID> replacedUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
 
         shardManager.replaceShards(tableId, columns, shardIds, newShards);
 
         shardMetadata = shardManager.getNodeTableShards(nodes.get(0), tableId);
-        Set<UUID> actualUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(Collectors.toSet());
+        Set<UUID> actualUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
         assertEquals(actualUuids, ImmutableSet.copyOf(expectedUuids));
 
         // Compute expected all uuids for this table
@@ -204,7 +203,7 @@ public class TestDatabaseShardManager
 
         // check that shards are replaced in index table as well
         Set<ShardNodes> shardNodes = ImmutableSet.copyOf(shardManager.getShardNodes(tableId, TupleDomain.<RaptorColumnHandle>all()));
-        Set<UUID> actualAllUuids = shardNodes.stream().map(ShardNodes::getShardUuid).collect(Collectors.toSet());
+        Set<UUID> actualAllUuids = shardNodes.stream().map(ShardNodes::getShardUuid).collect(toSet());
         assertEquals(actualAllUuids, expectedAllUuids);
     }
 
