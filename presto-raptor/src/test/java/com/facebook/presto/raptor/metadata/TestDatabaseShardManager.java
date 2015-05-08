@@ -50,6 +50,7 @@ import static com.facebook.presto.raptor.storage.ShardStats.MAX_BINARY_INDEX_SIZ
 import static com.facebook.presto.spi.Range.greaterThan;
 import static com.facebook.presto.spi.Range.greaterThanOrEqual;
 import static com.facebook.presto.spi.Range.lessThan;
+import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -205,6 +206,16 @@ public class TestDatabaseShardManager
         Set<ShardNodes> shardNodes = ImmutableSet.copyOf(shardManager.getShardNodes(tableId, TupleDomain.<RaptorColumnHandle>all()));
         Set<UUID> actualAllUuids = shardNodes.stream().map(ShardNodes::getShardUuid).collect(toSet());
         assertEquals(actualAllUuids, expectedAllUuids);
+
+        // verify that conflicting updates are handled
+        newShards = ImmutableList.of(shardInfo(UUID.randomUUID(), nodes.get(0)));
+        try {
+            shardManager.replaceShards(tableId, columns, shardIds, newShards);
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
+        }
     }
 
     @Test
