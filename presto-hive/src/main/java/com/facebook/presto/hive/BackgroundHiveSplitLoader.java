@@ -19,7 +19,6 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
@@ -47,9 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -82,7 +79,7 @@ public class BackgroundHiveSplitLoader
     private final Executor executor;
     private final ConnectorSession session;
     private final AtomicInteger outstandingTasks = new AtomicInteger();
-    private final Queue<HivePartitionMetadata> partitions = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
     private final Deque<HiveFileIterator> fileIterators = new ConcurrentLinkedDeque<>();
     private final AtomicInteger remainingInitialSplits;
 
@@ -120,7 +117,7 @@ public class BackgroundHiveSplitLoader
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
         this.forceLocalScheduling = forceLocalScheduling;
         this.executor = executor;
-        Iterables.addAll(this.partitions, partitions);
+        this.partitions = new ConcurrentLazyQueue<>(partitions);
     }
 
     @Override
