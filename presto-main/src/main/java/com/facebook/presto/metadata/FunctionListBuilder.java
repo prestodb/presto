@@ -51,7 +51,6 @@ import java.util.Set;
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -185,10 +184,9 @@ public class FunctionListBuilder
         }
         SqlType returnTypeAnnotation = method.getAnnotation(SqlType.class);
         checkArgument(returnTypeAnnotation != null, "Method %s return type does not have a @SqlType annotation", method);
-        Type returnType = type(typeManager, returnTypeAnnotation);
-        Signature signature = new Signature(name.toLowerCase(ENGLISH), returnType.getTypeSignature(), Lists.transform(parameterTypes(typeManager, method), Type::getTypeSignature));
+        Signature signature = new Signature(name.toLowerCase(ENGLISH), parseTypeSignature(returnTypeAnnotation.value()), parameterTypeSignatures(method));
 
-        verifyMethodSignature(method, signature.getReturnType(), signature.getArgumentTypes(), typeManager);
+         verifyMethodSignature(method, signature.getReturnType(), signature.getArgumentTypes(), typeManager);
 
         List<Boolean> nullableArguments = getNullableArguments(method);
 
@@ -232,16 +230,44 @@ public class FunctionListBuilder
         return types.build();
     }
 
+    private static List<TypeSignature> parameterTypeSignatures(Method method)
+    {
+        Annotation[][] parameterAnnotations = method.getParameterAnnotations();
+
+        ImmutableList.Builder<TypeSignature> types = ImmutableList.builder();
+        for (int i = 0; i < method.getParameterTypes().length; i++) {
+            Class<?> clazz = method.getParameterTypes()[i];
+            // skip session parameters
+            if (clazz == ConnectorSession.class) {
+                continue;
+            }
+
+            // find the explicit type annotation if present
+            SqlType explicitType = null;
+            for (Annotation annotation : parameterAnnotations[i]) {
+                if (annotation instanceof SqlType) {
+                    explicitType = (SqlType) annotation;
+                    break;
+                }
+            }
+            checkArgument(explicitType != null, "Method %s argument %s does not have a @SqlType annotation", method, i);
+            types.add(parseTypeSignature(explicitType.value()));
+        }
+        return types.build();
+    }
+
     private static void verifyMethodSignature(Method method, TypeSignature returnTypeName, List<TypeSignature> argumentTypeNames, TypeManager typeManager)
     {
-        Type returnType = typeManager.getType(returnTypeName);
-        checkNotNull(returnType, "returnType is null");
-        List<Type> argumentTypes = resolveTypes(argumentTypeNames, typeManager);
-        checkArgument(Primitives.unwrap(method.getReturnType()) == returnType.getJavaType(),
-                "Expected method %s return type to be %s (%s)",
-                method,
-                returnType.getJavaType().getName(),
-                returnType);
+        // todo figure out how to validate java type for calculated SQL type
+        if (!returnTypeName.isCalculated()) {
+            Type returnType = typeManager.getType(returnTypeName);
+            checkNotNull(returnType, "returnType is null");
+            checkArgument(Primitives.unwrap(method.getReturnType()) == returnType.getJavaType(),
+                    "Expected method %s return type to be %s (%s)",
+                    method,
+                    returnType.getJavaType().getName(),
+                    returnType);
+        }
 
         // skip Session argument
         Class<?>[] parameterTypes = method.getParameterTypes();
@@ -251,9 +277,13 @@ public class FunctionListBuilder
             annotations = Arrays.copyOfRange(annotations, 1, annotations.length);
         }
 
-        for (int i = 0; i < parameterTypes.length; i++) {
+        for (int i = 0; i < argumentTypeNames.size(); i++) {
+            TypeSignature expectedTypeName = argumentTypeNames.get(i);
+            if (expectedTypeName.isCalculated()) {
+                continue;
+            }
+            Type expectedType = typeManager.getType(expectedTypeName);
             Class<?> actualType = parameterTypes[i];
-            Type expectedType = argumentTypes.get(i);
             boolean nullable = !FluentIterable.from(Arrays.asList(annotations[i])).filter(Nullable.class).isEmpty();
             // Only allow boxing for functions that need to see nulls
             if (Primitives.isWrapperType(actualType)) {
