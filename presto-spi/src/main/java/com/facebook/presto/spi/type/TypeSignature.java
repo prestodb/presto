@@ -29,6 +29,7 @@ public class TypeSignature
     private final String base;
     private final List<TypeSignature> parameters;
     private final List<Object> literalParameters;
+    private final boolean calculated;
 
     public TypeSignature(String base, List<TypeSignature> parameters, List<Object> literalParameters)
     {
@@ -39,10 +40,13 @@ public class TypeSignature
         checkArgument(parameters != null, "parameters is null");
         checkArgument(literalParameters != null, "literalParameters is null");
         for (Object literal : literalParameters) {
-            checkArgument(literal instanceof String || literal instanceof Long, "Unsupported literal type: %s", literal.getClass());
+            checkArgument(literal instanceof String || literal instanceof Long || literal instanceof TypeLiteralCalculation, "Unsupported literal type: %s", literal.getClass());
         }
         this.parameters = unmodifiableList(new ArrayList<>(parameters));
         this.literalParameters = unmodifiableList(new ArrayList<>(literalParameters));
+
+        this.calculated = parameters.stream().anyMatch(TypeSignature::isCalculated) ||
+                literalParameters.stream().anyMatch(TypeLiteralCalculation.class::isInstance);
     }
 
     private static boolean validateName(String name)
@@ -107,6 +111,11 @@ public class TypeSignature
     public List<Object> getLiteralParameters()
     {
         return literalParameters;
+    }
+
+    public boolean isCalculated()
+    {
+        return calculated;
     }
 
     @JsonCreator
@@ -187,13 +196,18 @@ public class TypeSignature
 
     private static Object parseLiteral(String literal)
     {
+        checkArgument(literal != null && !literal.isEmpty(), "Bad literal: '%s'", literal);
+
         if (literal.startsWith("'") || literal.endsWith("'")) {
             checkArgument(literal.startsWith("'") && literal.endsWith("'"), "Bad literal: '%s'", literal);
             return literal.substring(1, literal.length() - 1);
         }
-        else {
+        try {
             return Long.parseLong(literal);
         }
+        catch (NumberFormatException ignored) {
+        }
+        return new TypeLiteralCalculation(literal);
     }
 
     @Override
