@@ -417,7 +417,7 @@ public class FunctionRegistry
         }
 
         if (match != null) {
-            return match;
+            return match.resolveCalculatedTypes(parameterTypes);
         }
 
         // search for coerced match
@@ -426,7 +426,8 @@ public class FunctionRegistry
             if (boundTypeParameters != null) {
                 // TODO: This should also check for ambiguities
                 try {
-                    return specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, resolvedTypes.size()));
+                    match = specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, resolvedTypes.size()));
+                    return match.resolveCalculatedTypes(parameterTypes);
                 }
                 catch (UncheckedExecutionException e) {
                     throw Throwables.propagate(e.getCause());
@@ -499,7 +500,7 @@ public class FunctionRegistry
                 }
 
                 if (match != null) {
-                    return match;
+                    return match.resolveCalculatedTypes(parameterTypes);
                 }
             }
         }
