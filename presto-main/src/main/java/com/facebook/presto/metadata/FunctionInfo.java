@@ -136,6 +136,15 @@ public final class FunctionInfo
         return this;
     }
 
+    public FunctionInfo resolveCalculatedTypes(List<TypeSignature> parameterTypes)
+    {
+        Signature resolvedSignature = signature.resolveCalculatedTypes(parameterTypes);
+        if (resolvedSignature == signature) {
+            return this;
+        }
+        return new FunctionInfo(resolvedSignature, description, hidden, methodHandle, deterministic, nullable, nullableArguments);
+    }
+
     @Deprecated
     public WindowFunctionSupplier getWindowFunction()
     {

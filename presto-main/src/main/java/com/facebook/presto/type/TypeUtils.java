@@ -21,6 +21,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeLiteralCalculation;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Throwables;
@@ -29,14 +30,22 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public final class TypeUtils
 {
@@ -187,5 +196,72 @@ public final class TypeUtils
         if (isNull) {
             throw new PrestoException(NOT_SUPPORTED, errorMsg);
         }
+    }
+
+    public static TypeSignature resolveCalculatedType(TypeSignature typeSignature, Map<String, OptionalLong> inputs)
+    {
+        List<TypeSignature> parameters = typeSignature.getParameters().stream()
+                .map(parameter -> resolveCalculatedType(parameter, inputs))
+                .collect(toList());
+
+        List<Object> literalParameters = typeSignature.getLiteralParameters().stream()
+                .map(literal -> calculateLiteral(literal, inputs))
+                .map(literal -> {
+                    if (!(literal instanceof OptionalLong)) {
+                        return literal;
+                    }
+                    OptionalLong optionalLong = (OptionalLong) literal;
+                    return optionalLong.isPresent() ? optionalLong.getAsLong() : null;
+                })
+                .collect(toList());
+
+        if (literalParameters.stream().anyMatch(Objects::isNull)) {
+            // if we have types missing literal parameters (e.g., just VARCHAR), we can not perform
+            // the literal calculation, so just return a raw type
+            return new TypeSignature(typeSignature.getBase(), parameters, Collections.emptyList());
+        }
+
+        return new TypeSignature(typeSignature.getBase(), parameters, literalParameters);
+    }
+
+    public static Object calculateLiteral(Object literal, Map<String, OptionalLong> inputs)
+    {
+        if (!(literal instanceof TypeLiteralCalculation)) {
+            return literal;
+        }
+        TypeLiteralCalculation typeLiteralCalculation = (TypeLiteralCalculation) literal;
+        return TypeCalculation.calculateLiteralValue(typeLiteralCalculation.getCalculation(), inputs);
+    }
+
+    public static Map<String, OptionalLong> extractCalculationInputs(TypeSignature typeSignature, TypeSignature actualType)
+    {
+        if (!typeSignature.isCalculated()) {
+            return emptyMap();
+        }
+        Map<String, OptionalLong> inputs = new HashMap<>();
+        for (int index = 0; index < typeSignature.getParameters().size(); index++) {
+            TypeSignature parameter = typeSignature.getParameters().get(index);
+            if (parameter.isCalculated()) {
+                TypeSignature actualParameter = actualType.getParameters().get(index);
+                inputs.putAll(extractCalculationInputs(parameter, actualParameter));
+            }
+        }
+        for (int index = 0; index < typeSignature.getLiteralParameters().size(); index++) {
+            Object literal = typeSignature.getLiteralParameters().get(index);
+            if (literal instanceof TypeLiteralCalculation) {
+                TypeLiteralCalculation calculation = (TypeLiteralCalculation) literal;
+                if (actualType.getLiteralParameters().isEmpty()) {
+                    inputs.put(calculation.getCalculation().toUpperCase(Locale.US), OptionalLong.empty());
+                }
+                else {
+                    Object actualLiteral = actualType.getLiteralParameters().get(index);
+                    if (!(actualLiteral instanceof Long)) {
+                        throw new IllegalArgumentException(format("Expected type %s literal parameter %s to be a number", actualType, index));
+                    }
+                    inputs.put(calculation.getCalculation().toUpperCase(Locale.US), OptionalLong.of((Long) actualLiteral));
+                }
+            }
+        }
+        return inputs;
     }
 }

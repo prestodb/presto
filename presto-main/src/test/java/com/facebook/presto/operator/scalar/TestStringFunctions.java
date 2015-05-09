@@ -60,19 +60,18 @@ public class TestStringFunctions
     {
         assertInvalidFunction("CONCAT()", "There must be two or more concatenation arguments");
         assertInvalidFunction("CONCAT('')", "There must be two or more concatenation arguments");
-        assertFunction("CONCAT('hello', ' world')", VARCHAR, "hello world");
-        assertFunction("CONCAT('', '')", VARCHAR, "");
-        assertFunction("CONCAT('what', '')", VARCHAR, "what");
-        assertFunction("CONCAT('', 'what')", VARCHAR, "what");
-        assertFunction("CONCAT(CONCAT('this', ' is'), ' cool')", VARCHAR, "this is cool");
-        assertFunction("CONCAT('this', CONCAT(' is', ' cool'))", VARCHAR, "this is cool");
-        assertFunction("CONCAT('this ', 'is ', 'cool ', 'foo ', 'bar')", VARCHAR, "this is cool foo bar");
+        assertFunction("CONCAT('hello', ' world')", createVarcharType(11), "hello world");
+        assertFunction("CONCAT('', '')", createVarcharType(0), "");
+        assertFunction("CONCAT('what', '')", createVarcharType(4), "what");
+        assertFunction("CONCAT('', 'what')", createVarcharType(4), "what");
+        assertFunction("CONCAT(CONCAT('this', ' is'), ' cool')", createVarcharType(12), "this is cool");
+        assertFunction("CONCAT('this', CONCAT(' is', ' cool'))", createVarcharType(12), "this is cool");
         //
         // Test concat for non-ASCII
-        assertFunction("CONCAT('hello na\u00EFve', ' world')", VARCHAR, "hello na\u00EFve world");
-        assertFunction("CONCAT('\uD801\uDC2D', 'end')", VARCHAR, "\uD801\uDC2Dend");
-        assertFunction("CONCAT('\uD801\uDC2D', 'end', '\uD801\uDC2D')", VARCHAR, "\uD801\uDC2Dend\uD801\uDC2D");
-        assertFunction("CONCAT(CONCAT('\u4FE1\u5FF5', ',\u7231'), ',\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
+        assertFunction("CONCAT('hello na\u00EFve', ' world')", createVarcharType(17), "hello na\u00EFve world");
+        assertFunction("CONCAT('\uD801\uDC2D', 'end')", createVarcharType(5), "\uD801\uDC2Dend");
+        assertFunction("CONCAT('\uD801\uDC2D', 'end', '\uD801\uDC2D')", createVarcharType(5), "\uD801\uDC2Dend\uD801\uDC2D");
+        assertFunction("CONCAT(CONCAT('\u4FE1\u5FF5', ',\u7231'), ',\u5E0C\u671B')", createVarcharType(7), "\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
     }
 
     @Test
@@ -128,15 +127,15 @@ public class TestStringFunctions
     @Test
     public void testReverse()
     {
-        assertFunction("REVERSE('')", VARCHAR, "");
-        assertFunction("REVERSE('hello')", VARCHAR, "olleh");
-        assertFunction("REVERSE('Quadratically')", VARCHAR, "yllacitardauQ");
-        assertFunction("REVERSE('racecar')", VARCHAR, "racecar");
+        assertFunction("REVERSE('')", createVarcharType(0), "");
+        assertFunction("REVERSE('hello')", createVarcharType(5), "olleh");
+        assertFunction("REVERSE('Quadratically')", createVarcharType(13), "yllacitardauQ");
+        assertFunction("REVERSE('racecar')", createVarcharType(7), "racecar");
         // Test REVERSE for non-ASCII
-        assertFunction("REVERSE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", VARCHAR, "\u671B\u5E0C,\u7231,\u5FF5\u4FE1");
-        assertFunction("REVERSE('\u00D6sterreich')", VARCHAR, "hcierrets\u00D6");
-        assertFunction("REVERSE('na\u00EFve')", VARCHAR, "ev\u00EFan");
-        assertFunction("REVERSE('\uD801\uDC2Dend')", VARCHAR, "dne\uD801\uDC2D");
+        assertFunction("REVERSE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", createVarcharType(7), "\u671B\u5E0C,\u7231,\u5FF5\u4FE1");
+        assertFunction("REVERSE('\u00D6sterreich')", createVarcharType(10), "hcierrets\u00D6");
+        assertFunction("REVERSE('na\u00EFve')", createVarcharType(5), "ev\u00EFan");
+        assertFunction("REVERSE('\uD801\uDC2Dend')", createVarcharType(5), "dne\uD801\uDC2D");
 
         assertFunction("CAST(REVERSE(utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE}));
         assertFunction("CAST(REVERSE('hello' || utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE, 'o', 'l', 'l', 'e', 'h'}));
@@ -175,66 +174,66 @@ public class TestStringFunctions
     @Test
     public void testSubstring()
     {
-        assertFunction("SUBSTR('Quadratically', 5)", VARCHAR, "ratically");
-        assertFunction("SUBSTR('Quadratically', 50)", VARCHAR, "");
-        assertFunction("SUBSTR('Quadratically', -5)", VARCHAR, "cally");
-        assertFunction("SUBSTR('Quadratically', -50)", VARCHAR, "");
-        assertFunction("SUBSTR('Quadratically', 0)", VARCHAR, "");
+        assertFunction("SUBSTR('Quadratically', 5)", createVarcharType(13), "ratically");
+        assertFunction("SUBSTR('Quadratically', 50)", createVarcharType(13), "");
+        assertFunction("SUBSTR('Quadratically', -5)", createVarcharType(13), "cally");
+        assertFunction("SUBSTR('Quadratically', -50)", createVarcharType(13), "");
+        assertFunction("SUBSTR('Quadratically', 0)", createVarcharType(13), "");
 
-        assertFunction("SUBSTR('Quadratically', 5, 6)", VARCHAR, "ratica");
-        assertFunction("SUBSTR('Quadratically', 5, 10)", VARCHAR, "ratically");
-        assertFunction("SUBSTR('Quadratically', 5, 50)", VARCHAR, "ratically");
-        assertFunction("SUBSTR('Quadratically', 50, 10)", VARCHAR, "");
-        assertFunction("SUBSTR('Quadratically', -5, 4)", VARCHAR, "call");
-        assertFunction("SUBSTR('Quadratically', -5, 40)", VARCHAR, "cally");
-        assertFunction("SUBSTR('Quadratically', -50, 4)", VARCHAR, "");
-        assertFunction("SUBSTR('Quadratically', 0, 4)", VARCHAR, "");
-        assertFunction("SUBSTR('Quadratically', 5, 0)", VARCHAR, "");
+        assertFunction("SUBSTR('Quadratically', 5, 6)", createVarcharType(13), "ratica");
+        assertFunction("SUBSTR('Quadratically', 5, 10)", createVarcharType(13), "ratically");
+        assertFunction("SUBSTR('Quadratically', 5, 50)", createVarcharType(13), "ratically");
+        assertFunction("SUBSTR('Quadratically', 50, 10)", createVarcharType(13), "");
+        assertFunction("SUBSTR('Quadratically', -5, 4)", createVarcharType(13), "call");
+        assertFunction("SUBSTR('Quadratically', -5, 40)", createVarcharType(13), "cally");
+        assertFunction("SUBSTR('Quadratically', -50, 4)", createVarcharType(13), "");
+        assertFunction("SUBSTR('Quadratically', 0, 4)", createVarcharType(13), "");
+        assertFunction("SUBSTR('Quadratically', 5, 0)", createVarcharType(13), "");
 
-        assertFunction("SUBSTRING('Quadratically' FROM 5)", VARCHAR, "ratically");
-        assertFunction("SUBSTRING('Quadratically' FROM 50)", VARCHAR, "");
-        assertFunction("SUBSTRING('Quadratically' FROM -5)", VARCHAR, "cally");
-        assertFunction("SUBSTRING('Quadratically' FROM -50)", VARCHAR, "");
-        assertFunction("SUBSTRING('Quadratically' FROM 0)", VARCHAR, "");
+        assertFunction("SUBSTRING('Quadratically' FROM 5)", createVarcharType(13), "ratically");
+        assertFunction("SUBSTRING('Quadratically' FROM 50)", createVarcharType(13), "");
+        assertFunction("SUBSTRING('Quadratically' FROM -5)", createVarcharType(13), "cally");
+        assertFunction("SUBSTRING('Quadratically' FROM -50)", createVarcharType(13), "");
+        assertFunction("SUBSTRING('Quadratically' FROM 0)", createVarcharType(13), "");
 
-        assertFunction("SUBSTRING('Quadratically' FROM 5 FOR 6)", VARCHAR, "ratica");
-        assertFunction("SUBSTRING('Quadratically' FROM 5 FOR 50)", VARCHAR, "ratically");
+        assertFunction("SUBSTRING('Quadratically' FROM 5 FOR 6)", createVarcharType(13), "ratica");
+        assertFunction("SUBSTRING('Quadratically' FROM 5 FOR 50)", createVarcharType(13), "ratically");
         //
         // Test SUBSTRING for non-ASCII
-        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 1 FOR 1)", VARCHAR, "\u4FE1");
-        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 3 FOR 5)", VARCHAR, ",\u7231,\u5E0C\u671B");
-        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 4)", VARCHAR, "\u7231,\u5E0C\u671B");
-        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM -2)", VARCHAR, "\u5E0C\u671B");
-        assertFunction("SUBSTRING('\uD801\uDC2Dend' FROM 1 FOR 1)", VARCHAR, "\uD801\uDC2D");
-        assertFunction("SUBSTRING('\uD801\uDC2Dend' FROM 2 FOR 3)", VARCHAR, "end");
+        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 1 FOR 1)", createVarcharType(7), "\u4FE1");
+        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 3 FOR 5)", createVarcharType(7), ",\u7231,\u5E0C\u671B");
+        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 4)", createVarcharType(7), "\u7231,\u5E0C\u671B");
+        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM -2)", createVarcharType(7), "\u5E0C\u671B");
+        assertFunction("SUBSTRING('\uD801\uDC2Dend' FROM 1 FOR 1)", createVarcharType(5), "\uD801\uDC2D");
+        assertFunction("SUBSTRING('\uD801\uDC2Dend' FROM 2 FOR 3)", createVarcharType(5), "end");
     }
 
     @Test
     public void testSplit()
     {
-        assertFunction("SPLIT('a.b.c', '.')", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c"));
+        assertFunction("SPLIT('a.b.c', '.')", new ArrayType(createVarcharType(5)), ImmutableList.of("a", "b", "c"));
 
-        assertFunction("SPLIT('ab', '.', 1)", new ArrayType(VARCHAR), ImmutableList.of("ab"));
-        assertFunction("SPLIT('a.b', '.', 1)", new ArrayType(VARCHAR), ImmutableList.of("a.b"));
-        assertFunction("SPLIT('a.b.c', '.')", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c"));
-        assertFunction("SPLIT('a..b..c', '..')", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c"));
-        assertFunction("SPLIT('a.b.c', '.', 2)", new ArrayType(VARCHAR), ImmutableList.of("a", "b.c"));
-        assertFunction("SPLIT('a.b.c', '.', 3)", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c"));
-        assertFunction("SPLIT('a.b.c', '.', 4)", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c"));
-        assertFunction("SPLIT('a.b.c.', '.', 4)", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c", ""));
-        assertFunction("SPLIT('a.b.c.', '.', 3)", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "c."));
-        assertFunction("SPLIT('...', '.')", new ArrayType(VARCHAR), ImmutableList.of("", "", "", ""));
-        assertFunction("SPLIT('..a...a..', '.')", new ArrayType(VARCHAR), ImmutableList.of("", "", "a", "", "", "a", "", ""));
+        assertFunction("SPLIT('ab', '.', 1)", new ArrayType(createVarcharType(2)), ImmutableList.of("ab"));
+        assertFunction("SPLIT('a.b', '.', 1)", new ArrayType(createVarcharType(3)), ImmutableList.of("a.b"));
+        assertFunction("SPLIT('a.b.c', '.')", new ArrayType(createVarcharType(5)), ImmutableList.of("a", "b", "c"));
+        assertFunction("SPLIT('a..b..c', '..')", new ArrayType(createVarcharType(7)), ImmutableList.of("a", "b", "c"));
+        assertFunction("SPLIT('a.b.c', '.', 2)", new ArrayType(createVarcharType(5)), ImmutableList.of("a", "b.c"));
+        assertFunction("SPLIT('a.b.c', '.', 3)", new ArrayType(createVarcharType(5)), ImmutableList.of("a", "b", "c"));
+        assertFunction("SPLIT('a.b.c', '.', 4)", new ArrayType(createVarcharType(5)), ImmutableList.of("a", "b", "c"));
+        assertFunction("SPLIT('a.b.c.', '.', 4)", new ArrayType(createVarcharType(6)), ImmutableList.of("a", "b", "c", ""));
+        assertFunction("SPLIT('a.b.c.', '.', 3)", new ArrayType(createVarcharType(6)), ImmutableList.of("a", "b", "c."));
+        assertFunction("SPLIT('...', '.')", new ArrayType(createVarcharType(3)), ImmutableList.of("", "", "", ""));
+        assertFunction("SPLIT('..a...a..', '.')", new ArrayType(createVarcharType(9)), ImmutableList.of("", "", "a", "", "", "a", "", ""));
 
         // Test SPLIT for non-ASCII
-        assertFunction("SPLIT('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 3)", new ArrayType(VARCHAR), ImmutableList.of("\u4FE1\u5FF5", "\u7231", "\u5E0C\u671B"));
-        assertFunction("SPLIT('\u8B49\u8BC1\u8A3C', '\u8BC1', 2)", new ArrayType(VARCHAR), ImmutableList.of("\u8B49", "\u8A3C"));
+        assertFunction("SPLIT('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 3)", new ArrayType(createVarcharType(7)), ImmutableList.of("\u4FE1\u5FF5", "\u7231", "\u5E0C\u671B"));
+        assertFunction("SPLIT('\u8B49\u8BC1\u8A3C', '\u8BC1', 2)", new ArrayType(createVarcharType(3)), ImmutableList.of("\u8B49", "\u8A3C"));
 
-        assertFunction("SPLIT('.a.b.c', '.', 4)", new ArrayType(VARCHAR), ImmutableList.of("", "a", "b", "c"));
-        assertFunction("SPLIT('.a.b.c', '.', 3)", new ArrayType(VARCHAR), ImmutableList.of("", "a", "b.c"));
-        assertFunction("SPLIT('.a.b.c', '.', 2)", new ArrayType(VARCHAR), ImmutableList.of("", "a.b.c"));
-        assertFunction("SPLIT('a..b..c', '.', 3)", new ArrayType(VARCHAR), ImmutableList.of("a", "", "b..c"));
-        assertFunction("SPLIT('a.b..', '.', 3)", new ArrayType(VARCHAR), ImmutableList.of("a", "b", "."));
+        assertFunction("SPLIT('.a.b.c', '.', 4)", new ArrayType(createVarcharType(6)), ImmutableList.of("", "a", "b", "c"));
+        assertFunction("SPLIT('.a.b.c', '.', 3)", new ArrayType(createVarcharType(6)), ImmutableList.of("", "a", "b.c"));
+        assertFunction("SPLIT('.a.b.c', '.', 2)", new ArrayType(createVarcharType(6)), ImmutableList.of("", "a.b.c"));
+        assertFunction("SPLIT('a..b..c', '.', 3)", new ArrayType(createVarcharType(7)), ImmutableList.of("a", "", "b..c"));
+        assertFunction("SPLIT('a.b..', '.', 3)", new ArrayType(createVarcharType(5)), ImmutableList.of("a", "b", "."));
 
         assertInvalidFunction("SPLIT('a.b.c', '', 1)", "The delimiter may not be the empty string");
         assertInvalidFunction("SPLIT('a.b.c', '.', 0)", "Limit must be positive");
@@ -245,45 +244,45 @@ public class TestStringFunctions
     @Test
     public void testSplitPart()
     {
-        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 1)", VARCHAR, "abc");
-        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 2)", VARCHAR, "def");
-        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 3)", VARCHAR, "ghi");
-        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 4)", VARCHAR, null);
-        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 99)", VARCHAR, null);
-        assertFunction("SPLIT_PART('abc', 'abc', 1)", VARCHAR, "");
-        assertFunction("SPLIT_PART('abc', 'abc', 2)", VARCHAR, "");
-        assertFunction("SPLIT_PART('abc', 'abc', 3)", VARCHAR, null);
-        assertFunction("SPLIT_PART('abc', '-@-', 1)", VARCHAR, "abc");
-        assertFunction("SPLIT_PART('abc', '-@-', 2)", VARCHAR, null);
-        assertFunction("SPLIT_PART('', 'abc', 1)", VARCHAR, "");
-        assertFunction("SPLIT_PART('', '', 1)", VARCHAR, null);
-        assertFunction("SPLIT_PART('abc', '', 1)", VARCHAR, "a");
-        assertFunction("SPLIT_PART('abc', '', 2)", VARCHAR, "b");
-        assertFunction("SPLIT_PART('abc', '', 3)", VARCHAR, "c");
-        assertFunction("SPLIT_PART('abc', '', 4)", VARCHAR, null);
-        assertFunction("SPLIT_PART('abc', '', 99)", VARCHAR, null);
-        assertFunction("SPLIT_PART('abc', 'abcd', 1)", VARCHAR, "abc");
-        assertFunction("SPLIT_PART('abc', 'abcd', 2)", VARCHAR, null);
-        assertFunction("SPLIT_PART('abc--@--def', '-@-', 1)", VARCHAR, "abc-");
-        assertFunction("SPLIT_PART('abc--@--def', '-@-', 2)", VARCHAR, "-def");
-        assertFunction("SPLIT_PART('abc-@-@-@-def', '-@-', 1)", VARCHAR, "abc");
-        assertFunction("SPLIT_PART('abc-@-@-@-def', '-@-', 2)", VARCHAR, "@");
-        assertFunction("SPLIT_PART('abc-@-@-@-def', '-@-', 3)", VARCHAR, "def");
-        assertFunction("SPLIT_PART(' ', ' ', 1)", VARCHAR, "");
-        assertFunction("SPLIT_PART('abcdddddef', 'dd', 1)", VARCHAR, "abc");
-        assertFunction("SPLIT_PART('abcdddddef', 'dd', 2)", VARCHAR, "");
-        assertFunction("SPLIT_PART('abcdddddef', 'dd', 3)", VARCHAR, "def");
-        assertFunction("SPLIT_PART('a/b/c', '/', 4)", VARCHAR, null);
-        assertFunction("SPLIT_PART('a/b/c/', '/', 4)", VARCHAR, "");
+        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 1)", createVarcharType(15), "abc");
+        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 2)", createVarcharType(15), "def");
+        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 3)", createVarcharType(15), "ghi");
+        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 4)", createVarcharType(15), null);
+        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 99)", createVarcharType(15), null);
+        assertFunction("SPLIT_PART('abc', 'abc', 1)", createVarcharType(3), "");
+        assertFunction("SPLIT_PART('abc', 'abc', 2)", createVarcharType(3), "");
+        assertFunction("SPLIT_PART('abc', 'abc', 3)", createVarcharType(3), null);
+        assertFunction("SPLIT_PART('abc', '-@-', 1)", createVarcharType(3), "abc");
+        assertFunction("SPLIT_PART('abc', '-@-', 2)", createVarcharType(3), null);
+        assertFunction("SPLIT_PART('', 'abc', 1)", createVarcharType(0), "");
+        assertFunction("SPLIT_PART('', '', 1)", createVarcharType(0), null);
+        assertFunction("SPLIT_PART('abc', '', 1)", createVarcharType(3), "a");
+        assertFunction("SPLIT_PART('abc', '', 2)", createVarcharType(3), "b");
+        assertFunction("SPLIT_PART('abc', '', 3)", createVarcharType(3), "c");
+        assertFunction("SPLIT_PART('abc', '', 4)", createVarcharType(3), null);
+        assertFunction("SPLIT_PART('abc', '', 99)", createVarcharType(3), null);
+        assertFunction("SPLIT_PART('abc', 'abcd', 1)", createVarcharType(3), "abc");
+        assertFunction("SPLIT_PART('abc', 'abcd', 2)", createVarcharType(3), null);
+        assertFunction("SPLIT_PART('abc--@--def', '-@-', 1)", createVarcharType(11), "abc-");
+        assertFunction("SPLIT_PART('abc--@--def', '-@-', 2)", createVarcharType(11), "-def");
+        assertFunction("SPLIT_PART('abc-@-@-@-def', '-@-', 1)", createVarcharType(13), "abc");
+        assertFunction("SPLIT_PART('abc-@-@-@-def', '-@-', 2)", createVarcharType(13), "@");
+        assertFunction("SPLIT_PART('abc-@-@-@-def', '-@-', 3)", createVarcharType(13), "def");
+        assertFunction("SPLIT_PART(' ', ' ', 1)", createVarcharType(1), "");
+        assertFunction("SPLIT_PART('abcdddddef', 'dd', 1)", createVarcharType(10), "abc");
+        assertFunction("SPLIT_PART('abcdddddef', 'dd', 2)", createVarcharType(10), "");
+        assertFunction("SPLIT_PART('abcdddddef', 'dd', 3)", createVarcharType(10), "def");
+        assertFunction("SPLIT_PART('a/b/c', '/', 4)", createVarcharType(5), null);
+        assertFunction("SPLIT_PART('a/b/c/', '/', 4)", createVarcharType(6), "");
         //
         // Test SPLIT_PART for non-ASCII
-        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 1)", VARCHAR, "\u4FE1\u5FF5");
-        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 2)", VARCHAR, "\u7231");
-        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 3)", VARCHAR, "\u5E0C\u671B");
-        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 4)", VARCHAR, null);
-        assertFunction("SPLIT_PART('\u8B49\u8BC1\u8A3C', '\u8BC1', 1)", VARCHAR, "\u8B49");
-        assertFunction("SPLIT_PART('\u8B49\u8BC1\u8A3C', '\u8BC1', 2)", VARCHAR, "\u8A3C");
-        assertFunction("SPLIT_PART('\u8B49\u8BC1\u8A3C', '\u8BC1', 3)", VARCHAR, null);
+        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 1)", createVarcharType(7), "\u4FE1\u5FF5");
+        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 2)", createVarcharType(7), "\u7231");
+        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 3)", createVarcharType(7), "\u5E0C\u671B");
+        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 4)", createVarcharType(7), null);
+        assertFunction("SPLIT_PART('\u8B49\u8BC1\u8A3C', '\u8BC1', 1)", createVarcharType(3), "\u8B49");
+        assertFunction("SPLIT_PART('\u8B49\u8BC1\u8A3C', '\u8BC1', 2)", createVarcharType(3), "\u8A3C");
+        assertFunction("SPLIT_PART('\u8B49\u8BC1\u8A3C', '\u8BC1', 3)", createVarcharType(3), null);
 
         assertInvalidFunction("SPLIT_PART('abc', '', 0)", "Index must be greater than zero");
         assertInvalidFunction("SPLIT_PART('abc', '', -1)", "Index must be greater than zero");
@@ -300,60 +299,60 @@ public class TestStringFunctions
     @Test
     public void testLeftTrim()
     {
-        assertFunction("LTRIM('')", VARCHAR, "");
-        assertFunction("LTRIM('   ')", VARCHAR, "");
-        assertFunction("LTRIM('  hello  ')", VARCHAR, "hello  ");
-        assertFunction("LTRIM('  hello')", VARCHAR, "hello");
-        assertFunction("LTRIM('hello  ')", VARCHAR, "hello  ");
-        assertFunction("LTRIM(' hello world ')", VARCHAR, "hello world ");
+        assertFunction("LTRIM('')", createVarcharType(0), "");
+        assertFunction("LTRIM('   ')", createVarcharType(3), "");
+        assertFunction("LTRIM('  hello  ')", createVarcharType(9), "hello  ");
+        assertFunction("LTRIM('  hello')", createVarcharType(7), "hello");
+        assertFunction("LTRIM('hello  ')", createVarcharType(7), "hello  ");
+        assertFunction("LTRIM(' hello world ')", createVarcharType(13), "hello world ");
 
-        assertFunction("LTRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ");
-        assertFunction("LTRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B ");
-        assertFunction("LTRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("LTRIM(' \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("LTRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ");
+        assertFunction("LTRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B ");
+        assertFunction("LTRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("LTRIM(' \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", createVarcharType(10), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
     }
 
     @Test
     public void testRightTrim()
     {
-        assertFunction("RTRIM('')", VARCHAR, "");
-        assertFunction("RTRIM('   ')", VARCHAR, "");
-        assertFunction("RTRIM('  hello  ')", VARCHAR, "  hello");
-        assertFunction("RTRIM('  hello')", VARCHAR, "  hello");
-        assertFunction("RTRIM('hello  ')", VARCHAR, "hello");
-        assertFunction("RTRIM(' hello world ')", VARCHAR, " hello world");
+        assertFunction("RTRIM('')", createVarcharType(0), "");
+        assertFunction("RTRIM('   ')", createVarcharType(3), "");
+        assertFunction("RTRIM('  hello  ')", createVarcharType(9), "  hello");
+        assertFunction("RTRIM('  hello')", createVarcharType(7), "  hello");
+        assertFunction("RTRIM('hello  ')", createVarcharType(7), "hello");
+        assertFunction("RTRIM(' hello world ')", createVarcharType(13), " hello world");
 
-        assertFunction("RTRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("RTRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("RTRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", VARCHAR, " \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("RTRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", VARCHAR, "  \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("RTRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ')", createVarcharType(10), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("RTRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("RTRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", createVarcharType(9), " \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("RTRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", createVarcharType(9), "  \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
     }
 
     @Test
     public void testTrim()
     {
-        assertFunction("TRIM('')", VARCHAR, "");
-        assertFunction("TRIM('   ')", VARCHAR, "");
-        assertFunction("TRIM('  hello  ')", VARCHAR, "hello");
-        assertFunction("TRIM('  hello')", VARCHAR, "hello");
-        assertFunction("TRIM('hello  ')", VARCHAR, "hello");
-        assertFunction("TRIM(' hello world ')", VARCHAR, "hello world");
+        assertFunction("TRIM('')", createVarcharType(0), "");
+        assertFunction("TRIM('   ')", createVarcharType(3), "");
+        assertFunction("TRIM('  hello  ')", createVarcharType(9), "hello");
+        assertFunction("TRIM('  hello')", createVarcharType(7), "hello");
+        assertFunction("TRIM('hello  ')", createVarcharType(7), "hello");
+        assertFunction("TRIM(' hello world ')", createVarcharType(13), "hello world");
 
-        assertFunction("TRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("TRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("TRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("TRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("TRIM(' \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("TRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ')", createVarcharType(10), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("TRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("TRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("TRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertFunction("TRIM(' \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", createVarcharType(10), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
     }
 
     @Test
     public void testLower()
     {
-        assertFunction("LOWER('')", VARCHAR, "");
-        assertFunction("LOWER('Hello World')", VARCHAR, "hello world");
-        assertFunction("LOWER('WHAT!!')", VARCHAR, "what!!");
-        assertFunction("LOWER('\u00D6STERREICH')", VARCHAR, lowerByCodePoint("\u00D6sterreich"));
-        assertFunction("LOWER('From\uD801\uDC2DTo')", VARCHAR, lowerByCodePoint("from\uD801\uDC2Dto"));
+        assertFunction("LOWER('')", createVarcharType(0), "");
+        assertFunction("LOWER('Hello World')", createVarcharType(11), "hello world");
+        assertFunction("LOWER('WHAT!!')", createVarcharType(6), "what!!");
+        assertFunction("LOWER('\u00D6STERREICH')", createVarcharType(10), lowerByCodePoint("\u00D6sterreich"));
+        assertFunction("LOWER('From\uD801\uDC2DTo')", createVarcharType(8), lowerByCodePoint("from\uD801\uDC2Dto"));
 
         assertFunction("CAST(LOWER(utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE}));
         assertFunction("CAST(LOWER('HELLO' || utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {'h', 'e', 'l', 'l', 'o', (byte) 0xCE}));
@@ -364,11 +363,11 @@ public class TestStringFunctions
     @Test
     public void testUpper()
     {
-        assertFunction("UPPER('')", VARCHAR, "");
-        assertFunction("UPPER('Hello World')", VARCHAR, "HELLO WORLD");
-        assertFunction("UPPER('what!!')", VARCHAR, "WHAT!!");
-        assertFunction("UPPER('\u00D6sterreich')", VARCHAR, upperByCodePoint("\u00D6STERREICH"));
-        assertFunction("UPPER('From\uD801\uDC2DTo')", VARCHAR, upperByCodePoint("FROM\uD801\uDC2DTO"));
+        assertFunction("UPPER('')", createVarcharType(0), "");
+        assertFunction("UPPER('Hello World')", createVarcharType(11), "HELLO WORLD");
+        assertFunction("UPPER('what!!')", createVarcharType(6), "WHAT!!");
+        assertFunction("UPPER('\u00D6sterreich')", createVarcharType(10), upperByCodePoint("\u00D6STERREICH"));
+        assertFunction("UPPER('From\uD801\uDC2DTo')", createVarcharType(8), upperByCodePoint("FROM\uD801\uDC2DTO"));
 
         assertFunction("CAST(UPPER(utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE}));
         assertFunction("CAST(UPPER('hello' || utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {'H', 'E', 'L', 'L', 'O', (byte) 0xCE}));

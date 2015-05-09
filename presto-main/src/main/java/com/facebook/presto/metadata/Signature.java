@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.type.TypeUtils;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
 import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
@@ -165,6 +167,24 @@ public final class Signature
     public List<TypeParameter> getTypeParameters()
     {
         return typeParameters;
+    }
+
+    public Signature resolveCalculatedTypes(List<TypeSignature> parameterTypes)
+    {
+        if (!returnType.isCalculated() && argumentTypes.stream().noneMatch(TypeSignature::isCalculated)) {
+            return this;
+        }
+
+        Map<String, OptionalLong> inputs = new HashMap<>();
+        for (int index = 0; index < argumentTypes.size(); index++) {
+            TypeSignature argument = argumentTypes.get(index);
+            if (argument.isCalculated()) {
+                TypeSignature actualParameter = parameterTypes.get(index);
+                inputs.putAll(TypeUtils.extractCalculationInputs(argument, actualParameter));
+            }
+        }
+        TypeSignature calculatedReturnType = TypeUtils.resolveCalculatedType(returnType, inputs);
+        return new Signature(name, type, calculatedReturnType, parameterTypes);
     }
 
     @Override
