@@ -3923,8 +3923,8 @@ public abstract class AbstractTestQueries
         assertEquals(functions.get("rank").asList().get(0).getField(3), "window");
 
         assertTrue(functions.containsKey("rank"), "Expected function names " + functions + " to contain 'split_part'");
-        assertEquals(functions.get("split_part").asList().get(0).getField(1), "varchar");
-        assertEquals(functions.get("split_part").asList().get(0).getField(2), "varchar, varchar, bigint");
+        assertEquals(functions.get("split_part").asList().get(0).getField(1), "varchar(x)");
+        assertEquals(functions.get("split_part").asList().get(0).getField(2), "varchar(x), varchar, bigint");
         assertEquals(functions.get("split_part").asList().get(0).getField(3), "scalar");
 
         assertFalse(functions.containsKey("like"), "Expected function names " + functions + " not to contain 'like'");

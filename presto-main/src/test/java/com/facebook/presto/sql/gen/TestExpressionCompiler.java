@@ -397,7 +397,12 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s >= %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(right) >= 0);
                 assertExecute(generateExpression("%s <= %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(right) <= 0);
 
-                assertExecute(generateExpression("%s || %s", left, right), VARCHAR, left == null || right == null ? null : left + right);
+                VarcharType expectedType = VARCHAR;
+                if (left != null && right != null) {
+                    expectedType = createVarcharType(left.length() + right.length());
+                }
+                assertExecute(generateExpression("%s || %s", left, right), expectedType, left == null || right == null ? null : left + right);
+
                 assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN, !Objects.equals(left, right));
 
                 assertExecute(generateExpression("nullif(%s, %s)", left, right), varcharType(left), nullIf(left, right));
@@ -932,7 +937,9 @@ public class TestExpressionCompiler
                     else {
                         expected = StringFunctions.substr(utf8Slice(value), start, length).toStringUtf8();
                     }
-                    assertExecute(generateExpression("substr(%s, %s, %s)", value, start, length), VARCHAR, expected);
+                    VarcharType expectedType = value != null ? createVarcharType(value.length()) : VARCHAR;
+
+                    assertExecute(generateExpression("substr(%s, %s, %s)", value, start, length), expectedType, expected);
                 }
             }
         }

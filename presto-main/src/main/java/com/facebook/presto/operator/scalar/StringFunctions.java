@@ -55,7 +55,7 @@ public final class StringFunctions
 
     @Description("convert Unicode code point to a string")
     @ScalarFunction
-    @SqlType("VARCHAR(1)")
+    @SqlType("varchar(1)")
     public static Slice chr(@SqlType(StandardTypes.BIGINT) long codepoint)
     {
         try {
@@ -69,7 +69,7 @@ public final class StringFunctions
     @Description("count of code points of the given string")
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
-    public static long length(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    public static long length(@SqlType("varchar(x)") Slice slice)
     {
         return countCodePoints(slice);
     }
@@ -77,7 +77,7 @@ public final class StringFunctions
     @Description("greedily removes occurrences of a pattern in a string")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice replace(@SqlType(StandardTypes.VARCHAR) Slice str, @SqlType(StandardTypes.VARCHAR) Slice search)
+    public static Slice replace(@SqlType("varchar(x)") Slice str, @SqlType("varchar(y)") Slice search)
     {
         return replace(str, search, Slices.EMPTY_SLICE);
     }
@@ -85,7 +85,7 @@ public final class StringFunctions
     @Description("greedily replaces occurrences of a pattern with a string")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice replace(@SqlType(StandardTypes.VARCHAR) Slice str, @SqlType(StandardTypes.VARCHAR) Slice search, @SqlType(StandardTypes.VARCHAR) Slice replace)
+    public static Slice replace(@SqlType("varchar(x)") Slice str, @SqlType("varchar(y)") Slice search, @SqlType(StandardTypes.VARCHAR) Slice replace)
     {
         // Empty search?
         if (search.length() == 0) {
@@ -149,8 +149,8 @@ public final class StringFunctions
 
     @Description("reverse all code points in a given string")
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice reverse(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    @SqlType("varchar(x)")
+    public static Slice reverse(@SqlType("varchar(x)") Slice slice)
     {
         return SliceUtf8.reverse(slice);
     }
@@ -173,8 +173,8 @@ public final class StringFunctions
 
     @Description("suffix starting at given index")
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice substr(@SqlType(StandardTypes.VARCHAR) Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
+    @SqlType("varchar(x)")
+    public static Slice substr(@SqlType("varchar(X)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
     {
         if ((start == 0) || utf8.length() == 0) {
             return Slices.EMPTY_SLICE;
@@ -210,8 +210,8 @@ public final class StringFunctions
 
     @Description("substring of given length starting at an index")
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice substr(@SqlType(StandardTypes.VARCHAR) Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    @SqlType("varchar(x)")
+    public static Slice substr(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
         if (start == 0 || (length <= 0) || (utf8.length() == 0)) {
             return Slices.EMPTY_SLICE;
@@ -257,15 +257,15 @@ public final class StringFunctions
     }
 
     @ScalarFunction
-    @SqlType("array<varchar>")
-    public static Block split(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter)
+    @SqlType("array<varchar(x)>")
+    public static Block split(@SqlType("varchar(x)") Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter)
     {
         return split(string, delimiter, string.length() + 1);
     }
 
     @ScalarFunction
-    @SqlType("array<varchar>")
-    public static Block split(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter, @SqlType(StandardTypes.BIGINT) long limit)
+    @SqlType("array<varchar(x)>")
+    public static Block split(@SqlType("varchar(x)") Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter, @SqlType(StandardTypes.BIGINT) long limit)
     {
         checkCondition(limit > 0, INVALID_FUNCTION_ARGUMENT, "Limit must be positive");
         checkCondition(limit <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "Limit is too large");
@@ -302,8 +302,8 @@ public final class StringFunctions
     @Nullable
     @Description("splits a string by a delimiter and returns the specified field (counting from one)")
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice splitPart(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter, @SqlType(StandardTypes.BIGINT) long index)
+    @SqlType("varchar(x)")
+    public static Slice splitPart(@SqlType("varchar(x)") Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter, @SqlType(StandardTypes.BIGINT) long index)
     {
         checkCondition(index > 0, INVALID_FUNCTION_ARGUMENT, "Index must be greater than zero");
         // Empty delimiter? Then every character will be a split
@@ -350,40 +350,40 @@ public final class StringFunctions
 
     @Description("removes whitespace from the beginning of a string")
     @ScalarFunction("ltrim")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice leftTrim(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    @SqlType("varchar(x)")
+    public static Slice leftTrim(@SqlType("varchar(x)") Slice slice)
     {
         return SliceUtf8.leftTrim(slice);
     }
 
     @Description("removes whitespace from the end of a string")
     @ScalarFunction("rtrim")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice rightTrim(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    @SqlType("varchar(x)")
+    public static Slice rightTrim(@SqlType("varchar(x)") Slice slice)
     {
         return SliceUtf8.rightTrim(slice);
     }
 
     @Description("removes whitespace from the beginning and end of a string")
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice trim(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    @SqlType("varchar(x)")
+    public static Slice trim(@SqlType("varchar(x)") Slice slice)
     {
         return SliceUtf8.trim(slice);
     }
 
     @Description("converts the string to lower case")
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice lower(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    @SqlType("varchar(x)")
+    public static Slice lower(@SqlType("varchar(x)") Slice slice)
     {
         return toLowerCase(slice);
     }
 
     @Description("converts the string to upper case")
     @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice upper(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    @SqlType("varchar(x)")
+    public static Slice upper(@SqlType("varchar(x)") Slice slice)
     {
         return toUpperCase(slice);
     }
