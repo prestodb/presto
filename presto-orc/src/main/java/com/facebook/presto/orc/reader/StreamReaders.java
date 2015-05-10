@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.StreamDescriptor;
+import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 public final class StreamReaders
@@ -22,7 +23,7 @@ public final class StreamReaders
     {
     }
 
-    public static StreamReader createStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+    public static StreamReader createStreamReader(StreamDescriptor streamDescriptor, Type type, DateTimeZone hiveStorageTimeZone)
     {
         switch (streamDescriptor.getStreamType()) {
             case BOOLEAN:
