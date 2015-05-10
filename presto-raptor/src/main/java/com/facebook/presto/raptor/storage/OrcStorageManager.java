@@ -139,16 +139,17 @@ public class OrcStorageManager
             OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader());
 
             Map<Long, Integer> indexMap = columnIdIndex(reader.getColumnNames());
-            ImmutableSet.Builder<Integer> includedColumns = ImmutableSet.builder();
+            ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
             ImmutableList.Builder<Integer> columnIndexes = ImmutableList.builder();
-            for (long columnId : columnIds) {
+            for (int i = 0; i < columnIds.size(); i++) {
+                long columnId = columnIds.get(i);
                 Integer index = indexMap.get(columnId);
                 if (index == null) {
                     columnIndexes.add(-1);
                 }
                 else {
                     columnIndexes.add(index);
-                    includedColumns.add(index);
+                    includedColumns.put(index, columnTypes.get(i));
                 }
             }
 

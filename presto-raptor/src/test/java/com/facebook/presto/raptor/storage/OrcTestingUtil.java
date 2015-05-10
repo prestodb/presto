@@ -18,13 +18,14 @@ import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
-import com.google.common.collect.ImmutableSet;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.testng.Assert.assertEquals;
@@ -33,7 +34,7 @@ final class OrcTestingUtil
 {
     private OrcTestingUtil() {}
 
-    public static OrcRecordReader createReader(OrcDataSource dataSource, List<Long> columnIds)
+    public static OrcRecordReader createReader(OrcDataSource dataSource, List<Long> columnIds, List<Type> types)
             throws IOException
     {
         OrcReader orcReader = new OrcReader(dataSource, new OrcMetadataReader());
@@ -41,11 +42,11 @@ final class OrcTestingUtil
         List<String> columnNames = orcReader.getColumnNames();
         assertEquals(columnNames.size(), columnIds.size());
 
-        Set<Integer> includedColumns = new HashSet<>();
+        Map<Integer, Type> includedColumns = new HashMap<>();
         int ordinal = 0;
         for (long columnId : columnIds) {
             assertEquals(columnNames.get(ordinal), String.valueOf(columnId));
-            includedColumns.add(ordinal);
+            includedColumns.put(ordinal, types.get(ordinal));
             ordinal++;
         }
 
@@ -59,10 +60,10 @@ final class OrcTestingUtil
 
         assertEquals(orcReader.getColumnNames().size(), 0);
 
-        return createRecordReader(orcReader, ImmutableSet.of());
+        return createRecordReader(orcReader, ImmutableMap.of());
     }
 
-    public static OrcRecordReader createRecordReader(OrcReader orcReader, Set<Integer> includedColumns)
+    public static OrcRecordReader createRecordReader(OrcReader orcReader, Map<Integer, Type> includedColumns)
             throws IOException
     {
         return orcReader.createRecordReader(includedColumns, OrcPredicate.TRUE, DateTimeZone.UTC);

@@ -32,7 +32,7 @@ import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -157,12 +157,12 @@ public class OrcPageSourceFactory
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
-        ImmutableSet.Builder<Integer> includedColumns = ImmutableSet.builder();
+        ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
         ImmutableList.Builder<ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
         for (HiveColumnHandle column : columns) {
             if (!column.isPartitionKey()) {
-                includedColumns.add(column.getHiveColumnIndex());
                 Type type = typeManager.getType(column.getTypeSignature());
+                includedColumns.put(column.getHiveColumnIndex(), type);
                 columnReferences.add(new ColumnReference<>(column, column.getHiveColumnIndex(), type));
             }
         }

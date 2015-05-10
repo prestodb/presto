@@ -24,6 +24,7 @@ import com.facebook.presto.orc.metadata.StripeStatistics;
 import com.facebook.presto.orc.reader.StreamReader;
 import com.facebook.presto.orc.reader.StreamReaders;
 import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -59,7 +60,7 @@ public class OrcRecordReader
     private long nextRowInGroup;
 
     public OrcRecordReader(
-            Set<Integer> includedColumns,
+            Map<Integer, Type> includedColumns,
             OrcPredicate predicate,
             long numberOfRows,
             List<StripeInformation> fileStripes,
@@ -87,12 +88,14 @@ public class OrcRecordReader
 
         // reduce the included columns to the set that is also present
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
+        ImmutableMap.Builder<Integer, Type> presentColumnsAndTypes = ImmutableMap.builder();
         OrcType root = types.get(0);
-        for (int includedColumn : includedColumns) {
+        for (Map.Entry<Integer, Type> entry : includedColumns.entrySet()) {
             // an old file can have less columns since columns can be added
             // after the file was written
-            if (includedColumn < root.getFieldCount()) {
-                presentColumns.add(includedColumn);
+            if (entry.getKey() < root.getFieldCount()) {
+                presentColumns.add(entry.getKey());
+                presentColumnsAndTypes.put(entry.getKey(), entry.getValue());
             }
         }
         this.presentColumns = presentColumns.build();
@@ -128,7 +131,7 @@ public class OrcRecordReader
                 predicate,
                 metadataReader);
 
-        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, this.presentColumns);
+        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build());
     }
 
     private static boolean splitContainsStripe(long splitOffset, long splitLength, StripeInformation stripe)
@@ -270,16 +273,16 @@ public class OrcRecordReader
     private static StreamReader[] createStreamReaders(OrcDataSource orcDataSource,
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
-            Set<Integer> includedColumns)
+            Map<Integer, Type> includedColumns)
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
 
         OrcType rowType = types.get(0);
         StreamReader[] streamReaders = new StreamReader[rowType.getFieldCount()];
         for (int columnId = 0; columnId < rowType.getFieldCount(); columnId++) {
-            if (includedColumns.contains(columnId)) {
+            if (includedColumns.containsKey(columnId)) {
                 StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
-                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone);
+                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, includedColumns.get(columnId), hiveStorageTimeZone);
             }
         }
         return streamReaders;

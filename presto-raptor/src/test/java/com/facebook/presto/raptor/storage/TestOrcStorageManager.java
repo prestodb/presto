@@ -188,7 +188,7 @@ public class TestOrcStorageManager
         recoveryManager.restoreFromBackup(shardUuid);
 
         try (OrcDataSource dataSource = manager.openShard(shardUuid)) {
-            OrcRecordReader reader = createReader(dataSource, columnIds);
+            OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
             assertEquals(reader.nextBatch(), 2);
 
