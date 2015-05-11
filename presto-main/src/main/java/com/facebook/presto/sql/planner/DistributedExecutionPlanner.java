@@ -17,6 +17,7 @@ import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -241,6 +242,12 @@ public class DistributedExecutionPlanner
 
         @Override
         public Optional<SplitSource> visitTableCommit(TableCommitNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Optional<SplitSource> visitDelete(DeleteNode node, Void context)
         {
             return node.getSource().accept(this, context);
         }

@@ -71,4 +71,11 @@ public class TestCassandraDistributed
     {
         // Cassandra connector currently does not support create table
     }
+
+    @Override
+    public void testDelete()
+            throws Exception
+    {
+        // Cassandra connector currently does not support delete
+    }
 }

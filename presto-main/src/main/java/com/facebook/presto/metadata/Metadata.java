@@ -170,6 +170,26 @@ public interface Metadata
     void rollbackInsert(InsertTableHandle tableHandle);
 
     /**
+     * Get the row ID column handle used with UpdatablePageSource.
+     */
+    ColumnHandle getUpdateRowIdColumnHandle(TableHandle tableHandle);
+
+    /**
+     * Begin delete query
+     */
+    TableHandle beginDelete(Session session, TableHandle tableHandle);
+
+    /**
+     * Commit delete query
+     */
+    void commitDelete(TableHandle tableHandle, Collection<Slice> fragments);
+
+    /**
+     * Rollback delete query
+     */
+    void rollbackDelete(TableHandle tableHandle);
+
+    /**
      * Gets all the loaded catalogs
      *
      * @return Map of catalog name to connector id

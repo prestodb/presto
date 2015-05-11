@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
@@ -382,6 +383,20 @@ class StatementAnalyzer
                     "Table: (" + Joiner.on(", ").join(tableTypes) + "), " +
                     "Query: (" + Joiner.on(", ").join(queryTypes) + ")");
         }
+
+        return new TupleDescriptor(Field.newUnqualified("rows", BIGINT));
+    }
+
+    @Override
+    protected TupleDescriptor visitDelete(Delete node, AnalysisContext context)
+    {
+        analysis.setUpdateType("DELETE");
+
+        analysis.setDelete(node);
+
+        TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata, sqlParser, experimentalSyntaxEnabled);
+        TupleDescriptor descriptor = analyzer.process(node.getTable(), context);
+        node.getWhere().ifPresent(where -> analyzer.analyzeWhere(node, descriptor, context, where));
 
         return new TupleDescriptor(Field.newUnqualified("rows", BIGINT));
     }

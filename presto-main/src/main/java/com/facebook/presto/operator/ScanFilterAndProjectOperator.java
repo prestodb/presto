@@ -20,6 +20,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
+import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -31,6 +32,8 @@ import com.google.common.util.concurrent.SettableFuture;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -95,13 +98,13 @@ public class ScanFilterAndProjectOperator
     }
 
     @Override
-    public void addSplit(Split split)
+    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
         checkNotNull(split, "split is null");
         checkState(this.split == null, "Table scan split already set");
 
         if (finishing) {
-            return;
+            return Optional::empty;
         }
 
         this.split = split;
@@ -111,6 +114,13 @@ public class ScanFilterAndProjectOperator
             operatorContext.setInfoSupplier(() -> splitInfo);
         }
         blocked.set(null);
+
+        return () -> {
+            if (pageSource instanceof UpdatablePageSource) {
+                return Optional.of((UpdatablePageSource) pageSource);
+            }
+            return Optional.empty();
+        };
     }
 
     @Override

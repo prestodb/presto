@@ -153,6 +153,39 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Get the column handle that will generate row IDs for the delete operation.
+     * These IDs will be passed to the {@code deleteRows()} method of the
+     * {@link UpdatablePageSource} that created them.
+     */
+    default ColumnHandle getUpdateRowIdColumnHandle(ConnectorTableHandle tableHandle)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support updates or deletes");
+    }
+
+    /**
+     * Begin delete query
+     */
+    default ConnectorTableHandle beginDelete(ConnectorTableHandle tableHandle)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
+    }
+
+    /**
+     * Commit delete query
+     *
+     * @param fragments all fragments returned by {@link UpdatablePageSource#commit()}
+     */
+    default void commitDelete(ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
+    }
+
+    /**
+     * Rollback delete query
+     */
+    default void rollbackDelete(ConnectorTableHandle tableHandle) {}
+
+    /**
      * Create the specified view. The data for the view is opaque to the connector.
      */
     void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace);

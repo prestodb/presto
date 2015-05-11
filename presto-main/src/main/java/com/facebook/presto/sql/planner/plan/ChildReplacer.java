@@ -222,4 +222,10 @@ public class ChildReplacer
     {
         return new UnionNode(node.getId(), newChildren, node.getSymbolMapping());
     }
+
+    @Override
+    public PlanNode visitDelete(DeleteNode node, List<PlanNode> newChildren)
+    {
+        return new DeleteNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getTarget(), node.getRowId(), node.getOutputSymbols());
+    }
 }

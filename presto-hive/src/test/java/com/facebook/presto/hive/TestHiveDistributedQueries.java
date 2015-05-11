@@ -41,4 +41,11 @@ public class TestHiveDistributedQueries
     {
         // Hive connector currently does not support rename column
     }
+
+    @Override
+    public void testDelete()
+            throws Exception
+    {
+        // Hive connector currently does not support delete
+    }
 }

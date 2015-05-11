@@ -48,6 +48,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
         @JsonSubTypes.Type(value = IndexJoinNode.class, name = "indexjoin"),
         @JsonSubTypes.Type(value = IndexSourceNode.class, name = "indexsource"),
         @JsonSubTypes.Type(value = TableWriterNode.class, name = "tablewriter"),
+        @JsonSubTypes.Type(value = DeleteNode.class, name = "delete"),
         @JsonSubTypes.Type(value = TableCommitNode.class, name = "tablecommit"),
         @JsonSubTypes.Type(value = UnnestNode.class, name = "unnest"),
         @JsonSubTypes.Type(value = ExchangeNode.class, name = "exchange"),

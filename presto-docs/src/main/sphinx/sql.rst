@@ -11,6 +11,7 @@ This chapter describes the SQL syntax used in Presto.
     sql/create-table
     sql/create-table-as
     sql/create-view
+    sql/delete
     sql/describe
     sql/drop-table
     sql/drop-view

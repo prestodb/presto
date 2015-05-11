@@ -27,4 +27,11 @@ public class TestRaptorDistributedQueries
     {
         super(createRaptorQueryRunner(getTables()), createSampledSession());
     }
+
+    @Override
+    public void testDelete()
+            throws Exception
+    {
+        // TODO: implement delete
+    }
 }

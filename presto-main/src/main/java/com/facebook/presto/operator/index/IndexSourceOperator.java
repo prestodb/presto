@@ -25,12 +25,15 @@ import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -130,7 +133,7 @@ public class IndexSourceOperator
     }
 
     @Override
-    public void addSplit(Split split)
+    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
         checkNotNull(split, "split is null");
         checkType(split.getConnectorSplit(), IndexSplit.class, "connectorSplit");
@@ -144,6 +147,8 @@ public class IndexSourceOperator
         source = new PageSourceOperator(new RecordPageSource(result), result.getColumnTypes(), operatorContext);
 
         operatorContext.setInfoSupplier(split::getInfo);
+
+        return Optional::empty;
     }
 
     @Override

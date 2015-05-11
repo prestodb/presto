@@ -17,6 +17,7 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -36,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -43,6 +45,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -63,6 +66,7 @@ public class Driver
     private final DriverContext driverContext;
     private final List<Operator> operators;
     private final Map<PlanNodeId, SourceOperator> sourceOperators;
+    private final Optional<DeleteOperator> deleteOperator;
     private final ConcurrentMap<PlanNodeId, TaskSource> newSources = new ConcurrentHashMap<>();
 
     private final AtomicReference<State> state = new AtomicReference<>(State.ALIVE);
@@ -96,13 +100,19 @@ public class Driver
         checkArgument(!operators.isEmpty(), "There must be at least one operator");
 
         ImmutableMap.Builder<PlanNodeId, SourceOperator> sourceOperators = ImmutableMap.builder();
+        Optional<DeleteOperator> deleteOperator = Optional.empty();
         for (Operator operator : operators) {
             if (operator instanceof SourceOperator) {
                 SourceOperator sourceOperator = (SourceOperator) operator;
                 sourceOperators.put(sourceOperator.getSourceId(), sourceOperator);
             }
+            else if (operator instanceof DeleteOperator) {
+                checkArgument(!deleteOperator.isPresent(), "There must be at most one DeleteOperator");
+                deleteOperator = Optional.of((DeleteOperator) operator);
+            }
         }
         this.sourceOperators = sourceOperators.build();
+        this.deleteOperator = deleteOperator;
     }
 
     public DriverContext getDriverContext()
@@ -263,7 +273,10 @@ public class Driver
 
             SourceOperator sourceOperator = sourceOperators.get(source.getPlanNodeId());
             if (sourceOperator != null) {
-                sourceOperator.addSplit(split);
+                Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(split);
+                if (deleteOperator.isPresent()) {
+                    deleteOperator.get().setPageSource(pageSource);
+                }
             }
         }
 

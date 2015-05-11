@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -24,6 +25,7 @@ import java.io.Closeable;
 import java.net.URI;
 import java.util.List;
 import java.util.function.Supplier;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -107,13 +109,15 @@ public class ExchangeOperator
     }
 
     @Override
-    public void addSplit(Split split)
+    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
         checkNotNull(split, "split is null");
         checkArgument(split.getConnectorId().equals("remote"), "split is not a remote split");
 
         URI location = ((RemoteSplit) split.getConnectorSplit()).getLocation();
         exchangeClient.addLocation(location);
+
+        return Optional::empty;
     }
 
     @Override

@@ -198,6 +198,51 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testDelete()
+            throws Exception
+    {
+        // delete half the table, then delete the rest
+
+        assertQuery("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+
+        assertQuery("DELETE FROM test_delete WHERE orderkey % 2 = 0", "SELECT count(*) FROM orders WHERE orderkey % 2 = 0");
+        assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders WHERE orderkey % 2 <> 0");
+
+        assertQuery("DELETE FROM test_delete", "SELECT count(*) FROM orders WHERE orderkey % 2 <> 0");
+        assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders LIMIT 0");
+
+        assertQueryTrue("DROP TABLE test_delete");
+
+        // delete successive parts of the table
+
+        assertQuery("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+
+        assertQuery("DELETE FROM test_delete WHERE custkey <= 100", "SELECT count(*) FROM orders WHERE custkey <= 100");
+        assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders WHERE custkey > 100");
+
+        assertQuery("DELETE FROM test_delete WHERE custkey <= 300", "SELECT count(*) FROM orders WHERE custkey > 100 AND custkey <= 300");
+        assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders WHERE custkey > 300");
+
+        assertQuery("DELETE FROM test_delete WHERE custkey <= 500", "SELECT count(*) FROM orders WHERE custkey > 300 AND custkey <= 500");
+        assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders WHERE custkey > 500");
+
+        assertQueryTrue("DROP TABLE test_delete");
+
+        // delete using a subquery
+
+        assertQuery("CREATE TABLE test_delete AS SELECT * FROM lineitem", "SELECT count(*) FROM lineitem");
+
+        assertQuery(
+                "DELETE FROM test_delete WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus = 'F')",
+                "SELECT count(*) FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus = 'F')");
+        assertQuery(
+                "SELECT * FROM test_delete",
+                "SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus <> 'F')");
+
+        assertQueryTrue("DROP TABLE test_delete");
+    }
+
+    @Test
     public void testDropTableIfExists()
             throws Exception
     {

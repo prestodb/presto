@@ -120,6 +120,7 @@ public class TableWriterNode
     @JsonSubTypes({
             @JsonSubTypes.Type(value = CreateHandle.class, name = "CreateHandle"),
             @JsonSubTypes.Type(value = InsertHandle.class, name = "InsertHandle"),
+            @JsonSubTypes.Type(value = DeleteHandle.class, name = "DeleteHandle"),
     })
     @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
     public abstract static class WriterTarget
@@ -218,6 +219,30 @@ public class TableWriterNode
 
         @JsonProperty
         public InsertTableHandle getHandle()
+        {
+            return handle;
+        }
+
+        @Override
+        public String toString()
+        {
+            return handle.toString();
+        }
+    }
+
+    public static class DeleteHandle
+            extends WriterTarget
+    {
+        private final TableHandle handle;
+
+        @JsonCreator
+        public DeleteHandle(@JsonProperty("handle") TableHandle handle)
+        {
+            this.handle = checkNotNull(handle, "handle is null");
+        }
+
+        @JsonProperty
+        public TableHandle getHandle()
         {
             return handle;
         }
