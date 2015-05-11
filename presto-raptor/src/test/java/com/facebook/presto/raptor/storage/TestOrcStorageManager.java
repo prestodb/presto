@@ -23,6 +23,7 @@ import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.backup.FileBackupStore;
 import com.facebook.presto.raptor.metadata.ColumnStats;
 import com.facebook.presto.raptor.metadata.DatabaseShardManager;
+import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -38,6 +39,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -71,6 +73,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.io.Files.createTempDir;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.testing.FileUtils.deleteRecursively;
@@ -89,6 +92,7 @@ import static org.testng.FileAssert.assertFile;
 @Test(singleThreaded = true)
 public class TestOrcStorageManager
 {
+    private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(UTC);
     private static final DateTime EPOCH = new DateTime(0, UTC_CHRONOLOGY);
     private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
@@ -481,6 +485,7 @@ public class TestOrcStorageManager
                 CURRENT_NODE,
                 storageService,
                 backupStore,
+                SHARD_DELTA_CODEC,
                 ORC_MAX_MERGE_DISTANCE,
                 ORC_MAX_READ_SIZE,
                 ORC_STREAM_BUFFER_SIZE,

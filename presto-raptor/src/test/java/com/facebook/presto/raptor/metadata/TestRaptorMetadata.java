@@ -59,6 +59,7 @@ import static org.testng.Assert.fail;
 public class TestRaptorMetadata
 {
     private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
+    private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
     private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
     private static final SchemaTableName DEFAULT_TEST_ORDERS = new SchemaTableName("test", "orders");
 
@@ -73,7 +74,7 @@ public class TestRaptorMetadata
         DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
         dummyHandle = dbi.open();
-        metadata = new RaptorMetadata(new RaptorConnectorId("default"), dbi, new DatabaseShardManager(dbi), SHARD_INFO_CODEC);
+        metadata = new RaptorMetadata(new RaptorConnectorId("default"), dbi, new DatabaseShardManager(dbi), SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
     }
 
     @AfterMethod

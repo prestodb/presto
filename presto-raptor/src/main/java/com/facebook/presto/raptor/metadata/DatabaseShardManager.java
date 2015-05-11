@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.util.CloseableIterator;
+import com.facebook.presto.raptor.util.UuidUtil.UuidArgument;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -30,9 +31,11 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
+import org.skife.jdbi.v2.Query;
 import org.skife.jdbi.v2.TransactionCallback;
 import org.skife.jdbi.v2.exceptions.DBIException;
 import org.skife.jdbi.v2.util.ByteArrayMapper;
+import org.skife.jdbi.v2.util.LongMapper;
 
 import javax.inject.Inject;
 
@@ -60,6 +63,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
+import static com.google.common.collect.Iterables.partition;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.nCopies;
@@ -156,6 +160,40 @@ public class DatabaseShardManager
             deleteShardsAndIndex(tableId, oldShardIds, handle);
             return null;
         });
+    }
+
+    @Override
+    public void replaceShardUuids(long tableId, List<ColumnInfo> columns, Set<UUID> oldShardUuids, Collection<ShardInfo> newShards)
+    {
+        Map<String, Integer> nodeIds = toNodeIdMap(newShards);
+
+        runTransaction((handle, status) -> {
+            ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+            for (List<ShardInfo> shards : partition(newShards, 1000)) {
+                insertShardsAndIndex(tableId, columns, shards, nodeIds, handle, dao);
+            }
+            for (List<UUID> uuids : partition(oldShardUuids, 1000)) {
+                Set<Long> ids = getShardIds(handle, ImmutableSet.copyOf(uuids));
+                if (ids.size() != uuids.size()) {
+                    throw new PrestoException(TRANSACTION_CONFLICT, "Shard was updated by a different transaction. Please retry the operation.");
+                }
+                deleteShardsAndIndex(tableId, ids, handle);
+            }
+            return null;
+        });
+    }
+
+    private static Set<Long> getShardIds(Handle handle, Set<UUID> shardUuids)
+    {
+        String args = Joiner.on(",").join(nCopies(shardUuids.size(), "?"));
+        String sql = "SELECT shard_id FROM shards WHERE shard_uuid IN (" + args + ")";
+        Query<Map<String, Object>> query = handle.createQuery(sql);
+        int i = 0;
+        for (UUID uuid : shardUuids) {
+            query.bind(i, new UuidArgument(uuid));
+            i++;
+        }
+        return ImmutableSet.copyOf(query.map(LongMapper.FIRST).list());
     }
 
     private static void deleteShardsAndIndex(long tableId, Set<Long> shardIds, Handle handle)

@@ -19,9 +19,9 @@ import com.facebook.presto.orc.LongVector;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.SliceVector;
-import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -31,8 +31,12 @@ import com.facebook.presto.spi.block.LazySliceArrayBlock;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
+import io.airlift.slice.Slice;
 
 import java.io.IOException;
+import java.util.BitSet;
+import java.util.Collection;
 import java.util.List;
 
 import static com.facebook.presto.orc.Vector.MAX_VECTOR_LENGTH;
@@ -57,9 +61,14 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 public class OrcPageSource
-        implements ConnectorPageSource
+        implements UpdatablePageSource
 {
     public static final int NULL_SIZE = 0;
+    public static final int NULL_COLUMN = -1;
+    public static final int ROWID_COLUMN = -2;
+
+    private final ShardRewriter shardRewriter;
+
     private final OrcRecordReader recordReader;
     private final OrcDataSource orcDataSource;
 
@@ -74,13 +83,17 @@ public class OrcPageSource
     private int batchId;
     private boolean closed;
 
+    private BitSet rowsToDelete;
+
     public OrcPageSource(
+            ShardRewriter shardRewriter,
             OrcRecordReader recordReader,
             OrcDataSource orcDataSource,
             List<Long> columnIds,
             List<Type> columnTypes,
             List<Integer> columnIndexes)
     {
+        this.shardRewriter = checkNotNull(shardRewriter, "shardRewriter is null");
         this.recordReader = checkNotNull(recordReader, "recordReader is null");
         this.orcDataSource = checkNotNull(orcDataSource, "orcDataSource is null");
 
@@ -96,7 +109,7 @@ public class OrcPageSource
 
         for (int i = 0; i < size; i++) {
             this.columnIndexes[i] = columnIndexes.get(i);
-            if (this.columnIndexes[i] == -1) {
+            if (this.columnIndexes[i] == NULL_COLUMN) {
                 constantBlocks[i] = buildNullBlock(columnTypes.get(i));
             }
         }
@@ -136,12 +149,16 @@ public class OrcPageSource
                 close();
                 return null;
             }
+            long filePosition = recordReader.getFilePosition() - batchSize;
 
             Block[] blocks = new Block[columnIndexes.length];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
                 Type type = types.get(fieldId);
                 if (constantBlocks[fieldId] != null) {
                     blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
+                }
+                else if (columnIndexes[fieldId] == ROWID_COLUMN) {
+                    blocks[fieldId] = buildSequenceBlock(filePosition, batchSize);
                 }
                 else if (BOOLEAN.equals(type)) {
                     blocks[fieldId] = new LazyFixedWidthBlock(BOOLEAN.getFixedSize(), batchSize, new LazyBooleanBlockLoader(columnIndexes[fieldId], batchSize));
@@ -195,6 +212,24 @@ public class OrcPageSource
                 .toString();
     }
 
+    @Override
+    public void deleteRows(Block rowIds)
+    {
+        if (rowsToDelete == null) {
+            rowsToDelete = new BitSet(Ints.checkedCast(recordReader.getFileRowCount()));
+        }
+        for (int i = 0; i < rowIds.getPositionCount(); i++) {
+            long rowId = BIGINT.getLong(rowIds, i);
+            rowsToDelete.set(Ints.checkedCast(rowId));
+        }
+    }
+
+    @Override
+    public Collection<Slice> commit()
+    {
+        return shardRewriter.rewrite(rowsToDelete);
+    }
+
     private void closeWithSuppression(Throwable throwable)
     {
         checkNotNull(throwable, "throwable is null");
@@ -211,6 +246,15 @@ public class OrcPageSource
     {
         long newCompletedBytes = (long) (recordReader.getSplitLength() * recordReader.getProgress());
         completedBytes = min(recordReader.getSplitLength(), max(completedBytes, newCompletedBytes));
+    }
+
+    private static Block buildSequenceBlock(long start, int count)
+    {
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(count);
+        for (int i = 0; i < count; i++) {
+            BIGINT.writeLong(builder, start + i);
+        }
+        return builder.build();
     }
 
     private static Block buildNullBlock(Type type)
