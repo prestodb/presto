@@ -99,12 +99,14 @@ public final class OutputBuffers
     public OutputBuffers withBuffer(TaskId bufferId, PagePartitionFunction pagePartitionFunction)
     {
         checkNotNull(bufferId, "bufferId is null");
-        checkState(!noMoreBufferIds, "No more buffer ids already set");
 
         if (buffers.containsKey(bufferId)) {
             checkHasBuffer(bufferId, pagePartitionFunction);
             return this;
         }
+
+        // verify no new buffers is not set
+        checkState(!noMoreBufferIds, "No more buffer ids already set");
 
         return new OutputBuffers(
                 version + 1,
