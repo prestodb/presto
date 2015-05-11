@@ -20,7 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class RaptorColumnHandle
@@ -28,6 +28,10 @@ public final class RaptorColumnHandle
 {
     // This is intentionally not named "$sampleWeight" because column names are lowercase and case insensitive
     public static final String SAMPLE_WEIGHT_COLUMN_NAME = "$sample_weight";
+
+    // Generated rowId column for updates
+    private static final long SHARD_ROW_ID_COLUMN_ID = -1;
+    private static final String SHARD_ROW_ID_COLUMN_NAME = "$shard_row_id";
 
     private final String connectorId;
     private final String columnName;
@@ -43,7 +47,6 @@ public final class RaptorColumnHandle
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.columnName = checkNotNull(columnName, "columnName is null");
-        checkArgument(columnId > 0, "columnId must be greater than zero");
         this.columnId = columnId;
         this.columnType = checkNotNull(columnType, "columnType is null");
     }
@@ -95,5 +98,20 @@ public final class RaptorColumnHandle
     public int hashCode()
     {
         return Objects.hash(columnId);
+    }
+
+    public boolean isShardRowId()
+    {
+        return isShardRowIdColumn(columnId);
+    }
+
+    public static boolean isShardRowIdColumn(long columnId)
+    {
+        return columnId == SHARD_ROW_ID_COLUMN_ID;
+    }
+
+    public static RaptorColumnHandle shardRowIdHandle(String connectorId)
+    {
+        return new RaptorColumnHandle(connectorId, SHARD_ROW_ID_COLUMN_NAME, SHARD_ROW_ID_COLUMN_ID, BIGINT);
     }
 }

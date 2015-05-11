@@ -17,6 +17,7 @@ import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.MetadataDaoUtils;
+import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.Table;
@@ -38,6 +39,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
@@ -51,9 +53,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.raptor.RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
+import static com.facebook.presto.raptor.RaptorColumnHandle.shardRowIdHandle;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.metadata.MetadataDaoUtils.createMetadataTablesWithRetry;
 import static com.facebook.presto.raptor.util.Types.checkType;
@@ -74,10 +78,16 @@ public class RaptorMetadata
     private final MetadataDao dao;
     private final ShardManager shardManager;
     private final JsonCodec<ShardInfo> shardInfoCodec;
+    private final JsonCodec<ShardDelta> shardDeltaCodec;
     private final String connectorId;
 
     @Inject
-    public RaptorMetadata(RaptorConnectorId connectorId, @ForMetadata IDBI dbi, ShardManager shardManager, JsonCodec<ShardInfo> shardInfoCodec)
+    public RaptorMetadata(
+            RaptorConnectorId connectorId,
+            @ForMetadata IDBI dbi,
+            ShardManager shardManager,
+            JsonCodec<ShardInfo> shardInfoCodec,
+            JsonCodec<ShardDelta> shardDeltaCodec)
     {
         checkNotNull(connectorId, "connectorId is null");
 
@@ -86,6 +96,7 @@ public class RaptorMetadata
         this.dao = dbi.onDemand(MetadataDao.class);
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
         this.shardInfoCodec = checkNotNull(shardInfoCodec, "shardInfoCodec is null");
+        this.shardDeltaCodec = checkNotNull(shardDeltaCodec, "shardDeltaCodec is null");
 
         createMetadataTablesWithRetry(dao);
     }
@@ -185,8 +196,13 @@ public class RaptorMetadata
     public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
-        long columnId = checkType(columnHandle, RaptorColumnHandle.class, "columnHandle").getColumnId();
+        RaptorColumnHandle column = checkType(columnHandle, RaptorColumnHandle.class, "columnHandle");
 
+        if (column.isShardRowId()) {
+            return new ColumnMetadata(column.getColumnName(), column.getColumnType(), false, null, true);
+        }
+
+        long columnId = column.getColumnId();
         TableColumn tableColumn = dao.getTableColumn(tableId, columnId);
         if (tableColumn == null) {
             throw new PrestoException(NOT_FOUND, format("Column ID %s does not exist for table ID %s", columnId, tableId));
@@ -339,6 +355,40 @@ public class RaptorMetadata
         List<ColumnInfo> columns = handle.getColumnHandles().stream().map(ColumnInfo::fromHandle).collect(toList());
 
         shardManager.commitShards(tableId, columns, parseFragments(fragments), externalBatchId);
+    }
+
+    @Override
+    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorTableHandle tableHandle)
+    {
+        return shardRowIdHandle(connectorId);
+    }
+
+    @Override
+    public ConnectorTableHandle beginDelete(ConnectorTableHandle tableHandle)
+    {
+        return tableHandle;
+    }
+
+    @Override
+    public void commitDelete(ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
+
+        List<ColumnInfo> columns = getColumnHandles(tableHandle).values().stream()
+                .map(handle -> checkType(handle, RaptorColumnHandle.class, "columnHandle"))
+                .map(ColumnInfo::fromHandle).collect(toList());
+
+        ImmutableSet.Builder<UUID> oldShardUuids = ImmutableSet.builder();
+        ImmutableList.Builder<ShardInfo> newShards = ImmutableList.builder();
+
+        fragments.stream()
+                .map(fragment -> shardDeltaCodec.fromJson(fragment.getBytes()))
+                .forEach(delta -> {
+                    oldShardUuids.addAll(delta.getOldShardUuids());
+                    newShards.addAll(delta.getNewShards());
+                });
+
+        shardManager.replaceShardUuids(tableId, columns, oldShardUuids.build(), newShards.build());
     }
 
     @Override

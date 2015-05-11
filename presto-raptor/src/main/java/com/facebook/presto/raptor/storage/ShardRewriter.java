@@ -11,20 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor;
+package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import io.airlift.slice.Slice;
 
-import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
-import static com.facebook.presto.raptor.RaptorQueryRunner.createSampledSession;
-import static io.airlift.tpch.TpchTable.getTables;
+import java.util.BitSet;
+import java.util.Collection;
 
-public class TestRaptorDistributedQueries
-        extends AbstractTestDistributedQueries
+public interface ShardRewriter
 {
-    public TestRaptorDistributedQueries()
-            throws Exception
-    {
-        super(createRaptorQueryRunner(getTables()), createSampledSession());
-    }
+    Collection<Slice> rewrite(BitSet rowsToDelete);
 }

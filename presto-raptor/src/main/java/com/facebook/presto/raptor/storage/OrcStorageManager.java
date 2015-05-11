@@ -21,10 +21,14 @@ import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
+import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.backup.BackupStore;
+import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ColumnStats;
+import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
+import com.facebook.presto.raptor.storage.OrcFileRewriter.OrcFileInfo;
 import com.facebook.presto.raptor.util.CurrentNodeId;
 import com.facebook.presto.raptor.util.PageBuffer;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -37,6 +41,9 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.JsonCodec;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Flatten;
@@ -48,6 +55,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,6 +70,11 @@ import java.util.concurrent.TimeoutException;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
 import static com.facebook.presto.raptor.storage.ShardStats.computeColumnStats;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -78,6 +92,7 @@ public class OrcStorageManager
     private final String nodeId;
     private final StorageService storageService;
     private final Optional<BackupStore> backupStore;
+    private final JsonCodec<ShardDelta> shardDeltaCodec;
     private final DataSize orcMaxMergeDistance;
     private final DataSize orcMaxReadSize;
     private final DataSize orcStreamBufferSize;
@@ -93,12 +108,14 @@ public class OrcStorageManager
             CurrentNodeId currentNodeId,
             StorageService storageService,
             Optional<BackupStore> backupStore,
+            JsonCodec<ShardDelta> shardDeltaCodec,
             StorageManagerConfig config,
             ShardRecoveryManager recoveryManager)
     {
         this(currentNodeId.toString(),
                 storageService,
                 backupStore,
+                shardDeltaCodec,
                 config.getOrcMaxMergeDistance(),
                 config.getOrcMaxReadSize(),
                 config.getOrcStreamBufferSize(),
@@ -113,6 +130,7 @@ public class OrcStorageManager
             String nodeId,
             StorageService storageService,
             Optional<BackupStore> backupStore,
+            JsonCodec<ShardDelta> shardDeltaCodec,
             DataSize orcMaxMergeDistance,
             DataSize orcMaxReadSize,
             DataSize orcStreamBufferSize,
@@ -125,6 +143,7 @@ public class OrcStorageManager
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
         this.storageService = checkNotNull(storageService, "storageService is null");
         this.backupStore = checkNotNull(backupStore, "backupStore is null");
+        this.shardDeltaCodec = checkNotNull(shardDeltaCodec, "shardDeltaCodec is null");
         this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
         this.orcMaxReadSize = checkNotNull(orcMaxReadSize, "orcMaxReadSize is null");
         this.orcStreamBufferSize = checkNotNull(orcStreamBufferSize, "orcStreamBufferSize is null");
@@ -152,9 +171,14 @@ public class OrcStorageManager
             ImmutableList.Builder<Integer> columnIndexes = ImmutableList.builder();
             for (int i = 0; i < columnIds.size(); i++) {
                 long columnId = columnIds.get(i);
+                if (RaptorColumnHandle.isShardRowIdColumn(columnId)) {
+                    columnIndexes.add(OrcPageSource.ROWID_COLUMN);
+                    continue;
+                }
+
                 Integer index = indexMap.get(columnId);
                 if (index == null) {
-                    columnIndexes.add(-1);
+                    columnIndexes.add(OrcPageSource.NULL_COLUMN);
                 }
                 else {
                     columnIndexes.add(index);
@@ -166,7 +190,9 @@ public class OrcStorageManager
 
             OrcRecordReader recordReader = reader.createRecordReader(includedColumns.build(), predicate, UTC);
 
-            return new OrcPageSource(recordReader, dataSource, columnIds, columnTypes, columnIndexes.build());
+            ShardRewriter shardRewriter = rowsToDelete -> rewriteShard(shardUuid, rowsToDelete);
+
+            return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build());
         }
         catch (IOException | RuntimeException e) {
             try {
@@ -260,20 +286,105 @@ public class OrcStorageManager
         return backupStore.isPresent() && backupStore.get().shardSize(shardUuid).isPresent();
     }
 
-    private List<ColumnStats> computeShardStats(File file, List<Long> columnIds, List<Type> types)
+    private ShardInfo createShardInfo(UUID shardUuid, File file, Set<String> nodes, long rowCount, long uncompressedSize)
+    {
+        return new ShardInfo(shardUuid, nodes, computeShardStats(file), rowCount, file.length(), uncompressedSize);
+    }
+
+    private List<ColumnStats> computeShardStats(File file)
     {
         try (OrcDataSource dataSource = new FileOrcDataSource(file, orcMaxMergeDistance, orcMaxReadSize, orcStreamBufferSize)) {
             OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader());
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
-            for (int i = 0; i < columnIds.size(); i++) {
-                computeColumnStats(reader, columnIds.get(i), types.get(i)).ifPresent(list::add);
+            for (ColumnInfo info : getColumnInfo(reader)) {
+                computeColumnStats(reader, info.getColumnId(), info.getType()).ifPresent(list::add);
             }
             return list.build();
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to read file: " + file, e);
         }
+    }
+
+    private Collection<Slice> rewriteShard(UUID shardUuid, BitSet rowsToDelete)
+    {
+        if (rowsToDelete.isEmpty()) {
+            return ImmutableList.of();
+        }
+
+        UUID newShardUuid = UUID.randomUUID();
+        File input = storageService.getStorageFile(shardUuid);
+        File output = storageService.getStagingFile(newShardUuid);
+
+        OrcFileInfo info = rewriteFile(input, output, rowsToDelete);
+        long rowCount = info.getRowCount();
+
+        if (rowCount == 0) {
+            return shardDelta(shardUuid, Optional.empty());
+        }
+
+        Set<String> nodes = ImmutableSet.of(nodeId);
+        long uncompressedSize = info.getUncompressedSize();
+
+        ShardInfo shard = createShardInfo(newShardUuid, output, nodes, rowCount, uncompressedSize);
+
+        writeShard(newShardUuid);
+
+        return shardDelta(shardUuid, Optional.of(shard));
+    }
+
+    private Collection<Slice> shardDelta(UUID oldShardUuid, Optional<ShardInfo> shardInfo)
+    {
+        List<ShardInfo> newShards = shardInfo.map(ImmutableList::of).orElse(ImmutableList.of());
+        ShardDelta delta = new ShardDelta(ImmutableList.of(oldShardUuid), newShards);
+        return ImmutableList.of(Slices.wrappedBuffer(shardDeltaCodec.toJsonBytes(delta)));
+    }
+
+    private static OrcFileInfo rewriteFile(File input, File output, BitSet rowsToDelete)
+    {
+        try {
+            return OrcFileRewriter.rewrite(input, output, rowsToDelete);
+        }
+        catch (IOException e) {
+            throw new PrestoException(RAPTOR_ERROR, "Failed to rewrite shard file: " + input, e);
+        }
+    }
+
+    private static List<ColumnInfo> getColumnInfo(OrcReader reader)
+    {
+        // TODO: These should be stored as proper metadata.
+        // XXX: Relying on ORC types will not work when more Presto types are supported.
+
+        List<String> names = reader.getColumnNames();
+        List<OrcType> types = reader.getFooter().getTypes();
+        types = types.subList(1, types.size()); // skip struct
+        if (names.size() != types.size()) {
+            throw new PrestoException(RAPTOR_ERROR, "Column names and types do not match");
+        }
+
+        ImmutableList.Builder<ColumnInfo> list = ImmutableList.builder();
+        for (int i = 0; i < names.size(); i++) {
+            list.add(new ColumnInfo(Long.parseLong(names.get(i)), getType(types.get(i))));
+        }
+        return list.build();
+    }
+
+    private static Type getType(OrcType type)
+    {
+        switch (type.getOrcTypeKind()) {
+            case BOOLEAN:
+                return BOOLEAN;
+            case LONG:
+                return BIGINT;
+            case DOUBLE:
+                return DOUBLE;
+            case STRING:
+                return VARCHAR;
+            case BINARY:
+                return VARBINARY;
+        }
+        throw new PrestoException(RAPTOR_ERROR, "Unhandled ORC type: " + type);
     }
 
     private static OrcPredicate getPredicate(TupleDomain<RaptorColumnHandle> effectivePredicate, Map<Long, Integer> indexMap)
@@ -352,12 +463,12 @@ public class OrcStorageManager
                 writer.close();
 
                 File stagingFile = storageService.getStagingFile(shardUuid);
-                List<ColumnStats> columns = computeShardStats(stagingFile, columnIds, columnTypes);
+
                 Set<String> nodes = ImmutableSet.of(nodeId);
                 long rowCount = writer.getRowCount();
-                long compressedSize = stagingFile.length();
+                long uncompressedSize = writer.getUncompressedSize();
 
-                shards.add(new ShardInfo(shardUuid, nodes, columns, rowCount, compressedSize, writer.getUncompressedSize()));
+                shards.add(createShardInfo(shardUuid, stagingFile, nodes, rowCount, uncompressedSize));
 
                 writer = null;
                 shardUuid = null;
