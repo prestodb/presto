@@ -433,8 +433,22 @@ public final class SqlStageExecution
 
                 stateMachine.transitionToScheduled();
 
-                // add the missing exchanges output buffers
-                updateNewExchangesAndBuffers(true);
+                // wait until stage is either finished or all exchanges and output buffers have been added
+                while (!getState().isDone() && !addNewExchangesAndBuffers()) {
+                    synchronized (this) {
+                        // wait for a state change
+                        //
+                        // NOTE this must be a wait with a timeout since there is no notification
+                        // for new exchanges from the child stages
+                        try {
+                            TimeUnit.MILLISECONDS.timedWait(this, 100);
+                        }
+                        catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw Throwables.propagate(e);
+                        }
+                    }
+                }
             }
             catch (Throwable e) {
                 if (e instanceof InterruptedException) {
@@ -573,7 +587,7 @@ public final class SqlStageExecution
                 throw Throwables.propagate(e);
             }
         }
-        updateNewExchangesAndBuffers(false);
+        addNewExchangesAndBuffers();
     }
 
     private void addStageNode(TaskId task)
@@ -638,35 +652,12 @@ public final class SqlStageExecution
         return task;
     }
 
-    private void updateNewExchangesAndBuffers(boolean waitUntilFinished)
-    {
-        checkState(!Thread.holdsLock(this), "Can not add exchanges or buffers to tasks while holding a lock on this");
-
-        while (!getState().isDone()) {
-            boolean finished = addNewExchangesAndBuffers();
-
-            if (finished || !waitUntilFinished) {
-                return;
-            }
-
-            synchronized (this) {
-                // wait for a state change
-                //
-                // NOTE this must be a wait with a timeout since there is no notification
-                // for new exchanges from the child stages
-                try {
-                    TimeUnit.MILLISECONDS.timedWait(this, 100);
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw Throwables.propagate(e);
-                }
-            }
-        }
-    }
-
     private boolean addNewExchangesAndBuffers()
     {
+        if (getState().isDone()) {
+            return true;
+        }
+
         // get new exchanges and update exchange state
         Set<PlanNodeId> completeSources = updateCompleteSources();
         boolean allSourceComplete = completeSources.containsAll(allSources);
