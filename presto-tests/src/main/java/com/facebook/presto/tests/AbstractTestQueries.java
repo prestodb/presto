@@ -3230,6 +3230,33 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testUnionWithAggregation()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT ds, count(*) FROM (" +
+                        "   SELECT orderdate ds, orderkey FROM orders " +
+                        "   UNION ALL " +
+                        "   SELECT shipdate ds, orderkey FROM lineitem) a " +
+                        "GROUP BY ds");
+    }
+
+    @Test
+    public void testUnionWithAggregationAndJoin()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT * FROM ( " +
+                        "SELECT orderkey, count(*) FROM (" +
+                        "   SELECT orderdate ds, orderkey FROM orders " +
+                        "   UNION ALL " +
+                        "   SELECT shipdate ds, orderkey FROM lineitem) a " +
+                        "GROUP BY orderkey) t " +
+                        "JOIN orders o " +
+                        "ON (o.orderkey = t.orderkey)");
+    }
+
+    @Test
     public void testUnionWithJoinOnNonTranslateableSymbols()
             throws Exception
     {
