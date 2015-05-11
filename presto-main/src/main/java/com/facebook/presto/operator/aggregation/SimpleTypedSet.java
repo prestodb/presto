@@ -32,7 +32,7 @@ public class SimpleTypedSet
         implements TypedSet
 {
     private static final float FILL_RATIO = 0.75f;
-    public static final long FOUR_MEGABYTES = new DataSize(4, MEGABYTE).toBytes();
+    private static final long FOUR_MEGABYTES = new DataSize(4, MEGABYTE).toBytes();
 
     private final Type elementType;
     private final IntBigArray blockPositionByHash = new IntBigArray();
