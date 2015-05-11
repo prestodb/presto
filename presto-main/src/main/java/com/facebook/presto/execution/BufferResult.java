@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.PagePartitionFunction;
-import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 
@@ -28,27 +26,20 @@ public class BufferResult
 {
     public static BufferResult emptyResults(long token, boolean bufferClosed)
     {
-        return new BufferResult(token, token, bufferClosed, ImmutableList.<Page>of(), new UnpartitionedPagePartitionFunction());
+        return new BufferResult(token, token, bufferClosed, ImmutableList.<Page>of());
     }
 
     private final long token;
     private final long nextToken;
     private final boolean bufferClosed;
     private final List<Page> pages;
-    private final PagePartitionFunction partitionFunction;
 
     public BufferResult(long token, long nextToken, boolean bufferClosed, List<Page> pages)
-    {
-        this(token, nextToken, bufferClosed, pages, new UnpartitionedPagePartitionFunction());
-    }
-
-    public BufferResult(long token, long nextToken, boolean bufferClosed, List<Page> pages, PagePartitionFunction partitionFunction)
     {
         this.token = token;
         this.nextToken = nextToken;
         this.bufferClosed = bufferClosed;
         this.pages = ImmutableList.copyOf(checkNotNull(pages, "pages is null"));
-        this.partitionFunction = partitionFunction;
     }
 
     public long getToken()
@@ -68,7 +59,7 @@ public class BufferResult
 
     public List<Page> getPages()
     {
-        return partitionFunction.partition(pages);
+        return pages;
     }
 
     public int size()
@@ -82,26 +73,25 @@ public class BufferResult
     }
 
     @Override
-    public int hashCode()
+    public boolean equals(Object o)
     {
-        return Objects.hash(token, nextToken, bufferClosed, pages, partitionFunction);
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        BufferResult that = (BufferResult) o;
+        return Objects.equals(token, that.token) &&
+                Objects.equals(nextToken, that.nextToken) &&
+                Objects.equals(bufferClosed, that.bufferClosed) &&
+                Objects.equals(pages, that.pages);
     }
 
     @Override
-    public boolean equals(Object obj)
+    public int hashCode()
     {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        final BufferResult other = (BufferResult) obj;
-        return Objects.equals(this.token, other.token) &&
-                Objects.equals(this.nextToken, other.nextToken) &&
-                Objects.equals(this.bufferClosed, other.bufferClosed) &&
-                Objects.equals(this.pages, other.pages) &&
-                Objects.equals(this.partitionFunction, other.partitionFunction);
+        return Objects.hash(token, nextToken, bufferClosed, pages);
     }
 
     @Override
@@ -112,7 +102,6 @@ public class BufferResult
                 .add("nextToken", nextToken)
                 .add("bufferClosed", bufferClosed)
                 .add("pages", pages)
-                .add("partitionFunction", partitionFunction)
                 .toString();
     }
 }

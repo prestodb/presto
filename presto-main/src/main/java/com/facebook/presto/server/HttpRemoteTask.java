@@ -20,6 +20,7 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.ExecutionFailureInfo;
+import com.facebook.presto.execution.PageBufferInfo;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SharedBuffer.BufferState;
 import com.facebook.presto.execution.SharedBufferInfo;
@@ -186,7 +187,7 @@ public class HttpRemoteTask
 
             List<BufferInfo> bufferStates = outputBuffers.getBuffers()
                     .keySet().stream()
-                    .map(outputId -> new BufferInfo(outputId, false, 0, 0))
+                    .map(outputId -> new BufferInfo(outputId, false, 0, 0, PageBufferInfo.empty()))
                     .collect(toImmutableList());
 
             TaskStats taskStats = new TaskStats(DateTime.now(), null);
@@ -198,7 +199,7 @@ public class HttpRemoteTask
                     TaskState.PLANNED,
                     location,
                     DateTime.now(),
-                    new SharedBufferInfo(BufferState.OPEN, 0, 0, bufferStates),
+                    new SharedBufferInfo(BufferState.OPEN, true, true, 0, 0, 0, 0, bufferStates),
                     ImmutableSet.<PlanNodeId>of(),
                     taskStats,
                     ImmutableList.<ExecutionFailureInfo>of()));

@@ -238,7 +238,7 @@ public class PartitionedOutputOperator
                     Page pagePartition = partitionPageBuilder.build();
                     partitionPageBuilder.reset();
 
-                    blockedFutures.add(sharedBuffer.enqueue(/*partition, */pagePartition));
+                    blockedFutures.add(sharedBuffer.enqueue(partition, pagePartition));
                 }
             }
             ListenableFuture<?> future = Futures.allAsList(blockedFutures);
