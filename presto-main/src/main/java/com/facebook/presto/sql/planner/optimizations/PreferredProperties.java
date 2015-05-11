@@ -145,10 +145,36 @@ class PreferredProperties
             Set<Symbol> partitioningColumns,
             List<LocalProperty<Symbol>> localProperties)
     {
+        return derivePreferences(parentProperties, partitioningColumns, Optional.empty(), localProperties);
+    }
+
+    /**
+     * Derive current node's preferred properties based on parent's preferences
+     * @param parentProperties Parent's preferences (translated)
+     * @param partitioningColumns partitioning columns of current node
+     * @param hashingColumns hashing columns of current node
+     * @param localProperties local properties of current node
+     * @return PreferredProperties for current node
+     */
+    public static PreferredProperties derivePreferences(
+            PreferredProperties parentProperties,
+            Set<Symbol> partitioningColumns,
+            Optional<List<Symbol>> hashingColumns,
+            List<LocalProperty<Symbol>> localProperties)
+    {
+        if (hashingColumns.isPresent()) {
+            checkState(partitioningColumns.equals(ImmutableSet.copyOf(hashingColumns.get())), "hashingColumns and partitioningColumns must be the same");
+        }
+
         List<LocalProperty<Symbol>> local = ImmutableList.<LocalProperty<Symbol>>builder()
                 .addAll(localProperties)
                 .addAll(parentProperties.getLocalProperties())
                 .build();
+
+        // Check we need to be hash partitioned
+        if (hashingColumns.isPresent()) {
+            return hashPartitionedWithLocal(hashingColumns.get(), local);
+        }
 
         if (parentProperties.getPartitioningProperties().isPresent()) {
             PartitioningPreferences parentPartitioning = parentProperties.getPartitioningProperties().get();
