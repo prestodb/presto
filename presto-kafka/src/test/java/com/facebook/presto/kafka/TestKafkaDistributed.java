@@ -124,6 +124,16 @@ public class TestKafkaDistributed
     }
 
     //
+    // Kafka connector does not delete.
+    //
+
+    @Override
+    public void testDelete()
+            throws Exception
+    {
+    }
+
+    //
     // Kafka connector does not table rename.
     //
 

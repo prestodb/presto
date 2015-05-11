@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -82,6 +83,9 @@ public class Analysis
 
     // for insert
     private Optional<TableHandle> insertTarget = Optional.empty();
+
+    // for delete
+    private Optional<Delete> delete = Optional.empty();
 
     public Query getQuery()
     {
@@ -328,6 +332,16 @@ public class Analysis
     public Optional<TableHandle> getInsertTarget()
     {
         return insertTarget;
+    }
+
+    public void setDelete(Delete delete)
+    {
+        this.delete = Optional.of(delete);
+    }
+
+    public Optional<Delete> getDelete()
+    {
+        return delete;
     }
 
     public Query getNamedQuery(Table table)

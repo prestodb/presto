@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.CursorProcessor;
+import com.facebook.presto.operator.DeleteOperator.DeleteOperatorFactory;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
@@ -82,6 +83,7 @@ import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
+import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -101,6 +103,7 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -1521,6 +1524,21 @@ public class LocalExecutionPlanner
         }
 
         @Override
+        public PhysicalOperation visitDelete(DeleteNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+
+            OperatorFactory operatorFactory = new DeleteOperatorFactory(context.getNextOperatorId(), source.getLayout().get(node.getRowId()));
+
+            Map<Symbol, Integer> layout = ImmutableMap.<Symbol, Integer>builder()
+                    .put(node.getOutputSymbols().get(0), 0)
+                    .put(node.getOutputSymbols().get(1), 1)
+                    .build();
+
+            return new PhysicalOperation(operatorFactory, layout, source);
+        }
+
+        @Override
         public PhysicalOperation visitUnion(UnionNode node, LocalExecutionPlanContext context)
         {
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
@@ -1709,6 +1727,9 @@ public class LocalExecutionPlanner
                 else if (target instanceof InsertHandle) {
                     metadata.commitInsert(((InsertHandle) target).getHandle(), fragments);
                 }
+                else if (target instanceof DeleteHandle) {
+                    metadata.commitDelete(((DeleteHandle) target).getHandle(), fragments);
+                }
                 else {
                     throw new AssertionError("Unhandled target type: " + target.getClass().getName());
                 }
@@ -1722,6 +1743,9 @@ public class LocalExecutionPlanner
                 }
                 else if (target instanceof InsertHandle) {
                     metadata.rollbackInsert(((InsertHandle) target).getHandle());
+                }
+                else if (target instanceof DeleteHandle) {
+                    metadata.rollbackDelete(((DeleteHandle) target).getHandle());
                 }
                 else {
                     throw new AssertionError("Unhandled target type: " + target.getClass().getName());

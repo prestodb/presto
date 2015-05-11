@@ -11,21 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.spi;
 
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.block.Block;
+import io.airlift.slice.Slice;
 
-import java.util.Optional;
-import java.util.function.Supplier;
+import java.util.Collection;
 
-public interface SourceOperator
-        extends Operator
+public interface UpdatablePageSource
+        extends ConnectorPageSource
 {
-    PlanNodeId getSourceId();
+    void deleteRows(Block rowIds);
 
-    Supplier<Optional<UpdatablePageSource>> addSplit(Split split);
+    Collection<Slice> commit();
 
-    void noMoreSplits();
+    default void rollback() {}
 }

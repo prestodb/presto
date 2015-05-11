@@ -462,6 +462,31 @@ public class MetadataManager
     }
 
     @Override
+    public ColumnHandle getUpdateRowIdColumnHandle(TableHandle tableHandle)
+    {
+        return lookupConnectorFor(tableHandle).getUpdateRowIdColumnHandle(tableHandle.getConnectorHandle());
+    }
+
+    @Override
+    public TableHandle beginDelete(Session session, TableHandle tableHandle)
+    {
+        ConnectorTableHandle newHandle = lookupConnectorFor(tableHandle).beginDelete(tableHandle.getConnectorHandle());
+        return new TableHandle(tableHandle.getConnectorId(), newHandle);
+    }
+
+    @Override
+    public void commitDelete(TableHandle tableHandle, Collection<Slice> fragments)
+    {
+        lookupConnectorFor(tableHandle).commitDelete(tableHandle.getConnectorHandle(), fragments);
+    }
+
+    @Override
+    public void rollbackDelete(TableHandle tableHandle)
+    {
+        lookupConnectorFor(tableHandle).rollbackDelete(tableHandle.getConnectorHandle());
+    }
+
+    @Override
     public Map<String, String> getCatalogNames()
     {
         ImmutableMap.Builder<String, String> catalogsMap = ImmutableMap.builder();

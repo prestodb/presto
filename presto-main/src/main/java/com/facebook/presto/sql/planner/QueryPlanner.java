@@ -16,6 +16,9 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
@@ -23,6 +26,7 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -30,11 +34,14 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -62,7 +69,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -168,6 +177,57 @@ class QueryPlanner
         translations.setFieldMappings(relationPlan.getOutputSymbols());
 
         return new PlanBuilder(translations, relationPlan.getRoot(), relationPlan.getSampleWeight());
+    }
+
+    public DeleteNode planDelete(Delete node)
+    {
+        TupleDescriptor descriptor = analysis.getOutputDescriptor(node.getTable());
+        TableHandle handle = analysis.getTableHandle(node.getTable());
+        ColumnHandle rowIdHandle = metadata.getUpdateRowIdColumnHandle(handle);
+        Type rowIdType = metadata.getColumnMetadata(handle, rowIdHandle).getType();
+
+        // add table columns
+        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
+        ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
+        ImmutableList.Builder<Field> fields = ImmutableList.builder();
+        for (Field field : descriptor.getAllFields()) {
+            Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
+            outputSymbols.add(symbol);
+            columns.put(symbol, analysis.getColumn(field));
+            fields.add(field);
+        }
+
+        // add rowId column
+        Field rowIdField = Field.newUnqualified(Optional.empty(), rowIdType);
+        Symbol rowIdSymbol = symbolAllocator.newSymbol("$rowId", rowIdField.getType());
+        outputSymbols.add(rowIdSymbol);
+        columns.put(rowIdSymbol, rowIdHandle);
+        fields.add(rowIdField);
+
+        // create table scan
+        PlanNode tableScan = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols.build(), columns.build(), Optional.empty(), TupleDomain.all(), null);
+        RelationPlan relationPlan = new RelationPlan(tableScan, new TupleDescriptor(fields.build()), outputSymbols.build(), Optional.empty());
+
+        TranslationMap translations = new TranslationMap(relationPlan, analysis);
+        translations.setFieldMappings(relationPlan.getOutputSymbols());
+
+        PlanBuilder builder = new PlanBuilder(translations, relationPlan.getRoot(), relationPlan.getSampleWeight());
+
+        // add semi-joins and filters
+        Set<InPredicate> inPredicates = analysis.getInPredicates(node);
+        builder = appendSemiJoins(builder, inPredicates);
+
+        if (node.getWhere().isPresent()) {
+            builder = filter(builder, node.getWhere().get());
+        }
+
+        // create delete node
+        Symbol rowId = builder.translate(new FieldOrExpression(relationPlan.getDescriptor().indexOf(rowIdField)));
+        List<Symbol> outputs = ImmutableList.of(
+                symbolAllocator.newSymbol("partialrows", BIGINT),
+                symbolAllocator.newSymbol("fragment", VARBINARY));
+
+        return new DeleteNode(idAllocator.getNextId(), builder.getRoot(), new DeleteHandle(handle), rowId, outputs);
     }
 
     private RelationPlan planImplicitTable()

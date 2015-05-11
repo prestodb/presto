@@ -15,15 +15,17 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
-import com.facebook.presto.util.Types;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 
 import java.util.Map;
 
@@ -77,12 +79,33 @@ public class BeginTableWrite
         }
 
         @Override
+        public PlanNode visitDelete(DeleteNode node, RewriteContext<Void> context)
+        {
+            // TODO: replace handle in scan nodes with this new handle
+            TableHandle handle = metadata.beginDelete(session, node.getTarget().getHandle());
+            return new DeleteNode(
+                    node.getId(),
+                    node.getSource().accept(this, context),
+                    new DeleteHandle(handle),
+                    node.getRowId(),
+                    node.getOutputSymbols());
+        }
+
+        @Override
         public PlanNode visitTableCommit(TableCommitNode node, RewriteContext<Void> context)
         {
             PlanNode child = node.getSource().accept(this, context);
 
-            TableWriterNode tableWriter = Types.checkType(child, TableWriterNode.class, "table commit node must be preceeded by table writer node");
-            TableWriterNode.WriterTarget target = tableWriter.getTarget();
+            TableWriterNode.WriterTarget target;
+            if (child instanceof TableWriterNode) {
+                target = ((TableWriterNode) child).getTarget();
+            }
+            else if (child instanceof DeleteNode) {
+                target = ((DeleteNode) child).getTarget();
+            }
+            else {
+                throw new IllegalArgumentException("Invalid child for TableCommitNode: " + child.getClass().getSimpleName());
+            }
 
             return new TableCommitNode(node.getId(), child, target, node.getOutputSymbols());
         }

@@ -24,6 +24,7 @@ import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
@@ -75,6 +76,9 @@ public class LogicalPlanner
         }
         else if (analysis.getInsertTarget().isPresent()) {
             plan = createInsertPlan(analysis);
+        }
+        else if (analysis.getDelete().isPresent()) {
+            plan = createDeletePlan(analysis);
         }
         else {
             plan = createRelationPlan(analysis);
@@ -147,6 +151,17 @@ public class LogicalPlanner
                 outputs);
 
         return new RelationPlan(commitNode, analysis.getOutputDescriptor(), outputs, Optional.empty());
+    }
+
+    private RelationPlan createDeletePlan(Analysis analysis)
+    {
+        QueryPlanner planner = new QueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
+        DeleteNode deleteNode = planner.planDelete(analysis.getDelete().get());
+
+        List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
+        TableCommitNode commitNode = new TableCommitNode(idAllocator.getNextId(), deleteNode, deleteNode.getTarget(), outputs);
+
+        return new RelationPlan(commitNode, analysis.getOutputDescriptor(), commitNode.getOutputSymbols(), Optional.empty());
     }
 
     private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis)
