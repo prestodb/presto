@@ -476,7 +476,7 @@ public class StatementResource
                 return true;
             }
 
-            // has the stage finished scheduling?
+            // have all stage tasks been scheduled?
             if (stageState == StageState.PLANNED || stageState == StageState.SCHEDULING) {
                 return false;
             }

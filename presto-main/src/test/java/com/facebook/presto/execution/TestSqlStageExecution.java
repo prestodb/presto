@@ -250,6 +250,7 @@ public class TestSqlStageExecution
                 switch (tableScanState) {
                     case PLANNED:
                     case SCHEDULING:
+                    case SCHEDULING_SPLITS:
                     case SCHEDULED:
                         break;
                     case RUNNING:

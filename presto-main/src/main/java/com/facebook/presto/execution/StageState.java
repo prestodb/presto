@@ -32,6 +32,10 @@ public enum StageState
      */
     SCHEDULING(false, false),
     /**
+     * All stage tasks have been scheduled, but splits are still being scheduled.
+     */
+    SCHEDULING_SPLITS(false, false),
+    /**
      * Stage has been scheduled on nodes and ready to execute, but all tasks are still queued.
      */
     SCHEDULED(false, false),
