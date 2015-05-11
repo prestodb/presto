@@ -37,7 +37,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 @DefunctConfig({
         "hive.file-system-cache-ttl",
-        "hive.max-split-iterator-threads",
+        "hive.max-global-split-iterator-threads",
 })
 public class HiveClientConfig
 {
@@ -47,7 +47,7 @@ public class HiveClientConfig
 
     private DataSize maxSplitSize = new DataSize(64, MEGABYTE);
     private int maxOutstandingSplits = 1_000;
-    private int maxGlobalSplitIteratorThreads = 1_000;
+    private int maxSplitIteratorThreads = 1_000;
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
     private int maxInitialSplits = 200;
@@ -197,15 +197,15 @@ public class HiveClientConfig
     }
 
     @Min(1)
-    public int getMaxGlobalSplitIteratorThreads()
+    public int getMaxSplitIteratorThreads()
     {
-        return maxGlobalSplitIteratorThreads;
+        return maxSplitIteratorThreads;
     }
 
-    @Config("hive.max-global-split-iterator-threads")
-    public HiveClientConfig setMaxGlobalSplitIteratorThreads(int maxGlobalSplitIteratorThreads)
+    @Config("hive.max-split-iterator-threads")
+    public HiveClientConfig setMaxSplitIteratorThreads(int maxSplitIteratorThreads)
     {
-        this.maxGlobalSplitIteratorThreads = maxGlobalSplitIteratorThreads;
+        this.maxSplitIteratorThreads = maxSplitIteratorThreads;
         return this;
     }
 
