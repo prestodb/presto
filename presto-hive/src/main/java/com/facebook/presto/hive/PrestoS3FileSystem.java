@@ -467,7 +467,8 @@ public class PrestoS3FileSystem
         }
     }
 
-    private ObjectMetadata getS3ObjectMetadata(Path path)
+    @VisibleForTesting
+    ObjectMetadata getS3ObjectMetadata(Path path)
             throws IOException
     {
         try {
@@ -632,7 +633,7 @@ public class PrestoS3FileSystem
                 int bytesRead = retry()
                         .maxAttempts(maxClientRetry)
                         .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, maxRetryTime, 2.0)
-                        .stopOn(InterruptedException.class)
+                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
                         .run("readStream", () -> {
                             seekStream();
                             try {
@@ -668,7 +669,7 @@ public class PrestoS3FileSystem
         }
 
         private void seekStream()
-                throws IOException
+                throws IOException, UnrecoverableS3OperationException
         {
             if ((in != null) && (nextReadPosition == streamPosition)) {
                 // already at specified position
@@ -699,7 +700,7 @@ public class PrestoS3FileSystem
         }
 
         private void openStream()
-                throws IOException
+                throws IOException, UnrecoverableS3OperationException
         {
             if (in == null) {
                 in = openStream(path, nextReadPosition);
@@ -709,7 +710,7 @@ public class PrestoS3FileSystem
         }
 
         private InputStream openStream(Path path, long start)
-                throws IOException
+                throws IOException, UnrecoverableS3OperationException
         {
             try {
                 return retry()
@@ -743,6 +744,7 @@ public class PrestoS3FileSystem
             }
             catch (Exception e) {
                 Throwables.propagateIfInstanceOf(e, IOException.class);
+                Throwables.propagateIfInstanceOf(e, UnrecoverableS3OperationException.class);
                 throw Throwables.propagate(e);
             }
         }
@@ -871,5 +873,11 @@ public class PrestoS3FileSystem
     AmazonS3 getS3Client()
     {
         return s3;
+    }
+
+    @VisibleForTesting
+    void setS3Client(AmazonS3 client)
+    {
+        s3 = client;
     }
 }
