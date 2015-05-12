@@ -288,6 +288,7 @@ public class Console
         File historyFile = new File(getUserHome(), ".presto_history");
         try {
             history = new FileHistory(historyFile);
+            history.setMaxSize(10000);
         }
         catch (IOException e) {
             System.err.printf("WARNING: Failed to load history file (%s): %s. " +
