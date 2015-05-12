@@ -24,6 +24,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.util.Failures.checkCondition;
 
 public class LagFunction
@@ -62,6 +63,15 @@ public class LagFunction
         public VarcharLagFunction(List<Integer> argumentChannels)
         {
             super(VARCHAR, argumentChannels);
+        }
+    }
+
+    public static class TimestampLagFunction
+            extends LagFunction
+    {
+        public TimestampLagFunction(List<Integer> argumentChannels)
+        {
+            super(TIMESTAMP, argumentChannels);
         }
     }
 
