@@ -446,6 +446,17 @@ public class Driver
                             operator.getOperatorContext().getOperatorId(),
                             driverContext.getTaskId());
                 }
+                try {
+                    operator.getOperatorContext().setMemoryReservation(0);
+                }
+                catch (Throwable t) {
+                    inFlightException = addSuppressedException(
+                            inFlightException,
+                            t,
+                            "Error freeing memory for operator %s for task %s",
+                            operator.getOperatorContext().getOperatorId(),
+                            driverContext.getTaskId());
+                }
             }
             driverContext.finished();
         }

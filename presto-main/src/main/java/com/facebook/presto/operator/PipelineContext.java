@@ -135,9 +135,6 @@ public class PipelineContext
 
         completedDrivers.getAndIncrement();
 
-        // remove the memory reservation
-        freeMemory(driverStats.getMemoryReservation().toBytes());
-
         queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
         elapsedTime.add(driverStats.getElapsedTime().roundTo(NANOSECONDS));
 
