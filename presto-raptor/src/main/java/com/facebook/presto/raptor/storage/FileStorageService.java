@@ -28,7 +28,6 @@ import java.util.UUID;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static java.nio.file.Files.createDirectories;
 import static java.util.Locale.ENGLISH;
 
 public class FileStorageService
@@ -98,11 +97,8 @@ public class FileStorageService
     public void createParents(File file)
     {
         File dir = file.getParentFile();
-        try {
-            createDirectories(dir.toPath());
-        }
-        catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed creating directories: " + dir, e);
+        if (!dir.mkdirs() && !dir.isDirectory()) {
+            throw new PrestoException(RAPTOR_ERROR, "Failed creating directories: " + dir);
         }
     }
 
