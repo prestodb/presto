@@ -47,7 +47,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.airlift.concurrent.SetThreadName;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -85,18 +84,10 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 
 @ThreadSafe
 public final class SqlStageExecution
-        implements StageExecutionNode
 {
-    // NOTE: DO NOT call methods on the parent while holding a lock on the child.  Locks
-    // are always acquired top down in the tree, so calling a method on the parent while
-    // holding a lock on the 'this' could cause a deadlock.
-    // This is only here to aid in debugging
-    @Nullable
-    @SuppressWarnings({"FieldCanBeLocal", "unused"})
-    private final StageExecutionNode parent;
     private final PlanFragment fragment;
     private final Set<PlanNodeId> allSources;
-    private final Map<PlanFragmentId, StageExecutionNode> subStages;
+    private final Map<PlanFragmentId, SqlStageExecution> subStages;
 
     private final Multimap<Node, TaskId> localNodeTaskMap = HashMultimap.create();
     private final ConcurrentMap<TaskId, RemoteTask> tasks = new ConcurrentHashMap<>();
@@ -136,7 +127,7 @@ public final class SqlStageExecution
             NodeTaskMap nodeTaskMap,
             OutputBuffers nextOutputBuffers)
     {
-        this(null,
+        this(
                 queryId,
                 new AtomicInteger(),
                 locationFactory,
@@ -153,7 +144,7 @@ public final class SqlStageExecution
         this.nextOutputBuffers = nextOutputBuffers;
     }
 
-    private SqlStageExecution(@Nullable StageExecutionNode parent,
+    private SqlStageExecution(
             QueryId queryId,
             AtomicInteger nextStageId,
             LocationFactory locationFactory,
@@ -179,7 +170,6 @@ public final class SqlStageExecution
 
         StageId stageId = new StageId(queryId, String.valueOf(nextStageId.getAndIncrement()));
         try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
-            this.parent = parent;
             this.fragment = plan.getFragment();
             this.dataSource = plan.getDataSource();
             this.remoteTaskFactory = remoteTaskFactory;
@@ -194,10 +184,10 @@ public final class SqlStageExecution
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet());
 
-            ImmutableMap.Builder<PlanFragmentId, StageExecutionNode> subStages = ImmutableMap.builder();
+            ImmutableMap.Builder<PlanFragmentId, SqlStageExecution> subStages = ImmutableMap.builder();
             for (StageExecutionPlan subStagePlan : plan.getSubStages()) {
                 PlanFragmentId subStageFragmentId = subStagePlan.getFragment().getId();
-                StageExecutionNode subStage = new SqlStageExecution(this,
+                SqlStageExecution subStage = new SqlStageExecution(
                         queryId,
                         nextStageId,
                         locationFactory,
@@ -229,7 +219,6 @@ public final class SqlStageExecution
         }
     }
 
-    @Override
     public void cancelStage(StageId stageId)
     {
         try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
@@ -237,34 +226,30 @@ public final class SqlStageExecution
                 cancel();
             }
             else {
-                for (StageExecutionNode subStage : subStages.values()) {
+                for (SqlStageExecution subStage : subStages.values()) {
                     subStage.cancelStage(stageId);
                 }
             }
         }
     }
 
-    @Override
-    @VisibleForTesting
     public StageState getState()
     {
         return stateMachine.getState();
     }
 
-    @Override
     public long getTotalMemoryReservation()
     {
         long memory = 0;
         for (RemoteTask task : tasks.values()) {
             memory += task.getTaskInfo().getStats().getMemoryReservation().toBytes();
         }
-        for (StageExecutionNode subStage : subStages.values()) {
+        for (SqlStageExecution subStage : subStages.values()) {
             memory += subStage.getTotalMemoryReservation();
         }
         return memory;
     }
 
-    @Override
     public StageInfo getStageInfo()
     {
         return stateMachine.getStageInfo(
@@ -272,12 +257,11 @@ public final class SqlStageExecution
                         .map(RemoteTask::getTaskInfo)
                         .collect(toImmutableList()),
                 () -> subStages.values().stream()
-                        .map(StageExecutionNode::getStageInfo)
+                        .map(SqlStageExecution::getStageInfo)
                         .collect(toImmutableList()));
     }
 
-    @Override
-    public synchronized void parentTasksAdded(List<TaskId> parentTasks, boolean noMoreParentNodes)
+    private synchronized void parentTasksAdded(List<TaskId> parentTasks, boolean noMoreParentNodes)
     {
         checkNotNull(parentTasks, "parentTasks is null");
 
@@ -322,12 +306,12 @@ public final class SqlStageExecution
         }
     }
 
-    public synchronized OutputBuffers getCurrentOutputBuffers()
+    private synchronized OutputBuffers getCurrentOutputBuffers()
     {
         return currentOutputBuffers;
     }
 
-    public synchronized OutputBuffers updateToNextOutputBuffers()
+    private synchronized OutputBuffers updateToNextOutputBuffers()
     {
         if (nextOutputBuffers == null) {
             return currentOutputBuffers;
@@ -339,7 +323,6 @@ public final class SqlStageExecution
         return currentOutputBuffers;
     }
 
-    @Override
     public void addStateChangeListener(StateChangeListener<StageState> stateChangeListener)
     {
         stateMachine.addStateChangeListener(stateChangeListener::stateChanged);
@@ -352,7 +335,7 @@ public final class SqlStageExecution
         ImmutableMultimap.Builder<PlanNodeId, URI> newExchangeLocations = ImmutableMultimap.builder();
         for (RemoteSourceNode remoteSourceNode : fragment.getRemoteSourceNodes()) {
             for (PlanFragmentId planFragmentId : remoteSourceNode.getSourceFragmentIds()) {
-                StageExecutionNode subStage = subStages.get(planFragmentId);
+                SqlStageExecution subStage = subStages.get(planFragmentId);
                 checkState(subStage != null, "Unknown sub stage %s, known stages %s", planFragmentId, subStages.keySet());
 
                 // add new task locations
@@ -366,9 +349,7 @@ public final class SqlStageExecution
         return newExchangeLocations.build();
     }
 
-    @Override
-    @VisibleForTesting
-    public synchronized List<URI> getTaskLocations()
+    private synchronized List<URI> getTaskLocations()
     {
         try (SetThreadName ignored = new SetThreadName("Stage-%s", stateMachine.getStageId())) {
             ImmutableList.Builder<URI> locations = ImmutableList.builder();
@@ -398,13 +379,11 @@ public final class SqlStageExecution
         }
     }
 
-    @Override
-    @VisibleForTesting
-    public Future<?> scheduleStartTasks()
+    private Future<?> scheduleStartTasks()
     {
         try (SetThreadName ignored = new SetThreadName("Stage-%s", stateMachine.getStageId())) {
             // start sub-stages (starts bottom-up)
-            subStages.values().forEach(StageExecutionNode::scheduleStartTasks);
+            subStages.values().forEach(SqlStageExecution::scheduleStartTasks);
             return executor.submit(this::startTasks);
         }
     }
@@ -474,7 +453,7 @@ public final class SqlStageExecution
         }
 
         // tell sub stages about all nodes and that there will not be more nodes
-        for (StageExecutionNode subStage : subStages.values()) {
+        for (SqlStageExecution subStage : subStages.values()) {
             subStage.parentTasksAdded(tasks.build(), true);
         }
     }
@@ -486,7 +465,7 @@ public final class SqlStageExecution
         RemoteTask task = scheduleTask(0, node);
 
         // tell sub stages about all nodes and that there will not be more nodes
-        for (StageExecutionNode subStage : subStages.values()) {
+        for (SqlStageExecution subStage : subStages.values()) {
             subStage.parentTasksAdded(ImmutableList.of(task.getTaskInfo().getTaskId()), true);
         }
     }
@@ -585,14 +564,14 @@ public final class SqlStageExecution
 
     private void addStageNode(TaskId task)
     {
-        for (StageExecutionNode subStage : subStages.values()) {
+        for (SqlStageExecution subStage : subStages.values()) {
             subStage.parentTasksAdded(ImmutableList.of(task), false);
         }
     }
 
     private void setNoMoreStageNodes()
     {
-        for (StageExecutionNode subStage : subStages.values()) {
+        for (SqlStageExecution subStage : subStages.values()) {
             subStage.parentTasksAdded(ImmutableList.<TaskId>of(), true);
         }
     }
@@ -703,7 +682,7 @@ public final class SqlStageExecution
             if (!completeSources.contains(remoteSourceNode.getId())) {
                 boolean exchangeFinished = true;
                 for (PlanFragmentId planFragmentId : remoteSourceNode.getSourceFragmentIds()) {
-                    StageExecutionNode subStage = subStages.get(planFragmentId);
+                    SqlStageExecution subStage = subStages.get(planFragmentId);
                     switch (subStage.getState()) {
                         case PLANNED:
                         case SCHEDULING:
@@ -719,9 +698,8 @@ public final class SqlStageExecution
         return completeSources;
     }
 
-    @VisibleForTesting
     @SuppressWarnings("NakedNotify")
-    public void doUpdateState()
+    private void doUpdateState()
     {
         checkState(!Thread.holdsLock(this), "Can not doUpdateState while holding a lock on this");
 
@@ -774,7 +752,6 @@ public final class SqlStageExecution
         }
     }
 
-    @Override
     public void cancel()
     {
         checkState(!Thread.holdsLock(this), "Can not cancel while holding a lock on this");
@@ -789,11 +766,10 @@ public final class SqlStageExecution
             tasks.values().forEach(RemoteTask::cancel);
 
             // propagate cancel to sub-stages
-            subStages.values().forEach(StageExecutionNode::cancel);
+            subStages.values().forEach(SqlStageExecution::cancel);
         }
     }
 
-    @Override
     public void abort()
     {
         checkState(!Thread.holdsLock(this), "Can not abort while holding a lock on this");
@@ -808,7 +784,7 @@ public final class SqlStageExecution
             tasks.values().forEach(RemoteTask::abort);
 
             // propagate abort to sub-stages
-            subStages.values().forEach(StageExecutionNode::abort);
+            subStages.values().forEach(SqlStageExecution::abort);
         }
     }
 
@@ -837,33 +813,4 @@ public final class SqlStageExecution
                 .map(symbol -> fragment.getOutputLayout().indexOf(symbol))
                 .collect(toImmutableList());
     }
-}
-
-/*
- * Since the execution is a tree of SqlStateExecutions, each stage can directly access
- * the private fields and methods of stages up and down the tree.  To prevent accidental
- * errors, each stage reference parents and children using this interface so direct
- * access is not possible.
- */
-interface StageExecutionNode
-{
-    StageInfo getStageInfo();
-
-    long getTotalMemoryReservation();
-
-    StageState getState();
-
-    Future<?> scheduleStartTasks();
-
-    void parentTasksAdded(List<TaskId> parentTasks, boolean noMoreParentNodes);
-
-    Iterable<? extends URI> getTaskLocations();
-
-    void addStateChangeListener(StateChangeListener<StageState> stateChangeListener);
-
-    void cancelStage(StageId stageId);
-
-    void cancel();
-
-    void abort();
 }
