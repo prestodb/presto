@@ -64,6 +64,7 @@ import com.facebook.presto.operator.window.LeadFunction.BigintLeadFunction;
 import com.facebook.presto.operator.window.LeadFunction.BooleanLeadFunction;
 import com.facebook.presto.operator.window.LeadFunction.DoubleLeadFunction;
 import com.facebook.presto.operator.window.LeadFunction.VarcharLeadFunction;
+import com.facebook.presto.operator.window.LeadFunction.TimestampLeadFunction;
 import com.facebook.presto.operator.window.NTileFunction;
 import com.facebook.presto.operator.window.NthValueFunction.BigintNthValueFunction;
 import com.facebook.presto.operator.window.NthValueFunction.BooleanNthValueFunction;
@@ -276,6 +277,9 @@ public class FunctionRegistry
                 .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharLeadFunction.class)
                 .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT), VarcharLeadFunction.class)
                 .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT, VARCHAR), VarcharLeadFunction.class)
+                .window("lead", TIMESTAMP, ImmutableList.<Type>of(TIMESTAMP), TimestampLeadFunction.class)
+                .window("lead", TIMESTAMP, ImmutableList.<Type>of(TIMESTAMP, BIGINT), TimestampLeadFunction.class)
+                .window("lead", TIMESTAMP, ImmutableList.<Type>of(TIMESTAMP, BIGINT, VARCHAR), TimestampLeadFunction.class)
                 .aggregate(CountAggregation.class)
                 .aggregate(VarianceAggregation.class)
                 .aggregate(ApproximateLongPercentileAggregations.class)
