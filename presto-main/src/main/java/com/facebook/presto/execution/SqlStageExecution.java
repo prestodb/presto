@@ -239,7 +239,12 @@ public final class SqlStageExecution
                         executor,
                         nodeTaskMap);
 
-                subStage.addStateChangeListener(stageState -> doUpdateState());
+                subStage.addStateChangeListener(stageState -> {
+                    if (stageState == StageState.FAILED) {
+                        abort();
+                    }
+                    doUpdateState();
+                });
 
                 subStages.put(subStageFragmentId, subStage);
             }
@@ -880,39 +885,30 @@ public final class SqlStageExecution
                     return;
                 }
 
-                List<StageState> subStageStates = ImmutableList.copyOf(transform(subStages.values(), StageExecutionNode::getState));
-                if (subStageStates.stream().anyMatch(StageState::isFailure)) {
-                    stageState.setIf(StageState.ABORTED, currentState -> !currentState.isDone());
+                List<TaskState> taskStates = ImmutableList.copyOf(transform(transform(tasks.values(), RemoteTask::getTaskInfo), TaskInfo::getState));
+                if (any(taskStates, equalTo(TaskState.FAILED))) {
+                    stageState.setIf(StageState.FAILED, currentState -> !currentState.isDone());
                 }
-                else {
-                    List<TaskState> taskStates = ImmutableList.copyOf(transform(transform(tasks.values(), RemoteTask::getTaskInfo), TaskInfo::getState));
-                    if (any(taskStates, equalTo(TaskState.FAILED))) {
-                        stageState.setIf(StageState.FAILED, currentState -> !currentState.isDone());
+                else if (any(taskStates, equalTo(TaskState.ABORTED))) {
+                    // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
+                    if (stageState.setIf(StageState.FAILED, state -> !state.isDone())) {
+                        failureCauses.add(new PrestoException(StandardErrorCode.INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + initialState));
                     }
-                    else if (any(taskStates, equalTo(TaskState.ABORTED))) {
-                        // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
-                        if (stageState.setIf(StageState.FAILED, state -> !state.isDone())) {
-                            failureCauses.add(new PrestoException(StandardErrorCode.INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + initialState));
-                        }
+                }
+                else if (initialState != StageState.PLANNED && initialState != StageState.SCHEDULING) {
+                    // all tasks are now scheduled, so we can check the finished state
+                    if (all(taskStates, TaskState::isDone)) {
+                        stageState.setIf(StageState.FINISHED, currentState -> !currentState.isDone());
                     }
-                    else if (initialState != StageState.PLANNED && initialState != StageState.SCHEDULING) {
-                        // all tasks are now scheduled, so we can check the finished state
-                        if (all(taskStates, TaskState::isDone)) {
-                            stageState.setIf(StageState.FINISHED, currentState -> !currentState.isDone());
-                        }
-                        else if (any(taskStates, equalTo(TaskState.RUNNING))) {
-                            stageState.setIf(StageState.RUNNING, currentState -> !currentState.isDone());
-                        }
+                    else if (any(taskStates, equalTo(TaskState.RUNNING))) {
+                        stageState.setIf(StageState.RUNNING, currentState -> !currentState.isDone());
                     }
                 }
             }
 
             // finish tasks and stages if stage is complete
             StageState stageState = this.stageState.get();
-            if (stageState == StageState.ABORTED) {
-                abort();
-            }
-            else if (stageState.isDone()) {
+            if (stageState.isDone()) {
                 cancel();
             }
         }
