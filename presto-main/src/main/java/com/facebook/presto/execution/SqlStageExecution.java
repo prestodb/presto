@@ -556,11 +556,9 @@ public final class SqlStageExecution
                 checkState(!Thread.holdsLock(this), "Can not start while holding a lock on this");
 
                 // transition to scheduling
-                synchronized (this) {
-                    if (!stageState.compareAndSet(StageState.PLANNED, StageState.SCHEDULING)) {
-                        // stage has already been started, has been canceled or has no tasks due to partition pruning
-                        return;
-                    }
+                if (!stageState.compareAndSet(StageState.PLANNED, StageState.SCHEDULING)) {
+                    // stage has already been started, has been canceled or has no tasks due to partition pruning
+                    return;
                 }
 
                 // schedule tasks
@@ -581,20 +579,19 @@ public final class SqlStageExecution
                 }
 
                 schedulingComplete.set(DateTime.now());
-                stageState.compareAndSet(StageState.SCHEDULING, StageState.SCHEDULED);
+                stageState.setIf(StageState.SCHEDULED, currentState -> !currentState.isDone() && currentState != StageState.RUNNING);
 
                 // add the missing exchanges output buffers
                 updateNewExchangesAndBuffers(true);
             }
             catch (Throwable e) {
                 // some exceptions can occur when the query finishes early
-                if (!getState().isDone()) {
-                    synchronized (this) {
-                        failureCauses.add(e);
-                        stageState.set(StageState.FAILED);
-                    }
+                boolean failed = stageState.setIf(StageState.FAILED, currentState -> !currentState.isDone());
+                if (failed) {
+                    failureCauses.add(e);
                     log.error(e, "Error while starting stage %s", stageId);
                     abort();
+
                     if (e instanceof InterruptedException) {
                         Thread.currentThread().interrupt();
                     }
@@ -878,32 +875,33 @@ public final class SqlStageExecution
                 // wake up worker thread waiting for state changes
                 this.notifyAll();
 
-                StageState currentState = stageState.get();
-                if (currentState.isDone()) {
+                StageState initialState = stageState.get();
+                if (initialState.isDone()) {
                     return;
                 }
 
                 List<StageState> subStageStates = ImmutableList.copyOf(transform(subStages.values(), StageExecutionNode::getState));
                 if (subStageStates.stream().anyMatch(StageState::isFailure)) {
-                    stageState.set(StageState.ABORTED);
+                    stageState.setIf(StageState.ABORTED, currentState -> !currentState.isDone());
                 }
                 else {
                     List<TaskState> taskStates = ImmutableList.copyOf(transform(transform(tasks.values(), RemoteTask::getTaskInfo), TaskInfo::getState));
                     if (any(taskStates, equalTo(TaskState.FAILED))) {
-                        stageState.set(StageState.FAILED);
+                        stageState.setIf(StageState.FAILED, currentState -> !currentState.isDone());
                     }
                     else if (any(taskStates, equalTo(TaskState.ABORTED))) {
                         // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
-                        stageState.set(StageState.FAILED);
-                        failureCauses.add(new PrestoException(StandardErrorCode.INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + currentState));
+                        if (stageState.setIf(StageState.FAILED, state -> !state.isDone())) {
+                            failureCauses.add(new PrestoException(StandardErrorCode.INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + initialState));
+                        }
                     }
-                    else if (currentState != StageState.PLANNED && currentState != StageState.SCHEDULING) {
+                    else if (initialState != StageState.PLANNED && initialState != StageState.SCHEDULING) {
                         // all tasks are now scheduled, so we can check the finished state
                         if (all(taskStates, TaskState::isDone)) {
-                            stageState.set(StageState.FINISHED);
+                            stageState.setIf(StageState.FINISHED, currentState -> !currentState.isDone());
                         }
                         else if (any(taskStates, equalTo(TaskState.RUNNING))) {
-                            stageState.set(StageState.RUNNING);
+                            stageState.setIf(StageState.RUNNING, currentState -> !currentState.isDone());
                         }
                     }
                 }
@@ -928,11 +926,8 @@ public final class SqlStageExecution
         try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
             // check if the stage already completed naturally
             doUpdateState();
-            synchronized (this) {
-                if (!stageState.get().isDone()) {
-                    log.debug("Cancelling stage %s", stageId);
-                    stageState.set(StageState.CANCELED);
-                }
+            if (stageState.setIf(StageState.CANCELED, currentState -> !currentState.isDone())) {
+                log.debug("Cancelling stage %s", stageId);
             }
 
             // cancel all tasks
@@ -951,11 +946,8 @@ public final class SqlStageExecution
         try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
             // transition to aborted state, only if not already finished
             doUpdateState();
-            synchronized (this) {
-                if (!stageState.get().isDone()) {
-                    log.debug("Aborting stage %s", stageId);
-                    stageState.set(StageState.ABORTED);
-                }
+            if (stageState.setIf(StageState.ABORTED, currentState -> !currentState.isDone())) {
+                log.debug("Aborting stage %s", stageId);
             }
 
             // abort all tasks
