@@ -67,14 +67,4 @@ public interface BlockBuilder
      * Builds the block. This method can be called multiple times.
      */
     Block build();
-
-    /**
-     * Have any values been added to the block?
-     */
-    boolean isEmpty();
-
-    /**
-     * Is this block full? If true no more values should be added to the block.
-     */
-    boolean isFull();
 }

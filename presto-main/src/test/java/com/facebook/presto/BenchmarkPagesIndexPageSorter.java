@@ -17,7 +17,7 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.PageBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
@@ -62,7 +62,7 @@ public class BenchmarkPagesIndexPageSorter
 
     private static List<Page> createPages(int pageCount, int channelCount, Type type)
     {
-        int positionCount = BlockBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES / (channelCount * 8);
+        int positionCount = PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES / (channelCount * 8);
 
         List<Page> pages = new ArrayList<>(pageCount);
         for (int numPage = 0; numPage < pageCount; numPage++) {

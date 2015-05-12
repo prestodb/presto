@@ -84,18 +84,6 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    public boolean isEmpty()
-    {
-        return positions == 0;
-    }
-
-    @Override
-    public boolean isFull()
-    {
-        return blockBuilderStatus.isFull();
-    }
-
-    @Override
     public int getSizeInBytes()
     {
         long size = sliceOutput.getUnderlyingSlice().length() + offsets.getUnderlyingSlice().length() + valueIsNull.getUnderlyingSlice().length();
@@ -188,9 +176,6 @@ public class VariableWidthBlockBuilder
         offsets.appendInt(sliceOutput.size());
 
         blockBuilderStatus.addBytes(SIZE_OF_BYTE + SIZE_OF_INT + bytesWritten);
-        if (sliceOutput.size() + valueIsNull.size() + offsets.size() >= blockBuilderStatus.getMaxBlockSizeInBytes()) {
-            blockBuilderStatus.setFull();
-        }
     }
 
     @Override
