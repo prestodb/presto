@@ -167,6 +167,8 @@ public class DriverContext
         executionEndTime.set(DateTime.now());
         endNanos.set(System.nanoTime());
 
+        freeMemory(memoryReservation.get());
+
         pipelineContext.driverFinished(this);
     }
 
