@@ -52,6 +52,7 @@ import com.facebook.presto.operator.window.FirstValueFunction.BigintFirstValueFu
 import com.facebook.presto.operator.window.FirstValueFunction.BooleanFirstValueFunction;
 import com.facebook.presto.operator.window.FirstValueFunction.DoubleFirstValueFunction;
 import com.facebook.presto.operator.window.FirstValueFunction.VarcharFirstValueFunction;
+import com.facebook.presto.operator.window.FirstValueFunction.TimestampFirstValueFunction;
 import com.facebook.presto.operator.window.LagFunction.BigintLagFunction;
 import com.facebook.presto.operator.window.LagFunction.BooleanLagFunction;
 import com.facebook.presto.operator.window.LagFunction.DoubleLagFunction;
@@ -61,6 +62,7 @@ import com.facebook.presto.operator.window.LastValueFunction.BigintLastValueFunc
 import com.facebook.presto.operator.window.LastValueFunction.BooleanLastValueFunction;
 import com.facebook.presto.operator.window.LastValueFunction.DoubleLastValueFunction;
 import com.facebook.presto.operator.window.LastValueFunction.VarcharLastValueFunction;
+import com.facebook.presto.operator.window.LastValueFunction.TimestampLastValueFunction;
 import com.facebook.presto.operator.window.LeadFunction.BigintLeadFunction;
 import com.facebook.presto.operator.window.LeadFunction.BooleanLeadFunction;
 import com.facebook.presto.operator.window.LeadFunction.DoubleLeadFunction;
@@ -247,10 +249,12 @@ public class FunctionRegistry
                 .window("first_value", DOUBLE, ImmutableList.<Type>of(DOUBLE), DoubleFirstValueFunction.class)
                 .window("first_value", BOOLEAN, ImmutableList.<Type>of(BOOLEAN), BooleanFirstValueFunction.class)
                 .window("first_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharFirstValueFunction.class)
+                .window("first_value", TIMESTAMP, ImmutableList.<Type>of(TIMESTAMP), TimestampFirstValueFunction.class)
                 .window("last_value", BIGINT, ImmutableList.<Type>of(BIGINT), BigintLastValueFunction.class)
                 .window("last_value", DOUBLE, ImmutableList.<Type>of(DOUBLE), DoubleLastValueFunction.class)
                 .window("last_value", BOOLEAN, ImmutableList.<Type>of(BOOLEAN), BooleanLastValueFunction.class)
                 .window("last_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharLastValueFunction.class)
+                .window("last_value", TIMESTAMP, ImmutableList.<Type>of(TIMESTAMP), TimestampLastValueFunction.class)
                 .window("nth_value", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT), BigintNthValueFunction.class)
                 .window("nth_value", DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT), DoubleNthValueFunction.class)
                 .window("nth_value", BOOLEAN, ImmutableList.<Type>of(BOOLEAN, BIGINT), BooleanNthValueFunction.class)

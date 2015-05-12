@@ -22,6 +22,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 public class FirstValueFunction
@@ -60,6 +61,15 @@ public class FirstValueFunction
         public VarcharFirstValueFunction(List<Integer> argumentChannels)
         {
             super(VARCHAR, argumentChannels);
+        }
+    }
+
+    public static class TimestampFirstValueFunction
+            extends FirstValueFunction
+    {
+        public TimestampFirstValueFunction(List<Integer> argumentChannels)
+        {
+            super(TIMESTAMP, argumentChannels);
         }
     }
 
