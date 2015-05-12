@@ -56,6 +56,7 @@ import com.facebook.presto.operator.window.LagFunction.BigintLagFunction;
 import com.facebook.presto.operator.window.LagFunction.BooleanLagFunction;
 import com.facebook.presto.operator.window.LagFunction.DoubleLagFunction;
 import com.facebook.presto.operator.window.LagFunction.VarcharLagFunction;
+import com.facebook.presto.operator.window.LagFunction.TimestampLagFunction;
 import com.facebook.presto.operator.window.LastValueFunction.BigintLastValueFunction;
 import com.facebook.presto.operator.window.LastValueFunction.BooleanLastValueFunction;
 import com.facebook.presto.operator.window.LastValueFunction.DoubleLastValueFunction;
@@ -265,6 +266,9 @@ public class FunctionRegistry
                 .window("lag", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharLagFunction.class)
                 .window("lag", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT), VarcharLagFunction.class)
                 .window("lag", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT, VARCHAR), VarcharLagFunction.class)
+                .window("lag", TIMESTAMP, ImmutableList.<Type>of(TIMESTAMP), TimestampLagFunction.class)
+                .window("lag", TIMESTAMP, ImmutableList.<Type>of(TIMESTAMP, BIGINT), TimestampLagFunction.class)
+                .window("lag", TIMESTAMP, ImmutableList.<Type>of(TIMESTAMP, BIGINT, VARCHAR), TimestampLagFunction.class)
                 .window("lead", BIGINT, ImmutableList.<Type>of(BIGINT), BigintLeadFunction.class)
                 .window("lead", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT), BigintLeadFunction.class)
                 .window("lead", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT, BIGINT), BigintLeadFunction.class)
