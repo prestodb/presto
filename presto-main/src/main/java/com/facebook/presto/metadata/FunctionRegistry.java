@@ -71,6 +71,7 @@ import com.facebook.presto.operator.window.NthValueFunction.BigintNthValueFuncti
 import com.facebook.presto.operator.window.NthValueFunction.BooleanNthValueFunction;
 import com.facebook.presto.operator.window.NthValueFunction.DoubleNthValueFunction;
 import com.facebook.presto.operator.window.NthValueFunction.VarcharNthValueFunction;
+import com.facebook.presto.operator.window.NthValueFunction.TimestampNthValueFunction;
 import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
@@ -254,6 +255,7 @@ public class FunctionRegistry
                 .window("nth_value", DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT), DoubleNthValueFunction.class)
                 .window("nth_value", BOOLEAN, ImmutableList.<Type>of(BOOLEAN, BIGINT), BooleanNthValueFunction.class)
                 .window("nth_value", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT), VarcharNthValueFunction.class)
+                .window("nth_value", TIMESTAMP, ImmutableList.<Type>of(TIMESTAMP, BIGINT), TimestampNthValueFunction.class)
                 .window("lag", BIGINT, ImmutableList.<Type>of(BIGINT), BigintLagFunction.class)
                 .window("lag", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT), BigintLagFunction.class)
                 .window("lag", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT, BIGINT), BigintLagFunction.class)

@@ -145,5 +145,20 @@ public class TestNthValueFunction
                         .row(null, null, null)
                         .row(null, null, null)
                         .build());
+
+        // Timestamp
+        assertWindowQuery("date_format(nth_value(cast(orderdate as TIMESTAMP), 2) OVER (PARTITION BY orderstatus ORDER BY orderkey), '%Y-%m-%d')",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                        .row(3, "F", null)
+                        .row(5, "F", "1994-07-30")
+                        .row(6, "F", "1994-07-30")
+                        .row(33, "F", "1994-07-30")
+                        .row(1, "O", null)
+                        .row(2, "O", "1996-12-01")
+                        .row(4, "O", "1996-12-01")
+                        .row(7, "O", "1996-12-01")
+                        .row(32, "O", "1996-12-01")
+                        .row(34, "O", "1996-12-01")
+                        .build());
     }
 }
