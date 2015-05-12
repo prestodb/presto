@@ -21,7 +21,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestFixedWidthBlockBuilder
 {
-    private static final int BOOLEAN_ENTRY_SIZE = BOOLEAN.getFixedSize();
+    private static final int BOOLEAN_ENTRY_SIZE = BOOLEAN.getFixedSize() + Byte.BYTES; // value + isNull
     private static final int EXPECTED_ENTRY_COUNT = 3;
 
     @Test
@@ -34,7 +34,7 @@ public class TestFixedWidthBlockBuilder
 
     private static void testIsFull(PageBuilderStatus pageBuilderStatus)
     {
-        FixedWidthBlockBuilder blockBuilder = new FixedWidthBlockBuilder(BOOLEAN_ENTRY_SIZE, pageBuilderStatus.createBlockBuilderStatus());
+        FixedWidthBlockBuilder blockBuilder = new FixedWidthBlockBuilder(BOOLEAN.getFixedSize(), pageBuilderStatus.createBlockBuilderStatus());
         assertTrue(pageBuilderStatus.isEmpty());
         while (!pageBuilderStatus.isFull()) {
             BOOLEAN.writeBoolean(blockBuilder, true);

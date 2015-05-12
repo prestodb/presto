@@ -172,7 +172,7 @@ public class FixedWidthBlockBuilder
         valueIsNull.appendByte(isNull ? 1 : 0);
 
         positionCount++;
-        blockBuilderStatus.addBytes(fixedSize);
+        blockBuilderStatus.addBytes(Byte.BYTES + fixedSize);
     }
 
     @Override
