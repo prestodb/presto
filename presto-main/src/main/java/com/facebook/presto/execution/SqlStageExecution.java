@@ -52,6 +52,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -62,8 +63,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -75,6 +78,7 @@ import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -83,6 +87,7 @@ import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public final class SqlStageExecution
@@ -93,7 +98,7 @@ public final class SqlStageExecution
 
     private final Multimap<Node, TaskId> localNodeTaskMap = HashMultimap.create();
     private final ConcurrentMap<TaskId, RemoteTask> tasks = new ConcurrentHashMap<>();
-    private final List<Consumer<TaskId>> taskCreationListeners;
+    private final List<Consumer<RemoteTask>> taskCreationListeners = new CopyOnWriteArrayList<>();
 
     private final Optional<SplitSource> dataSource;
     private final RemoteTaskFactory remoteTaskFactory;
@@ -104,6 +109,7 @@ public final class SqlStageExecution
     private final StageStateMachine stateMachine;
 
     private final Set<PlanNodeId> completeSources = newConcurrentHashSet();
+    private final Set<PlanFragmentId> completeSourceFragments = newConcurrentHashSet();
 
     @GuardedBy("this")
     private OutputBuffers currentOutputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS;
@@ -114,6 +120,10 @@ public final class SqlStageExecution
 
     private final NodeSelector nodeSelector;
     private final NodeTaskMap nodeTaskMap;
+
+    private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
+
+    private final LinkedBlockingQueue<ExchangeLocation> pendingExchangeLocations = new LinkedBlockingQueue<>();
 
     // Note: atomic is needed to assure thread safety between constructor and scheduler thread
     private final AtomicReference<Multimap<PlanNodeId, URI>> exchangeLocations = new AtomicReference<>(ImmutableMultimap.<PlanNodeId, URI>of());
@@ -189,7 +199,7 @@ public final class SqlStageExecution
 
             this.stateMachine = new StageStateMachine(stageId, locationFactory.createStageLocation(stageId), session, fragment, executor);
 
-            ImmutableList.Builder<Consumer<TaskId>> taskCreationListeners = ImmutableList.builder();
+            List<Consumer<RemoteTask>> taskCreationListeners = new ArrayList<>();
             ImmutableMap.Builder<PlanFragmentId, SqlStageExecution> subStages = ImmutableMap.builder();
             for (StageExecutionPlan subStagePlan : plan.getSubStages()) {
                 PlanFragmentId subStageFragmentId = subStagePlan.getFragment().getId();
@@ -227,16 +237,50 @@ public final class SqlStageExecution
                     }
                     outputBufferManager.noMoreOutputBuffers();
                 });
-                taskCreationListeners.add(outputBufferManager::addOutputBuffer);
+                taskCreationListeners.add(remoteTask -> outputBufferManager.addOutputBuffer(remoteTask.getTaskInfo().getTaskId()));
+
+                // when sub stage adds a node, register a new exchange location
+                subStage.addTaskCreationListener(remoteTask -> addExchangeLocation(new ExchangeLocation(subStageFragmentId, remoteTask.getTaskInfo().getSelf())));
+
+                // when sub stage is finished with scheduling, record it as a completed source
+                subStage.addStateChangeListener(state -> {
+                    switch (state) {
+                        case PLANNED:
+                        case SCHEDULING:
+                            // workers are still being added to the query
+                            break;
+                        case SCHEDULING_SPLITS:
+                        case SCHEDULED:
+                        case RUNNING:
+                        case FINISHED:
+                        case CANCELED:
+                            // no more workers will be added to the query
+                            noMoreExchangeLocationsFor(subStageFragmentId);
+                        case ABORTED:
+                        case FAILED:
+                            // DO NOT complete a FAILED or ABORTED stage.  This will cause the
+                            // stage above to finish normally, which will result in a query
+                            // completing successfully when it should fail..
+                            break;
+                    }
+                });
 
                 subStages.put(subStageFragmentId, subStage);
             }
             this.subStages = subStages.build();
-            this.taskCreationListeners = taskCreationListeners.build();
+            this.taskCreationListeners.addAll(taskCreationListeners);
 
             String dataSourceName = dataSource.isPresent() ? dataSource.get().getDataSourceName() : null;
             this.nodeSelector = nodeScheduler.createNodeSelector(dataSourceName);
             this.nodeTaskMap = nodeTaskMap;
+
+            ImmutableMap.Builder<PlanFragmentId, RemoteSourceNode> fragmentToExchangeSource = ImmutableMap.builder();
+            for (RemoteSourceNode remoteSourceNode : fragment.getRemoteSourceNodes()) {
+                for (PlanFragmentId planFragmentId : remoteSourceNode.getSourceFragmentIds()) {
+                    fragmentToExchangeSource.put(planFragmentId, remoteSourceNode);
+                }
+            }
+            this.exchangeSources = fragmentToExchangeSource.build();
         }
     }
 
@@ -287,6 +331,24 @@ public final class SqlStageExecution
         return subStages.values();
     }
 
+    private synchronized void addExchangeLocation(ExchangeLocation exchangeLocation)
+    {
+        requireNonNull(exchangeLocation, "exchangeLocation is null");
+        RemoteSourceNode remoteSource = exchangeSources.get(exchangeLocation.getPlanFragmentId());
+        checkArgument(remoteSource != null, "Unknown remote source %s. Known sources are %s", exchangeLocation.getPlanFragmentId(), exchangeSources.keySet());
+
+        pendingExchangeLocations.add(exchangeLocation);
+    }
+
+    private synchronized void noMoreExchangeLocationsFor(PlanFragmentId fragmentId)
+    {
+        requireNonNull(fragmentId, "fragmentId is null");
+        RemoteSourceNode remoteSource = exchangeSources.get(fragmentId);
+        checkArgument(remoteSource != null, "Unknown remote source %s. Known sources are %s", fragmentId, exchangeSources.keySet());
+
+        completeSourceFragments.add(fragmentId);
+    }
+
     public synchronized void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
         // only notify scheduler and tasks if the buffers changed
@@ -319,36 +381,25 @@ public final class SqlStageExecution
         stateMachine.addStateChangeListener(stateChangeListener::stateChanged);
     }
 
-    private Multimap<PlanNodeId, URI> getNewExchangeLocations()
+    public void addTaskCreationListener(Consumer<RemoteTask> taskIdConsumer)
     {
-        Multimap<PlanNodeId, URI> exchangeLocations = this.exchangeLocations.get();
-
-        ImmutableMultimap.Builder<PlanNodeId, URI> newExchangeLocations = ImmutableMultimap.builder();
-        for (RemoteSourceNode remoteSourceNode : fragment.getRemoteSourceNodes()) {
-            for (PlanFragmentId planFragmentId : remoteSourceNode.getSourceFragmentIds()) {
-                SqlStageExecution subStage = subStages.get(planFragmentId);
-                checkState(subStage != null, "Unknown sub stage %s, known stages %s", planFragmentId, subStages.keySet());
-
-                // add new task locations
-                for (URI taskLocation : subStage.getTaskLocations()) {
-                    if (!exchangeLocations.containsEntry(remoteSourceNode.getId(), taskLocation)) {
-                        newExchangeLocations.putAll(remoteSourceNode.getId(), taskLocation);
-                    }
-                }
-            }
-        }
-        return newExchangeLocations.build();
+        taskCreationListeners.add(taskIdConsumer);
     }
 
-    private synchronized List<URI> getTaskLocations()
+    private Multimap<PlanNodeId, URI> getNewExchangeLocations()
     {
-        try (SetThreadName ignored = new SetThreadName("Stage-%s", stateMachine.getStageId())) {
-            ImmutableList.Builder<URI> locations = ImmutableList.builder();
-            for (RemoteTask task : tasks.values()) {
-                locations.add(task.getTaskInfo().getSelf());
-            }
-            return locations.build();
+        // IntelliJ intention does not work with drainTo
+        @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
+        List<ExchangeLocation> exchangeLocations = new ArrayList<>();
+        this.pendingExchangeLocations.drainTo(exchangeLocations);
+
+        ImmutableMultimap.Builder<PlanNodeId, URI> newExchangeLocations = ImmutableMultimap.builder();
+        for (ExchangeLocation exchangeLocation : exchangeLocations) {
+            RemoteSourceNode remoteSource = exchangeSources.get(exchangeLocation.getPlanFragmentId());
+            newExchangeLocations.put(remoteSource.getId(), exchangeLocation.getUri());
         }
+
+        return newExchangeLocations.build();
     }
 
     @VisibleForTesting
@@ -583,8 +634,8 @@ public final class SqlStageExecution
         localNodeTaskMap.put(node, task.getTaskInfo().getTaskId());
         nodeTaskMap.addTask(node, task);
 
-        for (Consumer<TaskId> taskCreationListener : taskCreationListeners) {
-            taskCreationListener.accept(taskId);
+        for (Consumer<RemoteTask> taskCreationListener : taskCreationListeners) {
+            taskCreationListener.accept(task);
         }
 
         // check whether the stage finished while we were scheduling this task
@@ -604,8 +655,13 @@ public final class SqlStageExecution
             return true;
         }
 
+        // update completed sources
+        fragment.getRemoteSourceNodes().stream()
+                .filter(remoteSourceNode -> !completeSources.contains(remoteSourceNode.getId()))
+                .filter(remoteSourceNode -> remoteSourceNode.getSourceFragmentIds().stream().allMatch(completeSourceFragments::contains))
+                .forEach(remoteSourceNode -> completeSources.add(remoteSourceNode.getId()));
+
         // get new exchanges and update exchange state
-        Set<PlanNodeId> completeSources = updateCompleteSources();
         boolean allSourceComplete = completeSources.containsAll(allSources);
         Multimap<PlanNodeId, URI> newExchangeLocations = getNewExchangeLocations();
         exchangeLocations.set(ImmutableMultimap.<PlanNodeId, URI>builder()
@@ -632,36 +688,6 @@ public final class SqlStageExecution
         }
 
         return finished;
-    }
-
-    private Set<PlanNodeId> updateCompleteSources()
-    {
-        for (RemoteSourceNode remoteSourceNode : fragment.getRemoteSourceNodes()) {
-            if (!completeSources.contains(remoteSourceNode.getId())) {
-                boolean exchangeFinished = remoteSourceNode.getSourceFragmentIds().stream()
-                        .allMatch(this::isExchangeFinished);
-                if (exchangeFinished) {
-                    completeSources.add(remoteSourceNode.getId());
-                }
-            }
-        }
-        return completeSources;
-    }
-
-    private boolean isExchangeFinished(PlanFragmentId planFragmentId)
-    {
-        SqlStageExecution subStage = subStages.get(planFragmentId);
-        switch (subStage.getState()) {
-            case SCHEDULED:
-            case RUNNING:
-            case FINISHED:
-            case CANCELED:
-                return true;
-            // DO NOT complete a FAILED or ABORTED stage.  This will cause the
-            // stage above to finish normally, which will result in a query
-            // completing successfully when it should fail..
-        }
-        return false;
     }
 
     @SuppressWarnings("NakedNotify")
@@ -764,5 +790,36 @@ public final class SqlStageExecution
     public String toString()
     {
         return stateMachine.toString();
+    }
+
+    private static class ExchangeLocation
+    {
+        private final PlanFragmentId planFragmentId;
+        private final URI uri;
+
+        public ExchangeLocation(PlanFragmentId planFragmentId, URI uri)
+        {
+            this.planFragmentId = requireNonNull(planFragmentId, "planFragmentId is null");
+            this.uri = requireNonNull(uri, "uri is null");
+        }
+
+        public PlanFragmentId getPlanFragmentId()
+        {
+            return planFragmentId;
+        }
+
+        public URI getUri()
+        {
+            return uri;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("planFragmentId", planFragmentId)
+                    .add("uri", uri)
+                    .toString();
+        }
     }
 }
