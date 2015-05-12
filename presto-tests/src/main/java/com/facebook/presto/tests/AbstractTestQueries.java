@@ -3178,6 +3178,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testUnionWithProjectionPushDown()
+            throws Exception
+    {
+        assertQuery("SELECT day(ds), status FROM (SELECT orderdate ds, orderstatus status FROM orders UNION ALL SELECT shipdate ds, linestatus status FROM lineitem)");
+    }
+
+    @Test
     public void testUnion()
             throws Exception
     {
