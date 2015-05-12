@@ -284,7 +284,7 @@ public class OperatorContext
         memoryFuture.get().set(null);
     }
 
-    public synchronized void setMemoryReservation(long newMemoryReservation)
+    public void setMemoryReservation(long newMemoryReservation)
     {
         checkArgument(newMemoryReservation >= 0, "newMemoryReservation is negative");
 
@@ -298,7 +298,7 @@ public class OperatorContext
         }
     }
 
-    public synchronized boolean trySetMemoryReservation(long newMemoryReservation)
+    public boolean trySetMemoryReservation(long newMemoryReservation)
     {
         checkArgument(newMemoryReservation >= 0, "newMemoryReservation is negative");
 
