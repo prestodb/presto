@@ -56,7 +56,7 @@ public class FixedWidthBlockBuilder
 
         Slice slice = Slices.allocate(fixedSize * positionCount);
 
-        this.blockBuilderStatus = new BlockBuilderStatus(slice.length(), slice.length());
+        this.blockBuilderStatus = new BlockBuilderStatus();
         this.sliceOutput = slice.getOutput();
 
         this.valueIsNull = Slices.allocate(positionCount).getOutput();
@@ -72,18 +72,6 @@ public class FixedWidthBlockBuilder
     public int getPositionCount()
     {
         return positionCount;
-    }
-
-    @Override
-    public boolean isEmpty()
-    {
-        return positionCount == 0;
-    }
-
-    @Override
-    public boolean isFull()
-    {
-        return blockBuilderStatus.isFull();
     }
 
     @Override
@@ -185,9 +173,6 @@ public class FixedWidthBlockBuilder
 
         positionCount++;
         blockBuilderStatus.addBytes(fixedSize);
-        if (sliceOutput.size() >= blockBuilderStatus.getMaxBlockSizeInBytes()) {
-            blockBuilderStatus.setFull();
-        }
     }
 
     @Override

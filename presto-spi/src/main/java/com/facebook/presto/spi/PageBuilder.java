@@ -15,14 +15,14 @@ package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.PageBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
-import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -30,7 +30,7 @@ public class PageBuilder
 {
     private final BlockBuilder[] blockBuilders;
     private final List<Type> types;
-    private BlockBuilderStatus blockBuilderStatus;
+    private PageBuilderStatus pageBuilderStatus;
     private int declaredPositions;
 
     public PageBuilder(List<? extends Type> types)
@@ -44,11 +44,11 @@ public class PageBuilder
         else {
             maxBlockSizeInBytes = 0;
         }
-        blockBuilderStatus = new BlockBuilderStatus(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, maxBlockSizeInBytes);
+        pageBuilderStatus = new PageBuilderStatus(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, maxBlockSizeInBytes);
 
         blockBuilders = new BlockBuilder[types.size()];
         for (int i = 0; i < blockBuilders.length; i++) {
-            blockBuilders[i] = types.get(i).createBlockBuilder(blockBuilderStatus, 1, blockBuilderStatus.getMaxBlockSizeInBytes());
+            blockBuilders[i] = types.get(i).createBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), 1, pageBuilderStatus.getMaxBlockSizeInBytes());
         }
     }
 
@@ -58,10 +58,10 @@ public class PageBuilder
             return;
         }
         declaredPositions = 0;
-        blockBuilderStatus = new BlockBuilderStatus(blockBuilderStatus);
+        pageBuilderStatus = new PageBuilderStatus(pageBuilderStatus.getMaxPageSizeInBytes(), pageBuilderStatus.getMaxBlockSizeInBytes());
 
         for (int i = 0; i < types.size(); i++) {
-            blockBuilders[i] = types.get(i).createBlockBuilder(blockBuilderStatus, 1, blockBuilderStatus.getMaxBlockSizeInBytes());
+            blockBuilders[i] = types.get(i).createBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), 1, pageBuilderStatus.getMaxBlockSizeInBytes());
         }
     }
 
@@ -80,7 +80,7 @@ public class PageBuilder
 
     public boolean isFull()
     {
-        return declaredPositions == Integer.MAX_VALUE || blockBuilderStatus.isFull();
+        return declaredPositions == Integer.MAX_VALUE || pageBuilderStatus.isFull();
     }
 
     public boolean isEmpty()
@@ -95,7 +95,7 @@ public class PageBuilder
 
     public long getSizeInBytes()
     {
-        return blockBuilderStatus.getSizeInBytes();
+        return pageBuilderStatus.getSizeInBytes();
     }
 
     public Page build()

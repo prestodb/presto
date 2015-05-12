@@ -52,7 +52,7 @@ import static com.facebook.presto.execution.SharedBuffer.BufferState.FLUSHING;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.NO_MORE_BUFFERS;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.NO_MORE_PAGES;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.OPEN;
-import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
