@@ -16,7 +16,12 @@ package com.facebook.presto.cassandra;
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.QueryOptions;
 import com.datastax.driver.core.SocketOptions;
+import com.datastax.driver.core.policies.DCAwareRoundRobinPolicy;
 import com.datastax.driver.core.policies.ExponentialReconnectionPolicy;
+import com.datastax.driver.core.policies.LoadBalancingPolicy;
+import com.datastax.driver.core.policies.RoundRobinPolicy;
+import com.datastax.driver.core.policies.TokenAwarePolicy;
+import com.datastax.driver.core.policies.WhiteListPolicy;
 import com.google.common.primitives.Ints;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -26,6 +31,8 @@ import io.airlift.json.JsonCodec;
 
 import javax.inject.Singleton;
 
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
@@ -102,6 +109,29 @@ public class CassandraClientModule
         clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
         clusterBuilder.withRetryPolicy(config.getRetryPolicy().getPolicy());
 
+        LoadBalancingPolicy loadPolicy = new RoundRobinPolicy();
+        if (config.getUseDCAware()) {
+            checkNotNull(config.getDcAwareLocalDC(), "DCAwarePolicy localDC is null");
+            if (config.getDcAwareUsedHostsPerRemoteDc() > 0) {
+                loadPolicy = new DCAwareRoundRobinPolicy(config.getDcAwareLocalDC(), config.getDcAwareUsedHostsPerRemoteDc(), config.getDcAwareAllowRemoteDCsForLocalConsistencyLevel());
+            }
+            else {
+                loadPolicy = new DCAwareRoundRobinPolicy(config.getDcAwareLocalDC());
+            }
+        }
+        if (config.getUseTokenAware()) {
+            loadPolicy = new TokenAwarePolicy(loadPolicy, config.getTokenAwareShuffleReplicas());
+        }
+        if (config.getUseWhiteList()) {
+            checkArgument(!config.getWhiteListAddresses().isEmpty(), "empty WhiteListAddresses");
+            List<InetSocketAddress> whiteList = new ArrayList<>();
+            for (String point : config.getWhiteListAddresses()) {
+                whiteList.add(new InetSocketAddress(point, config.getNativeProtocolPort()));
+            }
+            loadPolicy = new WhiteListPolicy(loadPolicy, whiteList);
+        }
+        clusterBuilder.withLoadBalancingPolicy(loadPolicy);
+
         SocketOptions socketOptions = new SocketOptions();
         socketOptions.setReadTimeoutMillis(Ints.checkedCast(config.getClientReadTimeout().toMillis()));
         socketOptions.setConnectTimeoutMillis(Ints.checkedCast(config.getClientConnectTimeout().toMillis()));
@@ -124,6 +154,7 @@ public class CassandraClientModule
                 clusterBuilder,
                 config.getFetchSizeForPartitionKeySelect(),
                 config.getLimitForPartitionKeySelect(),
-                extraColumnMetadataCodec);
+                extraColumnMetadataCodec,
+                config.getNoHostAvailableRetryCount());
     }
 }
