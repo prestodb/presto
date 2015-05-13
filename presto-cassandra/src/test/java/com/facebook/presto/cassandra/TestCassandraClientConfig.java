@@ -52,7 +52,16 @@ public class TestCassandraClientConfig
                 .setClientReadTimeout(new Duration(SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS, MILLISECONDS))
                 .setClientConnectTimeout(new Duration(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS, MILLISECONDS))
                 .setClientSoLinger(null)
-                .setRetryPolicy(RetryPolicyType.DEFAULT));
+                .setRetryPolicy(RetryPolicyType.DEFAULT)
+                .setUseDCAware(false)
+                .setDcAwareLocalDC(null)
+                .setDcAwareUsedHostsPerRemoteDc(0)
+                .setDcAwareAllowRemoteDCsForLocal(false)
+                .setUseTokenAware(false)
+                .setTokenAwareShuffleReplicas(false)
+                .setUseWhiteList(false)
+                .setWhiteListAddresses("")
+                .setNoHostAvailableRetryCount(1));
     }
 
     @Test
@@ -81,6 +90,15 @@ public class TestCassandraClientConfig
                 .put("cassandra.client.connect-timeout", "22ms")
                 .put("cassandra.client.so-linger", "33")
                 .put("cassandra.retry-policy", "BACKOFF")
+                .put("cassandra.load-policy.use-dc-aware", "true")
+                .put("cassandra.load-policy.dc-aware.local-dc", "dc1")
+                .put("cassandra.load-policy.dc-aware.used-hosts-per-remote-dc", "1")
+                .put("cassandra.load-policy.dc-aware.allow-remote-dc-for-local", "true")
+                .put("cassandra.load-policy.use-token-aware", "true")
+                .put("cassandra.load-policy.token-aware.shuffle-replicas", "true")
+                .put("cassandra.load-policy.use-white-list", "true")
+                .put("cassandra.load-policy.white-list.addresses", "host1")
+                .put("cassandra.no-host-available-retry-count", "10")
                 .build();
 
         CassandraClientConfig expected = new CassandraClientConfig()
@@ -105,8 +123,17 @@ public class TestCassandraClientConfig
                 .setClientReadTimeout(new Duration(11, MILLISECONDS))
                 .setClientConnectTimeout(new Duration(22, MILLISECONDS))
                 .setClientSoLinger(33)
-                .setRetryPolicy(RetryPolicyType.BACKOFF);
+                .setRetryPolicy(RetryPolicyType.BACKOFF)
+                .setUseDCAware(true)
+                .setDcAwareLocalDC("dc1")
+                .setDcAwareUsedHostsPerRemoteDc(1)
+                .setDcAwareAllowRemoteDCsForLocal(true)
+                .setUseTokenAware(true)
+                .setTokenAwareShuffleReplicas(true)
+                .setUseWhiteList(true)
+                .setWhiteListAddresses("host1")
+                .setNoHostAvailableRetryCount(10);
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+            ConfigAssertions.assertFullMapping(properties, expected);
     }
 }

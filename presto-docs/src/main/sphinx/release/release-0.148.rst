@@ -35,3 +35,9 @@ Hive Changes
 * Fix ``NoClassDefFoundError`` for ``KMSClientProvider`` in HDFS client.
 * Fix creating tables on S3 in an empty database.
 * Implement ``REVOKE`` permission syntax.
+
+
+Cassandra Changes
+-----------------
+
+* Allow configuring load balancing policy and no host available retry.
