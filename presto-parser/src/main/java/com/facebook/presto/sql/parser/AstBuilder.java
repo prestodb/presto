@@ -153,7 +153,7 @@ class AstBuilder
     @Override
     public Node visitCreateTable(@NotNull SqlBaseParser.CreateTableContext context)
     {
-        return new CreateTable(getQualifiedName(context.qualifiedName()), visit(context.tableElement(), TableElement.class));
+        return new CreateTable(getQualifiedName(context.qualifiedName()), visit(context.tableElement(), TableElement.class), context.EXISTS() != null);
     }
 
     @Override

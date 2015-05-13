@@ -105,6 +105,25 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testCreateTableIfNotExists()
+            throws Exception
+    {
+        assertQueryTrue("CREATE TABLE test_create_table_if_not_exists (a bigint, b varchar, c double)");
+        assertTrue(queryRunner.tableExists(getSession(), "test_create_table_if_not_exists"));
+        MaterializedResult expected = computeActual(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'test_create_table_if_not_exists'");
+
+        assertQueryTrue("CREATE TABLE IF NOT EXISTS test_create_table_if_not_exists (d bigint, e varchar)");
+        assertTrue(queryRunner.tableExists(getSession(), "test_create_table_if_not_exists"));
+        MaterializedResult actual = computeActual(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'test_create_table_if_not_exists'");
+        assertEquals(expected, actual);
+
+        assertQueryTrue("DROP TABLE test_create_table_if_not_exists");
+        assertFalse(queryRunner.tableExists(getSession(), "test_create_table_if_not_exists"));
+    }
+
+    @Test
     public void testCreateTableAsSelect()
             throws Exception
     {

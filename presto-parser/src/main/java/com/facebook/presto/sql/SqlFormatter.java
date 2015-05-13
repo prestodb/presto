@@ -605,8 +605,11 @@ public final class SqlFormatter
         @Override
         protected Void visitCreateTable(CreateTable node, Integer indent)
         {
-            builder.append("CREATE TABLE ")
-                    .append(node.getName())
+            builder.append("CREATE TABLE ");
+            if (node.isNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(node.getName())
                     .append(" (");
 
             Joiner.on(", ").appendTo(builder, transform(node.getElements(),

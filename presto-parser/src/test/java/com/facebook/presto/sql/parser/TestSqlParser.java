@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -65,6 +66,7 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.Union;
@@ -654,6 +656,20 @@ public class TestSqlParser
                         Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
                         ImmutableList.of(new SortItem(new QualifiedNameReference(QualifiedName.of("y")), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
                         Optional.of("10")));
+    }
+
+    @Test
+    public void testCreateTable()
+            throws Exception
+    {
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(new TableElement("a", "VARCHAR"), new TableElement("b", "BIGINT")),
+                        false));
+        assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP)",
+                new CreateTable(QualifiedName.of("bar"),
+                        ImmutableList.of(new TableElement("c", "TIMESTAMP")),
+                        true));
     }
 
     @Test
