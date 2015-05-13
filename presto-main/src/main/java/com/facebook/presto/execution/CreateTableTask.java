@@ -53,7 +53,10 @@ public class CreateTableTask
         QualifiedTableName tableName = createQualifiedTableName(session, statement.getName());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (tableHandle.isPresent()) {
-            throw new SemanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' already exists", tableName);
+            if (!statement.isNotExists()) {
+                throw new SemanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' already exists", tableName);
+            }
+            return;
         }
 
         List<ColumnMetadata> columns = new ArrayList<>();
