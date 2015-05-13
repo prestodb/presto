@@ -27,6 +27,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -39,7 +40,6 @@ import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
 import org.testng.annotations.AfterClass;
@@ -49,6 +49,7 @@ import org.testng.annotations.Test;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
@@ -391,11 +392,12 @@ public abstract class AbstractTestHiveClientS3
         }
 
         @Override
-        public Database getDatabase(String databaseName)
-                throws NoSuchObjectException
+        public Optional<Database> getDatabase(String databaseName)
         {
-            Database database = super.getDatabase(databaseName);
-            database.setLocationUri("s3://" + writableBucket + "/");
+            Optional<Database> database = super.getDatabase(databaseName);
+            if (database.isPresent()) {
+                database.get().setLocationUri("s3://" + writableBucket + "/");
+            }
             return database;
         }
 
@@ -412,10 +414,13 @@ public abstract class AbstractTestHiveClientS3
         {
             try {
                 // hack to work around the metastore not being configured for S3
-                Table table = getTable(databaseName, tableName);
-                table.getSd().setLocation("/");
+                Optional<Table> table = getTable(databaseName, tableName);
+                if (!table.isPresent()) {
+                    throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+                }
+                table.get().getSd().setLocation("/");
                 try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    client.alter_table(databaseName, tableName, table);
+                    client.alter_table(databaseName, tableName, table.get());
                     client.drop_table(databaseName, tableName, false);
                 }
             }
@@ -427,10 +432,13 @@ public abstract class AbstractTestHiveClientS3
         public void updateTableLocation(String databaseName, String tableName, String location)
         {
             try {
-                Table table = getTable(databaseName, tableName);
-                table.getSd().setLocation(location);
+                Optional<Table> table = getTable(databaseName, tableName);
+                if (!table.isPresent()) {
+                    throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+                }
+                table.get().getSd().setLocation(location);
                 try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    client.alter_table(databaseName, tableName, table);
+                    client.alter_table(databaseName, tableName, table.get());
                 }
             }
             catch (TException e) {

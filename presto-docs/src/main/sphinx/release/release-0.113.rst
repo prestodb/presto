@@ -18,3 +18,12 @@ General Changes
 
 * Add :func:`element_at` function.
 * Fix JMX connector. In the previous release it always returned zero rows.
+
+Hive Changes
+------------
+
+* Fix the Hive metadata cache to properly handle negative responses.
+  This makes the background refresh work properly by clearing the cached
+  metadata entries when an object is dropped outside of Presto.
+  In particular, this fixes the common case where a table is dropped using
+  Hive but Presto thinks it still exists.

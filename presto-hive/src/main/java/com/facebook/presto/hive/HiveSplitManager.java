@@ -31,7 +31,6 @@ import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.base.Predicates;
-import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -46,8 +45,6 @@ import io.airlift.units.DataSize;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.MetaException;
-import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.joda.time.DateTimeZone;
@@ -65,18 +62,20 @@ import java.util.concurrent.RejectedExecutionException;
 
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
+import static com.facebook.presto.hive.HiveUtil.createPartitionName;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.HiveUtil.schemaTableName;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
 import static com.facebook.presto.hive.util.Types.checkType;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.concat;
@@ -85,7 +84,6 @@ import static com.google.common.collect.Iterables.transform;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
-import static org.apache.hadoop.hive.metastore.Warehouse.makePartName;
 
 public class HiveSplitManager
         implements ConnectorSplitManager
@@ -258,24 +256,23 @@ public class HiveSplitManager
 
     private Table getTable(SchemaTableName tableName)
     {
-        try {
-            Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-
-            String protectMode = table.getParameters().get(ProtectMode.PARAMETER_NAME);
-            if (protectMode != null && getProtectModeFromString(protectMode).offline) {
-                throw new TableOfflineException(tableName);
-            }
-
-            String prestoOffline = table.getParameters().get(PRESTO_OFFLINE);
-            if (!isNullOrEmpty(prestoOffline)) {
-                throw new TableOfflineException(tableName, format("Table '%s' is offline for Presto: %s", tableName, prestoOffline));
-            }
-
-            return table;
-        }
-        catch (NoSuchObjectException e) {
+        Optional<Table> target = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+        if (!target.isPresent()) {
             throw new TableNotFoundException(tableName);
         }
+        Table table = target.get();
+
+        String protectMode = table.getParameters().get(ProtectMode.PARAMETER_NAME);
+        if (protectMode != null && getProtectModeFromString(protectMode).offline) {
+            throw new TableOfflineException(tableName);
+        }
+
+        String prestoOffline = table.getParameters().get(PRESTO_OFFLINE);
+        if (!isNullOrEmpty(prestoOffline)) {
+            throw new TableOfflineException(tableName, format("Table '%s' is offline for Presto: %s", tableName, prestoOffline));
+        }
+
+        return table;
     }
 
     private List<String> getFilteredPartitionNames(SchemaTableName tableName, List<HiveColumnHandle> partitionKeys, TupleDomain<ColumnHandle> effectivePredicate)
@@ -309,13 +306,9 @@ public class HiveSplitManager
             }
         }
 
-        try {
-            // fetch the partition names
-            return metastore.getPartitionNamesByParts(tableName.getSchemaName(), tableName.getTableName(), filter);
-        }
-        catch (NoSuchObjectException e) {
-            throw new TableNotFoundException(tableName);
-        }
+        // fetch the partition names
+        return metastore.getPartitionNamesByParts(tableName.getSchemaName(), tableName.getTableName(), filter)
+                .orElseThrow(() -> new TableNotFoundException(tableName));
     }
 
     private static List<String> extractPartitionKeyValues(String partitionName)
@@ -364,19 +357,15 @@ public class HiveSplitManager
         // sort partitions
         partitions = Ordering.natural().onResultOf(ConnectorPartition::getPartitionId).reverse().sortedCopy(partitions);
 
-        Table table;
-        Iterable<HivePartitionMetadata> hivePartitions;
-        try {
-            table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            hivePartitions = getPartitionMetadata(table, tableName, partitions);
-        }
-        catch (NoSuchObjectException e) {
+        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+        if (!table.isPresent()) {
             throw new TableNotFoundException(tableName);
         }
+        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(table.get(), tableName, partitions);
 
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 connectorId,
-                table,
+                table.get(),
                 hivePartitions,
                 bucket,
                 maxSplitSize,
@@ -412,26 +401,28 @@ public class HiveSplitManager
 
         Iterable<List<HivePartition>> partitionNameBatches = partitionExponentially(hivePartitions, minPartitionBatchSize, maxPartitionBatchSize);
         Iterable<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, partitionBatch -> {
-            Map<String, Partition> partitions;
-            try {
-                partitions = metastore.getPartitionsByNames(
-                        tableName.getSchemaName(),
-                        tableName.getTableName(),
-                        Lists.transform(partitionBatch, ConnectorPartition::getPartitionId));
+            Optional<Map<String, Partition>> batch = metastore.getPartitionsByNames(
+                    tableName.getSchemaName(),
+                    tableName.getTableName(),
+                    Lists.transform(partitionBatch, ConnectorPartition::getPartitionId));
+            if (!batch.isPresent()) {
+                throw new PrestoException(HIVE_METASTORE_ERROR, "Partition metadata not available");
             }
-            catch (NoSuchObjectException e) {
-                throw Throwables.propagate(e);
+            Map<String, Partition> partitions = batch.get();
+            if (partitionBatch.size() != partitions.size()) {
+                throw new PrestoException(INTERNAL_ERROR, format("Expected %s partitions but found %s", partitionBatch.size(), partitions.size()));
             }
-            checkState(partitionBatch.size() == partitions.size(), "expected %s partitions but found %s", partitionBatch.size(), partitions.size());
 
             ImmutableList.Builder<HivePartitionMetadata> results = ImmutableList.builder();
             for (HivePartition hivePartition : partitionBatch) {
                 Partition partition = partitions.get(hivePartition.getPartitionId());
-                checkState(partition != null, "Partition %s was not loaded", hivePartition.getPartitionId());
+                if (partition == null) {
+                    throw new PrestoException(INTERNAL_ERROR, "Partition not loaded: " + hivePartition);
+                }
 
                 // verify all partition is online
                 String protectMode = partition.getParameters().get(ProtectMode.PARAMETER_NAME);
-                String partName = createPartName(partition, table);
+                String partName = createPartitionName(partition, table);
                 if (protectMode != null && getProtectModeFromString(protectMode).offline) {
                     throw new PartitionOfflineException(tableName, partName);
                 }
@@ -473,16 +464,6 @@ public class HiveSplitManager
             return results.build();
         });
         return concat(partitionBatches);
-    }
-
-    private static String createPartName(Partition partition, Table table)
-    {
-        try {
-            return makePartName(table.getPartitionKeys(), partition.getValues());
-        }
-        catch (MetaException e) {
-            throw Throwables.propagate(e);
-        }
     }
 
     /**
