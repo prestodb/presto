@@ -30,7 +30,6 @@ import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
@@ -47,6 +46,7 @@ import io.airlift.units.DataSize;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -62,7 +62,6 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -86,6 +85,7 @@ import static com.google.common.collect.Iterables.transform;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
+import static org.apache.hadoop.hive.metastore.Warehouse.makePartName;
 
 public class HiveSplitManager
         implements ConnectorSplitManager
@@ -397,104 +397,92 @@ public class HiveSplitManager
         return splitSource;
     }
 
-    private Iterable<HivePartitionMetadata> getPartitionMetadata(Table table, SchemaTableName tableName, List<HivePartition> partitions)
-            throws NoSuchObjectException
+    private Iterable<HivePartitionMetadata> getPartitionMetadata(Table table, SchemaTableName tableName, List<HivePartition> hivePartitions)
     {
-        if (partitions.isEmpty()) {
+        if (hivePartitions.isEmpty()) {
             return ImmutableList.of();
         }
 
-        if (partitions.size() == 1) {
-            HivePartition firstPartition = getOnlyElement(partitions);
+        if (hivePartitions.size() == 1) {
+            HivePartition firstPartition = getOnlyElement(hivePartitions);
             if (firstPartition.getPartitionId().equals(UNPARTITIONED_ID)) {
                 return ImmutableList.of(new HivePartitionMetadata(firstPartition, UNPARTITIONED_PARTITION));
             }
         }
 
-        Iterable<List<HivePartition>> partitionNameBatches = partitionExponentially(partitions, minPartitionBatchSize, maxPartitionBatchSize);
-        Iterable<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, new Function<List<HivePartition>, List<HivePartitionMetadata>>()
-        {
-            @Override
-            public List<HivePartitionMetadata> apply(List<HivePartition> partitionBatch)
-            {
-                Exception exception = null;
-                for (int attempt = 0; attempt < 10; attempt++) {
-                    try {
-                        Map<String, Partition> partitions = metastore.getPartitionsByNames(
-                                tableName.getSchemaName(),
-                                tableName.getTableName(),
-                                Lists.transform(partitionBatch, ConnectorPartition::getPartitionId));
-                        checkState(partitionBatch.size() == partitions.size(), "expected %s partitions but found %s", partitionBatch.size(), partitions.size());
+        Iterable<List<HivePartition>> partitionNameBatches = partitionExponentially(hivePartitions, minPartitionBatchSize, maxPartitionBatchSize);
+        Iterable<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, partitionBatch -> {
+            Map<String, Partition> partitions;
+            try {
+                partitions = metastore.getPartitionsByNames(
+                        tableName.getSchemaName(),
+                        tableName.getTableName(),
+                        Lists.transform(partitionBatch, ConnectorPartition::getPartitionId));
+            }
+            catch (NoSuchObjectException e) {
+                throw Throwables.propagate(e);
+            }
+            checkState(partitionBatch.size() == partitions.size(), "expected %s partitions but found %s", partitionBatch.size(), partitions.size());
 
-                        ImmutableList.Builder<HivePartitionMetadata> results = ImmutableList.builder();
-                        for (HivePartition hivePartition : partitionBatch) {
-                            Partition partition = partitions.get(hivePartition.getPartitionId());
-                            checkState(partition != null, "Partition %s was not loaded", hivePartition.getPartitionId());
+            ImmutableList.Builder<HivePartitionMetadata> results = ImmutableList.builder();
+            for (HivePartition hivePartition : partitionBatch) {
+                Partition partition = partitions.get(hivePartition.getPartitionId());
+                checkState(partition != null, "Partition %s was not loaded", hivePartition.getPartitionId());
 
-                            // verify all partition is online
-                            String protectMode = partition.getParameters().get(ProtectMode.PARAMETER_NAME);
-                            String partName = HiveUtil.createPartitionName(partition, table);
-                            if (protectMode != null && getProtectModeFromString(protectMode).offline) {
-                                throw new PartitionOfflineException(tableName, partName);
-                            }
-                            String prestoOffline = partition.getParameters().get(PRESTO_OFFLINE);
-                            if (!isNullOrEmpty(prestoOffline)) {
-                                throw new PartitionOfflineException(tableName, partName, format("Partition '%s' is offline for Presto: %s", partName, prestoOffline));
-                            }
+                // verify all partition is online
+                String protectMode = partition.getParameters().get(ProtectMode.PARAMETER_NAME);
+                String partName = createPartName(partition, table);
+                if (protectMode != null && getProtectModeFromString(protectMode).offline) {
+                    throw new PartitionOfflineException(tableName, partName);
+                }
+                String prestoOffline = partition.getParameters().get(PRESTO_OFFLINE);
+                if (!isNullOrEmpty(prestoOffline)) {
+                    throw new PartitionOfflineException(tableName, partName, format("Partition '%s' is offline for Presto: %s", partName, prestoOffline));
+                }
 
-                            // Verify that the partition schema matches the table schema.
-                            // Either adding or dropping columns from the end of the table
-                            // without modifying existing partitions is allowed, but every
-                            // column that exists in both the table and partition must have
-                            // the same type.
-                            List<FieldSchema> tableColumns = table.getSd().getCols();
-                            List<FieldSchema> partitionColumns = partition.getSd().getCols();
-                            if ((tableColumns == null) || (partitionColumns == null)) {
-                                throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partName));
-                            }
-                            for (int i = 0; i < min(partitionColumns.size(), tableColumns.size()); i++) {
-                                String tableType = tableColumns.get(i).getType();
-                                String partitionType = partitionColumns.get(i).getType();
-                                if (!tableType.equals(partitionType)) {
-                                    throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
-                                                    "There is a mismatch between the table and partition schemas. " +
-                                                    "The column '%s' in table '%s' is declared as type '%s', " +
-                                                    "but partition '%s' declared column '%s' as type '%s'.",
-                                            tableColumns.get(i).getName(),
-                                            tableName,
-                                            tableType,
-                                            partName,
-                                            partitionColumns.get(i).getName(),
-                                            partitionType));
-                                }
-                            }
-
-                            results.add(new HivePartitionMetadata(hivePartition, partition));
-                        }
-
-                        return results.build();
-                    }
-                    catch (PrestoException | NoSuchObjectException | NullPointerException | IllegalStateException | IllegalArgumentException e) {
-                        throw Throwables.propagate(e);
-                    }
-                    catch (RuntimeException e) {
-                        exception = e;
-                        log.debug("getPartitions attempt %s failed, will retry. Exception: %s", attempt, e.getMessage());
-                    }
-
-                    try {
-                        TimeUnit.SECONDS.sleep(1);
-                    }
-                    catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        throw Throwables.propagate(e);
+                // Verify that the partition schema matches the table schema.
+                // Either adding or dropping columns from the end of the table
+                // without modifying existing partitions is allowed, but every
+                // column that exists in both the table and partition must have
+                // the same type.
+                List<FieldSchema> tableColumns = table.getSd().getCols();
+                List<FieldSchema> partitionColumns = partition.getSd().getCols();
+                if ((tableColumns == null) || (partitionColumns == null)) {
+                    throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partName));
+                }
+                for (int i = 0; i < min(partitionColumns.size(), tableColumns.size()); i++) {
+                    String tableType = tableColumns.get(i).getType();
+                    String partitionType = partitionColumns.get(i).getType();
+                    if (!tableType.equals(partitionType)) {
+                        throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
+                                        "There is a mismatch between the table and partition schemas. " +
+                                        "The column '%s' in table '%s' is declared as type '%s', " +
+                                        "but partition '%s' declared column '%s' as type '%s'.",
+                                tableColumns.get(i).getName(),
+                                tableName,
+                                tableType,
+                                partName,
+                                partitionColumns.get(i).getName(),
+                                partitionType));
                     }
                 }
-                assert exception != null; // impossible
-                throw Throwables.propagate(exception);
+
+                results.add(new HivePartitionMetadata(hivePartition, partition));
             }
+
+            return results.build();
         });
         return concat(partitionBatches);
+    }
+
+    private static String createPartName(Partition partition, Table table)
+    {
+        try {
+            return makePartName(table.getPartitionKeys(), partition.getValues());
+        }
+        catch (MetaException e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     /**
