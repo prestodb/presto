@@ -1,0 +1,82 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.20. Release 0.84 &mdash; Presto 0.103 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.103',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.103 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.21. Release 0.83" href="release-0.83.html" />
+    <link rel="prev" title="10.19. Release 0.85" href="release-0.85.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.103 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.20. Release 0.84</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.85.html">10.19. Release 0.85</a>
+    </span>
+    <span class="right">
+        <a href="release-0.83.html">10.21. Release 0.83</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-84">
+<h1>10.20. Release 0.84</h1>
+<ul class="simple">
+<li>Fix handling of <tt class="docutils literal"><span class="pre">NaN</span></tt> and infinity in ARRAYs</li>
+<li>Fix approximate queries that use <tt class="docutils literal"><span class="pre">JOIN</span></tt></li>
+<li>Reduce excessive memory allocation and GC pressure in the coordinator</li>
+<li>Fix an issue where setting <tt class="docutils literal"><span class="pre">node-scheduler.location-aware-scheduling-enabled=false</span></tt>
+would cause queries to fail for connectors whose splits were not remotely accessible</li>
+<li>Fix error when running <tt class="docutils literal"><span class="pre">COUNT(*)</span></tt> over tables in <tt class="docutils literal"><span class="pre">information_schema</span></tt> and <tt class="docutils literal"><span class="pre">sys</span></tt></li>
+</ul>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.85.html">10.19. Release 0.85</a>
+    </span>
+    <span class="right">
+        <a href="release-0.83.html">10.21. Release 0.83</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

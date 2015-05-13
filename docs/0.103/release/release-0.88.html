@@ -1,0 +1,90 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.16. Release 0.88 &mdash; Presto 0.103 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.103',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.103 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.17. Release 0.87" href="release-0.87.html" />
+    <link rel="prev" title="10.15. Release 0.89" href="release-0.89.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.103 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.16. Release 0.88</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.89.html">10.15. Release 0.89</a>
+    </span>
+    <span class="right">
+        <a href="release-0.87.html">10.17. Release 0.87</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-88">
+<h1>10.16. Release 0.88</h1>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Added <a class="reference internal" href="../functions/aggregate.html#arbitrary" title="arbitrary"><tt class="xref py py-func docutils literal"><span class="pre">arbitrary()</span></tt></a> aggregation function.</li>
+<li>Allow using all <a class="reference internal" href="../functions/aggregate.html"><em>Aggregate Functions</em></a> as <a class="reference internal" href="../functions/window.html"><em>Window Functions</em></a>.</li>
+<li>Support specifying window frames and correctly implement frames for all <a class="reference internal" href="../functions/window.html"><em>Window Functions</em></a>.</li>
+<li>Allow <a class="reference internal" href="../functions/aggregate.html#approx_distinct" title="approx_distinct"><tt class="xref py py-func docutils literal"><span class="pre">approx_distinct()</span></tt></a> aggregation function to accept a standard error parameter.</li>
+<li>Implement <a class="reference internal" href="../functions/comparison.html#least" title="least"><tt class="xref py py-func docutils literal"><span class="pre">least()</span></tt></a> and <a class="reference internal" href="../functions/comparison.html#greatest" title="greatest"><tt class="xref py py-func docutils literal"><span class="pre">greatest()</span></tt></a> with variable number of arguments.</li>
+<li><a class="reference internal" href="../language/types.html#array-type"><em>ARRAY</em></a> is now comparable and can be used as <tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt> keys or in <tt class="docutils literal"><span class="pre">ORDER</span> <span class="pre">BY</span></tt> expressions.</li>
+<li>Implement <tt class="docutils literal"><span class="pre">=</span></tt> and <tt class="docutils literal"><span class="pre">&lt;&gt;</span></tt> operators for <a class="reference internal" href="../language/types.html#row-type"><em>ROW</em></a>.</li>
+<li>Fix excessive garbage creation in the ORC reader.</li>
+<li>Fix an issue that could cause queries using <a class="reference internal" href="../functions/window.html#row_number" title="row_number"><tt class="xref py py-func docutils literal"><span class="pre">row_number()</span></tt></a> and <tt class="docutils literal"><span class="pre">LIMIT</span></tt> to never terminate.</li>
+<li>Fix an issue that could cause queries with <a class="reference internal" href="../functions/window.html#row_number" title="row_number"><tt class="xref py py-func docutils literal"><span class="pre">row_number()</span></tt></a> and specific filters to produce incorrect results.</li>
+<li>Fixed an issue that caused the Cassandra plugin to fail to load with a SecurityException.</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.89.html">10.15. Release 0.89</a>
+    </span>
+    <span class="right">
+        <a href="release-0.87.html">10.17. Release 0.87</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

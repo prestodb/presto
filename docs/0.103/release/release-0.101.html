@@ -1,0 +1,154 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.3. Release 0.101 &mdash; Presto 0.103 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.103',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.103 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.4. Release 0.100" href="release-0.100.html" />
+    <link rel="prev" title="10.2. Release 0.102" href="release-0.102.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.103 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.3. Release 0.101</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.102.html">10.2. Release 0.102</a>
+    </span>
+    <span class="right">
+        <a href="release-0.100.html">10.4. Release 0.100</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-101">
+<h1>10.3. Release 0.101</h1>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Add support for <a class="reference internal" href="../sql/create-table.html"><em>CREATE TABLE</em></a> (in addition to <a class="reference internal" href="../sql/create-table-as.html"><em>CREATE TABLE AS</em></a>).</li>
+<li>Add <tt class="docutils literal"><span class="pre">IF</span> <span class="pre">EXISTS</span></tt> support to <a class="reference internal" href="../sql/drop-table.html"><em>DROP TABLE</em></a> and <a class="reference internal" href="../sql/drop-view.html"><em>DROP VIEW</em></a>.</li>
+<li>Add <a class="reference internal" href="../functions/aggregate.html#array_agg" title="array_agg"><tt class="xref py py-func docutils literal"><span class="pre">array_agg()</span></tt></a> function.</li>
+<li>Add <a class="reference internal" href="../functions/array.html#array_intersect" title="array_intersect"><tt class="xref py py-func docutils literal"><span class="pre">array_intersect()</span></tt></a> function.</li>
+<li>Add <a class="reference internal" href="../functions/array.html#array_position" title="array_position"><tt class="xref py py-func docutils literal"><span class="pre">array_position()</span></tt></a> function.</li>
+<li>Add <a class="reference internal" href="../functions/regexp.html#regexp_split" title="regexp_split"><tt class="xref py py-func docutils literal"><span class="pre">regexp_split()</span></tt></a> function.</li>
+<li>Add support for <tt class="docutils literal"><span class="pre">millisecond</span></tt> to <a class="reference internal" href="../functions/datetime.html#date_diff" title="date_diff"><tt class="xref py py-func docutils literal"><span class="pre">date_diff()</span></tt></a> and <a class="reference internal" href="../functions/datetime.html#date_add" title="date_add"><tt class="xref py py-func docutils literal"><span class="pre">date_add()</span></tt></a>.</li>
+<li>Fix excessive memory usage in <a class="reference internal" href="../functions/aggregate.html#map_agg" title="map_agg"><tt class="xref py py-func docutils literal"><span class="pre">map_agg()</span></tt></a>.</li>
+<li>Fix excessive memory usage in queries that perform partitioned top-N operations
+with <a class="reference internal" href="../functions/window.html#row_number" title="row_number"><tt class="xref py py-func docutils literal"><span class="pre">row_number()</span></tt></a>.</li>
+<li>Optimize <a class="reference internal" href="../language/types.html#array-type"><em>ARRAY</em></a> comparison operators.</li>
+<li>Fix analysis of <tt class="docutils literal"><span class="pre">UNION</span></tt> queries for tables with hidden columns.</li>
+<li>Fix <tt class="docutils literal"><span class="pre">JOIN</span></tt> associativity to be left-associative instead of right-associative.</li>
+<li>Add <tt class="docutils literal"><span class="pre">source</span></tt> column to <tt class="docutils literal"><span class="pre">runtime.queries</span></tt> table in <a class="reference internal" href="../connector/system.html"><em>System Connector</em></a>.</li>
+<li>Add <tt class="docutils literal"><span class="pre">coordinator</span></tt> column to <tt class="docutils literal"><span class="pre">runtime.nodes</span></tt> table in <a class="reference internal" href="../connector/system.html"><em>System Connector</em></a>.</li>
+<li>Add <tt class="docutils literal"><span class="pre">errorCode</span></tt>, <tt class="docutils literal"><span class="pre">errorName</span></tt> and <tt class="docutils literal"><span class="pre">errorType</span></tt> to <tt class="docutils literal"><span class="pre">error</span></tt> object in REST API
+(<tt class="docutils literal"><span class="pre">errorCode</span></tt> previously existed but was always zero).</li>
+<li>Fix <tt class="docutils literal"><span class="pre">DatabaseMetaData.getIdentifierQuoteString()</span></tt> in JDBC driver.</li>
+<li>Handle thread interruption in JDBC driver <tt class="docutils literal"><span class="pre">ResultSet</span></tt>.</li>
+<li>Add <tt class="docutils literal"><span class="pre">history</span></tt> command and support for running previous commands via <tt class="docutils literal"><span class="pre">!n</span></tt> to the CLI.</li>
+<li>Change Driver to make as much progress as possible before blocking.  This improves
+responsiveness of some limit queries.</li>
+<li>Add predicate push down support to JMX connector.</li>
+<li>Add support for unary <tt class="docutils literal"><span class="pre">PLUS</span></tt> operator.</li>
+<li>Improve scheduling speed by reducing lock contention.</li>
+<li>Extend optimizer to understand physical properties such as local grouping and sorting.</li>
+<li>Add support for streaming execution of window functions.</li>
+<li>Make <tt class="docutils literal"><span class="pre">UNION</span></tt> run partitioned, if underlying plan is partitioned.</li>
+<li>Add <tt class="docutils literal"><span class="pre">hash_partition_count</span></tt> session property to control hash partitions.</li>
+</ul>
+</div>
+<div class="section" id="web-ui-changes">
+<h2>Web UI Changes</h2>
+<p>The main page of the web UI has been completely rewritten to use ReactJS. It also has
+a number of new features, such as the ability to pause auto-refresh via the &#8220;Z&#8221; key and
+also with a toggle in the UI.</p>
+</div>
+<div class="section" id="hive-changes">
+<h2>Hive Changes</h2>
+<ul class="simple">
+<li>Add support for connecting to S3 using EC2 instance credentials.
+This feature is enabled by default. To disable it, set
+<tt class="docutils literal"><span class="pre">hive.s3.use-instance-credentials=false</span></tt> in your Hive catalog properties file.</li>
+<li>Treat ORC files as splittable.</li>
+<li>Change PrestoS3FileSystem to use lazy seeks, which improves ORC performance.</li>
+<li>Fix ORC <tt class="docutils literal"><span class="pre">DOUBLE</span></tt> statistic for columns containing <tt class="docutils literal"><span class="pre">NaN</span></tt>.</li>
+<li>Lower the Hive metadata refresh interval from two minutes to one second.</li>
+<li>Invalidate Hive metadata cache for failed operations.</li>
+<li>Support <tt class="docutils literal"><span class="pre">s3a</span></tt> file system scheme.</li>
+<li>Fix discovery of splits to correctly backoff when the queue is full.</li>
+<li>Add support for non-canonical Parquet structs.</li>
+<li>Add support for accessing Parquet columns by name. By default, columns in Parquet
+files are accessed by their ordinal position in the Hive table definition. To access
+columns based on the names recorded in the Parquet file, set
+<tt class="docutils literal"><span class="pre">hive.parquet.use-column-names=true</span></tt> in your Hive catalog properties file.</li>
+<li>Add JMX stats to PrestoS3FileSystem.</li>
+<li>Add <tt class="docutils literal"><span class="pre">hive.recursive-directories</span></tt> config option to recursively scan
+partition directories for data.</li>
+</ul>
+</div>
+<div class="section" id="spi-changes">
+<h2>SPI Changes</h2>
+<ul class="simple">
+<li>Add connector callback for rollback of <tt class="docutils literal"><span class="pre">INSERT</span></tt> and <tt class="docutils literal"><span class="pre">CREATE</span> <span class="pre">TABLE</span> <span class="pre">AS</span></tt>.</li>
+<li>Introduce an abstraction for representing physical organizations of a table
+and describing properties such as partitioning, grouping, predicate and columns.
+<tt class="docutils literal"><span class="pre">ConnectorPartition</span></tt> and related interfaces are deprecated and will be removed
+in a future version.</li>
+<li>Rename <tt class="docutils literal"><span class="pre">ConnectorColumnHandle</span></tt> to <tt class="docutils literal"><span class="pre">ColumnHandle</span></tt>.</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This is a backwards incompatible change with the previous connector SPI.
+If you have written a connector, you will need to update your code
+before deploying this release.</p>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.102.html">10.2. Release 0.102</a>
+    </span>
+    <span class="right">
+        <a href="release-0.100.html">10.4. Release 0.100</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

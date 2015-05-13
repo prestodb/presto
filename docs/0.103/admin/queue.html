@@ -1,0 +1,169 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>3.1. Queue Configuration &mdash; Presto 0.103 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.103',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.103 Documentation" href="../index.html" />
+    <link rel="up" title="3. Administration" href="../admin.html" />
+    <link rel="next" title="4. Connectors" href="../connector.html" />
+    <link rel="prev" title="3. Administration" href="../admin.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.103 Documentation</span></a></h1>
+    <h2 class="heading"><span>3.1. Queue Configuration</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../admin.html">3. Administration</a>
+    </span>
+    <span class="right">
+        <a href="../connector.html">4. Connectors</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="queue-configuration">
+<h1>3.1. Queue Configuration</h1>
+<p>The queueing rules are defined in a JSON file and control the number of queries
+that can be submitted to Presto and the quota of running queries per queue.
+The filename of the JSON config file should be specified in <tt class="docutils literal"><span class="pre">query.queue-config-file</span></tt>
+config property.</p>
+<p>Rules that specify multiple queues will cause the query to enter the queues sequentially.
+Rules are processed sequentially and the first one that matches will be used.
+In the example configuration below, there are five queue templates. In the
+<tt class="docutils literal"><span class="pre">user.${USER}</span></tt> queue, <tt class="docutils literal"><span class="pre">${USER}</span></tt> will be expanded to the name of the user
+that submitted the query. <tt class="docutils literal"><span class="pre">${SOURCE}</span></tt> is also supported, which expands to the
+source submitting the query.</p>
+<p>There are also five rules that define which queries go into which queues:</p>
+<ul class="simple">
+<li>The first rule makes <tt class="docutils literal"><span class="pre">bob</span></tt> an admin.</li>
+<li>The second rule states that all queries submitted with the <tt class="docutils literal"><span class="pre">experimental_big_query</span></tt>
+session property and that come from a source that includes <tt class="docutils literal"><span class="pre">pipeline</span></tt> should
+first be queued in the user&#8217;s personal queue, then the <tt class="docutils literal"><span class="pre">pipeline</span></tt> queue, and
+finally the <tt class="docutils literal"><span class="pre">big</span></tt> queue. When a query enters a new queue, it doesn&#8217;t leave
+previous queues until the query finishes execution.</li>
+<li>The third rule is the same as the previous, but without the <tt class="docutils literal"><span class="pre">experimental_big_query</span></tt>
+requirement, and uses the <tt class="docutils literal"><span class="pre">global</span></tt> queue instead of the <tt class="docutils literal"><span class="pre">big</span></tt> queue.</li>
+<li>The last two rules are the same as the previous two, but without the
+match on <tt class="docutils literal"><span class="pre">pipeline</span></tt> in the source.</li>
+</ul>
+<p>All together these rules implement the policy that <tt class="docutils literal"><span class="pre">bob</span></tt> is an admin and
+all other users are subject to the follow limits:</p>
+<blockquote>
+<div><ul class="simple">
+<li>Users are allowed to have up to 5 queries running.</li>
+<li><tt class="docutils literal"><span class="pre">big</span></tt> queries may only run one at a time.</li>
+<li>No more than 10 <tt class="docutils literal"><span class="pre">pipeline</span></tt> queries may run at once.</li>
+<li>No more than 100 non-<tt class="docutils literal"><span class="pre">big</span></tt> queries may run at once.</li>
+</ul>
+</div></blockquote>
+<div class="highlight-json"><div class="highlight"><pre><span class="p">{</span>
+  <span class="nt">&quot;queues&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">&quot;user.${USER}&quot;</span><span class="p">:</span> <span class="p">{</span>
+      <span class="nt">&quot;maxConcurrent&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+      <span class="nt">&quot;maxQueued&quot;</span><span class="p">:</span> <span class="mi">20</span>
+    <span class="p">},</span>
+    <span class="nt">&quot;pipeline&quot;</span><span class="p">:</span> <span class="p">{</span>
+      <span class="nt">&quot;maxConcurrent&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+      <span class="nt">&quot;maxQueued&quot;</span><span class="p">:</span> <span class="mi">100</span>
+    <span class="p">},</span>
+    <span class="nt">&quot;admin&quot;</span><span class="p">:</span> <span class="p">{</span>
+      <span class="nt">&quot;maxConcurrent&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+      <span class="nt">&quot;maxQueued&quot;</span><span class="p">:</span> <span class="mi">100</span>
+    <span class="p">},</span>
+    <span class="nt">&quot;global&quot;</span><span class="p">:</span> <span class="p">{</span>
+      <span class="nt">&quot;maxConcurrent&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+      <span class="nt">&quot;maxQueued&quot;</span><span class="p">:</span> <span class="mi">1000</span>
+    <span class="p">},</span>
+    <span class="nt">&quot;big&quot;</span><span class="p">:</span> <span class="p">{</span>
+      <span class="nt">&quot;maxConcurrent&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+      <span class="nt">&quot;maxQueued&quot;</span><span class="p">:</span> <span class="mi">10</span>
+    <span class="p">}</span>
+  <span class="p">},</span>
+  <span class="nt">&quot;rules&quot;</span><span class="p">:</span> <span class="p">[</span>
+    <span class="p">{</span>
+      <span class="nt">&quot;user&quot;</span><span class="p">:</span> <span class="s2">&quot;bob&quot;</span><span class="p">,</span>
+      <span class="nt">&quot;queues&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;admin&quot;</span><span class="p">]</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+      <span class="nt">&quot;session.experimental_big_query&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span>
+      <span class="nt">&quot;source&quot;</span><span class="p">:</span> <span class="s2">&quot;.*pipeline.*&quot;</span><span class="p">,</span>
+      <span class="nt">&quot;queues&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;user.${USER}&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;pipeline&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;big&quot;</span>
+      <span class="p">]</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+      <span class="nt">&quot;source&quot;</span><span class="p">:</span> <span class="s2">&quot;.*pipeline.*&quot;</span><span class="p">,</span>
+      <span class="nt">&quot;queues&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;user.${USER}&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;pipeline&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;global&quot;</span>
+      <span class="p">]</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+      <span class="nt">&quot;session.experimental_big_query&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span>
+      <span class="nt">&quot;queues&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;user.${USER}&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;big&quot;</span>
+      <span class="p">]</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+      <span class="nt">&quot;queues&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;user.${USER}&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;global&quot;</span>
+      <span class="p">]</span>
+    <span class="p">}</span>
+  <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../admin.html">3. Administration</a>
+    </span>
+    <span class="right">
+        <a href="../connector.html">4. Connectors</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
