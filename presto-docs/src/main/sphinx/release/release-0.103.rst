@@ -41,6 +41,8 @@ Hive Changes
 * Removed the ``hive.max-split-iterator-threads`` parameter and renamed
   ``hive.max-global-split-iterator-threads`` to ``hive.max-split-iterator-threads``.
 * Fix excessive object creation when querying tables with a large number of partitions.
+* Upgrade to Parquet 1.6.0.
+* Do not retry requests when an S3 path is not found.
 
 General Changes
 ---------------
@@ -50,3 +52,5 @@ General Changes
 * Reduce memory usage of :func:`map_agg`.
 * Change HTTP client defaults: 2 second idle timeout, 10 second request
   timeout and 250 connections per host.
+* Add SQL command autocompletion to CLI.
+* Increase CLI history file size.
