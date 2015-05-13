@@ -41,7 +41,6 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
-import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpStatus.Family;
@@ -209,7 +208,14 @@ public class StatementClient
         do {
             // back-off on retry
             if (attempts > 0) {
-                sleepUninterruptibly(attempts * 100, MILLISECONDS);
+                try {
+                    MILLISECONDS.sleep(attempts * 100);
+                }
+                catch (InterruptedException e) {
+                    close();
+                    Thread.currentThread().isInterrupted();
+                    throw new RuntimeException("StatementClient thread was interrupted");
+                }
             }
             attempts++;
 
