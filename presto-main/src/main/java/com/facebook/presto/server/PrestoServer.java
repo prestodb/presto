@@ -125,7 +125,7 @@ public class PrestoServer
 
     protected Iterable<? extends Module> getAdditionalModules()
     {
-        return ImmutableList.of();
+        return ImmutableList.of(new QueryLoggingModule());
     }
 
     private static void updateDatasources(Announcer announcer, Metadata metadata, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig)
