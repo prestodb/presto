@@ -30,8 +30,8 @@ statement
     : query                                                            #statementDefault
     | USE schema=identifier                                            #use
     | USE catalog=identifier '.' schema=identifier                     #use
-    | CREATE TABLE qualifiedName AS query                              #createTableAsSelect
-    | CREATE TABLE qualifiedName
+    | CREATE TABLE (IF NOT EXISTS)? qualifiedName AS query             #createTableAsSelect
+    | CREATE TABLE (IF NOT EXISTS)? qualifiedName
         '(' tableElement (',' tableElement)* ')'                       #createTable
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
     | INSERT INTO qualifiedName query                                  #insertInto
