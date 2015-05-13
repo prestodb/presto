@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.103-SNAPSHOT</version>
+        <version>0.103</version>
     </parent>
 
     <artifactId>presto-benchmark</artifactId>
