@@ -262,6 +262,7 @@ public class HiveMetadata
         }
     }
 
+    @SuppressWarnings("TryWithIdenticalCatches")
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
@@ -752,7 +753,7 @@ public class HiveMetadata
         }
     }
 
-    private static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table, final TypeManager typeManager)
+    private static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table, TypeManager typeManager)
     {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         for (FieldSchema field : concat(table.getSd().getCols(), table.getPartitionKeys())) {
@@ -760,7 +761,7 @@ public class HiveMetadata
                 builder.put(field.getName(), field.getComment());
             }
         }
-        final Map<String, String> columnComment = builder.build();
+        Map<String, String> columnComment = builder.build();
 
         return input -> new ColumnMetadata(
                 input.getName(),
