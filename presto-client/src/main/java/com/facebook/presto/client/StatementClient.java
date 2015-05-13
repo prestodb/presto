@@ -191,14 +191,15 @@ public class StatementClient
 
     public boolean advance()
     {
-        if (isClosed() || (current().getNextUri() == null)) {
+        URI nextUri = current().getNextUri();
+        if (isClosed() || (nextUri == null)) {
             valid.set(false);
             return false;
         }
 
         Request request = prepareGet()
                 .setHeader(USER_AGENT, USER_AGENT_VALUE)
-                .setUri(current().getNextUri())
+                .setUri(nextUri)
                 .build();
 
         Exception cause = null;
@@ -255,12 +256,9 @@ public class StatementClient
     {
         gone.set(true);
         if (!response.hasValue()) {
-            return new RuntimeException(format("Error " + task + " at %s returned an invalid response: %s", request.getUri(), response), response.getException());
+            return new RuntimeException(format("Error %s at %s returned an invalid response: %s", task, request.getUri(), response), response.getException());
         }
-        return new RuntimeException(format("Error " + task + " at %s returned %s: %s",
-                request.getUri(),
-                response.getStatusCode(),
-                response.getStatusMessage()));
+        return new RuntimeException(format("Error %s at %s returned %s: %s", task, request.getUri(), response.getStatusCode(), response.getStatusMessage()));
     }
 
     public boolean cancelLeafStage()
