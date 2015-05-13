@@ -21,8 +21,6 @@ import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.NodeScheduler.NodeSelector;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.operator.BlockedReason;
-import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
@@ -48,11 +46,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.airlift.concurrent.SetThreadName;
-import io.airlift.log.Logger;
-import io.airlift.stats.Distribution;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -71,7 +64,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -81,28 +73,20 @@ import java.util.stream.Stream;
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.util.Failures.checkCondition;
-import static com.facebook.presto.util.Failures.toFailures;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.collect.Iterables.all;
 import static com.google.common.collect.Iterables.any;
-import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
 public final class SqlStageExecution
         implements StageExecutionNode
 {
-    private static final Logger log = Logger.get(SqlStageExecution.class);
-
     // NOTE: DO NOT call methods on the parent while holding a lock on the child.  Locks
     // are always acquired top down in the tree, so calling a method on the parent while
     // holding a lock on the 'this' could cause a deadlock.
@@ -110,8 +94,6 @@ public final class SqlStageExecution
     @Nullable
     @SuppressWarnings({"FieldCanBeLocal", "unused"})
     private final StageExecutionNode parent;
-    private final StageId stageId;
-    private final URI location;
     private final PlanFragment fragment;
     private final Set<PlanNodeId> allSources;
     private final Map<PlanFragmentId, StageExecutionNode> subStages;
@@ -121,14 +103,11 @@ public final class SqlStageExecution
 
     private final Optional<SplitSource> dataSource;
     private final RemoteTaskFactory remoteTaskFactory;
-    private final Session session; // only used for remote task factory
     private final int splitBatchSize;
 
     private final int initialHashPartitions;
 
-    private final StateMachine<StageState> stageState;
-
-    private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
+    private final StageStateMachine stateMachine;
 
     private final Set<PlanNodeId> completeSources = newConcurrentHashSet();
 
@@ -138,12 +117,6 @@ public final class SqlStageExecution
     private OutputBuffers nextOutputBuffers;
 
     private final ExecutorService executor;
-
-    private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
-
-    private final Distribution getSplitDistribution = new Distribution();
-    private final Distribution scheduleTaskDistribution = new Distribution();
-    private final Distribution addSplitDistribution = new Distribution();
 
     private final NodeSelector nodeSelector;
     private final NodeTaskMap nodeTaskMap;
@@ -204,21 +177,19 @@ public final class SqlStageExecution
         checkNotNull(executor, "executor is null");
         checkNotNull(nodeTaskMap, "nodeTaskMap is null");
 
-        this.stageId = new StageId(queryId, String.valueOf(nextStageId.getAndIncrement()));
+        StageId stageId = new StageId(queryId, String.valueOf(nextStageId.getAndIncrement()));
         try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
             this.parent = parent;
-            this.location = locationFactory.createStageLocation(stageId);
             this.fragment = plan.getFragment();
             this.dataSource = plan.getDataSource();
             this.remoteTaskFactory = remoteTaskFactory;
-            this.session = session;
             this.splitBatchSize = splitBatchSize;
             this.initialHashPartitions = initialHashPartitions;
             this.executor = executor;
 
             this.allSources = Stream.concat(
-                    Stream.of(fragment.getPartitionedSource()),
-                    fragment.getRemoteSourceNodes().stream()
+                    Stream.of(plan.getFragment().getPartitionedSource()),
+                    plan.getFragment().getRemoteSourceNodes().stream()
                             .map(RemoteSourceNode::getId))
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet());
@@ -240,6 +211,7 @@ public final class SqlStageExecution
                         nodeTaskMap);
 
                 subStage.addStateChangeListener(stageState -> {
+                    // Only abort if sub-stage is failed. All other state transitions are handled elsewhere.
                     if (stageState == StageState.FAILED) {
                         abort();
                     }
@@ -253,8 +225,7 @@ public final class SqlStageExecution
             String dataSourceName = dataSource.isPresent() ? dataSource.get().getDataSourceName() : null;
             this.nodeSelector = nodeScheduler.createNodeSelector(dataSourceName);
             this.nodeTaskMap = nodeTaskMap;
-            stageState = new StateMachine<>("stage " + stageId, this.executor, StageState.PLANNED);
-            stageState.addStateChangeListener(state -> log.debug("Stage %s is %s", stageId, state));
+            this.stateMachine = new StageStateMachine(stageId, locationFactory.createStageLocation(stageId), session, plan.getFragment(), executor);
         }
     }
 
@@ -262,7 +233,7 @@ public final class SqlStageExecution
     public void cancelStage(StageId stageId)
     {
         try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
-            if (stageId.equals(this.stageId)) {
+            if (stageId.equals(stateMachine.getStageId())) {
                 cancel();
             }
             else {
@@ -277,9 +248,7 @@ public final class SqlStageExecution
     @VisibleForTesting
     public StageState getState()
     {
-        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
-            return stageState.get();
-        }
+        return stateMachine.getState();
     }
 
     @Override
@@ -298,125 +267,13 @@ public final class SqlStageExecution
     @Override
     public StageInfo getStageInfo()
     {
-        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
-            // stage state must be captured first in order to provide a
-            // consistent view of the stage For example, building this
-            // information, the stage could finish, and the task states would
-            // never be visible.
-            StageState state = stageState.get();
-
-            List<TaskInfo> taskInfos = tasks.values().stream()
-                    .map(RemoteTask::getTaskInfo)
-                    .collect(toImmutableList());
-
-            List<StageInfo> subStageInfos = subStages.values().stream()
-                    .map(StageExecutionNode::getStageInfo)
-                    .collect(toImmutableList());
-
-            int totalTasks = taskInfos.size();
-            int runningTasks = 0;
-            int completedTasks = 0;
-
-            int totalDrivers = 0;
-            int queuedDrivers = 0;
-            int runningDrivers = 0;
-            int completedDrivers = 0;
-
-            long totalMemoryReservation = 0;
-
-            long totalScheduledTime = 0;
-            long totalCpuTime = 0;
-            long totalUserTime = 0;
-            long totalBlockedTime = 0;
-
-            long rawInputDataSize = 0;
-            long rawInputPositions = 0;
-
-            long processedInputDataSize = 0;
-            long processedInputPositions = 0;
-
-            long outputDataSize = 0;
-            long outputPositions = 0;
-
-            boolean fullyBlocked = true;
-            Set<BlockedReason> blockedReasons = new HashSet<>();
-
-            for (TaskInfo taskInfo : taskInfos) {
-                if (taskInfo.getState().isDone()) {
-                    completedTasks++;
-                }
-                else {
-                    runningTasks++;
-                }
-
-                TaskStats taskStats = taskInfo.getStats();
-
-                totalDrivers += taskStats.getTotalDrivers();
-                queuedDrivers += taskStats.getQueuedDrivers();
-                runningDrivers += taskStats.getRunningDrivers();
-                completedDrivers += taskStats.getCompletedDrivers();
-
-                totalMemoryReservation += taskStats.getMemoryReservation().toBytes();
-
-                totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
-                totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
-                totalUserTime += taskStats.getTotalUserTime().roundTo(NANOSECONDS);
-                totalBlockedTime += taskStats.getTotalBlockedTime().roundTo(NANOSECONDS);
-                if (!taskInfo.getState().isDone()) {
-                    fullyBlocked &= taskStats.isFullyBlocked();
-                    blockedReasons.addAll(taskStats.getBlockedReasons());
-                }
-
-                rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
-                rawInputPositions += taskStats.getRawInputPositions();
-
-                processedInputDataSize += taskStats.getProcessedInputDataSize().toBytes();
-                processedInputPositions += taskStats.getProcessedInputPositions();
-
-                outputDataSize += taskStats.getOutputDataSize().toBytes();
-                outputPositions += taskStats.getOutputPositions();
-            }
-
-            StageStats stageStats = new StageStats(
-                    schedulingComplete.get(),
-                    getSplitDistribution.snapshot(),
-                    scheduleTaskDistribution.snapshot(),
-                    addSplitDistribution.snapshot(),
-
-                    totalTasks,
-                    runningTasks,
-                    completedTasks,
-
-                    totalDrivers,
-                    queuedDrivers,
-                    runningDrivers,
-                    completedDrivers,
-
-                    new DataSize(totalMemoryReservation, BYTE).convertToMostSuccinctDataSize(),
-                    new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                    new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                    new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                    new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                    fullyBlocked && runningTasks > 0,
-                    blockedReasons,
-
-                    new DataSize(rawInputDataSize, BYTE).convertToMostSuccinctDataSize(),
-                    rawInputPositions,
-                    new DataSize(processedInputDataSize, BYTE).convertToMostSuccinctDataSize(),
-                    processedInputPositions,
-                    new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
-                    outputPositions);
-
-            return new StageInfo(stageId,
-                    state,
-                    location,
-                    fragment,
-                    fragment.getTypes(),
-                    stageStats,
-                    taskInfos,
-                    subStageInfos,
-                    toFailures(failureCauses));
-        }
+        return stateMachine.getStageInfo(
+                () -> tasks.values().stream()
+                        .map(RemoteTask::getTaskInfo)
+                        .collect(toImmutableList()),
+                () -> subStages.values().stream()
+                        .map(StageExecutionNode::getStageInfo)
+                        .collect(toImmutableList()));
     }
 
     @Override
@@ -485,9 +342,7 @@ public final class SqlStageExecution
     @Override
     public void addStateChangeListener(StateChangeListener<StageState> stateChangeListener)
     {
-        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
-            stageState.addStateChangeListener(stateChangeListener::stateChanged);
-        }
+        stateMachine.addStateChangeListener(stateChangeListener::stateChanged);
     }
 
     private Multimap<PlanNodeId, URI> getNewExchangeLocations()
@@ -515,7 +370,7 @@ public final class SqlStageExecution
     @VisibleForTesting
     public synchronized List<URI> getTaskLocations()
     {
-        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stateMachine.getStageId())) {
             ImmutableList.Builder<URI> locations = ImmutableList.builder();
             for (RemoteTask task : tasks.values()) {
                 locations.add(task.getTaskInfo().getSelf());
@@ -538,7 +393,7 @@ public final class SqlStageExecution
 
     public Future<?> start()
     {
-        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stateMachine.getStageId())) {
             return scheduleStartTasks();
         }
     }
@@ -547,7 +402,7 @@ public final class SqlStageExecution
     @VisibleForTesting
     public Future<?> scheduleStartTasks()
     {
-        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stateMachine.getStageId())) {
             // start sub-stages (starts bottom-up)
             subStages.values().forEach(StageExecutionNode::scheduleStartTasks);
             return executor.submit(this::startTasks);
@@ -556,12 +411,12 @@ public final class SqlStageExecution
 
     private void startTasks()
     {
-        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stateMachine.getStageId())) {
             try {
                 checkState(!Thread.holdsLock(this), "Can not start while holding a lock on this");
 
                 // transition to scheduling
-                if (!stageState.compareAndSet(StageState.PLANNED, StageState.SCHEDULING)) {
+                if (!stateMachine.transitionToScheduling()) {
                     // stage has already been started, has been canceled or has no tasks due to partition pruning
                     return;
                 }
@@ -583,27 +438,22 @@ public final class SqlStageExecution
                     throw new IllegalStateException("Unsupported partitioning: " + fragment.getDistribution());
                 }
 
-                schedulingComplete.set(DateTime.now());
-                stageState.setIf(StageState.SCHEDULED, currentState -> !currentState.isDone() && currentState != StageState.RUNNING);
+                stateMachine.transitionToScheduled();
 
                 // add the missing exchanges output buffers
                 updateNewExchangesAndBuffers(true);
             }
             catch (Throwable e) {
-                // some exceptions can occur when the query finishes early
-                boolean failed = stageState.setIf(StageState.FAILED, currentState -> !currentState.isDone());
-                if (failed) {
-                    failureCauses.add(e);
-                    log.error(e, "Error while starting stage %s", stageId);
-                    abort();
+                if (e instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                }
 
-                    if (e instanceof InterruptedException) {
-                        Thread.currentThread().interrupt();
-                    }
+                if (stateMachine.transitionToFailed(e)) {
                     throw Throwables.propagate(e);
                 }
+
+                // stage is already finished, so only throw if this is an error
                 Throwables.propagateIfInstanceOf(e, Error.class);
-                log.debug(e, "Error while starting stage in done query %s", stageId);
             }
             finally {
                 doUpdateState();
@@ -655,7 +505,7 @@ public final class SqlStageExecution
 
                 long start = System.nanoTime();
                 Set<Split> pendingSplits = ImmutableSet.copyOf(getFutureValue(splitSource.getNextBatch(splitBatchSize)));
-                getSplitDistribution.add(System.nanoTime() - start);
+                stateMachine.recordGetSplitTime(start);
 
                 while (!pendingSplits.isEmpty() && !getState().isDone()) {
                     Multimap<Node, Split> splitAssignment = nodeSelector.computeAssignments(pendingSplits, tasks.values());
@@ -693,11 +543,11 @@ public final class SqlStageExecution
                 // tell the sub stages to create a buffer for this task
                 addStageNode(remoteTask.getTaskInfo().getTaskId());
 
-                scheduleTaskDistribution.add(System.nanoTime() - scheduleSplitStart);
+                stateMachine.recordScheduleTaskTime(scheduleSplitStart);
             }
             else {
                 task.addSplits(fragment.getPartitionedSource(), taskSplits.getValue());
-                addSplitDistribution.add(System.nanoTime() - scheduleSplitStart);
+                stateMachine.recordAddSplit(scheduleSplitStart);
             }
         }
     }
@@ -757,7 +607,7 @@ public final class SqlStageExecution
         // before scheduling a new task update all existing tasks with new exchanges and output buffers
         addNewExchangesAndBuffers();
 
-        TaskId taskId = new TaskId(stageId, String.valueOf(id));
+        TaskId taskId = new TaskId(stateMachine.getStageId(), String.valueOf(id));
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
         for (Split sourceSplit : sourceSplits) {
@@ -767,7 +617,7 @@ public final class SqlStageExecution
             initialSplits.put(entry.getKey(), createRemoteSplitFor(taskId, entry.getValue()));
         }
 
-        RemoteTask task = remoteTaskFactory.createRemoteTask(session,
+        RemoteTask task = remoteTaskFactory.createRemoteTask(stateMachine.getSession(),
                 taskId,
                 node,
                 fragment,
@@ -875,40 +725,50 @@ public final class SqlStageExecution
     {
         checkState(!Thread.holdsLock(this), "Can not doUpdateState while holding a lock on this");
 
-        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stateMachine.getStageId())) {
             synchronized (this) {
                 // wake up worker thread waiting for state changes
                 this.notifyAll();
 
-                StageState initialState = stageState.get();
+                StageState initialState = getState();
                 if (initialState.isDone()) {
                     return;
                 }
 
-                List<TaskState> taskStates = ImmutableList.copyOf(transform(transform(tasks.values(), RemoteTask::getTaskInfo), TaskInfo::getState));
+                List<TaskInfo> taskInfos = tasks.values().stream()
+                        .map(RemoteTask::getTaskInfo)
+                        .collect(toImmutableList());
+
+                List<TaskState> taskStates = taskInfos.stream()
+                        .map(TaskInfo::getState)
+                        .collect(toImmutableList());
+
                 if (any(taskStates, equalTo(TaskState.FAILED))) {
-                    stageState.setIf(StageState.FAILED, currentState -> !currentState.isDone());
+                    RuntimeException failure = taskInfos.stream()
+                            .map(taskInfo -> Iterables.getFirst(taskInfo.getFailures(), null))
+                            .filter(Objects::nonNull)
+                            .findFirst()
+                            .map(ExecutionFailureInfo::toException)
+                            .orElse(new PrestoException(StandardErrorCode.INTERNAL_ERROR, "A task failed for an unknown reason"));
+                    stateMachine.transitionToFailed(failure);
                 }
-                else if (any(taskStates, equalTo(TaskState.ABORTED))) {
+                else if (taskStates.stream().anyMatch(TaskState.ABORTED::equals)) {
                     // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
-                    if (stageState.setIf(StageState.FAILED, state -> !state.isDone())) {
-                        failureCauses.add(new PrestoException(StandardErrorCode.INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + initialState));
-                    }
+                    stateMachine.transitionToFailed(new PrestoException(StandardErrorCode.INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + initialState));
                 }
                 else if (initialState != StageState.PLANNED && initialState != StageState.SCHEDULING) {
                     // all tasks are now scheduled, so we can check the finished state
-                    if (all(taskStates, TaskState::isDone)) {
-                        stageState.setIf(StageState.FINISHED, currentState -> !currentState.isDone());
+                    if (taskStates.stream().allMatch(TaskState::isDone)) {
+                        stateMachine.transitionToFinished();
                     }
-                    else if (any(taskStates, equalTo(TaskState.RUNNING))) {
-                        stageState.setIf(StageState.RUNNING, currentState -> !currentState.isDone());
+                    else if (taskStates.stream().anyMatch(TaskState.RUNNING::equals)) {
+                        stateMachine.transitionToRunning();
                     }
                 }
             }
 
-            // finish tasks and stages if stage is complete
-            StageState stageState = this.stageState.get();
-            if (stageState.isDone()) {
+            // if this stage is now finished, cancel all work
+            if (getState().isDone()) {
                 cancel();
             }
         }
@@ -919,12 +779,11 @@ public final class SqlStageExecution
     {
         checkState(!Thread.holdsLock(this), "Can not cancel while holding a lock on this");
 
-        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stateMachine.getStageId())) {
             // check if the stage already completed naturally
             doUpdateState();
-            if (stageState.setIf(StageState.CANCELED, currentState -> !currentState.isDone())) {
-                log.debug("Cancelling stage %s", stageId);
-            }
+
+            stateMachine.transitionToCanceled();
 
             // cancel all tasks
             tasks.values().forEach(RemoteTask::cancel);
@@ -939,12 +798,11 @@ public final class SqlStageExecution
     {
         checkState(!Thread.holdsLock(this), "Can not abort while holding a lock on this");
 
-        try (SetThreadName ignored = new SetThreadName("Stage-%s", stageId)) {
+        try (SetThreadName ignored = new SetThreadName("Stage-%s", stateMachine.getStageId())) {
             // transition to aborted state, only if not already finished
             doUpdateState();
-            if (stageState.setIf(StageState.ABORTED, currentState -> !currentState.isDone())) {
-                log.debug("Aborting stage %s", stageId);
-            }
+
+            stateMachine.transitionToAborted();
 
             // abort all tasks
             tasks.values().forEach(RemoteTask::abort);
@@ -963,11 +821,7 @@ public final class SqlStageExecution
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("stageId", stageId)
-                .add("location", location)
-                .add("stageState", stageState.get())
-                .toString();
+        return stateMachine.toString();
     }
 
     private static Optional<Integer> getHashChannel(PlanFragment fragment)
