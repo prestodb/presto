@@ -14,13 +14,13 @@
 package com.facebook.presto.hive.metastore;
 
 import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.weakref.jmx.Managed;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public interface HiveMetastore
 {
@@ -35,24 +35,17 @@ public interface HiveMetastore
 
     List<String> getAllDatabases();
 
-    List<String> getAllTables(String databaseName)
-            throws NoSuchObjectException;
+    Optional<List<String>> getAllTables(String databaseName);
 
-    List<String> getAllViews(String databaseName)
-            throws NoSuchObjectException;
+    Optional<List<String>> getAllViews(String databaseName);
 
-    Database getDatabase(String databaseName)
-            throws NoSuchObjectException;
+    Optional<Database> getDatabase(String databaseName);
 
-    List<String> getPartitionNames(String databaseName, String tableName)
-            throws NoSuchObjectException;
+    Optional<List<String>> getPartitionNames(String databaseName, String tableName);
 
-    List<String> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts)
-            throws NoSuchObjectException;
+    Optional<List<String>> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts);
 
-    Map<String, Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
-            throws NoSuchObjectException;
+    Optional<Map<String, Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames);
 
-    Table getTable(String databaseName, String tableName)
-            throws NoSuchObjectException;
+    Optional<Table> getTable(String databaseName, String tableName);
 }
