@@ -41,7 +41,6 @@ Hive Changes
 * Removed the ``hive.max-split-iterator-threads`` parameter and renamed
   ``hive.max-global-split-iterator-threads`` to ``hive.max-split-iterator-threads``.
 * Fix excessive object creation when querying tables with a large number of partitions.
-* Upgrade to Parquet 1.6.0.
 * Do not retry requests when an S3 path is not found.
 
 General Changes
