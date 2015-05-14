@@ -46,8 +46,7 @@ public class QueryIdGenerator
     private static final long BASE_SYSTEM_TIME_MILLIS = System.currentTimeMillis();
     private static final long BASE_NANO_TIME = System.nanoTime();
 
-    @VisibleForTesting
-    protected final String coordinatorId;
+    private final String coordinatorId;
     @GuardedBy("this")
     private long lastTimeInDays;
     @GuardedBy("this")
@@ -64,6 +63,11 @@ public class QueryIdGenerator
             coordinatorId.append(BASE_32[ThreadLocalRandom.current().nextInt(32)]);
         }
         this.coordinatorId = coordinatorId.toString();
+    }
+
+    public String getCoordinatorId()
+    {
+        return coordinatorId;
     }
 
     /**

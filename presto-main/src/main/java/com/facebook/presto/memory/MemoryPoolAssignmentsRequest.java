@@ -24,14 +24,22 @@ import static java.util.Objects.requireNonNull;
 
 public class MemoryPoolAssignmentsRequest
 {
+    private final String coordinatorId;
     private final long version;
     private final List<MemoryPoolAssignment> assignments;
 
     @JsonCreator
-    public MemoryPoolAssignmentsRequest(@JsonProperty("version") long version, @JsonProperty("assignments") List<MemoryPoolAssignment> assignments)
+    public MemoryPoolAssignmentsRequest(@JsonProperty("coordinatorId") String coordinatorId, @JsonProperty("version") long version, @JsonProperty("assignments") List<MemoryPoolAssignment> assignments)
     {
+        this.coordinatorId = requireNonNull(coordinatorId, "coordinatorId is null");
         this.version = version;
         this.assignments = ImmutableList.copyOf(requireNonNull(assignments, "assignments is null"));
+    }
+
+    @JsonProperty
+    public String getCoordinatorId()
+    {
+        return coordinatorId;
     }
 
     @JsonProperty

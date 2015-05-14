@@ -16,6 +16,8 @@ package com.facebook.presto.memory;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution;
+import com.facebook.presto.execution.QueryIdGenerator;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.google.common.annotations.VisibleForTesting;
@@ -60,6 +62,7 @@ public class ClusterMemoryManager
     private final JsonCodec<MemoryPoolAssignmentsRequest> assignmentsRequestJsonCodec;
     private final DataSize maxQueryMemory;
     private final boolean enabled;
+    private final String coordinatorId;
     private final AtomicLong memoryPoolAssignmentsVersion = new AtomicLong();
     private final AtomicLong clusterMemoryUsageBytes = new AtomicLong();
     private final AtomicLong clusterMemoryBytes = new AtomicLong();
@@ -76,6 +79,8 @@ public class ClusterMemoryManager
             MBeanExporter exporter,
             JsonCodec<MemoryInfo> memoryInfoCodec,
             JsonCodec<MemoryPoolAssignmentsRequest> assignmentsRequestJsonCodec,
+            QueryIdGenerator queryIdGenerator,
+            ServerConfig serverConfig,
             MemoryManagerConfig config)
     {
         requireNonNull(config, "config is null");
@@ -86,7 +91,8 @@ public class ClusterMemoryManager
         this.memoryInfoCodec = requireNonNull(memoryInfoCodec, "memoryInfoCodec is null");
         this.assignmentsRequestJsonCodec = requireNonNull(assignmentsRequestJsonCodec, "assignmentsRequestJsonCodec is null");
         this.maxQueryMemory = config.getMaxQueryMemory();
-        this.enabled = config.isClusterMemoryManagerEnabled();
+        this.coordinatorId = queryIdGenerator.getCoordinatorId();
+        this.enabled = config.isClusterMemoryManagerEnabled() && serverConfig.isCoordinator();
     }
 
     public void process(Iterable<QueryExecution> queries)
@@ -151,7 +157,7 @@ public class ClusterMemoryManager
         for (QueryExecution queryExecution : queries) {
             assignments.add(new MemoryPoolAssignment(queryExecution.getQueryId(), queryExecution.getMemoryPool().getId()));
         }
-        return new MemoryPoolAssignmentsRequest(version, assignments.build());
+        return new MemoryPoolAssignmentsRequest(coordinatorId, version, assignments.build());
     }
 
     private boolean allAssignmentsHavePropagated(Iterable<QueryExecution> queries)
