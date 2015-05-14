@@ -84,6 +84,8 @@ public class SqlTaskManager
 
     @GuardedBy("this")
     private long currentMemoryPoolAssignmentVersion;
+    @GuardedBy("this")
+    private String coordinatorId;
 
     @Inject
     public SqlTaskManager(
@@ -151,10 +153,14 @@ public class SqlTaskManager
     @Override
     public synchronized void updateMemoryPoolAssignments(MemoryPoolAssignmentsRequest assignments)
     {
-        if (assignments.getVersion() <= currentMemoryPoolAssignmentVersion) {
+        if (coordinatorId != null && coordinatorId.equals(assignments.getCoordinatorId()) && assignments.getVersion() <= currentMemoryPoolAssignmentVersion) {
             return;
         }
         currentMemoryPoolAssignmentVersion = assignments.getVersion();
+        if (coordinatorId != null && !coordinatorId.equals(assignments.getCoordinatorId())) {
+            log.warn("Switching coordinator affinity from " + coordinatorId + " to " + assignments.getCoordinatorId());
+        }
+        coordinatorId = assignments.getCoordinatorId();
 
         for (MemoryPoolAssignment assignment : assignments.getAssignments()) {
             queryContexts.getUnchecked(assignment.getQueryId()).setMemoryPool(localMemoryManager.getPool(assignment.getPoolId()));
