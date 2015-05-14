@@ -110,7 +110,8 @@ public class RaptorPageSink
     @Override
     public void rollback()
     {
-        // TODO: clean up open resources
+        storagePageSink.rollback();
+        // TODO: clean up any written files
     }
 
     /**
