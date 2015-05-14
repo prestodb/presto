@@ -15,11 +15,15 @@ package com.facebook.presto.hive;
 
 import com.amazonaws.AbortedException;
 import io.airlift.stats.CounterStat;
+import io.airlift.stats.TimeStat;
+import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class PrestoS3FileSystemStats
 {
@@ -42,6 +46,7 @@ public class PrestoS3FileSystemStats
     private final CounterStat awsRequestCount = new CounterStat();
     private final CounterStat awsRetryCount = new CounterStat();
     private final CounterStat awsThrottleExceptions = new CounterStat();
+    private final TimeStat awsRequestTime = new TimeStat(MILLISECONDS);
 
     @Managed
     @Nested
@@ -162,6 +167,13 @@ public class PrestoS3FileSystemStats
         return awsThrottleExceptions;
     }
 
+    @Managed
+    @Nested
+    public TimeStat getAwsRequestTime()
+    {
+        return awsRequestTime;
+    }
+
     public void connectionOpened()
     {
         activeConnections.update(1);
@@ -246,5 +258,10 @@ public class PrestoS3FileSystemStats
     public void updateAwsThrottleExceptionsCount(long throttleExceptionsCount)
     {
         awsThrottleExceptions.update(throttleExceptionsCount);
+    }
+
+    public void addAwsRequestTime(Duration duration)
+    {
+        awsRequestTime.add(duration);
     }
 }
