@@ -27,10 +27,10 @@ import org.joda.time.format.DateTimeFormatter;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.type.TimestampOperators.castToDate;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class TeradataDateFunctions
 {
@@ -53,8 +53,8 @@ public final class TeradataDateFunctions
     @ScalarFunction("to_char")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice toChar(ConnectorSession session,
-                                       @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone,
-                                       @SqlType(StandardTypes.VARCHAR) Slice formatString)
+            @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone,
+            @SqlType(StandardTypes.VARCHAR) Slice formatString)
     {
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
                 .withChronology(unpackChronology(timestampWithTimeZone))
@@ -67,18 +67,18 @@ public final class TeradataDateFunctions
     @ScalarFunction("to_date")
     @SqlType(StandardTypes.DATE)
     public static long toDate(ConnectorSession session,
-                              @SqlType(StandardTypes.VARCHAR) Slice dateTime,
-                              @SqlType(StandardTypes.VARCHAR) Slice formatString)
+            @SqlType(StandardTypes.VARCHAR) Slice dateTime,
+            @SqlType(StandardTypes.VARCHAR) Slice formatString)
     {
-        return MILLISECONDS.toDays(parseMilis(session, dateTime, formatString));
+        return castToDate(session, parseMilis(session, dateTime, formatString));
     }
 
     @Description("Converts string_expr to a TIMESTAMP data type. Teradata extension to the ANSI SQL-2003 standard")
     @ScalarFunction("to_timestamp")
     @SqlType(StandardTypes.TIMESTAMP)
     public static long toTimestamp(ConnectorSession session,
-                                   @SqlType(StandardTypes.VARCHAR) Slice dateTime,
-                                   @SqlType(StandardTypes.VARCHAR) Slice formatString)
+            @SqlType(StandardTypes.VARCHAR) Slice dateTime,
+            @SqlType(StandardTypes.VARCHAR) Slice formatString)
     {
         return parseMilis(session, dateTime, formatString);
     }

@@ -22,13 +22,11 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimestampType;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.TimestampOperators.castToDate;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.util.Locale.ENGLISH;
 
@@ -36,23 +34,16 @@ public class TestTeradataDateFunctions
 {
     private static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("Asia/Kathmandu");
     private static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
-
-    private Session session;
-    private FunctionAssertions functionAssertions;
-
-    @BeforeClass
-    public void setUp()
-    {
-        session = Session.builder()
-                .setUser("user")
-                .setSource("test")
-                .setCatalog("catalog")
-                .setSchema("schema")
-                .setTimeZoneKey(TIME_ZONE_KEY)
-                .setLocale(ENGLISH)
-                .build();
-        functionAssertions = new FunctionAssertions(session).addScalarFunctions(TeradataDateFunctions.class);
-    }
+    private static final Session SESSION = Session.builder()
+            .setUser("user")
+            .setSource("test")
+            .setCatalog("catalog")
+            .setSchema("schema")
+            .setTimeZoneKey(TIME_ZONE_KEY)
+            .setLocale(ENGLISH)
+            .build();
+    private static final FunctionAssertions FUNCTION_ASSERTIONS = new FunctionAssertions(SESSION)
+            .addScalarFunctions(TeradataDateFunctions.class);
 
     @Test
     public void testMinimalToDate()
@@ -126,18 +117,18 @@ public class TestTeradataDateFunctions
 
     private static SqlDate sqlDate(DateTime from)
     {
-        int days = (int) TimeUnit.MILLISECONDS.toDays(from.getMillis());
+        int days = (int) castToDate(SESSION.toConnectorSession(), from.getMillis());
         return new SqlDate(days);
     }
 
     private SqlTimestamp toTimestamp(DateTime dateTime)
     {
-        return new SqlTimestamp(dateTime.getMillis(), session.getTimeZoneKey());
+        return new SqlTimestamp(dateTime.getMillis(), SESSION.getTimeZoneKey());
     }
 
     private void assertTimestamp(String projection, int year, int month, int day, int hour, int minutes, int seconds)
     {
-        functionAssertions.assertFunction(
+        FUNCTION_ASSERTIONS.assertFunction(
                 projection,
                 TimestampType.TIMESTAMP,
                 toTimestamp(new DateTime(year, month, day, hour, minutes, seconds, DATE_TIME_ZONE)));
@@ -145,7 +136,7 @@ public class TestTeradataDateFunctions
 
     private void assertDate(String projection, int year, int month, int day)
     {
-        functionAssertions.assertFunction(
+        FUNCTION_ASSERTIONS.assertFunction(
                 projection,
                 DateType.DATE,
                 sqlDate(new DateTime(year, month, day, 0, 0, DATE_TIME_ZONE)));
@@ -153,6 +144,6 @@ public class TestTeradataDateFunctions
 
     private void assertVarchar(String projection, String expected)
     {
-        functionAssertions.assertFunction(projection, VARCHAR, expected);
+        FUNCTION_ASSERTIONS.assertFunction(projection, VARCHAR, expected);
     }
 }
