@@ -24,6 +24,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import org.fusesource.jansi.Ansi;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
@@ -43,6 +44,7 @@ import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class Query
         implements Closeable
@@ -71,6 +73,7 @@ public class Query
 
     public void renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
     {
+        Thread clientThread = Thread.currentThread();
         SignalHandler oldHandler = Signal.handle(SIGINT, new SignalHandler()
         {
             @Override
@@ -80,14 +83,15 @@ public class Query
                     return;
                 }
                 try {
-                    if (!client.cancelLeafStage()) {
-                        client.close();
+                    if (client.cancelLeafStage(new Duration(1, SECONDS))) {
+                        return;
                     }
                 }
                 catch (RuntimeException e) {
                     log.debug(e, "error canceling leaf stage");
-                    client.close();
                 }
+                client.close();
+                clientThread.interrupt();
             }
         });
         try {
@@ -95,6 +99,7 @@ public class Query
         }
         finally {
             Signal.handle(SIGINT, oldHandler);
+            Thread.interrupted(); // clear interrupt status
         }
     }
 
