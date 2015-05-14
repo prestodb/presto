@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import java.util.Base64;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -106,13 +107,21 @@ public class TestVarbinaryFunctions
     public void testFromHex()
             throws Exception
     {
-        assertFunction("from_hex(to_hex(CAST('' AS VARBINARY)))", VARBINARY, sqlVarbinary(""));
-        assertFunction("from_hex(to_hex(CAST('a' AS VARBINARY)))", VARBINARY, sqlVarbinary("a"));
-        assertFunction("from_hex(to_hex(CAST('abc' AS VARBINARY)))", VARBINARY, sqlVarbinary("abc"));
-        assertFunction("from_hex(CAST(to_hex(CAST('' AS VARBINARY)) AS VARBINARY))", VARBINARY, sqlVarbinary(""));
-        assertFunction("from_hex(CAST(to_hex(CAST('a' AS VARBINARY)) AS VARBINARY))", VARBINARY, sqlVarbinary("a"));
-        assertFunction("from_hex(CAST(to_hex(CAST('abc' AS VARBINARY)) AS VARBINARY))", VARBINARY, sqlVarbinary("abc"));
+        assertFunction("from_hex('')", VARBINARY, sqlVarbinary(""));
+        assertFunction("from_hex('61')", VARBINARY, sqlVarbinary("a"));
+        assertFunction("from_hex('617a6f')", VARBINARY, sqlVarbinary("azo"));
+        assertFunction("from_hex('617A6F')", VARBINARY, sqlVarbinary("azo"));
+        assertFunction("from_hex(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinary(""));
+        assertFunction("from_hex(CAST('61' AS VARBINARY))", VARBINARY, sqlVarbinary("a"));
+        assertFunction("from_hex(CAST('617a6F' AS VARBINARY))", VARBINARY, sqlVarbinary("azo"));
         assertFunction(format("to_hex(from_hex('%s'))", base16().encode(ALL_BYTES)), VARCHAR, base16().encode(ALL_BYTES));
+        assertInvalidFunction("from_hex('f/')", INVALID_FUNCTION_ARGUMENT); // '0' - 1
+        assertInvalidFunction("from_hex('f:')", INVALID_FUNCTION_ARGUMENT); // '9' + 1
+        assertInvalidFunction("from_hex('f@')", INVALID_FUNCTION_ARGUMENT); // 'A' - 1
+        assertInvalidFunction("from_hex('fG')", INVALID_FUNCTION_ARGUMENT); // 'F' + 1
+        assertInvalidFunction("from_hex('f`')", INVALID_FUNCTION_ARGUMENT); // 'a' - 1
+        assertInvalidFunction("from_hex('fg')", INVALID_FUNCTION_ARGUMENT); // 'f' + 1
+        assertInvalidFunction("from_hex('fff')", INVALID_FUNCTION_ARGUMENT);
     }
 
     private static String encodeBase64(byte[] value)
