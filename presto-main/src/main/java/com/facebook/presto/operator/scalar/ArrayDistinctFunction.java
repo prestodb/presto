@@ -17,9 +17,8 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.GroupByHash;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.operator.aggregation.SimpleTypedSet;
+import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -31,10 +30,8 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
-import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
@@ -89,28 +86,19 @@ public final class ArrayDistinctFunction
     public static Slice distinct(Type type, Slice array)
     {
         Block elementsBlock = readStructuralBlock(array);
-
         if (elementsBlock.getPositionCount() == 0) {
             return array;
         }
 
-        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), new int[] {0}, Optional.<Integer>empty(), Optional.empty(), elementsBlock.getPositionCount());
-        groupByHash.getGroupIds(new Page(elementsBlock));
-
-        PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
-        for (int i = 0; i < groupByHash.getGroupCount(); i++) {
-            pageBuilder.declarePosition();
-            groupByHash.appendValuesTo(i, pageBuilder, 0);
-        }
-        BlockBuilder fixedWidthResultBlockBuilder = pageBuilder.getBlockBuilder(0);
-        Block fixedWidthResultBlock = fixedWidthResultBlockBuilder.build();
-
-        // Convert the fixed width block to a variable width block because of the limitations of array representation
-        BlockBuilder variableWidthBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), fixedWidthResultBlock.getSizeInBytes());
-        for (int i = 0; i < fixedWidthResultBlock.getPositionCount(); i++) {
-            type.appendTo(fixedWidthResultBlock, i, variableWidthBlockBuilder);
+        TypedSet typedSet = new SimpleTypedSet(type, elementsBlock.getPositionCount());
+        BlockBuilder distinctElementBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), elementsBlock.getPositionCount());
+        for (int i = 0; i < elementsBlock.getPositionCount(); i++) {
+            if (!typedSet.contains(elementsBlock, i)) {
+                typedSet.add(elementsBlock, i);
+                type.appendTo(elementsBlock, i, distinctElementBlockBuilder);
+            }
         }
 
-        return buildStructuralSlice(variableWidthBlockBuilder);
+        return buildStructuralSlice(distinctElementBlockBuilder);
     }
 }
