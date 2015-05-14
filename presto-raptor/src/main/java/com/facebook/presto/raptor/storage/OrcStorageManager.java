@@ -363,6 +363,15 @@ public class OrcStorageManager
             return ImmutableList.copyOf(shards);
         }
 
+        @Override
+        public void rollback()
+        {
+            if (writer != null) {
+                writer.close();
+                writer = null;
+            }
+        }
+
         private void createWriterIfNecessary()
         {
             if (writer == null) {

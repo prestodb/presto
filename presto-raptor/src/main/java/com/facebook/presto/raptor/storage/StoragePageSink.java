@@ -29,4 +29,6 @@ public interface StoragePageSink
     void flush();
 
     List<ShardInfo> commit();
+
+    void rollback();
 }
