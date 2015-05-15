@@ -32,7 +32,8 @@ public class ShardInfo
     private final Set<String> nodeIdentifiers;
     private final List<ColumnStats> columnStats;
     private final long rowCount;
-    private final long dataSize;
+    private final long compressedSize;
+    private final long uncompressedSize;
 
     @JsonCreator
     public ShardInfo(
@@ -40,16 +41,19 @@ public class ShardInfo
             @JsonProperty("nodeIdentifiers") Set<String> nodeIdentifiers,
             @JsonProperty("columnStats") List<ColumnStats> columnStats,
             @JsonProperty("rowCount") long rowCount,
-            @JsonProperty("dataSize") long dataSize)
+            @JsonProperty("compressedSize") long compressedSize,
+            @JsonProperty("uncompressedSize") long uncompressedSize)
     {
         this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
         this.nodeIdentifiers = ImmutableSet.copyOf(checkNotNull(nodeIdentifiers, "nodeIdentifiers is null"));
         this.columnStats = ImmutableList.copyOf(checkNotNull(columnStats, "columnStats is null"));
 
         checkArgument(rowCount >= 0, "rowCount must be positive");
-        checkArgument(dataSize >= 0, "dataSize must be positive");
+        checkArgument(compressedSize >= 0, "compressedSize must be positive");
+        checkArgument(uncompressedSize >= 0, "uncompressedSize must be positive");
         this.rowCount = rowCount;
-        this.dataSize = dataSize;
+        this.compressedSize = compressedSize;
+        this.uncompressedSize = uncompressedSize;
     }
 
     @JsonProperty
@@ -77,9 +81,15 @@ public class ShardInfo
     }
 
     @JsonProperty
-    public long getDataSize()
+    public long getCompressedSize()
     {
-        return dataSize;
+        return compressedSize;
+    }
+
+    @JsonProperty
+    public long getUncompressedSize()
+    {
+        return uncompressedSize;
     }
 
     @Override
@@ -90,7 +100,8 @@ public class ShardInfo
                 .add("nodeIdentifiers", nodeIdentifiers)
                 .add("columnStats", columnStats)
                 .add("rowCount", rowCount)
-                .add("dataSize", dataSize)
+                .add("compressedSize", compressedSize)
+                .add("uncompressedSize", uncompressedSize)
                 .toString();
     }
 }

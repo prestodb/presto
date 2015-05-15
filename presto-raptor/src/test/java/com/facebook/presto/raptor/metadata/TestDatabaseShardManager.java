@@ -441,7 +441,7 @@ public class TestDatabaseShardManager
 
     private static ShardInfo shardInfo(UUID shardUuid, String nodeId, List<ColumnStats> columnStats)
     {
-        return new ShardInfo(shardUuid, ImmutableSet.of(nodeId), columnStats, 0, 0);
+        return new ShardInfo(shardUuid, ImmutableSet.of(nodeId), columnStats, 0, 0, 0);
     }
 
     private static Set<ShardNodes> toShardNodes(List<ShardInfo> shards)

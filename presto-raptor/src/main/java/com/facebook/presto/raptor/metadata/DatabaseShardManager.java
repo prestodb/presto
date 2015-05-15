@@ -197,7 +197,7 @@ public class DatabaseShardManager
     {
         try (IndexInserter indexInserter = new IndexInserter(handle.getConnection(), tableId, columns)) {
             for (ShardInfo shard : shards) {
-                long shardId = dao.insertShard(shard.getShardUuid(), tableId, shard.getRowCount(), shard.getDataSize());
+                long shardId = dao.insertShard(shard.getShardUuid(), tableId, shard.getRowCount(), shard.getCompressedSize(), shard.getUncompressedSize());
                 Set<Integer> shardNodes = shard.getNodeIdentifiers().stream()
                         .map(nodeIds::get)
                         .collect(toSet());
