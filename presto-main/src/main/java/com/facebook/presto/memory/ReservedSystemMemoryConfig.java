@@ -23,7 +23,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 // This is separate from MemoryManagerConfig because it's difficult to test the default value of reservedSystemMemory
 public class ReservedSystemMemoryConfig
 {
-    private DataSize reservedSystemMemory = new DataSize(Runtime.getRuntime().maxMemory() * 0.2, BYTE);
+    private DataSize reservedSystemMemory = new DataSize(Runtime.getRuntime().maxMemory() * 0.4, BYTE);
 
     @NotNull
     public DataSize getReservedSystemMemory()
