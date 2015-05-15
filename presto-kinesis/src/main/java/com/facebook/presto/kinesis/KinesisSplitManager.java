@@ -20,6 +20,7 @@ import javax.inject.Named;
 
 import com.amazonaws.services.kinesis.model.DescribeStreamRequest;
 import com.amazonaws.services.kinesis.model.DescribeStreamResult;
+import com.amazonaws.services.kinesis.model.ResourceNotFoundException;
 import com.amazonaws.services.kinesis.model.Shard;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
@@ -66,12 +67,18 @@ public class KinesisSplitManager
         DescribeStreamRequest describeStreamRequest = clientManager.getDescribeStreamRequest();
         describeStreamRequest.setStreamName(kinesisTableHandle.getStreamName());
 
+        String exclusiveStartShardId = null;
+        describeStreamRequest.setExclusiveStartShardId(exclusiveStartShardId);
+        DescribeStreamResult describeStreamResult = clientManager.getClient().describeStream(describeStreamRequest);
+
+        String streamStatus = describeStreamResult.getStreamDescription().getStreamStatus();
+        while ((streamStatus.equals("ACTIVE") == false) && (streamStatus.equals("UPDATING") == false)) {
+            throw new ResourceNotFoundException("Stream not Active");
+        }
+
         List<Shard> shards = new ArrayList<>();
         ImmutableList.Builder<ConnectorPartition> builder = ImmutableList.builder();
-        String exclusiveStartShardId = null;
         do {
-            describeStreamRequest.setExclusiveStartShardId(exclusiveStartShardId);
-            DescribeStreamResult describeStreamResult = clientManager.getClient().describeStream(describeStreamRequest);
             shards.addAll(describeStreamResult.getStreamDescription().getShards());
 
             for (Shard shard : shards) {

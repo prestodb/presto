@@ -26,14 +26,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.amazonaws.services.kinesis.model.DescribeStreamRequest;
 import com.amazonaws.services.kinesis.model.GetRecordsRequest;
 import com.amazonaws.services.kinesis.model.GetRecordsResult;
 import com.amazonaws.services.kinesis.model.GetShardIteratorRequest;
 import com.amazonaws.services.kinesis.model.GetShardIteratorResult;
 import com.amazonaws.services.kinesis.model.Record;
 import com.amazonaws.services.kinesis.model.ResourceNotFoundException;
-import com.amazonaws.services.kinesis.model.StreamDescription;
 import com.facebook.presto.kinesis.decoder.KinesisFieldDecoder;
 import com.facebook.presto.kinesis.decoder.KinesisRowDecoder;
 import com.facebook.presto.spi.RecordCursor;
@@ -139,49 +137,33 @@ public class KinesisRecordSet
         @Override
         public boolean advanceNextPosition()
         {
-            try {
+            if (shardIterator == null) {
+                getIterator();
+                if (getKinesisRecords() == false) {
+                    log.debug("No more records in shard to read.");
+                    return false;
+                }
+            }
+
+            while (true) {
+                log.debug("Reading data from shardIterator %s", shardIterator);
+                while (listIterator.hasNext()) {
+                    return nextRow();
+                }
+
+                shardIterator = getRecordsResult.getNextShardIterator();
+
                 if (shardIterator == null) {
-                    getIterator();
+                    log.debug("Shard closed");
+                    return false;
+                }
+                else {
                     if (getKinesisRecords() == false) {
                         log.debug("No more records in shard to read.");
                         return false;
                     }
                 }
-
-                while (true) {
-                    log.debug("Reading data from shardIterator %s", shardIterator);
-                    while (listIterator.hasNext()) {
-                        return nextRow();
-                    }
-
-                    shardIterator = getRecordsResult.getNextShardIterator();
-
-                    if (shardIterator == null) {
-                        log.debug("Shard closed");
-                        return false;
-                    }
-                    else {
-                        if (getKinesisRecords() == false) {
-                            log.debug("No more records in shard to read.");
-                            return false;
-                        }
-                    }
-                }
             }
-
-            catch (ResourceNotFoundException e) {
-                log.debug("Stream %s not active.", split.getStreamName());
-                return false;
-            }
-        }
-
-        private String checkStreamStatus(String streamName)
-        {
-            DescribeStreamRequest describeStreamRequest = new DescribeStreamRequest();
-            describeStreamRequest.setStreamName(streamName);
-
-            StreamDescription streamDescription = clientManager.getClient().describeStream(describeStreamRequest).getStreamDescription();
-            return streamDescription.getStreamStatus();
         }
 
         private boolean getKinesisRecords()
@@ -190,10 +172,6 @@ public class KinesisRecordSet
             getRecordsRequest = new GetRecordsRequest();
             getRecordsRequest.setShardIterator(shardIterator);
             getRecordsRequest.setLimit(25);
-
-            if (checkStreamStatus(split.getStreamName()).equals("ACTIVE") == false) {
-                throw new ResourceNotFoundException("Stream not Active");
-            }
 
             getRecordsResult = clientManager.getClient().getRecords(getRecordsRequest);
             kinesisRecords = getRecordsResult.getRecords();
@@ -306,10 +284,6 @@ public class KinesisRecordSet
             getShardIteratorRequest.setStreamName(split.getStreamName());
             getShardIteratorRequest.setShardId(split.getShardId());
             getShardIteratorRequest.setShardIteratorType("TRIM_HORIZON");
-
-            if (checkStreamStatus(split.getStreamName()).equals("ACTIVE") == false) {
-                throw new ResourceNotFoundException("Stream not Active");
-            }
 
             GetShardIteratorResult getShardIteratorResult = clientManager.getClient().getShardIterator(getShardIteratorRequest);
             shardIterator = getShardIteratorResult.getShardIterator();
