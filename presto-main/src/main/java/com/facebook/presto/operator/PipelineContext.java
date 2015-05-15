@@ -18,6 +18,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
@@ -360,6 +361,13 @@ public class PipelineContext
             operatorSummaries.put(entry.getKey(), current);
         }
 
+        ImmutableSet<BlockedReason> blockedReasons = drivers.stream()
+                .filter(driver -> driver.getEndTime() == null && driver.getStartTime() != null)
+                .flatMap(driver -> driver.getBlockedReasons().stream())
+                .collect(ImmutableCollectors.toImmutableSet());
+        boolean fullyBlocked = drivers.stream()
+                .filter(driver -> driver.getEndTime() == null && driver.getStartTime() != null)
+                .allMatch(DriverStats::isFullyBlocked);
         return new PipelineStats(
                 inputPipeline,
                 outputPipeline,
@@ -380,8 +388,8 @@ public class PipelineContext
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                drivers.stream().allMatch(DriverStats::isFullyBlocked),
-                drivers.stream().flatMap(driver -> driver.getBlockedReasons().stream()).collect(ImmutableCollectors.toImmutableSet()),
+                fullyBlocked && (runningDrivers > 0 || runningPartitionedDrivers > 0),
+                blockedReasons,
 
                 new DataSize(rawInputDataSize, BYTE).convertToMostSuccinctDataSize(),
                 rawInputPositions,

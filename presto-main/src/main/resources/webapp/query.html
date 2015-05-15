@@ -159,7 +159,16 @@
 d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
     d3.select('#query').text(query.query);
     d3.select('#queryId').text(query.queryId);
-    d3.select('#queryState').text(query.state);
+    if (query.queryStats.fullyBlocked && query.state == "RUNNING") {
+        var state = "BLOCKED";
+        if (query.queryStats.blockedReasons.length > 0) {
+            state += " (" + query.queryStats.blockedReasons.join() + ")";
+        }
+        d3.select('#queryState').text(state);
+    }
+    else {
+        d3.select('#queryState').text(query.state);
+    }
     d3.select('#sessionUser').text(query.session.user);
     d3.select('#sessionSource').text(query.session.source);
     d3.select('#sessionCatalog').text(query.session.catalog);
@@ -346,7 +355,7 @@ function taskData(d) {
     return [
         d.taskId,
         d.self.replace(/http:\/\/([a-z0-9-.]+)[\/:].*/, '$1'),
-        d.state,
+        formatState(d.state, d.stats.fullyBlocked),
         formatCount(rows),
         formatCount(computeRate(rows, elapsed)),
         formatDataSize(bytes),
@@ -358,6 +367,16 @@ function taskData(d) {
         bufferedPages
     ];
 }
+
+function formatState(state, fullyBlocked) {
+    if (fullyBlocked && state == "RUNNING") {
+        return "BLOCKED";
+    }
+    else {
+        return state;
+    }
+}
+
 
 /** Computes rate per second **/
 function computeRate(count, ms) {
@@ -579,7 +598,7 @@ function renderStagesTree(source) {
                     return d.children || d._children ? "end" : "start";
                 })
                 .text(function (d) {
-                    return removeQueryId(d.stageId) + ' ' + d.state;
+                    return removeQueryId(d.stageId) + ' ' + formatState(d.state, d.stageStats.fullyBlocked);
                 })
                 .style("fill-opacity", 1e-6);
 

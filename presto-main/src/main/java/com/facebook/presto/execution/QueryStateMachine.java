@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
+import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.base.Preconditions;
@@ -35,6 +36,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -184,6 +186,9 @@ public class QueryStateMachine
         long outputDataSize = 0;
         long outputPositions = 0;
 
+        boolean fullyBlocked = rootStage != null;
+        Set<BlockedReason> blockedReasons = new HashSet<>();
+
         if (rootStage != null) {
             for (StageInfo stageInfo : getAllStages(rootStage)) {
                 StageStats stageStats = stageInfo.getStageStats();
@@ -202,6 +207,10 @@ public class QueryStateMachine
                 totalCpuTime += stageStats.getTotalCpuTime().roundTo(NANOSECONDS);
                 totalUserTime += stageStats.getTotalUserTime().roundTo(NANOSECONDS);
                 totalBlockedTime += stageStats.getTotalBlockedTime().roundTo(NANOSECONDS);
+                if (!stageInfo.getState().isDone()) {
+                    fullyBlocked &= stageStats.isFullyBlocked();
+                    blockedReasons.addAll(stageStats.getBlockedReasons());
+                }
 
                 if (stageInfo.getPlan().getPartitionedSourceNode() instanceof TableScanNode) {
                     rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
@@ -243,6 +252,9 @@ public class QueryStateMachine
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                fullyBlocked,
+                blockedReasons,
+
                 new DataSize(rawInputDataSize, BYTE).convertToMostSuccinctDataSize(),
                 rawInputPositions,
                 new DataSize(processedInputDataSize, BYTE).convertToMostSuccinctDataSize(),
