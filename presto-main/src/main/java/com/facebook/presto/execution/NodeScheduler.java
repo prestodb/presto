@@ -216,10 +216,7 @@ public class NodeScheduler
 
             for (RemoteTask task : existingTasks) {
                 String nodeId = task.getNodeId();
-                if (!queuedSplitCountByNode.containsKey(nodeId)) {
-                    queuedSplitCountByNode.put(nodeId, 0);
-                }
-                queuedSplitCountByNode.put(nodeId, queuedSplitCountByNode.get(nodeId) + task.getQueuedPartitionedSplitCount());
+                queuedSplitCountByNode.put(nodeId, queuedSplitCountByNode.getOrDefault(nodeId, 0) + task.getQueuedPartitionedSplitCount());
             }
 
             for (Split split : splits) {
@@ -241,8 +238,7 @@ public class NodeScheduler
                 int min = Integer.MAX_VALUE;
 
                 for (Node node : candidateNodes) {
-                    int assignedSplitCount = assignmentCount.containsKey(node) ? assignmentCount.get(node) : 0;
-                    int totalSplitCount = assignedSplitCount + splitCountByNode.get(node);
+                    int totalSplitCount = assignmentCount.getOrDefault(node, 0) + splitCountByNode.get(node);
 
                     if (totalSplitCount < min && totalSplitCount < maxSplitsPerNode) {
                         chosenNode = node;
@@ -251,11 +247,8 @@ public class NodeScheduler
                 }
                 if (chosenNode == null) {
                     for (Node node : candidateNodes) {
-                        int assignedSplitCount = assignmentCount.containsKey(node) ? assignmentCount.get(node) : 0;
-                        int queuedSplitCount = 0;
-                        if (queuedSplitCountByNode.containsKey(node.getNodeIdentifier())) {
-                            queuedSplitCount = queuedSplitCountByNode.get(node.getNodeIdentifier());
-                        }
+                        int assignedSplitCount = assignmentCount.getOrDefault(node, 0);
+                        int queuedSplitCount = queuedSplitCountByNode.getOrDefault(node.getNodeIdentifier(), 0);
                         int totalSplitCount = queuedSplitCount + assignedSplitCount;
                         if (totalSplitCount < min && totalSplitCount < maxSplitsPerNodePerTaskWhenFull) {
                             chosenNode = node;
@@ -265,8 +258,7 @@ public class NodeScheduler
                 }
                 if (chosenNode != null) {
                     assignment.put(chosenNode, split);
-                    int count = assignmentCount.containsKey(chosenNode) ? assignmentCount.get(chosenNode) : 0;
-                    assignmentCount.put(chosenNode, count + 1);
+                    assignmentCount.put(chosenNode, assignmentCount.getOrDefault(chosenNode, 0) + 1);
                 }
             }
             return assignment;
