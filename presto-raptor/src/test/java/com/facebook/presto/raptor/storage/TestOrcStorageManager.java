@@ -174,7 +174,7 @@ public class TestOrcStorageManager
         File backupFile = storageService.getBackupFile(shardUuid);
 
         assertEquals(shardInfo.getRowCount(), 2);
-        assertEquals(shardInfo.getDataSize(), file.length());
+        assertEquals(shardInfo.getCompressedSize(), file.length());
 
         // verify primary and backup shard exist
         assertFile(file, "primary shard");
