@@ -314,9 +314,7 @@ public class SharedBuffer
 
         partitionToPageBuffer.values().forEach(PartitionBuffer::destroy);
         // free readers
-        for (NamedBuffer namedBuffer : namedBuffers.values()) {
-            namedBuffer.abort();
-        }
+        namedBuffers.values().forEach(SharedBuffer.NamedBuffer::abort);
         processPendingReads();
     }
 
@@ -384,9 +382,7 @@ public class SharedBuffer
 
             // remove any completed buffers
             if (!state.canAddPages()) {
-                for (NamedBuffer namedBuffer : namedBuffers.values()) {
-                    namedBuffer.checkCompletion();
-                }
+                namedBuffers.values().forEach(SharedBuffer.NamedBuffer::checkCompletion);
             }
         }
         finally {
@@ -398,11 +394,7 @@ public class SharedBuffer
     {
         checkState(Thread.holdsLock(this), "Thread must hold a lock on the %s", SharedBuffer.class.getSimpleName());
 
-        for (GetBufferResult getBufferResult : ImmutableList.copyOf(stateChangeListeners)) {
-            if (getBufferResult.execute()) {
-                stateChangeListeners.remove(getBufferResult);
-            }
-        }
+        ImmutableList.copyOf(stateChangeListeners).stream().filter(GetBufferResult::execute).forEach(stateChangeListeners::remove);
     }
 
     @ThreadSafe
