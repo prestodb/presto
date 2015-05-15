@@ -51,6 +51,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
@@ -79,7 +80,7 @@ import static parquet.schema.OriginalType.MAP_KEY_VALUE;
 class ParquetHiveRecordCursor
         extends HiveRecordCursor
 {
-    private final ParquetRecordReader<Void> recordReader;
+    private final ParquetRecordReader<Optional<Object>> recordReader;
 
     @SuppressWarnings("FieldCanBeLocal") // include names for debugging
     private final String[] names;
@@ -304,7 +305,7 @@ class ParquetHiveRecordCursor
         }
     }
 
-    private ParquetRecordReader<Void> createParquetRecordReader(
+    private ParquetRecordReader<Optional<Object>> createParquetRecordReader(
             Configuration configuration,
             Path path,
             long start,
@@ -343,7 +344,7 @@ class ParquetHiveRecordCursor
                     readContext.getReadSupportMetadata());
 
             TaskAttemptContext taskContext = ContextUtil.newTaskAttemptContext(configuration, new TaskAttemptID());
-            ParquetRecordReader<Void> realReader = new PrestoParquetRecordReader(readSupport);
+            ParquetRecordReader<Optional<Object>> realReader = new PrestoParquetRecordReader(readSupport);
             realReader.initialize(split, taskContext);
             return realReader;
         }
@@ -357,7 +358,7 @@ class ParquetHiveRecordCursor
     }
 
     public class PrestoParquetRecordReader
-            extends ParquetRecordReader<Void>
+            extends ParquetRecordReader<Optional<Object>>
     {
         public PrestoParquetRecordReader(PrestoReadSupport readSupport)
         {
@@ -366,7 +367,7 @@ class ParquetHiveRecordCursor
     }
 
     public final class PrestoReadSupport
-            extends ReadSupport<Void>
+            extends ReadSupport<Optional<Object>>
     {
         private final boolean useParquetColumnNames;
         private final List<HiveColumnHandle> columns;
@@ -429,7 +430,7 @@ class ParquetHiveRecordCursor
         }
 
         @Override
-        public RecordMaterializer<Void> prepareForRead(
+        public RecordMaterializer<Optional<Object>> prepareForRead(
                 Configuration configuration,
                 Map<String, String> keyValueMetaData,
                 MessageType fileSchema,
@@ -455,7 +456,7 @@ class ParquetHiveRecordCursor
     }
 
     private static class ParquetRecordConverter
-            extends RecordMaterializer<Void>
+            extends RecordMaterializer<Optional<Object>>
     {
         private final ParquetGroupConverter groupConverter;
 
@@ -465,9 +466,9 @@ class ParquetHiveRecordCursor
         }
 
         @Override
-        public Void getCurrentRecord()
+        public Optional<Object> getCurrentRecord()
         {
-            return null;
+            return Optional.empty();
         }
 
         @Override
