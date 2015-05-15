@@ -26,25 +26,27 @@ import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class ShardMetadata
 {
     private final long shardId;
     private final UUID shardUuid;
     private final long rowCount;
-    private final long dataSize;
+    private final long compressedSize;
+    private final long uncompressedSize;
 
-    public ShardMetadata(long shardId, UUID shardUuid, long rowCount, long dataSize)
+    public ShardMetadata(long shardId, UUID shardUuid, long rowCount, long compressedSize, long uncompressedSize)
     {
         checkArgument(shardId > 0, "shardId must be > 0");
         checkArgument(rowCount >= 0, "rowCount must be >= 0");
-        checkArgument(dataSize >= 0, "dataSize must be >= 0");
+        checkArgument(compressedSize >= 0, "compressedSize must be >= 0");
+        checkArgument(uncompressedSize >= 0, "uncompressedSize must be >= 0");
 
         this.shardId = shardId;
         this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
         this.rowCount = rowCount;
-        this.dataSize = dataSize;
+        this.compressedSize = compressedSize;
+        this.uncompressedSize = uncompressedSize;
     }
 
     public UUID getShardUuid()
@@ -62,9 +64,14 @@ public class ShardMetadata
         return rowCount;
     }
 
-    public long getDataSize()
+    public long getCompressedSize()
     {
-        return dataSize;
+        return compressedSize;
+    }
+
+    public long getUncompressedSize()
+    {
+        return uncompressedSize;
     }
 
     @Override
@@ -74,7 +81,8 @@ public class ShardMetadata
                 .add("shardId", shardId)
                 .add("shardUuid", shardUuid)
                 .add("rowCount", rowCount)
-                .add("dataSize", new DataSize(dataSize, BYTE).convertToMostSuccinctDataSize())
+                .add("compressedSize", DataSize.succinctBytes(compressedSize))
+                .add("uncompressedSize", DataSize.succinctBytes(uncompressedSize))
                 .toString();
     }
 
@@ -93,13 +101,14 @@ public class ShardMetadata
         return Objects.equals(this.shardId, that.shardId) &&
                 Objects.equals(this.shardUuid, that.shardUuid) &&
                 Objects.equals(this.rowCount, that.rowCount) &&
-                Objects.equals(this.dataSize, that.dataSize);
+                Objects.equals(this.compressedSize, that.compressedSize) &&
+                Objects.equals(this.uncompressedSize, that.uncompressedSize);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(shardId, shardUuid, rowCount, dataSize);
+        return Objects.hash(shardId, shardUuid, rowCount, compressedSize, uncompressedSize);
     }
 
     public static class Mapper
@@ -113,7 +122,8 @@ public class ShardMetadata
                     r.getLong("shard_id"),
                     uuidFromBytes(r.getBytes("shard_uuid")),
                     r.getLong("row_count"),
-                    r.getLong("data_size"));
+                    r.getLong("compressed_size"),
+                    r.getLong("uncompressed_size"));
         }
     }
 }

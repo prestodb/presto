@@ -46,7 +46,8 @@ public interface ShardManagerDao
             "  table_id BIGINT NOT NULL,\n" +
             "  create_time DATETIME NOT NULL,\n" +
             "  row_count BIGINT NOT NULL,\n" +
-            "  data_size BIGINT NOT NULL,\n" +
+            "  compressed_size BIGINT NOT NULL,\n" +
+            "  uncompressed_size BIGINT NOT NULL,\n" +
             "  UNIQUE (shard_uuid)\n" +
             ")")
     void createTableShards();
@@ -69,14 +70,15 @@ public interface ShardManagerDao
     @SqlUpdate("INSERT INTO nodes (node_identifier) VALUES (:nodeIdentifier)")
     void insertNode(@Bind("nodeIdentifier") String nodeIdentifier);
 
-    @SqlUpdate("INSERT INTO shards (shard_uuid, table_id, create_time, row_count, data_size)\n" +
-            "VALUES (:shardUuid, :tableId, CURRENT_TIMESTAMP, :rowCount, :dataSize)")
+    @SqlUpdate("INSERT INTO shards (shard_uuid, table_id, create_time, row_count, compressed_size, uncompressed_size)\n" +
+            "VALUES (:shardUuid, :tableId, CURRENT_TIMESTAMP, :rowCount, :compressedSize, :uncompressedSize)")
     @GetGeneratedKeys
     long insertShard(
             @Bind("shardUuid") UUID shardUuid,
             @Bind("tableId") long tableId,
             @Bind("rowCount") long rowCount,
-            @Bind("dataSize") long dataSize);
+            @Bind("compressedSize") long compressedSize,
+            @Bind("uncompressedSize") long uncompressedSize);
 
     @SqlUpdate("INSERT INTO shard_nodes (shard_id, node_id)\n" +
             "VALUES (:shardId, :nodeId)\n")
@@ -106,7 +108,7 @@ public interface ShardManagerDao
             "WHERE n.node_identifier = :nodeIdentifier")
     Set<UUID> getNodeShards(@Bind("nodeIdentifier") String nodeIdentifier);
 
-    @SqlQuery("SELECT s.shard_id, s.shard_uuid, s.row_count, s.data_size\n" +
+    @SqlQuery("SELECT s.shard_id, s.shard_uuid, s.row_count, s.compressed_size, s.uncompressed_size\n" +
             "FROM shards s\n" +
             "JOIN shard_nodes sn ON (s.shard_id = sn.shard_id)\n" +
             "JOIN nodes n ON (sn.node_id = n.node_id)\n" +
