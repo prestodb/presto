@@ -60,6 +60,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SubqueryExpression;
@@ -573,6 +574,43 @@ class RelationPlanner
         }
     }
 
+    private RelationPlan processAndCoerceIfNecessary(Relation node, Void context)
+    {
+        Type[] coerceToTypes = analysis.getRelationCoercion(node);
+
+        RelationPlan plan = node.accept(this, context);
+
+        if (coerceToTypes == null) {
+            return plan;
+        }
+
+        List<Symbol> oldSymbols = plan.getRoot().getOutputSymbols();
+        TupleDescriptor oldDescriptor = plan.getDescriptor().withOnlyVisibleFields();
+        checkArgument(coerceToTypes.length == oldSymbols.size());
+        ImmutableList.Builder<Symbol> newSymbols = new ImmutableList.Builder<>();
+        Field[] newFields = new Field[coerceToTypes.length];
+        ImmutableMap.Builder<Symbol, Expression> assignments = new ImmutableMap.Builder<>();
+        for (int i = 0; i < coerceToTypes.length; i++) {
+            Symbol inputSymbol = oldSymbols.get(i);
+            Type inputType = symbolAllocator.getTypes().get(inputSymbol);
+            Type outputType = coerceToTypes[i];
+            if (outputType != inputType) {
+                Cast cast = new Cast(new QualifiedNameReference(inputSymbol.toQualifiedName()), outputType.getTypeSignature().toString());
+                Symbol outputSymbol = symbolAllocator.newSymbol(cast, outputType);
+                assignments.put(outputSymbol, cast);
+                newSymbols.add(outputSymbol);
+            }
+            else {
+                assignments.put(inputSymbol, new QualifiedNameReference(inputSymbol.toQualifiedName()));
+                newSymbols.add(inputSymbol);
+            }
+            Field oldField = oldDescriptor.getFieldByIndex(i);
+            newFields[i] = new Field(oldField.getRelationAlias(), oldField.getName(), coerceToTypes[i], oldField.isHidden());
+        }
+        ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
+        return new RelationPlan(projectNode, new TupleDescriptor(newFields), newSymbols.build(), plan.getSampleWeight());
+    }
+
     @Override
     protected RelationPlan visitUnion(Union node, Void context)
     {
@@ -582,7 +620,7 @@ class RelationPlanner
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
         ImmutableListMultimap.Builder<Symbol, Symbol> symbolMapping = ImmutableListMultimap.builder();
         List<RelationPlan> subPlans = node.getRelations().stream()
-                .map(relation -> process(relation, context))
+                .map(relation -> processAndCoerceIfNecessary(relation, context))
                 .collect(toImmutableList());
 
         boolean hasSampleWeight = false;
