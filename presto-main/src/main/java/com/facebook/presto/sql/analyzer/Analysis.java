@@ -28,6 +28,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.base.Preconditions;
@@ -72,6 +73,7 @@ public class Analysis
     private final IdentityHashMap<Expression, Boolean> rowFieldReferences = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> types = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> coercions = new IdentityHashMap<>();
+    private final IdentityHashMap<Relation, Type[]> relationCoercions = new IdentityHashMap<>();
     private final IdentityHashMap<FunctionCall, FunctionInfo> functionInfo = new IdentityHashMap<>();
 
     private final IdentityHashMap<Field, ColumnHandle> columns = new IdentityHashMap<>();
@@ -141,6 +143,16 @@ public class Analysis
     {
         Preconditions.checkArgument(types.containsKey(expression), "Expression not analyzed: %s", expression);
         return types.get(expression);
+    }
+
+    public Type[] getRelationCoercion(Relation relation)
+    {
+        return relationCoercions.get(relation);
+    }
+
+    public void addRelationCoercion(Relation relation, Type[] types)
+    {
+        relationCoercions.put(relation, types);
     }
 
     public Type getCoercion(Expression expression)

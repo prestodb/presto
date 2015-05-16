@@ -371,12 +371,14 @@ public class TupleAnalyzer
 
         TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata, sqlParser, experimentalSyntaxEnabled);
 
-        // Use the first descriptor as the output descriptor for the UNION
-        TupleDescriptor outputDescriptor = analyzer.process(node.getRelations().get(0), context).withOnlyVisibleFields();
-
-        for (Relation relation : Iterables.skip(node.getRelations(), 1)) {
-            TupleDescriptor descriptor = analyzer.process(relation, context).withOnlyVisibleFields();
-            int outputFieldSize = outputDescriptor.getVisibleFields().size();
+        TupleDescriptor[] descriptors = node.getRelations().stream()
+                .map(relation -> analyzer.process(relation, context).withOnlyVisibleFields())
+                .toArray(TupleDescriptor[]::new);
+        Type[] outputFieldTypes = descriptors[0].getVisibleFields().stream()
+                .map(field -> field.getType())
+                .toArray(Type[]::new);
+        for (TupleDescriptor descriptor : descriptors) {
+            int outputFieldSize = outputFieldTypes.length;
             int descFieldSize = descriptor.getVisibleFields().size();
             if (outputFieldSize != descFieldSize) {
                 throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
@@ -385,18 +387,40 @@ public class TupleAnalyzer
                                             outputFieldSize, descFieldSize);
             }
             for (int i = 0; i < descriptor.getVisibleFields().size(); i++) {
-                Type outputFieldType = outputDescriptor.getFieldByIndex(i).getType();
                 Type descFieldType = descriptor.getFieldByIndex(i).getType();
-                if (!outputFieldType.equals(descFieldType)) {
+                Optional<Type> commonSuperType = FunctionRegistry.getCommonSuperType(outputFieldTypes[i], descFieldType);
+                if (!commonSuperType.isPresent()) {
                     throw new SemanticException(TYPE_MISMATCH,
                                                 node,
                                                 "column %d in union query has incompatible types: %s, %s",
-                                                i, outputFieldType.getDisplayName(), descFieldType.getDisplayName());
+                                                i, outputFieldTypes[i].getDisplayName(), descFieldType.getDisplayName());
+                }
+                outputFieldTypes[i] = commonSuperType.get();
+            }
+        }
+
+        Field[] outputDescriptorFields = new Field[outputFieldTypes.length];
+        TupleDescriptor firstDescriptor = descriptors[0].withOnlyVisibleFields();
+        for (int i = 0; i < outputFieldTypes.length; i++) {
+            Field oldField = firstDescriptor.getFieldByIndex(i);
+            outputDescriptorFields[i] = new Field(oldField.getRelationAlias(), oldField.getName(), outputFieldTypes[i], oldField.isHidden());
+        }
+        TupleDescriptor outputDescriptor = new TupleDescriptor(outputDescriptorFields);
+        analysis.setOutputDescriptor(node, outputDescriptor);
+
+        for (int i = 0; i < node.getRelations().size(); i++) {
+            Relation relation = node.getRelations().get(i);
+            TupleDescriptor descriptor = descriptors[i];
+            for (int j = 0; j < descriptor.getVisibleFields().size(); j++) {
+                Type outputFieldType = outputFieldTypes[j];
+                Type descFieldType = descriptor.getFieldByIndex(j).getType();
+                if (!outputFieldType.equals(descFieldType)) {
+                    analysis.addRelationCoercion(relation, outputFieldTypes);
+                    break;
                 }
             }
         }
 
-        analysis.setOutputDescriptor(node, outputDescriptor);
         return outputDescriptor;
     }
 

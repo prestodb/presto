@@ -53,7 +53,7 @@ public class Field
         return new Field(Optional.of(relationAlias), name, type, hidden);
     }
 
-    private Field(Optional<QualifiedName> relationAlias, Optional<String> name, Type type, boolean hidden)
+    public Field(Optional<QualifiedName> relationAlias, Optional<String> name, Type type, boolean hidden)
     {
         checkNotNull(relationAlias, "relationAlias is null");
         checkNotNull(name, "name is null");
