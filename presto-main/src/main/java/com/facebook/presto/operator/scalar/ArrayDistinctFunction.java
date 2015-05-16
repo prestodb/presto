@@ -17,7 +17,6 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.aggregation.SimpleTypedSet;
 import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -85,7 +84,7 @@ public final class ArrayDistinctFunction
             return array;
         }
 
-        TypedSet typedSet = new SimpleTypedSet(type, array.getPositionCount());
+        TypedSet typedSet = new TypedSet(type, array.getPositionCount());
         BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), array.getPositionCount());
         for (int i = 0; i < array.getPositionCount(); i++) {
             if (!typedSet.contains(array, i)) {

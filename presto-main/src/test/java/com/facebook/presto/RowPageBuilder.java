@@ -17,13 +17,18 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.util.List;
+import java.util.Map;
 
+import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -88,6 +93,30 @@ public class RowPageBuilder
         Class<?> javaType = type.getJavaType();
         if (value == null) {
             builder.appendNull();
+        }
+        else if (type.getTypeSignature().getBase().equals(StandardTypes.ARRAY) && value instanceof Iterable<?>) {
+            BlockBuilder subBlockBuilder = ((ArrayType) type).getElementType().createBlockBuilder(new BlockBuilderStatus(), 100);
+            for (Object subElement : (Iterable<?>) value) {
+                appendToBlockBuilder(type.getTypeParameters().get(0), subElement, subBlockBuilder);
+            }
+            type.writeObject(builder, subBlockBuilder);
+        }
+        else if (type.getTypeSignature().getBase().equals(StandardTypes.ROW) && value instanceof Iterable<?>) {
+            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus());
+            int field = 0;
+            for (Object subElement : (Iterable<?>) value) {
+                appendToBlockBuilder(type.getTypeParameters().get(field), subElement, subBlockBuilder);
+                field++;
+            }
+            type.writeObject(builder, subBlockBuilder);
+        }
+        else if (type.getTypeSignature().getBase().equals(StandardTypes.MAP) && value instanceof Map<?, ?>) {
+            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus());
+            for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+                appendToBlockBuilder(type.getTypeParameters().get(0), entry.getKey(), subBlockBuilder);
+                appendToBlockBuilder(type.getTypeParameters().get(1), entry.getValue(), subBlockBuilder);
+            }
+            type.writeObject(builder, subBlockBuilder);
         }
         else if (javaType == boolean.class) {
             type.writeBoolean(builder, (Boolean) value);

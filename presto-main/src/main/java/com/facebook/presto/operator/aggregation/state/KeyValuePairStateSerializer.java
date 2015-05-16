@@ -23,10 +23,12 @@ public class KeyValuePairStateSerializer
         implements AccumulatorStateSerializer<KeyValuePairsState>
 {
     private final MapType mapType;
+    private final boolean isMultiValue;
 
-    public KeyValuePairStateSerializer(Type keyType, Type valueType)
+    public KeyValuePairStateSerializer(Type keyType, Type valueType, boolean isMultiValue)
     {
         this.mapType = new MapType(keyType, valueType);
+        this.isMultiValue = isMultiValue;
     }
 
     @Override
@@ -50,7 +52,7 @@ public class KeyValuePairStateSerializer
     public void deserialize(Block block, int index, KeyValuePairsState state)
     {
         if (!block.isNull(index)) {
-            state.set(new KeyValuePairs(mapType.getObject(block, index), mapType.getKeyType(), mapType.getValueType()));
+            state.set(new KeyValuePairs(mapType.getObject(block, index), state.getKeyType(), state.getValueType(), isMultiValue));
         }
     }
 }
