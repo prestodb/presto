@@ -3470,6 +3470,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinConstantPropagation()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT x, y, COUNT(*)\n" +
+                "FROM (SELECT orderkey, 0 AS x FROM orders) a \n" +
+                "JOIN (SELECT orderkey, 1 AS y FROM orders) b \n" +
+                "ON a.orderkey = b.orderkey\n" +
+                "GROUP BY 1, 2");
+    }
+
+    @Test
     public void testAntiJoin()
             throws Exception
     {

@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
+import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -55,6 +56,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -250,8 +252,14 @@ class PropertyDerivations
         public ActualProperties visitJoin(JoinNode node, List<ActualProperties> inputProperties)
         {
             // TODO: include all equivalent columns in partitioning properties
-            // TODO: derive constants for right side
-            return inputProperties.get(0);
+            ActualProperties probeProperties = inputProperties.get(0);
+            ActualProperties buildProperties = inputProperties.get(1);
+            return ActualProperties.builderFrom(probeProperties)
+                    .constants(ImmutableMap.<Symbol, Object>builder()
+                            .putAll(probeProperties.getConstants())
+                            .putAll(buildProperties.getConstants())
+                            .build())
+                    .build();
         }
 
         @Override
@@ -264,7 +272,20 @@ class PropertyDerivations
         public ActualProperties visitIndexJoin(IndexJoinNode node, List<ActualProperties> inputProperties)
         {
             // TODO: include all equivalent columns in partitioning properties
-            return inputProperties.get(0);
+            ActualProperties probeProperties = inputProperties.get(0);
+            ActualProperties indexProperties = inputProperties.get(1);
+            return ActualProperties.builderFrom(probeProperties)
+                    .constants(ImmutableMap.<Symbol, Object>builder()
+                            .putAll(probeProperties.getConstants())
+                            .putAll(indexProperties.getConstants())
+                            .build())
+                    .build();
+        }
+
+        @Override
+        public ActualProperties visitIndexSource(IndexSourceNode node, List<ActualProperties> context)
+        {
+            return ActualProperties.undistributed();
         }
 
         public static Map<Symbol, Symbol> exchangeInputToOutput(ExchangeNode node, int sourceIndex)

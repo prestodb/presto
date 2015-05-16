@@ -495,4 +495,16 @@ public abstract class AbstractTestIndexedQueries
                 "  GROUP BY t1.a, t1.b, t2.orderkey) o\n" +
                 "  ON l.a = o.a AND l.b = o.b AND l.c = o.c AND l.d = o.d");
     }
+
+    @Test
+    public void testIndexJoinConstantPropagation()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT x, y, COUNT(*)\n" +
+                "FROM (SELECT orderkey, 0 AS x FROM orders) a \n" +
+                "JOIN (SELECT orderkey, 1 AS y FROM orders) b \n" +
+                "ON a.orderkey = b.orderkey\n" +
+                "GROUP BY 1, 2");
+    }
 }

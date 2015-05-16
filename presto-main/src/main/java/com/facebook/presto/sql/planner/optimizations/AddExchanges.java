@@ -41,6 +41,7 @@ import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
+import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -669,7 +670,7 @@ public class AddExchanges
             if (distributedJoins || node.getType() == FULL || node.getType() == RIGHT) {
                 // The implementation of full outer join only works if the data is hash partitioned. See LookupJoinOperators#buildSideOuterJoinUnvisitedPositions
 
-                left  = node.getLeft().accept(this, PreferredProperties.hashPartitioned(leftSymbols));
+                left = node.getLeft().accept(this, PreferredProperties.hashPartitioned(leftSymbols));
                 right = node.getRight().accept(this, PreferredProperties.hashPartitioned(rightSymbols));
 
                 // force partitioning
@@ -757,6 +758,8 @@ public class AddExchanges
             PlanWithProperties probeSource = node.getProbeSource().accept(this, PreferredProperties.derivePreferences(preferredProperties, ImmutableSet.copyOf(joinColumns), grouped(joinColumns)));
             ActualProperties probeProperties = probeSource.getProperties();
 
+            PlanWithProperties indexSource = node.getIndexSource().accept(this, PreferredProperties.any());
+
             // TODO: allow repartitioning if unpartitioned to increase parallelism
             if (distributedIndexJoins && probeProperties.isDistributed()) {
                 // Force partitioned exchange if we are not effectively partitioned on the join keys, or if the probe is currently executing as a single stream
@@ -772,7 +775,13 @@ public class AddExchanges
 
             // index side is really a nested-loops plan, so don't add exchanges
             PlanNode result = ChildReplacer.replaceChildren(node, ImmutableList.of(probeSource.getNode(), node.getIndexSource()));
-            return new PlanWithProperties(result, deriveProperties(result, probeSource.getProperties()));
+            return new PlanWithProperties(result, deriveProperties(result, ImmutableList.of(probeSource.getProperties(), indexSource.getProperties())));
+        }
+
+        @Override
+        public PlanWithProperties visitIndexSource(IndexSourceNode node, PreferredProperties context)
+        {
+            return new PlanWithProperties(node, ActualProperties.undistributed());
         }
 
         @Override
