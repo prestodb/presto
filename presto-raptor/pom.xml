@@ -18,18 +18,6 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-spi</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>slice</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>concurrent</artifactId>
         </dependency>
@@ -37,18 +25,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>json</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -145,6 +121,43 @@
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- Presto SPI -->
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spi</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <!-- for testing -->

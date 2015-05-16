@@ -33,12 +33,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-spi</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
             <artifactId>hadoop-cdh4</artifactId>
             <scope>provided</scope>
@@ -52,30 +46,6 @@
         <dependency>
             <groupId>org.apache.thrift</groupId>
             <artifactId>libthrift</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>slice</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -139,11 +109,6 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>annotations</artifactId>
         </dependency>
@@ -186,6 +151,43 @@
             <artifactId>snappy-java</artifactId>
             <version>1.0.5</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- Presto SPI -->
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spi</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <!-- for testing -->

@@ -22,14 +22,14 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-spi</artifactId>
-            <scope>provided</scope>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
         </dependency>
 
+        <!-- Presto SPI -->
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spi</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -40,14 +40,14 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
             <scope>provided</scope>
         </dependency>
 
