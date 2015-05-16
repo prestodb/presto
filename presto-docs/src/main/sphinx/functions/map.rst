@@ -31,4 +31,4 @@ Map Functions
 
     Returns all the values in the map ``x``.
 
-See also :func:`map_agg` for creating a map as an aggregation.
+See also :func:`map_agg` and :func:`multimap_agg` for creating a map as an aggregation.
