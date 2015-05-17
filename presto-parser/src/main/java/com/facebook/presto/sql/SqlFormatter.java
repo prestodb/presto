@@ -17,6 +17,8 @@ import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.Call;
+import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -738,6 +740,38 @@ public final class SqlFormatter
         {
             builder.append("RESET SESSION ")
                     .append(node.getName());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitCallArgument(CallArgument node, Integer indent)
+        {
+            if (node.getName().isPresent()) {
+                builder.append(node.getName().get())
+                        .append(" => ");
+            }
+            builder.append(formatExpression(node.getValue()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitCall(Call node, Integer indent)
+        {
+            builder.append("CALL ")
+                    .append(node.getName())
+                    .append("(");
+
+            Iterator<CallArgument> arguments = node.getArguments().iterator();
+            while (arguments.hasNext()) {
+                process(arguments.next(), indent);
+                if (arguments.hasNext()) {
+                    builder.append(", ");
+                }
+            }
+
+            builder.append(")");
 
             return null;
         }
