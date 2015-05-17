@@ -432,6 +432,11 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitCallArgument(CallArgument node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitTableElement(TableElement node, C context)
     {
         return visitNode(node, context);
@@ -478,6 +483,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitInsert(Insert node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitCall(Call node, C context)
     {
         return visitNode(node, context);
     }

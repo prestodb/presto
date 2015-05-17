@@ -195,6 +195,9 @@ public class TestStatementBuilder
         printStatement("commit work");
         printStatement("rollback");
         printStatement("rollback work");
+
+        printStatement("call foo()");
+        printStatement("call foo(123, a => 1, b => 'go', 456)");
     }
 
     @Test

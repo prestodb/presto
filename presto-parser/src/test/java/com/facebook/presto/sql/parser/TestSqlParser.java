@@ -21,6 +21,8 @@ import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.Call;
+import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -1227,6 +1229,18 @@ public class TestSqlParser
     {
         // note that toHexString() always outputs in upper case
         assertEquals(new BinaryLiteral("ab 01").toHexString(), "AB01");
+    }
+
+    @Test
+    public void testCall()
+            throws Exception
+    {
+        assertStatement("CALL foo()", new Call(QualifiedName.of("foo"), ImmutableList.of()));
+        assertStatement("CALL foo(123, a => 1, b => 'go', 456)", new Call(QualifiedName.of("foo"), ImmutableList.of(
+                        new CallArgument(new LongLiteral("123")),
+                        new CallArgument("a", new LongLiteral("1")),
+                        new CallArgument("b", new StringLiteral("go")),
+                        new CallArgument(new LongLiteral("456")))));
     }
 
     private static void assertCast(String type)

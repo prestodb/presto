@@ -46,6 +46,7 @@ statement
         ADD COLUMN column=tableElement                                 #addColumn
     | CREATE (OR REPLACE)? VIEW qualifiedName AS query                 #createView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
+    | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | EXPLAIN ('(' explainOption (',' explainOption)* ')')? statement  #explain
     | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE pattern=STRING)?  #showTables
     | SHOW SCHEMAS ((FROM | IN) identifier)?                           #showSchemas
@@ -351,6 +352,11 @@ levelOfIsolation
     | SERIALIZABLE                        #serializable
     ;
 
+callArgument
+    : expression                    #positionalArgument
+    | identifier '=>' expression    #namedArgument
+    ;
+
 qualifiedName
     : identifier ('.' identifier)*
     ;
@@ -389,6 +395,7 @@ nonReserved
     | NO | DATA
     | START | TRANSACTION | COMMIT | ROLLBACK | WORK | ISOLATION | LEVEL
     | SERIALIZABLE | REPEATABLE | COMMITTED | UNCOMMITTED | READ | WRITE | ONLY
+    | CALL
     ;
 
 normalForm
@@ -543,6 +550,7 @@ UNCOMMITTED: 'UNCOMMITTED';
 READ: 'READ';
 WRITE: 'WRITE';
 ONLY: 'ONLY';
+CALL: 'CALL';
 
 NORMALIZE: 'NORMALIZE';
 NFD : 'NFD';
