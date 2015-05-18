@@ -239,6 +239,14 @@ public class RaptorMetadata
     }
 
     @Override
+    public void renameColumn(ConnectorTableHandle tableHandle, ColumnHandle source, String target)
+    {
+        RaptorTableHandle table = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
+        RaptorColumnHandle sourceColumn = checkType(source, RaptorColumnHandle.class, "columnHandle");
+        dao.renameColumn(table.getTableId(), sourceColumn.getColumnId(), target);
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         ImmutableList.Builder<RaptorColumnHandle> columnHandles = ImmutableList.builder();

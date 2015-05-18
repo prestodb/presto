@@ -27,11 +27,4 @@ public class TestRaptorDistributedQueries
     {
         super(createRaptorQueryRunner(getTables()), createSampledSession());
     }
-
-    @Override
-    public void testRenameColumn()
-            throws Exception
-    {
-        // Raptor currently does not support rename column
-    }
 }
