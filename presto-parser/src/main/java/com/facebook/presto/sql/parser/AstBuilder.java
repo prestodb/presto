@@ -68,6 +68,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Row;
@@ -175,6 +176,12 @@ class AstBuilder
     public Node visitRenameTable(@NotNull SqlBaseParser.RenameTableContext context)
     {
         return new RenameTable(getQualifiedName(context.from), getQualifiedName(context.to));
+    }
+
+    @Override
+    public Node visitRenameColumn(@NotNull SqlBaseParser.RenameColumnContext context)
+    {
+        return new RenameColumn(getQualifiedName(context.tableName), context.from.getText(), context.to.getText());
     }
 
     @Override

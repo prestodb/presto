@@ -38,6 +38,7 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.SampledRelation;
@@ -618,6 +619,19 @@ public final class SqlFormatter
             builder.append("ALTER TABLE ")
                     .append(node.getSource())
                     .append(" RENAME TO ")
+                    .append(node.getTarget());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitRenameColumn(RenameColumn node, Integer context)
+        {
+            builder.append("ALTER TABLE ")
+                    .append(node.getTable())
+                    .append(" RENAME COLUMN ")
+                    .append(node.getSource())
+                    .append(" TO ")
                     .append(node.getTarget());
 
             return null;

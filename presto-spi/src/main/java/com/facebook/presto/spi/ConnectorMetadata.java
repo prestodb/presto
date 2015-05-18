@@ -21,6 +21,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+
 public interface ConnectorMetadata
 {
     /**
@@ -107,6 +109,14 @@ public interface ConnectorMetadata
      * Rename the specified table
      */
     void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName);
+
+    /**
+     * Rename the specified column
+     */
+    default void renameColumn(ConnectorTableHandle tableHandle, ColumnHandle source, String target)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming columns");
+    }
 
     /**
      * Begin the atomic creation of a table with data.

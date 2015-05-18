@@ -132,4 +132,14 @@ public class TestKafkaDistributed
             throws Exception
     {
     }
+
+    //
+    // Kafka connector does not table column.
+    //
+
+    @Override
+    public void testRenameColumn()
+            throws Exception
+    {
+    }
 }
