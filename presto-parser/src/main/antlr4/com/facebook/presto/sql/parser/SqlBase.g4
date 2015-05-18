@@ -36,6 +36,8 @@ statement
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
     | INSERT INTO qualifiedName query                                  #insertInto
     | ALTER TABLE from=qualifiedName RENAME TO to=qualifiedName        #renameTable
+    | ALTER TABLE tableName=qualifiedName
+        RENAME COLUMN from=identifier TO to=identifier                 #renameColumn
     | CREATE (OR REPLACE)? VIEW qualifiedName AS query                 #createView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | EXPLAIN ('(' explainOption (',' explainOption)* ')')? statement  #explain
@@ -320,7 +322,7 @@ number
     ;
 
 nonReserved
-    : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS | SESSION
+    : SHOW | TABLES | COLUMNS | COLUMN | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS | SESSION
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW | MAP
     | DATE | TIME | TIMESTAMP | INTERVAL
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
@@ -434,6 +436,7 @@ TABLES: 'TABLES';
 SCHEMAS: 'SCHEMAS';
 CATALOGS: 'CATALOGS';
 COLUMNS: 'COLUMNS';
+COLUMN: 'COLUMN';
 USE: 'USE';
 PARTITIONS: 'PARTITIONS';
 FUNCTIONS: 'FUNCTIONS';

@@ -34,4 +34,11 @@ public class TestHiveDistributedQueries
     {
         // Hive connector currently does not support insert
     }
+
+    @Override
+    public void testRenameColumn()
+            throws Exception
+    {
+        // Hive connector currently does not support rename column
+    }
 }

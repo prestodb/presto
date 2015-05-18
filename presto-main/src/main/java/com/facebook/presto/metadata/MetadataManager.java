@@ -409,6 +409,12 @@ public class MetadataManager
     }
 
     @Override
+    public void renameColumn(TableHandle tableHandle, ColumnHandle source, String target)
+    {
+        lookupConnectorFor(tableHandle).renameColumn(tableHandle.getConnectorHandle(), source, target);
+    }
+
+    @Override
     public void dropTable(TableHandle tableHandle)
     {
         lookupConnectorFor(tableHandle).dropTable(tableHandle.getConnectorHandle());
