@@ -32,7 +32,6 @@ import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.Charset;
-import java.text.MessageFormat;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -203,9 +202,7 @@ public class ApacheQueryHttpClient implements QueryHttpClient
         post.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZoneId());
         // In Java 6 we don't have toLanguageTag
         //String localeId = session.getLocale().toLanguageTag());
-        String localeId = MessageFormat.format("{0}-{1}",
-                session.getLocale().getLanguage(),
-                session.getLocale().getCountry());
+        String localeId = LocaleHelper.buildLanguageTag(session.getLocale());
         post.setHeader(PrestoHeaders.PRESTO_LANGUAGE, localeId);
         post.setHeader(USER_AGENT, userAgent);
         post.setConfig(requestConfig);
