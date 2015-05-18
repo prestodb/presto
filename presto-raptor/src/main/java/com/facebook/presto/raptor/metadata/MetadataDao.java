@@ -180,6 +180,14 @@ public interface MetadataDao
             @Bind("newSchemaName") String newSchemaName,
             @Bind("newTableName") String newTableName);
 
+    @SqlUpdate("UPDATE columns SET column_name = :target\n" +
+            "WHERE table_id = :tableId\n" +
+            "  AND column_id = :columnId")
+    void renameColumn(
+            @Bind("tableId") long tableId,
+            @Bind("columnId") long columnId,
+            @Bind("target") String target);
+
     @SqlUpdate("INSERT INTO views (catalog_name, schema_name, table_name, data)\n" +
             "VALUES (:catalogName, :schemaName, :tableName, :data)")
     void insertView(
