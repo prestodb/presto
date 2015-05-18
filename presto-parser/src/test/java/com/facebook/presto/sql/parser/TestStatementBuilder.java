@@ -153,6 +153,8 @@ public class TestStatementBuilder
         printStatement("alter table foo rename to bar");
         printStatement("alter table a.b.c rename to d.e.f");
 
+        printStatement("alter table a.b.c rename column x to y");
+
         printStatement("create table test (a boolean, b bigint, c double, d varchar, e timestamp)");
         printStatement("drop table test");
 

@@ -38,6 +38,13 @@ public class TestCassandraDistributed
     }
 
     @Override
+    public void testRenameColumn()
+            throws Exception
+    {
+        // Cassandra does not support renaming columns
+    }
+
+    @Override
     public void testView()
             throws Exception
     {

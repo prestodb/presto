@@ -128,6 +128,11 @@ public interface Metadata
     void renameTable(TableHandle tableHandle, QualifiedTableName newTableName);
 
     /**
+     * Rename the specified column.
+     */
+    void renameColumn(TableHandle tableHandle, ColumnHandle source, String target);
+
+    /**
      * Drops the specified table
      *
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid

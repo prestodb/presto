@@ -21,7 +21,6 @@ import com.facebook.presto.testing.QueryRunner;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -30,6 +29,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
@@ -72,11 +72,11 @@ public abstract class AbstractTestDistributedQueries
             throws Exception
     {
         MaterializedResult result = computeActual("SET SESSION foo = 'bar'");
-        assertTrue((Boolean) Iterables.getOnlyElement(result).getField(0));
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of("foo", "bar"));
 
         result = computeActual("SET SESSION foo.bar = 'baz'");
-        assertTrue((Boolean) Iterables.getOnlyElement(result).getField(0));
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of("foo.bar", "baz"));
     }
 
@@ -85,11 +85,11 @@ public abstract class AbstractTestDistributedQueries
             throws Exception
     {
         MaterializedResult result = computeActual(getSession(), "RESET SESSION foo");
-        assertTrue((Boolean) Iterables.getOnlyElement(result).getField(0));
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
         assertEquals(result.getResetSessionProperties(), ImmutableSet.of("foo"));
 
         result = computeActual(getSession(), "RESET SESSION connector.cheese");
-        assertTrue((Boolean) Iterables.getOnlyElement(result).getField(0));
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
         assertEquals(result.getResetSessionProperties(), ImmutableSet.of("connector.cheese"));
     }
 
@@ -165,6 +165,20 @@ public abstract class AbstractTestDistributedQueries
 
         assertFalse(queryRunner.tableExists(getSession(), "test_rename"));
         assertFalse(queryRunner.tableExists(getSession(), "test_rename_new"));
+    }
+
+    @Test
+    public void testRenameColumn()
+            throws Exception
+    {
+        assertQueryTrue("CREATE TABLE test_rename_column AS SELECT 123 x");
+
+        assertQueryTrue("ALTER TABLE test_rename_column RENAME COLUMN x TO y");
+        MaterializedResult materializedRows = computeActual("SELECT y FROM test_rename_column");
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123L);
+
+        assertQueryTrue("DROP TABLE test_rename_column");
+        assertFalse(queryRunner.tableExists(getSession(), "test_rename_column"));
     }
 
     @Test
