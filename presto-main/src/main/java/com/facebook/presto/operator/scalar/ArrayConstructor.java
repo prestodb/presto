@@ -158,7 +158,7 @@ public final class ArrayConstructor
                 .putVariable(valuesVariable);
 
         for (int i = 0; i < stackTypes.size(); i++) {
-            body.comment("values.add(arg" + i + ");")
+            body.comment("values.add(arg%d);", i)
                     .getVariable(valuesVariable)
                     .append(scope.getVariable("arg" + i));
             Class<?> stackType = stackTypes.get(i);

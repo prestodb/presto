@@ -159,13 +159,13 @@ public class PageProcessorCompiler
                     .getVariable(position);
 
             filterBlock.ifTrue()
-                    .comment("pageBuilder.getBlockBuilder(" + projectionIndex + ")")
+                    .comment("pageBuilder.getBlockBuilder(%d)", projectionIndex)
                     .append(pageBuilder)
                     .push(projectionIndex)
                     .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
 
             filterBlock.ifTrue()
-                    .comment("project_" + projectionIndex + "(session, block_" + inputChannels + ", position, blockBuilder)")
+                    .comment("project_%d(session, block_%s, position, blockBuilder)", projectionIndex, inputChannels)
                     .invokeVirtual(classDefinition.getType(),
                             "project_" + projectionIndex,
                             type(void.class),
