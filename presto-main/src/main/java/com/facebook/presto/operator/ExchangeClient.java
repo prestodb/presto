@@ -261,10 +261,6 @@ public class ExchangeClient
             }
         }
 
-        if (bufferBytes > maxBufferedBytes) {
-            return;
-        }
-
         long neededBytes = maxBufferedBytes - bufferBytes;
         if (neededBytes <= 0) {
             return;
