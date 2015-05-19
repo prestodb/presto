@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
@@ -318,8 +317,9 @@ class ParquetHiveRecordCursor
             List<BlockMetaData> blocks = parquetMetadata.getBlocks();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
 
-            PrestoReadSupport readSupport = new PrestoReadSupport(useParquetColumnNames, columns, fileMetaData.getSchema());
-            ReadContext readContext = readSupport.init(configuration, fileMetaData.getKeyValueMetaData(), fileMetaData.getSchema());
+            MessageType schema = fileMetaData.getSchema();
+            PrestoReadSupport readSupport = new PrestoReadSupport(useParquetColumnNames, columns, schema);
+            ReadContext readContext = readSupport.init(configuration, fileMetaData.getKeyValueMetaData(), schema);
 
             List<BlockMetaData> splitGroup = new ArrayList<>();
             long splitStart = start;
@@ -337,7 +337,7 @@ class ParquetHiveRecordCursor
                     null,
                     splitGroup,
                     readContext.getRequestedSchema().toString(),
-                    fileMetaData.getSchema().toString(),
+                    schema.toString(),
                     fileMetaData.getKeyValueMetaData(),
                     readContext.getReadSupportMetadata());
 
