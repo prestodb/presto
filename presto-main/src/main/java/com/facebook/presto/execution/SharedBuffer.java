@@ -123,8 +123,6 @@ public class SharedBuffer
         }
     }
 
-    private final long maxBufferedBytes;
-
     private final SettableFuture<OutputBuffers> finalOutputBuffers = SettableFuture.create();
 
     @GuardedBy("this")
@@ -143,6 +141,8 @@ public class SharedBuffer
     @GuardedBy("this")
     private final List<GetBufferResult> stateChangeListeners = new ArrayList<>();
 
+    private final SharedBufferMemoryManager memoryManager;
+
     public SharedBuffer(TaskId taskId, Executor executor, DataSize maxBufferSize)
     {
         checkNotNull(taskId, "taskId is null");
@@ -151,7 +151,7 @@ public class SharedBuffer
 
         checkNotNull(maxBufferSize, "maxBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
-        this.maxBufferedBytes = maxBufferSize.toBytes();
+        this.memoryManager = new SharedBufferMemoryManager(maxBufferSize.toBytes());
     }
 
     public void addStateChangeListener(StateChangeListener<BufferState> stateChangeListener)
@@ -210,18 +210,19 @@ public class SharedBuffer
             if (!namedBuffers.containsKey(bufferId)) {
                 checkState(state.get().canAddBuffers(), "Cannot add buffers to %s", SharedBuffer.class.getSimpleName());
                 PagePartitionFunction partitionFunction = entry.getValue();
+
                 int partition = 0;
                 if (partitionFunction instanceof HashPagePartitionFunction) {
                     partition = ((HashPagePartitionFunction) partitionFunction).getPartition();
                 }
-                int finalPartition = partition;
-                PartitionBuffer partitionBuffer = partitionToPageBuffer.computeIfAbsent(partition, k -> new PartitionBuffer(finalPartition, maxBufferedBytes));
+
+                PartitionBuffer partitionBuffer = createOrGetPartitionBuffer(partition);
                 NamedBuffer namedBuffer = new NamedBuffer(bufferId, partitionBuffer);
+
                 // the buffer may have been aborted before the creation message was received
                 if (abortedBuffers.contains(bufferId)) {
                     namedBuffer.abort();
                 }
-
                 namedBuffers.put(bufferId, namedBuffer);
                 Set<NamedBuffer> namedBuffers = partitionToNamedBuffer.computeIfAbsent(partition, k -> new HashSet<>());
                 namedBuffers.add(namedBuffer);
@@ -236,6 +237,12 @@ public class SharedBuffer
         }
 
         updateState();
+    }
+
+    private PartitionBuffer createOrGetPartitionBuffer(int partition)
+    {
+        checkState(Thread.holdsLock(this), "Thread must hold a lock on the %s", SharedBuffer.class.getSimpleName());
+        return partitionBuffers.computeIfAbsent(partition, k -> new PartitionBuffer(partition, memoryManager));
     }
 
     public synchronized ListenableFuture<?> enqueue(Page page)
@@ -253,7 +260,7 @@ public class SharedBuffer
             return immediateFuture(true);
         }
 
-        PartitionBuffer partitionBuffer = partitionToPageBuffer.computeIfAbsent(partition, k -> new PartitionBuffer(partition, maxBufferedBytes));
+        PartitionBuffer partitionBuffer = createOrGetPartitionBuffer(partition);
         ListenableFuture<?> result = partitionBuffer.enqueuePage(page);
         processPendingReads();
         updateState();

@@ -36,29 +36,29 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class PartitionBuffer
 {
-    private final long maxBufferedBytes;
     private final LinkedList<Page> masterBuffer = new LinkedList<>();
     private final BlockingQueue<QueuedPage> queuedPages = new LinkedBlockingQueue<>();
     private final AtomicLong pagesAdded = new AtomicLong(); // Number of pages added to the masterBuffer
     private final AtomicLong masterSequenceId = new AtomicLong();
     private final AtomicLong bufferedBytes = new AtomicLong();  // Bytes in the master buffer
     private final int partition;
+    private final SharedBufferMemoryManager memoryManager;
 
-    public PartitionBuffer(int partition, long maxBufferedBytes)
+    public PartitionBuffer(int partition, SharedBufferMemoryManager memoryManager)
     {
         checkArgument(partition >= 0, "partition must be >= 0");
-        checkArgument(maxBufferedBytes >= 0, "maxBufferedBytes must be >= 0");
         this.partition = partition;
-        this.maxBufferedBytes = maxBufferedBytes;
+        this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
     }
 
     public synchronized ListenableFuture<?> enqueuePage(Page page)
     {
-        if (bufferedBytes.get() < maxBufferedBytes) {
+        if (!memoryManager.isFull()) {
             addToMasterBuffer(page);
             return immediateFuture(true);
         }
@@ -78,7 +78,7 @@ public class PartitionBuffer
         for (Page p : pages) {
             bytesAdded += p.getSizeInBytes();
         }
-        bufferedBytes.addAndGet(bytesAdded);
+        updateMemoryUsage(bytesAdded);
     }
 
     public synchronized List<Page> getPages(DataSize maxSize, long sequenceId)
@@ -119,14 +119,15 @@ public class PartitionBuffer
                 pagesToRemove,
                 oldMasterSequenceId,
                 newSequenceId);
+        long bytesRemoved = 0;
         for (int i = 0; i < pagesToRemove; i++) {
             Page page = masterBuffer.removeFirst();
-            bufferedBytes.addAndGet(-page.getSizeInBytes());
+            bytesRemoved += page.getSizeInBytes();
         }
-        verify(bufferedBytes.get() >= 0);
+        updateMemoryUsage(-bytesRemoved);
 
         // refill buffer from queued pages
-        while (!queuedPages.isEmpty() && bufferedBytes.get() < maxBufferedBytes) {
+        while (!queuedPages.isEmpty() && !memoryManager.isFull()) {
             QueuedPage queuedPage = queuedPages.remove();
             addToMasterBuffer(queuedPage.getPage());
             queuedPage.getFuture().set(null);
@@ -137,7 +138,7 @@ public class PartitionBuffer
     {
         // clear the buffer
         masterBuffer.clear();
-        bufferedBytes.set(0);
+        updateMemoryUsage(-bufferedBytes.get());
         clearQueue();
     }
 
@@ -147,6 +148,13 @@ public class PartitionBuffer
             queuedPage.getFuture().set(null);
         }
         queuedPages.clear();
+    }
+
+    private void updateMemoryUsage(long bytesAdded)
+    {
+        bufferedBytes.addAndGet(bytesAdded);
+        memoryManager.updateMemoryUsage(bytesAdded);
+        verify(bufferedBytes.get() >= 0);
     }
 
     public long getPageCount()
