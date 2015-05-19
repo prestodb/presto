@@ -981,7 +981,7 @@ class ParquetHiveRecordCursor
                     columnName,
                     entryGroupType.getFieldName(1));
             checkArgument(entryGroupType.getType(0).isPrimitive(),
-                    "Expected MAP column '%s' entry field 0 to be primitive, but is named %s",
+                    "Expected MAP column '%s' entry field 0 to be primitive, but is %s",
                     columnName,
                     entryGroupType.getType(0));
 
