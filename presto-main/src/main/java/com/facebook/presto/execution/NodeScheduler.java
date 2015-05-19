@@ -20,7 +20,6 @@ import com.facebook.presto.spi.NodeManager;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -34,6 +33,7 @@ import javax.inject.Inject;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -52,6 +52,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class NodeScheduler
 {
+    private final String coordinatorNodeId;
     private final NodeManager nodeManager;
     private final AtomicLong scheduleLocal = new AtomicLong();
     private final AtomicLong scheduleRack = new AtomicLong();
@@ -68,6 +69,7 @@ public class NodeScheduler
     public NodeScheduler(NodeManager nodeManager, NodeSchedulerConfig config, NodeTaskMap nodeTaskMap)
     {
         this.nodeManager = nodeManager;
+        this.coordinatorNodeId = nodeManager.getCurrentNode().getNodeIdentifier();
         this.minCandidates = config.getMinCandidates();
         this.locationAwareScheduling = config.isLocationAwareSchedulingEnabled();
         this.includeCoordinator = config.isIncludeCoordinator();
@@ -170,15 +172,29 @@ public class NodeScheduler
         {
             checkArgument(limit > 0, "limit must be at least 1");
 
-            String coordinatorIdentifier = nodeManager.getCurrentNode().getNodeIdentifier();
-
-            FluentIterable<Node> nodes = FluentIterable.from(lazyShuffle(nodeMap.get().get().getNodesByHostAndPort().values()))
-                    .filter(node -> includeCoordinator || !coordinatorIdentifier.equals(node.getNodeIdentifier()));
+            List<Node> selected = new ArrayList<>(limit);
+            for (Node node : lazyShuffle(nodeMap.get().get().getNodesByHostAndPort().values())) {
+                if (includeCoordinator || !coordinatorNodeId.equals(node.getNodeIdentifier())) {
+                    selected.add(node);
+                }
+                if (selected.size() >= limit) {
+                    break;
+                }
+            }
 
             if (doubleScheduling) {
-                nodes = nodes.cycle();
+                // Cycle the nodes until we reach the limit
+                int uniqueNodes = selected.size();
+                int i = 0;
+                while (selected.size() < limit) {
+                    if (i >= uniqueNodes) {
+                        i = 0;
+                    }
+                    selected.add(selected.get(i));
+                    i++;
+                }
             }
-            return nodes.limit(limit).toList();
+            return selected;
         }
 
         /**
