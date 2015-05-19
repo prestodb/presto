@@ -44,6 +44,7 @@ import parquet.io.api.PrimitiveConverter;
 import parquet.io.api.RecordMaterializer;
 import parquet.schema.GroupType;
 import parquet.schema.MessageType;
+import parquet.schema.OriginalType;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -388,21 +389,13 @@ class ParquetHiveRecordCursor
                     }
                     else {
                         GroupType groupType = parquetType.asGroupType();
-                        switch (column.getTypeSignature().getBase()) {
-                            case StandardTypes.ARRAY:
-                                ParquetColumnConverter listConverter = new ParquetColumnConverter(new ParquetListConverter(groupType.getName(), groupType), i);
-                                converters.add(listConverter);
-                                break;
-                            case StandardTypes.MAP:
-                                ParquetColumnConverter mapConverter = new ParquetColumnConverter(new ParquetMapConverter(groupType.getName(), groupType), i);
-                                converters.add(mapConverter);
-                                break;
-                            case StandardTypes.ROW:
-                                ParquetColumnConverter rowConverter = new ParquetColumnConverter(new ParquetStructConverter(groupType.getName(), groupType), i);
-                                converters.add(rowConverter);
-                                break;
-                            default:
-                                throw new IllegalArgumentException("Group column " + groupType.getName() + " type " + groupType.getOriginalType() + " not supported");
+                        String groupTypeName = groupType.getName();
+                        GroupedConverter complexTypeConverter = getComplexTypeConverter(groupTypeName, groupType);
+                        if (complexTypeConverter != null) {
+                            converters.add(new ParquetColumnConverter(complexTypeConverter, i));
+                        }
+                        else {
+                            throw new IllegalArgumentException("Group column " + groupTypeName + " type " + groupType.getOriginalType() + " not supported");
                         }
                     }
                 }
@@ -646,17 +639,29 @@ class ParquetHiveRecordCursor
         if (type.isPrimitive()) {
             return new ParquetPrimitiveConverter();
         }
-        else if (type.getOriginalType() == LIST) {
+
+        BlockConverter complexTypeConverter = getComplexTypeConverter(columnName, type);
+        if (complexTypeConverter != null) {
+            return complexTypeConverter;
+        }
+
+        throw new IllegalArgumentException("Unsupported type " + type);
+    }
+
+    private static GroupedConverter getComplexTypeConverter(String columnName, parquet.schema.Type type)
+    {
+        OriginalType originalType = type.getOriginalType();
+        if (originalType == LIST) {
             return new ParquetListConverter(columnName, type.asGroupType());
         }
-        else if (type.getOriginalType() == MAP) {
+        else if (originalType == MAP) {
             return new ParquetMapConverter(columnName, type.asGroupType());
         }
-        else if (type.getOriginalType() == null) {
+        else if (originalType == null) {
             // struct does not have an original type
             return new ParquetStructConverter(columnName, type.asGroupType());
         }
-        throw new IllegalArgumentException("Unsupported type " + type);
+        return null;
     }
 
     private static class ParquetStructConverter
