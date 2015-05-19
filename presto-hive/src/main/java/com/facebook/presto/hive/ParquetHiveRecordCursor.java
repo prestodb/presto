@@ -17,13 +17,11 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
@@ -62,20 +60,20 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static parquet.schema.OriginalType.LIST;
-import static parquet.schema.OriginalType.MAP;
 import static parquet.schema.OriginalType.MAP_KEY_VALUE;
 
 class ParquetHiveRecordCursor
@@ -118,6 +116,7 @@ class ParquetHiveRecordCursor
         requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(columns, "columns is null");
 
+
         this.totalBytes = length;
 
         int size = columns.size();
@@ -135,50 +134,50 @@ class ParquetHiveRecordCursor
         this.nulls = new boolean[size];
         this.nullsRowDefault = new boolean[size];
 
-        for (int i = 0; i < columns.size(); i++) {
-            HiveColumnHandle column = columns.get(i);
-
-            names[i] = column.getName();
-            types[i] = typeManager.getType(column.getTypeSignature());
-
-            isPartitionColumn[i] = column.isPartitionKey();
-            nullsRowDefault[i] = !column.isPartitionKey();
-        }
-
-        this.recordReader = createParquetRecordReader(configuration, path, start, length, columns, useParquetColumnNames);
-
         // parse requested partition columns
         Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
         for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
             HiveColumnHandle column = columns.get(columnIndex);
-            if (column.isPartitionKey()) {
-                HivePartitionKey partitionKey = partitionKeysByName.get(column.getName());
-                checkArgument(partitionKey != null, "Unknown partition key %s", column.getName());
 
-                byte[] bytes = partitionKey.getValue().getBytes(UTF_8);
+            String columnName = column.getName();
+            Type type = typeManager.getType(column.getTypeSignature());
 
-                String name = names[columnIndex];
-                Type type = types[columnIndex];
+            names[columnIndex] = columnName;
+            types[columnIndex] = type;
+
+            boolean isPartitionKey = column.isPartitionKey();
+            isPartitionColumn[columnIndex] = isPartitionKey;
+            nullsRowDefault[columnIndex] = !isPartitionKey;
+
+            if (isPartitionKey) {
+                HivePartitionKey partitionKey = partitionKeysByName.get(columnName);
+                checkArgument(partitionKey != null, "Unknown partition key %s", columnName);
+
+                String partitionKeyValue = partitionKey.getValue();
+                byte[] bytes = partitionKeyValue.getBytes(UTF_8);
+
                 if (HiveUtil.isHiveNull(bytes)) {
                     nullsRowDefault[columnIndex] = true;
                 }
                 else if (type.equals(BOOLEAN)) {
-                    booleans[columnIndex] = booleanPartitionKey(partitionKey.getValue(), name);
+                    booleans[columnIndex] = booleanPartitionKey(partitionKeyValue, columnName);
                 }
                 else if (type.equals(BIGINT)) {
-                    longs[columnIndex] = bigintPartitionKey(partitionKey.getValue(), name);
+                    longs[columnIndex] = bigintPartitionKey(partitionKeyValue, columnName);
                 }
                 else if (type.equals(DOUBLE)) {
-                    doubles[columnIndex] = doublePartitionKey(partitionKey.getValue(), name);
+                    doubles[columnIndex] = doublePartitionKey(partitionKeyValue, columnName);
                 }
                 else if (type.equals(VARCHAR)) {
-                    slices[columnIndex] = Slices.wrappedBuffer(bytes);
+                    slices[columnIndex] = wrappedBuffer(bytes);
                 }
                 else {
-                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for partition key: %s", type.getDisplayName(), name));
+                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for partition key: %s", type.getDisplayName(), columnName));
                 }
             }
         }
+
+        this.recordReader = createParquetRecordReader(configuration, path, start, length, columns, useParquetColumnNames);
     }
 
     @Override
@@ -295,7 +294,7 @@ class ParquetHiveRecordCursor
     {
         if (types[fieldId].getJavaType() != javaType) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
-            throw new IllegalArgumentException(String.format("Expected field to be %s, actual %s (field %s)", javaType.getName(), types[fieldId].getJavaType().getName(), fieldId));
+            throw new IllegalArgumentException(format("Expected field to be %s, actual %s (field %s)", javaType.getName(), types[fieldId].getJavaType().getName(), fieldId));
         }
     }
 
@@ -331,8 +330,9 @@ class ParquetHiveRecordCursor
             List<BlockMetaData> blocks = parquetMetadata.getBlocks();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
 
-            PrestoReadSupport readSupport = new PrestoReadSupport(useParquetColumnNames, columns, fileMetaData.getSchema());
-            ReadContext readContext = readSupport.init(configuration, fileMetaData.getKeyValueMetaData(), fileMetaData.getSchema());
+            MessageType schema = fileMetaData.getSchema();
+            PrestoReadSupport readSupport = new PrestoReadSupport(useParquetColumnNames, columns, schema);
+            ReadContext readContext = readSupport.init(configuration, fileMetaData.getKeyValueMetaData(), schema);
 
             List<BlockMetaData> splitGroup = new ArrayList<>();
             long splitStart = start;
@@ -344,15 +344,13 @@ class ParquetHiveRecordCursor
                 }
             }
 
-            ParquetInputSplit split;
-
-            split = new ParquetInputSplit(path,
+            ParquetInputSplit split = new ParquetInputSplit(path,
                     splitStart,
                     splitLength,
                     null,
                     splitGroup,
                     readContext.getRequestedSchema().toString(),
-                    fileMetaData.getSchema().toString(),
+                    schema.toString(),
                     fileMetaData.getKeyValueMetaData(),
                     readContext.getReadSupportMetadata());
 
@@ -403,23 +401,7 @@ class ParquetHiveRecordCursor
                         converters.add(new ParquetPrimitiveColumnConverter(i));
                     }
                     else {
-                        GroupType groupType = parquetType.asGroupType();
-                        switch (column.getTypeSignature().getBase()) {
-                            case ARRAY:
-                                ParquetColumnConverter listConverter = new ParquetColumnConverter(new ParquetListConverter(types[i], groupType.getName(), groupType), i);
-                                converters.add(listConverter);
-                                break;
-                            case StandardTypes.MAP:
-                                ParquetColumnConverter mapConverter = new ParquetColumnConverter(new ParquetMapConverter(types[i], groupType.getName(), groupType), i);
-                                converters.add(mapConverter);
-                                break;
-                            case ROW:
-                                ParquetColumnConverter rowConverter = new ParquetColumnConverter(new ParquetStructConverter(types[i], groupType.getName(), groupType), i);
-                                converters.add(rowConverter);
-                                break;
-                            default:
-                                throw new IllegalArgumentException("Group column " + groupType.getName() + " type " + groupType.getOriginalType() + " not supported");
-                        }
+                        converters.add(new ParquetColumnConverter(createGroupConverter(types[i], parquetType.getName(), parquetType), i));
                     }
                 }
             }
@@ -588,7 +570,7 @@ class ParquetHiveRecordCursor
         public void addBinary(Binary value)
         {
             nulls[fieldIndex] = false;
-            slices[fieldIndex] = Slices.wrappedBuffer(value.getBytes());
+            slices[fieldIndex] = wrappedBuffer(value.getBytes());
         }
 
         @Override
@@ -657,22 +639,28 @@ class ParquetHiveRecordCursor
         public abstract Block getBlock();
     }
 
-    private static BlockConverter createConverter(Type prestoType, String columnName, parquet.schema.Type type)
+    private static BlockConverter createConverter(Type prestoType, String columnName, parquet.schema.Type parquetType)
     {
-        if (type.isPrimitive()) {
+        if (parquetType.isPrimitive()) {
             return new ParquetPrimitiveConverter();
         }
-        else if (type.getOriginalType() == LIST) {
-            return new ParquetListConverter(prestoType, columnName, type.asGroupType());
+
+        return createGroupConverter(prestoType, columnName, parquetType);
+    }
+
+    private static GroupedConverter createGroupConverter(Type prestoType, String columnName, parquet.schema.Type parquetType)
+    {
+        GroupType groupType = parquetType.asGroupType();
+        switch (prestoType.getTypeSignature().getBase()) {
+            case ARRAY:
+                return new ParquetListConverter(prestoType, columnName, groupType);
+            case MAP:
+                return new ParquetMapConverter(prestoType, columnName, groupType);
+            case ROW:
+                return new ParquetStructConverter(prestoType, columnName, groupType);
+            default:
+                throw new IllegalArgumentException("Column " + columnName + " type " + parquetType.getOriginalType() + " not supported");
         }
-        else if (type.getOriginalType() == MAP) {
-            return new ParquetMapConverter(prestoType, columnName, type.asGroupType());
-        }
-        else if (type.getOriginalType() == null) {
-            // struct does not have an original type
-            return new ParquetStructConverter(prestoType, columnName, type.asGroupType());
-        }
-        throw new IllegalArgumentException("Unsupported type " + type);
     }
 
     private static class ParquetStructConverter
@@ -1033,7 +1021,7 @@ class ParquetHiveRecordCursor
 
         public ParquetMapEntryConverter(Type prestoType, String columnName, GroupType entryType)
         {
-            checkArgument(StandardTypes.MAP.equals(prestoType.getTypeSignature().getBase()));
+            checkArgument(MAP.equals(prestoType.getTypeSignature().getBase()));
             // original version of parquet used null for entry due to a bug
             if (entryType.getOriginalType() != null) {
                 checkArgument(entryType.getOriginalType() == MAP_KEY_VALUE,
@@ -1057,7 +1045,7 @@ class ParquetHiveRecordCursor
                     columnName,
                     entryGroupType.getFieldName(1));
             checkArgument(entryGroupType.getType(0).isPrimitive(),
-                    "Expected MAP column '%s' entry field 0 to be primitive, but is named %s",
+                    "Expected MAP column '%s' entry field 0 to be primitive, but is %s",
                     columnName,
                     entryGroupType.getType(0));
 
@@ -1109,10 +1097,6 @@ class ParquetHiveRecordCursor
     {
         private BlockBuilder builder;
         private boolean wroteValue;
-
-        public ParquetPrimitiveConverter()
-        {
-        }
 
         @Override
         public void beforeValue(BlockBuilder builder)
@@ -1183,7 +1167,7 @@ class ParquetHiveRecordCursor
         @Override
         public void addBinary(Binary value)
         {
-            VARBINARY.writeSlice(builder, Slices.wrappedBuffer(value.getBytes()));
+            VARBINARY.writeSlice(builder, wrappedBuffer(value.getBytes()));
             wroteValue = true;
         }
 
