@@ -242,14 +242,30 @@ public class TestSharedBuffer
     }
 
     @Test
+    public void testSharedBufferFull()
+            throws Exception
+    {
+        int firstPartition = 0;
+        int secondPartition = 1;
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(2));
+
+        // Add two pages, buffer is full
+        addPage(sharedBuffer, createPage(1), firstPartition);
+        addPage(sharedBuffer, createPage(2), secondPartition);
+
+        // third page is blocked
+        enqueuePage(sharedBuffer, createPage(3), secondPartition);
+    }
+
+    @Test
     public void testSimplePartitioned()
             throws Exception
     {
         int firstPartition = 0;
         int secondPartition = 1;
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(10));
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(20));
 
-        // add three items
+        // add three items to each buffer
         for (int i = 0; i < 3; i++) {
             addPage(sharedBuffer, createPage(i), firstPartition);
             addPage(sharedBuffer, createPage(i), secondPartition);
@@ -321,12 +337,12 @@ public class TestSharedBuffer
         assertQueueState(sharedBuffer, FIRST, firstPartition, 8, 3, 8, 11, 0);
         assertQueueState(sharedBuffer, SECOND, secondPartition, 0, 10, 0, 10, 0);
 
-        // we should be able to add 3 more pages (the third will be queued)
+        // we should be able to add 3 more pages
         // although the first queue fetched the 4th page, the page has not been acknowledged yet
         addPage(sharedBuffer, createPage(11), firstPartition);
         addPage(sharedBuffer, createPage(12), firstPartition);
-        future = enqueuePage(sharedBuffer, createPage(13), firstPartition);
-        assertQueueState(sharedBuffer, FIRST, firstPartition, 10, 3, 10, 13, 1);
+        addPage(sharedBuffer, createPage(13), firstPartition);
+        assertQueueState(sharedBuffer, FIRST, firstPartition, 11, 3, 11, 14, 0);
         assertQueueState(sharedBuffer, SECOND, secondPartition, 0, 10, 0, 10, 0);
 
         // remove a page from the first queue
