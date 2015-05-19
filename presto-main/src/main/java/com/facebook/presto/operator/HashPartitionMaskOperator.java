@@ -125,7 +125,6 @@ public class HashPartitionMaskOperator
         this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
         this.maskChannels = maskChannels;
 
-        checkArgument(partitionChannels.length >= 0, "partitionChannels is empty");
         checkNotNull(hashChannel, "hashChannel is null");
 
         ImmutableList.Builder<Type> distinctTypes = ImmutableList.builder();
