@@ -16,7 +16,9 @@ package com.facebook.presto.memory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
+import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.ObjectNames;
 
@@ -34,6 +36,7 @@ public final class LocalMemoryManager
 {
     public static final MemoryPoolId GENERAL_POOL = new MemoryPoolId("general");
     public static final MemoryPoolId RESERVED_POOL = new MemoryPoolId("reserved");
+    private static final Logger log = Logger.get(LocalMemoryManager.class);
 
     private final DataSize maxMemory;
     private final MBeanExporter exporter;
@@ -79,8 +82,13 @@ public final class LocalMemoryManager
     private static MemoryPool createPool(MemoryPoolId id, DataSize size, MBeanExporter exporter, boolean enableBlocking)
     {
         MemoryPool pool = new MemoryPool(id, size, enableBlocking);
-        String objectName = ObjectNames.builder(MemoryPool.class, pool.getId().toString()).build();
-        exporter.export(objectName, pool);
+        try {
+            String objectName = ObjectNames.builder(MemoryPool.class, pool.getId().toString()).build();
+            exporter.export(objectName, pool);
+        }
+        catch (JmxException e) {
+            log.warn(e, "Unable to export memory pool %s", id);
+        }
         return pool;
     }
 
@@ -89,7 +97,12 @@ public final class LocalMemoryManager
     {
         for (MemoryPool pool : pools.values()) {
             String objectName = ObjectNames.builder(MemoryPool.class, pool.getId().toString()).build();
-            exporter.unexport(objectName);
+            try {
+                exporter.unexport(objectName);
+            }
+            catch (JmxException e) {
+                log.warn(e, "Unable to unexport memory pool %s", pool.getId());
+            }
         }
     }
 }
