@@ -330,9 +330,7 @@ class ParquetHiveRecordCursor
                 }
             }
 
-            ParquetInputSplit split;
-
-            split = new ParquetInputSplit(path,
+            ParquetInputSplit split = new ParquetInputSplit(path,
                     splitStart,
                     splitLength,
                     null,
