@@ -26,6 +26,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 
@@ -44,11 +45,13 @@ public final class LocalMemoryManager
         this.exporter = requireNonNull(exporter, "exporter is null");
         requireNonNull(config, "config is null");
         requireNonNull(systemMemoryConfig, "systemMemoryConfig is null");
-        maxMemory = new DataSize(Runtime.getRuntime().maxMemory() - systemMemoryConfig.getReservedSystemMemory().toBytes(), BYTE);
+        long maxHeap = Runtime.getRuntime().maxMemory();
+        checkArgument(systemMemoryConfig.getReservedSystemMemory().toBytes() < maxHeap, "Reserved memory %s is greater than available heap %s", systemMemoryConfig.getReservedSystemMemory(), new DataSize(maxHeap, BYTE));
+        maxMemory = new DataSize(maxHeap - systemMemoryConfig.getReservedSystemMemory().toBytes(), BYTE);
 
         ImmutableMap.Builder<MemoryPoolId, MemoryPool> builder = ImmutableMap.builder();
         builder.put(RESERVED_POOL, createPool(RESERVED_POOL, config.getMaxQueryMemoryPerNode(), exporter, config.isClusterMemoryManagerEnabled()));
-        DataSize generalPoolSize = new DataSize(maxMemory.toBytes() - config.getMaxQueryMemoryPerNode().toBytes(), BYTE);
+        DataSize generalPoolSize = new DataSize(Math.max(0, maxMemory.toBytes() - config.getMaxQueryMemoryPerNode().toBytes()), BYTE);
         builder.put(GENERAL_POOL, createPool(GENERAL_POOL, generalPoolSize, exporter, config.isClusterMemoryManagerEnabled()));
         this.pools = builder.build();
     }
