@@ -1039,10 +1039,6 @@ class ParquetHiveRecordCursor
         private BlockBuilder builder;
         private boolean wroteValue;
 
-        public ParquetPrimitiveConverter()
-        {
-        }
-
         @Override
         public void beforeValue(BlockBuilder builder)
         {
