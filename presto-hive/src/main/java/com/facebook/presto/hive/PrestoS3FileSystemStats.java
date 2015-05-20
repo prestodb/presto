@@ -41,6 +41,9 @@ public class PrestoS3FileSystemStats
     private final CounterStat socketTimeoutExceptions = new CounterStat();
     private final CounterStat getObjectErrors = new CounterStat();
     private final CounterStat getMetadataErrors = new CounterStat();
+    private final CounterStat getObjectRetries = new CounterStat();
+    private final CounterStat getMetadataRetries = new CounterStat();
+    private final CounterStat readRetries = new CounterStat();
 
     // see AWSRequestMetrics
     private final CounterStat awsRequestCount = new CounterStat();
@@ -174,6 +177,27 @@ public class PrestoS3FileSystemStats
         return awsRequestTime;
     }
 
+    @Managed
+    @Nested
+    public CounterStat getGetObjectRetries()
+    {
+        return getObjectRetries;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getGetMetadataRetries()
+    {
+        return getMetadataRetries;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getReadRetries()
+    {
+        return readRetries;
+    }
+
     public void connectionOpened()
     {
         activeConnections.update(1);
@@ -263,5 +287,20 @@ public class PrestoS3FileSystemStats
     public void addAwsRequestTime(Duration duration)
     {
         awsRequestTime.add(duration);
+    }
+
+    public void newGetObjectRetry()
+    {
+        getObjectRetries.update(1);
+    }
+
+    public void newGetMetadataRetry()
+    {
+        getMetadataRetries.update(1);
+    }
+
+    public void newReadRetry()
+    {
+        readRetries.update(1);
     }
 }
