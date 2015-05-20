@@ -128,7 +128,7 @@ public class PrestoS3FileSystem
     private Path workingDirectory;
     private AmazonS3 s3;
     private File stagingDirectory;
-    private int maxClientRetries;
+    private int maxAttempts;
     private Duration maxBackoffTime;
     private Duration maxRetryTime;
     private boolean useInstanceCredentials;
@@ -147,7 +147,7 @@ public class PrestoS3FileSystem
 
         HiveClientConfig defaults = new HiveClientConfig();
         this.stagingDirectory = new File(conf.get(S3_STAGING_DIRECTORY, defaults.getS3StagingDirectory().toString()));
-        this.maxClientRetries = conf.getInt(S3_MAX_CLIENT_RETRIES, defaults.getS3MaxClientRetries());
+        this.maxAttempts = conf.getInt(S3_MAX_CLIENT_RETRIES, defaults.getS3MaxClientRetries()) + 1;
         this.maxBackoffTime = Duration.valueOf(conf.get(S3_MAX_BACKOFF_TIME, defaults.getS3MaxBackoffTime().toString()));
         this.maxRetryTime = Duration.valueOf(conf.get(S3_MAX_RETRY_TIME, defaults.getS3MaxRetryTime().toString()));
         int maxErrorRetries = conf.getInt(S3_MAX_ERROR_RETRIES, defaults.getS3MaxErrorRetries());
@@ -275,7 +275,7 @@ public class PrestoS3FileSystem
     {
         return new FSDataInputStream(
                 new BufferedFSInputStream(
-                        new PrestoS3InputStream(s3, uri.getHost(), path, maxClientRetries, maxBackoffTime, maxRetryTime),
+                        new PrestoS3InputStream(s3, uri.getHost(), path, maxAttempts, maxBackoffTime, maxRetryTime),
                         bufferSize));
     }
 
@@ -473,7 +473,7 @@ public class PrestoS3FileSystem
     {
         try {
             return retry()
-                    .maxAttempts(maxClientRetries)
+                    .maxAttempts(maxAttempts)
                     .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, maxRetryTime, 2.0)
                     .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
                     .run("getS3ObjectMetadata", () -> {
@@ -574,7 +574,7 @@ public class PrestoS3FileSystem
         private final AmazonS3 s3;
         private final String host;
         private final Path path;
-        private final int maxClientRetry;
+        private final int maxAttempts;
         private final Duration maxBackoffTime;
         private final Duration maxRetryTime;
 
@@ -583,14 +583,14 @@ public class PrestoS3FileSystem
         private long streamPosition;
         private long nextReadPosition;
 
-        public PrestoS3InputStream(AmazonS3 s3, String host, Path path, int maxClientRetry, Duration maxBackoffTime, Duration maxRetryTime)
+        public PrestoS3InputStream(AmazonS3 s3, String host, Path path, int maxAttempts, Duration maxBackoffTime, Duration maxRetryTime)
         {
             this.s3 = checkNotNull(s3, "s3 is null");
             this.host = checkNotNull(host, "host is null");
             this.path = checkNotNull(path, "path is null");
 
-            checkArgument(maxClientRetry >= 0, "maxClientRetries cannot be negative");
-            this.maxClientRetry = maxClientRetry;
+            checkArgument(maxAttempts >= 0, "maxAttempts cannot be negative");
+            this.maxAttempts = maxAttempts;
             this.maxBackoffTime = checkNotNull(maxBackoffTime, "maxBackoffTime is null");
             this.maxRetryTime = checkNotNull(maxRetryTime, "maxRetryTime is null");
         }
@@ -631,7 +631,7 @@ public class PrestoS3FileSystem
         {
             try {
                 int bytesRead = retry()
-                        .maxAttempts(maxClientRetry)
+                        .maxAttempts(maxAttempts)
                         .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, maxRetryTime, 2.0)
                         .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
                         .run("readStream", () -> {
@@ -714,7 +714,7 @@ public class PrestoS3FileSystem
         {
             try {
                 return retry()
-                        .maxAttempts(maxClientRetry)
+                        .maxAttempts(maxAttempts)
                         .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, maxRetryTime, 2.0)
                         .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
                         .run("getS3Object", () -> {
