@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.collect.Iterables;
-
 public class QualifiedNameReference
         extends Expression
 {
