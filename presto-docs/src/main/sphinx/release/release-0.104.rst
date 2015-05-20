@@ -15,5 +15,5 @@ Hive Changes
 ------------
 
 * Upgrade to Parquet 1.6.0.
-* Collect request time in ``PrestoS3FileSystem``.
+* Collect request time and retry statistics in ``PrestoS3FileSystem``.
 * Fix retry attempt counting for S3.
