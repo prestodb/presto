@@ -3175,7 +3175,7 @@ public abstract class AbstractTestQueries
     public void testUnionWithProjectionPushDown()
             throws Exception
     {
-        assertQuery("SELECT day(ds), status FROM (SELECT orderdate ds, orderstatus status FROM orders UNION ALL SELECT shipdate ds, linestatus status FROM lineitem)");
+        assertQuery("SELECT key + 5, status FROM (SELECT orderkey key, orderstatus status FROM orders UNION ALL SELECT orderkey key, linestatus status FROM lineitem)");
     }
 
     @Test
