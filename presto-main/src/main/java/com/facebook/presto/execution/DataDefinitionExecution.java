@@ -75,17 +75,15 @@ public class DataDefinitionExecution<T extends Statement>
     public void start()
     {
         try {
-            // transition to starting
-            if (!stateMachine.starting()) {
-                // query already started or finished
+            // transition to running
+            if (!stateMachine.transitionToRunning()) {
+                // query already running or finished
                 return;
             }
 
-            stateMachine.recordExecutionStart();
-
             task.execute(statement, session, metadata, stateMachine);
 
-            stateMachine.finished();
+            stateMachine.transitionToFinished();
         }
         catch (RuntimeException e) {
             fail(e);
@@ -108,7 +106,7 @@ public class DataDefinitionExecution<T extends Statement>
     @Override
     public void fail(Throwable cause)
     {
-        stateMachine.fail(cause);
+        stateMachine.transitionToFailed(cause);
     }
 
     @Override
