@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.redis;
 
-import com.facebook.presto.redis.decoder.RedisDecoderRegistry;
-import com.facebook.presto.redis.decoder.RedisFieldDecoder;
-import com.facebook.presto.redis.decoder.RedisRowDecoder;
+import com.facebook.presto.spi.DecodableColumnHandle;
+import com.facebook.presto.utils.decoder.DecoderRegistry;
+import com.facebook.presto.utils.decoder.FieldDecoder;
+import com.facebook.presto.utils.decoder.RowDecoder;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -37,11 +38,11 @@ public class RedisRecordSetProvider
 {
     private final RedisHandleResolver handleResolver;
     private final RedisJedisManager jedisManager;
-    private final RedisDecoderRegistry registry;
+    private final DecoderRegistry registry;
 
     @Inject
     public RedisRecordSetProvider(
-            RedisDecoderRegistry registry,
+            DecoderRegistry registry,
             RedisHandleResolver handleResolver,
             RedisJedisManager jedisManager)
     {
@@ -55,12 +56,12 @@ public class RedisRecordSetProvider
     {
         RedisSplit redisSplit = handleResolver.convertSplit(split);
 
-        ImmutableList.Builder<RedisColumnHandle> handleBuilder = ImmutableList.builder();
-        ImmutableMap.Builder<RedisColumnHandle, RedisFieldDecoder<?>> keyFieldDecoderBuilder = ImmutableMap.builder();
-        ImmutableMap.Builder<RedisColumnHandle, RedisFieldDecoder<?>> valueFieldDecoderBuilder = ImmutableMap.builder();
+        ImmutableList.Builder<DecodableColumnHandle> handleBuilder = ImmutableList.builder();
+        ImmutableMap.Builder<DecodableColumnHandle, FieldDecoder<?>> keyFieldDecoderBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<DecodableColumnHandle, FieldDecoder<?>> valueFieldDecoderBuilder = ImmutableMap.builder();
 
-        RedisRowDecoder keyDecoder = registry.getRowDecoder(redisSplit.getKeyDataFormat());
-        RedisRowDecoder valueDecoder = registry.getRowDecoder(redisSplit.getValueDataFormat());
+        RowDecoder keyDecoder = registry.getRowDecoder(redisSplit.getKeyDataFormat());
+        RowDecoder valueDecoder = registry.getRowDecoder(redisSplit.getValueDataFormat());
 
         for (ColumnHandle handle : columns) {
             RedisColumnHandle columnHandle = handleResolver.convertColumnHandle(handle);
@@ -68,7 +69,7 @@ public class RedisRecordSetProvider
 
             if (!columnHandle.isInternal()) {
                 if (columnHandle.isKeyDecoder()) {
-                    RedisFieldDecoder<?> fieldDecoder = registry.getFieldDecoder(
+                    FieldDecoder<?> fieldDecoder = registry.getFieldDecoder(
                             redisSplit.getKeyDataFormat(),
                             columnHandle.getType().getJavaType(),
                             columnHandle.getDataFormat());
@@ -76,7 +77,7 @@ public class RedisRecordSetProvider
                     keyFieldDecoderBuilder.put(columnHandle, fieldDecoder);
                 }
                 else {
-                    RedisFieldDecoder<?> fieldDecoder = registry.getFieldDecoder(
+                    FieldDecoder<?> fieldDecoder = registry.getFieldDecoder(
                             redisSplit.getValueDataFormat(),
                             columnHandle.getType().getJavaType(),
                             columnHandle.getDataFormat());
@@ -86,9 +87,9 @@ public class RedisRecordSetProvider
             }
         }
 
-        ImmutableList<RedisColumnHandle> handles = handleBuilder.build();
-        ImmutableMap<RedisColumnHandle, RedisFieldDecoder<?>> keyFieldDecoders = keyFieldDecoderBuilder.build();
-        ImmutableMap<RedisColumnHandle, RedisFieldDecoder<?>> valueFieldDecoders = valueFieldDecoderBuilder.build();
+        ImmutableList<DecodableColumnHandle> handles = handleBuilder.build();
+        ImmutableMap<DecodableColumnHandle, FieldDecoder<?>> keyFieldDecoders = keyFieldDecoderBuilder.build();
+        ImmutableMap<DecodableColumnHandle, FieldDecoder<?>> valueFieldDecoders = valueFieldDecoderBuilder.build();
 
         return new RedisRecordSet(redisSplit, jedisManager, handles, keyDecoder, valueDecoder, keyFieldDecoders, valueFieldDecoders);
     }

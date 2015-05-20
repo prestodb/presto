@@ -72,6 +72,11 @@ public class RedisJedisManager
         }
     }
 
+    public NodeManager getNodeManager()
+    {
+        return nodeManager;
+    }
+
     public RedisConnectorConfig getRedisConnectorConfig()
     {
         return redisConnectorConfig;

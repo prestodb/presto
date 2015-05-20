@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.redis;
 
-import com.facebook.presto.redis.decoder.RedisDecoderModule;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.databind.DeserializationContext;

@@ -13,30 +13,27 @@
  */
 package com.facebook.presto.redis;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPartition;
-import com.facebook.presto.spi.ConnectorPartitionResult;
-import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.FixedSplitSource;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Throwables;
+import com.facebook.presto.spi.FixedSplitSource;
+
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import redis.clients.jedis.Jedis;
+import com.google.common.base.Throwables;
 
 import javax.inject.Inject;
 import javax.inject.Named;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Redis specific implementation of {@link ConnectorSplitManager}.
@@ -67,36 +64,21 @@ public class RedisSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorSplitSource getSplits(ConnectorTableLayoutHandle layout)
     {
-        RedisTableHandle redisTableHandle = handleResolver.convertTableHandle(tableHandle);
+        RedisTableHandle redisTableHandle = handleResolver.convertLayout(layout).getTable();
 
         List<HostAddress> nodes = new ArrayList<>(redisConnectorConfig.getNodes());
         Collections.shuffle(nodes);
-        // redis connector has only one partition
-        List<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(
-                new RedisPartition(redisTableHandle.getSchemaName(),
-                        redisTableHandle.getTableName(),
-                        nodes));
-        // redis connector does not do any additional processing/filtering with the TupleDomain, so just return the whole TupleDomain
-        return new ConnectorPartitionResult(partitions, tupleDomain);
-    }
 
-    @Override
-    public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle tableHandle, List<ConnectorPartition> partitions)
-    {
-        RedisTableHandle redisTableHandle = handleResolver.convertTableHandle(tableHandle);
+        checkState(!nodes.isEmpty(), "No Redis nodes available");
         ImmutableList.Builder<ConnectorSplit> builder = ImmutableList.builder();
-
-        for (ConnectorPartition cp : partitions) {
-            checkState(cp instanceof RedisPartition, "Found an unknown partition type: %s", cp.getClass().getSimpleName());
-            RedisPartition partition = (RedisPartition) cp;
 
             long numberOfKeys = 1;
             // when Redis keys are provides in a zset, create multiple
             // splits by splitting zset in chunks
             if (redisTableHandle.getKeyDataFormat().equals("zset")) {
-                try (Jedis jedis = jedisManager.getJedisPool(partition.getPartitionNodes().get(0)).getResource()) {
+                try (Jedis jedis = jedisManager.getJedisPool(nodes.get(0)).getResource()) {
                     numberOfKeys = jedis.zcount(redisTableHandle.getKeyName(), "-inf", "+inf");
                 } catch (Exception e) {
                     throw Throwables.propagate(e);
@@ -116,18 +98,17 @@ public class RedisSplitManager
                 }
 
                 RedisSplit split = new RedisSplit(connectorId,
-                        partition.getSchemaName(),
-                        partition.getTableName(),
+                        redisTableHandle.getSchemaName(),
+                        redisTableHandle.getTableName(),
                         redisTableHandle.getKeyDataFormat(),
                         redisTableHandle.getValueDataFormat(),
                         redisTableHandle.getKeyName(),
                         startIndex,
                         endIndex,
-                        partition.getPartitionNodes());
+                        nodes);
 
                 builder.add(split);
             }
-        }
         return new FixedSplitSource(connectorId, builder.build());
     }
 }

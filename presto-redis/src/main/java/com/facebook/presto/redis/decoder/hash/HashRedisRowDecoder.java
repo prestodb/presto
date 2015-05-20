@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.redis.decoder.hash;
 
-import com.facebook.presto.redis.RedisColumnHandle;
-import com.facebook.presto.redis.RedisFieldValueProvider;
-import com.facebook.presto.redis.decoder.RedisFieldDecoder;
-import com.facebook.presto.redis.decoder.RedisRowDecoder;
+import com.facebook.presto.spi.DecodableColumnHandle;
+import com.facebook.presto.utils.decoder.FieldDecoder;
+import com.facebook.presto.utils.decoder.FieldValueProvider;
+import com.facebook.presto.utils.decoder.RowDecoder;
 
 import java.util.List;
 import java.util.Map;
@@ -28,7 +28,7 @@ import static com.google.common.base.Preconditions.checkState;
  * The row decoder for the Redis values that are stored in Hash format.
  */
 public class HashRedisRowDecoder
-        implements RedisRowDecoder
+        implements RowDecoder
 {
     public static final String NAME = "hash";
 
@@ -39,13 +39,13 @@ public class HashRedisRowDecoder
     }
 
     @Override
-    public boolean decodeRow(byte[] data, Map<String, String> dataMap, Set<RedisFieldValueProvider> fieldValueProviders, List<RedisColumnHandle> columnHandles, Map<RedisColumnHandle, RedisFieldDecoder<?>> fieldDecoders)
+    public boolean decodeRow(byte[] data, Map<String, String> dataMap, Set<FieldValueProvider> fieldValueProviders, List<DecodableColumnHandle> columnHandles, Map<DecodableColumnHandle, FieldDecoder<?>> fieldDecoders)
     {
         if (dataMap == null) {
             return false;
         }
 
-        for (RedisColumnHandle columnHandle : columnHandles) {
+        for (DecodableColumnHandle columnHandle : columnHandles) {
             if (columnHandle.isInternal()) {
                 continue;
             }
@@ -56,7 +56,7 @@ public class HashRedisRowDecoder
             String valueField = dataMap.get(mapping);
 
             @SuppressWarnings("unchecked")
-            RedisFieldDecoder<String> decoder = (RedisFieldDecoder<String>) fieldDecoders.get(columnHandle);
+            FieldDecoder<String> decoder = (FieldDecoder<String>) fieldDecoders.get(columnHandle);
 
             if (decoder != null) {
                 fieldValueProviders.add(decoder.decode(valueField, columnHandle));

@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.redis;
 
-import com.facebook.presto.redis.decoder.RedisFieldDecoder;
-import com.facebook.presto.redis.decoder.RedisRowDecoder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.DecodableColumnHandle;
+import com.facebook.presto.utils.decoder.RowDecoder;
+import com.facebook.presto.utils.decoder.FieldDecoder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
@@ -37,21 +38,21 @@ public class RedisRecordSet
     private final RedisSplit split;
     private final RedisJedisManager jedisManager;
 
-    private final RedisRowDecoder keyDecoder;
-    private final RedisRowDecoder valueDecoder;
-    private final Map<RedisColumnHandle, RedisFieldDecoder<?>> keyFieldDecoders;
-    private final Map<RedisColumnHandle, RedisFieldDecoder<?>> valueFieldDecoders;
+    private final RowDecoder keyDecoder;
+    private final RowDecoder valueDecoder;
+    private final Map<DecodableColumnHandle, FieldDecoder<?>> keyFieldDecoders;
+    private final Map<DecodableColumnHandle, FieldDecoder<?>> valueFieldDecoders;
 
-    private final List<RedisColumnHandle> columnHandles;
+    private final List<DecodableColumnHandle> columnHandles;
     private final List<Type> columnTypes;
 
     RedisRecordSet(RedisSplit split,
                    RedisJedisManager jedisManager,
-                   List<RedisColumnHandle> columnHandles,
-                   RedisRowDecoder keyDecoder,
-                   RedisRowDecoder valueDecoder,
-                   Map<RedisColumnHandle, RedisFieldDecoder<?>> keyFieldDecoders,
-                   Map<RedisColumnHandle, RedisFieldDecoder<?>> valueFieldDecoders)
+                   List<DecodableColumnHandle> columnHandles,
+                   RowDecoder keyDecoder,
+                   RowDecoder valueDecoder,
+                   Map<DecodableColumnHandle, FieldDecoder<?>> keyFieldDecoders,
+                   Map<DecodableColumnHandle, FieldDecoder<?>> valueFieldDecoders)
     {
         this.split = checkNotNull(split, "split is null");
 
@@ -65,7 +66,7 @@ public class RedisRecordSet
 
         ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
 
-        for (RedisColumnHandle handle : columnHandles) {
+        for (DecodableColumnHandle handle : columnHandles) {
             typeBuilder.add(handle.getType());
         }
 

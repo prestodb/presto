@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.redis;
 
-import com.facebook.presto.redis.decoder.dummy.DummyRedisRowDecoder;
+import com.facebook.presto.utils.decoder.dummy.DummyRowDecoder;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
@@ -89,8 +89,8 @@ public class RedisTableDescriptionSupplier
                     log.debug("Created dummy Table definition for %s", tableName);
                     builder.put(tableName, new RedisTableDescription(tableName.getTableName(),
                             tableName.getSchemaName(),
-                            new RedisTableFieldGroup(DummyRedisRowDecoder.NAME, null, ImmutableList.<RedisTableFieldDescription>of()),
-                            new RedisTableFieldGroup(DummyRedisRowDecoder.NAME, null, ImmutableList.<RedisTableFieldDescription>of())));
+                            new RedisTableFieldGroup(DummyRowDecoder.NAME, null, ImmutableList.<RedisTableFieldDescription>of()),
+                            new RedisTableFieldGroup(DummyRowDecoder.NAME, null, ImmutableList.<RedisTableFieldDescription>of())));
                 }
             }
 

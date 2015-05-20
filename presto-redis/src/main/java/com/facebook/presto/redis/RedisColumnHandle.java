@@ -14,7 +14,7 @@
 package com.facebook.presto.redis;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.DecodableColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -29,7 +29,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * Redis specific connector column handle.
  */
 public final class RedisColumnHandle
-        implements ColumnHandle, Comparable<RedisColumnHandle>
+        implements DecodableColumnHandle, Comparable<RedisColumnHandle>
 {
     private final String connectorId;
     private final int ordinalPosition;
@@ -162,7 +162,7 @@ public final class RedisColumnHandle
 
     ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(name, type, ordinalPosition, false, null, hidden);
+        return new ColumnMetadata(name, type, false, null, hidden);
     }
 
     @Override

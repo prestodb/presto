@@ -24,10 +24,6 @@ public enum KafkaErrorCode
 {
     // Connectors can use error codes starting at EXTERNAL
 
-    /**
-     * A requested data conversion is not supported.
-     */
-    KAFKA_CONVERSION_NOT_SUPPORTED(0x0200_0000),
     KAFKA_SPLIT_ERROR(0x0200_0001);
 
     private final ErrorCode errorCode;

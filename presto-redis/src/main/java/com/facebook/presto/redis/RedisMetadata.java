@@ -13,16 +13,23 @@
  */
 package com.facebook.presto.redis;
 
-import com.facebook.presto.redis.decoder.dummy.DummyRedisRowDecoder;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.ConnectorTableLayoutResult;
+import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.ConnectorTableLayout;
+import com.facebook.presto.spi.LocalProperty;
+import com.facebook.presto.spi.TupleDomain;
+
+import com.facebook.presto.utils.decoder.dummy.DummyRowDecoder;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -36,6 +43,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -109,7 +117,7 @@ public class RedisMetadata
 
     private static String getDataFormat(RedisTableFieldGroup fieldGroup)
     {
-        return (fieldGroup == null) ? DummyRedisRowDecoder.NAME : fieldGroup.getDataFormat();
+        return (fieldGroup == null) ? DummyRowDecoder.NAME : fieldGroup.getDataFormat();
     }
 
     @Override
@@ -117,6 +125,36 @@ public class RedisMetadata
     {
         RedisTableHandle redisTableHandle = handleResolver.convertTableHandle(tableHandle);
         return getTableMetadata(redisTableHandle.toSchemaTableName());
+    }
+
+    @Override
+    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    {
+        RedisTableHandle tableHandle = handleResolver.convertTableHandle(table);
+
+        Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
+        List<LocalProperty<ColumnHandle>> localProperties = ImmutableList.of();
+
+        ConnectorTableLayout layout = new ConnectorTableLayout(
+                new RedisTableLayoutHandle(tableHandle),
+                Optional.<List<ColumnHandle>>empty(),
+                TupleDomain.<ColumnHandle>all(),
+                partitioningColumns,
+                Optional.empty(),
+                localProperties);
+
+        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+    }
+
+    @Override
+    public ConnectorTableLayout getTableLayout(ConnectorTableLayoutHandle handle)
+    {
+        RedisTableLayoutHandle layout = handleResolver.convertLayout(handle);
+
+        // tables in this connector have a single layout
+        return getTableLayouts(layout.getTable(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty())
+                .get(0)
+                .getTableLayout();
     }
 
     @Override

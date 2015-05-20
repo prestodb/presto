@@ -242,6 +242,12 @@
                                         <exclude>about.html</exclude>
                                     </excludes>
                                 </filter>
+                                <filter>
+                                    <artifact>net.sf.opencsv:opencsv</artifact>
+                                    <excludes>
+                                        <exclude>**</exclude>
+                                    </excludes>
+                                </filter>
                             </filters>
                         </configuration>
                     </execution>

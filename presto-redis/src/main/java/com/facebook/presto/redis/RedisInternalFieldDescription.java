@@ -14,6 +14,8 @@
 package com.facebook.presto.redis;
 
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.DecodableColumnHandle;
+import com.facebook.presto.utils.decoder.FieldValueProvider;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
@@ -116,20 +118,20 @@ public class RedisInternalFieldDescription
 
     ColumnMetadata getColumnMetadata(int index, boolean hidden)
     {
-        return new ColumnMetadata(name, type, index, false, comment, hidden);
+        return new ColumnMetadata(name, type, false, comment, hidden);
     }
 
-    public RedisFieldValueProvider forBooleanValue(boolean value)
+    public FieldValueProvider forBooleanValue(boolean value)
     {
         return new BooleanRedisFieldValueProvider(value);
     }
 
-    public RedisFieldValueProvider forLongValue(long value)
+    public FieldValueProvider forLongValue(long value)
     {
         return new LongRedisFieldValueProvider(value);
     }
 
-    public RedisFieldValueProvider forByteValue(byte[] value)
+    public FieldValueProvider forByteValue(byte[] value)
     {
         return new BytesRedisFieldValueProvider(value);
     }
@@ -165,7 +167,7 @@ public class RedisInternalFieldDescription
     }
 
     public class BooleanRedisFieldValueProvider
-            extends RedisFieldValueProvider
+            extends FieldValueProvider
     {
         private final boolean value;
 
@@ -175,7 +177,7 @@ public class RedisInternalFieldDescription
         }
 
         @Override
-        public boolean accept(RedisColumnHandle columnHandle)
+        public boolean accept(DecodableColumnHandle columnHandle)
         {
             return columnHandle.getName().equals(name);
         }
@@ -194,7 +196,7 @@ public class RedisInternalFieldDescription
     }
 
     public class LongRedisFieldValueProvider
-            extends RedisFieldValueProvider
+            extends FieldValueProvider
     {
         private final long value;
 
@@ -204,7 +206,7 @@ public class RedisInternalFieldDescription
         }
 
         @Override
-        public boolean accept(RedisColumnHandle columnHandle)
+        public boolean accept(DecodableColumnHandle columnHandle)
         {
             return columnHandle.getName().equals(name);
         }
@@ -223,7 +225,7 @@ public class RedisInternalFieldDescription
     }
 
     public class BytesRedisFieldValueProvider
-            extends RedisFieldValueProvider
+            extends FieldValueProvider
     {
         private final byte[] value;
 
@@ -233,7 +235,7 @@ public class RedisInternalFieldDescription
         }
 
         @Override
-        public boolean accept(RedisColumnHandle columnHandle)
+        public boolean accept(DecodableColumnHandle columnHandle)
         {
             return columnHandle.getName().equals(name);
         }

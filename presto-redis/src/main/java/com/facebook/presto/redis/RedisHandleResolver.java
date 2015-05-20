@@ -13,13 +13,15 @@
  */
 package com.facebook.presto.redis;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexHandle;
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.ConnectorIndexHandle;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
+
 import com.google.inject.name.Named;
 
 import javax.inject.Inject;
@@ -59,6 +61,12 @@ public class RedisHandleResolver
     public boolean canHandle(ConnectorSplit split)
     {
         return split != null && split instanceof RedisSplit && connectorId.equals(((RedisSplit) split).getConnectorId());
+    }
+
+    @Override
+    public boolean canHandle(ConnectorTableLayoutHandle handle)
+    {
+        return handle instanceof RedisTableLayoutHandle && ((RedisTableLayoutHandle) handle).getConnectorId().equals(connectorId);
     }
 
     @Override
@@ -110,6 +118,12 @@ public class RedisHandleResolver
     }
 
     @Override
+    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
+    {
+        return RedisTableLayoutHandle.class;
+    }
+
+    @Override
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
         throw new UnsupportedOperationException();
@@ -141,5 +155,14 @@ public class RedisHandleResolver
         RedisSplit redisSplit = (RedisSplit) split;
         checkArgument(redisSplit.getConnectorId().equals(connectorId), "split is not for this connector");
         return redisSplit;
+    }
+
+    RedisTableLayoutHandle convertLayout(ConnectorTableLayoutHandle layout)
+    {
+        checkNotNull(layout, "layout is null");
+        checkArgument(layout instanceof RedisTableLayoutHandle, "layout is not an instance of RedisTableLayoutHandle");
+        RedisTableLayoutHandle redisLayout = (RedisTableLayoutHandle) layout;
+        checkArgument(redisLayout.getConnectorId().equals(connectorId), "layout is not for this connector");
+        return redisLayout;
     }
 }

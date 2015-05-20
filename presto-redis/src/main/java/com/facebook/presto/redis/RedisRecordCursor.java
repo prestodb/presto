@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.redis;
 
-import com.facebook.presto.redis.decoder.RedisFieldDecoder;
-import com.facebook.presto.redis.decoder.RedisRowDecoder;
+import com.facebook.presto.spi.DecodableColumnHandle;
+import com.facebook.presto.utils.decoder.FieldValueProvider;
+import com.facebook.presto.utils.decoder.RowDecoder;
+import com.facebook.presto.utils.decoder.FieldDecoder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
@@ -39,13 +41,13 @@ import static redis.clients.jedis.ScanParams.SCAN_POINTER_START;
 public class RedisRecordCursor
         implements RecordCursor
 {
-    private final RedisRowDecoder keyDecoder;
-    private final RedisRowDecoder valueDecoder;
-    private final Map<RedisColumnHandle, RedisFieldDecoder<?>> keyFieldDecoders;
-    private final Map<RedisColumnHandle, RedisFieldDecoder<?>> valueFieldDecoders;
+    private final RowDecoder keyDecoder;
+    private final RowDecoder valueDecoder;
+    private final Map<DecodableColumnHandle, FieldDecoder<?>> keyFieldDecoders;
+    private final Map<DecodableColumnHandle, FieldDecoder<?>> valueFieldDecoders;
 
     private final RedisSplit split;
-    private final List<RedisColumnHandle> columnHandles;
+    private final List<DecodableColumnHandle> columnHandles;
     private static final Logger log = Logger.get(RedisRecordSet.class);
     private static final byte [] EMPTY_BYTE_ARRAY = new byte [0];
     private final RedisJedisManager redisJedisManager;
@@ -59,19 +61,19 @@ public class RedisRecordCursor
 
     private final AtomicBoolean reported = new AtomicBoolean();
 
-    private RedisFieldValueProvider[] fieldValueProviders;
+    private FieldValueProvider[] fieldValueProviders;
 
     private long startTime;
 
     private String valueString;
     private Map<String, String> valueMap;
 
-    RedisRecordCursor(RedisRowDecoder keyDecoder,
-                      RedisRowDecoder valueDecoder,
-                      Map<RedisColumnHandle, RedisFieldDecoder<?>> keyFieldDecoders,
-                      Map<RedisColumnHandle, RedisFieldDecoder<?>> valueFieldDecoders,
+    RedisRecordCursor(RowDecoder keyDecoder,
+                      RowDecoder valueDecoder,
+                      Map<DecodableColumnHandle, FieldDecoder<?>> keyFieldDecoders,
+                      Map<DecodableColumnHandle, FieldDecoder<?>> valueFieldDecoders,
                       RedisSplit split,
-                      List<RedisColumnHandle> columnHandles,
+                      List<DecodableColumnHandle> columnHandles,
                       RedisJedisManager redisJedisManager)
     {
         this.keyDecoder = keyDecoder;
@@ -162,7 +164,7 @@ public class RedisRecordCursor
         totalBytes += valueData.length;
         totalValues++;
 
-        Set<RedisFieldValueProvider> fieldValueProviders = new HashSet<>();
+        Set<FieldValueProvider> fieldValueProviders = new HashSet<>();
 
         fieldValueProviders.add(RedisInternalFieldDescription.KEY_FIELD.forByteValue(keyData));
         fieldValueProviders.add(RedisInternalFieldDescription.VALUE_FIELD.forByteValue(valueData));
@@ -171,14 +173,14 @@ public class RedisRecordCursor
         fieldValueProviders.add(RedisInternalFieldDescription.KEY_CORRUPT_FIELD.forBooleanValue(keyDecoder.decodeRow(keyData, null, fieldValueProviders, columnHandles, keyFieldDecoders)));
         fieldValueProviders.add(RedisInternalFieldDescription.VALUE_CORRUPT_FIELD.forBooleanValue(valueDecoder.decodeRow(valueData, valueMap, fieldValueProviders, columnHandles, valueFieldDecoders)));
 
-        this.fieldValueProviders = new RedisFieldValueProvider[columnHandles.size()];
+        this.fieldValueProviders = new FieldValueProvider[columnHandles.size()];
 
         // If a value provider for a requested internal column is present, assign the
         // value to the internal cache. It is possible that an internal column is present
         // where no value provider exists (e.g. the '_corrupt' column with the DummyRowDecoder).
         // In that case, the cache is null (and the column is reported as null).
         for (int i = 0; i < columnHandles.size(); i++) {
-            for (RedisFieldValueProvider fieldValueProvider : fieldValueProviders) {
+            for (FieldValueProvider fieldValueProvider : fieldValueProviders) {
                 if (fieldValueProvider.accept(columnHandles.get(i))) {
                     this.fieldValueProviders[i] = fieldValueProvider;
                     break; // for(InternalColumnProvider...

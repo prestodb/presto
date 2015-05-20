@@ -16,8 +16,8 @@ package com.facebook.presto.redis.decoder.hash;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 
-import static com.facebook.presto.redis.decoder.RedisDecoderModule.bindFieldDecoder;
-import static com.facebook.presto.redis.decoder.RedisDecoderModule.bindRowDecoder;
+import static com.facebook.presto.redis.RedisDecoderModule.bindFieldDecoder;
+import static com.facebook.presto.redis.RedisDecoderModule.bindRowDecoder;
 
 /**
  * Guice module for the 'hash' decoder. See {@link HashRedisRowDecoder} for an explanation.

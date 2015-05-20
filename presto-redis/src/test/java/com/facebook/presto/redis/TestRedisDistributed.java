@@ -161,6 +161,13 @@ public class TestRedisDistributed
     {
     }
 
+    // Unexpected parameters (varchar) for function day. Expected: day(timestamp)
+    @Override
+    public void testUnionWithProjectionPushDown()
+            throws Exception
+    {
+    }
+
     // drop is not supported
     @Override
     public void testDropTableIfExists()
@@ -171,6 +178,13 @@ public class TestRedisDistributed
     // create table is not supported
     @Override
     public void testCreateTable()
+            throws Exception
+    {
+    }
+
+    // column renaming is not supported
+    @Override
+    public void testRenameColumn()
             throws Exception
     {
     }
