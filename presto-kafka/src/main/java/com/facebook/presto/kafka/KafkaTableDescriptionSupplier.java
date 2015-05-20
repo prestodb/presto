@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.kafka.decoder.dummy.DummyKafkaRowDecoder;
+import com.facebook.presto.decoder.dummy.DummyRowDecoder;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -100,8 +100,8 @@ public class KafkaTableDescriptionSupplier
                     builder.put(tableName, new KafkaTopicDescription(tableName.getTableName(),
                             tableName.getSchemaName(),
                             definedTable,
-                            new KafkaTopicFieldGroup(DummyKafkaRowDecoder.NAME, ImmutableList.<KafkaTopicFieldDescription>of()),
-                            new KafkaTopicFieldGroup(DummyKafkaRowDecoder.NAME, ImmutableList.<KafkaTopicFieldDescription>of())));
+                            new KafkaTopicFieldGroup(DummyRowDecoder.NAME, ImmutableList.<KafkaTopicFieldDescription>of()),
+                            new KafkaTopicFieldGroup(DummyRowDecoder.NAME, ImmutableList.<KafkaTopicFieldDescription>of())));
                 }
             }
 
