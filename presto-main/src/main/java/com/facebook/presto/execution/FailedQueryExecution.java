@@ -22,6 +22,7 @@ import java.net.URI;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static java.util.Objects.requireNonNull;
 
 public class FailedQueryExecution
         implements QueryExecution
@@ -30,6 +31,7 @@ public class FailedQueryExecution
 
     public FailedQueryExecution(QueryId queryId, String query, Session session, URI self, Executor executor, Throwable cause)
     {
+        requireNonNull(cause, "cause is null");
         QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, executor);
         queryStateMachine.transitionToFailed(cause);
 
