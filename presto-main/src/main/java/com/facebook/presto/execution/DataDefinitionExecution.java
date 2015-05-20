@@ -72,6 +72,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public long getMaxQueryMemory(long defaultValue)
+    {
+        return defaultValue;
+    }
+
+    @Override
     public void start()
     {
         try {

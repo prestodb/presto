@@ -34,6 +34,8 @@ public interface QueryExecution
 
     long getTotalMemoryReservation();
 
+    long getMaxQueryMemory(long defaultValue);
+
     void start();
 
     void fail(Throwable cause);

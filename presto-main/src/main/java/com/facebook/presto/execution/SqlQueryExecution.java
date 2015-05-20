@@ -40,7 +40,9 @@ import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.concurrent.SetThreadName;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.DataSize.Unit;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -53,6 +55,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemory;
 import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
@@ -86,6 +89,7 @@ public final class SqlQueryExecution
     private final AtomicReference<SqlStageExecution> outputStage = new AtomicReference<>();
     private final AtomicReference<QueryInfo> finalQueryInfo = new AtomicReference<>();
     private final NodeTaskMap nodeTaskMap;
+    private final Session session;
 
     public SqlQueryExecution(QueryId queryId,
             String query,
@@ -117,6 +121,7 @@ public final class SqlQueryExecution
             this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
             this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
             this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
+            this.session = checkNotNull(session, "session is null");
 
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
@@ -166,6 +171,12 @@ public final class SqlQueryExecution
             return queryInfo.getQueryStats().getTotalMemoryReservation().toBytes();
         }
         return stage.getTotalMemoryReservation();
+    }
+
+    @Override
+    public long getMaxQueryMemory(long defaultValue)
+    {
+        return getQueryMaxMemory(session, DataSize.succinctDataSize(defaultValue, Unit.BYTE)).toBytes();
     }
 
     @Override

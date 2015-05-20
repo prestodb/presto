@@ -28,6 +28,8 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
+
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.Managed;
@@ -103,9 +105,10 @@ public class ClusterMemoryManager
         long totalBytes = 0;
         for (QueryExecution query : queries) {
             long bytes = query.getTotalMemoryReservation();
+            long queryMaxMemory = query.getMaxQueryMemory(maxQueryMemory.toBytes());
             totalBytes += bytes;
-            if (bytes > maxQueryMemory.toBytes()) {
-                query.fail(new ExceededMemoryLimitException("Query", maxQueryMemory));
+            if (bytes > queryMaxMemory) {
+                query.fail(new ExceededMemoryLimitException("Query", DataSize.succinctDataSize(queryMaxMemory, Unit.BYTE)));
             }
         }
         clusterMemoryUsageBytes.set(totalBytes);

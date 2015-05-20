@@ -67,6 +67,12 @@ public class FailedQueryExecution
     }
 
     @Override
+    public long getMaxQueryMemory(long defaultValue)
+    {
+        return defaultValue;
+    }
+
+    @Override
     public void start()
     {
         // no-op
