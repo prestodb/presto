@@ -20,37 +20,39 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
+import static com.facebook.presto.execution.QueryState.PLANNING;
+import static com.facebook.presto.execution.QueryState.QUEUED;
+import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.execution.QueryState.STARTING;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.util.Failures.toFailure;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -68,62 +70,40 @@ public class QueryStateMachine
     private final Session session;
     private final URI self;
 
-    @GuardedBy("this")
-    private VersionedMemoryPoolId memoryPool = new VersionedMemoryPoolId(GENERAL_POOL, 0);
+    private final AtomicReference<VersionedMemoryPoolId> memoryPool = new AtomicReference<>(new VersionedMemoryPoolId(GENERAL_POOL, 0));
 
-    @GuardedBy("this")
-    private DateTime lastHeartbeat = DateTime.now();
-    @GuardedBy("this")
-    private DateTime executionStartTime;
-    @GuardedBy("this")
-    private DateTime endTime;
+    private final AtomicReference<DateTime> lastHeartbeat = new AtomicReference<>(DateTime.now());
+    private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
+    private final AtomicReference<DateTime> endTime = new AtomicReference<>();
 
-    @GuardedBy("this")
-    private Duration queuedTime;
-    @GuardedBy("this")
-    private Duration analysisTime;
-    @GuardedBy("this")
-    private Duration distributedPlanningTime;
+    private final AtomicReference<Duration> queuedTime = new AtomicReference<>();
+    private final AtomicReference<Duration> analysisTime = new AtomicReference<>();
+    private final AtomicReference<Duration> distributedPlanningTime = new AtomicReference<>();
 
-    @GuardedBy("this")
-    private Duration totalPlanningTime;
+    private final AtomicReference<Duration> totalPlanningTime = new AtomicReference<>();
 
     private final StateMachine<QueryState> queryState;
 
-    @GuardedBy("this")
-    private final Map<String, String> setSessionProperties = new LinkedHashMap<>();
+    private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
+    private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
 
-    @GuardedBy("this")
-    private final Set<String> resetSessionProperties = new LinkedHashSet<>();
+    private final AtomicReference<String> updateType = new AtomicReference<>();
 
-    @GuardedBy("this")
-    private String updateType;
+    private final AtomicReference<Throwable> failureCause = new AtomicReference<>();
 
-    @GuardedBy("this")
-    private Throwable failureCause;
+    private final AtomicReference<List<String>> outputFieldNames = new AtomicReference<>(ImmutableList.of());
 
-    @GuardedBy("this")
-    private List<String> outputFieldNames = ImmutableList.of();
-
-    @GuardedBy("this")
-    private Set<Input> inputs = ImmutableSet.of();
+    private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
 
     public QueryStateMachine(QueryId queryId, String query, Session session, URI self, Executor executor)
     {
-        this.queryId = checkNotNull(queryId, "queryId is null");
-        this.query = checkNotNull(query, "query is null");
-        this.session = checkNotNull(session, "session is null");
-        this.self = checkNotNull(self, "self is null");
+        this.queryId = requireNonNull(queryId, "queryId is null");
+        this.query = requireNonNull(query, "query is null");
+        this.session = requireNonNull(session, "session is null");
+        this.self = requireNonNull(self, "self is null");
 
-        this.queryState = new StateMachine<>("query " + query, executor, QueryState.QUEUED);
-        queryState.addStateChangeListener(new StateChangeListener<QueryState>()
-        {
-            @Override
-            public void stateChanged(QueryState newValue)
-            {
-                log.debug("Query %s is %s", QueryStateMachine.this.queryId, newValue);
-            }
-        });
+        this.queryState = new StateMachine<>("query " + query, executor, QUEUED);
+        queryState.addStateChangeListener(currentState -> log.debug("Query %s is %s", QueryStateMachine.this.queryId, currentState));
     }
 
     public QueryId getQueryId()
@@ -141,22 +121,27 @@ public class QueryStateMachine
         return getQueryInfo(null);
     }
 
-    public synchronized QueryInfo getQueryInfo(StageInfo rootStage)
+    public QueryInfo getQueryInfo(StageInfo rootStage)
     {
+        // Query state must be captured first in order to provide a
+        // correct view of the query.  For example, building this
+        // information, the query could finish, and the task states would
+        // never be visible.
         QueryState state = queryState.get();
 
         Duration elapsedTime;
-        if (endTime != null) {
-            elapsedTime = new Duration(endTime.getMillis() - createTime.getMillis(), MILLISECONDS);
+        if (endTime.get() != null) {
+            elapsedTime = new Duration(endTime.get().getMillis() - createTime.getMillis(), MILLISECONDS);
         }
         else {
-            elapsedTime = Duration.nanosSince(createNanos);
+            elapsedTime = nanosSince(createNanos);
         }
 
         // don't report failure info is query is marked as success
         FailureInfo failureInfo = null;
         ErrorCode errorCode = null;
         if (state != FINISHED) {
+            Throwable failureCause = this.failureCause.get();
             failureInfo = failureCause == null ? null : toFailure(failureCause).toFailureInfo();
             errorCode = ErrorCodes.toErrorCode(failureCause);
         }
@@ -212,7 +197,8 @@ public class QueryStateMachine
                     blockedReasons.addAll(stageStats.getBlockedReasons());
                 }
 
-                if (stageInfo.getPlan().getPartitionedSourceNode() instanceof TableScanNode) {
+                PlanFragment plan = stageInfo.getPlan();
+                if (plan != null && plan.getPartitionedSourceNode() instanceof TableScanNode) {
                     rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
                     rawInputPositions += stageStats.getRawInputPositions();
 
@@ -228,15 +214,15 @@ public class QueryStateMachine
 
         QueryStats queryStats = new QueryStats(
                 createTime,
-                executionStartTime,
-                lastHeartbeat,
-                endTime,
+                executionStartTime.get(),
+                lastHeartbeat.get(),
+                endTime.get(),
 
                 elapsedTime.convertToMostSuccinctTimeUnit(),
-                queuedTime,
-                analysisTime,
-                distributedPlanningTime,
-                totalPlanningTime,
+                queuedTime.get(),
+                analysisTime.get(),
+                distributedPlanningTime.get(),
+                totalPlanningTime.get(),
 
                 totalTasks,
                 runningTasks,
@@ -265,137 +251,131 @@ public class QueryStateMachine
         return new QueryInfo(queryId,
                 session,
                 state,
-                memoryPool.getId(),
+                memoryPool.get().getId(),
                 isScheduled(rootStage),
                 self,
-                outputFieldNames,
+                outputFieldNames.get(),
                 query,
                 queryStats,
                 setSessionProperties,
                 resetSessionProperties,
-                updateType,
+                updateType.get(),
                 rootStage,
                 failureInfo,
                 errorCode,
-                inputs);
+                inputs.get());
     }
 
-    public synchronized VersionedMemoryPoolId getMemoryPool()
+    public VersionedMemoryPoolId getMemoryPool()
     {
-        return memoryPool;
+        return memoryPool.get();
     }
 
-    public synchronized void setMemoryPool(VersionedMemoryPoolId memoryPool)
+    public void setMemoryPool(VersionedMemoryPoolId memoryPool)
     {
-        this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
+        this.memoryPool.set(requireNonNull(memoryPool, "memoryPool is null"));
     }
 
-    public synchronized void setOutputFieldNames(List<String> outputFieldNames)
+    public void setOutputFieldNames(List<String> outputFieldNames)
     {
-        checkNotNull(outputFieldNames, "outputFieldNames is null");
-        this.outputFieldNames = ImmutableList.copyOf(outputFieldNames);
+        requireNonNull(outputFieldNames, "outputFieldNames is null");
+        this.outputFieldNames.set(ImmutableList.copyOf(outputFieldNames));
     }
 
-    public synchronized void setInputs(List<Input> inputs)
+    public void setInputs(List<Input> inputs)
     {
-        checkNotNull(inputs, "inputs is null");
-        this.inputs = ImmutableSet.copyOf(inputs);
+        requireNonNull(inputs, "inputs is null");
+        this.inputs.set(ImmutableSet.copyOf(inputs));
     }
 
-    public synchronized Map<String, String> getSetSessionProperties()
+    public Map<String, String> getSetSessionProperties()
     {
         return setSessionProperties;
     }
 
-    public synchronized void addSetSessionProperties(String key, String value)
+    public void addSetSessionProperties(String key, String value)
     {
-        setSessionProperties.put(checkNotNull(key, "key is null"), checkNotNull(value, "value is null"));
+        setSessionProperties.put(requireNonNull(key, "key is null"), requireNonNull(value, "value is null"));
     }
 
-    public synchronized Set<String> getResetSessionProperties()
+    public Set<String> getResetSessionProperties()
     {
         return resetSessionProperties;
     }
 
-    public synchronized void addResetSessionProperties(String name)
+    public void addResetSessionProperties(String name)
     {
-        resetSessionProperties.add(checkNotNull(name, "name is null"));
+        resetSessionProperties.add(requireNonNull(name, "name is null"));
     }
 
-    public synchronized void setUpdateType(String updateType)
+    public void setUpdateType(String updateType)
     {
-        this.updateType = updateType;
+        this.updateType.set(updateType);
     }
 
-    public synchronized QueryState getQueryState()
+    public QueryState getQueryState()
     {
         return queryState.get();
     }
 
-    public synchronized boolean isDone()
+    public boolean isDone()
     {
         return queryState.get().isDone();
     }
 
-    public boolean beginPlanning()
+    public boolean transitionToPlanning()
     {
-        // transition from queued to planning
-        if (!queryState.compareAndSet(QueryState.QUEUED, QueryState.PLANNING)) {
-            return false;
-        }
-
-        // planning has begun
-        synchronized (this) {
-            Preconditions.checkState(createNanos > 0, "Can not record analysis start");
-            queuedTime = Duration.nanosSince(createNanos).convertToMostSuccinctTimeUnit();
-        }
-        return true;
+        queuedTime.compareAndSet(null, nanosSince(createNanos).convertToMostSuccinctTimeUnit());
+        return queryState.compareAndSet(QUEUED, PLANNING);
     }
 
-    public synchronized boolean starting()
+    public boolean transitionToStarting()
     {
-        // transition from queued or planning to starting
-        boolean changed = queryState.setIf(QueryState.STARTING, Predicates.in(ImmutableSet.of(QueryState.QUEUED, QueryState.PLANNING)));
-        if (changed) {
-            totalPlanningTime = Duration.nanosSince(createNanos);
-        }
-        return changed;
+        Duration durationSinceCreation = nanosSince(createNanos).convertToMostSuccinctTimeUnit();
+        queuedTime.compareAndSet(null, durationSinceCreation);
+        totalPlanningTime.compareAndSet(null, durationSinceCreation);
+
+        return queryState.setIf(STARTING, currentState -> currentState == QUEUED || currentState == PLANNING);
     }
 
-    public synchronized boolean running()
+    public boolean transitionToRunning()
     {
-        // transition to running if not already done
-        return queryState.setIf(QueryState.RUNNING, Predicates.not(QueryState::isDone));
+        Duration durationSinceCreation = nanosSince(createNanos).convertToMostSuccinctTimeUnit();
+        queuedTime.compareAndSet(null, durationSinceCreation);
+        totalPlanningTime.compareAndSet(null, durationSinceCreation);
+        executionStartTime.compareAndSet(null, DateTime.now());
+
+        return queryState.setIf(RUNNING, currentState -> currentState != RUNNING && !currentState.isDone());
     }
 
-    public boolean finished()
+    public boolean transitionToFinished()
     {
-        synchronized (this) {
-            if (endTime == null) {
-                endTime = DateTime.now();
+        Duration durationSinceCreation = nanosSince(createNanos).convertToMostSuccinctTimeUnit();
+        queuedTime.compareAndSet(null, durationSinceCreation);
+        totalPlanningTime.compareAndSet(null, durationSinceCreation);
+        DateTime now = DateTime.now();
+        executionStartTime.compareAndSet(null, now);
+        endTime.compareAndSet(null, now);
+
+        return queryState.setIf(FINISHED, currentState ->!currentState.isDone());
+    }
+
+    public boolean transitionToFailed(@Nullable Throwable cause)
+    {
+        Duration durationSinceCreation = nanosSince(createNanos).convertToMostSuccinctTimeUnit();
+        queuedTime.compareAndSet(null, durationSinceCreation);
+        totalPlanningTime.compareAndSet(null, durationSinceCreation);
+        DateTime now = DateTime.now();
+        executionStartTime.compareAndSet(null, now);
+        endTime.compareAndSet(null, now);
+
+        if (cause != null && !failureCause.compareAndSet(null, cause)) {
+            Throwable rootCause = failureCause.get();
+            if (rootCause != cause) {
+                rootCause.addSuppressed(cause);
             }
         }
-        return queryState.setIf(FINISHED, Predicates.not(QueryState::isDone));
-    }
-
-    public boolean fail(@Nullable Throwable cause)
-    {
-        synchronized (this) {
-            if (endTime == null) {
-                endTime = DateTime.now();
-            }
-        }
-        synchronized (this) {
-            if (cause != null) {
-                if (failureCause == null) {
-                    failureCause = cause;
-                }
-                else {
-                    failureCause.addSuppressed(cause);
-                }
-            }
-        }
-        return queryState.setIf(FAILED, Predicates.not(QueryState::isDone));
+        return queryState.setIf(FAILED, currentState -> !currentState.isDone());
     }
 
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
@@ -409,26 +389,19 @@ public class QueryStateMachine
         return queryState.waitForStateChange(currentState, maxWait);
     }
 
-    public synchronized void recordHeartbeat()
+    public void recordHeartbeat()
     {
-        this.lastHeartbeat = DateTime.now();
+        this.lastHeartbeat.set(DateTime.now());
     }
 
-    public synchronized void recordExecutionStart()
+    public void recordAnalysisTime(long analysisStart)
     {
-        if (executionStartTime == null) {
-            this.executionStartTime = DateTime.now();
-        }
+        analysisTime.compareAndSet(null, nanosSince(analysisStart).convertToMostSuccinctTimeUnit());
     }
 
-    public synchronized void recordAnalysisTime(long analysisStart)
+    public void recordDistributedPlanningTime(long distributedPlanningStart)
     {
-        analysisTime = Duration.nanosSince(analysisStart).convertToMostSuccinctTimeUnit();
-    }
-
-    public synchronized void recordDistributedPlanningTime(long distributedPlanningStart)
-    {
-        distributedPlanningTime = Duration.nanosSince(distributedPlanningStart).convertToMostSuccinctTimeUnit();
+        distributedPlanningTime.compareAndSet(null, nanosSince(distributedPlanningStart).convertToMostSuccinctTimeUnit());
     }
 
     private static boolean isScheduled(StageInfo rootStage)
@@ -436,8 +409,8 @@ public class QueryStateMachine
         if (rootStage == null) {
             return false;
         }
-        return FluentIterable.from(getAllStages(rootStage))
-                .transform(StageInfo::getState)
+        return getAllStages(rootStage).stream()
+                .map(StageInfo::getState)
                 .allMatch(state -> (state == StageState.RUNNING) || state.isDone());
     }
 }

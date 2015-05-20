@@ -31,7 +31,7 @@ public class FailedQueryExecution
     public FailedQueryExecution(QueryId queryId, String query, Session session, URI self, Executor executor, Throwable cause)
     {
         QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, executor);
-        queryStateMachine.fail(cause);
+        queryStateMachine.transitionToFailed(cause);
 
         queryInfo = queryStateMachine.getQueryInfo(null);
     }

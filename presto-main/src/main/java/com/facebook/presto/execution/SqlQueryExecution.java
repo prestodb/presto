@@ -174,7 +174,7 @@ public final class SqlQueryExecution
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             try {
                 // transition to planning
-                if (!stateMachine.beginPlanning()) {
+                if (!stateMachine.transitionToPlanning()) {
                     // query already started or finished
                     return;
                 }
@@ -186,7 +186,7 @@ public final class SqlQueryExecution
                 planDistribution(subplan);
 
                 // transition to starting
-                if (!stateMachine.starting()) {
+                if (!stateMachine.transitionToStarting()) {
                     // query already started or finished
                     return;
                 }
@@ -311,7 +311,7 @@ public final class SqlQueryExecution
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             // transition to failed state, only if not already finished
-            stateMachine.fail(cause);
+            stateMachine.transitionToFailed(cause);
 
             SqlStageExecution stageExecution = outputStage.get();
             if (stageExecution != null) {
@@ -420,20 +420,19 @@ public final class SqlQueryExecution
         // if output stage is done, transition to done
         if (outputStageState.isDone()) {
             if (outputStageState.isFailure()) {
-                stateMachine.fail(failureCause(outputStage.get().getStageInfo()));
+                stateMachine.transitionToFailed(failureCause(outputStage.get().getStageInfo()));
             }
             else if (outputStageState == StageState.CANCELED) {
-                stateMachine.fail(new PrestoException(USER_CANCELED, "Query was canceled"));
+                stateMachine.transitionToFailed(new PrestoException(USER_CANCELED, "Query was canceled"));
             }
             else {
-                stateMachine.finished();
+                stateMachine.transitionToFinished();
             }
         }
         else if (stateMachine.getQueryState() == QueryState.STARTING) {
             // if output stage has at least one task, we are running
             if (!outputStage.get().getStageInfo().getTasks().isEmpty()) {
-                stateMachine.running();
-                stateMachine.recordExecutionStart();
+                stateMachine.transitionToRunning();
             }
         }
     }
