@@ -200,14 +200,6 @@ public final class SqlStageExecution
                         executor,
                         nodeTaskMap);
 
-                subStage.addStateChangeListener(stageState -> {
-                    // Only abort if sub-stage is failed. All other state transitions are handled elsewhere.
-                    if (stageState == StageState.FAILED) {
-                        abort();
-                    }
-                    doUpdateState();
-                });
-
                 subStages.put(subStageFragmentId, subStage);
             }
             this.subStages = subStages.build();
@@ -259,6 +251,11 @@ public final class SqlStageExecution
                 () -> subStages.values().stream()
                         .map(SqlStageExecution::getStageInfo)
                         .collect(toImmutableList()));
+    }
+
+    public Collection<SqlStageExecution> getSubStages()
+    {
+        return subStages.values();
     }
 
     private synchronized void parentTasksAdded(List<TaskId> parentTasks, boolean noMoreParentNodes)
