@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.collect.Iterables;
-
 public class QualifiedNameReference
         extends Expression
 {
@@ -32,7 +30,7 @@ public class QualifiedNameReference
 
     public QualifiedName getSuffix()
     {
-        return QualifiedName.of(Iterables.getLast(name.getParts()));
+        return QualifiedName.of(name.getSuffix());
     }
 
     @Override
