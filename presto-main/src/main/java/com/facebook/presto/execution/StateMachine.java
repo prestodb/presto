@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -27,10 +28,12 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.Executor;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Sets.newIdentityHashSet;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
@@ -52,7 +55,7 @@ public class StateMachine<T>
     private final List<StateChangeListener<T>> stateChangeListeners = new ArrayList<>();
 
     @GuardedBy("this")
-    private final List<SettableFuture<T>> futureStateChanges = new ArrayList<>();
+    private final Set<SettableFuture<T>> futureStateChanges = newIdentityHashSet();
 
     /**
      * Creates a state machine with the specified initial value
@@ -84,6 +87,22 @@ public class StateMachine<T>
 
             SettableFuture<T> futureStateChange = SettableFuture.create();
             futureStateChanges.add(futureStateChange);
+            Futures.addCallback(futureStateChange, new FutureCallback<T>() {
+                @Override
+                public void onSuccess(T result)
+                {
+                    // no-op. The futureStateChanges list is already cleared before fireStateChanged is called.
+                }
+
+                @Override
+                public void onFailure(Throwable t)
+                {
+                    // Remove the Future early, in case it's cancelled.
+                    synchronized (StateMachine.this) {
+                        futureStateChanges.remove(futureStateChange);
+                    }
+                }
+            });
             return futureStateChange;
         }
     }
