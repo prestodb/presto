@@ -14,6 +14,8 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.decoder.DecoderColumnHandle;
+import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
@@ -145,17 +147,17 @@ public class KafkaInternalFieldDescription
         return new ColumnMetadata(name, type, false, comment, hidden);
     }
 
-    public KafkaFieldValueProvider forBooleanValue(boolean value)
+    public FieldValueProvider forBooleanValue(boolean value)
     {
         return new BooleanKafkaFieldValueProvider(value);
     }
 
-    public KafkaFieldValueProvider forLongValue(long value)
+    public FieldValueProvider forLongValue(long value)
     {
         return new LongKafkaFieldValueProvider(value);
     }
 
-    public KafkaFieldValueProvider forByteValue(byte[] value)
+    public FieldValueProvider forByteValue(byte[] value)
     {
         return new BytesKafkaFieldValueProvider(value);
     }
@@ -191,7 +193,7 @@ public class KafkaInternalFieldDescription
     }
 
     public class BooleanKafkaFieldValueProvider
-            extends KafkaFieldValueProvider
+            extends FieldValueProvider
     {
         private final boolean value;
 
@@ -201,7 +203,7 @@ public class KafkaInternalFieldDescription
         }
 
         @Override
-        public boolean accept(KafkaColumnHandle columnHandle)
+        public boolean accept(DecoderColumnHandle columnHandle)
         {
             return columnHandle.getName().equals(name);
         }
@@ -220,7 +222,7 @@ public class KafkaInternalFieldDescription
     }
 
     public class LongKafkaFieldValueProvider
-            extends KafkaFieldValueProvider
+            extends FieldValueProvider
     {
         private final long value;
 
@@ -230,7 +232,7 @@ public class KafkaInternalFieldDescription
         }
 
         @Override
-        public boolean accept(KafkaColumnHandle columnHandle)
+        public boolean accept(DecoderColumnHandle columnHandle)
         {
             return columnHandle.getName().equals(name);
         }
@@ -249,7 +251,7 @@ public class KafkaInternalFieldDescription
     }
 
     public class BytesKafkaFieldValueProvider
-            extends KafkaFieldValueProvider
+            extends FieldValueProvider
     {
         private final byte[] value;
 
@@ -259,7 +261,7 @@ public class KafkaInternalFieldDescription
         }
 
         @Override
-        public boolean accept(KafkaColumnHandle columnHandle)
+        public boolean accept(DecoderColumnHandle columnHandle)
         {
             return columnHandle.getName().equals(name);
         }

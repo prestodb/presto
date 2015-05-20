@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.kafka.decoder.KafkaDecoderModule;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.decoder.DecoderModule;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
@@ -55,7 +55,7 @@ public class KafkaConnectorModule
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
 
-        binder.install(new KafkaDecoderModule());
+        binder.install(new DecoderModule());
 
         for (KafkaInternalFieldDescription internalFieldDescription : KafkaInternalFieldDescription.getInternalFields()) {
             bindInternalColumn(binder, internalFieldDescription);

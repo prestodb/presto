@@ -11,31 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.kafka;
+package com.facebook.presto.decoder.dummy;
 
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+
+import static com.facebook.presto.decoder.DecoderModule.bindFieldDecoder;
+import static com.facebook.presto.decoder.DecoderModule.bindRowDecoder;
 
 /**
- * Kafka connector specific error codes.
+ * Guice module for the 'dummy' decoder. See {@link DummyRowDecoder} for an explanation.
  */
-public enum KafkaErrorCode
-        implements ErrorCodeSupplier
+public class DummyDecoderModule
+        implements Module
 {
-    // Connectors can use error codes starting at EXTERNAL
-    // NOTE: 0x0200_0000 is reserved for DecoderErrorCode
-    KAFKA_SPLIT_ERROR(0x0200_0001);
-
-    private final ErrorCode errorCode;
-
-    KafkaErrorCode(int code)
-    {
-        errorCode = new ErrorCode(code, name());
-    }
-
     @Override
-    public ErrorCode toErrorCode()
+    public void configure(Binder binder)
     {
-        return errorCode;
+        bindRowDecoder(binder, DummyRowDecoder.class);
+
+        bindFieldDecoder(binder, DummyFieldDecoder.class);
     }
 }

@@ -11,10 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.kafka;
+package com.facebook.presto.decoder;
 
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -25,10 +23,10 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Kafka specific connector column handle.
+ * Test column handle for decoders.
  */
-public final class KafkaColumnHandle
-        implements DecoderColumnHandle, Comparable<KafkaColumnHandle>
+public final class DecoderTestColumnHandle
+        implements DecoderColumnHandle, Comparable<DecoderTestColumnHandle>
 {
     private final String connectorId;
     private final int ordinalPosition;
@@ -44,12 +42,12 @@ public final class KafkaColumnHandle
     private final Type type;
 
     /**
-     * Mapping hint for the decoder. Can be null.
+     * Mapping hint for the decoder
      */
     private final String mapping;
 
     /**
-     * Data format to use (selects the decoder). Can be null.
+     * Data format to use (selects the decoder)
      */
     private final String dataFormat;
 
@@ -69,12 +67,12 @@ public final class KafkaColumnHandle
     private final boolean hidden;
 
     /**
-     * True if the column is internal to the connector and not defined by a topic definition.
+     * True if the column is internal to the connector and not defined by a table definition.
      */
     private final boolean internal;
 
     @JsonCreator
-    public KafkaColumnHandle(
+    public DecoderTestColumnHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("ordinalPosition") int ordinalPosition,
             @JsonProperty("name") String name,
@@ -111,45 +109,34 @@ public final class KafkaColumnHandle
         return ordinalPosition;
     }
 
-    @Override
     @JsonProperty
     public String getName()
     {
         return name;
     }
 
-    @Override
     @JsonProperty
     public Type getType()
     {
         return type;
     }
 
-    @Override
     @JsonProperty
     public String getMapping()
     {
         return mapping;
     }
 
-    @Override
     @JsonProperty
     public String getDataFormat()
     {
         return dataFormat;
     }
 
-    @Override
     @JsonProperty
     public String getFormatHint()
     {
         return formatHint;
-    }
-
-    @JsonProperty
-    public boolean isKeyDecoder()
-    {
-        return keyDecoder;
     }
 
     @JsonProperty
@@ -158,16 +145,10 @@ public final class KafkaColumnHandle
         return hidden;
     }
 
-    @Override
     @JsonProperty
     public boolean isInternal()
     {
         return internal;
-    }
-
-    ColumnMetadata getColumnMetadata()
-    {
-        return new ColumnMetadata(name, type, false, null, hidden);
     }
 
     @Override
@@ -186,7 +167,7 @@ public final class KafkaColumnHandle
             return false;
         }
 
-        KafkaColumnHandle other = (KafkaColumnHandle) obj;
+        DecoderTestColumnHandle other = (DecoderTestColumnHandle) obj;
         return Objects.equals(this.connectorId, other.connectorId) &&
                 Objects.equals(this.ordinalPosition, other.ordinalPosition) &&
                 Objects.equals(this.name, other.name) &&
@@ -200,7 +181,7 @@ public final class KafkaColumnHandle
     }
 
     @Override
-    public int compareTo(KafkaColumnHandle otherHandle)
+    public int compareTo(DecoderTestColumnHandle otherHandle)
     {
         return Integer.compare(this.getOrdinalPosition(), otherHandle.getOrdinalPosition());
     }

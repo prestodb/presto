@@ -11,24 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.kafka;
+package com.facebook.presto.decoder;
 
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 
-/**
- * Kafka connector specific error codes.
- */
-public enum KafkaErrorCode
+public enum DecoderErrorCode
         implements ErrorCodeSupplier
 {
     // Connectors can use error codes starting at EXTERNAL
-    // NOTE: 0x0200_0000 is reserved for DecoderErrorCode
-    KAFKA_SPLIT_ERROR(0x0200_0001);
+
+    /**
+     * A requested data conversion is not supported.
+     */
+    DECODER_CONVERSION_NOT_SUPPORTED(0x0200_0000);
 
     private final ErrorCode errorCode;
 
-    KafkaErrorCode(int code)
+    DecoderErrorCode(int code)
     {
         errorCode = new ErrorCode(code, name());
     }
