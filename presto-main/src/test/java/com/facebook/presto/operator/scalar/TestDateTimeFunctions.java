@@ -152,6 +152,19 @@ public class TestDateTimeFunctions
     }
 
     @Test
+    public void testFromUnixTimeWithOffset()
+    {
+        DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 0, DATE_TIME_ZONE);
+        double seconds = dateTime.getMillis() / 1000.0;
+
+        int timeZoneHoursOffset = 1;
+        int timezoneMinutesOffset = 10;
+
+        DateTime expected = new DateTime(dateTime, getDateTimeZone(getTimeZoneKeyForOffset(timeZoneHoursOffset * 60 + timezoneMinutesOffset)));
+        assertFunction("from_unixtime(" + seconds + ", " + timeZoneHoursOffset + ", " + timezoneMinutesOffset + ")", TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
+    }
+
+    @Test
     public void testToUnixTime()
     {
         assertFunction("to_unixtime(" + TIMESTAMP_LITERAL + ")", DOUBLE, TIMESTAMP.getMillis() / 1000.0);
