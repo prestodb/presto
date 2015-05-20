@@ -125,6 +125,7 @@ public class TestStatementBuilder
         printStatement("select * from foo approximate at 90 confidence");
 
         printStatement("create table foo as select * from abc");
+        printStatement("create table if not exists foo as select * from bar");
         printStatement("drop table foo");
 
         printStatement("insert into foo select * from abc");
@@ -159,6 +160,7 @@ public class TestStatementBuilder
         printStatement("alter table a.b.c rename column x to y");
 
         printStatement("create table test (a boolean, b bigint, c double, d varchar, e timestamp)");
+        printStatement("create table if not exists baz (a timestamp, b varchar)");
         printStatement("drop table test");
 
         printStatement("create view foo as with a as (select 123) select * from a");

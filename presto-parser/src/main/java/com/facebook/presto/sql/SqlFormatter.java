@@ -595,7 +595,7 @@ public final class SqlFormatter
         {
             builder.append("CREATE TABLE ");
             if (node.isNotExists()) {
-                builder.append("IF NOT EXISTS");
+                builder.append("IF NOT EXISTS ");
             }
             builder.append(node.getName())
                     .append(" AS ");

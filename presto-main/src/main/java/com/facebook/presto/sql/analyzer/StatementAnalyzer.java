@@ -415,7 +415,7 @@ class StatementAnalyzer
             if (!node.isNotExists()) {
                 throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
             }
-            analysis.setNoOp(true);
+            analysis.setSkipExecution(true);
         }
 
         // analyze the query that creates the table

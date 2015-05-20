@@ -251,8 +251,8 @@ public final class SqlQueryExecution
         Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, Optional.of(queryExplainer), experimentalSyntaxEnabled);
         Analysis analysis = analyzer.analyze(statement);
 
-        if (analysis.isNoOp()) {
-            stateMachine.finished();
+        if (analysis.isSkipExecution()) {
+            stateMachine.transitionToFinished();
         }
 
         stateMachine.setUpdateType(analysis.getUpdateType());

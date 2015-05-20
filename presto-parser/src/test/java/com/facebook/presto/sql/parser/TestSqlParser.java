@@ -666,7 +666,7 @@ public class TestSqlParser
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(new TableElement("a", "VARCHAR"), new TableElement("b", "BIGINT")),
                         false));
-        assertStatement("CREATE TABLE IF NOT EXISTS bar ( c TIMESTAMP )",
+        assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(new TableElement("c", "TIMESTAMP")),
                         true));
