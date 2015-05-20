@@ -206,19 +206,14 @@ public class ShardRecoveryManager
             throw new PrestoException(RAPTOR_RECOVERY_ERROR, "Failed to move shard: " + shardUuid, e);
         }
 
-        if (!storageFile.exists() || storageFile.length() != backupFile.length()) {
-            stats.incrementShardRecoveryFailure();
-            throw new PrestoException(RAPTOR_RECOVERY_ERROR, "File not recovered correctly: " + shardUuid);
-        }
-
-        if (storageFile.length() != backupFile.length()) {
+        if (!storageFile.exists() || (storageFile.length() != backupFile.length())) {
             stats.incrementShardRecoveryFailure();
             log.info("Files do not match after recovery. Deleting local file: " + shardUuid);
             storageFile.delete();
+            throw new PrestoException(RAPTOR_RECOVERY_ERROR, "File not recovered correctly: " + shardUuid);
         }
-        else {
-            stats.incrementShardRecoverySuccess();
-        }
+
+        stats.incrementShardRecoverySuccess();
     }
 
     @VisibleForTesting
