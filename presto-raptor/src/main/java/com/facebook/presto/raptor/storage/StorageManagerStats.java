@@ -26,15 +26,9 @@ import static com.facebook.presto.raptor.storage.ShardRecoveryManager.dataRate;
 @ThreadSafe
 public class StorageManagerStats
 {
-    private final DistributionStat createParentsBackupMillis = new DistributionStat();
     private final DistributionStat copyToBackupBytesPerSecond = new DistributionStat();
     private final DistributionStat copyToBackupShardSizeBytes = new DistributionStat();
     private final DistributionStat copyToBackupTimeInMilliSeconds = new DistributionStat();
-
-    public void addCreateParentsTime(Duration duration)
-    {
-        createParentsBackupMillis.add(duration.toMillis());
-    }
 
     public void addCopyShardDataRate(DataSize size, Duration duration)
     {
@@ -42,13 +36,6 @@ public class StorageManagerStats
         copyToBackupBytesPerSecond.add(Math.round(rate.toBytes()));
         copyToBackupShardSizeBytes.add(size.toBytes());
         copyToBackupTimeInMilliSeconds.add(duration.toMillis());
-    }
-
-    @Managed
-    @Nested
-    public DistributionStat getCreateParentsBackupMillis()
-    {
-        return createParentsBackupMillis;
     }
 
     @Managed

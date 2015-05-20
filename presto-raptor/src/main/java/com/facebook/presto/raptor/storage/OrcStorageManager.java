@@ -22,6 +22,7 @@ import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.metadata.ColumnStats;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.util.CurrentNodeId;
@@ -49,6 +50,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -59,7 +61,6 @@ import java.util.concurrent.TimeoutException;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
 import static com.facebook.presto.raptor.storage.ShardStats.computeColumnStats;
-import static com.facebook.presto.raptor.util.FileUtil.copyFile;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -73,6 +74,7 @@ public class OrcStorageManager
 {
     private final String nodeId;
     private final StorageService storageService;
+    private final Optional<BackupStore> backupStore;
     private final DataSize orcMaxMergeDistance;
     private final DataSize orcMaxReadSize;
     private final DataSize orcStreamBufferSize;
@@ -87,11 +89,13 @@ public class OrcStorageManager
     public OrcStorageManager(
             CurrentNodeId currentNodeId,
             StorageService storageService,
+            Optional<BackupStore> backupStore,
             StorageManagerConfig config,
             ShardRecoveryManager recoveryManager)
     {
         this(currentNodeId.toString(),
                 storageService,
+                backupStore,
                 config.getOrcMaxMergeDistance(),
                 config.getOrcMaxReadSize(),
                 config.getOrcStreamBufferSize(),
@@ -105,6 +109,7 @@ public class OrcStorageManager
     public OrcStorageManager(
             String nodeId,
             StorageService storageService,
+            Optional<BackupStore> backupStore,
             DataSize orcMaxMergeDistance,
             DataSize orcMaxReadSize,
             DataSize orcStreamBufferSize,
@@ -116,6 +121,7 @@ public class OrcStorageManager
     {
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
         this.storageService = checkNotNull(storageService, "storageService is null");
+        this.backupStore = checkNotNull(backupStore, "backupStore is null");
         this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
         this.orcMaxReadSize = checkNotNull(orcMaxReadSize, "orcMaxReadSize is null");
         this.orcStreamBufferSize = checkNotNull(orcStreamBufferSize, "orcStreamBufferSize is null");
@@ -191,18 +197,8 @@ public class OrcStorageManager
         }
 
         if (isBackupAvailable()) {
-            File backupFile = storageService.getBackupFile(shardUuid);
             long start = System.nanoTime();
-            storageService.createParents(backupFile);
-            stats.addCreateParentsTime(Duration.nanosSince(start));
-
-            try {
-                start = System.nanoTime();
-                copyFile(storageFile.toPath(), backupFile.toPath());
-            }
-            catch (IOException e) {
-                throw new PrestoException(RAPTOR_ERROR, "Failed to create backup shard file", e);
-            }
+            backupStore.get().backupShard(shardUuid, storageFile);
             stats.addCopyShardDataRate(new DataSize(storageFile.length(), BYTE), nanosSince(start));
         }
     }
@@ -216,7 +212,7 @@ public class OrcStorageManager
     @Override
     public boolean isBackupAvailable()
     {
-        return storageService.isBackupAvailable();
+        return backupStore.isPresent();
     }
 
     @VisibleForTesting
@@ -224,7 +220,7 @@ public class OrcStorageManager
     {
         File file = storageService.getStorageFile(shardUuid).getAbsoluteFile();
 
-        if (!file.exists() && storageService.isBackupAvailable(shardUuid)) {
+        if (!file.exists() && backupExists(shardUuid)) {
             try {
                 Future<?> future = recoveryManager.recoverShard(shardUuid);
                 future.get(recoveryTimeout.toMillis(), TimeUnit.MILLISECONDS);
@@ -247,6 +243,11 @@ public class OrcStorageManager
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to open shard file: " + file, e);
         }
+    }
+
+    private boolean backupExists(UUID shardUuid)
+    {
+        return backupStore.isPresent() && backupStore.get().shardSize(shardUuid).isPresent();
     }
 
     private List<ColumnStats> computeShardStats(File file, List<Long> columnIds, List<Type> types)

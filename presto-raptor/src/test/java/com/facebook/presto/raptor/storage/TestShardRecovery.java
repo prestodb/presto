@@ -13,14 +13,13 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.raptor.backup.BackupStore;
+import com.facebook.presto.raptor.backup.FileBackupStore;
 import com.facebook.presto.raptor.metadata.DatabaseShardManager;
 import com.facebook.presto.raptor.metadata.ShardManager;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
+import com.google.common.io.Files;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -30,17 +29,16 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.testing.FileUtils.deleteRecursively;
+import static java.io.File.createTempFile;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -50,6 +48,7 @@ public class TestShardRecovery
     private ShardRecoveryManager recoveryManager;
     private Handle dummyHandle;
     private File temporary;
+    private FileBackupStore backupStore;
 
     @BeforeMethod
     public void setup()
@@ -58,13 +57,15 @@ public class TestShardRecovery
         temporary = createTempDir();
         File directory = new File(temporary, "data");
         File backupDirectory = new File(temporary, "backup");
-        storageService = new FileStorageService(directory, Optional.of(backupDirectory));
+        backupStore = new FileBackupStore(backupDirectory);
+        backupStore.start();
+        storageService = new FileStorageService(directory);
         storageService.start();
 
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
         ShardManager shardManager = new DatabaseShardManager(dbi);
-        recoveryManager = new ShardRecoveryManager(storageService, new InMemoryNodeManager(), shardManager, new Duration(5, TimeUnit.MINUTES), 10);
+        recoveryManager = createShardRecoveryManager(storageService, Optional.of(backupStore), shardManager);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -82,23 +83,19 @@ public class TestShardRecovery
     public void testShardRecovery()
             throws Exception
     {
-        List<Long> columnIds = ImmutableList.of(3L, 7L);
-        List<Type> columnTypes = ImmutableList.of(BIGINT, VARCHAR);
-
         UUID shardUuid = UUID.randomUUID();
         File file = storageService.getStorageFile(shardUuid);
-        File backupFile = storageService.getBackupFile(shardUuid);
+        File tempFile = createTempFile("tmp", null, temporary);
 
-        try (OrcFileWriter ignored = new OrcFileWriter(columnIds, columnTypes, backupFile)) {
-            // create file with zero rows
-        }
+        Files.write("test data", tempFile, UTF_8);
 
-        assertTrue(backupFile.exists());
-        assertFalse(file.exists());
+        backupStore.backupShard(shardUuid, tempFile);
+        assertTrue(backupStore.getBackupFile(shardUuid).exists());
+        assertEquals(backupStore.shardSize(shardUuid).getAsLong(), tempFile.length());
+
         recoveryManager.restoreFromBackup(shardUuid);
-        assertTrue(backupFile.exists());
         assertTrue(file.exists());
-        assertEquals(file.length(), backupFile.length());
+        assertEquals(file.length(), tempFile.length());
     }
 
     @SuppressWarnings("EmptyTryBlock")
@@ -106,32 +103,26 @@ public class TestShardRecovery
     public void testShardRecoveryExistingFileMismatch()
             throws Exception
     {
-        List<Long> columnIds = ImmutableList.of(3L, 7L);
-        List<Type> columnTypes = ImmutableList.of(BIGINT, VARCHAR);
-
         UUID shardUuid = UUID.randomUUID();
         File file = storageService.getStorageFile(shardUuid);
-        File backupFile = storageService.getBackupFile(shardUuid);
+        storageService.createParents(file);
+        File tempFile = createTempFile("tmp", null, temporary);
 
-        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, backupFile)) {
-            List<Page> pages = RowPagesBuilder.rowPagesBuilder(columnTypes)
-                    .row(123, "hello")
-                    .row(456, "bye")
-                    .build();
+        Files.write("test data", tempFile, UTF_8);
+        Files.write("bad data", file, UTF_8);
 
-            writer.appendPages(pages);
-        }
+        backupStore.backupShard(shardUuid, tempFile);
 
-        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
-            // create file with zero rows
-        }
+        long backupSize = backupStore.shardSize(shardUuid).getAsLong();
+        assertEquals(backupSize, tempFile.length());
 
-        assertTrue(backupFile.exists());
         assertTrue(file.exists());
+        assertNotEquals(file.length(), backupSize);
+
         recoveryManager.restoreFromBackup(shardUuid);
-        assertTrue(backupFile.exists());
+
         assertTrue(file.exists());
-        assertTrue(file.length() == backupFile.length());
+        assertEquals(file.length(), backupSize);
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "No backup file found for shard: .*")
@@ -139,5 +130,19 @@ public class TestShardRecovery
             throws Exception
     {
         recoveryManager.restoreFromBackup(UUID.randomUUID());
+    }
+
+    public static ShardRecoveryManager createShardRecoveryManager(
+            StorageService storageService,
+            Optional<BackupStore> backupStore,
+            ShardManager shardManager)
+    {
+        return new ShardRecoveryManager(
+                storageService,
+                backupStore,
+                new InMemoryNodeManager(),
+                shardManager,
+                new Duration(5, MINUTES),
+                10);
     }
 }

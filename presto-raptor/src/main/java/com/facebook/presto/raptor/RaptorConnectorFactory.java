@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.backup.BackupModule;
 import com.facebook.presto.raptor.storage.StorageModule;
 import com.facebook.presto.raptor.util.CurrentNodeId;
 import com.facebook.presto.raptor.util.RebindSafeMBeanServer;
@@ -93,6 +94,7 @@ public class RaptorConnectorFactory
                         binder.bind(TypeManager.class).toInstance(typeManager);
                     },
                     module,
+                    new BackupModule(),
                     new StorageModule(connectorId),
                     new RaptorModule(connectorId));
 

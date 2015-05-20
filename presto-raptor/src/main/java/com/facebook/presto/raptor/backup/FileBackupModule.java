@@ -11,20 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor.storage;
+package com.facebook.presto.raptor.backup;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.UUID;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 
-public interface StorageService
+import static io.airlift.configuration.ConfigBinder.configBinder;
+
+public class FileBackupModule
+        implements Module
 {
-    void start()
-            throws IOException;
-
-    void createParents(File file);
-
-    File getStorageFile(UUID shardUuid);
-
-    File getStagingFile(UUID shardUuid);
+    @Override
+    public void configure(Binder binder)
+    {
+        configBinder(binder).bindConfig(FileBackupConfig.class);
+        binder.bind(BackupStore.class).to(FileBackupStore.class).in(Scopes.SINGLETON);
+    }
 }

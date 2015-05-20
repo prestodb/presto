@@ -22,12 +22,10 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.Optional;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Locale.ENGLISH;
 
 public class FileStorageService
@@ -35,19 +33,16 @@ public class FileStorageService
 {
     private final File baseStorageDir;
     private final File baseStagingDir;
-    private final Optional<File> baseBackupDir;
 
     @Inject
     public FileStorageService(StorageManagerConfig config)
     {
-        this(config.getDataDirectory(), Optional.ofNullable(config.getBackupDirectory()));
+        this(config.getDataDirectory());
     }
 
-    public FileStorageService(File dataDirectory, Optional<File> backupDirectory)
+    public FileStorageService(File dataDirectory)
     {
         File baseDataDir = checkNotNull(dataDirectory, "dataDirectory is null");
-        this.baseBackupDir = checkNotNull(backupDirectory, "backupDirectory is null");
-
         this.baseStorageDir = new File(baseDataDir, "storage");
         this.baseStagingDir = new File(baseDataDir, "staging");
     }
@@ -60,10 +55,6 @@ public class FileStorageService
         deleteDirectory(baseStagingDir);
         createParents(baseStagingDir);
         createParents(baseStorageDir);
-
-        if (baseBackupDir.isPresent()) {
-            createParents(baseBackupDir.get());
-        }
     }
 
     @PreDestroy
@@ -87,31 +78,12 @@ public class FileStorageService
     }
 
     @Override
-    public File getBackupFile(UUID shardUuid)
-    {
-        checkState(baseBackupDir.isPresent(), "backup directory not set");
-        return getFileSystemPath(baseBackupDir.get(), shardUuid);
-    }
-
-    @Override
     public void createParents(File file)
     {
         File dir = file.getParentFile();
         if (!dir.mkdirs() && !dir.isDirectory()) {
             throw new PrestoException(RAPTOR_ERROR, "Failed creating directories: " + dir);
         }
-    }
-
-    @Override
-    public boolean isBackupAvailable(UUID shardUuid)
-    {
-        return isBackupAvailable() && getBackupFile(shardUuid).exists();
-    }
-
-    @Override
-    public boolean isBackupAvailable()
-    {
-        return baseBackupDir.isPresent();
     }
 
     /**
@@ -126,7 +98,7 @@ public class FileStorageService
      * <p/>
      * This ensures that files are spread out evenly through the tree while a path can still be easily navigated by a human being.
      */
-    private static File getFileSystemPath(File base, UUID shardUuid)
+    public static File getFileSystemPath(File base, UUID shardUuid)
     {
         String uuid = shardUuid.toString().toLowerCase(ENGLISH);
         return base.toPath()
