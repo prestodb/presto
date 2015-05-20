@@ -476,6 +476,7 @@ public class PrestoS3FileSystem
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, maxRetryTime, 2.0)
                     .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
+                    .onRetry(STATS::newGetMetadataRetry)
                     .run("getS3ObjectMetadata", () -> {
                         try {
                             STATS.newMetadataCall();
@@ -634,6 +635,7 @@ public class PrestoS3FileSystem
                         .maxAttempts(maxAttempts)
                         .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, maxRetryTime, 2.0)
                         .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
+                        .onRetry(STATS::newReadRetry)
                         .run("readStream", () -> {
                             seekStream();
                             try {
@@ -717,6 +719,7 @@ public class PrestoS3FileSystem
                         .maxAttempts(maxAttempts)
                         .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, maxRetryTime, 2.0)
                         .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
+                        .onRetry(STATS::newGetObjectRetry)
                         .run("getS3Object", () -> {
                             try {
                                 GetObjectRequest request = new GetObjectRequest(host, keyFromPath(path)).withRange(start, Long.MAX_VALUE);
