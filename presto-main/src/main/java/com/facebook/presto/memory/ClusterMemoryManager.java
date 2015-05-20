@@ -28,6 +28,8 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
+
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.Managed;
@@ -46,6 +48,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemory;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
@@ -103,9 +106,11 @@ public class ClusterMemoryManager
         long totalBytes = 0;
         for (QueryExecution query : queries) {
             long bytes = query.getTotalMemoryReservation();
+            DataSize sessionMaxQueryMemory = getQueryMaxMemory(query.getSession(), maxQueryMemory);
+            long queryMemoryLimit = Math.min(maxQueryMemory.toBytes(), sessionMaxQueryMemory.toBytes());
             totalBytes += bytes;
-            if (bytes > maxQueryMemory.toBytes()) {
-                query.fail(new ExceededMemoryLimitException("Query", maxQueryMemory));
+            if (bytes > queryMemoryLimit) {
+                query.fail(new ExceededMemoryLimitException("Query", DataSize.succinctDataSize(queryMemoryLimit, Unit.BYTE)));
             }
         }
         clusterMemoryUsageBytes.set(totalBytes);

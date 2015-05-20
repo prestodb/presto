@@ -73,6 +73,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public Session getSession()
+    {
+        return session;
+    }
+
+    @Override
     public void start()
     {
         try {

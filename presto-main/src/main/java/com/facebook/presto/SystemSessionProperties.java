@@ -13,6 +13,8 @@
  */
 package com.facebook.presto;
 
+import io.airlift.units.DataSize;
+
 public final class SystemSessionProperties
 {
     public static final String BIG_QUERY = "experimental_big_query";
@@ -25,6 +27,7 @@ public final class SystemSessionProperties
     private static final String TASK_JOIN_CONCURRENCY = "task_join_concurrency";
     private static final String TASK_HASH_BUILD_CONCURRENCY = "task_hash_build_concurrency";
     private static final String TASK_AGGREGATION_CONCURRENCY = "task_aggregation_concurrency";
+    private static final String QUERY_MAX_MEMORY = "query_max_memory";
 
     private SystemSessionProperties() {}
 
@@ -51,6 +54,20 @@ public final class SystemSessionProperties
                 return Integer.parseInt(count);
             }
             catch (NumberFormatException ignored) {
+            }
+        }
+
+        return defaultValue;
+    }
+
+    private static DataSize getDataSize(String propertyName, Session session, DataSize defaultValue)
+    {
+        String size = session.getSystemProperties().get(propertyName);
+        if (size != null) {
+            try {
+                return DataSize.valueOf(size);
+            }
+            catch (IllegalArgumentException ignored) {
             }
         }
 
@@ -100,5 +117,10 @@ public final class SystemSessionProperties
     public static int getTaskAggregationConcurrency(Session session, int defaultValue)
     {
         return getNumber(TASK_AGGREGATION_CONCURRENCY, session, getTaskDefaultConcurrency(session, defaultValue));
+    }
+
+    public static DataSize getQueryMaxMemory(Session session, DataSize defaultValue)
+    {
+        return getDataSize(QUERY_MAX_MEMORY, session, defaultValue);
     }
 }
