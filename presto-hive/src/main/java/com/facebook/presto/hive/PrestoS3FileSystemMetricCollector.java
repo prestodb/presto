@@ -43,7 +43,7 @@ public class PrestoS3FileSystemMetricCollector
         Number requestCounts = timingInfo.getCounter(Field.RequestCount.name());
         Number retryCounts = timingInfo.getCounter(Field.HttpClientRetryCount.name());
         Number throttleExceptions = timingInfo.getCounter(Field.ThrottleException.name());
-        Double requestTimeMillis = timingInfo.getSubMeasurement(Field.HttpRequestTime.name()).getTimeTakenMillisIfKnown();
+        TimingInfo requestTime = timingInfo.getSubMeasurement(Field.HttpRequestTime.name());
 
         if (requestCounts != null) {
             stats.updateAwsRequestCount(requestCounts.longValue());
@@ -57,8 +57,8 @@ public class PrestoS3FileSystemMetricCollector
             stats.updateAwsThrottleExceptionsCount(throttleExceptions.longValue());
         }
 
-        if (requestTimeMillis != null) {
-            stats.addAwsRequestTime(new Duration(requestTimeMillis, MILLISECONDS));
+        if (requestTime != null && requestTime.getTimeTakenMillisIfKnown() != null) {
+            stats.addAwsRequestTime(new Duration(requestTime.getTimeTakenMillisIfKnown(), MILLISECONDS));
         }
     }
 }
