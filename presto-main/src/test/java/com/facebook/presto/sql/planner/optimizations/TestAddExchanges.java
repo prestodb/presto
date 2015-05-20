@@ -81,7 +81,7 @@ public class TestAddExchanges
     public void testPickLayoutPartitionedPreference()
             throws Exception
     {
-        Comparator<ActualProperties> preference = streamingExecutionPreference(PreferredProperties.partitioned());
+        Comparator<ActualProperties> preference = streamingExecutionPreference(PreferredProperties.distributed());
 
         List<ActualProperties> input = ImmutableList.<ActualProperties>builder()
                 .add(builder()
@@ -143,7 +143,7 @@ public class TestAddExchanges
     public void testPickLayoutUnpartitionedPreference()
             throws Exception
     {
-        Comparator<ActualProperties> preference = streamingExecutionPreference(PreferredProperties.unpartitioned());
+        Comparator<ActualProperties> preference = streamingExecutionPreference(PreferredProperties.undistributed());
 
         List<ActualProperties> input = ImmutableList.<ActualProperties>builder()
                 .add(builder()
@@ -614,7 +614,7 @@ public class TestAddExchanges
             throws Exception
     {
         Comparator<ActualProperties> preference = streamingExecutionPreference
-                (PreferredProperties.unpartitionedWithLocal(ImmutableList.of(grouped("a"), sorted("b", ASC_NULLS_FIRST))));
+                (PreferredProperties.undistributedWithLocal(ImmutableList.of(grouped("a"), sorted("b", ASC_NULLS_FIRST))));
 
         List<ActualProperties> input = ImmutableList.<ActualProperties>builder()
                 .add(builder()

@@ -34,7 +34,6 @@ import com.facebook.presto.sql.planner.LookupSymbolResolver;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.optimizations.PreferredProperties.PartitioningPreferences;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ChildReplacer;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -163,7 +162,7 @@ public class AddExchanges
         public PlanWithProperties visitProject(ProjectNode node, PreferredProperties preferred)
         {
             Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments());
-            PreferredProperties translatedPreferred = PreferredProperties.translate(preferred, identities);
+            PreferredProperties translatedPreferred = preferred.translate(symbol -> Optional.ofNullable(identities.get(symbol)));
 
             return rebaseAndDeriveProperties(node, planChild(node, translatedPreferred));
         }
@@ -372,7 +371,7 @@ public class AddExchanges
         public PlanWithProperties visitRowNumber(RowNumberNode node, PreferredProperties preferred)
         {
             if (node.getPartitionBy().isEmpty()) {
-                PlanWithProperties child = planChild(node, PreferredProperties.unpartitioned());
+                PlanWithProperties child = planChild(node, PreferredProperties.undistributed());
 
                 if (child.getProperties().isDistributed()) {
                     child = withDerivedProperties(
@@ -459,7 +458,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitSort(SortNode node, PreferredProperties preferred)
         {
-            PlanWithProperties child = planChild(node, PreferredProperties.unpartitioned());
+            PlanWithProperties child = planChild(node, PreferredProperties.undistributed());
 
             if (child.getProperties().isDistributed()) {
                 child = withDerivedProperties(
@@ -787,7 +786,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitUnion(UnionNode node, PreferredProperties preferred)
         {
-            if (!preferred.getPartitioningProperties().isPresent() || !preferred.getPartitioningProperties().get().isHashPartitioned()) {
+            if (!preferred.getGlobalProperties().isPresent() || !preferred.getGlobalProperties().get().isHashPartitioned()) {
                 // first, classify children into partitioned and unpartitioned
                 List<PlanNode> unpartitionedChildren = new ArrayList<>();
                 List<List<Symbol>> unpartitionedOutputLayouts = new ArrayList<>();
@@ -842,7 +841,7 @@ public class AddExchanges
             }
 
             // hash partition the sources
-            List<Symbol> hashingColumns = preferred.getPartitioningProperties().get().getHashPartitioningColumns().get();
+            List<Symbol> hashingColumns = preferred.getGlobalProperties().get().getPartitioningProperties().get().getHashingOrder().get();
 
             ImmutableList.Builder<PlanNode> partitionedSources = ImmutableList.builder();
             ImmutableListMultimap.Builder<Symbol, Symbol> outputToSourcesMapping = ImmutableListMultimap.builder();
@@ -956,17 +955,17 @@ public class AddExchanges
 
     private static boolean meetsPartitioningRequirements(PreferredProperties preferred, ActualProperties actual)
     {
-        if (!preferred.getPartitioningProperties().isPresent()) {
+        if (!preferred.getGlobalProperties().isPresent()) {
             return true;
         }
-        PartitioningPreferences partitioningPreferences = preferred.getPartitioningProperties().get();
-        if (!partitioningPreferences.isPartitioned()) {
+        PreferredProperties.Global preferredGlobal = preferred.getGlobalProperties().get();
+        if (!preferredGlobal.isDistributed()) {
             return !actual.isDistributed();
         }
-        if (!partitioningPreferences.getPartitioningColumns().isPresent()) {
+        if (!preferredGlobal.getPartitioningProperties().isPresent()) {
             return actual.isDistributed();
         }
-        return actual.isPartitionedOn(partitioningPreferences.getPartitioningColumns().get());
+        return actual.isPartitionedOn(preferredGlobal.getPartitioningProperties().get().getPartitioningColumns());
     }
 
     // Prefer the match result that satisfied the most requirements
