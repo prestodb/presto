@@ -11,20 +11,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor.storage;
+package com.facebook.presto.raptor.backup;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.UUID;
+import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 
-public interface StorageService
+import javax.annotation.Nullable;
+
+public class BackupConfig
 {
-    void start()
-            throws IOException;
+    private String provider;
 
-    void createParents(File file);
+    @Nullable
+    public String getProvider()
+    {
+        return provider;
+    }
 
-    File getStorageFile(UUID shardUuid);
-
-    File getStagingFile(UUID shardUuid);
+    @Config("backup.provider")
+    @ConfigDescription("Backup provider to use (supported types: file)")
+    public BackupConfig setProvider(String provider)
+    {
+        this.provider = provider;
+        return this;
+    }
 }

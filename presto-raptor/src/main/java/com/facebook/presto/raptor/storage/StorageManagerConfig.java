@@ -15,12 +15,12 @@ package com.facebook.presto.raptor.storage;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 
-import javax.annotation.Nullable;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -30,10 +30,10 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
+@DefunctConfig("storage.backup-directory")
 public class StorageManagerConfig
 {
     private File dataDirectory;
-    private File backupDirectory;
     private Duration shardRecoveryTimeout = new Duration(30, TimeUnit.SECONDS);
     private Duration missingShardDiscoveryInterval = new Duration(5, TimeUnit.MINUTES);
     private Duration compactionInterval = new Duration(1, TimeUnit.HOURS);
@@ -58,20 +58,6 @@ public class StorageManagerConfig
     public StorageManagerConfig setDataDirectory(File dataDirectory)
     {
         this.dataDirectory = dataDirectory;
-        return this;
-    }
-
-    @Nullable
-    public File getBackupDirectory()
-    {
-        return backupDirectory;
-    }
-
-    @Config("storage.backup-directory")
-    @ConfigDescription("Base directory to use for the backup copy of shard data")
-    public StorageManagerConfig setBackupDirectory(File backupDirectory)
-    {
-        this.backupDirectory = backupDirectory;
         return this;
     }
 

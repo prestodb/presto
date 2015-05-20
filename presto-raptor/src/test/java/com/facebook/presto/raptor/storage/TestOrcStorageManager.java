@@ -19,6 +19,8 @@ import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.raptor.backup.BackupStore;
+import com.facebook.presto.raptor.backup.FileBackupStore;
 import com.facebook.presto.raptor.metadata.ColumnStats;
 import com.facebook.presto.raptor.metadata.DatabaseShardManager;
 import com.facebook.presto.raptor.metadata.ShardInfo;
@@ -105,6 +107,8 @@ public class TestOrcStorageManager
     private File temporary;
     private StorageService storageService;
     private ShardRecoveryManager recoveryManager;
+    private FileBackupStore fileBackupStore;
+    private Optional<BackupStore> backupStore;
 
     @BeforeClass
     public void setup()
@@ -112,14 +116,19 @@ public class TestOrcStorageManager
     {
         temporary = createTempDir();
         File directory = new File(temporary, "data");
-        File backupDirectory = new File(temporary, "backup");
-        storageService = new FileStorageService(directory, Optional.of(backupDirectory));
+        storageService = new FileStorageService(directory);
         storageService.start();
+
+        File backupDirectory = new File(temporary, "backup");
+        fileBackupStore = new FileBackupStore(backupDirectory);
+        fileBackupStore.start();
+        backupStore = Optional.of(fileBackupStore);
 
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
         ShardManager shardManager = new DatabaseShardManager(dbi);
-        recoveryManager = new ShardRecoveryManager(storageService, nodeManager, shardManager, new Duration(5, TimeUnit.MINUTES), 10);
+        Duration discoveryInterval = new Duration(5, TimeUnit.MINUTES);
+        recoveryManager = new ShardRecoveryManager(storageService, backupStore, nodeManager, shardManager, discoveryInterval, 10);
     }
 
     @AfterClass(alwaysRun = true)
@@ -148,14 +157,14 @@ public class TestOrcStorageManager
 
         assertEquals(
                 new File(temporary, "backup/701/e1a/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
-                storageService.getBackupFile(uuid));
+                fileBackupStore.getBackupFile(uuid));
     }
 
     @Test
     public void testWriter()
             throws Exception
     {
-        OrcStorageManager manager = createOrcStorageManager(storageService, recoveryManager);
+        OrcStorageManager manager = createOrcStorageManager();
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
@@ -173,7 +182,7 @@ public class TestOrcStorageManager
 
         UUID shardUuid = shardInfo.getShardUuid();
         File file = storageService.getStorageFile(shardUuid);
-        File backupFile = storageService.getBackupFile(shardUuid);
+        File backupFile = fileBackupStore.getBackupFile(shardUuid);
 
         assertEquals(shardInfo.getRowCount(), 2);
         assertEquals(shardInfo.getCompressedSize(), file.length());
@@ -214,7 +223,7 @@ public class TestOrcStorageManager
     public void testReader()
             throws Exception
     {
-        OrcStorageManager manager = createOrcStorageManager(storageService, recoveryManager);
+        OrcStorageManager manager = createOrcStorageManager();
 
         List<Long> columnIds = ImmutableList.of(2L, 4L, 6L, 7L, 8L, 9L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR, VARBINARY, DATE, BOOLEAN, DOUBLE);
@@ -392,7 +401,7 @@ public class TestOrcStorageManager
     public void testMaxShardRows()
             throws Exception
     {
-        OrcStorageManager manager = createOrcStorageManager(storageService, recoveryManager, 2, new DataSize(2, MEGABYTE));
+        OrcStorageManager manager = createOrcStorageManager(storageService, backupStore, recoveryManager, 2, new DataSize(2, MEGABYTE));
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
@@ -419,33 +428,67 @@ public class TestOrcStorageManager
                 .build();
 
         // Set maxFileSize to 1 byte, so adding any page makes the StoragePageSink full
-        OrcStorageManager manager = createOrcStorageManager(storageService, recoveryManager, 20, new DataSize(1, BYTE));
+        OrcStorageManager manager = createOrcStorageManager(storageService, backupStore, recoveryManager, 20, new DataSize(1, BYTE));
         StoragePageSink sink = manager.createStoragePageSink(columnIds, columnTypes);
         sink.appendPages(pages);
         assertTrue(sink.isFull());
+    }
+
+    private OrcStorageManager createOrcStorageManager()
+    {
+        return createOrcStorageManager(storageService, backupStore, recoveryManager);
     }
 
     public static OrcStorageManager createOrcStorageManager(IDBI dbi, File temporary)
             throws IOException
     {
         File directory = new File(temporary, "data");
-        File backupDirectory = new File(temporary, "backup");
-        StorageService storageService = new FileStorageService(directory, Optional.of(backupDirectory));
+        StorageService storageService = new FileStorageService(directory);
         storageService.start();
 
+        File backupDirectory = new File(temporary, "backup");
+        FileBackupStore fileBackupStore = new FileBackupStore(backupDirectory);
+        fileBackupStore.start();
+        Optional<BackupStore> backupStore = Optional.of(fileBackupStore);
+
         ShardManager shardManager = new DatabaseShardManager(dbi);
-        ShardRecoveryManager recoveryManager = new ShardRecoveryManager(storageService, new InMemoryNodeManager(), shardManager, MISSING_SHARD_DISCOVERY, 10);
-        return createOrcStorageManager(storageService, recoveryManager, MAX_SHARD_ROWS, MAX_FILE_SIZE);
+        ShardRecoveryManager recoveryManager = new ShardRecoveryManager(
+                storageService,
+                backupStore,
+                new InMemoryNodeManager(),
+                shardManager,
+                MISSING_SHARD_DISCOVERY,
+                10);
+        return createOrcStorageManager(storageService, backupStore, recoveryManager, MAX_SHARD_ROWS, MAX_FILE_SIZE);
     }
 
-    public static OrcStorageManager createOrcStorageManager(StorageService storageService, ShardRecoveryManager recoveryManager)
+    public static OrcStorageManager createOrcStorageManager(
+            StorageService storageService,
+            Optional<BackupStore> backupStore,
+            ShardRecoveryManager recoveryManager)
     {
-        return createOrcStorageManager(storageService, recoveryManager, MAX_SHARD_ROWS, MAX_FILE_SIZE);
+        return createOrcStorageManager(storageService, backupStore, recoveryManager, MAX_SHARD_ROWS, MAX_FILE_SIZE);
     }
 
-    public static OrcStorageManager createOrcStorageManager(StorageService storageService, ShardRecoveryManager recoveryManager, int maxShardRows, DataSize maxFileSize)
+    public static OrcStorageManager createOrcStorageManager(
+            StorageService storageService,
+            Optional<BackupStore> backupStore,
+            ShardRecoveryManager recoveryManager,
+            int maxShardRows,
+            DataSize maxFileSize)
     {
-        return new OrcStorageManager(CURRENT_NODE, storageService, ORC_MAX_MERGE_DISTANCE, ORC_MAX_READ_SIZE, ORC_STREAM_BUFFER_SIZE, recoveryManager, SHARD_RECOVERY_TIMEOUT, maxShardRows, maxFileSize, MAX_BUFFER_SIZE);
+        return new OrcStorageManager(
+                CURRENT_NODE,
+                storageService,
+                backupStore,
+                ORC_MAX_MERGE_DISTANCE,
+                ORC_MAX_READ_SIZE,
+                ORC_STREAM_BUFFER_SIZE,
+                recoveryManager,
+                SHARD_RECOVERY_TIMEOUT,
+                maxShardRows,
+                maxFileSize,
+                MAX_BUFFER_SIZE);
     }
 
     private static void assertColumnStats(List<ColumnStats> list, long columnId, Object min, Object max)
@@ -485,7 +528,7 @@ public class TestOrcStorageManager
         }
         List<Long> columnIds = list.build();
 
-        OrcStorageManager manager = createOrcStorageManager(storageService, recoveryManager);
+        OrcStorageManager manager = createOrcStorageManager();
         StoragePageSink sink = manager.createStoragePageSink(columnIds, columnTypes);
         sink.appendPages(rowPagesBuilder(columnTypes).rows(rows).build());
         List<ShardInfo> shards = sink.commit();
