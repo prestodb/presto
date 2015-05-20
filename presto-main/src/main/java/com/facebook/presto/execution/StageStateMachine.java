@@ -266,7 +266,7 @@ public class StageStateMachine
                 stageStats,
                 taskInfos,
                 subStageInfos,
-                failureInfo == null ? ImmutableList.of() : ImmutableList.of(failureInfo));
+                failureInfo);
     }
 
     public void recordGetSplitTime(long startNanos)

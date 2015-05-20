@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.Optional;
@@ -37,6 +38,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
@@ -275,6 +277,10 @@ public class TestStageStateMachine
 
         assertFalse(stateMachine.transitionToAborted());
         assertState(stateMachine, expectedState);
+
+        // attempt to fail with another exception, which will fail
+        assertFalse(stateMachine.transitionToFailed(new IOException("failure after finish")));
+        assertState(stateMachine, expectedState);
     }
 
     private static void assertState(StageStateMachine stateMachine, StageState expectedState)
@@ -295,13 +301,12 @@ public class TestStageStateMachine
         assertEquals(stageInfo.getState(), expectedState);
 
         if (expectedState == StageState.FAILED) {
-            assertEquals(stageInfo.getFailures().size(), 1);
-            ExecutionFailureInfo failure = stageInfo.getFailures().get(0);
+            ExecutionFailureInfo failure = stageInfo.getFailureCause();
             assertEquals(failure.getMessage(), FAILED_CAUSE.getMessage());
             assertEquals(failure.getType(), FAILED_CAUSE.getClass().getName());
         }
         else {
-            assertTrue(stageInfo.getFailures().isEmpty());
+            assertNull(stageInfo.getFailureCause());
         }
     }
 

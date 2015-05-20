@@ -22,6 +22,7 @@ import org.jetbrains.annotations.NotNull;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.List;
@@ -229,6 +230,10 @@ public class TestQueryStateMachine
         assertState(stateMachine, expectedState);
 
         assertFalse(stateMachine.transitionToFailed(FAILED_CAUSE));
+        assertState(stateMachine, expectedState);
+
+        // attempt to fail with another exception, which will fail
+        assertFalse(stateMachine.transitionToFailed(new IOException("failure after finish")));
         assertState(stateMachine, expectedState);
     }
 

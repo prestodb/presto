@@ -58,6 +58,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public final class SqlQueryExecution
@@ -309,6 +310,8 @@ public final class SqlQueryExecution
     @Override
     public void fail(Throwable cause)
     {
+        requireNonNull(cause, "cause is null");
+
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             // transition to failed state, only if not already finished
             stateMachine.transitionToFailed(cause);
@@ -352,7 +355,7 @@ public final class SqlQueryExecution
                 queryInfo.getOutputStage().getStageStats(),
                 ImmutableList.of(), // Remove the tasks
                 ImmutableList.of(), // Remove the substages
-                queryInfo.getOutputStage().getFailures()
+                queryInfo.getOutputStage().getFailureCause()
         );
 
         QueryInfo prunedQueryInfo = new QueryInfo(
@@ -418,9 +421,10 @@ public final class SqlQueryExecution
         }
 
         // if output stage is done, transition to done
+        StageInfo outputStageInfo = outputStage.get().getStageInfo();
         if (outputStageState.isDone()) {
             if (outputStageState.isFailure()) {
-                stateMachine.transitionToFailed(failureCause(outputStage.get().getStageInfo()));
+                stateMachine.transitionToFailed(outputStageInfo.getFailureCause().toException());
             }
             else if (outputStageState == StageState.CANCELED) {
                 stateMachine.transitionToFailed(new PrestoException(USER_CANCELED, "Query was canceled"));
@@ -431,32 +435,10 @@ public final class SqlQueryExecution
         }
         else if (stateMachine.getQueryState() == QueryState.STARTING) {
             // if output stage has at least one task, we are running
-            if (!outputStage.get().getStageInfo().getTasks().isEmpty()) {
+            if (!outputStageInfo.getTasks().isEmpty()) {
                 stateMachine.transitionToRunning();
             }
         }
-    }
-
-    private static Throwable failureCause(StageInfo stageInfo)
-    {
-        if (!stageInfo.getFailures().isEmpty()) {
-            return stageInfo.getFailures().get(0).toException();
-        }
-
-        for (TaskInfo taskInfo : stageInfo.getTasks()) {
-            if (!taskInfo.getFailures().isEmpty()) {
-                return taskInfo.getFailures().get(0).toException();
-            }
-        }
-
-        for (StageInfo subStageInfo : stageInfo.getSubStages()) {
-            Throwable cause = failureCause(subStageInfo);
-            if (cause != null) {
-                return cause;
-            }
-        }
-
-        return null;
     }
 
     public static class SqlQueryExecutionFactory

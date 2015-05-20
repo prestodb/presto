@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.ErrorCodes;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -30,7 +29,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
@@ -89,7 +87,7 @@ public class QueryStateMachine
 
     private final AtomicReference<String> updateType = new AtomicReference<>();
 
-    private final AtomicReference<Throwable> failureCause = new AtomicReference<>();
+    private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
     private final AtomicReference<List<String>> outputFieldNames = new AtomicReference<>(ImmutableList.of());
 
@@ -141,9 +139,11 @@ public class QueryStateMachine
         FailureInfo failureInfo = null;
         ErrorCode errorCode = null;
         if (state != FINISHED) {
-            Throwable failureCause = this.failureCause.get();
-            failureInfo = failureCause == null ? null : toFailure(failureCause).toFailureInfo();
-            errorCode = ErrorCodes.toErrorCode(failureCause);
+            ExecutionFailureInfo failureCause = this.failureCause.get();
+            if (failureCause != null) {
+                failureInfo = failureCause.toFailureInfo();
+                errorCode = failureCause.getErrorCode();
+            }
         }
 
         int totalTasks = 0;
@@ -360,8 +360,10 @@ public class QueryStateMachine
         return queryState.setIf(FINISHED, currentState ->!currentState.isDone());
     }
 
-    public boolean transitionToFailed(@Nullable Throwable cause)
+    public boolean transitionToFailed(Throwable throwable)
     {
+        requireNonNull(throwable, "throwable is null");
+
         Duration durationSinceCreation = nanosSince(createNanos).convertToMostSuccinctTimeUnit();
         queuedTime.compareAndSet(null, durationSinceCreation);
         totalPlanningTime.compareAndSet(null, durationSinceCreation);
@@ -369,13 +371,15 @@ public class QueryStateMachine
         executionStartTime.compareAndSet(null, now);
         endTime.compareAndSet(null, now);
 
-        if (cause != null && !failureCause.compareAndSet(null, cause)) {
-            Throwable rootCause = failureCause.get();
-            if (rootCause != cause) {
-                rootCause.addSuppressed(cause);
-            }
+        failureCause.compareAndSet(null, toFailure(throwable));
+        boolean failed = queryState.setIf(FAILED, currentState -> !currentState.isDone());
+        if (failed) {
+            log.error(throwable, "Query %s failed", queryId);
         }
-        return queryState.setIf(FAILED, currentState -> !currentState.isDone());
+        else {
+            log.debug(throwable, "Failure after query %s finished", queryId);
+        }
+        return failed;
     }
 
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
