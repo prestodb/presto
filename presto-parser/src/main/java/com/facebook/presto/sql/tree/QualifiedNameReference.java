@@ -32,7 +32,7 @@ public class QualifiedNameReference
 
     public QualifiedName getSuffix()
     {
-        return QualifiedName.of(Iterables.getLast(name.getParts()));
+        return QualifiedName.of(name.getSuffix());
     }
 
     @Override
