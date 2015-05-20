@@ -186,7 +186,7 @@ public class StateMachine<T>
         checkState(!Thread.holdsLock(this), "Can not fire state change event while holding a lock on this");
 
         executor.execute(() -> {
-            checkState(!Thread.holdsLock(StateMachine.this), "Can not notify while holding a lock on this");
+            checkState(!Thread.holdsLock(this), "Can not notify while holding a lock on this");
             for (SettableFuture<T> futureStateChange : futureStateChanges) {
                 try {
                     futureStateChange.set(newState);
