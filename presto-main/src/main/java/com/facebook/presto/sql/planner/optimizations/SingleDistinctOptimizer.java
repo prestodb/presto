@@ -97,6 +97,7 @@ public class SingleDistinctOptimizer
                                         node.getHashSymbol());
         }
 
+        @Override
         public PlanNode visitMarkDistinct(MarkDistinctNode node, RewriteContext<Optional<Symbol>> context)
         {
             Optional<Symbol> mask = context.get();
