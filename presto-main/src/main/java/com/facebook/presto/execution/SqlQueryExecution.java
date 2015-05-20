@@ -88,6 +88,7 @@ public final class SqlQueryExecution
     private final AtomicReference<SqlStageExecution> outputStage = new AtomicReference<>();
     private final AtomicReference<QueryInfo> finalQueryInfo = new AtomicReference<>();
     private final NodeTaskMap nodeTaskMap;
+    private final Session session;
 
     public SqlQueryExecution(QueryId queryId,
             String query,
@@ -119,6 +120,7 @@ public final class SqlQueryExecution
             this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
             this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
             this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
+            this.session = checkNotNull(session, "session is null");
 
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
@@ -177,6 +179,12 @@ public final class SqlQueryExecution
             return queryInfo.getQueryStats().getTotalMemoryReservation().toBytes();
         }
         return stage.getTotalMemoryReservation();
+    }
+
+    @Override
+    public Session getSession()
+    {
+        return session;
     }
 
     @Override

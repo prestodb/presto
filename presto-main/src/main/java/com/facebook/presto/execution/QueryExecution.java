@@ -36,6 +36,8 @@ public interface QueryExecution
 
     long getTotalMemoryReservation();
 
+    Session getSession();
+
     void start();
 
     void fail(Throwable cause);
