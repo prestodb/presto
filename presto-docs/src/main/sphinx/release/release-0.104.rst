@@ -12,6 +12,9 @@ General Changes
 * Fix potential deadlock in cluster memory manager.
 * Add a visualization of query execution timeline.
 * Allow mixed case in input to :func:`from_hex`.
+* Add optimizer for projection push down which can
+  improve the performance of certain query shapes.
+* Improve query performance by storing pre-partitioned pages.
 
 Hive Changes
 ------------
