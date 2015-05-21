@@ -12,6 +12,10 @@ General Changes
 * Fix potential deadlock in cluster memory manager.
 * Add a visualization of query execution timeline.
 * Allow mixed case in input to :func:`from_hex`.
+* Display "BLOCKED" state in web UI.
+* Reduce CPU usage in coordinator.
+* Fix excess object retention in workers due to long running queries.
+* Reduce memory usage of :func:`array_distinct`.
 
 Hive Changes
 ------------
