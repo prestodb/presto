@@ -160,6 +160,9 @@ public class HashBuilderOperator
         checkState(!isFinished(), "Operator is already finished");
 
         pagesIndex.addPage(page);
+        if (!operatorContext.trySetMemoryReservation(pagesIndex.getEstimatedSize().toBytes())) {
+            pagesIndex.compact();
+        }
         operatorContext.setMemoryReservation(pagesIndex.getEstimatedSize().toBytes());
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
     }
