@@ -17,10 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
@@ -31,6 +27,8 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -59,7 +57,7 @@ public class StateMachine<T>
     private final List<StateChangeListener<T>> stateChangeListeners = new ArrayList<>();
 
     @GuardedBy("lock")
-    private final Set<SettableFuture<T>> futureStateChanges = newIdentityHashSet();
+    private final Set<CompletableFuture<T>> futureStateChanges = newIdentityHashSet();
 
     /**
      * Creates a state machine with the specified initial state and no terminal states.
@@ -108,7 +106,7 @@ public class StateMachine<T>
         requireNonNull(newState, "newState is null");
 
         T oldState;
-        ImmutableList<SettableFuture<T>> futureStateChanges;
+        ImmutableList<CompletableFuture<T>> futureStateChanges;
         ImmutableList<StateChangeListener<T>> stateChangeListeners;
         synchronized (lock) {
             if (state.equals(newState)) {
@@ -180,7 +178,7 @@ public class StateMachine<T>
         requireNonNull(expectedState, "expectedState is null");
         requireNonNull(newState, "newState is null");
 
-        ImmutableList<SettableFuture<T>> futureStateChanges;
+        ImmutableList<CompletableFuture<T>> futureStateChanges;
         ImmutableList<StateChangeListener<T>> stateChangeListeners;
         synchronized (lock) {
             if (!state.equals(expectedState)) {
@@ -212,16 +210,16 @@ public class StateMachine<T>
         return true;
     }
 
-    private void fireStateChanged(T newState, List<SettableFuture<T>> futureStateChanges, List<StateChangeListener<T>> stateChangeListeners)
+    private void fireStateChanged(T newState, List<CompletableFuture<T>> futureStateChanges, List<StateChangeListener<T>> stateChangeListeners)
     {
         checkState(!Thread.holdsLock(lock), "Can not fire state change event while holding the lock");
         requireNonNull(newState, "newState is null");
 
         executor.execute(() -> {
             checkState(!Thread.holdsLock(lock), "Can not notify while holding the lock");
-            for (SettableFuture<T> futureStateChange : futureStateChanges) {
+            for (CompletableFuture<T> futureStateChange : futureStateChanges) {
                 try {
-                    futureStateChange.set(newState);
+                    futureStateChange.complete(newState);
                 }
                 catch (Throwable e) {
                     log.error(e, "Error setting future state for %s", name);
@@ -241,7 +239,7 @@ public class StateMachine<T>
     /**
      * Gets a future that completes when the state is no longer {@code .equals()} to {@code currentState)}
      */
-    public ListenableFuture<T> getStateChange(T currentState)
+    public CompletableFuture<T> getStateChange(T currentState)
     {
         checkState(!Thread.holdsLock(lock), "Can not wait for state change while holding the lock");
         requireNonNull(currentState, "currentState is null");
@@ -249,24 +247,15 @@ public class StateMachine<T>
         synchronized (lock) {
             // return a completed future if the state has already changed, or we are in a terminal state
             if (!isPossibleStateChange(currentState)) {
-                return Futures.immediateFuture(state);
+                return CompletableFuture.completedFuture(state);
             }
 
-            SettableFuture<T> futureStateChange = SettableFuture.create();
+            CompletableFuture<T> futureStateChange = new CompletableFuture<>();
             futureStateChanges.add(futureStateChange);
-            Futures.addCallback(futureStateChange, new FutureCallback<T>()
-            {
-                @Override
-                public void onSuccess(T result)
-                {
-                    // no-op. The futureStateChanges list is already cleared before fireStateChanged is called.
-                }
-
-                @Override
-                public void onFailure(Throwable t)
-                {
-                    // Remove the Future early, in case it's cancelled.
-                    synchronized (lock) {
+            futureStateChange.whenComplete((value, throwable) -> {
+                // Remove the Future early, in case it's cancelled.
+                if (throwable instanceof CancellationException) {
+                    synchronized (StateMachine.this) {
                         futureStateChanges.remove(futureStateChange);
                     }
                 }
@@ -347,7 +336,7 @@ public class StateMachine<T>
     }
 
     @VisibleForTesting
-    synchronized Set<SettableFuture<T>> getFutureStateChanges()
+    synchronized Set<CompletableFuture<T>> getFutureStateChanges()
     {
         return ImmutableSet.copyOf(futureStateChanges);
     }

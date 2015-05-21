@@ -475,6 +475,12 @@ public class TestSqlStageExecution
             }
 
             @Override
+            public CompletableFuture<TaskInfo> getStateChange(TaskInfo taskInfo)
+            {
+                return taskStateMachine.getStateChange(taskInfo.getState()).thenApply(ignored -> getTaskInfo());
+            }
+
+            @Override
             public void cancel()
             {
                 taskStateMachine.cancel();

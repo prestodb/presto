@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
@@ -222,6 +223,12 @@ public class MockRemoteTaskFactory
         public void addStateChangeListener(StateChangeListener<TaskInfo> stateChangeListener)
         {
             taskStateMachine.addStateChangeListener(newValue -> stateChangeListener.stateChanged(getTaskInfo()));
+        }
+
+        @Override
+        public CompletableFuture<TaskInfo> getStateChange(TaskInfo taskInfo)
+        {
+            return taskStateMachine.getStateChange(taskInfo.getState()).thenApply(ignored -> getTaskInfo());
         }
 
         @Override

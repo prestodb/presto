@@ -14,14 +14,13 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -70,15 +69,15 @@ public class TaskStateMachine
         return taskState.get();
     }
 
-    public ListenableFuture<TaskState> getStateChange(TaskState currentState)
+    public CompletableFuture<TaskState> getStateChange(TaskState currentState)
     {
         checkNotNull(currentState, "currentState is null");
         checkArgument(!currentState.isDone(), "Current state is already done");
 
-        ListenableFuture<TaskState> future = taskState.getStateChange(currentState);
+        CompletableFuture<TaskState> future = taskState.getStateChange(currentState);
         TaskState state = taskState.get();
         if (state.isDone()) {
-            return Futures.immediateFuture(state);
+            return CompletableFuture.completedFuture(state);
         }
         return future;
     }
