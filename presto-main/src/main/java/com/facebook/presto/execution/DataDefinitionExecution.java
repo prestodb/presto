@@ -72,9 +72,9 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
-    public long getMaxQueryMemory(long defaultValue)
+    public Session getSession()
     {
-        return defaultValue;
+        return session;
     }
 
     @Override

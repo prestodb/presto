@@ -40,9 +40,7 @@ import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.concurrent.SetThreadName;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.airlift.units.DataSize.Unit;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -55,7 +53,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
-import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemory;
 import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
@@ -174,9 +171,9 @@ public final class SqlQueryExecution
     }
 
     @Override
-    public long getMaxQueryMemory(long defaultValue)
+    public Session getSession()
     {
-        return getQueryMaxMemory(session, DataSize.succinctDataSize(defaultValue, Unit.BYTE)).toBytes();
+        return session;
     }
 
     @Override

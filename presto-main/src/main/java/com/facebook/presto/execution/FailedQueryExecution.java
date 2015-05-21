@@ -22,14 +22,17 @@ import java.net.URI;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class FailedQueryExecution
         implements QueryExecution
 {
     private final QueryInfo queryInfo;
+    private final Session session;
 
     public FailedQueryExecution(QueryId queryId, String query, Session session, URI self, Executor executor, Throwable cause)
     {
+        this.session = checkNotNull(session, "session is null");
         QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, executor);
         queryStateMachine.fail(cause);
 
@@ -67,9 +70,9 @@ public class FailedQueryExecution
     }
 
     @Override
-    public long getMaxQueryMemory(long defaultValue)
+    public Session getSession()
     {
-        return defaultValue;
+        return session;
     }
 
     @Override

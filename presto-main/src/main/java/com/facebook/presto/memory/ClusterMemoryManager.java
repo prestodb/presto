@@ -48,6 +48,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemory;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
@@ -105,10 +106,11 @@ public class ClusterMemoryManager
         long totalBytes = 0;
         for (QueryExecution query : queries) {
             long bytes = query.getTotalMemoryReservation();
-            long queryMaxMemory = query.getMaxQueryMemory(maxQueryMemory.toBytes());
+            DataSize sessionMaxQueryMemory = getQueryMaxMemory(query.getSession(), maxQueryMemory);
+            long queryMemoryLimit = Math.min(maxQueryMemory.toBytes(), sessionMaxQueryMemory.toBytes());
             totalBytes += bytes;
-            if (bytes > queryMaxMemory) {
-                query.fail(new ExceededMemoryLimitException("Query", DataSize.succinctDataSize(queryMaxMemory, Unit.BYTE)));
+            if (bytes > queryMemoryLimit) {
+                query.fail(new ExceededMemoryLimitException("Query", DataSize.succinctDataSize(queryMemoryLimit, Unit.BYTE)));
             }
         }
         clusterMemoryUsageBytes.set(totalBytes);

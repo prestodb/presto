@@ -34,7 +34,7 @@ public interface QueryExecution
 
     long getTotalMemoryReservation();
 
-    long getMaxQueryMemory(long defaultValue);
+    Session getSession();
 
     void start();
 
