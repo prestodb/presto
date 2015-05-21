@@ -164,8 +164,6 @@ public class ShardCompactionManager
 
     private void discoverShards()
     {
-        CompactionSetCreator compactionSetCreator = new CompactionSetCreator(maxShardSize);
-
         for (long tableId : metadataDao.listTableIds()) {
             Set<ShardMetadata> shardMetadata = shardManager.getNodeTableShards(currentNodeIdentifier, tableId);
             Set<ShardMetadata> shards = shardMetadata.stream()
@@ -177,28 +175,30 @@ public class ShardCompactionManager
             }
 
             Long temporalColumnId = metadataDao.getTemporalColumnId(tableId);
-            if (temporalColumnId != null) {
-                // TODO implement time range aware compaction
+            CompactionSetCreator compactionSetCreator;
+            if (temporalColumnId == null) {
+                compactionSetCreator = new FileCompactionSetCreator(maxShardSize);
             }
             else {
                 addToCompactionQueue(compactionSetCreator, tableId, shards);
             }
+            addToCompactionQueue(compactionSetCreator, tableId, shards);
         }
     }
 
     private void addToCompactionQueue(CompactionSetCreator compactionSetCreator, long tableId, Set<ShardMetadata> shardsToCompact)
     {
-        for (Set<ShardMetadata> compactionSet : compactionSetCreator.getCompactionSets(shardsToCompact)) {
-            if (compactionSet.size() <= 1) {
+        for (CompactionSet compactionSet : compactionSetCreator.createCompactionSets(tableId, shardsToCompact)) {
+            if (compactionSet.getShardsToCompact().size() <= 1) {
                 // throw it away because there is no work to be done
                 continue;
             }
 
-            compactionSet.stream()
+            compactionSet.getShardsToCompact().stream()
                     .map(ShardMetadata::getShardId)
                     .forEach(shardsBeingCompacted::add);
 
-            compactionQueue.add(new CompactionSet(tableId, compactionSet));
+            compactionQueue.add(compactionSet);
         }
     }
 
@@ -212,28 +212,6 @@ public class ShardCompactionManager
             return true;
         }
         return false;
-    }
-
-    private class CompactionSet
-    {
-        private final long tableId;
-        private final Set<ShardMetadata> shardsToCompact;
-
-        public CompactionSet(long tableId, Set<ShardMetadata> shardsToCompact)
-        {
-            this.tableId = tableId;
-            this.shardsToCompact = requireNonNull(shardsToCompact, "shardsToCompact is null");
-        }
-
-        public long getTableId()
-        {
-            return tableId;
-        }
-
-        public Set<ShardMetadata> getShardsToCompact()
-        {
-            return shardsToCompact;
-        }
     }
 
     private class ShardCompactionDriver
