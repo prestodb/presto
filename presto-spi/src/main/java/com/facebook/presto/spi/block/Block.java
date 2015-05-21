@@ -112,9 +112,14 @@ public interface Block
     int getPositionCount();
 
     /**
-     * Returns the size of this block in memory.
+     * Returns the logical size of this block in memory.
      */
     int getSizeInBytes();
+
+    /**
+     * Returns the retained size of this block in memory.
+     */
+    int getRetainedSizeInBytes();
 
     /**
      * Get the encoding for this block.

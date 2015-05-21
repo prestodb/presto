@@ -82,6 +82,13 @@ public class LazyFixedWidthBlock
     }
 
     @Override
+    public int getRetainedSizeInBytes()
+    {
+        // TODO: This should account for memory used by the loader.
+        return getSizeInBytes();
+    }
+
+    @Override
     public Block getRegion(int positionOffset, int length)
     {
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {

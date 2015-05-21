@@ -77,6 +77,16 @@ public class VariableWidthBlock
     }
 
     @Override
+    public int getRetainedSizeInBytes()
+    {
+        long size = slice.getRetainedSize() + offsets.getRetainedSize() + valueIsNull.getRetainedSize();
+        if (size > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) size;
+    }
+
+    @Override
     protected Slice getRawSlice(int position)
     {
         return slice;

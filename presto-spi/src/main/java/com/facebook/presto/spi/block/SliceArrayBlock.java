@@ -27,6 +27,7 @@ public class SliceArrayBlock
     private final int positionCount;
     private final Slice[] values;
     private final int sizeInBytes;
+    private final int retainedSizeInBytes;
 
     public SliceArrayBlock(int positionCount, Slice[] values)
     {
@@ -38,6 +39,7 @@ public class SliceArrayBlock
         this.values = values;
 
         sizeInBytes = getSliceArraySizeInBytes(values);
+        retainedSizeInBytes = getSliceArrayRetainedSizeInBytes(values);
     }
 
     Slice[] getValues()
@@ -85,6 +87,12 @@ public class SliceArrayBlock
     public int getSizeInBytes()
     {
         return sizeInBytes;
+    }
+
+    @Override
+    public int getRetainedSizeInBytes()
+    {
+        return retainedSizeInBytes;
     }
 
     @Override
@@ -145,6 +153,21 @@ public class SliceArrayBlock
         for (Slice value : values) {
             if (value != null) {
                 sizeInBytes += value.length();
+            }
+        }
+        if (sizeInBytes > Integer.MAX_VALUE) {
+            sizeInBytes = Integer.MAX_VALUE;
+        }
+        return (int) sizeInBytes;
+    }
+
+    static int getSliceArrayRetainedSizeInBytes(Slice[] values)
+    {
+        long sizeInBytes = SizeOf.sizeOf(values);
+        Map<Object, Boolean> uniqueRetained = new IdentityHashMap<>();
+        for (Slice value : values) {
+            if (value != null && value.getBase() != null && uniqueRetained.put(value.getBase(), true) == null) {
+                sizeInBytes += value.getRetainedSize();
             }
         }
         if (sizeInBytes > Integer.MAX_VALUE) {
