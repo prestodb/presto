@@ -16,6 +16,9 @@ General Changes
 * Reduce CPU usage in coordinator.
 * Fix excess object retention in workers due to long running queries.
 * Reduce memory usage of :func:`array_distinct`.
+* Add optimizer for projection push down which can
+  improve the performance of certain query shapes.
+* Improve query performance by storing pre-partitioned pages.
 
 Hive Changes
 ------------
