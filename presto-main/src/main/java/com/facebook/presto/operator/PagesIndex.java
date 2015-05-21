@@ -128,7 +128,7 @@ public class PagesIndex
         for (int i = 0; i < channels.length; i++) {
             Block block = page.getBlock(i);
             channels[i].add(block);
-            pagesMemorySize += block.getSizeInBytes();
+            pagesMemorySize += block.getRetainedSizeInBytes();
         }
 
         for (int position = 0; position < page.getPositionCount(); position++) {
