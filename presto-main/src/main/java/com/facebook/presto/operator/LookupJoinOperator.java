@@ -34,7 +34,8 @@ import static com.google.common.base.Preconditions.checkState;
 public class LookupJoinOperator
         implements Operator, Closeable
 {
-    private final ListenableFuture<LookupSource> lookupSourceFuture;
+    private final ListenableFuture<? extends LookupSource> lookupSourceFuture;
+    private final LookupSourceSupplier lookupSourceSupplier;
 
     private final OperatorContext operatorContext;
     private final JoinProbeFactory joinProbeFactory;
@@ -48,6 +49,7 @@ public class LookupJoinOperator
     private LookupSource lookupSource;
     private JoinProbe probe;
 
+    private boolean closed;
     private boolean finishing;
     private long joinPosition = -1;
 
@@ -63,7 +65,8 @@ public class LookupJoinOperator
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
         // todo pass in desired projection
-        checkNotNull(lookupSourceSupplier, "lookupSourceSupplier is null");
+        this.lookupSourceSupplier = checkNotNull(lookupSourceSupplier, "lookupSourceSupplier is null");
+        lookupSourceSupplier.retain();
         checkNotNull(probeTypes, "probeTypes is null");
 
         this.lookupSourceFuture = lookupSourceSupplier.getLookupSource(operatorContext);
@@ -198,6 +201,12 @@ public class LookupJoinOperator
             lookupSource.close();
             lookupSource = null;
         }
+        // Closing the lookupSource is always safe to do, but we don't want to release the supplier multiple times, since its reference counted
+        if (closed) {
+            return;
+        }
+        closed = true;
+        lookupSourceSupplier.release();
     }
 
     private boolean joinCurrentPosition()

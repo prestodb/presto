@@ -15,19 +15,25 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.AsyncFunction;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.transform;
 
 public final class SettableLookupSourceSupplier
         implements LookupSourceSupplier
 {
     private final List<Type> types;
-    private final SettableFuture<LookupSource> lookupSourceFuture = SettableFuture.create();
+    private final SettableFuture<SharedLookupSource> lookupSourceFuture = SettableFuture.create();
+    private final AtomicInteger referenceCount = new AtomicInteger(1);
 
     public SettableLookupSourceSupplier(List<Type> types)
     {
@@ -43,13 +49,40 @@ public final class SettableLookupSourceSupplier
     @Override
     public ListenableFuture<LookupSource> getLookupSource(OperatorContext operatorContext)
     {
-        return lookupSourceFuture;
+        return transform(lookupSourceFuture, (AsyncFunction<SharedLookupSource, LookupSource>) Futures::immediateFuture);
     }
 
-    public void setLookupSource(LookupSource lookupSource)
+    public void setLookupSource(SharedLookupSource lookupSource)
     {
         checkNotNull(lookupSource, "lookupSource is null");
         boolean wasSet = lookupSourceFuture.set(lookupSource);
         checkState(wasSet, "Lookup source already set");
+    }
+
+    @Override
+    public void retain()
+    {
+        referenceCount.incrementAndGet();
+    }
+
+    @Override
+    public void release()
+    {
+        if (referenceCount.decrementAndGet() == 0) {
+            // We own the shared lookup source, so we need to free their memory
+            Futures.addCallback(lookupSourceFuture, new FutureCallback<SharedLookupSource>() {
+                @Override
+                public void onSuccess(SharedLookupSource result)
+                {
+                    result.freeMemory();
+                }
+
+                @Override
+                public void onFailure(Throwable t)
+                {
+                    // ignored
+                }
+            });
+        }
     }
 }

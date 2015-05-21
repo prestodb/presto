@@ -52,6 +52,18 @@ public class IndexLookupSourceSupplier
     public ListenableFuture<LookupSource> getLookupSource(OperatorContext operatorContext)
     {
         indexLoader.setContext(operatorContext.getDriverContext().getPipelineContext().getTaskContext());
-        return Futures.<LookupSource>immediateFuture(new IndexLookupSource(indexLoader));
+        return Futures.immediateFuture(new IndexLookupSource(indexLoader));
+    }
+
+    @Override
+    public void release()
+    {
+        // no-op
+    }
+
+    @Override
+    public void retain()
+    {
+        // no-op
     }
 }
