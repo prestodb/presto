@@ -45,6 +45,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTask
@@ -231,7 +232,7 @@ public class SqlTask
             return Futures.immediateFuture(getTaskInfo());
         }
 
-        ListenableFuture<TaskState> futureTaskState = taskStateMachine.getStateChange(callersCurrentState);
+        ListenableFuture<TaskState> futureTaskState = toListenableFuture(taskStateMachine.getStateChange(callersCurrentState));
         return Futures.transform(futureTaskState, (TaskState input) -> getTaskInfo());
     }
 
