@@ -166,6 +166,12 @@ public class GroupByIdBlock
     }
 
     @Override
+    public int getRetainedSizeInBytes()
+    {
+        return block.getRetainedSizeInBytes();
+    }
+
+    @Override
     public BlockEncoding getEncoding()
     {
         return block.getEncoding();

@@ -85,6 +85,16 @@ public class FixedWidthBlockBuilder
     }
 
     @Override
+    public int getRetainedSizeInBytes()
+    {
+        long size = getRawSlice().getRetainedSize() + valueIsNull.getUnderlyingSlice().getRetainedSize();
+        if (size > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) size;
+    }
+
+    @Override
     public BlockBuilder writeByte(int value)
     {
         sliceOutput.writeByte(value);

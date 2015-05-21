@@ -95,6 +95,16 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
+    public int getRetainedSizeInBytes()
+    {
+        long size = sliceOutput.getUnderlyingSlice().getRetainedSize() + offsets.getUnderlyingSlice().getRetainedSize() + valueIsNull.getUnderlyingSlice().getRetainedSize();
+        if (size > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) size;
+    }
+
+    @Override
     public BlockBuilder writeByte(int value)
     {
         sliceOutput.writeByte(value);

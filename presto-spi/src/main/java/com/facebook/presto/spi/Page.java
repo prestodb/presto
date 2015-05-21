@@ -25,6 +25,7 @@ public class Page
     private final Block[] blocks;
     private final int positionCount;
     private final AtomicLong sizeInBytes = new AtomicLong(-1);
+    private final AtomicLong retainedSizeInBytes = new AtomicLong(-1);
 
     public Page(Block... blocks)
     {
@@ -59,6 +60,19 @@ public class Page
             this.sizeInBytes.set(sizeInBytes);
         }
         return sizeInBytes;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        long retainedSizeInBytes = this.retainedSizeInBytes.get();
+        if (retainedSizeInBytes < 0) {
+            retainedSizeInBytes = 0;
+            for (Block block : blocks) {
+                retainedSizeInBytes += block.getRetainedSizeInBytes();
+            }
+            this.retainedSizeInBytes.set(retainedSizeInBytes);
+        }
+        return retainedSizeInBytes;
     }
 
     public Block[] getBlocks()

@@ -58,6 +58,12 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public int getRetainedSizeInBytes()
+    {
+        return value.getRetainedSizeInBytes();
+    }
+
+    @Override
     public RunLengthBlockEncoding getEncoding()
     {
         return new RunLengthBlockEncoding(value.getEncoding());

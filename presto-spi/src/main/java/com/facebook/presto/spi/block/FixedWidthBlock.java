@@ -71,6 +71,16 @@ public class FixedWidthBlock
     }
 
     @Override
+    public int getRetainedSizeInBytes()
+    {
+        long size = getRawSlice().getRetainedSize() + valueIsNull.getRetainedSize();
+        if (size > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) size;
+    }
+
+    @Override
     public Block getRegion(int positionOffset, int length)
     {
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {

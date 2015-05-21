@@ -102,6 +102,13 @@ public class LazySliceArrayBlock
     }
 
     @Override
+    public int getRetainedSizeInBytes()
+    {
+        // TODO: This should account for memory used by the loader.
+        return getSizeInBytes();
+    }
+
+    @Override
     public Block getRegion(int positionOffset, int length)
     {
         int positionCount = getPositionCount();
