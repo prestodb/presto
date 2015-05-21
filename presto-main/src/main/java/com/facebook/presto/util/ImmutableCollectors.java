@@ -14,9 +14,11 @@
 package com.facebook.presto.util;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.function.Function;
 import java.util.stream.Collector;
 
 public final class ImmutableCollectors
@@ -59,5 +61,17 @@ public final class ImmutableCollectors
                 },
                 ImmutableMultiset.Builder::build,
                 Collector.Characteristics.UNORDERED);
+    }
+
+    public static <K, V> Collector<V, ?, ImmutableMap<K, V>> toImmutableMap(Function<V, K> keyMapper)
+    {
+        return Collector.<V, ImmutableMap.Builder<K, V>, ImmutableMap<K, V>>of(
+                ImmutableMap.Builder::new,
+                (builder, value) -> builder.put(keyMapper.apply(value), value),
+                (left, right) -> {
+                    left.putAll(right.build());
+                    return left;
+                },
+                ImmutableMap.Builder::build);
     }
 }
