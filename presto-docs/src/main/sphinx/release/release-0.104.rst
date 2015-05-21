@@ -19,6 +19,8 @@ General Changes
 * Add optimizer for projection push down which can
   improve the performance of certain query shapes.
 * Improve query performance by storing pre-partitioned pages.
+* Support ``TIMESTAMP`` for :func:`first_value`, :func:`last_value`,
+  :func:`nth_value`, :func:`lead` and :func:`lag`.
 
 Hive Changes
 ------------
