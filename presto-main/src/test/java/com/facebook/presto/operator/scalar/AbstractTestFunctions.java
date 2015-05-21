@@ -38,6 +38,17 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertFunction(projection, expectedType, expected);
     }
 
+    protected void assertInvalidFunction(String projection, Type expectedType, String message)
+    {
+        try {
+            assertFunction(projection, expectedType, null);
+            fail("Expected to throw an INVALID_FUNCTION_ARGUMENT exception with message " + message);
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
+            assertEquals(e.getMessage(), message);
+        }
+    }
     protected void assertInvalidFunction(String projection, String message)
     {
         try {
