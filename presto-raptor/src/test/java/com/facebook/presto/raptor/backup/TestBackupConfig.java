@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.backup;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -21,6 +22,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestBackupConfig
 {
@@ -28,7 +31,8 @@ public class TestBackupConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(BackupConfig.class)
-                .setProvider(null));
+                .setProvider(null)
+                .setTimeout(new Duration(1, MINUTES)));
     }
 
     @Test
@@ -36,10 +40,12 @@ public class TestBackupConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("backup.provider", "file")
+                .put("backup.timeout", "42s")
                 .build();
 
         BackupConfig expected = new BackupConfig()
-                .setProvider("file");
+                .setProvider("file")
+                .setTimeout(new Duration(42, SECONDS));
 
         assertFullMapping(properties, expected);
     }

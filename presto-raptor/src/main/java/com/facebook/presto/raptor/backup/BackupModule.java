@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.raptor.backup;
 
+import com.facebook.presto.raptor.RaptorConnectorId;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.util.Providers;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 
 import javax.annotation.Nullable;
@@ -50,8 +52,19 @@ public class BackupModule
 
     @Provides
     @Singleton
-    private static Optional<BackupStore> createBackupStore(@Nullable BackupStore store)
+    private static Optional<BackupStore> createBackupStore(
+            @Nullable BackupStore store,
+            LifeCycleManager lifeCycleManager,
+            RaptorConnectorId connectorId,
+            BackupConfig config)
+            throws Exception
     {
-        return Optional.ofNullable(store);
+        if (store == null) {
+            return Optional.empty();
+        }
+
+        BackupStore proxy = new TimeoutBackupStore(store, connectorId.toString(), config.getTimeout());
+        lifeCycleManager.addInstance(proxy);
+        return Optional.of(proxy);
     }
 }
