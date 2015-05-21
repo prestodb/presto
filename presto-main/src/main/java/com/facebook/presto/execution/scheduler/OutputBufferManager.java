@@ -15,7 +15,7 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.TaskId;
 
-public interface OutputBufferManager
+interface OutputBufferManager
 {
     void addOutputBuffer(TaskId bufferId);
 

@@ -33,7 +33,7 @@ public enum QueryState
      */
     STARTING(false),
     /**
-     * Query has at least one task in the output stage.
+     * Query has at least one running task.
      */
     RUNNING(false),
     /**

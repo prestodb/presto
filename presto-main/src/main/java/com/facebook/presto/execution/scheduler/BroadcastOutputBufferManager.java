@@ -26,7 +26,7 @@ import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class BroadcastOutputBufferManager
+class BroadcastOutputBufferManager
         implements OutputBufferManager
 {
     private final Consumer<OutputBuffers> outputBufferTarget;
