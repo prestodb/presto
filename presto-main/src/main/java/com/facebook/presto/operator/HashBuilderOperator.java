@@ -135,9 +135,9 @@ public class HashBuilderOperator
             return;
         }
 
-        LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels, hashChannel);
-        operatorContext.setMemoryReservation(pagesIndex.getEstimatedSize().toBytes() + lookupSource.getInMemorySizeInBytes());
-        lookupSourceSupplier.setLookupSource(lookupSource);
+        // Free memory, as the SharedLookupSource is going to take it over
+        operatorContext.setMemoryReservation(0);
+        lookupSourceSupplier.setLookupSource(new SharedLookupSource(pagesIndex.createLookupSource(hashChannels, hashChannel), operatorContext.getDriverContext().getPipelineContext().getTaskContext()));
         finished = true;
     }
 
