@@ -63,6 +63,7 @@
         <module>presto-spi</module>
         <module>presto-kafka</module>
         <module>presto-cassandra</module>
+        <module>presto-blackhole</module>
         <module>presto-orc</module>
         <module>presto-hive</module>
         <module>presto-hive-hadoop1</module>
