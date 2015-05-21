@@ -253,7 +253,7 @@ public class DatabaseShardManager
         Set<String> identifiers = shards.stream()
                 .map(ShardInfo::getNodeIdentifiers)
                 .flatMap(Collection::stream)
-            .collect(toSet());
+                .collect(toSet());
         return Maps.toMap(identifiers, this::getOrCreateNodeId);
     }
 
