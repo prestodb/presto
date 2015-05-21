@@ -31,6 +31,7 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.ConnectorAwareSplitSource;
@@ -58,6 +59,8 @@ import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.joda.time.DateTime;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -68,7 +71,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -89,15 +92,29 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.fail;
 
-@Test(singleThreaded = true)
+@Test(singleThreaded = true, timeOut = 5000)
 public class TestSqlStageExecution
 {
     public static final TaskId OUT = new TaskId("query", "stage", "out");
+    private ExecutorService executor;
+
     private NodeTaskMap nodeTaskMap;
     private InMemoryNodeManager nodeManager;
     private NodeScheduler nodeScheduler;
     private LocationFactory locationFactory;
     private Supplier<ConnectorSplit> splitFactory;
+
+    @BeforeClass
+    public void createExecutor()
+    {
+        executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
+    }
+
+    @AfterClass
+    public void destroyExecutor()
+    {
+        executor.shutdownNow();
+    }
 
     @BeforeMethod
     public void setUp()
@@ -122,7 +139,7 @@ public class TestSqlStageExecution
         splitFactory = TestingSplit::createLocalSplit;
     }
 
-    @Test(expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*No nodes available to run query")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = ".*No nodes available to run query")
     public void testExcludeCoordinator()
             throws Exception
     {
@@ -132,8 +149,7 @@ public class TestSqlStageExecution
         // Start sql stage execution
         StageExecutionPlan tableScanPlan = createTableScanPlan("test", 20, TestingSplit::createEmptySplit);
         SqlStageExecution sqlStageExecution = createSqlStageExecution(nodeScheduler, 2, tableScanPlan);
-        Future<?> future = sqlStageExecution.start();
-        future.get(10, TimeUnit.SECONDS);
+        sqlStageExecution.startTasks();
     }
 
     @Test
@@ -143,8 +159,7 @@ public class TestSqlStageExecution
         // Start sql stage execution (schedule 15 splits in batches of 2), there are 3 nodes, each node should get 5 splits
         StageExecutionPlan tableScanPlan = createTableScanPlan("test", 15, splitFactory);
         SqlStageExecution sqlStageExecution1 = createSqlStageExecution(nodeScheduler, 2, tableScanPlan);
-        Future<?> future1 = sqlStageExecution1.start();
-        future1.get(10, TimeUnit.SECONDS);
+        sqlStageExecution1.startTasks();
         for (RemoteTask remoteTask : sqlStageExecution1.getAllTasks()) {
             assertEquals(remoteTask.getPartitionedSplitCount(), 5);
         }
@@ -156,8 +171,7 @@ public class TestSqlStageExecution
         // Schedule next query with 5 splits. Since the new node does not have any splits, all 5 splits are assigned to the new node
         StageExecutionPlan tableScanPlan2 = createTableScanPlan("test", 5, splitFactory);
         SqlStageExecution sqlStageExecution2 = createSqlStageExecution(nodeScheduler, 5, tableScanPlan2);
-        Future<?> future2 = sqlStageExecution2.start();
-        future2.get(10, TimeUnit.SECONDS);
+        sqlStageExecution2.startTasks();
         List<RemoteTask> tasks2 = sqlStageExecution2.getTasks(additionalNode);
 
         RemoteTask task = Iterables.getFirst(tasks2, null);
@@ -172,7 +186,7 @@ public class TestSqlStageExecution
         // Start sql stage execution with 100 splits. Only 20 will be scheduled on each node as that is the maxSplitsPerNode
         StageExecutionPlan tableScanPlan = createTableScanPlan("test", 100, splitFactory);
         SqlStageExecution sqlStageExecution1 = createSqlStageExecution(nodeScheduler, 100, tableScanPlan);
-        Future<?> future1 = sqlStageExecution1.start();
+        Future<?> future1 = CompletableFuture.runAsync(sqlStageExecution1::startTasks, executor);
 
         // The stage scheduler will block and this will cause a timeout exception
         try {
@@ -189,60 +203,39 @@ public class TestSqlStageExecution
 
     private SqlStageExecution createSqlStageExecution(NodeScheduler nodeScheduler, int splitBatchSize, StageExecutionPlan tableScanPlan)
     {
-        ExecutorService remoteTaskExecutor = newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%s"));
-        MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
-
-        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
-                .withBuffer(OUT, new UnpartitionedPagePartitionFunction())
-                .withNoMoreBufferIds();
-
-        return new SqlStageExecution(new QueryId("query"),
-                locationFactory,
-                tableScanPlan,
+        StageId stageId = new StageId(new QueryId("query"), "stage");
+        SqlStageExecution stage = new SqlStageExecution(stageId,
+                locationFactory.createStageLocation(stageId),
+                tableScanPlan.getFragment(),
+                tableScanPlan.getDataSource(),
                 nodeScheduler,
-                remoteTaskFactory,
+                new MockRemoteTaskFactory(executor),
                 TEST_SESSION,
                 splitBatchSize,
                 8,      // initialHashPartitions
-                executor,
                 nodeTaskMap,
-                outputBuffers);
+                executor);
+
+        stage.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS
+                .withBuffer(OUT, new UnpartitionedPagePartitionFunction())
+                .withNoMoreBufferIds());
+
+        return stage;
     }
 
     @Test(enabled = false)
     public void testYieldCausesFullSchedule()
             throws Exception
     {
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
-        SqlStageExecution stageExecution = null;
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        nodeManager.addNode("foo", new PrestoNode("other", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
+        SqlStageExecution stage = createSqlStageExecution(new NodeScheduler(nodeManager, new NodeSchedulerConfig(), nodeTaskMap), 1000, createJoinPlan("A"));
         try {
-            StageExecutionPlan joinPlan = createJoinPlan("A");
-
-            InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-            nodeManager.addNode("foo", new PrestoNode("other", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
-
-            OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
-                    .withBuffer(OUT, new UnpartitionedPagePartitionFunction())
-                    .withNoMoreBufferIds();
-
-            stageExecution = new SqlStageExecution(new QueryId("query"),
-                    new MockLocationFactory(),
-                    joinPlan,
-                    new NodeScheduler(nodeManager, new NodeSchedulerConfig(), nodeTaskMap),
-                    new MockRemoteTaskFactory(executor),
-                    TEST_SESSION,
-                    1000,
-                    8,
-                    executor,
-                    nodeTaskMap,
-                    outputBuffers);
-
-            Future<?> future = stageExecution.start();
+            Future<?> future = CompletableFuture.runAsync(stage::startTasks, executor);
 
             long start = System.nanoTime();
             while (true) {
-                StageInfo stageInfo = stageExecution.getStageInfo();
+                StageInfo stageInfo = stage.getStageInfo();
                 assertEquals(stageInfo.getState(), StageState.SCHEDULING);
 
                 StageInfo tableScanInfo = stageInfo.getSubStages().get(0);
@@ -279,10 +272,7 @@ public class TestSqlStageExecution
             }
         }
         finally {
-            if (stageExecution != null) {
-                stageExecution.cancel();
-            }
-            executor.shutdownNow();
+            stage.cancel();
         }
     }
 
