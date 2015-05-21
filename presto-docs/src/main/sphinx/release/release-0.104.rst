@@ -10,6 +10,8 @@ General Changes
 * Add :func:`covar_pop`, :func:`covar_samp`, :func:`corr`, :func:`regr_slope`,
   and :func:`regr_intercept` functions.
 * Fix potential deadlock in cluster memory manager.
+* Add a visualization of query execution timeline.
+* Allow mixed case in input to :func:`from_hex`.
 
 Hive Changes
 ------------
