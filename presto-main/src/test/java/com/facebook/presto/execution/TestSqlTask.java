@@ -27,7 +27,6 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.event.client.NullEventClient;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.NodeInfo;
@@ -36,6 +35,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -209,7 +209,7 @@ public class TestSqlTask
         OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds();
         updateTask(sqlTask, EMPTY_SOURCES, outputBuffers);
 
-        ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
+        CompletableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
         assertFalse(bufferResult.isDone());
 
         // finish the task by closing the sources (no splits will ever be added)
@@ -234,7 +234,7 @@ public class TestSqlTask
 
         updateTask(sqlTask, EMPTY_SOURCES, INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, new UnpartitionedPagePartitionFunction()));
 
-        ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
+        CompletableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
         assertFalse(bufferResult.isDone());
 
         sqlTask.cancel();
@@ -256,7 +256,7 @@ public class TestSqlTask
 
         updateTask(sqlTask, EMPTY_SOURCES, INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, new UnpartitionedPagePartitionFunction()));
 
-        ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
+        CompletableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
         assertFalse(bufferResult.isDone());
 
         TaskState taskState = sqlTask.getTaskInfo().getState();

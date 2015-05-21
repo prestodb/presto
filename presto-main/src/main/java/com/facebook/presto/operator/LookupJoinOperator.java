@@ -27,9 +27,9 @@ import java.util.List;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.FULL_OUTER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.LOOKUP_OUTER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
-import static com.facebook.presto.util.MoreFutures.tryGetUnchecked;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 
 public class LookupJoinOperator
         implements Operator, Closeable
@@ -137,7 +137,7 @@ public class LookupJoinOperator
         }
 
         if (lookupSource == null) {
-            lookupSource = tryGetUnchecked(lookupSourceFuture);
+            lookupSource = tryGetFutureValue(lookupSourceFuture).orElse(null);
         }
         return lookupSource != null && probe == null;
     }
@@ -162,7 +162,7 @@ public class LookupJoinOperator
     {
         // If needsInput was never called, lookupSource has not been initialized so far.
         if (lookupSource == null) {
-            lookupSource = tryGetUnchecked(lookupSourceFuture);
+            lookupSource = tryGetFutureValue(lookupSourceFuture).orElse(null);
             if (lookupSource == null) {
                 return null;
             }
