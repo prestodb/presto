@@ -58,10 +58,10 @@ public final class BlockBigArray
     {
         Block currentValue = array.get(index);
         if (currentValue != null) {
-            sizeOfBlocks -= currentValue.getSizeInBytes();
+            sizeOfBlocks -= currentValue.getRetainedSizeInBytes();
         }
         if (value != null) {
-            sizeOfBlocks += value.getSizeInBytes();
+            sizeOfBlocks += value.getRetainedSizeInBytes();
         }
         array.set(index, value);
     }
