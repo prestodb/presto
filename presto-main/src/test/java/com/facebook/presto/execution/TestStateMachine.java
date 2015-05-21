@@ -257,7 +257,6 @@ public class TestStateMachine
         // listeners should not be retained if we are in a terminal state
         boolean isTerminalState = stateMachine.isTerminalState(expectedState);
         if (isTerminalState) {
-            assertEquals(stateMachine.getFutureStateChanges(), ImmutableSet.of());
             assertEquals(stateMachine.getStateChangeListeners(), ImmutableSet.of());
         }
     }
@@ -285,7 +284,6 @@ public class TestStateMachine
         // listeners should not be added if we are in a terminal state
         boolean isTerminalState = stateMachine.isTerminalState(initialState);
         if (isTerminalState) {
-            assertEquals(stateMachine.getFutureStateChanges(), ImmutableSet.of());
             assertEquals(stateMachine.getStateChangeListeners(), ImmutableSet.of());
         }
 
