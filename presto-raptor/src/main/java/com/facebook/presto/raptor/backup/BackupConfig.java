@@ -15,12 +15,35 @@ package com.facebook.presto.raptor.backup;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.units.Duration;
+import io.airlift.units.MaxDuration;
+import io.airlift.units.MinDuration;
 
 import javax.annotation.Nullable;
+import javax.validation.constraints.NotNull;
+
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class BackupConfig
 {
+    private Duration timeout = new Duration(1, MINUTES);
     private String provider;
+
+    @NotNull
+    @MinDuration("1s")
+    @MaxDuration("1h")
+    public Duration getTimeout()
+    {
+        return timeout;
+    }
+
+    @Config("backup.timeout")
+    @ConfigDescription("Timeout for per-shard backup/restore operations")
+    public BackupConfig setTimeout(Duration timeout)
+    {
+        this.timeout = timeout;
+        return this;
+    }
 
     @Nullable
     public String getProvider()
