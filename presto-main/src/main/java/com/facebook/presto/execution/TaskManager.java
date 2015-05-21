@@ -18,10 +18,10 @@ import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public interface TaskManager
 {
@@ -49,7 +49,7 @@ public interface TaskManager
      * NOTE: this design assumes that only tasks that will eventually exist are
      * queried.
      */
-    ListenableFuture<TaskInfo> getTaskInfo(TaskId taskId, TaskState currentState);
+    CompletableFuture<TaskInfo> getTaskInfo(TaskId taskId, TaskState currentState);
 
     void updateMemoryPoolAssignments(MemoryPoolAssignmentsRequest assignments);
 
@@ -79,7 +79,7 @@ public interface TaskManager
      * NOTE: this design assumes that only tasks and buffers that will
      * eventually exist are queried.
      */
-    ListenableFuture<BufferResult> getTaskResults(TaskId taskId, TaskId outputName, long startingSequenceId, DataSize maxSize);
+    CompletableFuture<BufferResult> getTaskResults(TaskId taskId, TaskId outputName, long startingSequenceId, DataSize maxSize);
 
     /**
      * Aborts a result buffer for a task.  If the task or buffer has not been

@@ -21,7 +21,6 @@ import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -33,15 +32,15 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.execution.BufferResult.emptyResults;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.PlanFragment.NullPartitioning.HASH;
+import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -422,25 +421,13 @@ public class TestSharedBuffer
 
     public static BufferResult getBufferResult(SharedBuffer sharedBuffer, TaskId outputId, long sequenceId, DataSize maxSize, Duration maxWait)
     {
-        ListenableFuture<BufferResult> future = sharedBuffer.get(outputId, sequenceId, maxSize);
+        CompletableFuture<BufferResult> future = sharedBuffer.get(outputId, sequenceId, maxSize);
         return getFuture(future, maxWait);
     }
 
-    public static BufferResult getFuture(ListenableFuture<BufferResult> future, Duration maxWait)
+    public static BufferResult getFuture(CompletableFuture<BufferResult> future, Duration maxWait)
     {
-        try {
-            return future.get(maxWait.toMillis(), TimeUnit.MILLISECONDS);
-        }
-        catch (TimeoutException e) {
-            throw Throwables.propagate(e);
-        }
-        catch (ExecutionException e) {
-            throw Throwables.propagate(e.getCause());
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw Throwables.propagate(e);
-        }
+        return tryGetFutureValue(future, (int) maxWait.toMillis(), TimeUnit.MILLISECONDS).get();
     }
 
     @Test
@@ -540,7 +527,7 @@ public class TestSharedBuffer
         assertFalse(sharedBuffer.isFinished());
 
         // get a page from a buffer that doesn't exist yet
-        ListenableFuture<BufferResult> future = sharedBuffer.get(FIRST, (long) 0, sizeOfPages(1));
+        CompletableFuture<BufferResult> future = sharedBuffer.get(FIRST, (long) 0, sizeOfPages(1));
         assertFalse(future.isDone());
 
         // add a page and verify the future is not complete
@@ -560,7 +547,7 @@ public class TestSharedBuffer
         assertFalse(sharedBuffer.isFinished());
 
         // get a page from a buffer that doesn't exist yet
-        ListenableFuture<BufferResult> future = sharedBuffer.get(FIRST, (long) 0, sizeOfPages(1));
+        CompletableFuture<BufferResult> future = sharedBuffer.get(FIRST, (long) 0, sizeOfPages(1));
         assertFalse(future.isDone());
 
         // abort that buffer
@@ -651,7 +638,7 @@ public class TestSharedBuffer
         assertFalse(sharedBuffer.isFinished());
 
         // attempt to get a page
-        ListenableFuture<BufferResult> future = sharedBuffer.get(QUEUE, 0, sizeOfPages(10));
+        CompletableFuture<BufferResult> future = sharedBuffer.get(QUEUE, 0, sizeOfPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -683,7 +670,7 @@ public class TestSharedBuffer
         assertFalse(sharedBuffer.isFinished());
 
         // attempt to get a page
-        ListenableFuture<BufferResult> future = sharedBuffer.get(QUEUE, 0, sizeOfPages(10));
+        CompletableFuture<BufferResult> future = sharedBuffer.get(QUEUE, 0, sizeOfPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -760,7 +747,7 @@ public class TestSharedBuffer
         assertFalse(sharedBuffer.isFinished());
 
         // attempt to get a page
-        ListenableFuture<BufferResult> future = sharedBuffer.get(QUEUE, 0, sizeOfPages(10));
+        CompletableFuture<BufferResult> future = sharedBuffer.get(QUEUE, 0, sizeOfPages(10));
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
