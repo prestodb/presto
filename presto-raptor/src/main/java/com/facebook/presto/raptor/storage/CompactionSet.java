@@ -18,6 +18,7 @@ import com.facebook.presto.raptor.metadata.ShardMetadata;
 import java.util.Objects;
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class CompactionSet
@@ -59,5 +60,14 @@ public class CompactionSet
     public int hashCode()
     {
         return Objects.hash(tableId, shardsToCompact);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("tableId", tableId)
+                .add("shardsToCompact", shardsToCompact)
+                .toString();
     }
 }
