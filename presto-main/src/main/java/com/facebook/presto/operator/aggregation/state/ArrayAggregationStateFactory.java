@@ -83,10 +83,10 @@ public class ArrayAggregationStateFactory
 
             BlockBuilder previous = getBlockBuilder();
             if (previous != null) {
-                size -= previous.getSizeInBytes();
+                size -= previous.getRetainedSizeInBytes();
             }
             blockBuilders.set(getGroupId(), value);
-            size += value.getSizeInBytes();
+            size += value.getRetainedSizeInBytes();
         }
     }
 
@@ -102,7 +102,7 @@ public class ArrayAggregationStateFactory
                 return 0L;
             }
             else {
-                return blockBuilder.getSizeInBytes();
+                return blockBuilder.getRetainedSizeInBytes();
             }
         }
 

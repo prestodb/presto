@@ -109,7 +109,7 @@ public class ArbitraryAggregationStateFactory
         public long getEstimatedSize()
         {
             if (value != null) {
-                return (long) value.getSizeInBytes();
+                return (long) value.getRetainedSizeInBytes();
             }
             else {
                 return 0L;

@@ -91,8 +91,8 @@ public class KeyValuePairs
     public long estimatedInMemorySize()
     {
         long size = INSTANCE_SIZE;
-        size += Math.max(EXPECTED_ENTRIES * expectedValueSize(keyType, EXPECTED_ENTRY_SIZE), keyBlockBuilder.getSizeInBytes());
-        size += Math.max(EXPECTED_ENTRIES * expectedValueSize(valueType, EXPECTED_ENTRY_SIZE), valueBlockBuilder.getSizeInBytes());
+        size += keyBlockBuilder.getRetainedSizeInBytes();
+        size += valueBlockBuilder.getRetainedSizeInBytes();
         size += keySet.getEstimatedSize();
         return size;
     }

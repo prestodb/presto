@@ -99,10 +99,10 @@ public class MaxOrMinByStateFactory
         {
             long size = 0;
             if (key != null) {
-                size += key.getSizeInBytes();
+                size += key.getRetainedSizeInBytes();
             }
             if (value != null) {
-                size += value.getSizeInBytes();
+                size += value.getRetainedSizeInBytes();
             }
             return size;
         }
