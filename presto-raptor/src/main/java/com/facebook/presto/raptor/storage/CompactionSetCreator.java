@@ -67,5 +67,5 @@ public final class CompactionSetCreator
             shards.add(shard);
         }
         return shards.build();
-    }sh
+    }
 }
