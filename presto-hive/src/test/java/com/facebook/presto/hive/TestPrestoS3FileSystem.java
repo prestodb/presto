@@ -90,7 +90,7 @@ public class TestPrestoS3FileSystem
             s3.setGetObjectHttpErrorCode(SC_INTERNAL_SERVER_ERROR);
             Configuration configuration = new Configuration();
             configuration.set(S3_MAX_BACKOFF_TIME, "1ms");
-            configuration.set(S3_MAX_RETRY_TIME, "10ms");
+            configuration.set(S3_MAX_RETRY_TIME, "5s");
             configuration.setInt(S3_MAX_CLIENT_RETRIES, maxRetries);
             fs.initialize(new URI("s3n://test-bucket/"), configuration);
             fs.setS3Client(s3);
@@ -116,7 +116,7 @@ public class TestPrestoS3FileSystem
             s3.setGetObjectMetadataHttpCode(SC_INTERNAL_SERVER_ERROR);
             Configuration configuration = new Configuration();
             configuration.set(S3_MAX_BACKOFF_TIME, "1ms");
-            configuration.set(S3_MAX_RETRY_TIME, "10ms");
+            configuration.set(S3_MAX_RETRY_TIME, "5s");
             configuration.setInt(S3_MAX_CLIENT_RETRIES, maxRetries);
             fs.initialize(new URI("s3n://test-bucket/"), configuration);
             fs.setS3Client(s3);
