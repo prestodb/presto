@@ -67,7 +67,7 @@ public class MockRemoteTaskFactory
 {
     private final Executor executor;
 
-    MockRemoteTaskFactory(Executor executor)
+    public MockRemoteTaskFactory(Executor executor)
     {
         this.executor = executor;
     }
@@ -117,7 +117,7 @@ public class MockRemoteTaskFactory
         return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, initialSplits);
     }
 
-    private static class MockRemoteTask
+    public static class MockRemoteTask
             implements RemoteTask
     {
         private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskInfo.STARTING_VERSION);
@@ -157,6 +157,12 @@ public class MockRemoteTaskFactory
         }
 
         @Override
+        public TaskId getTaskId()
+        {
+            return taskStateMachine.getTaskId();
+        }
+
+        @Override
         public String getNodeId()
         {
             return nodeId;
@@ -182,6 +188,11 @@ public class MockRemoteTaskFactory
                     ImmutableSet.<PlanNodeId>of(),
                     taskContext.getTaskStats(),
                     failures);
+        }
+
+        public void clearSplits()
+        {
+            splits.clear();
         }
 
         @Override

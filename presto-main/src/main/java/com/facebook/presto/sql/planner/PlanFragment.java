@@ -182,6 +182,11 @@ public class PlanFragment
         return partitionedSourceNode;
     }
 
+    public boolean isLeaf()
+    {
+        return remoteSourceNodes.isEmpty();
+    }
+
     public List<RemoteSourceNode> getRemoteSourceNodes()
     {
         return remoteSourceNodes;
