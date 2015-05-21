@@ -22,6 +22,8 @@ import java.util.concurrent.CompletableFuture;
 
 public interface RemoteTask
 {
+    TaskId getTaskId();
+
     String getNodeId();
 
     TaskInfo getTaskInfo();

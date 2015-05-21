@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
@@ -23,43 +24,41 @@ import java.util.List;
 public class TestingSplit
         implements ConnectorSplit
 {
-    private static HostAddress localHost = HostAddress.fromString("127.0.0.1");
+    private static final HostAddress localHost = HostAddress.fromString("127.0.0.1");
 
-    private List<HostAddress> addresses;
+    private final boolean remotelyAccessible;
+    private final List<HostAddress> addresses;
 
     public static TestingSplit createLocalSplit()
     {
-        return new TestingSplit(ImmutableList.of(localHost));
+        return new TestingSplit(false, ImmutableList.of(localHost));
     }
 
     public static TestingSplit createEmptySplit()
     {
-        return new TestingSplit(ImmutableList.<HostAddress>of());
+        return new TestingSplit(false, ImmutableList.<HostAddress>of());
     }
 
-    public TestingSplit(@JsonProperty("dummy") int dummy)
+    public static TestingSplit createRemoteSplit()
     {
-        this.addresses = ImmutableList.of(localHost);
+        return new TestingSplit(true, ImmutableList.<HostAddress>of());
     }
 
-    public TestingSplit(List<HostAddress> addresses)
+    @JsonCreator
+    public TestingSplit(@JsonProperty("remotelyAccessible") boolean remotelyAccessible, @JsonProperty("addresses") List<HostAddress> addresses)
     {
         this.addresses = addresses;
+        this.remotelyAccessible = remotelyAccessible;
     }
 
-    // we need a dummy property because Jackson refuses to serialize/deserialize an empty object
     @JsonProperty
-    public int getDummy()
-    {
-        return 0;
-    }
-
     @Override
     public boolean isRemotelyAccessible()
     {
-        return false;
+        return remotelyAccessible;
     }
 
+    @JsonProperty
     @Override
     public List<HostAddress> getAddresses()
     {

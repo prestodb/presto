@@ -216,6 +216,12 @@ public class HttpRemoteTask
     }
 
     @Override
+    public TaskId getTaskId()
+    {
+        return taskId;
+    }
+
+    @Override
     public String getNodeId()
     {
         return nodeId;

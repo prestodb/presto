@@ -100,6 +100,11 @@ public class StageStateMachine
         return stageState.get();
     }
 
+    public PlanFragment getFragment()
+    {
+        return fragment;
+    }
+
     public void addStateChangeListener(StateChangeListener<StageState> stateChangeListener)
     {
         stageState.addStateChangeListener(stateChangeListener);
