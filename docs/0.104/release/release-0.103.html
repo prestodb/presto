@@ -1,0 +1,125 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.2. Release 0.103 &mdash; Presto 0.104 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.104',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.104 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.3. Release 0.102" href="release-0.102.html" />
+    <link rel="prev" title="10.1. Release 0.104" href="release-0.104.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.104 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.2. Release 0.103</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.104.html">10.1. Release 0.104</a>
+    </span>
+    <span class="right">
+        <a href="release-0.102.html">10.3. Release 0.102</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-103">
+<h1>10.2. Release 0.103</h1>
+<div class="section" id="cluster-resource-management">
+<h2>Cluster Resource Management</h2>
+<p>There is a new cluster resource manager, which can be enabled via the
+<tt class="docutils literal"><span class="pre">experimental.cluster-memory-manager-enabled</span></tt> flag. Currently, the only
+resource that&#8217;s tracked is memory, and the cluster resource manager guarantees
+that the cluster will not deadlock waiting for memory. However, in a low memory
+situation it is possible that only one query will make progress. Memory limits can
+now be configured via <tt class="docutils literal"><span class="pre">query.max-memory</span></tt> which controls the total distributed
+memory a query may use and <tt class="docutils literal"><span class="pre">query.max-memory-per-node</span></tt> which limits the amount
+of memory a query may use on any one node. On each worker, the
+<tt class="docutils literal"><span class="pre">resources.reserved-system-memory</span></tt> flags controls how much memory is reserved
+for internal Presto data structures and temporary allocations.</p>
+</div>
+<div class="section" id="task-parallelism">
+<h2>Task Parallelism</h2>
+<p>Queries involving a large number of aggregations or a large hash table for a
+join can be slow due to single threaded execution in the intermediate stages.
+This release adds experimental configuration and session properties to execute
+this single threaded work in parallel.  Depending on the exact query this may
+reduce wall time, but will likely increase CPU usage.</p>
+<p>Use the configuration parameter <tt class="docutils literal"><span class="pre">task.default-concurrency</span></tt> or the session
+property <tt class="docutils literal"><span class="pre">task_default_concurrency</span></tt> to set the default number of parallel
+workers to use for join probes, hash builds and final aggregations.
+Additionally, the session properties <tt class="docutils literal"><span class="pre">task_join_concurrency</span></tt>,
+<tt class="docutils literal"><span class="pre">task_hash_build_concurrency</span></tt> and <tt class="docutils literal"><span class="pre">task_aggregation_concurrency</span></tt> can be
+used to control the parallelism for each type of work.</p>
+<p>This is an experimental feature and will likely change in a future release.  It
+is also expected that this will eventually be handled automatically by the
+query planner and these options will be removed entirely.</p>
+</div>
+<div class="section" id="hive-changes">
+<h2>Hive Changes</h2>
+<ul class="simple">
+<li>Removed the <tt class="docutils literal"><span class="pre">hive.max-split-iterator-threads</span></tt> parameter and renamed
+<tt class="docutils literal"><span class="pre">hive.max-global-split-iterator-threads</span></tt> to <tt class="docutils literal"><span class="pre">hive.max-split-iterator-threads</span></tt>.</li>
+<li>Fix excessive object creation when querying tables with a large number of partitions.</li>
+<li>Do not retry requests when an S3 path is not found.</li>
+</ul>
+</div>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Add <a class="reference internal" href="../functions/array.html#array_remove" title="array_remove"><tt class="xref py py-func docutils literal"><span class="pre">array_remove()</span></tt></a>.</li>
+<li>Fix NPE in <a class="reference internal" href="../functions/aggregate.html#max_by" title="max_by"><tt class="xref py py-func docutils literal"><span class="pre">max_by()</span></tt></a> and <a class="reference internal" href="../functions/aggregate.html#min_by" title="min_by"><tt class="xref py py-func docutils literal"><span class="pre">min_by()</span></tt></a> caused when few rows were present in the aggregation.</li>
+<li>Reduce memory usage of <a class="reference internal" href="../functions/aggregate.html#map_agg" title="map_agg"><tt class="xref py py-func docutils literal"><span class="pre">map_agg()</span></tt></a>.</li>
+<li>Change HTTP client defaults: 2 second idle timeout, 10 second request
+timeout and 250 connections per host.</li>
+<li>Add SQL command autocompletion to CLI.</li>
+<li>Increase CLI history file size.</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.104.html">10.1. Release 0.104</a>
+    </span>
+    <span class="right">
+        <a href="release-0.102.html">10.3. Release 0.102</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

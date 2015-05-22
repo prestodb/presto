@@ -1,0 +1,111 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>7.4. CREATE VIEW &mdash; Presto 0.104 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.104',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.104 Documentation" href="../index.html" />
+    <link rel="up" title="7. SQL Statement Syntax" href="../sql.html" />
+    <link rel="next" title="7.5. DESCRIBE" href="describe.html" />
+    <link rel="prev" title="7.3. CREATE TABLE AS" href="create-table-as.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.104 Documentation</span></a></h1>
+    <h2 class="heading"><span>7.4. CREATE VIEW</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="create-table-as.html">7.3. CREATE TABLE AS</a>
+    </span>
+    <span class="right">
+        <a href="describe.html">7.5. DESCRIBE</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="create-view">
+<h1>7.4. CREATE VIEW</h1>
+<div class="section" id="synopsis">
+<h2>Synopsis</h2>
+<div class="highlight-none"><div class="highlight"><pre>CREATE [ OR REPLACE ] VIEW view_name AS query
+</pre></div>
+</div>
+</div>
+<div class="section" id="description">
+<h2>Description</h2>
+<p>Create a new view of a <a class="reference internal" href="select.html"><em>SELECT</em></a> query. The view is a logical table
+that can be referenced by future queries. Views do not contain any data.
+Instead, the query stored by the view is executed everytime the view is
+referenced by another query.</p>
+<p>The optional <tt class="docutils literal"><span class="pre">OR</span> <span class="pre">REPLACE</span></tt> clause causes the view to be replaced if it
+already exists rather than raising an error.</p>
+</div>
+<div class="section" id="examples">
+<h2>Examples</h2>
+<p>Create a simple view <tt class="docutils literal"><span class="pre">test</span></tt> over the <tt class="docutils literal"><span class="pre">orders</span></tt> table:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">CREATE</span> <span class="k">VIEW</span> <span class="n">test</span> <span class="k">AS</span>
+<span class="k">SELECT</span> <span class="n">orderkey</span><span class="p">,</span> <span class="n">orderstatus</span><span class="p">,</span> <span class="n">totalprice</span> <span class="o">/</span> <span class="mi">2</span> <span class="k">AS</span> <span class="n">half</span>
+<span class="k">FROM</span> <span class="n">orders</span>
+</pre></div>
+</div>
+<p>Create a view <tt class="docutils literal"><span class="pre">orders_by_date</span></tt> that summarizes <tt class="docutils literal"><span class="pre">orders</span></tt>:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">CREATE</span> <span class="k">VIEW</span> <span class="n">orders_by_date</span> <span class="k">AS</span>
+<span class="k">SELECT</span> <span class="n">orderdate</span><span class="p">,</span> <span class="k">sum</span><span class="p">(</span><span class="n">totalprice</span><span class="p">)</span> <span class="k">AS</span> <span class="n">price</span>
+<span class="k">FROM</span> <span class="n">orders</span>
+<span class="k">GROUP</span> <span class="k">BY</span> <span class="n">orderdate</span>
+</pre></div>
+</div>
+<p>Create a view that replaces an existing view:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">CREATE</span> <span class="k">OR</span> <span class="k">REPLACE</span> <span class="k">VIEW</span> <span class="n">test</span> <span class="k">AS</span>
+<span class="k">SELECT</span> <span class="n">orderkey</span><span class="p">,</span> <span class="n">orderstatus</span><span class="p">,</span> <span class="n">totalprice</span> <span class="o">/</span> <span class="mi">4</span> <span class="k">AS</span> <span class="n">quarter</span>
+<span class="k">FROM</span> <span class="n">orders</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="create-table-as.html">7.3. CREATE TABLE AS</a>
+    </span>
+    <span class="right">
+        <a href="describe.html">7.5. DESCRIBE</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

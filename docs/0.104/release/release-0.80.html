@@ -1,0 +1,179 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.25. Release 0.80 &mdash; Presto 0.104 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.104',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.104 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.26. Release 0.79" href="release-0.79.html" />
+    <link rel="prev" title="10.24. Release 0.81" href="release-0.81.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.104 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.25. Release 0.80</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.81.html">10.24. Release 0.81</a>
+    </span>
+    <span class="right">
+        <a href="release-0.79.html">10.26. Release 0.79</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-80">
+<h1>10.25. Release 0.80</h1>
+<div class="section" id="new-hive-orc-reader">
+<h2>New Hive ORC Reader</h2>
+<p>We have added a new ORC reader implementation. The new reader supports vectorized
+reads, lazy loading, and predicate push down, all of which make the reader more
+efficient and typically reduces wall clock time for a query. Although the new
+reader has been heavily tested, it is an extensive rewrite of the Apache Hive
+ORC reader, and may have some latent issues. If you are seeing issues, you can
+disable the new reader on a per-query basis by setting the
+<tt class="docutils literal"><span class="pre">&lt;hive-catalog&gt;.optimized_reader_enabled</span></tt> session property, or you can disable
+the reader by default by setting the Hive catalog property
+<tt class="docutils literal"><span class="pre">hive.optimized-reader.enabled=false</span></tt>.</p>
+</div>
+<div class="section" id="hive-changes">
+<h2>Hive Changes</h2>
+<ul class="simple">
+<li>The maximum retry time for the Hive S3 file system can be configured
+by setting <tt class="docutils literal"><span class="pre">hive.s3.max-retry-time</span></tt>.</li>
+<li>Fix Hive partition pruning for null keys (i.e. <tt class="docutils literal"><span class="pre">__HIVE_DEFAULT_PARTITION__</span></tt>).</li>
+</ul>
+</div>
+<div class="section" id="cassandra-changes">
+<h2>Cassandra Changes</h2>
+<ul class="simple">
+<li>Update Cassandra driver to 2.1.0.</li>
+<li>Map Cassandra <tt class="docutils literal"><span class="pre">TIMESTAMP</span></tt> type to Presto <tt class="docutils literal"><span class="pre">TIMESTAMP</span></tt> type.</li>
+</ul>
+</div>
+<div class="section" id="big-query-support">
+<h2>&#8220;Big Query&#8221; Support</h2>
+<p>We&#8217;ve added experimental support for &#8220;big&#8221; queries. This provides a separate
+queue controlled by the following properties:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">experimental.max-concurrent-big-queries</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">experimental.max-queued-big-queries</span></tt></li>
+</ul>
+<p>There are separate configuration options for queries that are submitted with
+the <tt class="docutils literal"><span class="pre">experimental_big_query</span></tt> session property:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">experimental.big-query-initial-hash-partitions</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">experimental.big-query-max-task-memory</span></tt></li>
+</ul>
+<p>Queries submitted with this property will use hash distribution for all joins.</p>
+</div>
+<div class="section" id="metadata-only-query-optimization">
+<h2>Metadata-Only Query Optimization</h2>
+<p>We now support an optimization that rewrites aggregation queries that are insensitive to the
+cardinality of the input (e.g., <a class="reference internal" href="../functions/aggregate.html#max" title="max"><tt class="xref py py-func docutils literal"><span class="pre">max()</span></tt></a>, <a class="reference internal" href="../functions/aggregate.html#min" title="min"><tt class="xref py py-func docutils literal"><span class="pre">min()</span></tt></a>, <tt class="docutils literal"><span class="pre">DISTINCT</span></tt> aggregates) to execute
+against table metadata.</p>
+<p>For example, if <tt class="docutils literal"><span class="pre">key</span></tt>, <tt class="docutils literal"><span class="pre">key1</span></tt> and <tt class="docutils literal"><span class="pre">key2</span></tt> are partition keys, the following queries
+will benefit:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="k">min</span><span class="p">(</span><span class="k">key</span><span class="p">),</span> <span class="k">max</span><span class="p">(</span><span class="k">key</span><span class="p">)</span> <span class="k">FROM</span> <span class="n">t</span><span class="p">;</span>
+
+<span class="k">SELECT</span> <span class="k">DISTINCT</span> <span class="k">key</span> <span class="k">FROM</span> <span class="n">t</span><span class="p">;</span>
+
+<span class="k">SELECT</span> <span class="k">count</span><span class="p">(</span><span class="k">DISTINCT</span> <span class="k">key</span><span class="p">)</span> <span class="k">FROM</span> <span class="n">t</span><span class="p">;</span>
+
+<span class="k">SELECT</span> <span class="k">count</span><span class="p">(</span><span class="k">DISTINCT</span> <span class="k">key</span> <span class="o">+</span> <span class="mi">5</span><span class="p">)</span> <span class="k">FROM</span> <span class="n">t</span><span class="p">;</span>
+
+<span class="k">SELECT</span> <span class="k">count</span><span class="p">(</span><span class="k">DISTINCT</span> <span class="k">key</span><span class="p">)</span> <span class="k">FROM</span> <span class="p">(</span><span class="k">SELECT</span> <span class="k">key</span> <span class="k">FROM</span> <span class="n">t</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="mi">1</span> <span class="k">LIMIT</span> <span class="mi">10</span><span class="p">);</span>
+
+<span class="k">SELECT</span> <span class="n">key1</span><span class="p">,</span> <span class="k">count</span><span class="p">(</span><span class="k">DISTINCT</span> <span class="n">key2</span><span class="p">)</span> <span class="k">FROM</span> <span class="n">t</span> <span class="k">GROUP</span> <span class="k">BY</span> <span class="mi">1</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>This optimization is turned off by default. To turn it on, add <tt class="docutils literal"><span class="pre">optimizer.optimize-metadata-queries=true</span></tt>
+to the coordinator config properties.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">This optimization will cause queries to produce incorrect results if
+the connector allows partitions to contain no data. For example, the
+Hive connector will produce incorrect results if your Hive warehouse
+contains partitions without data.</p>
+</div>
+</div>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul>
+<li><p class="first">Add support implicit joins. The following syntax is now allowed:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="k">WHERE</span> <span class="n">a</span><span class="p">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">b</span><span class="p">.</span><span class="n">id</span><span class="p">;</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Add property <tt class="docutils literal"><span class="pre">task.verbose-stats</span></tt> to enable verbose statistics collection for
+tasks. The default is <tt class="docutils literal"><span class="pre">false</span></tt>.</p>
+</li>
+<li><p class="first">Format binary data in the CLI as a hex dump.</p>
+</li>
+<li><p class="first">Add approximate numeric histogram function <a class="reference internal" href="../functions/aggregate.html#numeric_histogram" title="numeric_histogram"><tt class="xref py py-func docutils literal"><span class="pre">numeric_histogram()</span></tt></a>.</p>
+</li>
+<li><p class="first">Add <a class="reference internal" href="../functions/array.html#array_sort" title="array_sort"><tt class="xref py py-func docutils literal"><span class="pre">array_sort()</span></tt></a> function.</p>
+</li>
+<li><p class="first">Add <a class="reference internal" href="../functions/map.html#map_keys" title="map_keys"><tt class="xref py py-func docutils literal"><span class="pre">map_keys()</span></tt></a> and <a class="reference internal" href="../functions/map.html#map_values" title="map_values"><tt class="xref py py-func docutils literal"><span class="pre">map_values()</span></tt></a> functions.</p>
+</li>
+<li><p class="first">Make <a class="reference internal" href="../functions/window.html#row_number" title="row_number"><tt class="xref py py-func docutils literal"><span class="pre">row_number()</span></tt></a> completely streaming.</p>
+</li>
+<li><p class="first">Add property <tt class="docutils literal"><span class="pre">task.max-partial-aggregation-memory</span></tt> to configure the memory limit
+for the partial step of aggregations.</p>
+</li>
+<li><p class="first">Fix exception when processing queries with an <tt class="docutils literal"><span class="pre">UNNEST</span></tt> operation where the output was not used.</p>
+</li>
+<li><p class="first">Only show query progress in UI after the query has been fully scheduled.</p>
+</li>
+<li><p class="first">Add query execution visualization to the coordinator UI. It can be accessed via the query details page.</p>
+</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.81.html">10.24. Release 0.81</a>
+    </span>
+    <span class="right">
+        <a href="release-0.79.html">10.26. Release 0.79</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
