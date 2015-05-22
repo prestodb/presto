@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -33,7 +32,7 @@ import static com.facebook.presto.operator.aggregation.AggregationTestUtils.asse
 public abstract class AbstractTestAggregationFunction
 {
     protected final TypeRegistry typeRegistry = new TypeRegistry();
-    protected final FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), true);
+    protected final FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, true);
 
     public abstract Block[] getSequenceBlocks(int start, int length);
 
