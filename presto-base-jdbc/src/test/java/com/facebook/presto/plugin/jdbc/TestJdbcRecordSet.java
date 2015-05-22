@@ -138,4 +138,17 @@ public class TestJdbcRecordSet
                     .build());
         }
     }
+
+    @Test
+    public void testIdempotentClose()
+    {
+        RecordSet recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.of(
+                columnHandles.get("value"),
+                columnHandles.get("value"),
+                columnHandles.get("text")));
+
+        RecordCursor cursor = recordSet.cursor();
+        cursor.close();
+        cursor.close();
+    }
 }
