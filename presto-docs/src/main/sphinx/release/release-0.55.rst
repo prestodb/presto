@@ -32,7 +32,7 @@ Simple Distinct Aggregations
 
 We have added support for the ``DISTINCT`` argument qualifier for aggregation
 functions. This is currently limited to queries without a ``GROUP BY`` clause and
-where all the aggregation functions have the same input expression. For example: ::
+where all the aggregation functions have the same input expression. For example::
 
     SELECT count(DISTINCT country)
     FROM users
@@ -49,7 +49,7 @@ scans (e.g., HBase, Cassandra, JDBC, etc).
 In addition to receiving range predicates, the connector can also communicate
 back the ranges of each partition for use in the query optimizer.  This can be a
 major performance gain for ``JOIN`` queries where one side of the join has
-only a few partitions.  For example: ::
+only a few partitions.  For example::
 
    SELECT * FROM data_1_year JOIN data_1_week USING (ds)
 
