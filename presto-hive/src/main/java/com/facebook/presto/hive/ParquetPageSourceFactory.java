@@ -14,11 +14,17 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.parquet.ParquetReader;
+import com.facebook.presto.hive.parquet.ParquetPredicate;
+import com.facebook.presto.hive.parquet.TupleDomainParquetPredicate;
+import com.facebook.presto.hive.parquet.TupleDomainParquetPredicate.ColumnReference;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -26,6 +32,7 @@ import parquet.hadoop.ParquetFileReader;
 import parquet.hadoop.metadata.BlockMetaData;
 import parquet.hadoop.metadata.FileMetaData;
 import parquet.hadoop.metadata.ParquetMetadata;
+import parquet.column.statistics.Statistics;
 import parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
 
@@ -36,6 +43,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
 import java.util.Properties;
 
@@ -116,8 +124,6 @@ public class ParquetPageSourceFactory
             boolean useParquetColumnNames,
             TypeManager typeManager)
     {
-        // TODO: read Footer stats to filter row group
-        // stats is not available until parquet 1.6.0
         try {
             ParquetMetadata parquetMetadata = ParquetFileReader.readFooter(configuration, path);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
@@ -129,12 +135,27 @@ public class ParquetPageSourceFactory
 
             MessageType requestedSchema = new MessageType(fileMetaData.getSchema().getName(), fields);
 
+            ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
+            ImmutableList.Builder<ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
+            for (HiveColumnHandle column : columns) {
+                if (!column.isPartitionKey()) {
+                    Type type = typeManager.getType(column.getTypeSignature());
+                    includedColumns.put(column.getHiveColumnIndex(), type);
+                    columnReferences.add(new ColumnReference<>(column, column.getHiveColumnIndex(), type));
+                }
+            }
+
+            ParquetPredicate parquetPredicate = new TupleDomainParquetPredicate<>(effectivePredicate,
+                                                                                columnReferences.build());
+
             List<BlockMetaData> blocks = new ArrayList<>();
             long splitStart = start;
             long splitLength = length;
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-                if (firstDataPage >= splitStart && firstDataPage < splitStart + splitLength) {
+                if (firstDataPage >= splitStart &&
+                    firstDataPage < splitStart + splitLength &&
+                    parquetPredicate.matches(block.getRowCount(), getStatisticsByColumnOrdinal(block))) {
                     blocks.add(block);
                 }
             }
@@ -174,5 +195,17 @@ public class ParquetPageSourceFactory
             return messageType.getType(column.getHiveColumnIndex());
         }
         return null;
+    }
+
+    private static Map<Integer, Statistics> getStatisticsByColumnOrdinal(BlockMetaData blockMetadata)
+    {
+        ImmutableMap.Builder<Integer, Statistics> statistics = ImmutableMap.builder();
+        for (int ordinal = 0; ordinal < blockMetadata.getColumns().size(); ordinal++) {
+            Statistics columnStatistics = blockMetadata.getColumns().get(ordinal).getStatistics();
+            if (columnStatistics != null) {
+                statistics.put(ordinal, columnStatistics);
+            }
+        }
+        return statistics.build();
     }
 }
