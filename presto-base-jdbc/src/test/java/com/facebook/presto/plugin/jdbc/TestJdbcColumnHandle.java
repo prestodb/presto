@@ -26,7 +26,7 @@ public class TestJdbcColumnHandle
     @Test
     public void testJsonRoundTrip()
     {
-        assertJsonRoundTrip(COLUMN_CODEC, new JdbcColumnHandle("connectorId", "columnName", VARCHAR, 0));
+        assertJsonRoundTrip(COLUMN_CODEC, new JdbcColumnHandle("connectorId", "columnName", VARCHAR));
     }
 
     @Test
@@ -34,20 +34,20 @@ public class TestJdbcColumnHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new JdbcColumnHandle("connectorId", "columnName", VARCHAR, 0),
-                        new JdbcColumnHandle("connectorId", "columnName", VARCHAR, 0),
-                        new JdbcColumnHandle("connectorId", "columnName", BIGINT, 0),
-                        new JdbcColumnHandle("connectorId", "columnName", VARCHAR, 1))
+                        new JdbcColumnHandle("connectorId", "columnName", VARCHAR),
+                        new JdbcColumnHandle("connectorId", "columnName", VARCHAR),
+                        new JdbcColumnHandle("connectorId", "columnName", BIGINT),
+                        new JdbcColumnHandle("connectorId", "columnName", VARCHAR))
                 .addEquivalentGroup(
-                        new JdbcColumnHandle("connectorIdX", "columnName", VARCHAR, 0),
-                        new JdbcColumnHandle("connectorIdX", "columnName", VARCHAR, 0),
-                        new JdbcColumnHandle("connectorIdX", "columnName", BIGINT, 0),
-                        new JdbcColumnHandle("connectorIdX", "columnName", VARCHAR, 1))
+                        new JdbcColumnHandle("connectorIdX", "columnName", VARCHAR),
+                        new JdbcColumnHandle("connectorIdX", "columnName", VARCHAR),
+                        new JdbcColumnHandle("connectorIdX", "columnName", BIGINT),
+                        new JdbcColumnHandle("connectorIdX", "columnName", VARCHAR))
                 .addEquivalentGroup(
-                        new JdbcColumnHandle("connectorId", "columnNameX", VARCHAR, 0),
-                        new JdbcColumnHandle("connectorId", "columnNameX", VARCHAR, 0),
-                        new JdbcColumnHandle("connectorId", "columnNameX", BIGINT, 0),
-                        new JdbcColumnHandle("connectorId", "columnNameX", VARCHAR, 1))
+                        new JdbcColumnHandle("connectorId", "columnNameX", VARCHAR),
+                        new JdbcColumnHandle("connectorId", "columnNameX", VARCHAR),
+                        new JdbcColumnHandle("connectorId", "columnNameX", BIGINT),
+                        new JdbcColumnHandle("connectorId", "columnNameX", VARCHAR))
                 .check();
     }
 }

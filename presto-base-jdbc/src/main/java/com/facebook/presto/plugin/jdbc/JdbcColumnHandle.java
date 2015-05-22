@@ -30,19 +30,16 @@ public final class JdbcColumnHandle
     private final String connectorId;
     private final String columnName;
     private final Type columnType;
-    private final int ordinalPosition;
 
     @JsonCreator
     public JdbcColumnHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("columnName") String columnName,
-            @JsonProperty("columnType") Type columnType,
-            @JsonProperty("ordinalPosition") int ordinalPosition)
+            @JsonProperty("columnType") Type columnType)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.columnName = checkNotNull(columnName, "columnName is null");
         this.columnType = checkNotNull(columnType, "columnType is null");
-        this.ordinalPosition = ordinalPosition;
     }
 
     @JsonProperty
@@ -63,15 +60,9 @@ public final class JdbcColumnHandle
         return columnType;
     }
 
-    @JsonProperty
-    public int getOrdinalPosition()
-    {
-        return ordinalPosition;
-    }
-
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(columnName, columnType, ordinalPosition, false);
+        return new ColumnMetadata(columnName, columnType, false);
     }
 
     @Override
@@ -101,7 +92,6 @@ public final class JdbcColumnHandle
                 .add("connectorId", connectorId)
                 .add("columnName", columnName)
                 .add("columnType", columnType)
-                .add("ordinalPosition", ordinalPosition)
                 .toString();
     }
 }

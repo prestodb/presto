@@ -57,14 +57,12 @@ public class CreateTableTask
         }
 
         List<ColumnMetadata> columns = new ArrayList<>();
-        int ordinalPosition = 0;
         for (TableElement element : statement.getElements()) {
             Type type = metadata.getType(parseTypeSignature(element.getType()));
             if ((type == null) || type.equals(UNKNOWN)) {
                 throw new SemanticException(TYPE_MISMATCH, element, "Unknown type for column '%s' ", element.getName());
             }
-            columns.add(new ColumnMetadata(element.getName(), type, ordinalPosition, false));
-            ordinalPosition++;
+            columns.add(new ColumnMetadata(element.getName(), type, false));
         }
 
         TableMetadata tableMetadata = new TableMetadata(

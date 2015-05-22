@@ -196,15 +196,13 @@ public class BaseJdbcClient
             try (ResultSet resultSet = metadata.getColumns(tableHandle.getCatalogName(), tableHandle.getSchemaName(), tableHandle.getTableName(), null)) {
                 List<JdbcColumnHandle> columns = new ArrayList<>();
                 boolean found = false;
-                int ordinalPosition = 0;
                 while (resultSet.next()) {
                     found = true;
                     Type columnType = toPrestoType(resultSet.getInt("DATA_TYPE"));
                     // skip unsupported column types
                     if (columnType != null) {
                         String columnName = resultSet.getString("COLUMN_NAME");
-                        columns.add(new JdbcColumnHandle(connectorId, columnName, columnType, ordinalPosition));
-                        ordinalPosition++;
+                        columns.add(new JdbcColumnHandle(connectorId, columnName, columnType));
                     }
                 }
                 if (!found) {

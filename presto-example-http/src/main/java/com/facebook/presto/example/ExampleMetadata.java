@@ -124,8 +124,10 @@ public class ExampleMetadata
         }
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (ColumnMetadata columnMetadata : table.getColumnsMetadata()) {
-            columnHandles.put(columnMetadata.getName(), new ExampleColumnHandle(connectorId, columnMetadata));
+        int index = 0;
+        for (ColumnMetadata column : table.getColumnsMetadata()) {
+            columnHandles.put(column.getName(), new ExampleColumnHandle(connectorId, column.getName(), column.getType(), index));
+            index++;
         }
         return columnHandles.build();
     }

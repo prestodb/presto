@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
@@ -59,7 +59,6 @@ public class TpchMetadata
     public static final double TINY_SCALE_FACTOR = 0.01;
 
     public static final String ROW_NUMBER_COLUMN_NAME = "row_number";
-    private static final TpchColumnHandle ROW_NUMBER_COLUMN_HANDLE = new TpchColumnHandle(ROW_NUMBER_COLUMN_NAME, -1, BIGINT);
 
     private final String connectorId;
     private final Set<String> tableNames;
@@ -153,12 +152,10 @@ public class TpchMetadata
     private static ConnectorTableMetadata getTableMetadata(String schemaName, TpchTable<?> tpchTable)
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        int ordinalPosition = 0;
         for (TpchColumn<? extends TpchEntity> column : tpchTable.getColumns()) {
-            columns.add(new ColumnMetadata(column.getColumnName(), getPrestoType(column.getType()), ordinalPosition, false));
-            ordinalPosition++;
+            columns.add(new ColumnMetadata(column.getColumnName(), getPrestoType(column.getType()), false));
         }
-        columns.add(new ColumnMetadata(ROW_NUMBER_COLUMN_NAME, BIGINT, ordinalPosition, false, null, true));
+        columns.add(new ColumnMetadata(ROW_NUMBER_COLUMN_NAME, BIGINT, false, null, true));
 
         SchemaTableName tableName = new SchemaTableName(schemaName, tpchTable.getTableName());
         return new ConnectorTableMetadata(tableName, columns.build());
@@ -169,7 +166,7 @@ public class TpchMetadata
     {
         ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
         for (ColumnMetadata columnMetadata : getTableMetadata(tableHandle).getColumns()) {
-            builder.put(columnMetadata.getName(), new TpchColumnHandle(columnMetadata.getName(), columnMetadata.getOrdinalPosition(), columnMetadata.getType()));
+            builder.put(columnMetadata.getName(), new TpchColumnHandle(columnMetadata.getName(), columnMetadata.getType()));
         }
         return builder.build();
     }

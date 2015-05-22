@@ -140,9 +140,9 @@ public class KafkaInternalFieldDescription
                 true);
     }
 
-    ColumnMetadata getColumnMetadata(int index, boolean hidden)
+    ColumnMetadata getColumnMetadata(boolean hidden)
     {
-        return new ColumnMetadata(name, type, index, false, comment, hidden);
+        return new ColumnMetadata(name, type, false, comment, hidden);
     }
 
     public KafkaFieldValueProvider forBooleanValue(boolean value)

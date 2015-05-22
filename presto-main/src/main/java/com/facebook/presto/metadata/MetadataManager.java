@@ -371,11 +371,9 @@ public class MetadataManager
                         entry.getKey().getSchemaName(),
                         entry.getKey().getTableName());
 
-                int ordinalPosition = 0;
                 ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
                 for (ViewColumn column : deserializeView(entry.getValue()).getColumns()) {
-                    columns.add(new ColumnMetadata(column.getName(), column.getType(), ordinalPosition, false));
-                    ordinalPosition++;
+                    columns.add(new ColumnMetadata(column.getName(), column.getType(), false));
                 }
 
                 tableColumns.put(tableName, columns.build());

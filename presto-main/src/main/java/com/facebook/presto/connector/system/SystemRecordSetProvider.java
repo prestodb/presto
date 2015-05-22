@@ -13,24 +13,28 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.split.MappedRecordSet;
 import com.google.common.collect.ImmutableList;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static java.lang.String.format;
 
 public class SystemRecordSetProvider
         implements ConnectorRecordSetProvider
@@ -51,16 +55,26 @@ public class SystemRecordSetProvider
 
         SystemTable systemTable = tables.get(tableName);
         checkArgument(systemTable != null, "Table %s does not exist", tableName);
-        Map<String, ColumnMetadata> columnsByName = uniqueIndex(systemTable.getTableMetadata().getColumns(), ColumnMetadata::getName);
+        List<ColumnMetadata> tableColumns = systemTable.getTableMetadata().getColumns();
+
+        Map<String, Integer> columnsByName = new HashMap<>();
+        for (int i = 0; i < tableColumns.size(); i++) {
+            ColumnMetadata column = tableColumns.get(i);
+            if (columnsByName.put(column.getName(), i) != null) {
+                throw new PrestoException(INTERNAL_ERROR, "Duplicate column name: " + column.getName());
+            }
+        }
 
         ImmutableList.Builder<Integer> userToSystemFieldIndex = ImmutableList.builder();
         for (ColumnHandle column : columns) {
             String columnName = checkType(column, SystemColumnHandle.class, "column").getColumnName();
 
-            ColumnMetadata columnMetadata = columnsByName.get(columnName);
-            checkArgument(columnMetadata != null, "Column %s.%s does not exist", tableName, columnName);
+            Integer index = columnsByName.get(columnName);
+            if (index == null) {
+                throw new PrestoException(INTERNAL_ERROR, format("Column does not exist: %s.%s", tableName, columnName));
+            }
 
-            userToSystemFieldIndex.add(columnMetadata.getOrdinalPosition());
+            userToSystemFieldIndex.add(index);
         }
 
         return new MappedRecordSet(systemTable, userToSystemFieldIndex.build());

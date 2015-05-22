@@ -154,7 +154,6 @@ public final class MetadataUtil
 
         private final SchemaTableName tableName;
         private final ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        private int ordinalPosition;
 
         private TableMetadataBuilder(SchemaTableName tableName)
         {
@@ -163,15 +162,13 @@ public final class MetadataUtil
 
         public TableMetadataBuilder column(String columnName, Type type)
         {
-            columns.add(new ColumnMetadata(columnName, type, ordinalPosition, false));
-            ordinalPosition++;
+            columns.add(new ColumnMetadata(columnName, type, false));
             return this;
         }
 
         public TableMetadataBuilder partitionKeyColumn(String columnName, Type type)
         {
-            columns.add(new ColumnMetadata(columnName, type, ordinalPosition, true));
-            ordinalPosition++;
+            columns.add(new ColumnMetadata(columnName, type, true));
             return this;
         }
 

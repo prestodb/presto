@@ -84,8 +84,8 @@ public class TestJdbcMetadata
     {
         // known table
         assertEquals(metadata.getColumnHandles(tableHandle), ImmutableMap.of(
-                "text", new JdbcColumnHandle(CONNECTOR_ID, "TEXT", VARCHAR, 0),
-                "value", new JdbcColumnHandle(CONNECTOR_ID, "VALUE", BIGINT, 1)));
+                "text", new JdbcColumnHandle(CONNECTOR_ID, "TEXT", VARCHAR),
+                "value", new JdbcColumnHandle(CONNECTOR_ID, "VALUE", BIGINT)));
 
         // unknown table
         unknownTableColumnHandle(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("unknown", "unknown"), "unknown", "unknown", "unknown"));
@@ -109,8 +109,8 @@ public class TestJdbcMetadata
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         assertEquals(tableMetadata.getTable(), new SchemaTableName("example", "numbers"));
         assertEquals(tableMetadata.getColumns(), ImmutableList.of(
-                new ColumnMetadata("text", VARCHAR, 0, false),
-                new ColumnMetadata("value", BIGINT, 1, false)));
+                new ColumnMetadata("text", VARCHAR, false),
+                new ColumnMetadata("value", BIGINT, false)));
 
         // unknown tables should produce null
         unknownTableMetadata(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("u", "numbers"), null, "unknown", "unknown"));
@@ -152,8 +152,8 @@ public class TestJdbcMetadata
     public void getColumnMetadata()
     {
         assertEquals(
-                metadata.getColumnMetadata(tableHandle, new JdbcColumnHandle(CONNECTOR_ID, "text", VARCHAR, 0)),
-                new ColumnMetadata("text", VARCHAR, 0, false));
+                metadata.getColumnMetadata(tableHandle, new JdbcColumnHandle(CONNECTOR_ID, "text", VARCHAR)),
+                new ColumnMetadata("text", VARCHAR, false));
     }
 
     @Test(expectedExceptions = PrestoException.class)
@@ -161,7 +161,7 @@ public class TestJdbcMetadata
     {
         metadata.createTable(SESSION, new ConnectorTableMetadata(
                 new SchemaTableName("example", "foo"),
-                ImmutableList.of(new ColumnMetadata("text", VARCHAR, 0, false))));
+                ImmutableList.of(new ColumnMetadata("text", VARCHAR, false))));
     }
 
     @Test

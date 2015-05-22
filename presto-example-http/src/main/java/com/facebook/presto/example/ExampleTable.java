@@ -43,11 +43,9 @@ public class ExampleTable
         this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
         this.sources = ImmutableList.copyOf(checkNotNull(sources, "sources is null"));
 
-        int index = 0;
         ImmutableList.Builder<ColumnMetadata> columnsMetadata = ImmutableList.builder();
         for (ExampleColumn column : this.columns) {
-            columnsMetadata.add(new ColumnMetadata(column.getName(), column.getType(), index, false));
-            index++;
+            columnsMetadata.add(new ColumnMetadata(column.getName(), column.getType(), false));
         }
         this.columnsMetadata = columnsMetadata.build();
     }

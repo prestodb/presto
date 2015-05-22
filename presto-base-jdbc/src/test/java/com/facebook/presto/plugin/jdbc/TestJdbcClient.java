@@ -69,7 +69,7 @@ public class TestJdbcClient
         assertEquals(table.getTableName(), "NUMBERS");
         assertEquals(table.getSchemaTableName(), schemaTableName);
         assertEquals(jdbcClient.getColumns(table), ImmutableList.of(
-                new JdbcColumnHandle(CONNECTOR_ID, "TEXT", VARCHAR, 0),
-                new JdbcColumnHandle(CONNECTOR_ID, "VALUE", BIGINT, 1)));
+                new JdbcColumnHandle(CONNECTOR_ID, "TEXT", VARCHAR),
+                new JdbcColumnHandle(CONNECTOR_ID, "VALUE", BIGINT)));
     }
 }
