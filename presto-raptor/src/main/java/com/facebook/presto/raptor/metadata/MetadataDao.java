@@ -211,8 +211,18 @@ public interface MetadataDao
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
+    // JDBI returns 0 as the column_id when the temporal_column_id is set to NULL
+    // jdbi issue https://github.com/jdbi/jdbi/issues/154
     @SqlQuery("SELECT temporal_column_id\n" +
             "FROM tables\n" +
-            "WHERE table_id = :tableId")
+            "WHERE table_id = :tableId\n" +
+            "  AND temporal_column_id IS NOT NULL")
     Long getTemporalColumnId(@Bind("tableId") long tableId);
+
+    @SqlUpdate("UPDATE tables SET\n" +
+            "temporal_column_id = :columnId\n" +
+            "WHERE table_id = :tableId")
+    void updateTemporalColumnId(
+            @Bind("columnId") long columnId,
+            @Bind("tableId") long tableId);
 }
