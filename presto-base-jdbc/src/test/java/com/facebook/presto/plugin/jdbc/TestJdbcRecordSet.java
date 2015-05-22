@@ -28,6 +28,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestJdbcRecordSet
@@ -136,6 +137,28 @@ public class TestJdbcRecordSet
                     .put("eleven", 11L)
                     .put("twelve", 12L)
                     .build());
+        }
+    }
+
+    @Test
+    public void testCursorDoubleClosure()
+    {
+        RecordSet recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.of(
+                columnHandles.get("value"),
+                columnHandles.get("value"),
+                columnHandles.get("text")));
+
+        try (RecordCursor cursor = recordSet.cursor()) {
+            assertEquals(cursor.getType(0), BIGINT);
+            assertEquals(cursor.getType(1), BIGINT);
+            assertEquals(cursor.getType(2), VARCHAR);
+
+            assertTrue(JdbcRecordCursor.class.isAssignableFrom(cursor.getClass()));
+            //Close explicitly here. Try-resources will try to close it again, which should get ignored as per JDBC spec.
+            //However, some database drivers complain if connection close() is called more than once.
+            //This test will never fail because it uses the H2 test database which follows the spec. So, it's here
+            //only as a safety net.
+            cursor.close();
         }
     }
 }
