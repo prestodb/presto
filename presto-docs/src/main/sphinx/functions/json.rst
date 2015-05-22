@@ -60,6 +60,6 @@ JSON Functions
     an object value is the number of fields and the size of an array is the
     number of elements. The size of a scalar value is zero. For example: ::
 
-        SELECT json_size('{ "x": {"a": 1, "b": 2} }', '$.x'); => 2
-        SELECT json_size('{ "x": [1, 2, 3] }', '$.x'); => 3
-        SELECT json_size('{ "x": {"a": 1, "b": 2} }', '$.x.a'); => 0
+        SELECT json_size('{"x": {"a": 1, "b": 2}}', '$.x'); => 2
+        SELECT json_size('{"x": [1, 2, 3]}', '$.x'); => 3
+        SELECT json_size('{"x": {"a": 1, "b": 2}}', '$.x.a'); => 0
