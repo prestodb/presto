@@ -219,17 +219,19 @@ public class JdbcRecordCursor
     @Override
     public void close()
     {
-        closed = true;
-
+        if (closed) {
+            return;
+        }
         // use try with resources to close everything properly
-        try (ResultSet resultSet = this.resultSet;
+        try (Connection connection = this.connection;
                 Statement statement = this.statement;
-                Connection connection = this.connection) {
+                ResultSet resultSet = this.resultSet) {
             // do nothing
         }
         catch (SQLException e) {
             throw Throwables.propagate(e);
         }
+        closed = true;
     }
 
     private RuntimeException handleSqlException(SQLException e)
