@@ -47,7 +47,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isParquetOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Objects.requireNonNull;
@@ -68,7 +68,9 @@ public class ParquetPageSourceFactory
     @Inject
     public ParquetPageSourceFactory(TypeManager typeManager, HiveClientConfig config)
     {
-        this(typeManager, true, requireNonNull(config, "hiveClientConfig is null").isUseParquetColumnNames());
+        this(typeManager,
+            requireNonNull(config, "hiveClientConfig is null").isParquetOptimizedReaderEnabled(),
+            requireNonNull(config, "hiveClientConfig is null").isUseParquetColumnNames());
     }
 
     public ParquetPageSourceFactory(TypeManager typeManager, boolean enabled, boolean useParquetColumnNames)
@@ -91,7 +93,7 @@ public class ParquetPageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!isOptimizedReaderEnabled(session, enabled)) {
+        if (!isParquetOptimizedReaderEnabled(session, enabled)) {
             return Optional.empty();
         }
 
