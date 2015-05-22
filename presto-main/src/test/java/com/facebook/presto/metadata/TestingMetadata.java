@@ -85,8 +85,10 @@ public class TestingMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
         ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
+        int index = 0;
         for (ColumnMetadata columnMetadata : getTableMetadata(tableHandle).getColumns()) {
-            builder.put(columnMetadata.getName(), new InMemoryColumnHandle(columnMetadata.getName(), columnMetadata.getOrdinalPosition(), columnMetadata.getType()));
+            builder.put(columnMetadata.getName(), new InMemoryColumnHandle(columnMetadata.getName(), index, columnMetadata.getType()));
+            index++;
         }
         return builder.build();
     }
@@ -110,11 +112,9 @@ public class TestingMetadata
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, prefix.getSchemaName())) {
-            int position = 1;
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
             for (ColumnMetadata column : tables.get(tableName).getColumns()) {
-                columns.add(new ColumnMetadata(column.getName(), column.getType(), position, false));
-                position++;
+                columns.add(new ColumnMetadata(column.getName(), column.getType(), false));
             }
             tableColumns.put(tableName, columns.build());
         }

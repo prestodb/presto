@@ -144,6 +144,7 @@ public class InformationSchemaPageSourceProvider
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_COLUMNS));
         for (Entry<QualifiedTableName, List<ColumnMetadata>> entry : getColumnsList(session, catalogName, filters).entrySet()) {
             QualifiedTableName tableName = entry.getKey();
+            int ordinalPosition = 1;
             for (ColumnMetadata column : entry.getValue()) {
                 if (column.isHidden()) {
                     continue;
@@ -153,12 +154,13 @@ public class InformationSchemaPageSourceProvider
                         tableName.getSchemaName(),
                         tableName.getTableName(),
                         column.getName(),
-                        column.getOrdinalPosition() + 1,
+                        ordinalPosition,
                         null,
                         "YES",
                         column.getType().getDisplayName(),
                         column.isPartitionKey() ? "YES" : "NO",
                         column.getComment());
+                ordinalPosition++;
             }
         }
         return table.build();

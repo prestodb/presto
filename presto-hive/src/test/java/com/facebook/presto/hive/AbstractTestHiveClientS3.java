@@ -283,7 +283,7 @@ public abstract class AbstractTestHiveClientS3
     {
         // begin creating the table
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
-                .add(new ColumnMetadata("id", BIGINT, 1, false))
+                .add(new ColumnMetadata("id", BIGINT, false))
                 .build();
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, tableOwner);

@@ -187,10 +187,8 @@ public class LogicalPlanner
     private static List<ColumnMetadata> getOutputTableColumns(RelationPlan plan)
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        int ordinalPosition = 0;
         for (Field field : plan.getDescriptor().getVisibleFields()) {
-            columns.add(new ColumnMetadata(field.getName().get(), field.getType(), ordinalPosition, false));
-            ordinalPosition++;
+            columns.add(new ColumnMetadata(field.getName().get(), field.getType(), false));
         }
         return columns.build();
     }

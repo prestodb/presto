@@ -140,7 +140,6 @@ public class TestRaptorMetadata
         assertNotNull(columnMetadata);
         assertEquals(columnMetadata.getName(), "orderkey");
         assertEquals(columnMetadata.getType(), BIGINT);
-        assertEquals(columnMetadata.getOrdinalPosition(), 0);
     }
 
     @Test

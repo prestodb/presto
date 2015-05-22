@@ -215,14 +215,13 @@ public class KafkaMetadata
         }
 
         ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
-        int index = 0;
 
         KafkaTopicFieldGroup key = table.getKey();
         if (key != null) {
             List<KafkaTopicFieldDescription> fields = key.getFields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.getColumnMetadata(index++));
+                    builder.add(fieldDescription.getColumnMetadata());
                 }
             }
         }
@@ -232,13 +231,13 @@ public class KafkaMetadata
             List<KafkaTopicFieldDescription> fields = message.getFields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.getColumnMetadata(index++));
+                    builder.add(fieldDescription.getColumnMetadata());
                 }
             }
         }
 
         for (KafkaInternalFieldDescription fieldDescription : internalFieldDescriptions) {
-            builder.add(fieldDescription.getColumnMetadata(index++, kafkaConnectorConfig.isHideInternalColumns()));
+            builder.add(fieldDescription.getColumnMetadata(kafkaConnectorConfig.isHideInternalColumns()));
         }
 
         return new ConnectorTableMetadata(schemaTableName, builder.build());
