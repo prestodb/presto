@@ -182,7 +182,7 @@ public class NodeScheduler
                 }
             }
 
-            if (doubleScheduling) {
+            if (doubleScheduling && !selected.isEmpty()) {
                 // Cycle the nodes until we reach the limit
                 int uniqueNodes = selected.size();
                 int i = 0;
