@@ -520,6 +520,7 @@ public class TupleAnalyzer
                 // analyze the clauses to record the types of all subexpressions and resolve names against the left/right underlying tuples
                 ExpressionAnalysis leftExpressionAnalysis = analyzeExpression(leftExpression, left, context);
                 ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right, context);
+                addCoercionForJoinCriteria(node, leftExpression, rightExpression);
                 analysis.addJoinInPredicates(node, new Analysis.JoinInPredicates(leftExpressionAnalysis.getSubqueryInPredicates(), rightExpressionAnalysis.getSubqueryInPredicates()));
             }
 
