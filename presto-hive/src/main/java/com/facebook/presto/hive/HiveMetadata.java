@@ -92,7 +92,7 @@ public class HiveMetadata
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final DateTimeZone timeZone;
-    private final HiveStorageFormat hiveStorageFormat;
+    private final PredefinedHiveStorageFormat hiveStorageFormat;
     private final TypeManager typeManager;
 
     @Inject
@@ -124,7 +124,7 @@ public class HiveMetadata
             boolean allowDropTable,
             boolean allowRenameTable,
             boolean allowCorruptWritesForTesting,
-            HiveStorageFormat hiveStorageFormat,
+            PredefinedHiveStorageFormat hiveStorageFormat,
             TypeManager typeManager)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();

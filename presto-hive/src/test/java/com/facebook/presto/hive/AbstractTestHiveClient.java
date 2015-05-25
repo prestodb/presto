@@ -86,14 +86,15 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
+import static com.facebook.presto.hive.HiveSessionProperties.STORAGE_CLASS_NAME_PROPERTY;
 import static com.facebook.presto.hive.HiveSessionProperties.STORAGE_FORMAT_PROPERTY;
-import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
-import static com.facebook.presto.hive.HiveStorageFormat.ORC;
-import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
-import static com.facebook.presto.hive.HiveStorageFormat.RCBINARY;
-import static com.facebook.presto.hive.HiveStorageFormat.RCTEXT;
-import static com.facebook.presto.hive.HiveStorageFormat.SEQUENCEFILE;
-import static com.facebook.presto.hive.HiveStorageFormat.TEXTFILE;
+import static com.facebook.presto.hive.PredefinedHiveStorageFormat.DWRF;
+import static com.facebook.presto.hive.PredefinedHiveStorageFormat.ORC;
+import static com.facebook.presto.hive.PredefinedHiveStorageFormat.PARQUET;
+import static com.facebook.presto.hive.PredefinedHiveStorageFormat.RCBINARY;
+import static com.facebook.presto.hive.PredefinedHiveStorageFormat.RCTEXT;
+import static com.facebook.presto.hive.PredefinedHiveStorageFormat.SEQUENCEFILE;
+import static com.facebook.presto.hive.PredefinedHiveStorageFormat.TEXTFILE;
 import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_DATA_STREAM_FACTORIES;
 import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_RECORD_CURSOR_PROVIDER;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
@@ -101,6 +102,7 @@ import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.util.Types.checkType;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -141,7 +143,7 @@ public abstract class AbstractTestHiveClient
     protected static final String INVALID_TABLE = "totally_invalid_table_name";
     protected static final String INVALID_COLUMN = "totally_invalid_column_name";
 
-    protected Set<HiveStorageFormat> createTableFormats = ImmutableSet.copyOf(HiveStorageFormat.values());
+    protected Set<PredefinedHiveStorageFormat> createTableFormats = ImmutableSet.copyOf(PredefinedHiveStorageFormat.values());
 
     protected String database;
     protected SchemaTableName tablePartitionFormat;
@@ -741,7 +743,7 @@ public abstract class AbstractTestHiveClient
             List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
             String ds = partitionKeys.get(0).getValue();
             String fileFormat = partitionKeys.get(1).getValue();
-            HiveStorageFormat fileType = HiveStorageFormat.valueOf(fileFormat.toUpperCase());
+            PredefinedHiveStorageFormat fileType = PredefinedHiveStorageFormat.valueOf(fileFormat.toUpperCase());
             long dummyPartition = Long.parseLong(partitionKeys.get(2).getValue());
 
             long rowNumber = 0;
@@ -825,7 +827,7 @@ public abstract class AbstractTestHiveClient
             List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
             String ds = partitionKeys.get(0).getValue();
             String fileFormat = partitionKeys.get(1).getValue();
-            HiveStorageFormat fileType = HiveStorageFormat.valueOf(fileFormat.toUpperCase());
+            PredefinedHiveStorageFormat fileType = PredefinedHiveStorageFormat.valueOf(fileFormat.toUpperCase());
             long dummyPartition = Long.parseLong(partitionKeys.get(2).getValue());
 
             long rowNumber = 0;
@@ -1119,13 +1121,38 @@ public abstract class AbstractTestHiveClient
     public void testTableCreation()
             throws Exception
     {
-        for (HiveStorageFormat storageFormat : createTableFormats) {
+        for (PredefinedHiveStorageFormat storageFormat : createTableFormats) {
             try {
                 doCreateTable(storageFormat);
             }
             finally {
                 dropTable(temporaryCreateTable);
             }
+        }
+    }
+
+    @Test
+    public void testTableCreationFromClassName()
+            throws Exception
+    {
+        try {
+            doCreateTable(TestStorageHandler.class.getName());
+        }
+        finally {
+            dropTable(temporaryCreateTable);
+        }
+    }
+
+    @Test
+    public void testTableCreationFromUnknownClassName() throws Exception
+    {
+        try {
+            doCreateTable("WrongClassName");
+            fail("create table should fail for unknown class name");
+            dropTable(temporaryCreateTable);
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), INVALID_SESSION_PROPERTY.toErrorCode());
         }
     }
 
@@ -1145,7 +1172,7 @@ public abstract class AbstractTestHiveClient
     public void testEmptyTableCreation()
             throws Exception
     {
-        for (HiveStorageFormat storageFormat : createTableFormats) {
+        for (PredefinedHiveStorageFormat storageFormat : createTableFormats) {
             try {
                 doCreateEmptyTable(storageFormat);
             }
@@ -1174,7 +1201,7 @@ public abstract class AbstractTestHiveClient
     @Test
     public void testCreateTableUnsupportedType()
     {
-        for (HiveStorageFormat storageFormat : createTableFormats) {
+        for (PredefinedHiveStorageFormat storageFormat : createTableFormats) {
             try {
                 ConnectorSession session = createSession(storageFormat);
                 List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", HYPER_LOG_LOG, 1, false));
@@ -1319,7 +1346,21 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private void doCreateTable(HiveStorageFormat storageFormat)
+    private void doCreateTable(String storageClassName)
+            throws Exception
+    {
+        ConnectorSession session = createSession(storageClassName);
+        doCreateTable(session, null);
+    }
+
+    private void doCreateTable(PredefinedHiveStorageFormat storageFormat)
+            throws Exception
+    {
+        ConnectorSession session = createSession(storageFormat);
+        doCreateTable(session, storageFormat);
+    }
+
+    private void doCreateTable(ConnectorSession session, HiveStorageFormat storageFormat)
             throws Exception
     {
         // begin creating the table
@@ -1332,8 +1373,6 @@ public abstract class AbstractTestHiveClient
                 .build();
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateTable, columns, SESSION.getUser());
-
-        ConnectorSession session = createSession(storageFormat);
 
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata);
 
@@ -1421,7 +1460,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private void doCreateEmptyTable(HiveStorageFormat storageFormat)
+    private void doCreateEmptyTable(PredefinedHiveStorageFormat storageFormat)
             throws Exception
     {
         // create the table
@@ -1464,7 +1503,7 @@ public abstract class AbstractTestHiveClient
         assertEquals(getAllSplits(splitSource).size(), 0);
     }
 
-    protected void assertGetRecordsOptional(String tableName, HiveStorageFormat hiveStorageFormat)
+    protected void assertGetRecordsOptional(String tableName, PredefinedHiveStorageFormat hiveStorageFormat)
             throws Exception
     {
         if (metadata.getTableHandle(SESSION, new SchemaTableName(database, tableName)) != null) {
@@ -1472,7 +1511,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    protected void assertGetRecords(String tableName, HiveStorageFormat hiveStorageFormat)
+    protected void assertGetRecords(String tableName, PredefinedHiveStorageFormat hiveStorageFormat)
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(database, tableName));
@@ -1495,7 +1534,7 @@ public abstract class AbstractTestHiveClient
     }
 
     protected void assertGetRecords(
-            HiveStorageFormat hiveStorageFormat,
+            PredefinedHiveStorageFormat hiveStorageFormat,
             ConnectorTableMetadata tableMetadata,
             HiveSplit hiveSplit,
             ConnectorPageSource pageSource,
@@ -1726,6 +1765,16 @@ public abstract class AbstractTestHiveClient
 
     protected static void assertPageSourceType(ConnectorPageSource pageSource, HiveStorageFormat hiveStorageFormat)
     {
+        if (hiveStorageFormat instanceof PredefinedHiveStorageFormat) {
+            assertPageSourceType(pageSource, (PredefinedHiveStorageFormat) hiveStorageFormat);
+        }
+        else {
+            // TODO: implement this?
+        }
+    }
+
+    protected static void assertPageSourceType(ConnectorPageSource pageSource, PredefinedHiveStorageFormat hiveStorageFormat)
+    {
         if (pageSource instanceof RecordPageSource) {
             assertInstanceOf(((RecordPageSource) pageSource).getCursor(), recordCursorType(hiveStorageFormat), hiveStorageFormat.name());
         }
@@ -1734,7 +1783,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private static Class<? extends HiveRecordCursor> recordCursorType(HiveStorageFormat hiveStorageFormat)
+    private static Class<? extends HiveRecordCursor> recordCursorType(PredefinedHiveStorageFormat hiveStorageFormat)
     {
         switch (hiveStorageFormat) {
             case RCTEXT:
@@ -1751,7 +1800,7 @@ public abstract class AbstractTestHiveClient
         return GenericHiveRecordCursor.class;
     }
 
-    private static Class<? extends ConnectorPageSource> pageSourceType(HiveStorageFormat hiveStorageFormat)
+    private static Class<? extends ConnectorPageSource> pageSourceType(PredefinedHiveStorageFormat hiveStorageFormat)
     {
         switch (hiveStorageFormat) {
             case RCTEXT:
@@ -1837,7 +1886,7 @@ public abstract class AbstractTestHiveClient
         return index.build();
     }
 
-    private static ConnectorSession createSession(HiveStorageFormat storageFormat)
+    private static ConnectorSession createSession(PredefinedHiveStorageFormat storageFormat)
     {
         return new ConnectorSession(
                 SESSION.getUser(),
@@ -1845,6 +1894,16 @@ public abstract class AbstractTestHiveClient
                 SESSION.getLocale(),
                 SESSION.getStartTime(),
                 ImmutableMap.of(STORAGE_FORMAT_PROPERTY, storageFormat.name().toLowerCase()));
+    }
+
+    private static ConnectorSession createSession(String createSessionFromClassName)
+    {
+        return new ConnectorSession(
+                SESSION.getUser(),
+                SESSION.getTimeZoneKey(),
+                SESSION.getLocale(),
+                SESSION.getStartTime(),
+                ImmutableMap.of(STORAGE_CLASS_NAME_PROPERTY, createSessionFromClassName));
     }
 
     private static String randomName()

@@ -88,7 +88,7 @@ public class HiveClientConfig
     private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
     private boolean useParquetColumnNames;
 
-    private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
+    private PredefinedHiveStorageFormat hiveStorageFormat = PredefinedHiveStorageFormat.RCBINARY;
 
     private List<String> resourceConfigFiles;
 
@@ -399,13 +399,13 @@ public class HiveClientConfig
         return this;
     }
 
-    public HiveStorageFormat getHiveStorageFormat()
+    public PredefinedHiveStorageFormat getHiveStorageFormat()
     {
         return hiveStorageFormat;
     }
 
     @Config("hive.storage-format")
-    public HiveClientConfig setHiveStorageFormat(HiveStorageFormat hiveStorageFormat)
+    public HiveClientConfig setHiveStorageFormat(PredefinedHiveStorageFormat hiveStorageFormat)
     {
         this.hiveStorageFormat = hiveStorageFormat;
         return this;

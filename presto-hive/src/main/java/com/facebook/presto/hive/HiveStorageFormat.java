@@ -13,71 +13,22 @@
  */
 package com.facebook.presto.hive;
 
-import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
-import org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat;
-import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
-import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
-import org.apache.hadoop.hive.ql.io.orc.OrcInputFormat;
-import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
-import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
-import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
-import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
-import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
-import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
-import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
-import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
-import org.apache.hadoop.mapred.SequenceFileInputFormat;
-import org.apache.hadoop.mapred.TextInputFormat;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-public enum HiveStorageFormat
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.PROPERTY,
+        property = "type")
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = PredefinedHiveStorageFormat.class, name = "predefined"),
+        @JsonSubTypes.Type(value = CustomHiveStorageFormat.class, name = "custom")
+})
+public interface HiveStorageFormat
 {
-    ORC(OrcSerde.class.getName(),
-            OrcInputFormat.class.getName(),
-            OrcOutputFormat.class.getName()),
-    DWRF(com.facebook.hive.orc.OrcSerde.class.getName(),
-            com.facebook.hive.orc.OrcInputFormat.class.getName(),
-            com.facebook.hive.orc.OrcOutputFormat.class.getName()),
-    PARQUET(ParquetHiveSerDe.class.getName(),
-            MapredParquetInputFormat.class.getName(),
-            MapredParquetOutputFormat.class.getName()),
-    RCBINARY(LazyBinaryColumnarSerDe.class.getName(),
-            RCFileInputFormat.class.getName(),
-            RCFileOutputFormat.class.getName()),
-    RCTEXT(ColumnarSerDe.class.getName(),
-            RCFileInputFormat.class.getName(),
-            RCFileOutputFormat.class.getName()),
-    SEQUENCEFILE(LazySimpleSerDe.class.getName(),
-            SequenceFileInputFormat.class.getName(),
-            HiveSequenceFileOutputFormat.class.getName()),
-    TEXTFILE(LazySimpleSerDe.class.getName(),
-            TextInputFormat.class.getName(),
-            HiveIgnoreKeyTextOutputFormat.class.getName());
+    public String getSerDe();
 
-    private final String serde;
-    private final String inputFormat;
-    private final String outputFormat;
+    public String getInputFormat();
 
-    HiveStorageFormat(String serde, String inputFormat, String outputFormat)
-    {
-        this.serde = checkNotNull(serde, "serde is null");
-        this.inputFormat = checkNotNull(inputFormat, "inputFormat is null");
-        this.outputFormat = checkNotNull(outputFormat, "outputFormat is null");
-    }
-
-    public String getSerDe()
-    {
-        return serde;
-    }
-
-    public String getInputFormat()
-    {
-        return inputFormat;
-    }
-
-    public String getOutputFormat()
-    {
-        return outputFormat;
-    }
+    public String getOutputFormat();
 }
