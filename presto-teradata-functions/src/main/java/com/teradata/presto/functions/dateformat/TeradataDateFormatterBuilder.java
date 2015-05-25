@@ -39,6 +39,7 @@ public class TeradataDateFormatterBuilder
                 .add(".")
                 .add(";")
                 .add(":")
+                .add(" ")
                 .add(new YYYYToken())
                 .add(new MMToken())
                 .add(new DDToken())

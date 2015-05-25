@@ -62,25 +62,25 @@ public class TestTeradataDateFunctions
         assertTimestamp("to_timestamp('04.1988,08','mm.yyyy,dd')", 1988, 4, 8, 0, 0, 0);
         assertTimestamp("to_timestamp(';198804:08',';yyyymm:dd')", 1988, 4, 8, 0, 0, 0);
 
-        assertTimestamp("to_timestamp('1988/04/08;2','yyyy/mm/dd;hh')", 1988, 4, 8, 2, 0, 0);
+        assertTimestamp("to_timestamp('1988/04/08 2','yyyy/mm/dd hh')", 1988, 4, 8, 2, 0, 0);
 
-        assertTimestamp("to_timestamp('1988/04/08;14','yyyy/mm/dd;hh24')", 1988, 4, 8, 14, 0, 0);
-        assertTimestamp("to_timestamp('1988/04/08;14:15','yyyy/mm/dd;hh24:mi')", 1988, 4, 8, 14, 15, 0);
-        assertTimestamp("to_timestamp('1988/04/08;14:15:16','yyyy/mm/dd;hh24:mi:ss')", 1988, 4, 8, 14, 15, 16);
+        assertTimestamp("to_timestamp('1988/04/08 14','yyyy/mm/dd hh24')", 1988, 4, 8, 14, 0, 0);
+        assertTimestamp("to_timestamp('1988/04/08 14:15','yyyy/mm/dd hh24:mi')", 1988, 4, 8, 14, 15, 0);
+        assertTimestamp("to_timestamp('1988/04/08 14:15:16','yyyy/mm/dd hh24:mi:ss')", 1988, 4, 8, 14, 15, 16);
 
-        assertTimestamp("to_timestamp('1988/04/08;2:3:4','yyyy/mm/dd;hh24:mi:ss')", 1988, 4, 8, 2, 3, 4);
-        assertTimestamp("to_timestamp('1988/04/08;02:03:04','yyyy/mm/dd;hh24:mi:ss')", 1988, 4, 8, 2, 3, 4);
+        assertTimestamp("to_timestamp('1988/04/08 2:3:4','yyyy/mm/dd hh24:mi:ss')", 1988, 4, 8, 2, 3, 4);
+        assertTimestamp("to_timestamp('1988/04/08 02:03:04','yyyy/mm/dd hh24:mi:ss')", 1988, 4, 8, 2, 3, 4);
     }
 
     @Test
     public void testMinimalToChar()
     {
-        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04','yyyy/mm/dd;hh:mi:ss')", "1988/04/08;02:03:04");
-        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04','yyyy/mm/dd;hh24:mi:ss')", "1988/04/08;02:03:04");
-        assertVarchar("to_char(TIMESTAMP '1988-04-08 14:15:16','yyyy/mm/dd;hh24:mi:ss')", "1988/04/08;14:15:16");
-        assertVarchar("to_char(TIMESTAMP '1988-04-08 14:15:16 +02:09','yyyy/mm/dd;hh24:mi:ss')", "1988/04/08;14:15:16");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04','yyyy/mm/dd hh24:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 14:15:16','yyyy/mm/dd hh24:mi:ss')", "1988/04/08 14:15:16");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 14:15:16 +02:09','yyyy/mm/dd hh24:mi:ss')", "1988/04/08 14:15:16");
 
-        assertVarchar("to_char(DATE '1988-04-08','yyyy/mm/dd;hh24:mi:ss')", "1988/04/08;00:00:00");
+        assertVarchar("to_char(DATE '1988-04-08','yyyy/mm/dd hh24:mi:ss')", "1988/04/08 00:00:00");
     }
 
     // TODO: implement this feature SWARM-355
@@ -101,8 +101,7 @@ public class TestTeradataDateFunctions
         assertDate("to_date('1988/04/08','yYYy/mM/Dd')", 1988, 4, 8);
     }
 
-    // TODO: implement this feature SWARM-356
-    @Test(enabled = false)
+    @Test
     public void testWhitespace()
     {
         assertDate("to_date('8 04 1988','dd mm yyyy')", 1988, 4, 8);
