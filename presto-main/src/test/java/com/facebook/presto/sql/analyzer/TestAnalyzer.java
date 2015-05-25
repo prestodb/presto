@@ -407,6 +407,7 @@ public class TestAnalyzer
     public void testWindowFunctionWithoutOverClause()
     {
         assertFails(WINDOW_REQUIRES_OVER, "SELECT row_number()");
+        assertFails(WINDOW_REQUIRES_OVER, "SELECT coalesce(lead(a), 0) from (values(0)) t(a)");
     }
 
     @Test
