@@ -188,7 +188,9 @@ public class ClusterMemoryManager
                 .collect(toImmutableSet());
 
         // Remove nodes that don't exist anymore
-        nodes.keySet().removeAll(difference(nodes.keySet(), activeNodeIds));
+        // Make a copy to materialize the set difference
+        Set<String> deadNodes = ImmutableSet.copyOf(difference(nodes.keySet(), activeNodeIds));
+        nodes.keySet().removeAll(deadNodes);
 
         // Add new nodes
         for (Node node : activeNodes) {
@@ -222,7 +224,8 @@ public class ClusterMemoryManager
                 .flatMap(info -> info.getPools().keySet().stream())
                 .collect(toImmutableSet());
 
-        Set<MemoryPoolId> removedPools = difference(pools.keySet(), activePoolIds);
+        // Make a copy to materialize the set difference
+        Set<MemoryPoolId> removedPools = ImmutableSet.copyOf(difference(pools.keySet(), activePoolIds));
         for (MemoryPoolId removed : removedPools) {
             unexport(pools.get(removed));
             pools.remove(removed);
