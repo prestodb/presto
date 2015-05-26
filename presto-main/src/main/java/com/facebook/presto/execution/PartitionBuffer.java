@@ -125,7 +125,11 @@ public class PartitionBuffer
             bytesRemoved += page.getSizeInBytes();
         }
         updateMemoryUsage(-bytesRemoved);
+        dequeuePages();
+    }
 
+    public synchronized void dequeuePages()
+    {
         // refill buffer from queued pages
         while (!queuedPages.isEmpty() && !memoryManager.isFull()) {
             QueuedPage queuedPage = queuedPages.remove();
