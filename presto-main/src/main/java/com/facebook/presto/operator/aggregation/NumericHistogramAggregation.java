@@ -25,8 +25,10 @@ import io.airlift.slice.Slice;
 
 import javax.validation.constraints.NotNull;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.util.Failures.checkCondition;
 
 @AggregationFunction("numeric_histogram")
 public class NumericHistogramAggregation
@@ -51,6 +53,7 @@ public class NumericHistogramAggregation
     {
         NumericHistogram histogram = state.get();
         if (histogram == null) {
+            checkCondition(buckets >= 2, INVALID_FUNCTION_ARGUMENT, "numeric_histogram bucket count must be greater than one");
             histogram = new NumericHistogram(Ints.checkedCast(buckets), ENTRY_BUFFER_SIZE);
             state.set(histogram);
         }
