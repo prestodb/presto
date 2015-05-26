@@ -382,7 +382,6 @@ public class SharedBuffer
                             .mapToLong(NamedBuffer::getSequenceId)
                             .min()
                             .getAsLong();
-                    partitionBuffers.get(entry.getKey()).advanceSequenceId(newMasterSequenceId);
                     partitionBuffer.advanceSequenceId(newMasterSequenceId);
                     // this might have freed up space in the buffers, try to dequeue pages
                     partitionBuffers.values().forEach(PartitionBuffer::dequeuePages);
