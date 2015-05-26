@@ -258,6 +258,40 @@ public class TestSharedBuffer
     }
 
     @Test
+    public void testDeqeueueOnAcknowledgement()
+            throws Exception
+    {
+        int firstPartition = 0;
+        int secondPartition = 1;
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(2));
+        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
+                .withBuffer(FIRST, new HashPagePartitionFunction(firstPartition, 2, Ints.asList(0), Optional.<Integer>empty(), ImmutableList.of(BIGINT)))
+                .withBuffer(SECOND, new HashPagePartitionFunction(secondPartition, 2, Ints.asList(0), Optional.<Integer>empty(), ImmutableList.of(BIGINT)))
+                .withNoMoreBufferIds();
+        sharedBuffer.setOutputBuffers(outputBuffers);
+
+        // Add two pages, buffer is full
+        addPage(sharedBuffer, createPage(1), firstPartition);
+        addPage(sharedBuffer, createPage(2), firstPartition);
+        assertQueueState(sharedBuffer, FIRST, firstPartition, 2, 0, 2, 2, 0);
+
+        // third page is blocked
+        ListenableFuture<?> future = enqueuePage(sharedBuffer, createPage(3), secondPartition);
+
+        // we should be blocked
+        assertFalse(future.isDone());
+        assertQueueState(sharedBuffer, FIRST, firstPartition, 2, 0, 2, 2, 0);   // 2 buffered pages
+        assertQueueState(sharedBuffer, SECOND, secondPartition, 0, 0, 0, 0, 1); // 1 queued page
+
+        // acknowledge pages for first partition, make space in the shared buffer
+        sharedBuffer.get(FIRST, 2, sizeOfPages(10)).cancel(true);
+
+        // page should be dequeued, we should not be blocked
+        assertTrue(future.isDone());
+        assertQueueState(sharedBuffer, SECOND, secondPartition, 1, 0, 1, 1, 0); // no more queued pages
+    }
+
+    @Test
     public void testSimplePartitioned()
             throws Exception
     {
