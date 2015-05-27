@@ -55,7 +55,7 @@ public class HashBuilderOperator
             this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
             this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
 
-            this.expectedPositions = checkNotNull(expectedPositions, "expectedPositions is null");
+            this.expectedPositions = expectedPositions;
         }
 
         public LookupSourceSupplier getLookupSourceSupplier()

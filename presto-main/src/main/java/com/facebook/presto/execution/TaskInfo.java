@@ -75,7 +75,7 @@ public class TaskInfo
     {
         this.taskId = checkNotNull(taskId, "taskId is null");
         this.nodeInstanceId = checkNotNull(nodeInstanceId, "nodeInstanceId is null");
-        this.version = checkNotNull(version, "version is null");
+        this.version = version;
         this.state = checkNotNull(state, "state is null");
         this.self = checkNotNull(self, "self is null");
         this.lastHeartbeat = checkNotNull(lastHeartbeat, "lastHeartbeat is null");

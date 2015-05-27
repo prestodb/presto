@@ -83,7 +83,7 @@ public class SetBuilderOperator
             this.setProvider = new SetSupplier(checkNotNull(types, "types is null").get(setChannel));
             this.setChannel = setChannel;
             this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
-            this.expectedPositions = checkNotNull(expectedPositions, "expectedPositions is null");
+            this.expectedPositions = expectedPositions;
         }
 
         public SetSupplier getSetProvider()

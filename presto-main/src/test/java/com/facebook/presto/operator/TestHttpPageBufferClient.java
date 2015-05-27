@@ -513,7 +513,7 @@ public class TestHttpPageBufferClient
             this.response.set(response);
         }
 
-        @SuppressWarnings("ThrowFromFinallyBlock")
+        @SuppressWarnings({"ThrowFromFinallyBlock", "Finally"})
         @Override
         public Response apply(@Nullable Request request)
         {

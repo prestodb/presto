@@ -250,7 +250,7 @@ public class ShardRecoveryManager
         public MissingShardRecovery(UUID shardUuid, boolean active)
         {
             this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
-            this.active = checkNotNull(active, "active is null");
+            this.active = active;
         }
 
         @Override

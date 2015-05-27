@@ -146,7 +146,7 @@ public class SqlQueryQueueManager
         GraphPath<String, DefaultEdge> shortestPath = floyd.getShortestPath(minDestination, minSource);
         List<String> pathVertexList = Graphs.getPathVertexList(shortestPath);
         // note: pathVertexList will be [a, a] instead of [a] when the shortest path is a loop edge
-        if (shortestPath.getStartVertex() != shortestPath.getEndVertex()) {
+        if (!Objects.equals(shortestPath.getStartVertex(), shortestPath.getEndVertex())) {
             pathVertexList.add(pathVertexList.get(0));
         }
         return pathVertexList;

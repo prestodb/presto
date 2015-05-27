@@ -19,6 +19,7 @@ import java.io.IOException;
 
 import static com.google.common.base.Preconditions.checkState;
 
+@SuppressWarnings("NarrowingCompoundAssignment")
 public class BooleanStream
         implements ValueStream<BooleanStreamCheckpoint>
 {
@@ -86,7 +87,7 @@ public class BooleanStream
             bitsInData = 0;
 
             byteStream.skip(items >>> 3);
-            items = items & 0b111;
+            items &= 0b111;
 
             if (items != 0) {
                 readByte();

@@ -78,7 +78,6 @@ public class SplitCompletionEvent
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(completedDataSize, "completedDataSize is null");
-        Preconditions.checkNotNull(completedPositions, "completedPositions is null");
         Preconditions.checkNotNull(splitInfoJson, "splitInfoJson is null");
 
         this.queryId = queryId;
