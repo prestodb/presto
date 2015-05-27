@@ -14,7 +14,7 @@
 
 package com.facebook.presto.plugin.nullconnector;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -28,7 +28,7 @@ public class NullPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     @Override
-    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ConnectorColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ColumnHandle> columns)
     {
         return new RecordPageSource(new InMemoryRecordSet(ImmutableList.of(), ImmutableList.of()));
     }

@@ -15,10 +15,10 @@
 package com.facebook.presto.plugin.nullconnector;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 
 public class NullColumnHandle
-        implements ConnectorColumnHandle
+        implements ColumnHandle
 {
     private final ColumnMetadata metadata;
 

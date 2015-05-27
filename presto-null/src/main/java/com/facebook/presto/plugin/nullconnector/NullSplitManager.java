@@ -14,7 +14,7 @@
 
 package com.facebook.presto.plugin.nullconnector;
 
-import com.facebook.presto.spi.ConnectorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -30,7 +30,7 @@ public class NullSplitManager
         implements ConnectorSplitManager
 {
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ConnectorColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain)
     {
         return new ConnectorPartitionResult(ImmutableList.of(), tupleDomain);
     }
