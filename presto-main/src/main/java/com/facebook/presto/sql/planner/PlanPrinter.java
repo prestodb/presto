@@ -396,6 +396,10 @@ public class PlanPrinter
                     .map(TableLayout::getPredicate)
                     .orElse(TupleDomain.<ColumnHandle>all());
 
+            if (node.getLayout().isPresent()) {
+                print(indent + 2, "LAYOUT: %s", node.getLayout().get().getConnectorHandle());
+            }
+
             if (predicate.isNone()) {
                 print(indent + 2, ":: NONE");
             }
