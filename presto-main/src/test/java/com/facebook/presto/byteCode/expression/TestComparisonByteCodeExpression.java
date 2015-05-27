@@ -130,6 +130,7 @@ public class TestComparisonByteCodeExpression
         assertByteCodeExpression(greaterThanOrEqual(constantDouble(7.7), constantDouble(Double.NaN)), 7.7 >= Double.NaN, "(7.7 >= NaN)");
     }
 
+    @SuppressWarnings({"FloatingPointEquality", "ComparisonToNaN", "EqualsNaN", "EqualsWithItself"})
     @Test
     public void testEqual()
             throws Exception
@@ -156,6 +157,7 @@ public class TestComparisonByteCodeExpression
         assertByteCodeExpression(equal(constantString("foo"), constantString("foo")), "foo".equals("foo"), "(\"foo\" == \"foo\")");
     }
 
+    @SuppressWarnings({"FloatingPointEquality", "ComparisonToNaN", "EqualsNaN", "EqualsWithItself"})
     @Test
     public void testNotEqual()
             throws Exception

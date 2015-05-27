@@ -100,7 +100,7 @@ public final class TypeJsonUtils
                 list.add(value);
                 field++;
             }
-            checkArgument(field == rowType.getFields().size(), "Expected %d fields for type %s", rowType.getFields().size(), type);
+            checkArgument(field == rowType.getFields().size(), "Expected %s fields for type %s", rowType.getFields().size(), type);
 
             return Collections.unmodifiableList(list);
         }

@@ -25,6 +25,7 @@ final class EncoderUtil
     /**
      * Append null values for the block as a stream of bits.
      */
+    @SuppressWarnings({"NarrowingCompoundAssignment", "ImplicitNumericConversion"})
     public static void encodeNullsAsBits(SliceOutput sliceOutput, Block block)
     {
         int positionCount = block.getPositionCount();

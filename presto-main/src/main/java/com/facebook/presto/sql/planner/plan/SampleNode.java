@@ -74,7 +74,7 @@ public class SampleNode
 
         this.sampleType = checkNotNull(sampleType, "sample type is null");
         this.source = checkNotNull(source, "source is null");
-        this.sampleRatio = checkNotNull(sampleRatio, "sample ratio is null");
+        this.sampleRatio = sampleRatio;
         this.rescaled = rescaled;
         checkArgument(!rescaled || sampleType == Type.POISSONIZED);
         this.sampleWeightSymbol = checkNotNull(sampleWeightSymbol, "sample weight symbol is null");

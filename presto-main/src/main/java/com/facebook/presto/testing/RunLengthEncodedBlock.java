@@ -37,7 +37,7 @@ public class RunLengthEncodedBlock
         checkArgument(!(value instanceof RunLengthEncodedBlock), "Value can not be an instance of a %s", getClass().getName());
 
         checkArgument(positionCount >= 0, "positionCount is negative");
-        this.positionCount = checkNotNull(positionCount, "positionCount is null");
+        this.positionCount = positionCount;
     }
 
     public Block getValue()

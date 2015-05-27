@@ -125,7 +125,7 @@ public class ParallelHashBuilder
             this.types = types;
             this.hashChannels = hashChannels;
             this.hashChannel = hashChannel;
-            this.expectedPositions = checkNotNull(expectedPositions, "expectedPositions is null");
+            this.expectedPositions = expectedPositions;
         }
 
         @Override

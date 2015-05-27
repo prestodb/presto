@@ -279,7 +279,7 @@ public final class OrcInputStream
         int inLength = in.length();
 
         int uncompressedLength = Snappy.getUncompressedLength(inArray, inOffset);
-        checkArgument(uncompressedLength <= maxBufferSize, "Snappy requires buffer (%d) larger than max size (%d)", uncompressedLength, maxBufferSize);
+        checkArgument(uncompressedLength <= maxBufferSize, "Snappy requires buffer (%s) larger than max size (%s)", uncompressedLength, maxBufferSize);
         allocateOrGrowBuffer(uncompressedLength, false);
 
         return Snappy.uncompress(inArray, inOffset, inLength, buffer, 0);

@@ -96,7 +96,6 @@ public class IndexLoader
         checkArgument(lookupSourceInputChannels.size() <= keyOutputChannels.size(), "Lookup channels must supply a subset of the actual index columns");
         checkNotNull(outputTypes, "outputTypes is null");
         checkNotNull(indexBuildDriverFactoryProvider, "indexBuildDriverFactoryProvider is null");
-        checkNotNull(expectedPositions, "expectedPositions is null");
         checkNotNull(maxIndexMemorySize, "maxIndexMemorySize is null");
         checkNotNull(stats, "stats is null");
 
