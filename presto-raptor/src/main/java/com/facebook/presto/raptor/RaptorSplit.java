@@ -36,8 +36,12 @@ public class RaptorSplit
     @JsonCreator
     public RaptorSplit(
             @JsonProperty("shardUuid") UUID shardUuid,
-            @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("effectivePredicate") TupleDomain<RaptorColumnHandle> effectivePredicate)
+    {
+        this(shardUuid, ImmutableList.of(), effectivePredicate);
+    }
+
+    public RaptorSplit(UUID shardUuid, List<HostAddress> addresses, TupleDomain<RaptorColumnHandle> effectivePredicate)
     {
         this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
         this.addresses = ImmutableList.copyOf(checkNotNull(addresses, "addresses is null"));
@@ -45,14 +49,12 @@ public class RaptorSplit
     }
 
     @Override
-    @JsonProperty
     public boolean isRemotelyAccessible()
     {
         return false;
     }
 
     @Override
-    @JsonProperty
     public List<HostAddress> getAddresses()
     {
         return addresses;
