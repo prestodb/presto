@@ -201,7 +201,7 @@ public abstract class AbstractOrcDataSource
                 readFully(diskRange.getOffset() + position, bufferReference.getBuffer(), 0, length);
             }
             catch (IOException e) {
-                new RuntimeIOException(e);
+                throw new RuntimeIOException(e);
             }
         }
 
