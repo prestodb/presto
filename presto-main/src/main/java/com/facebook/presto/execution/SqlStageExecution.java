@@ -581,7 +581,7 @@ public final class SqlStageExecution
                 }
 
                 schedulingComplete.set(DateTime.now());
-                stageState.set(StageState.SCHEDULED);
+                stageState.compareAndSet(StageState.SCHEDULING, StageState.SCHEDULED);
 
                 // add the missing exchanges output buffers
                 updateNewExchangesAndBuffers(true);
