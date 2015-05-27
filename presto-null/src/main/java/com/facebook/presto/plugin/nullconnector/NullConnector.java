@@ -48,7 +48,8 @@ import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
-import com.google.inject.Inject;
+
+import javax.inject.Inject;
 
 public class NullConnector
         implements Connector

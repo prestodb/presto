@@ -16,15 +16,20 @@ package com.facebook.presto.plugin.nullconnector;
 
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
+import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class NullPlugin
         implements Plugin
 {
     private Map<String, String> optionalConfig;
+    private TypeManager typeManager;
 
     @Override
     public void setOptionalConfig(Map<String, String> optionalConfig)
@@ -32,11 +37,17 @@ public class NullPlugin
         this.optionalConfig = optionalConfig;
     }
 
+    @Inject
+    public synchronized void setTypeManager(TypeManager typeManager)
+    {
+        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+    }
+
     @Override
     public <T> List<T> getServices(Class<T> type)
     {
         if (type == ConnectorFactory.class) {
-            return ImmutableList.of(type.cast(new NullConnectorFactory(optionalConfig)));
+            return ImmutableList.of(type.cast(new NullConnectorFactory(typeManager, optionalConfig)));
         }
         return ImmutableList.of();
     }

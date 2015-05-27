@@ -18,24 +18,88 @@ package com.facebook.presto.plugin.nullconnector;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.type.TypeManager;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class NullTableHandle
         implements ConnectorTableHandle
 {
-    private ConnectorTableMetadata tableMetadata;
+    private final String schemaName;
+    private final String tableName;
+    private final NullColumnHandle[] columnHandles;
 
     public NullTableHandle(ConnectorTableMetadata tableMetadata)
     {
-        this.tableMetadata = tableMetadata;
+        schemaName = tableMetadata.getTable().getSchemaName();
+        tableName = tableMetadata.getTable().getTableName();
+        columnHandles = tableMetadata.getColumns().stream()
+                .map(NullColumnHandle::new)
+                .toArray(NullColumnHandle[]::new);
     }
 
-    public ConnectorTableMetadata getMetadata()
+    @JsonCreator
+    public NullTableHandle(
+            @JsonProperty("schemaName") String schemaName,
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("columnHandles") NullColumnHandle[] columnHandles)
     {
-        return tableMetadata;
+        this.schemaName = schemaName;
+        this.tableName = tableName;
+        this.columnHandles = columnHandles;
     }
 
-    public SchemaTableName getName()
+    @JsonProperty
+    public String getSchemaName()
     {
-        return tableMetadata.getTable();
+        return schemaName;
+    }
+
+    @JsonProperty
+    public String getTableName()
+    {
+        return tableName;
+    }
+
+    @JsonProperty
+    public NullColumnHandle[] getColumnHandles()
+    {
+        return columnHandles;
+    }
+
+    public ConnectorTableMetadata toTableMetadata(TypeManager typeManager)
+    {
+        return new ConnectorTableMetadata(
+                toSchemaTableName(),
+                Arrays.stream(columnHandles).map(columnHandle -> columnHandle.toColumnMetadata(typeManager)).collect(Collectors.toList()));
+    }
+
+    public SchemaTableName toSchemaTableName()
+    {
+        return new SchemaTableName(schemaName, tableName);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(getSchemaName(), getTableName());
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        NullTableHandle other = (NullTableHandle) obj;
+        return Objects.equals(this.getSchemaName(), other.getSchemaName()) &&
+                Objects.equals(this.getTableName(), other.getTableName());
     }
 }

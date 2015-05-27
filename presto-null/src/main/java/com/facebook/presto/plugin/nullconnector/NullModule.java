@@ -14,6 +14,7 @@
 
 package com.facebook.presto.plugin.nullconnector;
 
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 
@@ -22,6 +23,13 @@ import static com.google.inject.Scopes.SINGLETON;
 public class NullModule
         implements Module
 {
+    private final TypeManager typeManager;
+
+    public NullModule(TypeManager typeManager)
+    {
+        this.typeManager = typeManager;
+    }
+
     @Override
     public void configure(Binder binder)
     {
@@ -31,5 +39,6 @@ public class NullModule
         binder.bind(NullHandleResolver.class).in(SINGLETON);
         binder.bind(NullPageSinkProvider.class).in(SINGLETON);
         binder.bind(NullPageSourceProvider.class).in(SINGLETON);
+        binder.bind(TypeManager.class).toInstance(typeManager);
     }
 }

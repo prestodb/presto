@@ -25,14 +25,18 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
+import javax.inject.Inject;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.plugin.nullconnector.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.newHashMap;
@@ -45,6 +49,13 @@ public class NullMetadata
     public static final String SCHEMA_NAME = "default";
 
     private Map<String, NullTableHandle> tables = newHashMap();
+    private final TypeManager typeManager;
+
+    @Inject
+    public NullMetadata(TypeManager typeManager)
+    {
+        this.typeManager = typeManager;
+    }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
@@ -59,9 +70,10 @@ public class NullMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle table)
+    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
     {
-        return ((NullTableHandle) table).getMetadata();
+        NullTableHandle nullTableHandle = checkType(tableHandle, NullTableHandle.class, "tableHandle");
+        return nullTableHandle.toTableMetadata(typeManager);
     }
 
     @Override
@@ -71,7 +83,7 @@ public class NullMetadata
             checkArgument(schemaNameOrNull.equals(SCHEMA_NAME), "Only '{}' schema is supported", SCHEMA_NAME);
         }
         return tables.values().stream()
-                .map(table -> table.getName())
+                .map(NullTableHandle::toSchemaTableName)
                 .collect(toList());
     }
 
@@ -90,31 +102,31 @@ public class NullMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
-        NullTableHandle nullTableHandle = (NullTableHandle) tableHandle;
-        return nullTableHandle.getMetadata().getColumns().stream()
-                .collect(toMap(column -> column.getName(), column -> new NullColumnHandle(column)));
+        NullTableHandle nullTableHandle = checkType(tableHandle, NullTableHandle.class, "tableHandle");
+        return Arrays.stream(nullTableHandle.getColumnHandles())
+                .collect(toMap(NullColumnHandle::getName, nullColumnHandle -> nullColumnHandle));
     }
 
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        NullColumnHandle nullColumnHandle = (NullColumnHandle) columnHandle;
-        return nullColumnHandle.getMetadata();
+        NullColumnHandle nullColumnHandle = checkType(columnHandle, NullColumnHandle.class, "columnHandle");
+        return nullColumnHandle.toColumnMetadata(typeManager);
     }
 
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         return tables.values().stream()
-                .filter(table -> prefix.matches(table.getName()))
-                .collect(toMap(handle -> handle.getName(), handle -> handle.getMetadata().getColumns()));
+                .filter(table -> prefix.matches(table.toSchemaTableName()))
+                .collect(toMap(NullTableHandle::toSchemaTableName, handle -> handle.toTableMetadata(typeManager).getColumns()));
     }
 
     @Override
     public void dropTable(ConnectorTableHandle tableHandle)
     {
-        NullTableHandle nullTableHandle = (NullTableHandle) tableHandle;
-        tables.remove(nullTableHandle.getName().getTableName());
+        NullTableHandle nullTableHandle = checkType(tableHandle, NullTableHandle.class, "tableHandle");
+        tables.remove(nullTableHandle.getTableName());
     }
 
     @Override

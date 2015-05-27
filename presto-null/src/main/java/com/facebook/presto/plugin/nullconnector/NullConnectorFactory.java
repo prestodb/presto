@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.nullconnector;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 
@@ -26,10 +27,12 @@ import static com.google.common.base.Throwables.propagate;
 public class NullConnectorFactory
         implements ConnectorFactory
 {
+    private final TypeManager typeManager;
     private Map<String, String> optionalConfig;
 
-    public NullConnectorFactory(Map<String, String> optionalConfig)
+    public NullConnectorFactory(TypeManager typeManager, Map<String, String> optionalConfig)
     {
+        this.typeManager = typeManager;
         this.optionalConfig = optionalConfig;
     }
 
@@ -43,7 +46,7 @@ public class NullConnectorFactory
     public Connector create(String connectorId, Map<String, String> requiredConfig)
     {
         try {
-            Bootstrap app = new Bootstrap(new NullModule());
+            Bootstrap app = new Bootstrap(new NullModule(typeManager));
 
             Injector injector = app
                     .strictConfig()
