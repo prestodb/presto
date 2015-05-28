@@ -49,6 +49,12 @@ public class FailedQueryExecution
     }
 
     @Override
+    public QueryState getState()
+    {
+        return queryInfo.getState();
+    }
+
+    @Override
     public VersionedMemoryPoolId getMemoryPool()
     {
         return new VersionedMemoryPoolId(GENERAL_POOL, 0);

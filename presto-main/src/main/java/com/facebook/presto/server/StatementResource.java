@@ -48,7 +48,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -73,7 +72,6 @@ import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
-import java.io.Closeable;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -208,13 +206,12 @@ public class StatementResource
         if (query == null) {
             return Response.status(Status.NOT_FOUND).build();
         }
-        query.close();
+        query.cancel();
         return Response.noContent().build();
     }
 
     @ThreadSafe
     public static class Query
-            implements Closeable
     {
         private final QueryManager queryManager;
         private final QueryId queryId;
@@ -259,11 +256,14 @@ public class StatementResource
             this.exchangeClient = exchangeClient;
         }
 
-        @Override
-        public void close()
+        public void cancel()
         {
             queryManager.cancelQuery(queryId);
-            // frees buffers in the client
+            dispose();
+        }
+
+        public void dispose()
+        {
             exchangeClient.close();
         }
 
@@ -721,16 +721,18 @@ public class StatementResource
                 // from the query manager.  Then we remove only the queries in the snapshot and
                 // not live queries set.  If we did this in the other order, a query could be
                 // registered between fetching the live queries and inspecting the queryIds set.
+                for (QueryId queryId : ImmutableSet.copyOf(queries.keySet())) {
+                    Query query = queries.get(queryId);
+                    Optional<QueryState> state = queryManager.getQueryState(queryId);
 
-                Set<QueryId> queryIdsSnapshot = ImmutableSet.copyOf(queries.keySet());
-                Set<QueryId> liveQueries = ImmutableSet.copyOf(queryManager.getAllQueryIds());
+                    // free up resources if the query completed
+                    if (!state.isPresent() || state.get() == QueryState.FAILED) {
+                        query.dispose();
+                    }
 
-                Set<QueryId> deadQueries = Sets.difference(queryIdsSnapshot, liveQueries);
-                for (QueryId deadQueryId : deadQueries) {
-                    Query query = queries.remove(deadQueryId);
-                    if (query != null) {
-                        query.close();
-                        log.info("Removed expired query %s", deadQueryId);
+                    // forget about this query if the query manager is no longer tracking it
+                    if (!state.isPresent()) {
+                        queries.remove(queryId);
                     }
                 }
             }

@@ -25,6 +25,8 @@ public interface QueryExecution
 
     QueryInfo getQueryInfo();
 
+    QueryState getState();
+
     Duration waitForStateChange(QueryState currentState, Duration maxWait)
             throws InterruptedException;
 

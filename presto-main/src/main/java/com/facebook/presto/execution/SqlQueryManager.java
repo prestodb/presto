@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -188,22 +189,6 @@ public class SqlQueryManager
     }
 
     @Override
-    public List<QueryId> getAllQueryIds()
-    {
-        return queries.values().stream()
-                .map(queryExecution -> {
-                    try {
-                        return queryExecution.getQueryId();
-                    }
-                    catch (RuntimeException ignored) {
-                        return null;
-                    }
-                })
-                .filter(Objects::nonNull)
-                .collect(toImmutableList());
-    }
-
-    @Override
     public List<QueryInfo> getAllQueryInfo()
     {
         return queries.values().stream()
@@ -245,6 +230,15 @@ public class SqlQueryManager
         }
 
         return query.getQueryInfo();
+    }
+
+    @Override
+    public Optional<QueryState> getQueryState(QueryId queryId)
+    {
+        checkNotNull(queryId, "queryId is null");
+
+        return Optional.ofNullable(queries.get(queryId))
+                .map(QueryExecution::getState);
     }
 
     @Override
