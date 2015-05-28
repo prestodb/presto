@@ -22,12 +22,12 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
+import javax.annotation.Nonnull;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Executor;
 
@@ -72,6 +72,7 @@ public class StateMachine<T>
         this.state = requireNonNull(initialState, "initialState is null");
     }
 
+    @Nonnull
     public T get()
     {
         return state;
@@ -83,6 +84,7 @@ public class StateMachine<T>
      *
      * @return the old state
      */
+    @Nonnull
     public T set(T newState)
     {
         checkState(!Thread.holdsLock(lock), "Can not set state while holding the lock");
@@ -92,7 +94,7 @@ public class StateMachine<T>
         ImmutableList<SettableFuture<T>> futureStateChanges;
         ImmutableList<StateChangeListener<T>> stateChangeListeners;
         synchronized (lock) {
-            if (Objects.equals(state, newState)) {
+            if (state.equals(newState)) {
                 return state;
             }
 
@@ -118,6 +120,7 @@ public class StateMachine<T>
     public boolean setIf(T newState, Predicate<T> predicate)
     {
         checkState(!Thread.holdsLock(lock), "Can not set state while holding the lock");
+        requireNonNull(newState, "newState is null");
 
         while (true) {
             // check if the current state passes the predicate
@@ -155,12 +158,12 @@ public class StateMachine<T>
         ImmutableList<SettableFuture<T>> futureStateChanges;
         ImmutableList<StateChangeListener<T>> stateChangeListeners;
         synchronized (lock) {
-            if (!Objects.equals(state, expectedState)) {
+            if (!state.equals(expectedState)) {
                 return false;
             }
 
             // change to same state is not a change, and does not notify the notify listeners
-            if (Objects.equals(state, newState)) {
+            if (state.equals(newState)) {
                 return false;
             }
 
@@ -179,6 +182,7 @@ public class StateMachine<T>
     private void fireStateChanged(T newState, List<SettableFuture<T>> futureStateChanges, List<StateChangeListener<T>> stateChangeListeners)
     {
         checkState(!Thread.holdsLock(lock), "Can not fire state change event while holding the lock");
+        requireNonNull(newState, "newState is null");
 
         executor.execute(() -> {
             checkState(!Thread.holdsLock(lock), "Can not notify while holding the lock");
@@ -207,9 +211,10 @@ public class StateMachine<T>
     public ListenableFuture<T> getStateChange(T currentState)
     {
         checkState(!Thread.holdsLock(lock), "Can not wait for state change while holding the lock");
+        requireNonNull(currentState, "currentState is null");
 
         synchronized (lock) {
-            if (!Objects.equals(state, currentState)) {
+            if (!state.equals(currentState)) {
                 return Futures.immediateFuture(state);
             }
 
@@ -240,6 +245,7 @@ public class StateMachine<T>
      */
     public void addStateChangeListener(StateChangeListener<T> stateChangeListener)
     {
+        requireNonNull(stateChangeListener, "stateChangeListener is null");
         synchronized (lock) {
             stateChangeListeners.add(stateChangeListener);
         }
@@ -252,8 +258,10 @@ public class StateMachine<T>
             throws InterruptedException
     {
         checkState(!Thread.holdsLock(lock), "Can not wait for state change while holding the lock");
+        requireNonNull(currentState, "currentState is null");
+        requireNonNull(maxWait, "maxWait is null");
 
-        if (!Objects.equals(state, currentState)) {
+        if (!state.equals(currentState)) {
             return maxWait;
         }
 
@@ -263,7 +271,7 @@ public class StateMachine<T>
         long end = start + remainingNanos;
 
         synchronized (lock) {
-            while (remainingNanos > 0 && Objects.equals(state, currentState)) {
+            while (remainingNanos > 0 && state.equals(currentState)) {
                 // wait for timeout or notification
                 NANOSECONDS.timedWait(lock, remainingNanos);
                 remainingNanos = end - System.nanoTime();
@@ -283,6 +291,6 @@ public class StateMachine<T>
     @Override
     public String toString()
     {
-        return String.valueOf(get());
+        return get().toString();
     }
 }
