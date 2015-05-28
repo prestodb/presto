@@ -71,6 +71,13 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public Block copyRegion(int positionOffset, int length)
+    {
+        checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
+        return new RunLengthEncodedBlock(value.copyRegion(0, 1), length);
+    }
+
+    @Override
     public int getLength(int position)
     {
         return value.getLength(0);
