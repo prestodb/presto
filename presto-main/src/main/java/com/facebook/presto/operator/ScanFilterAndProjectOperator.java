@@ -26,6 +26,8 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -47,6 +49,7 @@ public class ScanFilterAndProjectOperator
     private final PageBuilder pageBuilder;
     private final CursorProcessor cursorProcessor;
     private final PageProcessor pageProcessor;
+    private final SettableFuture<?> blocked = SettableFuture.create();
 
     private RecordCursor cursor;
     private ConnectorPageSource pageSource;
@@ -109,6 +112,7 @@ public class ScanFilterAndProjectOperator
         if (splitInfo != null) {
             operatorContext.setInfoSupplier(Suppliers.ofInstance(splitInfo));
         }
+        blocked.set(null);
     }
 
     @Override
@@ -117,6 +121,7 @@ public class ScanFilterAndProjectOperator
         if (cursor == null && pageSource == null) {
             finishing = true;
         }
+        blocked.set(null);
     }
 
     @Override
@@ -134,6 +139,7 @@ public class ScanFilterAndProjectOperator
     @Override
     public void finish()
     {
+        blocked.set(null);
         if (pageSource != null) {
             try {
                 pageSource.close();
@@ -156,6 +162,12 @@ public class ScanFilterAndProjectOperator
         }
 
         return finishing && pageBuilder.isEmpty();
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return blocked;
     }
 
     @Override
