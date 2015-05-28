@@ -801,6 +801,13 @@ class AstBuilder
         return new FunctionCall(new QualifiedName("strpos"), arguments);
     }
 
+    public Node visitNormalize(@NotNull SqlBaseParser.NormalizeContext context)
+    {
+        Expression str = (Expression) visit(context.valueExpression());
+        String normalForm = Optional.ofNullable(context.normalForm()).map(ParserRuleContext::getText).orElse("NFC");
+        return new FunctionCall(new QualifiedName("normalize"), ImmutableList.of(str, new StringLiteral(normalForm)));
+    }
+
     @Override
     public Node visitSubscript(@NotNull SqlBaseParser.SubscriptContext context)
     {

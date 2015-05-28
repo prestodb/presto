@@ -27,6 +27,7 @@ import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
 
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalInt;
@@ -41,6 +42,7 @@ import static io.airlift.slice.SliceUtf8.lengthOfCodePointSafe;
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
 import static io.airlift.slice.SliceUtf8.toLowerCase;
 import static io.airlift.slice.SliceUtf8.toUpperCase;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.SURROGATE;
 
@@ -397,6 +399,21 @@ public final class StringFunctions
     public static Slice upper(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         return toUpperCase(slice);
+    }
+
+    @Description("transforms the string to normalized form")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice normalize(@SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.VARCHAR) Slice form)
+    {
+        Normalizer.Form targetForm;
+        try {
+            targetForm = Normalizer.Form.valueOf(form.toStringUtf8());
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Normalization form must be one of [NFD, NFC, NFKD, NFKC]");
+        }
+        return utf8Slice(Normalizer.normalize(slice.toStringUtf8(), targetForm));
     }
 
     @Description("decodes the UTF-8 encoded string")
