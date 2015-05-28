@@ -100,6 +100,7 @@ public class TableScanOperator
     private final List<ColumnHandle> columns;
     private final SettableFuture<?> blocked = SettableFuture.create();
 
+    private Split split;
     private ConnectorPageSource source;
 
     private long completedBytes;
@@ -135,9 +136,8 @@ public class TableScanOperator
     public void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
-        checkState(source == null, "Table scan split already set");
-
-        source = pageSourceProvider.createPageSource(split, columns);
+        checkState(this.split == null, "Table scan split already set");
+        this.split = split;
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
@@ -149,7 +149,7 @@ public class TableScanOperator
     @Override
     public void noMoreSplits()
     {
-        if (source == null) {
+        if (split == null) {
             source = FINISHED_PAGE_SOURCE;
         }
         blocked.set(null);
@@ -185,6 +185,7 @@ public class TableScanOperator
     @Override
     public boolean isFinished()
     {
+        createSourceIfNecessary();
         return (source != null) && source.isFinished();
     }
 
@@ -209,6 +210,7 @@ public class TableScanOperator
     @Override
     public Page getOutput()
     {
+        createSourceIfNecessary();
         if (source == null) {
             return null;
         }
@@ -227,5 +229,12 @@ public class TableScanOperator
         }
 
         return page;
+    }
+
+    private void createSourceIfNecessary()
+    {
+        if ((split != null) && (source == null)) {
+            source = pageSourceProvider.createPageSource(split, columns);
+        }
     }
 }
