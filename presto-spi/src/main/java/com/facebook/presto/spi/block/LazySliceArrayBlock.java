@@ -19,6 +19,7 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.spi.block.SliceArrayBlock.deepCopyAndCompact;
 import static com.facebook.presto.spi.block.SliceArrayBlock.getSliceArraySizeInBytes;
 
 public class LazySliceArrayBlock
@@ -111,6 +112,18 @@ public class LazySliceArrayBlock
         assureLoaded();
         Slice[] newValues = Arrays.copyOfRange(values, positionOffset, positionOffset + length);
         return new SliceArrayBlock(length, newValues);
+    }
+
+    @Override
+    public Block copyRegion(int positionOffset, int length)
+    {
+        int positionCount = getPositionCount();
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
+
+        assureLoaded();
+        return new SliceArrayBlock(length, deepCopyAndCompact(values, positionOffset, length));
     }
 
     @Override
