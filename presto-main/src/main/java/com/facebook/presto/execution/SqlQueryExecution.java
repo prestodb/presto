@@ -404,6 +404,12 @@ public final class SqlQueryExecution
         }
     }
 
+    @Override
+    public QueryState getState()
+    {
+        return stateMachine.getQueryState();
+    }
+
     private void doUpdateState(StageState outputStageState)
     {
         // if already complete, just return

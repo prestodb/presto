@@ -141,6 +141,12 @@ public class DataDefinitionExecution<T extends Statement>
         return stateMachine.getQueryInfoWithoutDetails();
     }
 
+    @Override
+    public QueryState getState()
+    {
+        return stateMachine.getQueryState();
+    }
+
     public static class DataDefinitionExecutionFactory
             implements QueryExecutionFactory<DataDefinitionExecution<?>>
     {
