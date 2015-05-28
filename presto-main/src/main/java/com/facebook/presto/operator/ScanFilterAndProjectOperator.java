@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -26,8 +26,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -50,10 +48,7 @@ public class ScanFilterAndProjectOperator
     private final CursorProcessor cursorProcessor;
     private final PageProcessor pageProcessor;
 
-    @GuardedBy("this")
     private RecordCursor cursor;
-
-    @GuardedBy("this")
     private ConnectorPageSource pageSource;
 
     private Page currentPage;
@@ -97,7 +92,7 @@ public class ScanFilterAndProjectOperator
     }
 
     @Override
-    public synchronized void addSplit(Split split)
+    public void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
         checkState(cursor == null && pageSource == null, "split already set");
@@ -117,7 +112,7 @@ public class ScanFilterAndProjectOperator
     }
 
     @Override
-    public synchronized void noMoreSplits()
+    public void noMoreSplits()
     {
         if (cursor == null && pageSource == null) {
             finishing = true;

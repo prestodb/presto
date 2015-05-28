@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
@@ -25,8 +25,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -102,7 +100,6 @@ public class TableScanOperator
     private final List<ColumnHandle> columns;
     private final SettableFuture<?> blocked;
 
-    @GuardedBy("this")
     private ConnectorPageSource source;
 
     private long completedBytes;
@@ -136,10 +133,10 @@ public class TableScanOperator
     }
 
     @Override
-    public synchronized void addSplit(Split split)
+    public void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
-        checkState(getSource() == null, "Table scan split already set");
+        checkState(source == null, "Table scan split already set");
 
         source = pageSourceProvider.createPageSource(split, columns);
 
@@ -151,16 +148,11 @@ public class TableScanOperator
     }
 
     @Override
-    public synchronized void noMoreSplits()
+    public void noMoreSplits()
     {
         if (source == null) {
             source = FINISHED_PAGE_SOURCE;
         }
-    }
-
-    private synchronized ConnectorPageSource getSource()
-    {
-        return source;
     }
 
     @Override
@@ -170,7 +162,7 @@ public class TableScanOperator
     }
 
     @Override
-    public synchronized void close()
+    public void close()
     {
         finish();
     }
@@ -178,12 +170,11 @@ public class TableScanOperator
     @Override
     public void finish()
     {
-        ConnectorPageSource delegate = getSource();
-        if (delegate == null) {
+        if (source == null) {
             return;
         }
         try {
-            delegate.close();
+            source.close();
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
@@ -193,15 +184,13 @@ public class TableScanOperator
     @Override
     public boolean isFinished()
     {
-        ConnectorPageSource delegate = getSource();
-        return delegate != null && delegate.isFinished();
+        return (source != null) && source.isFinished();
     }
 
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        ConnectorPageSource delegate = getSource();
-        if (delegate != null) {
+        if (source != null) {
             return NOT_BLOCKED;
         }
         return blocked;
@@ -222,19 +211,18 @@ public class TableScanOperator
     @Override
     public Page getOutput()
     {
-        ConnectorPageSource delegate = getSource();
-        if (delegate == null) {
+        if (source == null) {
             return null;
         }
 
-        Page page = delegate.getNextPage();
+        Page page = source.getNextPage();
         if (page != null) {
             // assure the page is in memory before handing to another operator
             page.assureLoaded();
 
             // update operator stats
-            long endCompletedBytes = delegate.getCompletedBytes();
-            long endReadTimeNanos = delegate.getReadTimeNanos();
+            long endCompletedBytes = source.getCompletedBytes();
+            long endReadTimeNanos = source.getReadTimeNanos();
             operatorContext.recordGeneratedInput(endCompletedBytes - completedBytes, page.getPositionCount(), endReadTimeNanos - readTimeNanos);
             completedBytes = endCompletedBytes;
             readTimeNanos = endReadTimeNanos;
