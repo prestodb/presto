@@ -30,7 +30,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.operator.FinishedPageSource.FINISHED_PAGE_SOURCE;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -103,6 +102,8 @@ public class TableScanOperator
     private Split split;
     private ConnectorPageSource source;
 
+    private boolean finished;
+
     private long completedBytes;
     private long readTimeNanos;
 
@@ -137,6 +138,11 @@ public class TableScanOperator
     {
         checkNotNull(split, "split is null");
         checkState(this.split == null, "Table scan split already set");
+
+        if (finished) {
+            return;
+        }
+
         this.split = split;
 
         Object splitInfo = split.getInfo();
@@ -150,7 +156,7 @@ public class TableScanOperator
     public void noMoreSplits()
     {
         if (split == null) {
-            source = FINISHED_PAGE_SOURCE;
+            finished = true;
         }
         blocked.set(null);
     }
@@ -170,23 +176,28 @@ public class TableScanOperator
     @Override
     public void finish()
     {
+        finished = true;
         blocked.set(null);
-        if (source == null) {
-            return;
-        }
-        try {
-            source.close();
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
+
+        if (source != null) {
+            try {
+                source.close();
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
         }
     }
 
     @Override
     public boolean isFinished()
     {
-        createSourceIfNecessary();
-        return (source != null) && source.isFinished();
+        if (!finished) {
+            createSourceIfNecessary();
+            finished = (source != null) && source.isFinished();
+        }
+
+        return finished;
     }
 
     @Override

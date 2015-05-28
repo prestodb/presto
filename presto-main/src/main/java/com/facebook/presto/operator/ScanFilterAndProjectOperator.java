@@ -100,6 +100,11 @@ public class ScanFilterAndProjectOperator
     {
         checkNotNull(split, "split is null");
         checkState(this.split == null, "Table scan split already set");
+
+        if (finishing) {
+            return;
+        }
+
         this.split = split;
 
         Object splitInfo = split.getInfo();
