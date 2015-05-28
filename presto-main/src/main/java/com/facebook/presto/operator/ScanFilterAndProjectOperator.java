@@ -54,6 +54,7 @@ public class ScanFilterAndProjectOperator
     private RecordCursor cursor;
     private ConnectorPageSource pageSource;
 
+    private Split split;
     private Page currentPage;
     private int currentPosition;
 
@@ -98,15 +99,8 @@ public class ScanFilterAndProjectOperator
     public void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
-        checkState(cursor == null && pageSource == null, "split already set");
-
-        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(split, columns);
-        if (pageSource instanceof RecordPageSource) {
-            cursor = ((RecordPageSource) pageSource).getCursor();
-        }
-        else {
-            this.pageSource = pageSource;
-        }
+        checkState(this.split == null, "Table scan split already set");
+        this.split = split;
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
@@ -118,7 +112,7 @@ public class ScanFilterAndProjectOperator
     @Override
     public void noMoreSplits()
     {
-        if (cursor == null && pageSource == null) {
+        if (split == null) {
             finishing = true;
         }
         blocked.set(null);
@@ -157,6 +151,10 @@ public class ScanFilterAndProjectOperator
     @Override
     public final boolean isFinished()
     {
+        if (!finishing) {
+            createSourceIfNecessary();
+        }
+
         if (pageSource != null && pageSource.isFinished() && currentPage == null) {
             finishing = true;
         }
@@ -186,6 +184,8 @@ public class ScanFilterAndProjectOperator
     public Page getOutput()
     {
         if (!finishing) {
+            createSourceIfNecessary();
+
             if (cursor != null) {
                 int rowsProcessed = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), cursor, ROWS_PER_PAGE, pageBuilder);
                 long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
@@ -232,6 +232,19 @@ public class ScanFilterAndProjectOperator
         Page page = pageBuilder.build();
         pageBuilder.reset();
         return page;
+    }
+
+    private void createSourceIfNecessary()
+    {
+        if ((split != null) && (pageSource == null) && (cursor == null)) {
+            ConnectorPageSource source = pageSourceProvider.createPageSource(split, columns);
+            if (source instanceof RecordPageSource) {
+                cursor = ((RecordPageSource) source).getCursor();
+            }
+            else {
+                pageSource = source;
+            }
+        }
     }
 
     public static class ScanFilterAndProjectOperatorFactory
