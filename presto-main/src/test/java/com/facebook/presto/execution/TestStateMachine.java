@@ -30,6 +30,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestStateMachine
 {
@@ -45,6 +46,65 @@ public class TestStateMachine
             throws Exception
     {
         executor.shutdownNow();
+    }
+
+    @Test
+    public void testNullState()
+            throws Exception
+    {
+        try {
+            new StateMachine<>("test", executor, null);
+            fail("expected a NullPointerException");
+        }
+        catch (NullPointerException exception) {
+        }
+
+        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST);
+
+        assertNoStateChange(stateMachine, () -> {
+            try {
+                stateMachine.set(null);
+                fail("expected a NullPointerException");
+            }
+            catch (NullPointerException exception) {
+            }
+        });
+
+        assertNoStateChange(stateMachine, () -> {
+            try {
+                stateMachine.compareAndSet(State.BREAKFAST, null);
+                fail("expected a NullPointerException");
+            }
+            catch (NullPointerException exception) {
+            }
+        });
+
+        assertNoStateChange(stateMachine, () -> {
+            try {
+                stateMachine.compareAndSet(State.LUNCH, null);
+                fail("expected a NullPointerException");
+            }
+            catch (NullPointerException exception) {
+            }
+        });
+
+        assertNoStateChange(stateMachine, () -> {
+            try {
+                stateMachine.setIf(null, currentState -> true);
+                fail("expected a NullPointerException");
+            }
+            catch (NullPointerException exception) {
+            }
+        });
+
+        assertNoStateChange(stateMachine, () -> {
+            try {
+                stateMachine.setIf(null, currentState -> false);
+                fail("expected a NullPointerException");
+            }
+            catch (NullPointerException exception) {
+            }
+        });
     }
 
     @Test
