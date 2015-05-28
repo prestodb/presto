@@ -98,7 +98,7 @@ public class TableScanOperator
     private final PageSourceProvider pageSourceProvider;
     private final List<Type> types;
     private final List<ColumnHandle> columns;
-    private final SettableFuture<?> blocked;
+    private final SettableFuture<?> blocked = SettableFuture.create();
 
     private ConnectorPageSource source;
 
@@ -117,7 +117,6 @@ public class TableScanOperator
         this.types = checkNotNull(types, "types is null");
         this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceManager is null");
         this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
-        this.blocked = SettableFuture.create();
     }
 
     @Override
@@ -153,6 +152,7 @@ public class TableScanOperator
         if (source == null) {
             source = FINISHED_PAGE_SOURCE;
         }
+        blocked.set(null);
     }
 
     @Override
@@ -170,6 +170,7 @@ public class TableScanOperator
     @Override
     public void finish()
     {
+        blocked.set(null);
         if (source == null) {
             return;
         }
@@ -190,9 +191,6 @@ public class TableScanOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        if (source != null) {
-            return NOT_BLOCKED;
-        }
         return blocked;
     }
 
