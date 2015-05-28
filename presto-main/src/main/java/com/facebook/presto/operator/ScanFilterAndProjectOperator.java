@@ -126,13 +126,13 @@ public class ScanFilterAndProjectOperator
     }
 
     @Override
-    public final void finish()
+    public void close()
     {
-        close();
+        finish();
     }
 
     @Override
-    public void close()
+    public void finish()
     {
         if (pageSource != null) {
             try {
