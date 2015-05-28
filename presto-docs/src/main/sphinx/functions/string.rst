@@ -118,6 +118,24 @@ String Functions
 
     Converts ``string`` to uppercase.
 
+.. function:: normalize(string) -> varchar
+
+    Transforms ``string`` with NFC normalization form.
+
+.. function:: normalize(string, form) -> varchar
+
+    Transforms ``string`` with the specified normalization form. ``form`` must be
+    one of the following:
+
+========= ===========
+Form      Description
+========= ===========
+``NFD``   Canonical Decomposition
+``NFC``   Canonical Decomposition, followed by Canonical Composition
+``NFKD``  Compatibility Decomposition
+``NFKC``  Compatibility Decomposition, followed by Canonical Composition
+========= ===========
+
 .. function:: to_utf8(string) -> varbinary
 
     Encodes ``string`` into a UTF-8 varbinary representation.

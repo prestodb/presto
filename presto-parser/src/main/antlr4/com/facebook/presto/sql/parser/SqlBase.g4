@@ -231,6 +231,7 @@ primaryExpression
     | name=LOCALTIME ('(' precision=INTEGER_VALUE ')')?                              #specialDateTimeFunction
     | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?                         #specialDateTimeFunction
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'  #substring
+    | NORMALIZE '(' valueExpression (',' normalForm)? ')'                            #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                #extract
     | POSITION '(' valueExpression IN valueExpression ')'                            #position
     | '(' expression ')'                                                             #parenthesizedExpression
@@ -334,6 +335,11 @@ nonReserved
     | SET | RESET
     | VIEW | REPLACE
     | IF | NULLIF | COALESCE
+    | normalForm
+    ;
+
+normalForm
+    : NFD | NFC | NFKD | NFKC
     ;
 
 SELECT: 'SELECT';
@@ -464,6 +470,12 @@ MAP: 'MAP';
 SET: 'SET';
 RESET: 'RESET';
 SESSION: 'SESSION';
+
+NORMALIZE: 'NORMALIZE';
+NFD : 'NFD';
+NFC : 'NFC';
+NFKD : 'NFKD';
+NFKC : 'NFKC';
 
 IF: 'IF';
 NULLIF: 'NULLIF';
