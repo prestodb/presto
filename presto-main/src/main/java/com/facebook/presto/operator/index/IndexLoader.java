@@ -309,12 +309,13 @@ public class IndexLoader
             UnloadedIndexKeyRecordSet recordSetForLookupSource = new UnloadedIndexKeyRecordSet(indexSnapshotReference.get(), lookupSourceInputChannels, indexTypes, requests);
 
             // Drive index lookup to produce the output (landing in indexSnapshotBuilder)
-            Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext());
-            PlanNodeId sourcePlanNodeId = Iterables.getOnlyElement(driverFactory.getSourceIds());
-            driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(new ScheduledSplit(0, new Split("index", new IndexSplit(recordSetForLookupSource)))), true));
-            while (!driver.isFinished()) {
-                ListenableFuture<?> process = driver.process();
-                checkState(process.isDone(), "Driver should never block");
+            try (Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext())) {
+                PlanNodeId sourcePlanNodeId = Iterables.getOnlyElement(driverFactory.getSourceIds());
+                driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(new ScheduledSplit(0, new Split("index", new IndexSplit(recordSetForLookupSource)))), true));
+                while (!driver.isFinished()) {
+                    ListenableFuture<?> process = driver.process();
+                    checkState(process.isDone(), "Driver should never block");
+                }
             }
 
             if (indexSnapshotBuilder.isMemoryExceeded()) {

@@ -194,4 +194,13 @@ public class IndexSourceOperator
         }
         return source.getOutput();
     }
+
+    @Override
+    public void close()
+            throws Exception
+    {
+        if (source != null) {
+            source.close();
+        }
+    }
 }
