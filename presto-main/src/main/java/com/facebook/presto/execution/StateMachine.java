@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.execution;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -48,6 +50,7 @@ public class StateMachine<T>
     private final String name;
     private final Executor executor;
     private final Object lock = new Object();
+    private final Set<T> terminalStates;
 
     @GuardedBy("lock")
     private volatile T state;
@@ -59,7 +62,7 @@ public class StateMachine<T>
     private final Set<SettableFuture<T>> futureStateChanges = newIdentityHashSet();
 
     /**
-     * Creates a state machine with the specified initial state.
+     * Creates a state machine with the specified initial state and no terminal states.
      *
      * @param name name of this state machine to use in debug statements
      * @param executor executor for firing state change events; must not be a same thread executor
@@ -67,9 +70,23 @@ public class StateMachine<T>
      */
     public StateMachine(String name, Executor executor, T initialState)
     {
+        this(name, executor, initialState, ImmutableSet.of());
+    }
+
+    /**
+     * Creates a state machine with the specified initial state and terminal states.
+     *
+     * @param name name of this state machine to use in debug statements
+     * @param executor executor for firing state change events; must not be a same thread executor
+     * @param initialState the initial state
+     * @param terminalStates the terminal states
+     */
+    public StateMachine(String name, Executor executor, T initialState, Iterable<T> terminalStates)
+    {
         this.name = requireNonNull(name, "name is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.state = requireNonNull(initialState, "initialState is null");
+        this.terminalStates = ImmutableSet.copyOf(requireNonNull(terminalStates, "terminalStates is null"));
     }
 
     @Nonnull
@@ -98,12 +115,20 @@ public class StateMachine<T>
                 return state;
             }
 
+            checkState(!isTerminalState(state), "%s can not transition from %s to %s", name, state, newState);
+
             oldState = state;
             state = newState;
 
             futureStateChanges = ImmutableList.copyOf(this.futureStateChanges);
             this.futureStateChanges.clear();
             stateChangeListeners = ImmutableList.copyOf(this.stateChangeListeners);
+
+            // if we are now in a terminal state, free the listeners since this will be the last notification
+            if (isTerminalState(state)) {
+                this.stateChangeListeners.clear();
+            }
+
             lock.notifyAll();
         }
 
@@ -167,11 +192,19 @@ public class StateMachine<T>
                 return false;
             }
 
+            checkState(!isTerminalState(state), "%s can not transition from %s to %s", name, state, newState);
+
             state = newState;
 
             futureStateChanges = ImmutableList.copyOf(this.futureStateChanges);
             this.futureStateChanges.clear();
             stateChangeListeners = ImmutableList.copyOf(this.stateChangeListeners);
+
+            // if we are now in a terminal state, free the listeners since this will be the last notification
+            if (isTerminalState(state)) {
+                this.stateChangeListeners.clear();
+            }
+
             lock.notifyAll();
         }
 
@@ -214,13 +247,15 @@ public class StateMachine<T>
         requireNonNull(currentState, "currentState is null");
 
         synchronized (lock) {
-            if (!state.equals(currentState)) {
+            // return a completed future if the state has already changed, or we are in a terminal state
+            if (!isPossibleStateChange(currentState)) {
                 return Futures.immediateFuture(state);
             }
 
             SettableFuture<T> futureStateChange = SettableFuture.create();
             futureStateChanges.add(futureStateChange);
-            Futures.addCallback(futureStateChange, new FutureCallback<T>() {
+            Futures.addCallback(futureStateChange, new FutureCallback<T>()
+            {
                 @Override
                 public void onSuccess(T result)
                 {
@@ -246,8 +281,18 @@ public class StateMachine<T>
     public void addStateChangeListener(StateChangeListener<T> stateChangeListener)
     {
         requireNonNull(stateChangeListener, "stateChangeListener is null");
+
+        boolean inTerminalState;
         synchronized (lock) {
-            stateChangeListeners.add(stateChangeListener);
+            inTerminalState = isTerminalState(state);
+            if (!inTerminalState) {
+                stateChangeListeners.add(stateChangeListener);
+            }
+        }
+
+        // state machine will never transition from a terminal state, so fire state change immediately
+        if (inTerminalState) {
+            stateChangeListener.stateChanged(state);
         }
     }
 
@@ -261,7 +306,8 @@ public class StateMachine<T>
         requireNonNull(currentState, "currentState is null");
         requireNonNull(maxWait, "maxWait is null");
 
-        if (!state.equals(currentState)) {
+        // don't wait if the state has already changed, or we are in a terminal state
+        if (!isPossibleStateChange(currentState)) {
             return maxWait;
         }
 
@@ -271,7 +317,7 @@ public class StateMachine<T>
         long end = start + remainingNanos;
 
         synchronized (lock) {
-            while (remainingNanos > 0 && state.equals(currentState)) {
+            while (remainingNanos > 0 && isPossibleStateChange(currentState)) {
                 // wait for timeout or notification
                 NANOSECONDS.timedWait(lock, remainingNanos);
                 remainingNanos = end - System.nanoTime();
@@ -281,6 +327,29 @@ public class StateMachine<T>
             remainingNanos = 0;
         }
         return new Duration(remainingNanos, NANOSECONDS);
+    }
+
+    private boolean isPossibleStateChange(T currentState)
+    {
+        return state.equals(currentState) && !isTerminalState(state);
+    }
+
+    @VisibleForTesting
+    boolean isTerminalState(T state)
+    {
+        return terminalStates.contains(state);
+    }
+
+    @VisibleForTesting
+    synchronized List<StateChangeListener<T>> getStateChangeListeners()
+    {
+        return ImmutableList.copyOf(stateChangeListeners);
+    }
+
+    @VisibleForTesting
+    synchronized Set<SettableFuture<T>> getFutureStateChanges()
+    {
+        return ImmutableSet.copyOf(futureStateChanges);
     }
 
     public interface StateChangeListener<T>
