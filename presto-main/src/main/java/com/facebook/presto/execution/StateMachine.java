@@ -47,14 +47,15 @@ public class StateMachine<T>
 
     private final String name;
     private final Executor executor;
+    private final Object lock = new Object();
 
-    @GuardedBy("this")
+    @GuardedBy("lock")
     private volatile T state;
 
-    @GuardedBy("this")
+    @GuardedBy("lock")
     private final List<StateChangeListener<T>> stateChangeListeners = new ArrayList<>();
 
-    @GuardedBy("this")
+    @GuardedBy("lock")
     private final Set<SettableFuture<T>> futureStateChanges = newIdentityHashSet();
 
     /**
@@ -84,13 +85,13 @@ public class StateMachine<T>
      */
     public T set(T newState)
     {
-        checkState(!Thread.holdsLock(this), "Can not set state while holding a lock on this");
+        checkState(!Thread.holdsLock(lock), "Can not set state while holding the lock");
         requireNonNull(newState, "newState is null");
 
         T oldState;
         ImmutableList<SettableFuture<T>> futureStateChanges;
         ImmutableList<StateChangeListener<T>> stateChangeListeners;
-        synchronized (this) {
+        synchronized (lock) {
             if (Objects.equals(state, newState)) {
                 return state;
             }
@@ -101,7 +102,7 @@ public class StateMachine<T>
             futureStateChanges = ImmutableList.copyOf(this.futureStateChanges);
             this.futureStateChanges.clear();
             stateChangeListeners = ImmutableList.copyOf(this.stateChangeListeners);
-            this.notifyAll();
+            lock.notifyAll();
         }
 
         fireStateChanged(newState, futureStateChanges, stateChangeListeners);
@@ -116,7 +117,7 @@ public class StateMachine<T>
      */
     public boolean setIf(T newState, Predicate<T> predicate)
     {
-        checkState(!Thread.holdsLock(this), "Can not set state while holding a lock on this");
+        checkState(!Thread.holdsLock(lock), "Can not set state while holding the lock");
 
         while (true) {
             // check if the current state passes the predicate
@@ -147,13 +148,13 @@ public class StateMachine<T>
      */
     public boolean compareAndSet(T expectedState, T newState)
     {
-        checkState(!Thread.holdsLock(this), "Can not set state while holding a lock on this");
+        checkState(!Thread.holdsLock(lock), "Can not set state while holding the lock");
         requireNonNull(expectedState, "expectedState is null");
         requireNonNull(newState, "newState is null");
 
         ImmutableList<SettableFuture<T>> futureStateChanges;
         ImmutableList<StateChangeListener<T>> stateChangeListeners;
-        synchronized (this) {
+        synchronized (lock) {
             if (!Objects.equals(state, expectedState)) {
                 return false;
             }
@@ -168,7 +169,7 @@ public class StateMachine<T>
             futureStateChanges = ImmutableList.copyOf(this.futureStateChanges);
             this.futureStateChanges.clear();
             stateChangeListeners = ImmutableList.copyOf(this.stateChangeListeners);
-            this.notifyAll();
+            lock.notifyAll();
         }
 
         fireStateChanged(newState, futureStateChanges, stateChangeListeners);
@@ -177,10 +178,10 @@ public class StateMachine<T>
 
     private void fireStateChanged(T newState, List<SettableFuture<T>> futureStateChanges, List<StateChangeListener<T>> stateChangeListeners)
     {
-        checkState(!Thread.holdsLock(this), "Can not fire state change event while holding a lock on this");
+        checkState(!Thread.holdsLock(lock), "Can not fire state change event while holding the lock");
 
         executor.execute(() -> {
-            checkState(!Thread.holdsLock(this), "Can not notify while holding a lock on this");
+            checkState(!Thread.holdsLock(lock), "Can not notify while holding the lock");
             for (SettableFuture<T> futureStateChange : futureStateChanges) {
                 try {
                     futureStateChange.set(newState);
@@ -205,9 +206,9 @@ public class StateMachine<T>
      */
     public ListenableFuture<T> getStateChange(T currentState)
     {
-        checkState(!Thread.holdsLock(this), "Can not wait for state change while holding a lock on this");
+        checkState(!Thread.holdsLock(lock), "Can not wait for state change while holding the lock");
 
-        synchronized (this) {
+        synchronized (lock) {
             if (!Objects.equals(state, currentState)) {
                 return Futures.immediateFuture(state);
             }
@@ -225,7 +226,7 @@ public class StateMachine<T>
                 public void onFailure(Throwable t)
                 {
                     // Remove the Future early, in case it's cancelled.
-                    synchronized (StateMachine.this) {
+                    synchronized (lock) {
                         futureStateChanges.remove(futureStateChange);
                     }
                 }
@@ -237,9 +238,11 @@ public class StateMachine<T>
     /**
      * Adds a listener to be notified when the state instance changes according to {@code .equals()}.
      */
-    public synchronized void addStateChangeListener(StateChangeListener<T> stateChangeListener)
+    public void addStateChangeListener(StateChangeListener<T> stateChangeListener)
     {
-        stateChangeListeners.add(stateChangeListener);
+        synchronized (lock) {
+            stateChangeListeners.add(stateChangeListener);
+        }
     }
 
     /**
@@ -248,7 +251,7 @@ public class StateMachine<T>
     public Duration waitForStateChange(T currentState, Duration maxWait)
             throws InterruptedException
     {
-        checkState(!Thread.holdsLock(this), "Can not wait for state change while holding a lock on this");
+        checkState(!Thread.holdsLock(lock), "Can not wait for state change while holding the lock");
 
         if (!Objects.equals(state, currentState)) {
             return maxWait;
@@ -259,10 +262,10 @@ public class StateMachine<T>
         long start = System.nanoTime();
         long end = start + remainingNanos;
 
-        synchronized (this) {
+        synchronized (lock) {
             while (remainingNanos > 0 && Objects.equals(state, currentState)) {
                 // wait for timeout or notification
-                NANOSECONDS.timedWait(this, remainingNanos);
+                NANOSECONDS.timedWait(lock, remainingNanos);
                 remainingNanos = end - System.nanoTime();
             }
         }
