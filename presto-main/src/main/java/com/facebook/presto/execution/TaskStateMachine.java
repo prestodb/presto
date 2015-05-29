@@ -47,9 +47,9 @@ public class TaskStateMachine
         taskState.addStateChangeListener(new StateChangeListener<TaskState>()
         {
             @Override
-            public void stateChanged(TaskState newValue)
+            public void stateChanged(TaskState newState)
             {
-                log.debug("Task %s is %s", TaskStateMachine.this.taskId, newValue);
+                log.debug("Task %s is %s", TaskStateMachine.this.taskId, newState);
             }
         });
     }

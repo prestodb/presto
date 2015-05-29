@@ -614,9 +614,9 @@ public class SqlTaskExecution
         }
 
         @Override
-        public void stateChanged(TaskState taskState)
+        public void stateChanged(TaskState newState)
         {
-            if (taskState.isDone()) {
+            if (newState.isDone()) {
                 taskExecutor.removeTask(taskHandle);
             }
         }
@@ -634,9 +634,9 @@ public class SqlTaskExecution
         }
 
         @Override
-        public void stateChanged(BufferState taskState)
+        public void stateChanged(BufferState newState)
         {
-            if (taskState == BufferState.FINISHED) {
+            if (newState == BufferState.FINISHED) {
                 SqlTaskExecution sqlTaskExecution = sqlTaskExecutionReference.get();
                 if (sqlTaskExecution != null) {
                     sqlTaskExecution.checkTaskCompletion();

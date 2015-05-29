@@ -31,13 +31,13 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Executor;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.newIdentityHashSet;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
- * Simple state machine which holds a single value.  Callers can register for
+ * Simple state machine which holds a single state.  Callers can register for
  * state change events, and can wait for the state to change.
  */
 @ThreadSafe
@@ -58,53 +58,22 @@ public class StateMachine<T>
     private final Set<SettableFuture<T>> futureStateChanges = newIdentityHashSet();
 
     /**
-     * Creates a state machine with the specified initial value
+     * Creates a state machine with the specified initial state.
      *
      * @param name name of this state machine to use in debug statements
      * @param executor executor for firing state change events; must not be a same thread executor
-     * @param initialState the initial value
+     * @param initialState the initial state
      */
     public StateMachine(String name, Executor executor, T initialState)
     {
-        this.name = checkNotNull(name, "name is null");
-        this.executor = checkNotNull(executor, "executor is null");
-        this.state = checkNotNull(initialState, "initialState is null");
+        this.name = requireNonNull(name, "name is null");
+        this.executor = requireNonNull(executor, "executor is null");
+        this.state = requireNonNull(initialState, "initialState is null");
     }
 
     public T get()
     {
         return state;
-    }
-
-    public ListenableFuture<T> getStateChange(T currentState)
-    {
-        checkState(!Thread.holdsLock(this), "Can not wait for state change while holding a lock on this");
-
-        synchronized (this) {
-            if (!Objects.equals(state, currentState)) {
-                return Futures.immediateFuture(state);
-            }
-
-            SettableFuture<T> futureStateChange = SettableFuture.create();
-            futureStateChanges.add(futureStateChange);
-            Futures.addCallback(futureStateChange, new FutureCallback<T>() {
-                @Override
-                public void onSuccess(T result)
-                {
-                    // no-op. The futureStateChanges list is already cleared before fireStateChanged is called.
-                }
-
-                @Override
-                public void onFailure(Throwable t)
-                {
-                    // Remove the Future early, in case it's cancelled.
-                    synchronized (StateMachine.this) {
-                        futureStateChanges.remove(futureStateChange);
-                    }
-                }
-            });
-            return futureStateChange;
-        }
     }
 
     /**
@@ -116,7 +85,7 @@ public class StateMachine<T>
     public T set(T newState)
     {
         checkState(!Thread.holdsLock(this), "Can not set state while holding a lock on this");
-        checkNotNull(newState, "newState is null");
+        requireNonNull(newState, "newState is null");
 
         T oldState;
         ImmutableList<SettableFuture<T>> futureStateChanges;
@@ -145,20 +114,26 @@ public class StateMachine<T>
      *
      * @return the old state
      */
-    public boolean setIf(T newValue, Predicate<T> predicate)
+    public boolean setIf(T newState, Predicate<T> predicate)
     {
         checkState(!Thread.holdsLock(this), "Can not set state while holding a lock on this");
 
         while (true) {
             // check if the current state passes the predicate
             T currentState = get();
-            // do not call back while holding a lock on this
+
+            // change to same state is not a change, and does not notify the notify listeners
+            if (currentState.equals(newState)) {
+                return false;
+            }
+
+            // do not call predicate while holding the lock
             if (!predicate.apply(currentState)) {
                 return false;
             }
 
             // if state did not change while, checking the predicate, apply the new state
-            if (compareAndSet(currentState, newValue)) {
+            if (compareAndSet(currentState, newState)) {
                 return true;
             }
         }
@@ -173,8 +148,8 @@ public class StateMachine<T>
     public boolean compareAndSet(T expectedState, T newState)
     {
         checkState(!Thread.holdsLock(this), "Can not set state while holding a lock on this");
-        checkNotNull(expectedState, "expectedState is null");
-        checkNotNull(newState, "newState is null");
+        requireNonNull(expectedState, "expectedState is null");
+        requireNonNull(newState, "newState is null");
 
         ImmutableList<SettableFuture<T>> futureStateChanges;
         ImmutableList<StateChangeListener<T>> stateChangeListeners;
@@ -183,9 +158,9 @@ public class StateMachine<T>
                 return false;
             }
 
+            // change to same state is not a change, and does not notify the notify listeners
             if (Objects.equals(state, newState)) {
-                // successfully changed to the same state, no need to notify
-                return true;
+                return false;
             }
 
             state = newState;
@@ -223,6 +198,40 @@ public class StateMachine<T>
                 }
             }
         });
+    }
+
+    /**
+     * Gets a future that completes when the state is no longer {@code .equals()} to {@code currentState)}
+     */
+    public ListenableFuture<T> getStateChange(T currentState)
+    {
+        checkState(!Thread.holdsLock(this), "Can not wait for state change while holding a lock on this");
+
+        synchronized (this) {
+            if (!Objects.equals(state, currentState)) {
+                return Futures.immediateFuture(state);
+            }
+
+            SettableFuture<T> futureStateChange = SettableFuture.create();
+            futureStateChanges.add(futureStateChange);
+            Futures.addCallback(futureStateChange, new FutureCallback<T>() {
+                @Override
+                public void onSuccess(T result)
+                {
+                    // no-op. The futureStateChanges list is already cleared before fireStateChanged is called.
+                }
+
+                @Override
+                public void onFailure(Throwable t)
+                {
+                    // Remove the Future early, in case it's cancelled.
+                    synchronized (StateMachine.this) {
+                        futureStateChanges.remove(futureStateChange);
+                    }
+                }
+            });
+            return futureStateChange;
+        }
     }
 
     /**
@@ -265,7 +274,7 @@ public class StateMachine<T>
 
     public interface StateChangeListener<T>
     {
-        void stateChanged(T newValue);
+        void stateChanged(T newState);
     }
 
     @Override
