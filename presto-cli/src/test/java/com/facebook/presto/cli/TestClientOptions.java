@@ -90,12 +90,17 @@ public class TestClientOptions
     @Test
     public void testSessionProperties()
     {
-        Console console = singleCommand(Console.class).parse("--session", "system=system-value", "--session", "catalog.name=catalog-property");
+        Console console = singleCommand(Console.class).parse(
+                "--session", "system=system-value",
+                "--session", "catalog.name=catalog-property",
+                "--session", "catalog.name.subname=property-value"
+        );
 
         ClientOptions options = console.clientOptions;
         assertEquals(options.sessionProperties, ImmutableList.of(
                 new ClientSessionProperty(Optional.empty(), "system", "system-value"),
-                new ClientSessionProperty(Optional.of("catalog"), "name", "catalog-property")));
+                new ClientSessionProperty(Optional.of("catalog"), "name", "catalog-property"),
+                new ClientSessionProperty(Optional.of("catalog"), "name.subname", "property-value")));
 
         // special characters are allowed in the value
         assertEquals(new ClientSessionProperty("foo=bar:=baz"), new ClientSessionProperty(Optional.empty(), "foo", "bar:=baz"));
@@ -104,7 +109,7 @@ public class TestClientOptions
         assertEquals(new ClientSessionProperty("foo="), new ClientSessionProperty(Optional.empty(), "foo", ""));
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test
     public void testThreePartPropertyName()
     {
         new ClientSessionProperty("foo.bar.baz=value");

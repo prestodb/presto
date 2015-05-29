@@ -15,10 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.ResetSession;
-
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SESSION_PROPERTY;
 
 public class ResetSessionTask
         implements DataDefinitionTask<ResetSession>
@@ -32,10 +29,6 @@ public class ResetSessionTask
     @Override
     public void execute(ResetSession statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
     {
-        if (statement.getName().getParts().size() > 2) {
-            throw new SemanticException(INVALID_SESSION_PROPERTY, statement, "Invalid session property '%s'", statement.getName());
-        }
-
         stateMachine.addResetSessionProperties(statement.getName().toString());
     }
 }

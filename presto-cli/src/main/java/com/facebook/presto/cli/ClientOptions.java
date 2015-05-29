@@ -127,7 +127,7 @@ public class ClientOptions
     public static final class ClientSessionProperty
     {
         private static final Splitter NAME_VALUE_SPLITTER = Splitter.on('=').limit(2);
-        private static final Splitter NAME_SPLITTER = Splitter.on('.');
+        private static final Splitter NAME_SPLITTER = Splitter.on('.').limit(2);
         private final Optional<String> catalog;
         private final String name;
         private final String value;
