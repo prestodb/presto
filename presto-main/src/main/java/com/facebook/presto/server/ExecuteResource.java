@@ -124,7 +124,7 @@ public class ExecuteResource
 
     private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator)
     {
-        return concat(transform(iterator, Iterable::iterator));
+        return concat(transform(iterator, Iterable<T>::iterator));
     }
 
     private static class ResultsPageIterator
