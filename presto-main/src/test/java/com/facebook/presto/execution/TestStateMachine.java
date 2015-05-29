@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
@@ -111,7 +112,7 @@ public class TestStateMachine
     public void testSet()
             throws Exception
     {
-        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST);
+        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, ImmutableSet.of(State.DINNER));
         assertEquals(stateMachine.get(), State.BREAKFAST);
 
         assertNoStateChange(stateMachine, () -> assertEquals(stateMachine.set(State.BREAKFAST), State.BREAKFAST));
@@ -119,13 +120,27 @@ public class TestStateMachine
         assertStateChange(stateMachine, () -> assertEquals(stateMachine.set(State.LUNCH), State.BREAKFAST), State.LUNCH);
 
         assertStateChange(stateMachine, () -> assertEquals(stateMachine.set(State.BREAKFAST), State.LUNCH), State.BREAKFAST);
+
+        // transition to a final state
+        assertStateChange(stateMachine, () -> assertEquals(stateMachine.set(State.DINNER), State.BREAKFAST), State.DINNER);
+
+        // attempt transition from a final state
+        assertNoStateChange(stateMachine, () -> {
+            try {
+                stateMachine.set(State.LUNCH);
+                fail("expected IllegalStateException");
+            }
+            catch (IllegalStateException expected) {
+            }
+        });
+        assertNoStateChange(stateMachine, () -> stateMachine.set(State.DINNER));
     }
 
     @Test
     public void testCompareAndSet()
             throws Exception
     {
-        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST);
+        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, ImmutableSet.of(State.DINNER));
         assertEquals(stateMachine.get(), State.BREAKFAST);
 
         // no match with new state
@@ -141,13 +156,27 @@ public class TestStateMachine
 
         // match with same state
         assertNoStateChange(stateMachine, () -> stateMachine.compareAndSet(State.LUNCH, State.LUNCH));
+
+        // transition to a final state
+        assertStateChange(stateMachine, () -> stateMachine.compareAndSet(State.LUNCH, State.DINNER), State.DINNER);
+
+        // attempt transition from a final state
+        assertNoStateChange(stateMachine, () -> {
+            try {
+                stateMachine.compareAndSet(State.DINNER, State.LUNCH);
+                fail("expected IllegalStateException");
+            }
+            catch (IllegalStateException expected) {
+            }
+        });
+        assertNoStateChange(stateMachine, () -> stateMachine.compareAndSet(State.DINNER, State.DINNER));
     }
 
     @Test
     public void testSetIf()
             throws Exception
     {
-        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST);
+        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, ImmutableSet.of(State.DINNER));
         assertEquals(stateMachine.get(), State.BREAKFAST);
 
         // false predicate with new state
@@ -178,6 +207,21 @@ public class TestStateMachine
                     assertEquals(currentState, State.LUNCH);
                     return true;
                 })));
+
+        // transition to a final state
+        assertStateChange(stateMachine, () -> stateMachine.setIf(State.DINNER, currentState -> true), State.DINNER);
+
+        // attempt transition from a final state
+        assertNoStateChange(stateMachine, () -> {
+            try {
+                stateMachine.setIf(State.LUNCH, currentState -> true);
+                fail("expected IllegalStateException");
+            }
+            catch (IllegalStateException expected) {
+            }
+        });
+        assertNoStateChange(stateMachine, () -> stateMachine.setIf(State.LUNCH, currentState -> false));
+        assertNoStateChange(stateMachine, () -> stateMachine.setIf(State.DINNER, currentState -> true));
     }
 
     private void assertStateChange(StateMachine<State> stateMachine, StateChanger stateChange, State expectedState)
@@ -210,6 +254,13 @@ public class TestStateMachine
         assertEquals(futureChange.get(1, SECONDS), expectedState);
         assertEquals(listenerChange.get(1, SECONDS), expectedState);
         assertEquals(waitChange.get(1, SECONDS), expectedState);
+
+        // listeners should not be retained if we are in a terminal state
+        boolean isTerminalState = stateMachine.isTerminalState(expectedState);
+        if (isTerminalState) {
+            assertEquals(stateMachine.getFutureStateChanges(), ImmutableSet.of());
+            assertEquals(stateMachine.getStateChangeListeners(), ImmutableSet.of());
+        }
     }
 
     private void assertNoStateChange(StateMachine<State> stateMachine, StateChanger stateChange)
@@ -232,6 +283,13 @@ public class TestStateMachine
             }
         });
 
+        // listeners should not be added if we are in a terminal state
+        boolean isTerminalState = stateMachine.isTerminalState(initialState);
+        if (isTerminalState) {
+            assertEquals(stateMachine.getFutureStateChanges(), ImmutableSet.of());
+            assertEquals(stateMachine.getStateChangeListeners(), ImmutableSet.of());
+        }
+
         stateChange.run();
 
         assertEquals(stateMachine.get(), initialState);
@@ -240,7 +298,7 @@ public class TestStateMachine
             // none of the futures should finish, but there is no way to prove that
             // the state change is not happening (the changes happen in another thread),
             // so we wait a short time for nothing to happen.
-            futureChange.get(50, MILLISECONDS);
+            waitChange.get(50, MILLISECONDS);
         }
         catch (InterruptedException e) {
             throw e;
@@ -248,11 +306,13 @@ public class TestStateMachine
         catch (Exception ignored) {
         }
 
-        assertFalse(futureChange.isDone());
+        // the state change listeners will trigger if the state machine is in a terminal state
+        // this is to prevent waiting for state changes that will never occur
+        assertEquals(futureChange.isDone(), isTerminalState);
         futureChange.cancel(true);
-        assertFalse(listenerChange.isDone());
+        assertEquals(listenerChange.isDone(), isTerminalState);
         listenerChange.cancel(true);
-        assertFalse(waitChange.isDone());
+        assertEquals(waitChange.isDone(), isTerminalState);
         waitChange.cancel(true);
     }
 
