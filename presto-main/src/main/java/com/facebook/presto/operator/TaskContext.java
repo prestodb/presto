@@ -90,9 +90,9 @@ public class TaskContext
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
             @Override
-            public void stateChanged(TaskState newValue)
+            public void stateChanged(TaskState newState)
             {
-                if (newValue.isDone()) {
+                if (newState.isDone()) {
                     executionEndTime.set(DateTime.now());
                     endNanos.set(System.nanoTime());
                 }
