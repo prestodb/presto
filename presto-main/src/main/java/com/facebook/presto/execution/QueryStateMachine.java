@@ -46,6 +46,7 @@ import static com.facebook.presto.execution.QueryState.PLANNING;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.STARTING;
+import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.util.Failures.toFailure;
@@ -100,7 +101,7 @@ public class QueryStateMachine
         this.session = requireNonNull(session, "session is null");
         this.self = requireNonNull(self, "self is null");
 
-        this.queryState = new StateMachine<>("query " + query, executor, QUEUED);
+        this.queryState = new StateMachine<>("query " + query, executor, QUEUED, TERMINAL_QUERY_STATES);
         queryState.addStateChangeListener(currentState -> log.debug("Query %s is %s", QueryStateMachine.this.queryId, currentState));
     }
 

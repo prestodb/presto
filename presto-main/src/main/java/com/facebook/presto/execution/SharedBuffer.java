@@ -41,6 +41,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.execution.BufferResult.emptyResults;
@@ -50,6 +51,8 @@ import static com.facebook.presto.execution.SharedBuffer.BufferState.FLUSHING;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.NO_MORE_BUFFERS;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.NO_MORE_PAGES;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.OPEN;
+import static com.facebook.presto.execution.SharedBuffer.BufferState.TERMINAL_BUFFER_STATES;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -95,6 +98,8 @@ public class SharedBuffer
          * This is the terminal state.
          */
         FAILED(false, false, true);
+
+        public static final Set<BufferState> TERMINAL_BUFFER_STATES = Stream.of(BufferState.values()).filter(BufferState::isTerminal).collect(toImmutableSet());
 
         private final boolean newPagesAllowed;
         private final boolean newBuffersAllowed;
@@ -147,7 +152,7 @@ public class SharedBuffer
     {
         checkNotNull(taskId, "taskId is null");
         checkNotNull(executor, "executor is null");
-        state = new StateMachine<>(taskId + "-buffer", executor, OPEN);
+        state = new StateMachine<>(taskId + "-buffer", executor, OPEN, TERMINAL_BUFFER_STATES);
 
         checkNotNull(maxBufferSize, "maxBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");

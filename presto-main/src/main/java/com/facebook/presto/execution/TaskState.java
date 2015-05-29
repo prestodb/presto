@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.execution;
 
+import java.util.Set;
+import java.util.stream.Stream;
+
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+
 public enum TaskState
 {
     /**
@@ -42,6 +47,8 @@ public enum TaskState
      * Task execution failed.
      */
     FAILED(true);
+
+    public static final Set<TaskState> TERMINAL_TASK_STATES = Stream.of(TaskState.values()).filter(TaskState::isDone).collect(toImmutableSet());
 
     private final boolean doneState;
 
