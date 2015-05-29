@@ -30,7 +30,7 @@ public class SetSessionTask
     }
 
     @Override
-    public void execute(SetSession statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
+    public void execute(SetSession statement, Session session, Metadata metadata, QueryStateMachine stateMachine, QueryManager queryManager)
     {
         if (statement.getName().getParts().size() > 2) {
             throw new SemanticException(INVALID_SESSION_PROPERTY, statement, "Invalid session property '%s'", statement.getName());

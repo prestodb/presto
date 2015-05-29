@@ -51,6 +51,7 @@ statement
     | SHOW SESSION                                                     #showSession
     | SET SESSION qualifiedName EQ STRING                              #setSession
     | RESET SESSION qualifiedName                                      #resetSession
+    | ALTER SESSION KILL queryId=identifier                            #killQuery
     | SHOW PARTITIONS (FROM | IN) qualifiedName
         (WHERE booleanExpression)?
         (ORDER BY sortItem (',' sortItem)*)?
@@ -460,6 +461,7 @@ MAP: 'MAP';
 SET: 'SET';
 RESET: 'RESET';
 SESSION: 'SESSION';
+KILL: 'KILL';
 
 IF: 'IF';
 NULLIF: 'NULLIF';

@@ -19,6 +19,7 @@ import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.ForQueryExecution;
+import com.facebook.presto.execution.KillQueryTask;
 import com.facebook.presto.execution.NodeScheduler;
 import com.facebook.presto.execution.NodeSchedulerConfig;
 import com.facebook.presto.execution.NodeTaskMap;
@@ -47,6 +48,7 @@ import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Insert;
+import com.facebook.presto.sql.tree.KillQuery;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
@@ -151,6 +153,7 @@ public class CoordinatorModule
         bindDataDefinitionTask(binder, executionBinder, DropView.class, DropViewTask.class);
         bindDataDefinitionTask(binder, executionBinder, SetSession.class, SetSessionTask.class);
         bindDataDefinitionTask(binder, executionBinder, ResetSession.class, ResetSessionTask.class);
+        bindDataDefinitionTask(binder, executionBinder, KillQuery.class, KillQueryTask.class);
 
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
     }

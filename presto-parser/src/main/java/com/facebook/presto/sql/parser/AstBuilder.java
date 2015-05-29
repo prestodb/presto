@@ -54,6 +54,7 @@ import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
+import com.facebook.presto.sql.tree.KillQuery;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -395,6 +396,12 @@ class AstBuilder
     public Node visitShowCatalogs(@NotNull SqlBaseParser.ShowCatalogsContext context)
     {
         return new ShowCatalogs();
+    }
+
+    @Override
+    public Node visitKillQuery(@NotNull SqlBaseParser.KillQueryContext context)
+    {
+        return new KillQuery(removeQuoteIfExists(context.queryId.getText()));
     }
 
     @Override
@@ -1038,6 +1045,14 @@ class AstBuilder
     {
         return string.substring(1, string.length() - 1)
                 .replace("''", "'");
+    }
+
+    private static String removeQuoteIfExists(String string)
+    {
+        if (string.startsWith("`") || string.startsWith("\"")) {
+            return string.substring(1, string.length() - 1);
+        }
+        return string;
     }
 
     private static QualifiedName getQualifiedName(SqlBaseParser.QualifiedNameContext context)

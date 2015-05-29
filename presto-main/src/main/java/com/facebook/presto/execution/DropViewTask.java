@@ -35,7 +35,7 @@ public class DropViewTask
     }
 
     @Override
-    public void execute(DropView statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
+    public void execute(DropView statement, Session session, Metadata metadata, QueryStateMachine stateMachine, QueryManager queryManager)
     {
         QualifiedTableName name = createQualifiedTableName(session, statement.getName());
 

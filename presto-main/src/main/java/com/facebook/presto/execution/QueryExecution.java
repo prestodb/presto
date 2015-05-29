@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.sql.tree.Statement;
+
 import io.airlift.units.Duration;
 
 public interface QueryExecution
@@ -51,6 +52,6 @@ public interface QueryExecution
 
     interface QueryExecutionFactory<T extends QueryExecution>
     {
-        T createQueryExecution(QueryId queryId, String query, Session session, Statement statement);
+        T createQueryExecution(QueryManager queryManager, QueryId queryId, String query, Session session, Statement statement);
     }
 }
