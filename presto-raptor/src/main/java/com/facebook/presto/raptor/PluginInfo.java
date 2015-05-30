@@ -23,7 +23,7 @@ public class PluginInfo
         return "raptor";
     }
 
-    public Module getModule()
+    public Module getMetadataModule()
     {
         return new DatabaseMetadataModule();
     }
