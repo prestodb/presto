@@ -14,7 +14,9 @@
 package com.facebook.presto.raptor.backup;
 
 import com.facebook.presto.raptor.RaptorConnectorId;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
+import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.util.Providers;
 import io.airlift.bootstrap.LifeCycleManager;
@@ -23,6 +25,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import javax.annotation.Nullable;
 import javax.inject.Singleton;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -30,6 +33,16 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 public class BackupModule
         extends AbstractConfigurationAwareModule
 {
+    private final Map<String, Module> providers;
+
+    public BackupModule(Map<String, Module> providers)
+    {
+        this.providers = ImmutableMap.<String, Module>builder()
+                .put("file", new FileBackupModule())
+                .putAll(providers)
+                .build();
+    }
+
     @Override
     protected void setup(Binder binder)
     {
@@ -40,12 +53,12 @@ public class BackupModule
             binder.bind(BackupStore.class).toProvider(Providers.of(null));
         }
         else {
-            switch (provider) {
-                case "file":
-                    binder.install(new FileBackupModule());
-                    break;
-                default:
-                    binder.addError("Unknown backup provider: %s", provider);
+            Module module = providers.get(provider);
+            if (module == null) {
+                binder.addError("Unknown backup provider: %s", provider);
+            }
+            else {
+                binder.install(module);
             }
         }
     }

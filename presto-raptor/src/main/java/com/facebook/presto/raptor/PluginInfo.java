@@ -14,7 +14,10 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.metadata.DatabaseMetadataModule;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
+
+import java.util.Map;
 
 public class PluginInfo
 {
@@ -26,5 +29,10 @@ public class PluginInfo
     public Module getMetadataModule()
     {
         return new DatabaseMetadataModule();
+    }
+
+    public Map<String, Module> getBackupProviders()
+    {
+        return ImmutableMap.of();
     }
 }
