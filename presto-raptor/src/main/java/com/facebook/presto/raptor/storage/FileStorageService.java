@@ -88,22 +88,22 @@ public class FileStorageService
 
     /**
      * Generate a file system path for a shard UUID.
-     * <p/>
-     * This creates a three level deep directory structure where the first two levels each contain three hex digits (lowercase) of the UUID and the final level contains the full UUID. Example:
-     * <p/>
+     * This creates a three level deep directory structure where the first
+     * two levels each contain two hex digits (lowercase) of the UUID
+     * and the final level contains the full UUID. Example:
      * <pre>
      * UUID: 701e1a79-74f7-4f56-b438-b41e8e7d019d
-     * Path: /base/701/e1a/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc
+     * Path: /base/70/1e/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc
      * </pre>
-     * <p/>
-     * This ensures that files are spread out evenly through the tree while a path can still be easily navigated by a human being.
+     * This ensures that files are spread out evenly through the tree
+     * while a path can still be easily navigated by a human being.
      */
     public static File getFileSystemPath(File base, UUID shardUuid)
     {
         String uuid = shardUuid.toString().toLowerCase(ENGLISH);
         return base.toPath()
-                .resolve(uuid.substring(0, 3))
-                .resolve(uuid.substring(3, 6))
+                .resolve(uuid.substring(0, 2))
+                .resolve(uuid.substring(2, 4))
                 .resolve(uuid + ".orc")
                 .toFile();
     }

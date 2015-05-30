@@ -152,7 +152,7 @@ public class TestOrcStorageManager
         UUID uuid = UUID.fromString("701e1a79-74f7-4f56-b438-b41e8e7d019d");
 
         assertEquals(
-                new File(temporary, "data/storage/701/e1a/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
+                new File(temporary, "data/storage/70/1e/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
                 storageService.getStorageFile(uuid));
 
         assertEquals(
@@ -160,7 +160,7 @@ public class TestOrcStorageManager
                 storageService.getStagingFile(uuid));
 
         assertEquals(
-                new File(temporary, "backup/701/e1a/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
+                new File(temporary, "backup/70/1e/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
                 fileBackupStore.getBackupFile(uuid));
     }
 
