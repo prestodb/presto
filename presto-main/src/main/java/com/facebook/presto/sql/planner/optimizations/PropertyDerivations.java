@@ -167,11 +167,7 @@ class PropertyDerivations
         @Override
         public ActualProperties visitRowNumber(RowNumberNode node, List<ActualProperties> inputProperties)
         {
-            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
-
-            return ActualProperties.builderFrom(properties)
-                    .local(LocalProperties.grouped(node.getPartitionBy()))
-                    .build();
+            return Iterables.getOnlyElement(inputProperties);
         }
 
         @Override

@@ -2258,6 +2258,33 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testRowNumberPropertyDerivation()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderkey, orderstatus, SUM(rn) OVER (PARTITION BY orderstatus) c\n" +
+                "FROM (\n" +
+                "   SELECT orderkey, orderstatus, row_number() OVER (PARTITION BY orderstatus) rn\n" +
+                "   FROM (\n" +
+                "       SELECT * FROM orders ORDER BY orderkey LIMIT 10\n" +
+                "   )\n" +
+                ")");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
+                .row(1, "O", 21)
+                .row(2, "O", 21)
+                .row(3, "F", 10)
+                .row(4, "O", 21)
+                .row(5, "F", 10)
+                .row(6, "F", 10)
+                .row(7, "O", 21)
+                .row(32, "O", 21)
+                .row(33, "F", 10)
+                .row(34, "O", 21)
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void testTopNUnpartitionedWindow()
             throws Exception
     {
