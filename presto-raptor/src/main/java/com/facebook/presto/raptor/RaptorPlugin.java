@@ -40,6 +40,7 @@ public class RaptorPlugin
 {
     private final String name;
     private final Module metadataModule;
+    private final Map<String, Module> backupProviders;
 
     private Map<String, String> optionalConfig = ImmutableMap.of();
     private NodeManager nodeManager;
@@ -54,14 +55,15 @@ public class RaptorPlugin
 
     private RaptorPlugin(PluginInfo info)
     {
-        this(info.getName(), info.getMetadataModule());
+        this(info.getName(), info.getMetadataModule(), info.getBackupProviders());
     }
 
-    public RaptorPlugin(String name, Module metadataModule)
+    public RaptorPlugin(String name, Module metadataModule, Map<String, Module> backupProviders)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
         this.metadataModule = checkNotNull(metadataModule, "metadataModule is null");
+        this.backupProviders = ImmutableMap.copyOf(checkNotNull(backupProviders, "backupProviders is null"));
     }
 
     @Override
@@ -105,6 +107,7 @@ public class RaptorPlugin
             return ImmutableList.of(type.cast(new RaptorConnectorFactory(
                     name,
                     metadataModule,
+                    backupProviders,
                     optionalConfig,
                     nodeManager,
                     pageSorter,
