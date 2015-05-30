@@ -43,7 +43,7 @@ public class RaptorConnectorFactory
         implements ConnectorFactory
 {
     private final String name;
-    private final Module module;
+    private final Module metadataModule;
     private final Map<String, String> optionalConfig;
     private final NodeManager nodeManager;
     private final BlockEncodingSerde blockEncodingSerde;
@@ -52,7 +52,7 @@ public class RaptorConnectorFactory
 
     public RaptorConnectorFactory(
             String name,
-            Module module,
+            Module metadataModule,
             Map<String, String> optionalConfig,
             NodeManager nodeManager,
             PageSorter pageSorter,
@@ -61,7 +61,7 @@ public class RaptorConnectorFactory
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
-        this.module = checkNotNull(module, "module is null");
+        this.metadataModule = checkNotNull(metadataModule, "metadataModule is null");
         this.optionalConfig = checkNotNull(optionalConfig, "optionalConfig is null");
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
         this.pageSorter = checkNotNull(pageSorter, "pageSorter is null");
@@ -93,7 +93,7 @@ public class RaptorConnectorFactory
                         binder.bind(BlockEncodingSerde.class).toInstance(blockEncodingSerde);
                         binder.bind(TypeManager.class).toInstance(typeManager);
                     },
-                    module,
+                    metadataModule,
                     new BackupModule(),
                     new StorageModule(connectorId),
                     new RaptorModule(connectorId));
