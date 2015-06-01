@@ -1,0 +1,18 @@
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
+chr        | bigint                    | varchar        | scalar  | true
+concat     | varchar                   | varchar        | scalar  | true
+length     | varchar                   | bigint         | scalar  | true
+lower      | varchar                   | varchar        | scalar  | true
+ltrim      | varchar                   | varchar        | scalar  | true
+replace    | varchar, varchar          | varchar        | scalar  | true
+replace    | varchar, varchar, varchar | varchar        | scalar  | true
+reverse    | varchar                   | varchar        | scalar  | true
+rtrim      | varchar                   | varchar        | scalar  | true
+split      | varchar, varchar          | array<varchar> | scalar  | true
+split      | varchar, varchar, bigint  | array<varchar> | scalar  | true
+split_part | varchar, varchar, bigint  | varchar        | scalar  | true
+strpos     | varchar, varchar          | bigint         | scalar  | true
+substr     | varchar, bigint           | varchar        | scalar  | true
+substr     | varchar, bigint, bigint   | varchar        | scalar  | true
+trim       | varchar                   | varchar        | scalar  | true
+upper      | varchar                   | varchar        | scalar  | true

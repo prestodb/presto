@@ -1,0 +1,45 @@
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
+ infinity      |                 | double      | scalar        | true
+ ceiling       | bigint          | bigint      | scalar        | true
+ ceiling       | double          | double      | scalar        | true
+ ceil          | bigint          | bigint      | scalar        | true
+ ceil          | double          | double      | scalar        | true
+ abs           | double          | double      | scalar        | true
+ abs           | bigint          | bigint      | scalar        | true
+ sin           | double          | double      | scalar        | true
+ cos           | double          | double      | scalar        | true
+ tan           | double          | double      | scalar        | true
+ atan2         | double, double  | double      | scalar        | true
+ sqrt          | double          | double      | scalar        | true
+ log           | double, double  | double      | scalar        | true
+ log10         | double          | double      | scalar        | true
+ pow           | double, double  | double      | scalar        | true
+ exp           | double          | double      | scalar        | true
+ is_nan        | double          | boolean     | scalar        | true
+ nan           |                 | double      | scalar        | true
+ is_finite     | double          | boolean     | scalar        | true
+ is_infinite   | double          | boolean     | scalar        | true
+ acos          | double          | double      | scalar        | true
+ asin          | double          | double      | scalar        | true
+ atan          | double          | double      | scalar        | true
+ cbrt          | double          | double      | scalar        | true
+ cosh          | double          | double      | scalar        | true
+ floor         | double          | double      | scalar        | true
+ floor         | bigint          | bigint      | scalar        | true
+ random        |                 | double      | scalar        | false
+ rand          |                 | double      | scalar        | false
+ round         | double          | double      | scalar        | true
+ round         | double, bigint  | double      | scalar        | true
+ round         | bigint, bigint  | bigint      | scalar        | true
+ round         | bigint          | bigint      | scalar        | true
+ tanh          | double          | double      | scalar        | true
+ mod           | double, double  | double      | scalar        | true
+ mod           | bigint, bigint  | bigint      | scalar        | true
+ e             |                 | double      | scalar        | true
+ degrees       | double          | double      | scalar        | true
+ radians       | double          | double      | scalar        | true
+ ln            | double          | double      | scalar        | true
+ log2          | double          | double      | scalar        | true
+ pi            |                 | double      | scalar        | true
+ to_base       | bigint, bigint  | varchar     | scalar        | true
+ from_base     | varchar, bigint | bigint      | scalar        | true
