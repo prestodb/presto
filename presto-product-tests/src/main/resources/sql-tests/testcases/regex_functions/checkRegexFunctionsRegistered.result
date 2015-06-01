@@ -1,0 +1,8 @@
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
+ regexp_like        | varchar, RegExp          | boolean        | scalar        | true
+ regexp_replace     | varchar, RegExp, varchar | varchar        | scalar        | true
+ regexp_replace     | varchar, RegExp          | varchar        | scalar        | true
+ regexp_extract_all | varchar, RegExp, bigint  | array<varchar> | scalar        | true
+ regexp_extract_all | varchar, RegExp          | array<varchar> | scalar        | true
+ regexp_extract     | varchar, RegExp, bigint  | varchar        | scalar        | true
+ regexp_extract     | varchar, RegExp          | varchar        | scalar        | true

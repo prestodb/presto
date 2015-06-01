@@ -1,0 +1,19 @@
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
+ json_array_get      | varchar, bigint   | json        | scalar        | true
+ json_array_get      | json, bigint      | json        | scalar        | true
+ json_extract_scalar | varchar, JsonPath | varchar     | scalar        | true
+ json_extract_scalar | json, JsonPath    | varchar     | scalar        | true
+ json_array_contains | json, boolean     | boolean     | scalar        | true
+ json_array_contains | json, bigint      | boolean     | scalar        | true
+ json_array_contains | json, varchar     | boolean     | scalar        | true
+ json_array_contains | json, double      | boolean     | scalar        | true
+ json_array_contains | varchar, varchar  | boolean     | scalar        | true
+ json_array_contains | varchar, double   | boolean     | scalar        | true
+ json_array_contains | varchar, bigint   | boolean     | scalar        | true
+ json_array_contains | varchar, boolean  | boolean     | scalar        | true
+ json_extract        | varchar, JsonPath | json        | scalar        | true
+ json_extract        | json, JsonPath    | json        | scalar        | true
+ json_size           | varchar, JsonPath | bigint      | scalar        | true
+ json_size           | json, JsonPath    | bigint      | scalar        | true
+ json_array_length   | varchar           | bigint      | scalar        | true
+ json_array_length   | json              | bigint      | scalar        | true
