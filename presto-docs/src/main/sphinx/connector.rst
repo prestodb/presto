@@ -17,3 +17,4 @@ from different data sources.
     connector/postgresql
     connector/system
     connector/tpch
+    connector/null
