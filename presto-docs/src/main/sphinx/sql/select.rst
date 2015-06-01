@@ -32,6 +32,27 @@ Description
 
 Retrieve rows from zero or more tables.
 
+WITH Clause
+---------------
+
+The ``WITH`` clause makes it possible to flatten nested queries and/or simplify subqueries.  
+
+For example, the following queries are equivalent::
+
+    SELECT a, b, c FROM (
+      SELECT a, MAX(b) AS b, MIN(c) AS c FROM tbl GROUP BY a
+    ) tbl_alias
+    
+    WITH tbl_alias AS (SELECT a, MAX(b) AS b, MIN(c) AS c FROM tbl GROUP BY a)
+    SELECT a, b, c FROM tbl_alias
+
+This also works with multiple subqueries.   Each subquery should be delimited by ","::
+    
+    WITH tbl1 AS (SELECT a, MAX(b) AS b, MIN(c) AS c FROM tbl GROUP BY a),
+     tbl2 AS (SELECT a, AVG(d) AS d FROM another_tbl GROUP BY a)
+    SELECT tbl1.*, tbl2.* FROM tbl1 JOIN tbl2 ON tbl1.a = tbl2.a
+
+
 GROUP BY Clause
 ---------------
 
