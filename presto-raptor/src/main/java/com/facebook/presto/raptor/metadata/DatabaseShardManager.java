@@ -146,7 +146,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void replaceShards(long tableId, List<ColumnInfo> columns, Set<Long> oldShardIds, Collection<ShardInfo> newShards)
+    public void replaceShardIds(long tableId, List<ColumnInfo> columns, Set<Long> oldShardIds, Collection<ShardInfo> newShards)
     {
         Map<String, Integer> nodeIds = toNodeIdMap(newShards);
 

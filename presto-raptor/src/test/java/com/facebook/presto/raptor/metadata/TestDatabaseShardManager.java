@@ -191,7 +191,7 @@ public class TestDatabaseShardManager
         Set<Long> shardIds = shardMetadata.stream().map(ShardMetadata::getShardId).collect(toSet());
         Set<UUID> replacedUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
 
-        shardManager.replaceShards(tableId, columns, shardIds, newShards);
+        shardManager.replaceShardIds(tableId, columns, shardIds, newShards);
 
         shardMetadata = shardManager.getNodeTableShards(nodes.get(0), tableId);
         Set<UUID> actualUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
@@ -210,7 +210,7 @@ public class TestDatabaseShardManager
         // verify that conflicting updates are handled
         newShards = ImmutableList.of(shardInfo(UUID.randomUUID(), nodes.get(0)));
         try {
-            shardManager.replaceShards(tableId, columns, shardIds, newShards);
+            shardManager.replaceShardIds(tableId, columns, shardIds, newShards);
             fail("expected exception");
         }
         catch (PrestoException e) {
