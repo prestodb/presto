@@ -2,7 +2,7 @@
 JDBC Driver
 ===========
 
-Presto can be accessed from Java using the JDBC driver.
+Presto can be accessed from Java using the JDBC driver (works with Java SE 6 or newer).
 Download :download:`jdbc` and add it to the class path of your Java application.
 The following JDBC URL formats are supported:
 
