@@ -88,6 +88,7 @@
         <module>presto-ml</module>
         <module>presto-benchmark</module>
         <module>presto-tests</module>
+        <module>presto-product-tests</module>
         <module>presto-jdbc</module>
         <module>presto-cli</module>
         <module>presto-benchmark-driver</module>
@@ -234,6 +235,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-benchmark</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-product-tests</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -664,6 +671,30 @@
                 <groupId>com.orange.redis-embedded</groupId>
                 <artifactId>embedded-redis</artifactId>
                 <version>0.6</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.assertj</groupId>
+                <artifactId>assertj-core</artifactId>
+                <version>3.0.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.teradata.tempto</groupId>
+                <artifactId>tempto-core</artifactId>
+                <version>1.0.38</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.teradata.tempto</groupId>
+                <artifactId>tempto-runner</artifactId>
+                <version>1.0.38</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto.hive</groupId>
+                <artifactId>hive-apache-jdbc</artifactId>
+                <version>0.13.1-1</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

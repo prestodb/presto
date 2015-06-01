@@ -20,3 +20,4 @@ benchmark_outputs
 *.pyc
 *.class
 .checkstyle
+*-local.yaml
