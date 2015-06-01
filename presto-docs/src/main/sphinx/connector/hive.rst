@@ -80,12 +80,32 @@ Property Name                                      Description                  
                                                    machines running Presto. Only specify this if
                                                    absolutely necessary to access HDFS.
 
-``hive.storage-format``                            The default file format used when creating new tables        ``RCBINARY``
+``hive.storage-format``                            The default file format used when creating new tables        ``ORC``
+                                                                                                                ``DWRF``
+                                                                                                                ``PARQUET``
+                                                                                                                ``RCBINARY``
+                                                                                                                ``RCTEXT``
+                                                                                                                ``SEQUENCEFILE``
+                                                                                                                ``TEXTFILE``
 
 ``hive.force-local-scheduling``                    Force splits to be scheduled on the same node as the Hadoop  ``true``
                                                    DataNode process serving the split data.  This is useful for
                                                    installations where Presto is collocated with every
                                                    DataNode.
+================================================== ============================================================ ==========
+
+Session Properties
+------------------------
+
+================================================== ============================================================ ==========
+Property Name                                      Description                                                  Example
+================================================== ============================================================ ==========
+``storage_format``                                 Override file format name from Configuration Properties.     ``RCBINARY``
+
+``storage_class``                                  Similar to ``storage_format``, but instead of using          ``com.teradata.swarm.qg.sh.hive.IndicBuffersStorageHandler``
+                                                   predefined list of storage formats, you can specify name of
+                                                   any class inside class path that provides custom storage
+                                                   handler.
 ================================================== ============================================================ ==========
 
 Querying Hive Tables
