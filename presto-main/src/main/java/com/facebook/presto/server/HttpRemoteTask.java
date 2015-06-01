@@ -266,27 +266,23 @@ public class HttpRemoteTask
     @Override
     public synchronized void noMoreSplits(PlanNodeId sourceId)
     {
-        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            if (noMoreSplits.add(sourceId)) {
-                needsUpdate.set(true);
-                scheduleUpdate();
-            }
+        if (noMoreSplits.add(sourceId)) {
+            needsUpdate.set(true);
+            scheduleUpdate();
         }
     }
 
     @Override
     public synchronized void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
-        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            if (getTaskInfo().getState().isDone()) {
-                return;
-            }
+        if (getTaskInfo().getState().isDone()) {
+            return;
+        }
 
-            if (newOutputBuffers.getVersion() > outputBuffers.get().getVersion()) {
-                outputBuffers.set(newOutputBuffers);
-                needsUpdate.set(true);
-                scheduleUpdate();
-            }
+        if (newOutputBuffers.getVersion() > outputBuffers.get().getVersion()) {
+            outputBuffers.set(newOutputBuffers);
+            needsUpdate.set(true);
+            scheduleUpdate();
         }
     }
 

@@ -661,13 +661,15 @@ public final class SqlStageExecution
         boolean finished = allSourceComplete && outputBuffers.isNoMoreBufferIds();
 
         // update tasks
-        for (RemoteTask task : tasks.values()) {
-            for (Entry<PlanNodeId, URI> entry : newExchangeLocations.entries()) {
-                Split remoteSplit = createRemoteSplitFor(task.getTaskInfo().getTaskId(), entry.getValue());
-                task.addSplits(entry.getKey(), ImmutableList.of(remoteSplit));
+        try (SetThreadName ignored = new SetThreadName("SqlStageExecution-%s", stateMachine.getStageId())) {
+            for (RemoteTask task : tasks.values()) {
+                for (Entry<PlanNodeId, URI> entry : newExchangeLocations.entries()) {
+                    Split remoteSplit = createRemoteSplitFor(task.getTaskInfo().getTaskId(), entry.getValue());
+                    task.addSplits(entry.getKey(), ImmutableList.of(remoteSplit));
+                }
+                task.setOutputBuffers(outputBuffers);
+                completeSources.forEach(task::noMoreSplits);
             }
-            task.setOutputBuffers(outputBuffers);
-            completeSources.forEach(task::noMoreSplits);
         }
 
         return finished;
