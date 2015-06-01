@@ -1,0 +1,8 @@
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
+ length         | varbinary      | bigint      | scalar        | true
+ to_base64      | varbinary      | varchar     | scalar        | true
+ to_hex         | varbinary      | varchar     | scalar        | true
+ from_base64    | varbinary      | varbinary   | scalar        | true
+ to_base64url   | varbinary      | varchar     | scalar        | true
+ from_base64url | varbinary      | varbinary   | scalar        | true
+ from_hex       | varbinary      | varbinary   | scalar        | true

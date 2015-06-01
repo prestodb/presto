@@ -1,0 +1,5 @@
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows:true; types: LONGNVARCHAR
+columns|
+schemata|
+tables|
+views|

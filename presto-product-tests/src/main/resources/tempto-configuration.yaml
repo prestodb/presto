@@ -1,0 +1,37 @@
+hdfs:
+  username: hdfs
+  webhdfs:
+    host: ${databases.hive.host}
+    port: 50070
+
+presto_rest:
+  base_uri: http://${databases.presto.server_address}/
+
+databases:
+  default:
+    alias: presto
+
+  hive:
+    host: ${HADOOP_MASTER}
+    jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
+    jdbc_url: jdbc:hive2://${databases.hive.host}:10000
+    jdbc_user: hdfs
+    jdbc_password: na
+    jdbc_pooling: false
+    schema: default
+    prepare_statement: USE ${databases.hive.schema}
+    table_manager_type: hive
+
+  presto:
+    host: ${PRESTO_MASTER}
+    server_address: ${databases.presto.host}:8080
+    jdbc_driver_class: com.facebook.presto.jdbc.PrestoDriver
+    jdbc_url: jdbc:presto://${databases.presto.server_address}/hive/${databases.hive.schema}
+    jdbc_user: hdfs
+    jdbc_password: na
+    jdbc_pooling: false
+
+tests:
+  hdfs:
+    path: /product-test
+

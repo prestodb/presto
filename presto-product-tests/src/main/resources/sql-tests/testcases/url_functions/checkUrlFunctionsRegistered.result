@@ -1,0 +1,8 @@
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
+ url_extract_protocol  | varchar          | varchar     | scalar        | true
+ url_extract_host      | varchar          | varchar     | scalar        | true
+ url_extract_query     | varchar          | varchar     | scalar        | true
+ url_extract_fragment  | varchar          | varchar     | scalar        | true
+ url_extract_parameter | varchar, varchar | varchar     | scalar        | true
+ url_extract_port      | varchar          | bigint      | scalar        | true
+ url_extract_path      | varchar          | varchar     | scalar        | true

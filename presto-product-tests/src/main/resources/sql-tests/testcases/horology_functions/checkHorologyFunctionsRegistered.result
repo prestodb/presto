@@ -1,0 +1,89 @@
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
+ current_date                    |                                                                                | date                     | scalar        | true
+ current_time                    |                                                                                | time with time zone      | scalar        | true
+ current_timestamp               |                                                                                | timestamp with time zone | scalar        | true
+ current_timezone                |                                                                                | varchar                  | scalar        | true
+ from_unixtime                   | double                                                                         | timestamp                | scalar        | true
+ from_unixtime                   | double, bigint, bigint                                                         | timestamp with time zone | scalar        | true
+ localtime                       |                                                                                | time                     | scalar        | true
+ localtimestamp                  |                                                                                | timestamp                | scalar        | true
+ now                             |                                                                                | timestamp with time zone | scalar        | true
+ to_unixtime                     | timestamp with time zone                                                       | double                   | scalar        | true
+ to_unixtime                     | timestamp                                                                      | double                   | scalar        | true
+ date_trunc                      | varchar, date                                                                  | date                     | scalar        | true
+ date_trunc                      | varchar, timestamp with time zone                                              | timestamp with time zone | scalar        | true
+ date_trunc                      | varchar, timestamp                                                             | timestamp                | scalar        | true
+ date_trunc                      | varchar, time with time zone                                                   | time with time zone      | scalar        | true
+ date_trunc                      | varchar, time                                                                  | time                     | scalar        | true
+ date_add                        | varchar, bigint, timestamp                                                     | timestamp                | scalar        | true
+ date_add                        | varchar, bigint, timestamp with time zone                                      | timestamp with time zone | scalar        | true
+ date_add                        | varchar, bigint, date                                                          | date                     | scalar        | true
+ date_add                        | varchar, bigint, time                                                          | time                     | scalar        | true
+ date_add                        | varchar, bigint, time with time zone                                           | time with time zone      | scalar        | true
+ date_diff                       | varchar, timestamp, timestamp                                                  | bigint                   | scalar        | true
+ date_diff                       | varchar, timestamp with time zone, timestamp with time zone                    | bigint                   | scalar        | true
+ date_diff                       | varchar, time with time zone, time with time zone                              | bigint                   | scalar        | true
+ date_diff                       | varchar, time, time                                                            | bigint                   | scalar        | true
+ date_diff                       | varchar, date, date                                                            | bigint                   | scalar        | true
+ date_format                     | timestamp, varchar                                                             | varchar                  | scalar        | true
+ date_format                     | timestamp with time zone, varchar                                              | varchar                  | scalar        | true
+ date_parse                      | varchar, varchar                                                               | timestamp                | scalar        | true
+ format_datetime                 | timestamp, varchar                                                             | varchar                  | scalar        | true
+ format_datetime                 | timestamp with time zone, varchar                                              | varchar                  | scalar        | true
+ parse_datetime                  | varchar, varchar                                                               | timestamp with time zone | scalar        | true
+ day                             | timestamp with time zone                                                       | bigint                   | scalar        | true
+ day                             | date                                                                           | bigint                   | scalar        | true
+ day                             | interval day to second                                                         | bigint                   | scalar        | true
+ day                             | timestamp                                                                      | bigint                   | scalar        | true
+ day_of_month                    | date                                                                           | bigint                   | scalar        | true
+ day_of_month                    | interval day to second                                                         | bigint                   | scalar        | true
+ day_of_month                    | timestamp                                                                      | bigint                   | scalar        | true
+ day_of_month                    | timestamp with time zone                                                       | bigint                   | scalar        | true
+ day_of_week                     | timestamp                                                                      | bigint                   | scalar        | true
+ day_of_week                     | timestamp with time zone                                                       | bigint                   | scalar        | true
+ day_of_week                     | date                                                                           | bigint                   | scalar        | true
+ day_of_year                     | timestamp                                                                      | bigint                   | scalar        | true
+ day_of_year                     | date                                                                           | bigint                   | scalar        | true
+ day_of_year                     | timestamp with time zone                                                       | bigint                   | scalar        | true
+ dow                             | timestamp with time zone                                                       | bigint                   | scalar        | true
+ dow                             | date                                                                           | bigint                   | scalar        | true
+ dow                             | timestamp                                                                      | bigint                   | scalar        | true
+ doy                             | date                                                                           | bigint                   | scalar        | true
+ doy                             | timestamp                                                                      | bigint                   | scalar        | true
+ doy                             | timestamp with time zone                                                       | bigint                   | scalar        | true
+ hour                            | time with time zone                                                            | bigint                   | scalar        | true
+ hour                            | interval day to second                                                         | bigint                   | scalar        | true
+ hour                            | timestamp with time zone                                                       | bigint                   | scalar        | true
+ hour                            | time                                                                           | bigint                   | scalar        | true
+ hour                            | timestamp                                                                      | bigint                   | scalar        | true
+ minute                          | timestamp                                                                      | bigint                   | scalar        | true
+ minute                          | timestamp with time zone                                                       | bigint                   | scalar        | true
+ minute                          | time                                                                           | bigint                   | scalar        | true
+ minute                          | time with time zone                                                            | bigint                   | scalar        | true
+ minute                          | interval day to second                                                         | bigint                   | scalar        | true
+ quarter                         | timestamp                                                                      | bigint                   | scalar        | true
+ quarter                         | timestamp with time zone                                                       | bigint                   | scalar        | true
+ quarter                         | date                                                                           | bigint                   | scalar        | true
+ second                          | timestamp                                                                      | bigint                   | scalar        | true
+ second                          | time with time zone                                                            | bigint                   | scalar        | true
+ second                          | interval day to second                                                         | bigint                   | scalar        | true
+ second                          | time                                                                           | bigint                   | scalar        | true
+ second                          | timestamp with time zone                                                       | bigint                   | scalar        | true
+ timezone_hour                   | timestamp with time zone                                                       | bigint                   | scalar        | true
+ timezone_minute                 | timestamp with time zone                                                       | bigint                   | scalar        | true
+ week                            | timestamp with time zone                                                       | bigint                   | scalar        | true
+ week                            | date                                                                           | bigint                   | scalar        | true
+ week                            | timestamp                                                                      | bigint                   | scalar        | true
+ week_of_year                    | timestamp with time zone                                                       | bigint                   | scalar        | true
+ week_of_year                    | timestamp                                                                      | bigint                   | scalar        | true
+ week_of_year                    | date                                                                           | bigint                   | scalar        | true
+ year                            | date                                                                           | bigint                   | scalar        | true
+ year                            | timestamp with time zone                                                       | bigint                   | scalar        | true
+ year                            | timestamp                                                                      | bigint                   | scalar        | true
+ year                            | interval year to month                                                         | bigint                   | scalar        | true
+ year_of_week                    | date                                                                           | bigint                   | scalar        | true
+ year_of_week                    | timestamp                                                                      | bigint                   | scalar        | true
+ year_of_week                    | timestamp with time zone                                                       | bigint                   | scalar        | true
+ yow                             | timestamp                                                                      | bigint                   | scalar        | true
+ yow                             | timestamp with time zone                                                       | bigint                   | scalar        | true
+ yow                             | date                                                                           | bigint                   | scalar        | true
