@@ -38,7 +38,7 @@ public interface ShardManager
     /**
      * Replace oldShardsIds with newShards.
      */
-    void replaceShards(long tableId, List<ColumnInfo> columns, Set<Long> oldShardIds, Collection<ShardInfo> newShards);
+    void replaceShardIds(long tableId, List<ColumnInfo> columns, Set<Long> oldShardIds, Collection<ShardInfo> newShards);
 
     /**
      * Get shard metadata for table shards on a given node.

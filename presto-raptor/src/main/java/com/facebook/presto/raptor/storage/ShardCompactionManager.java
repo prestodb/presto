@@ -272,7 +272,7 @@ public class ShardCompactionManager
             try {
                 TableMetadata tableMetadata = getTableMetadata(compactionSet.getTableId());
                 List<ShardInfo> newShards = performCompaction(shardUuids, tableMetadata);
-                shardManager.replaceShards(tableMetadata.getTableId(), tableMetadata.getColumns(), shardIds, newShards);
+                shardManager.replaceShardIds(tableMetadata.getTableId(), tableMetadata.getColumns(), shardIds, newShards);
                 shardsBeingCompacted.removeAll(shardIds);
             }
             catch (IOException e) {
