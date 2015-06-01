@@ -32,6 +32,38 @@ Description
 
 Retrieve rows from zero or more tables.
 
+WITH Clause
+-----------
+
+The ``WITH`` clause defines named relations for use within a query.
+It allows flattening nested queries or simplifying subqueries.
+For example, the following queries are equivalent::
+
+    SELECT a, b
+    FROM (
+      SELECT a, MAX(b) AS b FROM t GROUP BY a
+    ) AS x;
+
+    WITH x AS (SELECT a, MAX(b) AS b FROM t GROUP BY a)
+    SELECT a, b FROM x;
+
+This also works with multiple subqueries::
+
+    WITH
+      t1 AS (SELECT a, MAX(b) AS b FROM x GROUP BY a),
+      t2 AS (SELECT a, AVG(d) AS d FROM y GROUP BY a)
+    SELECT t1.*, t2.*
+    FROM t1
+    JOIN t2 ON t1.a = t2.a;
+
+Additionally, the relations within a ``WITH`` clause can chain::
+
+    WITH
+      x AS (SELECT a FROM t),
+      y AS (SELECT a AS b FROM x),
+      z AS (SELECT b AS c FROM y)
+    SELECT c FROM z;
+
 GROUP BY Clause
 ---------------
 
