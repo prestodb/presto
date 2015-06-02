@@ -23,6 +23,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static java.util.Objects.requireNonNull;
+
 public class AsyncQueue<T>
 {
     private enum FinishedMarker
@@ -35,6 +37,7 @@ public class AsyncQueue<T>
 
     public void add(T element)
     {
+        requireNonNull(element, "element is null");
         queue.add(element);
         futureReference.get().complete(null);
     }
@@ -65,7 +68,7 @@ public class AsyncQueue<T>
         // readers can be notified when the queue has elements to read
         if (queue.isEmpty()) {
             CompletableFuture<?> future = futureReference.get();
-            if (!future.isDone()) {
+            if (future.isDone()) {
                 futureReference.compareAndSet(future, new CompletableFuture<>());
             }
         }
