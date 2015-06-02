@@ -58,6 +58,8 @@ public final class RaptorQueryRunner
                 .put("metadata.db.filename", new File(baseDir, "db").getAbsolutePath())
                 .put("storage.data-directory", new File(baseDir, "data").getAbsolutePath())
                 .put("storage.max-shard-rows", "2000")
+                .put("backup.provider", "file")
+                .put("backup.directory", new File(baseDir, "backup").getAbsolutePath())
                 .build();
 
         queryRunner.createCatalog("default", "raptor", raptorProperties);
