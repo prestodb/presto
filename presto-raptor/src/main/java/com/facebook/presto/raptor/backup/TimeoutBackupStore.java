@@ -19,7 +19,7 @@ import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.Duration;
 
-import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 
 import java.io.File;
 import java.util.OptionalLong;
@@ -47,7 +47,7 @@ public class TimeoutBackupStore
         this.store = timeLimited(store, BackupStore.class, timeout, executor);
     }
 
-    @PostConstruct
+    @PreDestroy
     public void shutdown()
     {
         executor.shutdownNow();
