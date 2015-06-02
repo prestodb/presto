@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.plugin.nullconnector;
+package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Binder;
@@ -20,12 +20,12 @@ import com.google.inject.Module;
 
 import static com.google.inject.Scopes.SINGLETON;
 
-public class NullModule
+public final class BlackHoleModule
         implements Module
 {
     private final TypeManager typeManager;
 
-    public NullModule(TypeManager typeManager)
+    public BlackHoleModule(TypeManager typeManager)
     {
         this.typeManager = typeManager;
     }
@@ -33,12 +33,12 @@ public class NullModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(NullConnector.class).in(SINGLETON);
-        binder.bind(NullMetadata.class).in(SINGLETON);
-        binder.bind(NullSplitManager.class).in(SINGLETON);
-        binder.bind(NullHandleResolver.class).in(SINGLETON);
-        binder.bind(NullPageSinkProvider.class).in(SINGLETON);
-        binder.bind(NullPageSourceProvider.class).in(SINGLETON);
+        binder.bind(BlackHoleConnector.class).in(SINGLETON);
+        binder.bind(BlackHoleMetadata.class).in(SINGLETON);
+        binder.bind(BlackHoleSplitManager.class).in(SINGLETON);
+        binder.bind(BlackHoleHandleResolver.class).in(SINGLETON);
+        binder.bind(BlackHolePageSinkProvider.class).in(SINGLETON);
+        binder.bind(BlackHolePageSourceProvider.class).in(SINGLETON);
         binder.bind(TypeManager.class).toInstance(typeManager);
     }
 }

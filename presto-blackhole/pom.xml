@@ -5,11 +5,11 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.105-SNAPSHOT</version>
+        <version>0.106-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-null</artifactId>
-    <description>Presto - Null Connector</description>
+    <artifactId>presto-blackhole</artifactId>
+    <description>Presto - Black Hole Connector</description>
     <packaging>presto-plugin</packaging>
 
     <properties>
@@ -33,32 +33,12 @@
             <groupId>io.airlift</groupId>
             <artifactId>bootstrap</artifactId>
             <scope>provided</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>ch.qos.logback</groupId>
-                    <artifactId>logback-classic</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>ch.qos.logback</groupId>
-                    <artifactId>logback-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>jul-to-slf4j</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
             <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-jdk14</artifactId>
-            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -82,6 +62,12 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>annotations</artifactId>
             <scope>provided</scope>
         </dependency>
 

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.plugin.nullconnector;
+package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
@@ -23,31 +23,24 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-public class NullColumnHandle
+public final class BlackHoleColumnHandle
         implements ColumnHandle
 {
     private final String name;
-    private final int ordinalPosition;
     private final TypeSignature typeSignature;
 
-    public NullColumnHandle(ColumnMetadata columnMetadata)
+    public BlackHoleColumnHandle(ColumnMetadata columnMetadata)
     {
         name = columnMetadata.getName();
-        ordinalPosition = columnMetadata.getOrdinalPosition();
         typeSignature = columnMetadata.getType().getTypeSignature();
     }
 
-    /*
-     * Constructor used during serialization
-     */
     @JsonCreator
-    public NullColumnHandle(
+    public BlackHoleColumnHandle(
             @JsonProperty("name") String name,
-            @JsonProperty("ordinalPosition") int ordinalPosition,
             @JsonProperty("typeSignature") TypeSignature typeSignature)
     {
         this.name = name;
-        this.ordinalPosition = ordinalPosition;
         this.typeSignature = typeSignature;
     }
 
@@ -58,12 +51,6 @@ public class NullColumnHandle
     }
 
     @JsonProperty
-    public int getOrdinalPosition()
-    {
-        return ordinalPosition;
-    }
-
-    @JsonProperty
     public TypeSignature getTypeSignature()
     {
         return typeSignature;
@@ -71,13 +58,13 @@ public class NullColumnHandle
 
     public ColumnMetadata toColumnMetadata(TypeManager typeManager)
     {
-        return new ColumnMetadata(name, typeManager.getType(typeSignature), ordinalPosition, false);
+        return new ColumnMetadata(name, typeManager.getType(typeSignature), false);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, ordinalPosition, typeSignature);
+        return Objects.hash(name, typeSignature);
     }
 
     @Override
@@ -89,9 +76,8 @@ public class NullColumnHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        NullColumnHandle other = (NullColumnHandle) obj;
+        BlackHoleColumnHandle other = (BlackHoleColumnHandle) obj;
         return Objects.equals(this.name, other.name) &&
-                Objects.equals(this.ordinalPosition, other.ordinalPosition) &&
                 Objects.equals(this.typeSignature, other.typeSignature);
     }
 }

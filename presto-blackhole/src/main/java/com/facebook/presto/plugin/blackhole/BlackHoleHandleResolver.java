@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.plugin.nullconnector;
+package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
@@ -21,66 +21,66 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 
-public class NullHandleResolver
+public final class BlackHoleHandleResolver
         implements ConnectorHandleResolver
 {
     @Override
     public boolean canHandle(ConnectorTableHandle tableHandle)
     {
-        return tableHandle instanceof NullTableHandle;
+        return tableHandle instanceof BlackHoleTableHandle;
     }
 
     @Override
     public boolean canHandle(ColumnHandle columnHandle)
     {
-        return columnHandle instanceof NullColumnHandle;
+        return columnHandle instanceof BlackHoleColumnHandle;
     }
 
     @Override
     public boolean canHandle(ConnectorSplit split)
     {
-        return split instanceof NullConnectorSplit;
+        return false;
     }
 
     @Override
     public boolean canHandle(ConnectorOutputTableHandle tableHandle)
     {
-        return tableHandle instanceof NullConnectorOutputTableHandle;
+        return tableHandle instanceof BlackHoleConnectorOutputTableHandle;
     }
 
     @Override
     public boolean canHandle(ConnectorInsertTableHandle tableHandle)
     {
-        return tableHandle instanceof NullConnectorInsertTableHandle;
+        return tableHandle instanceof BlackHoleConnectorInsertTableHandle;
     }
 
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
-        return NullTableHandle.class;
+        return BlackHoleTableHandle.class;
     }
 
     @Override
     public Class<? extends ColumnHandle> getColumnHandleClass()
     {
-        return NullColumnHandle.class;
+        return BlackHoleColumnHandle.class;
     }
 
     @Override
     public Class<? extends ConnectorSplit> getSplitClass()
     {
-        return NullConnectorSplit.class;
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
     {
-        return NullConnectorOutputTableHandle.class;
+        return BlackHoleConnectorOutputTableHandle.class;
     }
 
     @Override
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
-        return NullConnectorInsertTableHandle.class;
+        return BlackHoleConnectorInsertTableHandle.class;
     }
 }

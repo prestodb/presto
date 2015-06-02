@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.plugin.nullconnector;
+package com.facebook.presto.plugin.blackhole;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public final class Types
+public final class BlackHoleTypes
 {
-    private Types() {}
+    private BlackHoleTypes() {}
 
     public static <A, B extends A> B checkType(A value, Class<B> target, String name)
     {

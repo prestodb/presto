@@ -40,7 +40,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.plugin.nullconnector;
+package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
@@ -51,21 +51,21 @@ import com.facebook.presto.spi.ConnectorSplitManager;
 
 import javax.inject.Inject;
 
-public class NullConnector
+public class BlackHoleConnector
         implements Connector
 {
-    private final NullMetadata metadata;
-    private final NullHandleResolver connectorHandleResolver;
-    private final NullSplitManager splitManager;
-    private final NullPageSourceProvider pageSourceProvider;
-    private final NullPageSinkProvider pageSinkProvider;
+    private final BlackHoleMetadata metadata;
+    private final BlackHoleHandleResolver connectorHandleResolver;
+    private final BlackHoleSplitManager splitManager;
+    private final BlackHolePageSourceProvider pageSourceProvider;
+    private final BlackHolePageSinkProvider pageSinkProvider;
 
     @Inject
-    public NullConnector(NullMetadata metadata,
-            NullHandleResolver connectorHandleResolver,
-            NullSplitManager splitManager,
-            NullPageSourceProvider pageSourceProvider,
-            NullPageSinkProvider pageSinkProvider)
+    public BlackHoleConnector(BlackHoleMetadata metadata,
+            BlackHoleHandleResolver connectorHandleResolver,
+            BlackHoleSplitManager splitManager,
+            BlackHolePageSourceProvider pageSourceProvider,
+            BlackHolePageSinkProvider pageSinkProvider)
     {
         this.metadata = metadata;
         this.connectorHandleResolver = connectorHandleResolver;

@@ -1,4 +1,3 @@
-
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.plugin.nullconnector;
+package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -22,31 +21,32 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
-public class NullTableHandle
+import static java.util.stream.Collectors.toList;
+
+public final class BlackHoleTableHandle
         implements ConnectorTableHandle
 {
     private final String schemaName;
     private final String tableName;
-    private final NullColumnHandle[] columnHandles;
+    private final List<BlackHoleColumnHandle> columnHandles;
 
-    public NullTableHandle(ConnectorTableMetadata tableMetadata)
+    public BlackHoleTableHandle(ConnectorTableMetadata tableMetadata)
     {
         schemaName = tableMetadata.getTable().getSchemaName();
         tableName = tableMetadata.getTable().getTableName();
         columnHandles = tableMetadata.getColumns().stream()
-                .map(NullColumnHandle::new)
-                .toArray(NullColumnHandle[]::new);
+                .map(BlackHoleColumnHandle::new)
+                .collect(toList());
     }
 
     @JsonCreator
-    public NullTableHandle(
+    public BlackHoleTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("columnHandles") NullColumnHandle[] columnHandles)
+            @JsonProperty("columnHandles") List<BlackHoleColumnHandle> columnHandles)
     {
         this.schemaName = schemaName;
         this.tableName = tableName;
@@ -66,7 +66,7 @@ public class NullTableHandle
     }
 
     @JsonProperty
-    public NullColumnHandle[] getColumnHandles()
+    public List<BlackHoleColumnHandle> getColumnHandles()
     {
         return columnHandles;
     }
@@ -75,7 +75,7 @@ public class NullTableHandle
     {
         return new ConnectorTableMetadata(
                 toSchemaTableName(),
-                Arrays.stream(columnHandles).map(columnHandle -> columnHandle.toColumnMetadata(typeManager)).collect(Collectors.toList()));
+                columnHandles.stream().map(columnHandle -> columnHandle.toColumnMetadata(typeManager)).collect(toList()));
     }
 
     public SchemaTableName toSchemaTableName()
@@ -98,7 +98,7 @@ public class NullTableHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        NullTableHandle other = (NullTableHandle) obj;
+        BlackHoleTableHandle other = (BlackHoleTableHandle) obj;
         return Objects.equals(this.getSchemaName(), other.getSchemaName()) &&
                 Objects.equals(this.getTableName(), other.getTableName());
     }

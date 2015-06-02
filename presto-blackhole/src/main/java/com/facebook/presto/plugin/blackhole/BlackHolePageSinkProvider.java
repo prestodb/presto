@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.plugin.nullconnector;
+package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -25,7 +25,7 @@ import io.airlift.slice.Slice;
 
 import java.util.Collection;
 
-public class NullPageSinkProvider
+public class BlackHolePageSinkProvider
         implements ConnectorPageSinkProvider
 {
     @Override

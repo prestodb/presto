@@ -12,41 +12,43 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.plugin.nullconnector;
+package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 
 import java.util.Map;
 
 import static com.google.common.base.Throwables.propagate;
+import static java.util.Objects.requireNonNull;
 
-public class NullConnectorFactory
+public class BlackHoleConnectorFactory
         implements ConnectorFactory
 {
     private final TypeManager typeManager;
-    private Map<String, String> optionalConfig;
+    private final Map<String, String> optionalConfig;
 
-    public NullConnectorFactory(TypeManager typeManager, Map<String, String> optionalConfig)
+    public BlackHoleConnectorFactory(TypeManager typeManager, Map<String, String> optionalConfig)
     {
-        this.typeManager = typeManager;
-        this.optionalConfig = optionalConfig;
+        this.typeManager = requireNonNull(typeManager);
+        this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig));
     }
 
     @Override
     public String getName()
     {
-        return "null";
+        return "blackhole";
     }
 
     @Override
     public Connector create(String connectorId, Map<String, String> requiredConfig)
     {
         try {
-            Bootstrap app = new Bootstrap(new NullModule(typeManager));
+            Bootstrap app = new Bootstrap(new BlackHoleModule(typeManager));
 
             Injector injector = app
                     .strictConfig()
@@ -55,7 +57,7 @@ public class NullConnectorFactory
                     .setOptionalConfigurationProperties(optionalConfig)
                     .initialize();
 
-            return injector.getInstance(NullConnector.class);
+            return injector.getInstance(BlackHoleConnector.class);
         }
         catch (Exception e) {
             throw propagate(e);

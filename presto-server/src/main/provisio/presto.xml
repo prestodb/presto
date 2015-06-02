@@ -62,8 +62,8 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/null">
-        <artifact id="${project.groupId}:presto-null:zip:${project.version}">
+    <artifactSet to="plugin/blackhole">
+        <artifact id="${project.groupId}:presto-blackhole:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

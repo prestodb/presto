@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.plugin.nullconnector;
+package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class NullPageSourceProvider
+public final class BlackHolePageSourceProvider
         implements ConnectorPageSourceProvider
 {
     @Override

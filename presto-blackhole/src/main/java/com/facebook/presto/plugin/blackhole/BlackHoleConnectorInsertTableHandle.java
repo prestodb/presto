@@ -12,20 +12,20 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.plugin.nullconnector;
+package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class NullConnectorInsertTableHandle
+public final class BlackHoleConnectorInsertTableHandle
         implements ConnectorInsertTableHandle
 {
     // HACK: dummy field is required to make this class be auto serializable
     private String dummy;
 
     @JsonCreator
-    public NullConnectorInsertTableHandle(@JsonProperty("dummy") String dummy)
+    public BlackHoleConnectorInsertTableHandle(@JsonProperty("dummy") String dummy)
     {
         this.dummy = dummy;
     }
