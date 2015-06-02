@@ -26,7 +26,7 @@ public final class TeradataFunctions
     {
     }
 
-    @Description("Teradata extension to the ANSI SQL-2003 standard. Returns index of first occurrence of a substring (or 0 if not found)")
+    @Description("Returns index of first occurrence of a substring (or 0 if not found)")
     @ScalarFunction("index")
     @SqlType(StandardTypes.BIGINT)
     public static long index(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice substring)

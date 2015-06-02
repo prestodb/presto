@@ -37,6 +37,7 @@ public class TestTeradataFunctions
         assertFunction("INDEX('high', 'igx')", BIGINT, 0);
         assertFunction("INDEX('Quadratically', 'a')", BIGINT, 3);
         assertFunction("INDEX('foobar', 'foobar')", BIGINT, 1);
+        assertFunction("INDEX('foobar', 'foobar_baz')", BIGINT, 0);
         assertFunction("INDEX('foobar', 'obar')", BIGINT, 3);
         assertFunction("INDEX('zoo!', '!')", BIGINT, 4);
         assertFunction("INDEX('x', '')", BIGINT, 1);
