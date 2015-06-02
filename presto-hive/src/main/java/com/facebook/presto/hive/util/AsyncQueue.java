@@ -18,72 +18,98 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * A simple unbounded queue that can fetch batches of elements asynchronously.
+ * <p>
+ * This class is designed for multiple writers and multiple readers.
+ */
 public class AsyncQueue<T>
 {
-    private enum FinishedMarker
-    {
-        FINISHED
-    }
+    private final LinkedBlockingQueue<Object> queue = new LinkedBlockingQueue<>();
+    private final AtomicBoolean finished = new AtomicBoolean();
+    private final AtomicReference<CompletableFuture<?>> notEmptyFuture = new AtomicReference<>(new CompletableFuture<>());
 
-    private final BlockingQueue<Object> queue = new LinkedBlockingQueue<>();
-    private final AtomicReference<CompletableFuture<?>> futureReference = new AtomicReference<>(new CompletableFuture<>());
-
+    /**
+     * Adds an element to the queue.  Elements added after the queue is finished
+     * are normally ignored (without error), but if someone calls finish while
+     * {@code add} is running the element may still be added.
+     *
+     * @throws NullPointerException if the element is null
+     */
     public void add(T element)
     {
         requireNonNull(element, "element is null");
+        if (finished.get()) {
+            return;
+        }
         queue.add(element);
-        futureReference.get().complete(null);
+        notEmptyFuture.get().complete(null);
     }
 
+    /**
+     * Gets a batch of elements from the queue.  If queue is not empty, a
+     * completed future containing the queued elements is returned.  If the
+     * queue is empty, an incomplete future is returned that completes when
+     * an element is added.
+     * <p>
+     * It is possible that an empty list will be returned as another reader
+     * may have consumed all of the data.  A caller should read until, the
+     * {@code isFinished} method returns {@code true}.
+     *
+     * @param maxSize the maximum number of elements to return.
+     */
     public CompletableFuture<List<T>> getBatchAsync(int maxSize)
     {
-        return futureReference.get().thenApply(x -> getBatch(maxSize));
+        return notEmptyFuture.get().thenApply(x -> getBatch(maxSize));
     }
 
     private List<T> getBatch(int maxSize)
     {
-        // wait for at least one element and then take as may extra elements as possible
-        // if an error has been registered, the take will succeed immediately because
-        // will be at least one finished marker in the queue
+        // take up to maxSize elements from the queue
         List<Object> elements = new ArrayList<>(maxSize);
         queue.drainTo(elements, maxSize);
 
-        // check if we got the finished marker in our list
-        int finishedIndex = elements.indexOf(FinishedMarker.FINISHED);
-        if (finishedIndex >= 0) {
-            // add the finish marker back to the queue so future callers will not block indefinitely
-            queue.add(FinishedMarker.FINISHED);
-            // drop all elements after the finish marker (this shouldn't happen in a normal finish, but be safe)
-            elements = elements.subList(0, finishedIndex);
+        // if the queue is empty and the current future is finished, create a new one so
+        // a new readers can be notified when the queue has elements to read
+        if (queue.isEmpty() && !finished.get()) {
+            CompletableFuture<?> future = notEmptyFuture.get();
+            if (future.isDone()) {
+                notEmptyFuture.compareAndSet(future, new CompletableFuture<>());
+            }
         }
 
-        // if the queue is empty and the current future is finished, create a new one so
-        // readers can be notified when the queue has elements to read
-        if (queue.isEmpty()) {
-            CompletableFuture<?> future = futureReference.get();
-            if (future.isDone()) {
-                futureReference.compareAndSet(future, new CompletableFuture<>());
-            }
+        // if someone added an element while we were updating the state, complete the current future
+        if (!queue.isEmpty() || finished.get()) {
+            notEmptyFuture.get().complete(null);
         }
 
         return ImmutableList.copyOf((Collection<T>) elements);
     }
 
+    /**
+     * Finishes the queue. Elements added after the queue is finished
+     * are ignored without error.
+     */
     public void finish()
     {
-        queue.add(FinishedMarker.FINISHED);
-        futureReference.get().complete(null);
+        finished.set(true);
+        if (queue.isEmpty()) {
+            notEmptyFuture.get().complete(null);
+        }
     }
 
+    /**
+     * Is the queue finished and no more elements can be fetched?
+     */
     public boolean isFinished()
     {
-        return queue.peek() == FinishedMarker.FINISHED;
+        return finished.get() && queue.isEmpty();
     }
 }
