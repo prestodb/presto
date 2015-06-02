@@ -45,7 +45,7 @@
         <dep.antlr.version>4.3</dep.antlr.version>
         <dep.airlift.version>0.110</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.slice.version>0.13-SNAPSHOT</dep.slice.version>
+        <dep.slice.version>0.13</dep.slice.version>
 
         <cli.skip-execute>true</cli.skip-execute>
         <cli.main-class>None</cli.main-class>
