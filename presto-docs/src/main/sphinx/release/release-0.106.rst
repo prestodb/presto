@@ -12,3 +12,4 @@ General Changes
 * Added ``Asia/Chita``, ``Asia/Srednekolymsk``, and ``Pacific/Bougainville`` time zones.
 * Fix task leak caused by race condition in stage state machine.
 * Fix blocking in Hive split source.
+* Free resources sooner for queries that finish prematurely.
