@@ -13,16 +13,10 @@
  */
 package com.facebook.presto.memory;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
-import org.weakref.jmx.JmxException;
-import org.weakref.jmx.MBeanExporter;
-import org.weakref.jmx.ObjectNames;
 
-import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.List;
@@ -36,16 +30,13 @@ public final class LocalMemoryManager
 {
     public static final MemoryPoolId GENERAL_POOL = new MemoryPoolId("general");
     public static final MemoryPoolId RESERVED_POOL = new MemoryPoolId("reserved");
-    private static final Logger log = Logger.get(LocalMemoryManager.class);
 
     private final DataSize maxMemory;
-    private final MBeanExporter exporter;
     private final Map<MemoryPoolId, MemoryPool> pools;
 
     @Inject
-    public LocalMemoryManager(MemoryManagerConfig config, ReservedSystemMemoryConfig systemMemoryConfig, MBeanExporter exporter)
+    public LocalMemoryManager(MemoryManagerConfig config, ReservedSystemMemoryConfig systemMemoryConfig)
     {
-        this.exporter = requireNonNull(exporter, "exporter is null");
         requireNonNull(config, "config is null");
         requireNonNull(systemMemoryConfig, "systemMemoryConfig is null");
         long maxHeap = Runtime.getRuntime().maxMemory();
@@ -53,9 +44,9 @@ public final class LocalMemoryManager
         maxMemory = new DataSize(maxHeap - systemMemoryConfig.getReservedSystemMemory().toBytes(), BYTE);
 
         ImmutableMap.Builder<MemoryPoolId, MemoryPool> builder = ImmutableMap.builder();
-        builder.put(RESERVED_POOL, createPool(RESERVED_POOL, config.getMaxQueryMemoryPerNode(), exporter, config.isClusterMemoryManagerEnabled()));
+        builder.put(RESERVED_POOL, new MemoryPool(RESERVED_POOL, config.getMaxQueryMemoryPerNode(), config.isClusterMemoryManagerEnabled()));
         DataSize generalPoolSize = new DataSize(Math.max(0, maxMemory.toBytes() - config.getMaxQueryMemoryPerNode().toBytes()), BYTE);
-        builder.put(GENERAL_POOL, createPool(GENERAL_POOL, generalPoolSize, exporter, config.isClusterMemoryManagerEnabled()));
+        builder.put(GENERAL_POOL, new MemoryPool(GENERAL_POOL, generalPoolSize, config.isClusterMemoryManagerEnabled()));
         this.pools = builder.build();
     }
 
@@ -68,7 +59,6 @@ public final class LocalMemoryManager
         return new MemoryInfo(maxMemory, builder.build());
     }
 
-    @VisibleForTesting
     public List<MemoryPool> getPools()
     {
         return ImmutableList.copyOf(pools.values());
@@ -77,32 +67,5 @@ public final class LocalMemoryManager
     public MemoryPool getPool(MemoryPoolId id)
     {
         return pools.get(id);
-    }
-
-    private static MemoryPool createPool(MemoryPoolId id, DataSize size, MBeanExporter exporter, boolean enableBlocking)
-    {
-        MemoryPool pool = new MemoryPool(id, size, enableBlocking);
-        try {
-            String objectName = ObjectNames.builder(MemoryPool.class, pool.getId().toString()).build();
-            exporter.export(objectName, pool);
-        }
-        catch (JmxException e) {
-            log.warn(e, "Unable to export memory pool %s", id);
-        }
-        return pool;
-    }
-
-    @PreDestroy
-    public void destroy()
-    {
-        for (MemoryPool pool : pools.values()) {
-            String objectName = ObjectNames.builder(MemoryPool.class, pool.getId().toString()).build();
-            try {
-                exporter.unexport(objectName);
-            }
-            catch (JmxException e) {
-                log.warn(e, "Unable to unexport memory pool %s", pool.getId());
-            }
-        }
     }
 }

@@ -38,6 +38,7 @@ import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.ForMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
+import com.facebook.presto.memory.LocalMemoryManagerExporter;
 import com.facebook.presto.memory.MemoryInfo;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
@@ -154,7 +155,7 @@ public class ServerMainModule
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
         binder.bind(LocalMemoryManager.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(LocalMemoryManager.class).withGeneratedName();
+        binder.bind(LocalMemoryManagerExporter.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskManager.class).withGeneratedName();
         binder.bind(TaskExecutor.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskExecutor.class).withGeneratedName();

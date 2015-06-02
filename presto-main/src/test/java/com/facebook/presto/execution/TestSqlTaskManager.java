@@ -33,8 +33,6 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
-import org.weakref.jmx.MBeanExporter;
-import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.net.URI;
 import java.util.concurrent.TimeUnit;
@@ -62,7 +60,7 @@ public class TestSqlTaskManager
 
     public TestSqlTaskManager()
     {
-        localMemoryManager = new LocalMemoryManager(new MemoryManagerConfig(), new ReservedSystemMemoryConfig(), new MBeanExporter(new TestingMBeanServer()));
+        localMemoryManager = new LocalMemoryManager(new MemoryManagerConfig(), new ReservedSystemMemoryConfig());
         taskExecutor = new TaskExecutor(8, 16);
         taskExecutor.start();
     }
@@ -72,7 +70,6 @@ public class TestSqlTaskManager
             throws Exception
     {
         taskExecutor.stop();
-        localMemoryManager.destroy();
     }
 
     @Test
