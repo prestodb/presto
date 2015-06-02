@@ -22,9 +22,12 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+
 import io.airlift.units.Duration;
+
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -176,7 +179,7 @@ public class CachingCassandraSchemaProvider
         return ImmutableList.copyOf(getCacheValue(schemaNamesCache, "", RuntimeException.class).keySet());
     }
 
-    private Map<String, String> loadAllSchemas()
+    private ImmutableMap<String, String> loadAllSchemas()
             throws Exception
     {
         return retry()

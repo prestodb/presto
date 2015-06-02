@@ -26,8 +26,8 @@ public final class ImmutableCollectors
     public static <T> Collector<T, ?, ImmutableList<T>> toImmutableList()
     {
         return Collector.<T, ImmutableList.Builder<T>, ImmutableList<T>>of(
-                ImmutableList.Builder::new,
-                ImmutableList.Builder::add,
+                ImmutableList.Builder<T>::new,
+                ImmutableList.Builder<T>::add,
                 (left, right) -> {
                     left.addAll(right.build());
                     return left;
@@ -38,8 +38,8 @@ public final class ImmutableCollectors
     public static <T> Collector<T, ?, ImmutableSet<T>> toImmutableSet()
     {
         return Collector.<T, ImmutableSet.Builder<T>, ImmutableSet<T>>of(
-                ImmutableSet.Builder::new,
-                ImmutableSet.Builder::add,
+                ImmutableSet.Builder<T>::new,
+                ImmutableSet.Builder<T>::add,
                 (left, right) -> {
                     left.addAll(right.build());
                     return left;
@@ -51,13 +51,13 @@ public final class ImmutableCollectors
     public static <T> Collector<T, ?, ImmutableMultiset<T>> toImmutableMultiset()
     {
         return Collector.<T, ImmutableMultiset.Builder<T>, ImmutableMultiset<T>>of(
-                ImmutableMultiset.Builder::new,
-                ImmutableMultiset.Builder::add,
+                ImmutableMultiset.Builder<T>::new,
+                ImmutableMultiset.Builder<T>::add,
                 (left, right) -> {
                     left.addAll(right.build());
                     return left;
                 },
-                ImmutableMultiset.Builder::build,
+                ImmutableMultiset.Builder<T>::build,
                 Collector.Characteristics.UNORDERED);
     }
 }

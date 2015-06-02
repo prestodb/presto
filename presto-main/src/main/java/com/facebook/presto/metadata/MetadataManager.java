@@ -226,6 +226,7 @@ public class MetadataManager
         return Optional.empty();
     }
 
+    @SuppressWarnings("Convert2Diamond")
     @Override
     public List<TableLayoutResult> getLayouts(TableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
@@ -241,7 +242,8 @@ public class MetadataManager
         List<ConnectorTableLayoutResult> layouts;
         try {
             ConnectorMetadata metadata = getConnectorMetadata(connectorId);
-            layouts = metadata.getTableLayouts(connectorTable, new Constraint<>(summary, predicate::test), desiredColumns);
+            // The eclipse compiler does not allow Constraint<>(...)
+            layouts = metadata.getTableLayouts(connectorTable, new Constraint<ColumnHandle>(summary, predicate::test), desiredColumns);
         }
         catch (UnsupportedOperationException e) {
             ConnectorSplitManager connectorSplitManager = splitManager.getConnectorSplitManager(connectorId);

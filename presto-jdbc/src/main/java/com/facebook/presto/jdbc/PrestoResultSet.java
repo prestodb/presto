@@ -1752,9 +1752,11 @@ public class PrestoResultSet
         throw resultsException(results);
     }
 
+    @SuppressWarnings("RedundantTypeArguments")
     private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator)
     {
-        return concat(transform(iterator, Iterable::iterator));
+        // the explicit type argument is required by the Eclipse compiler
+        return concat(transform(iterator, Iterable<T>::iterator));
     }
 
     private static class ResultsPageIterator
