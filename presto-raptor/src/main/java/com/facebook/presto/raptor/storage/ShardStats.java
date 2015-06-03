@@ -29,13 +29,12 @@ import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static java.lang.Double.isInfinite;
@@ -69,8 +68,7 @@ public final class ShardStats
             throws IOException
     {
         int columnIndex = columnIndex(orcReader.getColumnNames(), columnId);
-        Set<Integer> includedColumns = ImmutableSet.of(columnIndex);
-        OrcRecordReader reader = orcReader.createRecordReader(includedColumns, OrcPredicate.TRUE, UTC);
+        OrcRecordReader reader = orcReader.createRecordReader(ImmutableMap.of(columnIndex, type), OrcPredicate.TRUE, UTC);
 
         if (type.equals(BooleanType.BOOLEAN)) {
             return indexBoolean(reader, columnIndex, columnId);

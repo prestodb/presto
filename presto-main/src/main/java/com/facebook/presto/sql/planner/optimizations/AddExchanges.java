@@ -74,7 +74,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -89,7 +88,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
@@ -164,31 +162,9 @@ public class AddExchanges
         public PlanWithProperties visitProject(ProjectNode node, PreferredProperties preferred)
         {
             Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments());
-            List<LocalProperty<Symbol>> localProperties = LocalProperties.translate(preferred.getLocalProperties(), column -> Optional.ofNullable(identities.get(column)));
+            PreferredProperties translatedPreferred = PreferredProperties.translate(preferred, identities);
 
-            // TODO: Refactor this into PreferredProperties so that it is not duplicated
-            if (preferred.getPartitioningProperties().isPresent()) {
-                PartitioningPreferences partitioning = preferred.getPartitioningProperties().get();
-                if (partitioning.isHashPartitioned()) {
-                    List<Symbol> hashingSymbols = partitioning.getHashPartitioningColumns().get();
-                    if (identities.keySet().containsAll(hashingSymbols)) {
-                        List<Symbol> translated = partitioning.getHashPartitioningColumns().get().stream().map(identities::get).collect(Collectors.toList());
-                        return rebaseAndDeriveProperties(node, planChild(node, PreferredProperties.hashPartitionedWithLocal(translated, localProperties)));
-                    }
-                }
-                if (partitioning.isPartitioned()) {
-                    // check if we can satisfy any partitioning requirements
-                    Set<Symbol> symbols = partitioning.getPartitioningColumns().get();
-                    Set<Symbol> translated = Sets.intersection(identities.keySet(), symbols).stream().map(identities::get).collect(Collectors.toSet());
-                    if (!translated.isEmpty()) {
-                        return rebaseAndDeriveProperties(node, planChild(node, PreferredProperties.partitionedWithLocal(translated, localProperties)));
-                    }
-                }
-                else {
-                    return rebaseAndDeriveProperties(node, planChild(node, PreferredProperties.unpartitionedWithLocal(localProperties)));
-                }
-            }
-            return rebaseAndDeriveProperties(node, planChild(node, PreferredProperties.local(localProperties)));
+            return rebaseAndDeriveProperties(node, planChild(node, translatedPreferred));
         }
 
         @Override
@@ -216,7 +192,8 @@ public class AddExchanges
 
             PreferredProperties preferredProperties = node.getGroupBy().isEmpty()
                     ? PreferredProperties.any()
-                    : determineChildPreferences(preferred, node.getGroupBy(), grouped(node.getGroupBy()));
+                    : PreferredProperties.derivePreferences(preferred, ImmutableSet.copyOf(node.getGroupBy()), Optional.of(node.getGroupBy()), grouped(node.getGroupBy()));
+
             PlanWithProperties child = planChild(node, preferredProperties);
 
             if (!child.getProperties().isPartitioned()) {
@@ -313,7 +290,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitMarkDistinct(MarkDistinctNode node, PreferredProperties preferred)
         {
-            PreferredProperties preferredChildProperties = determineChildPreferences(preferred, node.getDistinctSymbols(), grouped(node.getDistinctSymbols()));
+            PreferredProperties preferredChildProperties = PreferredProperties.derivePreferences(preferred, ImmutableSet.copyOf(node.getDistinctSymbols()), Optional.of(node.getDistinctSymbols()), grouped(node.getDistinctSymbols()));
             PlanWithProperties child = node.getSource().accept(this, preferredChildProperties);
 
             if ((!child.getProperties().isPartitioned() && isBigQueryEnabled(session, false)) ||
@@ -341,7 +318,7 @@ public class AddExchanges
                 desiredProperties.add(new SortingProperty<>(symbol, node.getOrderings().get(symbol)));
             }
 
-            PlanWithProperties child = planChild(node, determineChildPreferences(preferred, node.getPartitionBy(), desiredProperties));
+            PlanWithProperties child = planChild(node, PreferredProperties.derivePreferences(preferred, ImmutableSet.copyOf(node.getPartitionBy()), desiredProperties));
 
             if (!child.getProperties().isPartitionedOn(node.getPartitionBy())) {
                 if (node.getPartitionBy().isEmpty()) {
@@ -405,7 +382,7 @@ public class AddExchanges
                 return rebaseAndDeriveProperties(node, child);
             }
 
-            PlanWithProperties child = planChild(node, determineChildPreferences(preferred, node.getPartitionBy(), grouped(node.getPartitionBy())));
+            PlanWithProperties child = planChild(node, PreferredProperties.derivePreferences(preferred, ImmutableSet.copyOf(node.getPartitionBy()), grouped(node.getPartitionBy())));
 
             // TODO: add config option/session property to force parallel plan if child is unpartitioned and window has a PARTITION BY clause
             if (!child.getProperties().isPartitionedOn(node.getPartitionBy())) {
@@ -434,7 +411,7 @@ public class AddExchanges
                 addExchange = partial -> gatheringExchange(idAllocator.getNextId(), partial);
             }
             else {
-                preferredChildProperties = determineChildPreferences(preferred, node.getPartitionBy(), grouped(node.getPartitionBy()));
+                preferredChildProperties = PreferredProperties.derivePreferences(preferred, ImmutableSet.copyOf(node.getPartitionBy()), grouped(node.getPartitionBy()));
                 addExchange = partial -> partitionedExchange(idAllocator.getNextId(), partial, node.getPartitionBy(), node.getHashSymbol());
             }
 
@@ -777,7 +754,7 @@ public class AddExchanges
         public PlanWithProperties visitIndexJoin(IndexJoinNode node, PreferredProperties preferredProperties)
         {
             List<Symbol> joinColumns = Lists.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getProbe);
-            PlanWithProperties probeSource = node.getProbeSource().accept(this, determineChildPreferences(preferredProperties, joinColumns, grouped(joinColumns)));
+            PlanWithProperties probeSource = node.getProbeSource().accept(this, PreferredProperties.derivePreferences(preferredProperties, ImmutableSet.copyOf(joinColumns), grouped(joinColumns)));
             ActualProperties probeProperties = probeSource.getProperties();
 
             // TODO: allow repartitioning if unpartitioned to increase parallelism
@@ -885,36 +862,6 @@ public class AddExchanges
                 }
             }
             return new PlanWithProperties(new UnionNode(node.getId(), partitionedSources.build(), outputToSourcesMapping.build()), ActualProperties.hashPartitioned(hashingColumns));
-        }
-
-        private PreferredProperties determineChildPreferences(PreferredProperties preferencesFromParent, List<Symbol> partitioningColumns, List<LocalProperty<Symbol>> localProperties)
-        {
-            // if the child plan can first meet our requirements and then by our parent's,
-            // it can satisfy both in one shot
-            List<LocalProperty<Symbol>> local = ImmutableList.<LocalProperty<Symbol>>builder()
-                    .addAll(localProperties)
-                    .addAll(preferencesFromParent.getLocalProperties())
-                    .build();
-
-            Set<Symbol> partitioning = ImmutableSet.copyOf(partitioningColumns);
-
-            // if the child plan is partitioned by the common columns between our requirements and
-            // our parent's, it can satisfy both in one shot
-            Optional<PartitioningPreferences> parentsPartitioningPreference = preferencesFromParent.getPartitioningProperties();
-            if (parentsPartitioningPreference.isPresent()) {
-                Optional<Set<Symbol>> parentsPartitioningColumns = parentsPartitioningPreference.get().getPartitioningColumns();
-                if (parentsPartitioningColumns.isPresent()) {
-                    partitioning = Sets.intersection(parentsPartitioningColumns.get(), partitioning);
-                }
-            }
-
-            // However, if there are no common columns, prefer our partitioning columns (to avoid ending up
-            // with a non-parallel plan)
-            if (partitioning.isEmpty()) {
-                partitioning = ImmutableSet.copyOf(partitioningColumns);
-            }
-
-            return PreferredProperties.partitionedWithLocal(partitioning, local);
         }
 
         private PlanWithProperties planChild(PlanNode node, PreferredProperties preferred)

@@ -16,6 +16,9 @@ package com.facebook.presto.spi;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class FixedSplitSource
         implements ConnectorSplitSource
@@ -44,14 +47,14 @@ public class FixedSplitSource
     }
 
     @Override
-    public List<ConnectorSplit> getNextBatch(int maxSize)
-            throws InterruptedException
+    public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize)
     {
         int remainingSplits = splits.size() - offset;
         int size = Math.min(remainingSplits, maxSize);
         List<ConnectorSplit> results = splits.subList(offset, offset + size);
         offset += size;
-        return results;
+
+        return completedFuture(results);
     }
 
     @Override

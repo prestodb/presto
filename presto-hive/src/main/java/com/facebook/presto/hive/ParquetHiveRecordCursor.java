@@ -79,7 +79,7 @@ import static parquet.schema.OriginalType.MAP_KEY_VALUE;
 class ParquetHiveRecordCursor
         extends HiveRecordCursor
 {
-    private final ParquetRecordReader<Void> recordReader;
+    private final ParquetRecordReader<FakeParquetRecord> recordReader;
 
     @SuppressWarnings("FieldCanBeLocal") // include names for debugging
     private final String[] names;
@@ -304,7 +304,7 @@ class ParquetHiveRecordCursor
         }
     }
 
-    private ParquetRecordReader<Void> createParquetRecordReader(
+    private ParquetRecordReader<FakeParquetRecord> createParquetRecordReader(
             Configuration configuration,
             Path path,
             long start,
@@ -343,7 +343,7 @@ class ParquetHiveRecordCursor
                     readContext.getReadSupportMetadata());
 
             TaskAttemptContext taskContext = ContextUtil.newTaskAttemptContext(configuration, new TaskAttemptID());
-            ParquetRecordReader<Void> realReader = new PrestoParquetRecordReader(readSupport);
+            ParquetRecordReader<FakeParquetRecord> realReader = new PrestoParquetRecordReader(readSupport);
             realReader.initialize(split, taskContext);
             return realReader;
         }
@@ -357,7 +357,7 @@ class ParquetHiveRecordCursor
     }
 
     public class PrestoParquetRecordReader
-            extends ParquetRecordReader<Void>
+            extends ParquetRecordReader<FakeParquetRecord>
     {
         public PrestoParquetRecordReader(PrestoReadSupport readSupport)
         {
@@ -366,7 +366,7 @@ class ParquetHiveRecordCursor
     }
 
     public final class PrestoReadSupport
-            extends ReadSupport<Void>
+            extends ReadSupport<FakeParquetRecord>
     {
         private final boolean useParquetColumnNames;
         private final List<HiveColumnHandle> columns;
@@ -429,7 +429,7 @@ class ParquetHiveRecordCursor
         }
 
         @Override
-        public RecordMaterializer<Void> prepareForRead(
+        public RecordMaterializer<FakeParquetRecord> prepareForRead(
                 Configuration configuration,
                 Map<String, String> keyValueMetaData,
                 MessageType fileSchema,
@@ -455,7 +455,7 @@ class ParquetHiveRecordCursor
     }
 
     private static class ParquetRecordConverter
-            extends RecordMaterializer<Void>
+            extends RecordMaterializer<FakeParquetRecord>
     {
         private final ParquetGroupConverter groupConverter;
 
@@ -465,9 +465,10 @@ class ParquetHiveRecordCursor
         }
 
         @Override
-        public Void getCurrentRecord()
+        public FakeParquetRecord getCurrentRecord()
         {
-            return null;
+            // Parquet skips the record if it is null, so we need non-null record
+            return FakeParquetRecord.MATERIALIZE_RECORD;
         }
 
         @Override
@@ -475,6 +476,11 @@ class ParquetHiveRecordCursor
         {
             return groupConverter;
         }
+    }
+
+    private enum FakeParquetRecord
+    {
+        MATERIALIZE_RECORD
     }
 
     public static class ParquetGroupConverter

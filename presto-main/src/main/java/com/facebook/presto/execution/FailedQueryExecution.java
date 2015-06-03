@@ -15,10 +15,14 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.memory.VersionedMemoryPoolId;
 import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.util.concurrent.Executor;
+
+import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static java.util.Objects.requireNonNull;
 
 public class FailedQueryExecution
         implements QueryExecution
@@ -27,8 +31,9 @@ public class FailedQueryExecution
 
     public FailedQueryExecution(QueryId queryId, String query, Session session, URI self, Executor executor, Throwable cause)
     {
+        requireNonNull(cause, "cause is null");
         QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, executor);
-        queryStateMachine.fail(cause);
+        queryStateMachine.transitionToFailed(cause);
 
         queryInfo = queryStateMachine.getQueryInfo(null);
     }
@@ -43,6 +48,30 @@ public class FailedQueryExecution
     public QueryInfo getQueryInfo()
     {
         return queryInfo;
+    }
+
+    @Override
+    public QueryState getState()
+    {
+        return queryInfo.getState();
+    }
+
+    @Override
+    public VersionedMemoryPoolId getMemoryPool()
+    {
+        return new VersionedMemoryPoolId(GENERAL_POOL, 0);
+    }
+
+    @Override
+    public void setMemoryPool(VersionedMemoryPoolId poolId)
+    {
+        // no-op
+    }
+
+    @Override
+    public long getTotalMemoryReservation()
+    {
+        return 0;
     }
 
     @Override

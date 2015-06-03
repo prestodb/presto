@@ -23,7 +23,6 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.DateTimeZoneIndex;
-import com.google.common.base.Function;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
@@ -1172,6 +1171,20 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT COUNT(*) FROM lineitem join orders using (orderkey)",
                 "SELECT COUNT(*) FROM lineitem join orders on lineitem.orderkey = orders.orderkey"
+        );
+    }
+
+    @Test
+    public void testJoinCriteriaCoercion()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
+                "VALUES (1.0, 2.0, 1, 3)"
+        );
+        assertQuery(
+                "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) ON x.a = y.a",
+                "VALUES (1.0, 2.0, 1, 3)"
         );
     }
 
@@ -3069,14 +3082,9 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         MaterializedResult result = computeActual("SHOW FUNCTIONS");
-        ImmutableMultimap<String, MaterializedRow> functions = Multimaps.index(result.getMaterializedRows(), new Function<MaterializedRow, String>()
-        {
-            @Override
-            public String apply(MaterializedRow input)
-            {
-                assertEquals(input.getFieldCount(), 6);
-                return (String) input.getField(0);
-            }
+        ImmutableMultimap<String, MaterializedRow> functions = Multimaps.index(result.getMaterializedRows(), input -> {
+            assertEquals(input.getFieldCount(), 6);
+            return (String) input.getField(0);
         });
 
         assertTrue(functions.containsKey("avg"), "Expected function names " + functions + " to contain 'avg'");
@@ -3178,6 +3186,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testUnionWithProjectionPushDown()
+            throws Exception
+    {
+        assertQuery("SELECT key + 5, status FROM (SELECT orderkey key, orderstatus status FROM orders UNION ALL SELECT orderkey key, linestatus status FROM lineitem)");
+    }
+
+    @Test
     public void testUnion()
             throws Exception
     {
@@ -3227,6 +3242,33 @@ public abstract class AbstractTestQueries
                         "   UNION ALL " +
                         "   SELECT shipdate ds, orderkey FROM lineitem) a " +
                         "JOIN orders o ON (a.orderkey = o.orderkey)");
+    }
+
+    @Test
+    public void testUnionWithAggregation()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT ds, count(*) FROM (" +
+                        "   SELECT orderdate ds, orderkey FROM orders " +
+                        "   UNION ALL " +
+                        "   SELECT shipdate ds, orderkey FROM lineitem) a " +
+                        "GROUP BY ds");
+    }
+
+    @Test
+    public void testUnionWithAggregationAndJoin()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT * FROM ( " +
+                        "SELECT orderkey, count(*) FROM (" +
+                        "   SELECT orderdate ds, orderkey FROM orders " +
+                        "   UNION ALL " +
+                        "   SELECT shipdate ds, orderkey FROM lineitem) a " +
+                        "GROUP BY orderkey) t " +
+                        "JOIN orders o " +
+                        "ON (o.orderkey = t.orderkey)");
     }
 
     @Test
@@ -3858,7 +3900,7 @@ public abstract class AbstractTestQueries
     public void testTimeLiterals()
             throws Exception
     {
-        MaterializedResult.Builder builder = MaterializedResult.resultBuilder(getSession(), DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE);
+        MaterializedResult.Builder builder = resultBuilder(getSession(), DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE);
 
         DateTimeZone sessionTimeZone = DateTimeZoneIndex.getDateTimeZone(getSession().getTimeZoneKey());
         DateTimeZone utcPlus6 = DateTimeZoneIndex.getDateTimeZone(TimeZoneKey.getTimeZoneKeyForOffset(6 * 60));

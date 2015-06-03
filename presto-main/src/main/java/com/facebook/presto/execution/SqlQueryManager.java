@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -49,6 +50,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
@@ -187,22 +189,6 @@ public class SqlQueryManager
     }
 
     @Override
-    public List<QueryId> getAllQueryIds()
-    {
-        return queries.values().stream()
-                .map(queryExecution -> {
-                    try {
-                        return queryExecution.getQueryId();
-                    }
-                    catch (RuntimeException ignored) {
-                        return null;
-                    }
-                })
-                .filter(Objects::nonNull)
-                .collect(toImmutableList());
-    }
-
-    @Override
     public List<QueryInfo> getAllQueryInfo()
     {
         return queries.values().stream()
@@ -244,6 +230,15 @@ public class SqlQueryManager
         }
 
         return query.getQueryInfo();
+    }
+
+    @Override
+    public Optional<QueryState> getQueryState(QueryId queryId)
+    {
+        checkNotNull(queryId, "queryId is null");
+
+        return Optional.ofNullable(queries.get(queryId))
+                .map(QueryExecution::getState);
     }
 
     @Override
@@ -367,7 +362,7 @@ public class SqlQueryManager
     public void enforceMemoryLimits()
     {
         memoryManager.process(queries.values().stream()
-                .filter(query -> !query.getQueryInfo().getState().isDone())
+                .filter(query -> query.getQueryInfo().getState() == RUNNING)
                 .collect(toImmutableList()));
     }
 

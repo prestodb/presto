@@ -13,15 +13,20 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.operator.BlockedReason;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
+import java.util.Set;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class QueryStats
 {
@@ -52,6 +57,8 @@ public class QueryStats
     private final Duration totalCpuTime;
     private final Duration totalUserTime;
     private final Duration totalBlockedTime;
+    private final boolean fullyBlocked;
+    private final Set<BlockedReason> blockedReasons;
 
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
@@ -86,6 +93,8 @@ public class QueryStats
         this.totalCpuTime = null;
         this.totalUserTime = null;
         this.totalBlockedTime = null;
+        this.fullyBlocked = false;
+        this.blockedReasons = ImmutableSet.of();
         this.rawInputDataSize = null;
         this.rawInputPositions = 0;
         this.processedInputDataSize = null;
@@ -122,6 +131,8 @@ public class QueryStats
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
             @JsonProperty("totalUserTime") Duration totalUserTime,
             @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
+            @JsonProperty("fullyBlocked") boolean fullyBlocked,
+            @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
 
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
@@ -164,6 +175,8 @@ public class QueryStats
         this.totalCpuTime = checkNotNull(totalCpuTime, "totalCpuTime is null");
         this.totalUserTime = checkNotNull(totalUserTime, "totalUserTime is null");
         this.totalBlockedTime = checkNotNull(totalBlockedTime, "totalBlockedTime is null");
+        this.fullyBlocked = fullyBlocked;
+        this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
         this.rawInputDataSize = checkNotNull(rawInputDataSize, "rawInputDataSize is null");
         checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
@@ -302,6 +315,18 @@ public class QueryStats
     public Duration getTotalBlockedTime()
     {
         return totalBlockedTime;
+    }
+
+    @JsonProperty
+    public boolean isFullyBlocked()
+    {
+        return fullyBlocked;
+    }
+
+    @JsonProperty
+    public Set<BlockedReason> getBlockedReasons()
+    {
+        return blockedReasons;
     }
 
     @JsonProperty

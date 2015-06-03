@@ -126,9 +126,9 @@ public class ArrayAggregation
             blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus()); // not using type.createBlockBuilder because fixedWidth ones can't be serialized
             state.setBlockBuilder(blockBuilder);
         }
-        long startSize = blockBuilder.getSizeInBytes();
+        long startSize = blockBuilder.getRetainedSizeInBytes();
         type.appendTo(value, position, blockBuilder);
-        state.addMemoryUsage(blockBuilder.getSizeInBytes() - startSize);
+        state.addMemoryUsage(blockBuilder.getRetainedSizeInBytes() - startSize);
     }
 
     public static void combine(Type type, ArrayAggregationState state, ArrayAggregationState otherState)
@@ -143,11 +143,11 @@ public class ArrayAggregation
             return;
         }
         int otherPositionCount = otherStateBlockBuilder.getPositionCount();
-        long startSize = stateBlockBuilder.getSizeInBytes();
+        long startSize = stateBlockBuilder.getRetainedSizeInBytes();
         for (int i = 0; i < otherPositionCount; i++) {
             type.appendTo(otherStateBlockBuilder, i, stateBlockBuilder);
         }
-        state.addMemoryUsage(stateBlockBuilder.getSizeInBytes() - startSize);
+        state.addMemoryUsage(stateBlockBuilder.getRetainedSizeInBytes() - startSize);
     }
 
     public static void output(ArrayAggregationState state, BlockBuilder out)

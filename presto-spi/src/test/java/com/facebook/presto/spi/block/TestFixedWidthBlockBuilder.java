@@ -21,25 +21,25 @@ import static org.testng.Assert.assertTrue;
 
 public class TestFixedWidthBlockBuilder
 {
-    private static final int BOOLEAN_ENTRY_SIZE = BOOLEAN.getFixedSize();
+    private static final int BOOLEAN_ENTRY_SIZE = BOOLEAN.getFixedSize() + Byte.BYTES; // value + isNull
     private static final int EXPECTED_ENTRY_COUNT = 3;
 
     @Test
     public void testFixedBlockIsFull()
             throws Exception
     {
-        testIsFull(new FixedWidthBlockBuilder(BOOLEAN.getFixedSize(), EXPECTED_ENTRY_COUNT));
-        testIsFull(new FixedWidthBlockBuilder(BOOLEAN.getFixedSize(), new BlockBuilderStatus(BOOLEAN_ENTRY_SIZE * EXPECTED_ENTRY_COUNT, 1024)));
-        testIsFull(new FixedWidthBlockBuilder(BOOLEAN.getFixedSize(), new BlockBuilderStatus(1024, BOOLEAN_ENTRY_SIZE * EXPECTED_ENTRY_COUNT)));
+        testIsFull(new PageBuilderStatus(BOOLEAN_ENTRY_SIZE * EXPECTED_ENTRY_COUNT, 1024));
+        testIsFull(new PageBuilderStatus(1024, BOOLEAN_ENTRY_SIZE * EXPECTED_ENTRY_COUNT));
     }
 
-    private static void testIsFull(FixedWidthBlockBuilder blockBuilder)
+    private static void testIsFull(PageBuilderStatus pageBuilderStatus)
     {
-        assertTrue(blockBuilder.isEmpty());
-        while (!blockBuilder.isFull()) {
+        FixedWidthBlockBuilder blockBuilder = new FixedWidthBlockBuilder(BOOLEAN.getFixedSize(), pageBuilderStatus.createBlockBuilderStatus());
+        assertTrue(pageBuilderStatus.isEmpty());
+        while (!pageBuilderStatus.isFull()) {
             BOOLEAN.writeBoolean(blockBuilder, true);
         }
         assertEquals(blockBuilder.getPositionCount(), EXPECTED_ENTRY_COUNT);
-        assertEquals(blockBuilder.isFull(), true);
+        assertEquals(pageBuilderStatus.isFull(), true);
     }
 }

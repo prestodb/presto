@@ -55,7 +55,7 @@ public class HashBuilderOperator
             this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
             this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
 
-            this.expectedPositions = checkNotNull(expectedPositions, "expectedPositions is null");
+            this.expectedPositions = expectedPositions;
         }
 
         public LookupSourceSupplier getLookupSourceSupplier()
@@ -135,9 +135,9 @@ public class HashBuilderOperator
             return;
         }
 
-        LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels, hashChannel);
-        operatorContext.setMemoryReservation(pagesIndex.getEstimatedSize().toBytes() + lookupSource.getInMemorySizeInBytes());
-        lookupSourceSupplier.setLookupSource(lookupSource);
+        // Free memory, as the SharedLookupSource is going to take it over
+        operatorContext.setMemoryReservation(0);
+        lookupSourceSupplier.setLookupSource(new SharedLookupSource(pagesIndex.createLookupSource(hashChannels, hashChannel), operatorContext.getDriverContext().getPipelineContext().getTaskContext()));
         finished = true;
     }
 
@@ -160,6 +160,9 @@ public class HashBuilderOperator
         checkState(!isFinished(), "Operator is already finished");
 
         pagesIndex.addPage(page);
+        if (!operatorContext.trySetMemoryReservation(pagesIndex.getEstimatedSize().toBytes())) {
+            pagesIndex.compact();
+        }
         operatorContext.setMemoryReservation(pagesIndex.getEstimatedSize().toBytes());
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
     }

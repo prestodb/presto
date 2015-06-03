@@ -18,9 +18,11 @@ import com.amazonaws.Response;
 import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.util.AWSRequestMetrics;
 import com.amazonaws.util.TimingInfo;
+import io.airlift.units.Duration;
 
 import static com.amazonaws.util.AWSRequestMetrics.Field;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class PrestoS3FileSystemMetricCollector
         extends RequestMetricCollector
@@ -41,6 +43,7 @@ public class PrestoS3FileSystemMetricCollector
         Number requestCounts = timingInfo.getCounter(Field.RequestCount.name());
         Number retryCounts = timingInfo.getCounter(Field.HttpClientRetryCount.name());
         Number throttleExceptions = timingInfo.getCounter(Field.ThrottleException.name());
+        TimingInfo requestTime = timingInfo.getSubMeasurement(Field.HttpRequestTime.name());
 
         if (requestCounts != null) {
             stats.updateAwsRequestCount(requestCounts.longValue());
@@ -52,6 +55,10 @@ public class PrestoS3FileSystemMetricCollector
 
         if (throttleExceptions != null) {
             stats.updateAwsThrottleExceptionsCount(throttleExceptions.longValue());
+        }
+
+        if (requestTime != null && requestTime.getTimeTakenMillisIfKnown() != null) {
+            stats.addAwsRequestTime(new Duration(requestTime.getTimeTakenMillisIfKnown(), MILLISECONDS));
         }
     }
 }

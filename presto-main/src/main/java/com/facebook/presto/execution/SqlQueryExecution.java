@@ -17,6 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
@@ -53,10 +54,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public final class SqlQueryExecution
@@ -131,14 +134,49 @@ public final class SqlQueryExecution
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
             stateMachine.addStateChangeListener(state -> {
-                if (state.isDone() && finalQueryInfo.get() == null) {
-                    finalQueryInfo.compareAndSet(null, getQueryInfo());
-                    outputStage.set(null);
+                if (!state.isDone()) {
+                    return;
                 }
+
+                // query is now done, so abort any work that is still running
+                SqlStageExecution stage = outputStage.get();
+                if (stage != null) {
+                    stage.abort();
+                }
+
+                // capture the final query state and drop reference to the output stage
+                finalQueryInfo.compareAndSet(null, getQueryInfo(stage));
+                outputStage.set(null);
             });
 
             this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled);
         }
+    }
+
+    @Override
+    public VersionedMemoryPoolId getMemoryPool()
+    {
+        return stateMachine.getMemoryPool();
+    }
+
+    @Override
+    public void setMemoryPool(VersionedMemoryPoolId poolId)
+    {
+        stateMachine.setMemoryPool(poolId);
+    }
+
+    @Override
+    public long getTotalMemoryReservation()
+    {
+        // acquire reference to outputStage before checking finalQueryInfo, because
+        // state change listener sets finalQueryInfo and then clears outputStage when
+        // the query finishes.
+        SqlStageExecution stage = outputStage.get();
+        QueryInfo queryInfo = finalQueryInfo.get();
+        if (queryInfo != null) {
+            return queryInfo.getQueryStats().getTotalMemoryReservation().toBytes();
+        }
+        return stage.getTotalMemoryReservation();
     }
 
     @Override
@@ -147,7 +185,7 @@ public final class SqlQueryExecution
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             try {
                 // transition to planning
-                if (!stateMachine.beginPlanning()) {
+                if (!stateMachine.transitionToPlanning()) {
                     // query already started or finished
                     return;
                 }
@@ -159,7 +197,7 @@ public final class SqlQueryExecution
                 planDistribution(subplan);
 
                 // transition to starting
-                if (!stateMachine.starting()) {
+                if (!stateMachine.transitionToStarting()) {
                     // query already started or finished
                     return;
                 }
@@ -169,9 +207,6 @@ public final class SqlQueryExecution
 
                 if (!stateMachine.isDone()) {
                     stage.start();
-                }
-                else {
-                    stage.abort();
                 }
             }
             catch (Throwable e) {
@@ -256,14 +291,49 @@ public final class SqlQueryExecution
                 queryExecutor,
                 nodeTaskMap,
                 ROOT_OUTPUT_BUFFERS);
+
+        outputStage.addStateChangeListener(state -> {
+            if (state == StageState.FINISHED) {
+                stateMachine.transitionToFinished();
+            }
+            else if (state == StageState.CANCELED) {
+                // output stage was canceled
+                stateMachine.transitionToFailed(new PrestoException(USER_CANCELED, "Query was canceled"));
+            }
+        });
+
+        for (SqlStageExecution stage : getAllStages(outputStage)) {
+            stage.addStateChangeListener(state -> {
+                if (stateMachine.isDone()) {
+                    return;
+                }
+                if (stateMachine.getQueryState() == QueryState.STARTING) {
+                    // if any stage has at least one task, we are running
+                    if (!stage.getStageInfo().getTasks().isEmpty()) {
+                        stateMachine.transitionToRunning();
+                    }
+                }
+                else if (state == StageState.FAILED) {
+                    stateMachine.transitionToFailed(stage.getStageInfo().getFailureCause().toException());
+                }
+                else if (state == StageState.ABORTED) {
+                    // this should never happen, since abort can only be triggered in query clean up after the query is finished
+                    stateMachine.transitionToFailed(new PrestoException(INTERNAL_ERROR, "Query stage was aborted"));
+                }
+            });
+        }
+
+        // only export output stage reference after listeners are added
         this.outputStage.set(outputStage);
-        outputStage.addStateChangeListener(this::doUpdateState);
+
+        // if query was canceled during stage creation, abort the output stage
+        // directly since the callback may have already fired
+        if (stateMachine.isDone()) {
+            outputStage.abort();
+        }
 
         // record planning time
         stateMachine.recordDistributedPlanningTime(distributedPlanningStart);
-
-        // update state in case output finished before listener was added
-        doUpdateState(outputStage.getState());
     }
 
     @Override
@@ -282,14 +352,10 @@ public final class SqlQueryExecution
     @Override
     public void fail(Throwable cause)
     {
-        try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
-            // transition to failed state, only if not already finished
-            stateMachine.fail(cause);
+        requireNonNull(cause, "cause is null");
 
-            SqlStageExecution stageExecution = outputStage.get();
-            if (stageExecution != null) {
-                stageExecution.abort();
-            }
+        try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
+            stateMachine.transitionToFailed(cause);
         }
     }
 
@@ -325,13 +391,14 @@ public final class SqlQueryExecution
                 queryInfo.getOutputStage().getStageStats(),
                 ImmutableList.of(), // Remove the tasks
                 ImmutableList.of(), // Remove the substages
-                queryInfo.getOutputStage().getFailures()
+                queryInfo.getOutputStage().getFailureCause()
         );
 
         QueryInfo prunedQueryInfo = new QueryInfo(
                 queryInfo.getQueryId(),
                 queryInfo.getSession(),
                 queryInfo.getState(),
+                getMemoryPool().getId(),
                 queryInfo.isScheduled(),
                 queryInfo.getSelf(),
                 queryInfo.getFieldNames(),
@@ -368,62 +435,40 @@ public final class SqlQueryExecution
                 return finalQueryInfo;
             }
 
-            StageInfo stageInfo = null;
-            if (outputStage != null) {
-                stageInfo = outputStage.getStageInfo();
-            }
-            return stateMachine.getQueryInfo(stageInfo);
+            return getQueryInfo(outputStage);
         }
     }
 
-    private void doUpdateState(StageState outputStageState)
+    @Override
+    public QueryState getState()
     {
-        // if already complete, just return
-        if (stateMachine.isDone()) {
-            return;
-        }
-
-        // if output stage is done, transition to done
-        if (outputStageState.isDone()) {
-            if (outputStageState.isFailure()) {
-                stateMachine.fail(failureCause(outputStage.get().getStageInfo()));
-            }
-            else if (outputStageState == StageState.CANCELED) {
-                stateMachine.fail(new PrestoException(USER_CANCELED, "Query was canceled"));
-            }
-            else {
-                stateMachine.finished();
-            }
-        }
-        else if (stateMachine.getQueryState() == QueryState.STARTING) {
-            // if output stage has at least one task, we are running
-            if (!outputStage.get().getStageInfo().getTasks().isEmpty()) {
-                stateMachine.running();
-                stateMachine.recordExecutionStart();
-            }
-        }
+        return stateMachine.getQueryState();
     }
 
-    private static Throwable failureCause(StageInfo stageInfo)
+    private QueryInfo getQueryInfo(SqlStageExecution outputStage)
     {
-        if (!stageInfo.getFailures().isEmpty()) {
-            return stageInfo.getFailures().get(0).toException();
+        StageInfo stageInfo = null;
+        if (outputStage != null) {
+            stageInfo = outputStage.getStageInfo();
         }
+        return stateMachine.getQueryInfo(stageInfo);
+    }
 
-        for (TaskInfo taskInfo : stageInfo.getTasks()) {
-            if (!taskInfo.getFailures().isEmpty()) {
-                return taskInfo.getFailures().get(0).toException();
-            }
+    private static List<SqlStageExecution> getAllStages(SqlStageExecution stage)
+    {
+        ImmutableList.Builder<SqlStageExecution> collector = ImmutableList.builder();
+        if (stage != null) {
+            addAllStages(stage, collector);
         }
+        return collector.build();
+    }
 
-        for (StageInfo subStageInfo : stageInfo.getSubStages()) {
-            Throwable cause = failureCause(subStageInfo);
-            if (cause != null) {
-                return cause;
-            }
+    private static void addAllStages(SqlStageExecution stage, ImmutableList.Builder<SqlStageExecution> collector)
+    {
+        collector.add(stage);
+        for (SqlStageExecution subStage : stage.getSubStages()) {
+            addAllStages(subStage, collector);
         }
-
-        return null;
     }
 
     public static class SqlQueryExecutionFactory

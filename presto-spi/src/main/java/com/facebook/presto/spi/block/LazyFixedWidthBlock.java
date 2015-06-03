@@ -15,9 +15,11 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.Arrays;
 
+import static io.airlift.slice.Slices.wrappedBooleanArray;
 import static java.util.Objects.requireNonNull;
 
 public class LazyFixedWidthBlock
@@ -80,6 +82,13 @@ public class LazyFixedWidthBlock
     }
 
     @Override
+    public int getRetainedSizeInBytes()
+    {
+        // TODO: This should account for memory used by the loader.
+        return getSizeInBytes();
+    }
+
+    @Override
     public Block getRegion(int positionOffset, int length)
     {
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
@@ -88,7 +97,21 @@ public class LazyFixedWidthBlock
 
         assureLoaded();
         Slice newSlice = slice.slice(positionOffset * fixedSize, length * fixedSize);
-        return new LazyFixedWidthBlock(fixedSize, length, loader, newSlice, Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length));
+        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
+        return new FixedWidthBlock(fixedSize, length, newSlice, wrappedBooleanArray(newValueIsNull));
+    }
+
+    @Override
+    public Block copyRegion(int positionOffset, int length)
+    {
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
+
+        assureLoaded();
+        Slice newSlice = Slices.copyOf(slice, positionOffset * fixedSize, length * fixedSize);
+        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
+        return new FixedWidthBlock(fixedSize, length, newSlice, wrappedBooleanArray(newValueIsNull));
     }
 
     @Override

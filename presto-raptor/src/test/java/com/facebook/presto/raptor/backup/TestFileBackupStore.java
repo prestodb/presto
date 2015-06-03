@@ -1,0 +1,91 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.raptor.backup;
+
+import com.google.common.io.Files;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
+
+import java.io.File;
+import java.util.UUID;
+
+import static com.google.common.io.Files.createTempDir;
+import static io.airlift.testing.FileUtils.deleteRecursively;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.UUID.randomUUID;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
+
+@Test(singleThreaded = true)
+public class TestFileBackupStore
+{
+    private File temporary;
+    private FileBackupStore store;
+
+    @BeforeClass
+    public void setup()
+            throws Exception
+    {
+        temporary = createTempDir();
+        store = new FileBackupStore(new File(temporary, "backup"));
+        store.start();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+            throws Exception
+    {
+        deleteRecursively(temporary);
+    }
+
+    @Test
+    public void testBackupStore()
+            throws Exception
+    {
+        // backup first file
+        File file1 = new File(temporary, "file1");
+        Files.write("hello world", file1, UTF_8);
+        UUID uuid1 = randomUUID();
+
+        assertFalse(store.shardSize(uuid1).isPresent());
+        store.backupShard(uuid1, file1);
+        assertTrue(store.shardSize(uuid1).isPresent());
+        assertEquals(store.shardSize(uuid1).getAsLong(), file1.length());
+
+        // backup second file
+        File file2 = new File(temporary, "file2");
+        Files.write("bye bye", file2, UTF_8);
+        UUID uuid2 = randomUUID();
+
+        assertFalse(store.shardSize(uuid2).isPresent());
+        store.backupShard(uuid2, file2);
+        assertTrue(store.shardSize(uuid2).isPresent());
+        assertEquals(store.shardSize(uuid2).getAsLong(), file2.length());
+
+        // verify first file
+        File restore1 = new File(temporary, "restore1");
+        store.restoreShard(uuid1, restore1);
+        assertEquals(Files.toByteArray(file1), Files.toByteArray(restore1));
+
+        // verify second file
+        File restore2 = new File(temporary, "restore2");
+        store.restoreShard(uuid2, restore2);
+        assertEquals(Files.toByteArray(file2), Files.toByteArray(restore2));
+
+        // verify random UUID does not exist
+        assertFalse(store.shardSize(randomUUID()).isPresent());
+    }
+}

@@ -15,11 +15,15 @@ package com.facebook.presto.hive;
 
 import com.amazonaws.AbortedException;
 import io.airlift.stats.CounterStat;
+import io.airlift.stats.TimeStat;
+import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class PrestoS3FileSystemStats
 {
@@ -37,11 +41,15 @@ public class PrestoS3FileSystemStats
     private final CounterStat socketTimeoutExceptions = new CounterStat();
     private final CounterStat getObjectErrors = new CounterStat();
     private final CounterStat getMetadataErrors = new CounterStat();
+    private final CounterStat getObjectRetries = new CounterStat();
+    private final CounterStat getMetadataRetries = new CounterStat();
+    private final CounterStat readRetries = new CounterStat();
 
     // see AWSRequestMetrics
     private final CounterStat awsRequestCount = new CounterStat();
     private final CounterStat awsRetryCount = new CounterStat();
     private final CounterStat awsThrottleExceptions = new CounterStat();
+    private final TimeStat awsRequestTime = new TimeStat(MILLISECONDS);
 
     @Managed
     @Nested
@@ -162,6 +170,34 @@ public class PrestoS3FileSystemStats
         return awsThrottleExceptions;
     }
 
+    @Managed
+    @Nested
+    public TimeStat getAwsRequestTime()
+    {
+        return awsRequestTime;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getGetObjectRetries()
+    {
+        return getObjectRetries;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getGetMetadataRetries()
+    {
+        return getMetadataRetries;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getReadRetries()
+    {
+        return readRetries;
+    }
+
     public void connectionOpened()
     {
         activeConnections.update(1);
@@ -246,5 +282,25 @@ public class PrestoS3FileSystemStats
     public void updateAwsThrottleExceptionsCount(long throttleExceptionsCount)
     {
         awsThrottleExceptions.update(throttleExceptionsCount);
+    }
+
+    public void addAwsRequestTime(Duration duration)
+    {
+        awsRequestTime.add(duration);
+    }
+
+    public void newGetObjectRetry()
+    {
+        getObjectRetries.update(1);
+    }
+
+    public void newGetMetadataRetry()
+    {
+        getMetadataRetries.update(1);
+    }
+
+    public void newReadRetry()
+    {
+        readRetries.update(1);
     }
 }

@@ -17,7 +17,6 @@ import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
-import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -31,7 +30,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.TestHiveUtil.nonDefaultTimeZone;
 
-@DefunctConfig("hive.file-system-cache-ttl")
 public class TestHiveClientConfig
 {
     @Test
@@ -41,8 +39,7 @@ public class TestHiveClientConfig
                 .setTimeZone(TimeZone.getDefault().getID())
                 .setMaxSplitSize(new DataSize(64, Unit.MEGABYTE))
                 .setMaxOutstandingSplits(1_000)
-                .setMaxGlobalSplitIteratorThreads(1_000)
-                .setMaxSplitIteratorThreads(50)
+                .setMaxSplitIteratorThreads(1_000)
                 .setAllowDropTable(false)
                 .setAllowRenameTable(false)
                 .setAllowCorruptWritesForTesting(false)
@@ -93,8 +90,7 @@ public class TestHiveClientConfig
                 .put("hive.time-zone", nonDefaultTimeZone().getID())
                 .put("hive.max-split-size", "256MB")
                 .put("hive.max-outstanding-splits", "10")
-                .put("hive.max-global-split-iterator-threads", "10")
-                .put("hive.max-split-iterator-threads", "2")
+                .put("hive.max-split-iterator-threads", "10")
                 .put("hive.allow-drop-table", "true")
                 .put("hive.allow-rename-table", "true")
                 .put("hive.allow-corrupt-writes-for-testing", "true")
@@ -142,8 +138,7 @@ public class TestHiveClientConfig
                 .setTimeZone(nonDefaultTimeZone().toTimeZone())
                 .setMaxSplitSize(new DataSize(256, Unit.MEGABYTE))
                 .setMaxOutstandingSplits(10)
-                .setMaxGlobalSplitIteratorThreads(10)
-                .setMaxSplitIteratorThreads(2)
+                .setMaxSplitIteratorThreads(10)
                 .setAllowDropTable(true)
                 .setAllowRenameTable(true)
                 .setAllowCorruptWritesForTesting(true)

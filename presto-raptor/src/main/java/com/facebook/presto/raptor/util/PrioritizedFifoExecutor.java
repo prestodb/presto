@@ -98,7 +98,7 @@ public class PrioritizedFifoExecutor<T extends Runnable>
         {
             super(checkNotNull(task, "task is null"), null);
             this.task = task;
-            this.sequenceNumber = checkNotNull(sequenceNumber, "sequenceNumber is null");
+            this.sequenceNumber = sequenceNumber;
             this.taskComparator = checkNotNull(taskComparator, "taskComparator is null");
         }
 

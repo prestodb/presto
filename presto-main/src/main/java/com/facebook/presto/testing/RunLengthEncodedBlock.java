@@ -37,7 +37,7 @@ public class RunLengthEncodedBlock
         checkArgument(!(value instanceof RunLengthEncodedBlock), "Value can not be an instance of a %s", getClass().getName());
 
         checkArgument(positionCount >= 0, "positionCount is negative");
-        this.positionCount = checkNotNull(positionCount, "positionCount is null");
+        this.positionCount = positionCount;
     }
 
     public Block getValue()
@@ -58,6 +58,12 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public int getRetainedSizeInBytes()
+    {
+        return value.getRetainedSizeInBytes();
+    }
+
+    @Override
     public RunLengthBlockEncoding getEncoding()
     {
         return new RunLengthBlockEncoding(value.getEncoding());
@@ -68,6 +74,13 @@ public class RunLengthEncodedBlock
     {
         checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
         return new RunLengthEncodedBlock(value, length);
+    }
+
+    @Override
+    public Block copyRegion(int positionOffset, int length)
+    {
+        checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
+        return new RunLengthEncodedBlock(value.copyRegion(0, 1), length);
     }
 
     @Override

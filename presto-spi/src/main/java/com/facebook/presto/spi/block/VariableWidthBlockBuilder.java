@@ -16,6 +16,7 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 
 import java.util.Objects;
 
@@ -84,21 +85,19 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    public boolean isEmpty()
-    {
-        return positions == 0;
-    }
-
-    @Override
-    public boolean isFull()
-    {
-        return blockBuilderStatus.isFull();
-    }
-
-    @Override
     public int getSizeInBytes()
     {
         long size = sliceOutput.getUnderlyingSlice().length() + offsets.getUnderlyingSlice().length() + valueIsNull.getUnderlyingSlice().length();
+        if (size > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) size;
+    }
+
+    @Override
+    public int getRetainedSizeInBytes()
+    {
+        long size = sliceOutput.getUnderlyingSlice().getRetainedSize() + offsets.getUnderlyingSlice().getRetainedSize() + valueIsNull.getUnderlyingSlice().getRetainedSize();
         if (size > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;
         }
@@ -188,9 +187,6 @@ public class VariableWidthBlockBuilder
         offsets.appendInt(sliceOutput.size());
 
         blockBuilderStatus.addBytes(SIZE_OF_BYTE + SIZE_OF_INT + bytesWritten);
-        if (sliceOutput.size() + valueIsNull.size() + offsets.size() >= blockBuilderStatus.getMaxBlockSizeInBytes()) {
-            blockBuilderStatus.setFull();
-        }
     }
 
     @Override
@@ -209,6 +205,19 @@ public class VariableWidthBlockBuilder
 
         Slice newOffsets = offsets.getUnderlyingSlice().slice(positionOffset * SIZE_OF_INT, (length + 1) * SIZE_OF_INT);
         Slice newValueIsNull = valueIsNull.getUnderlyingSlice().slice(positionOffset, length);
+        return new VariableWidthBlock(length, sliceOutput.slice(), newOffsets, newValueIsNull);
+    }
+
+    @Override
+    public Block copyRegion(int positionOffset, int length)
+    {
+        int positionCount = getPositionCount();
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
+
+        Slice newOffsets = Slices.copyOf(offsets.getUnderlyingSlice(), positionOffset * SIZE_OF_INT, (length + 1) * SIZE_OF_INT);
+        Slice newValueIsNull = Slices.copyOf(valueIsNull.getUnderlyingSlice(), positionOffset, length);
         return new VariableWidthBlock(length, sliceOutput.slice(), newOffsets, newValueIsNull);
     }
 

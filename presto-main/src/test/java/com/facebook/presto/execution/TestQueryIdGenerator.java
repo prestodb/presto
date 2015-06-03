@@ -62,11 +62,6 @@ public class TestQueryIdGenerator
     {
         private long now;
 
-        public String getCoordinatorId()
-        {
-            return coordinatorId;
-        }
-
         public void setNow(long now)
         {
             this.now = now;

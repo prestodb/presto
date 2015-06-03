@@ -30,6 +30,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
+import org.skife.jdbi.v2.TransactionCallback;
 import org.skife.jdbi.v2.exceptions.DBIException;
 import org.skife.jdbi.v2.util.ByteArrayMapper;
 
@@ -46,6 +47,7 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static com.facebook.presto.raptor.metadata.ShardManagerDaoUtils.createShardTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.ShardPredicate.jdbcType;
@@ -55,7 +57,9 @@ import static com.facebook.presto.raptor.util.ArrayUtil.intArrayFromBytes;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayToBytes;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.nCopies;
@@ -146,7 +150,7 @@ public class DatabaseShardManager
     {
         Map<String, Integer> nodeIds = toNodeIdMap(newShards);
 
-        dbi.inTransaction((handle, status) -> {
+        runTransaction((handle, status) -> {
             ShardManagerDao dao = handle.attach(ShardManagerDao.class);
             insertShardsAndIndex(tableId, columns, newShards, nodeIds, handle, dao);
             deleteShardsAndIndex(tableId, oldShardIds, handle);
@@ -154,7 +158,7 @@ public class DatabaseShardManager
         });
     }
 
-    private void deleteShardsAndIndex(long tableId, Set<Long> shardIds, Handle handle)
+    private static void deleteShardsAndIndex(long tableId, Set<Long> shardIds, Handle handle)
             throws SQLException
     {
         String args = Joiner.on(",").join(nCopies(shardIds.size(), "?"));
@@ -163,24 +167,37 @@ public class DatabaseShardManager
         String deleteFromShards = "DELETE FROM shards " + where;
         String deleteFromShardIndex = "DELETE FROM " + shardIndexTable(tableId) + where;
 
-        for (String sql : asList(deleteFromShardNodes, deleteFromShards, deleteFromShardIndex)) {
+        try (PreparedStatement statement = handle.getConnection().prepareStatement(deleteFromShardNodes)) {
+            bindLongs(statement, shardIds);
+            statement.executeUpdate();
+        }
+
+        for (String sql : asList(deleteFromShards, deleteFromShardIndex)) {
             try (PreparedStatement statement = handle.getConnection().prepareStatement(sql)) {
-                int i = 1;
-                for (long shardId : shardIds) {
-                    statement.setLong(i, shardId);
-                    i++;
+                bindLongs(statement, shardIds);
+                if (statement.executeUpdate() != shardIds.size()) {
+                    throw new PrestoException(TRANSACTION_CONFLICT, "Shard was updated by a different transaction. Please retry the operation.");
                 }
-                statement.executeUpdate();
             }
         }
     }
 
-    private void insertShardsAndIndex(long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Map<String, Integer> nodeIds, Handle handle, ShardManagerDao dao)
+    private static void bindLongs(PreparedStatement statement, Set<Long> values)
+            throws SQLException
+    {
+        int i = 1;
+        for (long value : values) {
+            statement.setLong(i, value);
+            i++;
+        }
+    }
+
+    private static void insertShardsAndIndex(long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Map<String, Integer> nodeIds, Handle handle, ShardManagerDao dao)
             throws SQLException
     {
         try (IndexInserter indexInserter = new IndexInserter(handle.getConnection(), tableId, columns)) {
             for (ShardInfo shard : shards) {
-                long shardId = dao.insertShard(shard.getShardUuid(), tableId, shard.getRowCount(), shard.getDataSize());
+                long shardId = dao.insertShard(shard.getShardUuid(), tableId, shard.getRowCount(), shard.getCompressedSize(), shard.getUncompressedSize());
                 Set<Integer> shardNodes = shard.getNodeIdentifiers().stream()
                         .map(nodeIds::get)
                         .collect(toSet());
@@ -256,6 +273,17 @@ public class DatabaseShardManager
 
             return null;
         }));
+    }
+
+    private <T> T runTransaction(TransactionCallback<T> callback)
+    {
+        try {
+            return dbi.inTransaction(callback);
+        }
+        catch (DBIException e) {
+            propagateIfInstanceOf(e.getCause(), PrestoException.class);
+            throw new PrestoException(RAPTOR_ERROR, "Failed to perform metadata operation", e);
+        }
     }
 
     private int getOrCreateNodeId(String nodeIdentifier)

@@ -112,9 +112,14 @@ public interface Block
     int getPositionCount();
 
     /**
-     * Returns the size of this block in memory.
+     * Returns the logical size of this block in memory.
      */
     int getSizeInBytes();
+
+    /**
+     * Returns the retained size of this block in memory.
+     */
+    int getRetainedSizeInBytes();
 
     /**
      * Get the encoding for this block.
@@ -131,6 +136,18 @@ public interface Block
      * this block may also be released.
      */
     Block getRegion(int positionOffset, int length);
+
+    /**
+     * Returns a block starting at the specified position and extends for the
+     * specified length.  The specified region must be entirely contained
+     * within this block.
+     *
+     * The region returned must be a compact representation of the original block, unless their internal
+     * representation will be exactly the same. This method is useful for
+     * operators that hold on to a range of values without holding on to the
+     * entire block.
+     */
+    Block copyRegion(int position, int length);
 
     /**
      * Is the specified position null?

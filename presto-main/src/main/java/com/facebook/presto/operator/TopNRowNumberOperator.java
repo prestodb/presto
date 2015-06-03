@@ -382,7 +382,7 @@ public class TopNRowNumberOperator
     {
         long size = OVERHEAD_PER_VALUE.toBytes();
         for (Block value : row) {
-            size += value.getSizeInBytes();
+            size += value.getRetainedSizeInBytes();
         }
         return size;
     }

@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.google.common.io.BaseEncoding;
@@ -21,6 +22,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.util.Base64;
+
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 public final class VarbinaryFunctions
 {
@@ -95,7 +98,29 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     public static Slice fromHexVarchar(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
-        return Slices.wrappedBuffer(BaseEncoding.base16().decode(slice.toStringUtf8()));
+        if (slice.length() % 2 != 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "invalid input length " + slice.length());
+        }
+
+        byte[] result = new byte[slice.length() / 2];
+        for (int i = 0; i < slice.length(); i += 2) {
+            result[i / 2] = (byte) ((hexDigitCharToInt(slice.getByte(i)) << 4) | hexDigitCharToInt(slice.getByte(i + 1)));
+        }
+        return Slices.wrappedBuffer(result);
+    }
+
+    private static int hexDigitCharToInt(byte b)
+    {
+        if (b >= '0' && b <= '9') {
+            return b - '0';
+        }
+        else if (b >= 'a' && b <= 'f') {
+            return b - 'a' + 10;
+        }
+        else if (b >= 'A' && b <= 'F') {
+            return b - 'A' + 10;
+        }
+        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "invalid hex character: " + (char) b);
     }
 
     @Description("decode hex encoded binary data")
@@ -103,6 +128,6 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARBINARY)
     public static Slice fromHexVarbinary(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
-        return Slices.wrappedBuffer(BaseEncoding.base16().decode(slice.toStringUtf8()));
+        return fromHexVarchar(slice);
     }
 }

@@ -134,6 +134,12 @@ var Query = React.createClass({
         if (state === "FAILED") {
             state = this.shortErrorType(query.errorType, query.errorCode);
         }
+        if (query.fullyBlocked && state == "RUNNING") {
+            state = "BLOCKED";
+            if (query.blockedReasons.length > 0) {
+                state += " (" + query.blockedReasons.join() + ")";
+            }
+        }
         var splits;
         if (query.state == 'FINISHED' || query.state == 'FAILED') {
             splits = <div className="row">

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -26,8 +26,8 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.concurrent.GuardedBy;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -49,13 +49,12 @@ public class ScanFilterAndProjectOperator
     private final PageBuilder pageBuilder;
     private final CursorProcessor cursorProcessor;
     private final PageProcessor pageProcessor;
+    private final SettableFuture<?> blocked = SettableFuture.create();
 
-    @GuardedBy("this")
     private RecordCursor cursor;
-
-    @GuardedBy("this")
     private ConnectorPageSource pageSource;
 
+    private Split split;
     private Page currentPage;
     private int currentPosition;
 
@@ -97,31 +96,31 @@ public class ScanFilterAndProjectOperator
     }
 
     @Override
-    public synchronized void addSplit(Split split)
+    public void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
-        checkState(cursor == null && pageSource == null, "split already set");
+        checkState(this.split == null, "Table scan split already set");
 
-        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(split, columns);
-        if (pageSource instanceof RecordPageSource) {
-            cursor = ((RecordPageSource) pageSource).getCursor();
+        if (finishing) {
+            return;
         }
-        else {
-            this.pageSource = pageSource;
-        }
+
+        this.split = split;
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
             operatorContext.setInfoSupplier(Suppliers.ofInstance(splitInfo));
         }
+        blocked.set(null);
     }
 
     @Override
-    public synchronized void noMoreSplits()
+    public void noMoreSplits()
     {
-        if (cursor == null && pageSource == null) {
+        if (split == null) {
             finishing = true;
         }
+        blocked.set(null);
     }
 
     @Override
@@ -131,14 +130,15 @@ public class ScanFilterAndProjectOperator
     }
 
     @Override
-    public final void finish()
+    public void close()
     {
-        close();
+        finish();
     }
 
     @Override
-    public void close()
+    public void finish()
     {
+        blocked.set(null);
         if (pageSource != null) {
             try {
                 pageSource.close();
@@ -156,11 +156,21 @@ public class ScanFilterAndProjectOperator
     @Override
     public final boolean isFinished()
     {
+        if (!finishing) {
+            createSourceIfNecessary();
+        }
+
         if (pageSource != null && pageSource.isFinished() && currentPage == null) {
             finishing = true;
         }
 
         return finishing && pageBuilder.isEmpty();
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        return blocked;
     }
 
     @Override
@@ -179,6 +189,8 @@ public class ScanFilterAndProjectOperator
     public Page getOutput()
     {
         if (!finishing) {
+            createSourceIfNecessary();
+
             if (cursor != null) {
                 int rowsProcessed = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), cursor, ROWS_PER_PAGE, pageBuilder);
                 long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
@@ -225,6 +237,19 @@ public class ScanFilterAndProjectOperator
         Page page = pageBuilder.build();
         pageBuilder.reset();
         return page;
+    }
+
+    private void createSourceIfNecessary()
+    {
+        if ((split != null) && (pageSource == null) && (cursor == null)) {
+            ConnectorPageSource source = pageSourceProvider.createPageSource(split, columns);
+            if (source instanceof RecordPageSource) {
+                cursor = ((RecordPageSource) source).getCursor();
+            }
+            else {
+                pageSource = source;
+            }
+        }
     }
 
     public static class ScanFilterAndProjectOperatorFactory

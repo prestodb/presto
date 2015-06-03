@@ -31,7 +31,7 @@ public class TestReservedSystemMemoryConfig
     {
         // This can't use assertRecordedDefaults because the default value is dependent on the current max heap size, which varies based on the current size of the survivor space.
         for (int i = 0; i < 1_000; i++) {
-            DataSize expected = new DataSize(Runtime.getRuntime().maxMemory() * 0.2, BYTE);
+            DataSize expected = new DataSize(Runtime.getRuntime().maxMemory() * 0.4, BYTE);
             ReservedSystemMemoryConfig config = new ReservedSystemMemoryConfig();
             if (expected.equals(config.getReservedSystemMemory())) {
                 return;

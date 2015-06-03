@@ -32,11 +32,6 @@ public final class ExampleColumnHandle
     private final Type columnType;
     private final int ordinalPosition;
 
-    public ExampleColumnHandle(String connectorId, ColumnMetadata columnMetadata)
-    {
-        this(connectorId, columnMetadata.getName(), columnMetadata.getType(), columnMetadata.getOrdinalPosition());
-    }
-
     @JsonCreator
     public ExampleColumnHandle(
             @JsonProperty("connectorId") String connectorId,
@@ -76,7 +71,7 @@ public final class ExampleColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(columnName, columnType, ordinalPosition, false);
+        return new ColumnMetadata(columnName, columnType, false);
     }
 
     @Override

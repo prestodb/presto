@@ -175,5 +175,19 @@ public class TestLeadFunction
                         .row(32, "O", 32)
                         .row(34, "O", 34)
                         .build());
+
+        assertWindowQuery("date_format(lead(cast(orderdate as TIMESTAMP), 0) OVER (PARTITION BY orderstatus ORDER BY orderkey), '%Y-%m-%d')",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                        .row(3, "F", "1993-10-14")
+                        .row(5, "F", "1994-07-30")
+                        .row(6, "F", "1992-02-21")
+                        .row(33, "F", "1993-10-27")
+                        .row(1, "O", "1996-01-02")
+                        .row(2, "O", "1996-12-01")
+                        .row(4, "O", "1995-10-11")
+                        .row(7, "O", "1996-01-10")
+                        .row(32, "O", "1995-07-16")
+                        .row(34, "O", "1998-07-21")
+                        .build());
     }
 }

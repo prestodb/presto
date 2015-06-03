@@ -14,14 +14,17 @@
 package com.facebook.presto.client;
 
 import com.google.common.base.Splitter;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpClient.HttpResponseFuture;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -32,6 +35,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -41,7 +46,6 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
-import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpStatus.Family;
@@ -191,14 +195,15 @@ public class StatementClient
 
     public boolean advance()
     {
-        if (isClosed() || (current().getNextUri() == null)) {
+        URI nextUri = current().getNextUri();
+        if (isClosed() || (nextUri == null)) {
             valid.set(false);
             return false;
         }
 
         Request request = prepareGet()
                 .setHeader(USER_AGENT, USER_AGENT_VALUE)
-                .setUri(current().getNextUri())
+                .setUri(nextUri)
                 .build();
 
         Exception cause = null;
@@ -208,7 +213,14 @@ public class StatementClient
         do {
             // back-off on retry
             if (attempts > 0) {
-                sleepUninterruptibly(attempts * 100, MILLISECONDS);
+                try {
+                    MILLISECONDS.sleep(attempts * 100);
+                }
+                catch (InterruptedException e) {
+                    close();
+                    Thread.currentThread().isInterrupted();
+                    throw new RuntimeException("StatementClient thread was interrupted");
+                }
             }
             attempts++;
 
@@ -255,15 +267,12 @@ public class StatementClient
     {
         gone.set(true);
         if (!response.hasValue()) {
-            return new RuntimeException(format("Error " + task + " at %s returned an invalid response: %s", request.getUri(), response), response.getException());
+            return new RuntimeException(format("Error %s at %s returned an invalid response: %s", task, request.getUri(), response), response.getException());
         }
-        return new RuntimeException(format("Error " + task + " at %s returned %s: %s",
-                request.getUri(),
-                response.getStatusCode(),
-                response.getStatusMessage()));
+        return new RuntimeException(format("Error %s at %s returned %s: %s", task, request.getUri(), response.getStatusCode(), response.getStatusMessage()));
     }
 
-    public boolean cancelLeafStage()
+    public boolean cancelLeafStage(Duration timeout)
     {
         checkState(!isClosed(), "client is closed");
 
@@ -276,8 +285,22 @@ public class StatementClient
                 .setHeader(USER_AGENT, USER_AGENT_VALUE)
                 .setUri(uri)
                 .build();
-        StatusResponse status = httpClient.execute(request, createStatusResponseHandler());
-        return familyForStatusCode(status.getStatusCode()) == Family.SUCCESSFUL;
+
+        HttpResponseFuture<StatusResponse> response = httpClient.executeAsync(request, createStatusResponseHandler());
+        try {
+            StatusResponse status = response.get(timeout.toMillis(), MILLISECONDS);
+            return familyForStatusCode(status.getStatusCode()) == Family.SUCCESSFUL;
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw Throwables.propagate(e);
+        }
+        catch (ExecutionException e) {
+            throw Throwables.propagate(e.getCause());
+        }
+        catch (TimeoutException e) {
+            return false;
+        }
     }
 
     @Override

@@ -27,10 +27,4 @@ public interface StorageService
     File getStorageFile(UUID shardUuid);
 
     File getStagingFile(UUID shardUuid);
-
-    File getBackupFile(UUID shardUuid);
-
-    boolean isBackupAvailable(UUID shardUuid);
-
-    boolean isBackupAvailable();
 }

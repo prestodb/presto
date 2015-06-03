@@ -59,19 +59,19 @@ public class TestJdbcRecordSet
             throws Exception
     {
         RecordSet recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.of(
-                new JdbcColumnHandle("test", "text", VARCHAR, 0),
-                new JdbcColumnHandle("test", "value", BIGINT, 1)));
+                new JdbcColumnHandle("test", "text", VARCHAR),
+                new JdbcColumnHandle("test", "value", BIGINT)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(VARCHAR, BIGINT));
 
         recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.of(
-                new JdbcColumnHandle("test", "value", BIGINT, 1),
-                new JdbcColumnHandle("test", "text", VARCHAR, 0)));
+                new JdbcColumnHandle("test", "value", BIGINT),
+                new JdbcColumnHandle("test", "text", VARCHAR)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, VARCHAR));
 
         recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.of(
-                new JdbcColumnHandle("test", "value", BIGINT, 1),
-                new JdbcColumnHandle("test", "value", BIGINT, 1),
-                new JdbcColumnHandle("test", "text", VARCHAR, 0)));
+                new JdbcColumnHandle("test", "value", BIGINT),
+                new JdbcColumnHandle("test", "value", BIGINT),
+                new JdbcColumnHandle("test", "text", VARCHAR)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, VARCHAR));
 
         recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.<JdbcColumnHandle>of());
@@ -137,5 +137,18 @@ public class TestJdbcRecordSet
                     .put("twelve", 12L)
                     .build());
         }
+    }
+
+    @Test
+    public void testIdempotentClose()
+    {
+        RecordSet recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.of(
+                columnHandles.get("value"),
+                columnHandles.get("value"),
+                columnHandles.get("text")));
+
+        RecordCursor cursor = recordSet.cursor();
+        cursor.close();
+        cursor.close();
     }
 }

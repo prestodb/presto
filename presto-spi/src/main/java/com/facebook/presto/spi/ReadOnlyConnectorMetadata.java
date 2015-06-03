@@ -39,6 +39,12 @@ public abstract class ReadOnlyConnectorMetadata
     }
 
     @Override
+    public void renameColumn(ConnectorTableHandle tableHandle, ColumnHandle source, String target)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming columns");
+    }
+
+    @Override
     public final void dropTable(ConnectorTableHandle tableHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping tables");

@@ -22,13 +22,20 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public final class SequencePageBuilder
 {
     private SequencePageBuilder()
     {
+    }
+
+    public static Page createSequencePage(List<? extends Type> types, int length)
+    {
+        return createSequencePage(types, length, new int[types.size()]);
     }
 
     public static Page createSequencePage(List<? extends Type> types, int length, int... initialValues)
@@ -49,6 +56,12 @@ public final class SequencePageBuilder
             }
             else if (type.equals(BOOLEAN)) {
                 blocks[i] = BlockAssertions.createBooleanSequenceBlock(initialValue, initialValue + length);
+            }
+            else if (type.equals(DATE)) {
+                blocks[i] = BlockAssertions.createDateSequenceBlock(initialValue, initialValue + length);
+            }
+            else if (type.equals(TIMESTAMP)) {
+                blocks[i] = BlockAssertions.createTimestampSequenceBlock(initialValue, initialValue + length);
             }
             else {
                 throw new IllegalStateException("Unsupported type " + type);

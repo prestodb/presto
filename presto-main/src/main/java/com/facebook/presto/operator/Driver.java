@@ -30,6 +30,7 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -55,6 +56,7 @@ import static com.google.common.base.Preconditions.checkState;
 // time and state changer threads are not blocked.
 //
 public class Driver
+        implements Closeable
 {
     private static final Logger log = Logger.get(Driver.class);
 
@@ -113,6 +115,7 @@ public class Driver
         return sourceOperators.keySet();
     }
 
+    @Override
     public void close()
     {
         // mark the service for destruction
@@ -443,6 +446,17 @@ public class Driver
                             inFlightException,
                             t,
                             "Error closing operator %s for task %s",
+                            operator.getOperatorContext().getOperatorId(),
+                            driverContext.getTaskId());
+                }
+                try {
+                    operator.getOperatorContext().setMemoryReservation(0);
+                }
+                catch (Throwable t) {
+                    inFlightException = addSuppressedException(
+                            inFlightException,
+                            t,
+                            "Error freeing memory for operator %s for task %s",
                             operator.getOperatorContext().getOperatorId(),
                             driverContext.getTaskId());
                 }

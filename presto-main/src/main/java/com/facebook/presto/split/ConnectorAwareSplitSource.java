@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.google.common.collect.Lists;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -40,10 +41,10 @@ public class ConnectorAwareSplitSource
     }
 
     @Override
-    public List<Split> getNextBatch(int maxSize)
-            throws InterruptedException
+    public CompletableFuture<List<Split>> getNextBatch(int maxSize)
     {
-        return Lists.transform(source.getNextBatch(maxSize), split -> new Split(connectorId, split));
+        return source.getNextBatch(maxSize)
+                .thenApply(splits -> Lists.transform(splits, split -> new Split(connectorId, split)));
     }
 
     @Override

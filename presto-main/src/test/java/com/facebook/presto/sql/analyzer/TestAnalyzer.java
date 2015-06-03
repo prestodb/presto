@@ -407,6 +407,7 @@ public class TestAnalyzer
     public void testWindowFunctionWithoutOverClause()
     {
         assertFails(WINDOW_REQUIRES_OVER, "SELECT row_number()");
+        assertFails(WINDOW_REQUIRES_OVER, "SELECT coalesce(lead(a), 0) from (values(0)) t(a)");
     }
 
     @Test
@@ -767,36 +768,36 @@ public class TestAnalyzer
         SchemaTableName table1 = new SchemaTableName("default", "t1");
         metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", BIGINT, 0, false),
-                        new ColumnMetadata("b", BIGINT, 1, false),
-                        new ColumnMetadata("c", BIGINT, 2, false),
-                        new ColumnMetadata("d", BIGINT, 3, false)))));
+                        new ColumnMetadata("a", BIGINT, false),
+                        new ColumnMetadata("b", BIGINT, false),
+                        new ColumnMetadata("c", BIGINT, false),
+                        new ColumnMetadata("d", BIGINT, false)))));
 
         SchemaTableName table2 = new SchemaTableName("default", "t2");
         metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table2,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", BIGINT, 0, false),
-                        new ColumnMetadata("b", BIGINT, 1, false)))));
+                        new ColumnMetadata("a", BIGINT, false),
+                        new ColumnMetadata("b", BIGINT, false)))));
 
         SchemaTableName table3 = new SchemaTableName("default", "t3");
         metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table3,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", BIGINT, 0, false),
-                        new ColumnMetadata("b", BIGINT, 1, false),
-                        new ColumnMetadata("x", BIGINT, 2, false, null, true)))));
+                        new ColumnMetadata("a", BIGINT, false),
+                        new ColumnMetadata("b", BIGINT, false),
+                        new ColumnMetadata("x", BIGINT, false, null, true)))));
 
         // table in different catalog
         SchemaTableName table4 = new SchemaTableName("s2", "t4");
         metadata.createTable(SESSION, "c2", new TableMetadata("tpch", new ConnectorTableMetadata(table4,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", BIGINT, 0, false)))));
+                        new ColumnMetadata("a", BIGINT, false)))));
 
         // table with a hidden column
         SchemaTableName table5 = new SchemaTableName("default", "t5");
         metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table5,
                 ImmutableList.<ColumnMetadata>of(
-                        new ColumnMetadata("a", BIGINT, 0, false),
-                        new ColumnMetadata("b", BIGINT, 1, false, null, true)))));
+                        new ColumnMetadata("a", BIGINT, false),
+                        new ColumnMetadata("b", BIGINT, false, null, true)))));
 
         // valid view referencing table in same schema
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(

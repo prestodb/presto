@@ -64,7 +64,7 @@ public abstract class AbstractTestApproximateAggregationFunction
     }
 
     @Override
-    public Block getSequenceBlock(int start, int length)
+    public Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = getType().createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = start; i < start + length; i++) {
@@ -75,7 +75,7 @@ public abstract class AbstractTestApproximateAggregationFunction
                 DOUBLE.writeDouble(blockBuilder, (double) i);
             }
         }
-        return blockBuilder.build();
+        return new Block[] {blockBuilder.build()};
     }
 
     @Override
@@ -206,7 +206,7 @@ public abstract class AbstractTestApproximateAggregationFunction
     }
 
     @Override
-    protected void testAggregation(Object expectedValue, Block block)
+    protected void testAggregation(Object expectedValue, Block... block)
     {
         Page page = OperatorAssertion.appendSampleWeight(ImmutableList.of(new Page(block)), WEIGHT).get(0);
         assertApproximateAggregation(getFunction(), page.getChannelCount() - 1, getConfidence(), (Double) expectedValue, page);

@@ -15,9 +15,11 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.tree.Statement;
+import com.google.common.base.Throwables;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
@@ -53,23 +55,42 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public VersionedMemoryPoolId getMemoryPool()
+    {
+        return stateMachine.getMemoryPool();
+    }
+
+    @Override
+    public void setMemoryPool(VersionedMemoryPoolId poolId)
+    {
+        stateMachine.setMemoryPool(poolId);
+    }
+
+    @Override
+    public long getTotalMemoryReservation()
+    {
+        return 0;
+    }
+
+    @Override
     public void start()
     {
         try {
-            // transition to starting
-            if (!stateMachine.starting()) {
-                // query already started or finished
+            // transition to running
+            if (!stateMachine.transitionToRunning()) {
+                // query already running or finished
                 return;
             }
 
-            stateMachine.recordExecutionStart();
-
             task.execute(statement, session, metadata, stateMachine);
 
-            stateMachine.finished();
+            stateMachine.transitionToFinished();
         }
-        catch (RuntimeException e) {
+        catch (Throwable e) {
             fail(e);
+            if (!(e instanceof RuntimeException)) {
+                throw Throwables.propagate(e);
+            }
         }
     }
 
@@ -89,7 +110,7 @@ public class DataDefinitionExecution<T extends Statement>
     @Override
     public void fail(Throwable cause)
     {
-        stateMachine.fail(cause);
+        stateMachine.transitionToFailed(cause);
     }
 
     @Override
@@ -120,6 +141,12 @@ public class DataDefinitionExecution<T extends Statement>
     public QueryInfo getQueryInfo()
     {
         return stateMachine.getQueryInfoWithoutDetails();
+    }
+
+    @Override
+    public QueryState getState()
+    {
+        return stateMachine.getQueryState();
     }
 
     public static class DataDefinitionExecutionFactory

@@ -29,6 +29,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 
 final class TestingDatabase
         implements AutoCloseable
@@ -90,7 +91,7 @@ final class TestingDatabase
         JdbcTableHandle jdbcTableHandle = jdbcClient.getTableHandle(new SchemaTableName(schemaName, tableName));
         ConnectorPartitionResult partitions = jdbcClient.getPartitions(jdbcTableHandle, TupleDomain.<ColumnHandle>all());
         ConnectorSplitSource splits = jdbcClient.getPartitionSplits((JdbcPartition) getOnlyElement(partitions.getPartitions()));
-        return (JdbcSplit) getOnlyElement(splits.getNextBatch(1000));
+        return (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(1000)));
     }
 
     public Map<String, JdbcColumnHandle> getColumnHandles(String schemaName, String tableName)

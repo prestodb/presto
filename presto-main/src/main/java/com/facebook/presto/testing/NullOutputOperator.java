@@ -33,9 +33,9 @@ public class NullOutputOperator
             implements OutputFactory
     {
         @Override
-        public OperatorFactory createOutputOperator(int operatorId, List<Type> sourceType)
+        public OperatorFactory createOutputOperator(int operatorId, List<Type> sourceTypes)
         {
-            return new NullOutputOperatorFactory(operatorId, sourceType);
+            return new NullOutputOperatorFactory(operatorId, sourceTypes);
         }
     }
 

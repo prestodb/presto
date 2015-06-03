@@ -19,7 +19,6 @@ import com.google.common.base.MoreObjects;
 
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.inputStreamCheckpointToString;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class ByteStreamCheckpoint
         implements StreamCheckpoint
@@ -30,7 +29,7 @@ public final class ByteStreamCheckpoint
     public ByteStreamCheckpoint(int offset, long inputStreamCheckpoint)
     {
         this.offset = offset;
-        this.inputStreamCheckpoint = checkNotNull(inputStreamCheckpoint, "inputStreamCheckpoint is null");
+        this.inputStreamCheckpoint = inputStreamCheckpoint;
     }
 
     public ByteStreamCheckpoint(CompressionKind compressionKind, ColumnPositionsList positionsList)

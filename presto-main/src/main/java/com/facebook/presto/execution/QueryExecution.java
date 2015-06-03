@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.sql.tree.Statement;
 import io.airlift.units.Duration;
 
@@ -24,8 +25,16 @@ public interface QueryExecution
 
     QueryInfo getQueryInfo();
 
+    QueryState getState();
+
     Duration waitForStateChange(QueryState currentState, Duration maxWait)
             throws InterruptedException;
+
+    VersionedMemoryPoolId getMemoryPool();
+
+    void setMemoryPool(VersionedMemoryPoolId poolId);
+
+    long getTotalMemoryReservation();
 
     void start();
 

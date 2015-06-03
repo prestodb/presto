@@ -68,6 +68,10 @@ public class LookupJoinOperatorFactory
     @Override
     public void close()
     {
+        if (closed) {
+            return;
+        }
         closed = true;
+        lookupSourceSupplier.release();
     }
 }

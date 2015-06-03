@@ -15,8 +15,10 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
@@ -134,9 +136,6 @@ public class PipelineContext
 
         completedDrivers.getAndIncrement();
 
-        // remove the memory reservation
-        freeMemory(driverStats.getMemoryReservation().toBytes());
-
         queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
         elapsedTime.add(driverStats.getElapsedTime().roundTo(NANOSECONDS));
 
@@ -221,6 +220,11 @@ public class PipelineContext
         checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
         taskContext.freeMemory(bytes);
         memoryReservation.getAndAdd(-bytes);
+    }
+
+    public void moreMemoryAvailable()
+    {
+        drivers.stream().forEach(DriverContext::moreMemoryAvailable);
     }
 
     public boolean isVerboseStats()
@@ -357,6 +361,13 @@ public class PipelineContext
             operatorSummaries.put(entry.getKey(), current);
         }
 
+        ImmutableSet<BlockedReason> blockedReasons = drivers.stream()
+                .filter(driver -> driver.getEndTime() == null && driver.getStartTime() != null)
+                .flatMap(driver -> driver.getBlockedReasons().stream())
+                .collect(ImmutableCollectors.toImmutableSet());
+        boolean fullyBlocked = drivers.stream()
+                .filter(driver -> driver.getEndTime() == null && driver.getStartTime() != null)
+                .allMatch(DriverStats::isFullyBlocked);
         return new PipelineStats(
                 inputPipeline,
                 outputPipeline,
@@ -377,6 +388,8 @@ public class PipelineContext
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                fullyBlocked && (runningDrivers > 0 || runningPartitionedDrivers > 0),
+                blockedReasons,
 
                 new DataSize(rawInputDataSize, BYTE).convertToMostSuccinctDataSize(),
                 rawInputPositions,

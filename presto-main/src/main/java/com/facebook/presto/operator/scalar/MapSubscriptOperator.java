@@ -171,7 +171,7 @@ public class MapSubscriptOperator
         return subscript(keyEqualsMethod, keyType, valueType, map, key);
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "TypeParameterUnusedInFormals"})
     private static <T> T subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, Object key)
     {
         Block block = readStructuralBlock(map);

@@ -19,12 +19,9 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.net.InetAddresses;
@@ -34,24 +31,26 @@ import javax.inject.Inject;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class NodeScheduler
 {
+    private final String coordinatorNodeId;
     private final NodeManager nodeManager;
     private final AtomicLong scheduleLocal = new AtomicLong();
     private final AtomicLong scheduleRack = new AtomicLong();
@@ -68,6 +67,7 @@ public class NodeScheduler
     public NodeScheduler(NodeManager nodeManager, NodeSchedulerConfig config, NodeTaskMap nodeTaskMap)
     {
         this.nodeManager = nodeManager;
+        this.coordinatorNodeId = nodeManager.getCurrentNode().getNodeIdentifier();
         this.minCandidates = config.getMinCandidates();
         this.locationAwareScheduling = config.isLocationAwareSchedulingEnabled();
         this.includeCoordinator = config.isIncludeCoordinator();
@@ -168,17 +168,31 @@ public class NodeScheduler
 
         public List<Node> selectRandomNodes(int limit)
         {
+            return selectNodes(limit, randomizedNodes());
+        }
+
+        private List<Node> selectNodes(int limit, Iterator<Node> candidates)
+        {
             checkArgument(limit > 0, "limit must be at least 1");
 
-            String coordinatorIdentifier = nodeManager.getCurrentNode().getNodeIdentifier();
-
-            FluentIterable<Node> nodes = FluentIterable.from(lazyShuffle(nodeMap.get().get().getNodesByHostAndPort().values()))
-                    .filter(node -> includeCoordinator || !coordinatorIdentifier.equals(node.getNodeIdentifier()));
-
-            if (doubleScheduling) {
-                nodes = nodes.cycle();
+            List<Node> selected = new ArrayList<>(limit);
+            while (selected.size() < limit && candidates.hasNext()) {
+                selected.add(candidates.next());
             }
-            return nodes.limit(limit).toList();
+
+            if (doubleScheduling && !selected.isEmpty()) {
+                // Cycle the nodes until we reach the limit
+                int uniqueNodes = selected.size();
+                int i = 0;
+                while (selected.size() < limit) {
+                    if (i >= uniqueNodes) {
+                        i = 0;
+                    }
+                    selected.add(selected.get(i));
+                    i++;
+                }
+            }
+            return selected;
         }
 
         /**
@@ -192,6 +206,10 @@ public class NodeScheduler
         {
             Multimap<Node, Split> assignment = HashMultimap.create();
             Map<Node, Integer> assignmentCount = new HashMap<>();
+            // pre-populate the assignment counts with zeros. This makes getOrDefault() faster
+            for (Node node : nodeMap.get().get().getNodesByHostAndPort().values()) {
+                assignmentCount.put(node, 0);
+            }
 
             // maintain a temporary local cache of partitioned splits on the node
             Map<Node, Integer> splitCountByNode = new HashMap<>();
@@ -200,10 +218,12 @@ public class NodeScheduler
 
             for (RemoteTask task : existingTasks) {
                 String nodeId = task.getNodeId();
-                if (!queuedSplitCountByNode.containsKey(nodeId)) {
-                    queuedSplitCountByNode.put(nodeId, 0);
-                }
-                queuedSplitCountByNode.put(nodeId, queuedSplitCountByNode.get(nodeId) + task.getQueuedPartitionedSplitCount());
+                queuedSplitCountByNode.put(nodeId, queuedSplitCountByNode.getOrDefault(nodeId, 0) + task.getQueuedPartitionedSplitCount());
+            }
+
+            ResettableRandomizedIterator<Node> randomCandidates = null;
+            if (!locationAwareScheduling) {
+                randomCandidates = randomizedNodes();
             }
 
             for (Split split : splits) {
@@ -212,21 +232,24 @@ public class NodeScheduler
                     candidateNodes = selectCandidateNodes(nodeMap.get().get(), split);
                 }
                 else {
-                    candidateNodes = selectRandomNodes(minCandidates);
+                    randomCandidates.reset();
+                    candidateNodes = selectNodes(minCandidates, randomCandidates);
                 }
                 checkCondition(!candidateNodes.isEmpty(), NO_NODES_AVAILABLE, "No nodes available to run query");
 
                 // compute and cache number of splits currently assigned to each node
-                candidateNodes.stream()
-                        .filter(node -> !splitCountByNode.containsKey(node))
-                        .forEach(node -> splitCountByNode.put(node, nodeTaskMap.getPartitionedSplitsOnNode(node)));
+                // NOTE: This does not use the Stream API for performance reasons.
+                for (Node node : candidateNodes) {
+                    if (!splitCountByNode.containsKey(node)) {
+                        splitCountByNode.put(node, nodeTaskMap.getPartitionedSplitsOnNode(node));
+                    }
+                }
 
                 Node chosenNode = null;
                 int min = Integer.MAX_VALUE;
 
                 for (Node node : candidateNodes) {
-                    int assignedSplitCount = assignmentCount.containsKey(node) ? assignmentCount.get(node) : 0;
-                    int totalSplitCount = assignedSplitCount + splitCountByNode.get(node);
+                    int totalSplitCount = assignmentCount.getOrDefault(node, 0) + splitCountByNode.get(node);
 
                     if (totalSplitCount < min && totalSplitCount < maxSplitsPerNode) {
                         chosenNode = node;
@@ -235,11 +258,8 @@ public class NodeScheduler
                 }
                 if (chosenNode == null) {
                     for (Node node : candidateNodes) {
-                        int assignedSplitCount = assignmentCount.containsKey(node) ? assignmentCount.get(node) : 0;
-                        int queuedSplitCount = 0;
-                        if (queuedSplitCountByNode.containsKey(node.getNodeIdentifier())) {
-                            queuedSplitCount = queuedSplitCountByNode.get(node.getNodeIdentifier());
-                        }
+                        int assignedSplitCount = assignmentCount.getOrDefault(node, 0);
+                        int queuedSplitCount = queuedSplitCountByNode.getOrDefault(node.getNodeIdentifier(), 0);
                         int totalSplitCount = queuedSplitCount + assignedSplitCount;
                         if (totalSplitCount < min && totalSplitCount < maxSplitsPerNodePerTaskWhenFull) {
                             chosenNode = node;
@@ -249,11 +269,18 @@ public class NodeScheduler
                 }
                 if (chosenNode != null) {
                     assignment.put(chosenNode, split);
-                    int count = assignmentCount.containsKey(chosenNode) ? assignmentCount.get(chosenNode) : 0;
-                    assignmentCount.put(chosenNode, count + 1);
+                    assignmentCount.put(chosenNode, assignmentCount.getOrDefault(chosenNode, 0) + 1);
                 }
             }
             return assignment;
+        }
+
+        private ResettableRandomizedIterator<Node> randomizedNodes()
+        {
+            ImmutableList<Node> nodes = nodeMap.get().get().getNodesByHostAndPort().values().stream()
+                    .filter(node -> includeCoordinator || !coordinatorNodeId.equals(node.getNodeIdentifier()))
+                    .collect(toImmutableList());
+            return new ResettableRandomizedIterator<>(nodes);
         }
 
         private List<Node> selectCandidateNodes(NodeMap nodeMap, Split split)
@@ -317,15 +344,15 @@ public class NodeScheduler
             // add some random nodes if below the minimum count
             if (split.isRemotelyAccessible()) {
                 if (chosen.size() < minCandidates) {
-                    for (Node node : lazyShuffle(nodeMap.getNodesByHost().values())) {
-                        if (includeCoordinator || !coordinatorIdentifier.equals(node.getNodeIdentifier())) {
-                            if (chosen.add(node)) {
-                                scheduleRandom.incrementAndGet();
-                            }
+                    ResettableRandomizedIterator<Node> randomizedIterator = randomizedNodes();
+                    while (randomizedIterator.hasNext()) {
+                        Node node = randomizedIterator.next();
+                        if (chosen.add(node)) {
+                            scheduleRandom.incrementAndGet();
+                        }
 
-                            if (chosen.size() == minCandidates) {
-                                break;
-                            }
+                        if (chosen.size() == minCandidates) {
+                            break;
                         }
                     }
                 }
@@ -354,38 +381,6 @@ public class NodeScheduler
             return (!host.hasPort() || split.isRemotelyAccessible()) &&
                     host.getHostText().equals(coordinatorHost.getHostText());
         }
-    }
-
-    private static <T> Iterable<T> lazyShuffle(Iterable<T> iterable)
-    {
-        return new Iterable<T>()
-        {
-            @Override
-            public Iterator<T> iterator()
-            {
-                return new AbstractIterator<T>()
-                {
-                    private final List<T> list = Lists.newArrayList(iterable);
-                    private int limit = list.size();
-
-                    @Override
-                    protected T computeNext()
-                    {
-                        if (limit == 0) {
-                            return endOfData();
-                        }
-
-                        int position = ThreadLocalRandom.current().nextInt(limit);
-
-                        T result = list.get(position);
-                        list.set(position, list.get(limit - 1));
-                        limit--;
-
-                        return result;
-                    }
-                };
-            }
-        };
     }
 
     private static class NodeMap

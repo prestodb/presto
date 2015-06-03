@@ -40,6 +40,7 @@ import com.facebook.presto.memory.ForMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.MemoryInfo;
 import com.facebook.presto.memory.MemoryManagerConfig;
+import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.memory.MemoryResource;
 import com.facebook.presto.memory.ReservedSystemMemoryConfig;
 import com.facebook.presto.metadata.CatalogManager;
@@ -206,6 +207,7 @@ public class ServerMainModule
                 });
 
         jsonCodecBinder(binder).bindJsonCodec(MemoryInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(MemoryPoolAssignmentsRequest.class);
 
         // data stream provider
         binder.bind(PageSourceManager.class).in(Scopes.SINGLETON);

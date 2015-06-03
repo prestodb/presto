@@ -24,9 +24,13 @@ public interface StoragePageSink
 
     void appendPages(List<Page> pages, int[] pageIndexes, int[] positionIndexes);
 
+    void appendRow(Row row);
+
     boolean isFull();
 
     void flush();
 
     List<ShardInfo> commit();
+
+    void rollback();
 }

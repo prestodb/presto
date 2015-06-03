@@ -117,6 +117,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -1176,7 +1177,7 @@ public abstract class AbstractTestHiveClient
         for (HiveStorageFormat storageFormat : createTableFormats) {
             try {
                 ConnectorSession session = createSession(storageFormat);
-                List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", HYPER_LOG_LOG, 1, false));
+                List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", HYPER_LOG_LOG, false));
                 ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(invalidTable, columns, session.getUser());
                 metadata.beginCreateTable(session, tableMetadata);
                 fail("create table with unsupported type should fail for storage format " + storageFormat);
@@ -1189,7 +1190,7 @@ public abstract class AbstractTestHiveClient
 
     private void createDummyTable(SchemaTableName tableName)
     {
-        List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", VARCHAR, 1, false));
+        List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", VARCHAR, false));
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, SESSION.getUser());
         ConnectorOutputTableHandle handle = metadata.beginCreateTable(SESSION, tableMetadata);
         metadata.commitCreateTable(handle, ImmutableList.of());
@@ -1248,7 +1249,7 @@ public abstract class AbstractTestHiveClient
     {
         // begin creating the table
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
-                .add(new ColumnMetadata("sales", BIGINT, 1, false))
+                .add(new ColumnMetadata("sales", BIGINT, false))
                 .build();
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateSampledTable, columns, SESSION.getUser(), true);
@@ -1323,11 +1324,11 @@ public abstract class AbstractTestHiveClient
     {
         // begin creating the table
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
-                .add(new ColumnMetadata("id", BIGINT, 1, false))
-                .add(new ColumnMetadata("t_string", VARCHAR, 2, false))
-                .add(new ColumnMetadata("t_bigint", BIGINT, 3, false))
-                .add(new ColumnMetadata("t_double", DOUBLE, 4, false))
-                .add(new ColumnMetadata("t_boolean", BOOLEAN, 5, false))
+                .add(new ColumnMetadata("id", BIGINT, false))
+                .add(new ColumnMetadata("t_string", VARCHAR, false))
+                .add(new ColumnMetadata("t_bigint", BIGINT, false))
+                .add(new ColumnMetadata("t_double", DOUBLE, false))
+                .add(new ColumnMetadata("t_boolean", BOOLEAN, false))
                 .build();
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateTable, columns, SESSION.getUser());
@@ -1426,12 +1427,12 @@ public abstract class AbstractTestHiveClient
         // create the table
         Type arrayStringType = requireNonNull(TYPE_MANAGER.getType(parseTypeSignature("array<varchar>")));
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
-                .add(new ColumnMetadata("id", BIGINT, 1, false))
-                .add(new ColumnMetadata("t_string", VARCHAR, 2, false))
-                .add(new ColumnMetadata("t_bigint", BIGINT, 3, false))
-                .add(new ColumnMetadata("t_double", DOUBLE, 4, false))
-                .add(new ColumnMetadata("t_boolean", BOOLEAN, 5, false))
-                .add(new ColumnMetadata("t_array_string", arrayStringType, 6, false))
+                .add(new ColumnMetadata("id", BIGINT, false))
+                .add(new ColumnMetadata("t_string", VARCHAR, false))
+                .add(new ColumnMetadata("t_bigint", BIGINT, false))
+                .add(new ColumnMetadata("t_double", DOUBLE, false))
+                .add(new ColumnMetadata("t_boolean", BOOLEAN, false))
+                .add(new ColumnMetadata("t_array_string", arrayStringType, false))
                 .build();
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateEmptyTable, columns, SESSION.getUser());
@@ -1706,7 +1707,7 @@ public abstract class AbstractTestHiveClient
     {
         int splitCount = 0;
         while (!splitSource.isFinished()) {
-            List<ConnectorSplit> batch = splitSource.getNextBatch(1000);
+            List<ConnectorSplit> batch = getFutureValue(splitSource.getNextBatch(1000));
             splitCount += batch.size();
         }
         return splitCount;
@@ -1717,7 +1718,7 @@ public abstract class AbstractTestHiveClient
     {
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         while (!splitSource.isFinished()) {
-            List<ConnectorSplit> batch = splitSource.getNextBatch(1000);
+            List<ConnectorSplit> batch = getFutureValue(splitSource.getNextBatch(1000));
             splits.addAll(batch);
         }
         return splits.build();
@@ -1808,7 +1809,6 @@ public abstract class AbstractTestHiveClient
     {
         assertTrue(map.containsKey(name));
         ColumnMetadata column = map.get(name);
-        assertEquals(column.getOrdinalPosition(), position);
         assertEquals(column.getType(), type, name);
         assertEquals(column.isPartitionKey(), partitionKey, name);
     }

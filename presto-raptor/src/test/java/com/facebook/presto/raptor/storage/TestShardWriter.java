@@ -86,7 +86,7 @@ public class TestShardWriter
         }
 
         try (FileOrcDataSource dataSource = new FileOrcDataSource(file, new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE))) {
-            OrcRecordReader reader = createReader(dataSource, columnIds);
+            OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
             assertEquals(reader.getTotalRowCount(), 3);
             assertEquals(reader.getPosition(), 0);
 

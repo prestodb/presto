@@ -83,6 +83,43 @@ public class TestRaptorMetadata
     }
 
     @Test
+    public void testRenameColumn()
+            throws Exception
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        metadata.createTable(SESSION, getOrdersTable());
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        assertInstanceOf(tableHandle, RaptorTableHandle.class);
+
+        RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
+        ColumnHandle columnHandle = metadata.getColumnHandles(tableHandle).get("orderkey");
+
+        metadata.renameColumn(raptorTableHandle, columnHandle, "orderkey_renamed");
+
+        assertNull(metadata.getColumnHandles(tableHandle).get("orderkey"));
+        assertNotNull(metadata.getColumnHandles(tableHandle).get("orderkey_renamed"));
+    }
+
+    @Test
+    public void testRenameTable()
+            throws Exception
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        metadata.createTable(SESSION, getOrdersTable());
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        assertInstanceOf(tableHandle, RaptorTableHandle.class);
+
+        RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
+        SchemaTableName renamedTable = new SchemaTableName(raptorTableHandle.getSchemaName(), "orders_renamed");
+
+        metadata.renameTable(raptorTableHandle, renamedTable);
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        ConnectorTableHandle renamedTableHandle = metadata.getTableHandle(SESSION, renamedTable);
+        assertNotNull(renamedTableHandle);
+        assertEquals(((RaptorTableHandle) renamedTableHandle).getTableName(), renamedTable.getTableName());
+    }
+
+    @Test
     public void testCreateTable()
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
@@ -103,7 +140,6 @@ public class TestRaptorMetadata
         assertNotNull(columnMetadata);
         assertEquals(columnMetadata.getName(), "orderkey");
         assertEquals(columnMetadata.getType(), BIGINT);
-        assertEquals(columnMetadata.getOrdinalPosition(), 0);
     }
 
     @Test

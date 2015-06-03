@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.Objects;
 
@@ -70,6 +71,16 @@ public class FixedWidthBlock
     }
 
     @Override
+    public int getRetainedSizeInBytes()
+    {
+        long size = getRawSlice().getRetainedSize() + valueIsNull.getRetainedSize();
+        if (size > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) size;
+    }
+
+    @Override
     public Block getRegion(int positionOffset, int length)
     {
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
@@ -78,6 +89,18 @@ public class FixedWidthBlock
 
         Slice newSlice = slice.slice(positionOffset * fixedSize, length * fixedSize);
         Slice newValueIsNull = valueIsNull.slice(positionOffset, length);
+        return new FixedWidthBlock(fixedSize, length, newSlice, newValueIsNull);
+    }
+
+    @Override
+    public Block copyRegion(int positionOffset, int length)
+    {
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
+
+        Slice newSlice = Slices.copyOf(slice, positionOffset * fixedSize, length * fixedSize);
+        Slice newValueIsNull = Slices.copyOf(valueIsNull, positionOffset, length);
         return new FixedWidthBlock(fixedSize, length, newSlice, newValueIsNull);
     }
 

@@ -20,7 +20,9 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
@@ -88,12 +90,11 @@ public class TaskContext
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
             @Override
-            public void stateChanged(TaskState newValue)
+            public void stateChanged(TaskState newState)
             {
-                if (newValue.isDone()) {
+                if (newState.isDone()) {
                     executionEndTime.set(DateTime.now());
                     endNanos.set(System.nanoTime());
-                    freeMemory(memoryReservation.get());
                 }
             }
         });
@@ -186,6 +187,11 @@ public class TaskContext
         checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
         memoryReservation.getAndAdd(-bytes);
         queryContext.freeMemory(bytes);
+    }
+
+    public void moreMemoryAvailable()
+    {
+        pipelineContexts.stream().forEach(PipelineContext::moreMemoryAvailable);
     }
 
     public boolean isVerboseStats()
@@ -318,6 +324,13 @@ public class TaskContext
             elapsedTime = new Duration(0, NANOSECONDS);
         }
 
+        boolean fullyBlocked = pipelineStats.stream()
+                .filter(pipeline -> pipeline.getRunningDrivers() > 0 || pipeline.getRunningPartitionedDrivers() > 0)
+                .allMatch(PipelineStats::isFullyBlocked);
+        ImmutableSet<BlockedReason> blockedReasons = pipelineStats.stream()
+                .filter(pipeline -> pipeline.getRunningDrivers() > 0 || pipeline.getRunningPartitionedDrivers() > 0)
+                .flatMap(pipeline -> pipeline.getBlockedReasons().stream())
+                .collect(ImmutableCollectors.toImmutableSet());
         return new TaskStats(
                 taskStateMachine.getCreatedTime(),
                 executionStartTime.get(),
@@ -336,6 +349,8 @@ public class TaskContext
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                fullyBlocked && (runningDrivers > 0 || runningPartitionedDrivers > 0),
+                blockedReasons,
                 new DataSize(rawInputDataSize, BYTE).convertToMostSuccinctDataSize(),
                 rawInputPositions,
                 new DataSize(processedInputDataSize, BYTE).convertToMostSuccinctDataSize(),

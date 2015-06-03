@@ -56,7 +56,7 @@ public class FixedWidthBlockBuilder
 
         Slice slice = Slices.allocate(fixedSize * positionCount);
 
-        this.blockBuilderStatus = new BlockBuilderStatus(slice.length(), slice.length());
+        this.blockBuilderStatus = new BlockBuilderStatus();
         this.sliceOutput = slice.getOutput();
 
         this.valueIsNull = Slices.allocate(positionCount).getOutput();
@@ -75,21 +75,19 @@ public class FixedWidthBlockBuilder
     }
 
     @Override
-    public boolean isEmpty()
-    {
-        return positionCount == 0;
-    }
-
-    @Override
-    public boolean isFull()
-    {
-        return blockBuilderStatus.isFull();
-    }
-
-    @Override
     public int getSizeInBytes()
     {
         long size = getRawSlice().length() + valueIsNull.getUnderlyingSlice().length();
+        if (size > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) size;
+    }
+
+    @Override
+    public int getRetainedSizeInBytes()
+    {
+        long size = getRawSlice().getRetainedSize() + valueIsNull.getUnderlyingSlice().getRetainedSize();
         if (size > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;
         }
@@ -184,10 +182,7 @@ public class FixedWidthBlockBuilder
         valueIsNull.appendByte(isNull ? 1 : 0);
 
         positionCount++;
-        blockBuilderStatus.addBytes(fixedSize);
-        if (sliceOutput.size() >= blockBuilderStatus.getMaxBlockSizeInBytes()) {
-            blockBuilderStatus.setFull();
-        }
+        blockBuilderStatus.addBytes(Byte.BYTES + fixedSize);
     }
 
     @Override
@@ -206,6 +201,19 @@ public class FixedWidthBlockBuilder
 
         Slice newSlice = sliceOutput.slice().slice(positionOffset * fixedSize, length * fixedSize);
         Slice newValueIsNull = valueIsNull.slice().slice(positionOffset, length);
+        return new FixedWidthBlock(fixedSize, length, newSlice, newValueIsNull);
+    }
+
+    @Override
+    public Block copyRegion(int positionOffset, int length)
+    {
+        int positionCount = getPositionCount();
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
+
+        Slice newSlice = Slices.copyOf(sliceOutput.getUnderlyingSlice(), positionOffset * fixedSize, length * fixedSize);
+        Slice newValueIsNull = Slices.copyOf(valueIsNull.getUnderlyingSlice(), positionOffset, length);
         return new FixedWidthBlock(fixedSize, length, newSlice, newValueIsNull);
     }
 

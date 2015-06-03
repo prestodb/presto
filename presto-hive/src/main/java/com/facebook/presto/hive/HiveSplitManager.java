@@ -129,7 +129,7 @@ public class HiveSplitManager
                 hdfsEnvironment,
                 directoryLister,
                 DateTimeZone.forTimeZone(hiveClientConfig.getTimeZone()),
-                new BoundedExecutor(executorService, hiveClientConfig.getMaxGlobalSplitIteratorThreads()),
+                new BoundedExecutor(executorService, hiveClientConfig.getMaxSplitIteratorThreads()),
                 hiveClientConfig.getMaxOutstandingSplits(),
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),

@@ -30,6 +30,7 @@ public interface MetadataDao
             "  catalog_name VARCHAR(255) NOT NULL,\n" +
             "  schema_name VARCHAR(255) NOT NULL,\n" +
             "  table_name VARCHAR(255) NOT NULL,\n" +
+            "  temporal_column_id BIGINT DEFAULT NULL,\n" +
             "  UNIQUE (catalog_name, schema_name, table_name)\n" +
             ")")
     void createTableTables();
@@ -56,6 +57,9 @@ public interface MetadataDao
             "  PRIMARY KEY (catalog_name, schema_name, table_name)\n" +
             ")")
     void createTableViews();
+
+    @SqlQuery("SELECT table_id FROM tables")
+    List<Long> listTableIds();
 
     @SqlQuery("SELECT table_id FROM tables\n" +
             "WHERE catalog_name = :catalogName\n" +
@@ -176,6 +180,14 @@ public interface MetadataDao
             @Bind("newSchemaName") String newSchemaName,
             @Bind("newTableName") String newTableName);
 
+    @SqlUpdate("UPDATE columns SET column_name = :target\n" +
+            "WHERE table_id = :tableId\n" +
+            "  AND column_id = :columnId")
+    void renameColumn(
+            @Bind("tableId") long tableId,
+            @Bind("columnId") long columnId,
+            @Bind("target") String target);
+
     @SqlUpdate("INSERT INTO views (catalog_name, schema_name, table_name, data)\n" +
             "VALUES (:catalogName, :schemaName, :tableName, :data)")
     void insertView(
@@ -198,4 +210,19 @@ public interface MetadataDao
             @Bind("catalogName") String catalogName,
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
+
+    // JDBI returns 0 as the column_id when the temporal_column_id is set to NULL
+    // jdbi issue https://github.com/jdbi/jdbi/issues/154
+    @SqlQuery("SELECT temporal_column_id\n" +
+            "FROM tables\n" +
+            "WHERE table_id = :tableId\n" +
+            "  AND temporal_column_id IS NOT NULL")
+    Long getTemporalColumnId(@Bind("tableId") long tableId);
+
+    @SqlUpdate("UPDATE tables SET\n" +
+            "temporal_column_id = :columnId\n" +
+            "WHERE table_id = :tableId")
+    void updateTemporalColumnId(
+            @Bind("columnId") long columnId,
+            @Bind("tableId") long tableId);
 }

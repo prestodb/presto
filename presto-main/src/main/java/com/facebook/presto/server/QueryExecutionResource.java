@@ -96,7 +96,7 @@ public class QueryExecutionResource
                         flows.add(new Flow(
                                 task.getTaskId().toString(),
                                 bufferInfo.getBufferId().toString(),
-                                bufferInfo.getPagesSent(),
+                                bufferInfo.getPageBufferInfo().getPagesAdded(),
                                 bufferInfo.getBufferedPages(),
                                 bufferInfo.isFinished()));
                     }

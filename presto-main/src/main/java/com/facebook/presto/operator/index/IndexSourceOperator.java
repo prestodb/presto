@@ -30,8 +30,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.concurrent.GuardedBy;
-
 import java.util.List;
 import java.util.function.Function;
 
@@ -104,7 +102,6 @@ public class IndexSourceOperator
     private final List<Type> types;
     private final Function<RecordSet, RecordSet> probeKeyNormalizer;
 
-    @GuardedBy("this")
     private Operator source;
 
     public IndexSourceOperator(
@@ -134,11 +131,11 @@ public class IndexSourceOperator
     }
 
     @Override
-    public synchronized void addSplit(Split split)
+    public void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
         checkType(split.getConnectorSplit(), IndexSplit.class, "connectorSplit");
-        checkState(getSource() == null, "Index source split already set");
+        checkState(source == null, "Index source split already set");
 
         IndexSplit indexSplit = (IndexSplit) split.getConnectorSplit();
 
@@ -151,16 +148,11 @@ public class IndexSourceOperator
     }
 
     @Override
-    public synchronized void noMoreSplits()
+    public void noMoreSplits()
     {
         if (source == null) {
             source = new FinishedOperator(operatorContext, types);
         }
-    }
-
-    private synchronized Operator getSource()
-    {
-        return source;
     }
 
     @Override
@@ -172,22 +164,14 @@ public class IndexSourceOperator
     @Override
     public void finish()
     {
-        Operator delegate;
-        synchronized (this) {
-            delegate = getSource();
-            if (delegate == null) {
-                source = new FinishedOperator(operatorContext, types);
-                return;
-            }
-        }
-        delegate.finish();
+        noMoreSplits();
+        source.finish();
     }
 
     @Override
     public boolean isFinished()
     {
-        Operator delegate = getSource();
-        return delegate != null && delegate.isFinished();
+        return (source != null) && source.isFinished();
     }
 
     @Override
@@ -205,10 +189,18 @@ public class IndexSourceOperator
     @Override
     public Page getOutput()
     {
-        Operator delegate = getSource();
-        if (delegate == null) {
+        if (source == null) {
             return null;
         }
-        return delegate.getOutput();
+        return source.getOutput();
+    }
+
+    @Override
+    public void close()
+            throws Exception
+    {
+        if (source != null) {
+            source.close();
+        }
     }
 }

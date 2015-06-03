@@ -89,9 +89,9 @@ public class SqlTask
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
             @Override
-            public void stateChanged(TaskState taskState)
+            public void stateChanged(TaskState newState)
             {
-                if (!taskState.isDone()) {
+                if (!newState.isDone()) {
                     return;
                 }
 
@@ -109,7 +109,7 @@ public class SqlTask
                 }
 
                 // make sure buffers are cleaned up
-                if (taskState == TaskState.FAILED || taskState == TaskState.ABORTED) {
+                if (newState == TaskState.FAILED || newState == TaskState.ABORTED) {
                     // don't close buffers for a failed query
                     // closed buffers signal to upstream tasks that everything finished cleanly
                     sharedBuffer.fail();

@@ -31,6 +31,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.Collection;
@@ -38,6 +39,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_NO_HOST_FOR_SHARD;
@@ -49,7 +52,10 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.limit;
 import static com.google.common.collect.Iterators.transform;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class RaptorSplitManager
         implements ConnectorSplitManager
@@ -58,6 +64,7 @@ public class RaptorSplitManager
     private final NodeManager nodeManager;
     private final ShardManager shardManager;
     private final StorageManager storageManager;
+    private final ExecutorService executor;
 
     @Inject
     public RaptorSplitManager(RaptorConnectorId connectorId, NodeManager nodeManager, ShardManager shardManager, StorageManager storageManager)
@@ -66,6 +73,13 @@ public class RaptorSplitManager
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
+        this.executor = newCachedThreadPool(daemonThreadsNamed("raptor-split-" + connectorId + "-%s"));
+    }
+
+    @PreDestroy
+    public void destroy()
+    {
+        executor.shutdownNow();
     }
 
     @Override
@@ -141,9 +155,9 @@ public class RaptorSplitManager
         }
 
         @Override
-        public List<ConnectorSplit> getNextBatch(int maxSize)
+        public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize)
         {
-            return ImmutableList.copyOf(transform(limit(iterator, maxSize), this::createSplit));
+            return supplyAsync(() -> ImmutableList.copyOf(transform(limit(iterator, maxSize), this::createSplit)), executor);
         }
 
         @Override

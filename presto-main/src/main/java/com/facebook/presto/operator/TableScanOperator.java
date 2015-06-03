@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
@@ -26,13 +26,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
-import javax.annotation.concurrent.GuardedBy;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.operator.FinishedPageSource.FINISHED_PAGE_SOURCE;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -100,10 +97,12 @@ public class TableScanOperator
     private final PageSourceProvider pageSourceProvider;
     private final List<Type> types;
     private final List<ColumnHandle> columns;
-    private final SettableFuture<?> blocked;
+    private final SettableFuture<?> blocked = SettableFuture.create();
 
-    @GuardedBy("this")
+    private Split split;
     private ConnectorPageSource source;
+
+    private boolean finished;
 
     private long completedBytes;
     private long readTimeNanos;
@@ -120,7 +119,6 @@ public class TableScanOperator
         this.types = checkNotNull(types, "types is null");
         this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceManager is null");
         this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
-        this.blocked = SettableFuture.create();
     }
 
     @Override
@@ -136,12 +134,16 @@ public class TableScanOperator
     }
 
     @Override
-    public synchronized void addSplit(Split split)
+    public void addSplit(Split split)
     {
         checkNotNull(split, "split is null");
-        checkState(getSource() == null, "Table scan split already set");
+        checkState(this.split == null, "Table scan split already set");
 
-        source = pageSourceProvider.createPageSource(split, columns);
+        if (finished) {
+            return;
+        }
+
+        this.split = split;
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
@@ -151,16 +153,12 @@ public class TableScanOperator
     }
 
     @Override
-    public synchronized void noMoreSplits()
+    public void noMoreSplits()
     {
-        if (source == null) {
-            source = FINISHED_PAGE_SOURCE;
+        if (split == null) {
+            finished = true;
         }
-    }
-
-    private synchronized ConnectorPageSource getSource()
-    {
-        return source;
+        blocked.set(null);
     }
 
     @Override
@@ -170,7 +168,7 @@ public class TableScanOperator
     }
 
     @Override
-    public synchronized void close()
+    public void close()
     {
         finish();
     }
@@ -178,32 +176,33 @@ public class TableScanOperator
     @Override
     public void finish()
     {
-        ConnectorPageSource delegate = getSource();
-        if (delegate == null) {
-            return;
-        }
-        try {
-            delegate.close();
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
+        finished = true;
+        blocked.set(null);
+
+        if (source != null) {
+            try {
+                source.close();
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
         }
     }
 
     @Override
     public boolean isFinished()
     {
-        ConnectorPageSource delegate = getSource();
-        return delegate != null && delegate.isFinished();
+        if (!finished) {
+            createSourceIfNecessary();
+            finished = (source != null) && source.isFinished();
+        }
+
+        return finished;
     }
 
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        ConnectorPageSource delegate = getSource();
-        if (delegate != null) {
-            return NOT_BLOCKED;
-        }
         return blocked;
     }
 
@@ -222,24 +221,31 @@ public class TableScanOperator
     @Override
     public Page getOutput()
     {
-        ConnectorPageSource delegate = getSource();
-        if (delegate == null) {
+        createSourceIfNecessary();
+        if (source == null) {
             return null;
         }
 
-        Page page = delegate.getNextPage();
+        Page page = source.getNextPage();
         if (page != null) {
             // assure the page is in memory before handing to another operator
             page.assureLoaded();
 
             // update operator stats
-            long endCompletedBytes = delegate.getCompletedBytes();
-            long endReadTimeNanos = delegate.getReadTimeNanos();
+            long endCompletedBytes = source.getCompletedBytes();
+            long endReadTimeNanos = source.getReadTimeNanos();
             operatorContext.recordGeneratedInput(endCompletedBytes - completedBytes, page.getPositionCount(), endReadTimeNanos - readTimeNanos);
             completedBytes = endCompletedBytes;
             readTimeNanos = endReadTimeNanos;
         }
 
         return page;
+    }
+
+    private void createSourceIfNecessary()
+    {
+        if ((split != null) && (source == null)) {
+            source = pageSourceProvider.createPageSource(split, columns);
+        }
     }
 }

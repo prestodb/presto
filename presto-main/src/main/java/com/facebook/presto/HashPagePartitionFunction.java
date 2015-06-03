@@ -14,8 +14,6 @@
 package com.facebook.presto;
 
 import com.facebook.presto.operator.HashGenerator;
-import com.facebook.presto.operator.InterpretedHashGenerator;
-import com.facebook.presto.operator.PrecomputedHashGenerator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -27,10 +25,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.operator.HashGenerator.createHashGenerator;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 public final class HashPagePartitionFunction
         implements PagePartitionFunction
@@ -104,7 +102,7 @@ public final class HashPagePartitionFunction
         for (Page page : pages) {
             for (int position = 0; position < page.getPositionCount(); position++) {
                 // if hash is not in range skip
-                int partitionHashBucket = getPartitionHashBucket(position, page);
+                int partitionHashBucket = hashGenerator.getPartitionHashBucket(partitionCount, position, page);
                 if (partitionHashBucket != partition) {
                     continue;
                 }
@@ -127,18 +125,6 @@ public final class HashPagePartitionFunction
         }
 
         return partitionedPages.build();
-    }
-
-    private int getPartitionHashBucket(int position, Page page)
-    {
-        int rawHash = hashGenerator.hashPosition(position, page);
-
-         // clear the sign bit
-        rawHash &= 0x7fff_ffffL;
-
-        int bucket = rawHash % partitionCount;
-        checkState(bucket >= 0 && bucket < partitionCount);
-        return bucket;
     }
 
     @Override
@@ -172,20 +158,5 @@ public final class HashPagePartitionFunction
                 .add("partitioningChannels", partitioningChannels)
                 .add("hashChannel", hashChannel)
                 .toString();
-    }
-
-    private static HashGenerator createHashGenerator(Optional<Integer> hashChannel, List<Integer> partitioningChannels, List<Type> types)
-    {
-        if (hashChannel.isPresent()) {
-            return new PrecomputedHashGenerator(hashChannel.get());
-        }
-        ImmutableList.Builder<Type> hashTypes = ImmutableList.builder();
-        int[] hashChannels = new int[partitioningChannels.size()];
-        for (int i = 0; i < partitioningChannels.size(); i++) {
-            int channel = partitioningChannels.get(i);
-            hashTypes.add(types.get(channel));
-            hashChannels[i] = channel;
-        }
-        return new InterpretedHashGenerator(hashTypes.build(), hashChannels);
     }
 }

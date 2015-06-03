@@ -43,7 +43,7 @@ public class ParallelHashBuilder
     private final Optional<Integer> hashChannel;
     private final int expectedPositions;
     private final List<SettableFuture<PagesIndex>> pagesIndexFutures;
-    private final List<SettableFuture<LookupSource>> lookupSourceFutures;
+    private final List<SettableFuture<SharedLookupSource>> lookupSourceFutures;
     private final LookupSourceSupplier lookupSourceSupplier;
     private final List<Type> types;
 
@@ -62,7 +62,7 @@ public class ParallelHashBuilder
 
         checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
         ImmutableList.Builder<SettableFuture<PagesIndex>> pagesIndexFutures = ImmutableList.builder();
-        ImmutableList.Builder<SettableFuture<LookupSource>> lookupSourceFutures = ImmutableList.builder();
+        ImmutableList.Builder<SettableFuture<SharedLookupSource>> lookupSourceFutures = ImmutableList.builder();
         for (int i = 0; i < partitionCount; i++) {
             pagesIndexFutures.add(SettableFuture.create());
             lookupSourceFutures.add(SettableFuture.create());
@@ -125,7 +125,7 @@ public class ParallelHashBuilder
             this.types = types;
             this.hashChannels = hashChannels;
             this.hashChannel = hashChannel;
-            this.expectedPositions = checkNotNull(expectedPositions, "expectedPositions is null");
+            this.expectedPositions = expectedPositions;
         }
 
         @Override
@@ -276,7 +276,7 @@ public class ParallelHashBuilder
         private final int operatorId;
         private final List<Type> types;
         private final List<ListenableFuture<PagesIndex>> partitionFutures;
-        private final List<SettableFuture<LookupSource>> lookupSourceFutures;
+        private final List<SettableFuture<SharedLookupSource>> lookupSourceFutures;
         private final List<Integer> hashChannels;
         private final Optional<Integer> hashChannel;
 
@@ -287,7 +287,7 @@ public class ParallelHashBuilder
                 int operatorId,
                 List<Type> types,
                 List<? extends ListenableFuture<PagesIndex>> partitionFutures,
-                List<SettableFuture<LookupSource>> lookupSourceFutures,
+                List<SettableFuture<SharedLookupSource>> lookupSourceFutures,
                 List<Integer> hashChannels,
                 Optional<Integer> hashChannel)
         {
@@ -339,7 +339,7 @@ public class ParallelHashBuilder
         private final OperatorContext operatorContext;
         private final List<Type> types;
         private final ListenableFuture<PagesIndex> pagesIndexFuture;
-        private final SettableFuture<LookupSource> lookupSourceFuture;
+        private final SettableFuture<SharedLookupSource> lookupSourceFuture;
         private final List<Integer> hashChannels;
         private final Optional<Integer> hashChannel;
 
@@ -349,7 +349,7 @@ public class ParallelHashBuilder
                 OperatorContext operatorContext,
                 List<Type> types,
                 ListenableFuture<PagesIndex> pagesIndexFuture,
-                SettableFuture<LookupSource> lookupSourceFuture,
+                SettableFuture<SharedLookupSource> lookupSourceFuture,
                 List<Integer> hashChannels,
                 Optional<Integer> hashChannel)
         {
@@ -391,10 +391,14 @@ public class ParallelHashBuilder
             }
 
             PagesIndex pagesIndex = Futures.getUnchecked(pagesIndexFuture);
-            LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels, hashChannel);
-            operatorContext.setMemoryReservation(pagesIndex.getEstimatedSize().toBytes() + lookupSource.getInMemorySizeInBytes());
+            // Free memory, as the SharedLookupSource is going to take it over
+            operatorContext.setMemoryReservation(0);
+            SharedLookupSource sharedLookupSource = new SharedLookupSource(pagesIndex.createLookupSource(hashChannels, hashChannel), operatorContext.getDriverContext().getPipelineContext().getTaskContext());
 
-            lookupSourceFuture.set(lookupSource);
+            if (!lookupSourceFuture.set(sharedLookupSource)) {
+                sharedLookupSource.freeMemory();
+                sharedLookupSource.close();
+            }
 
             finished = true;
         }

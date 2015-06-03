@@ -52,6 +52,12 @@ public class GroupByIdBlock
     }
 
     @Override
+    public Block copyRegion(int positionOffset, int length)
+    {
+        return block.copyRegion(positionOffset, length);
+    }
+
+    @Override
     public int getLength(int position)
     {
         return block.getLength(position);
@@ -157,6 +163,12 @@ public class GroupByIdBlock
     public int getSizeInBytes()
     {
         return block.getSizeInBytes();
+    }
+
+    @Override
+    public int getRetainedSizeInBytes()
+    {
+        return block.getRetainedSizeInBytes();
     }
 
     @Override

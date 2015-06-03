@@ -17,7 +17,10 @@ import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.Page;
 import com.google.common.base.Supplier;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -26,11 +29,12 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
+import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -64,7 +68,7 @@ public class OperatorContext
     private final CounterStat outputDataSize = new CounterStat();
     private final CounterStat outputPositions = new CounterStat();
 
-    private final AtomicReference<ListenableFuture<?>> memoryFuture = new AtomicReference<>(NOT_BLOCKED);
+    private final AtomicReference<SettableFuture<?>> memoryFuture = new AtomicReference<>();
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
     private final AtomicLong blockedWallNanos = new AtomicLong();
 
@@ -87,6 +91,9 @@ public class OperatorContext
         this.operatorType = checkNotNull(operatorType, "operatorType is null");
         this.driverContext = checkNotNull(driverContext, "driverContext is null");
         this.executor = checkNotNull(executor, "executor is null");
+        SettableFuture<Object> future = SettableFuture.create();
+        future.set(null);
+        this.memoryFuture.set(future);
 
         collectTimings = driverContext.isVerboseStats() && driverContext.isCpuTimerEnabled();
     }
@@ -214,7 +221,34 @@ public class OperatorContext
     {
         ListenableFuture<?> future = driverContext.reserveMemory(bytes);
         if (!future.isDone()) {
-            memoryFuture.set(future);
+            SettableFuture<?> currentMemoryFuture = memoryFuture.get();
+            while (currentMemoryFuture.isDone()) {
+                SettableFuture<?> settableFuture = SettableFuture.create();
+                // We can't replace one that's not done, because the task may be blocked on that future
+                if (memoryFuture.compareAndSet(currentMemoryFuture, settableFuture)) {
+                    currentMemoryFuture = settableFuture;
+                }
+                else {
+                    currentMemoryFuture = memoryFuture.get();
+                }
+            }
+
+            SettableFuture<?> finalMemoryFuture = currentMemoryFuture;
+            // Create a new future, so that this operator can un-block before the pool does, if it's moved to a new pool
+            Futures.addCallback(future, new FutureCallback<Object>()
+            {
+                @Override
+                public void onSuccess(Object result)
+                {
+                    finalMemoryFuture.set(null);
+                }
+
+                @Override
+                public void onFailure(Throwable t)
+                {
+                    finalMemoryFuture.set(null);
+                }
+            });
         }
         long newReservation = memoryReservation.getAndAdd(bytes);
         if (newReservation > maxMemoryReservation) {
@@ -245,7 +279,12 @@ public class OperatorContext
         memoryReservation.getAndAdd(-bytes);
     }
 
-    public synchronized void setMemoryReservation(long newMemoryReservation)
+    public void moreMemoryAvailable()
+    {
+        memoryFuture.get().set(null);
+    }
+
+    public void setMemoryReservation(long newMemoryReservation)
     {
         checkArgument(newMemoryReservation >= 0, "newMemoryReservation is negative");
 
@@ -259,7 +298,7 @@ public class OperatorContext
         }
     }
 
-    public synchronized boolean trySetMemoryReservation(long newMemoryReservation)
+    public boolean trySetMemoryReservation(long newMemoryReservation)
     {
         checkArgument(newMemoryReservation >= 0, "newMemoryReservation is negative");
 
@@ -334,6 +373,7 @@ public class OperatorContext
                 new Duration(finishUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
+                memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);
     }
 

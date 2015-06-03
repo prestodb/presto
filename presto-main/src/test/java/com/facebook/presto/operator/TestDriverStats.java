@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -42,6 +43,8 @@ public class TestDriverStats
             new Duration(8, NANOSECONDS),
             new Duration(9, NANOSECONDS),
             new Duration(10, NANOSECONDS),
+            false,
+            ImmutableSet.of(),
 
             new DataSize(11, BYTE),
             12,
