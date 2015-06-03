@@ -28,6 +28,7 @@ public final class HiveSessionProperties
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
     private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
+    private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
 
     private HiveSessionProperties()
     {
@@ -51,6 +52,11 @@ public final class HiveSessionProperties
     public static boolean isOptimizedReaderEnabled(ConnectorSession session, boolean defaultValue)
     {
         return isEnabled(OPTIMIZED_READER_ENABLED, session, defaultValue);
+    }
+
+    public static boolean isParquetOptimizedReaderEnabled(ConnectorSession session, boolean defaultValue)
+    {
+        return isEnabled(PARQUET_OPTIMIZED_READER_ENABLED, session, defaultValue);
     }
 
     public static DataSize getOrcMaxMergeDistance(ConnectorSession session, DataSize defaultValue)

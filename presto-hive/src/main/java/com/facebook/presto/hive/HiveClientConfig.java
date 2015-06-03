@@ -93,6 +93,7 @@ public class HiveClientConfig
     private List<String> resourceConfigFiles;
 
     private boolean optimizedReaderEnabled = true;
+    private boolean parquetOptimizedReaderEnabled = false;
 
     private boolean assumeCanonicalPartitionKeys;
 
@@ -633,6 +634,20 @@ public class HiveClientConfig
     public HiveClientConfig setOptimizedReaderEnabled(boolean optimizedReaderEnabled)
     {
         this.optimizedReaderEnabled = optimizedReaderEnabled;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isParquetOptimizedReaderEnabled()
+    {
+        return parquetOptimizedReaderEnabled;
+    }
+
+    @Deprecated
+    @Config("hive.parquet-optimized-reader.enabled")
+    public HiveClientConfig setParquetOptimizedReaderEnabled(boolean parquetOptimizedReaderEnabled)
+    {
+        this.parquetOptimizedReaderEnabled = parquetOptimizedReaderEnabled;
         return this;
     }
 
