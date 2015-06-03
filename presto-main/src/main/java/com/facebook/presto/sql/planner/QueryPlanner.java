@@ -635,6 +635,7 @@ class QueryPlanner
             Symbol symbol = subPlan.translate(fieldOrExpression);
 
             if (orderBySymbolSet.contains(symbol)) {
+                sortItems.next();
                 continue;
             }
             orderBySymbolSet.add(symbol);
