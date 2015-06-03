@@ -23,7 +23,6 @@ import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -109,7 +108,7 @@ public class ScanFilterAndProjectOperator
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(Suppliers.ofInstance(splitInfo));
+            operatorContext.setInfoSupplier(() -> splitInfo);
         }
         blocked.set(null);
     }
