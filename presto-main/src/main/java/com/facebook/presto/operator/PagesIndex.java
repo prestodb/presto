@@ -180,7 +180,6 @@ public class PagesIndex
     public void compact()
     {
         for (int channel = 0; channel < types.size(); channel++) {
-            Type type = types.get(channel);
             ObjectArrayList<Block> blocks = channels[channel];
             for (int i = nextBlockToCompact; i < blocks.size(); i++) {
                 Block block = blocks.get(i);
@@ -360,10 +359,6 @@ public class PagesIndex
         try {
             LookupSourceFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels);
 
-            ImmutableList.Builder<Type> joinChannelTypes = ImmutableList.builder();
-            for (Integer joinChannel : joinChannels) {
-                joinChannelTypes.add(types.get(joinChannel));
-            }
             LookupSource lookupSource = lookupSourceFactory.createLookupSource(
                     valueAddresses,
                     ImmutableList.<List<Block>>copyOf(channels),

@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.util.MoreFutures.tryGetUnchecked;
@@ -42,18 +41,16 @@ public class HashSemiJoinOperator
         private final SetSupplier setSupplier;
         private final List<Type> probeTypes;
         private final int probeJoinChannel;
-        private final Optional<Integer> probeHashChannel;
         private final List<Type> types;
         private boolean closed;
 
-        public HashSemiJoinOperatorFactory(int operatorId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel, Optional<Integer> probeHashChannel)
+        public HashSemiJoinOperatorFactory(int operatorId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel)
         {
             this.operatorId = operatorId;
             this.setSupplier = setSupplier;
             this.probeTypes = ImmutableList.copyOf(probeTypes);
             checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
             this.probeJoinChannel = probeJoinChannel;
-            this.probeHashChannel = checkNotNull(probeHashChannel, "probeHashChannel is null");
 
             this.types = ImmutableList.<Type>builder()
                     .addAll(probeTypes)
@@ -72,7 +69,7 @@ public class HashSemiJoinOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, HashBuilderOperator.class.getSimpleName());
-            return new HashSemiJoinOperator(operatorContext, setSupplier, probeTypes, probeJoinChannel, probeHashChannel);
+            return new HashSemiJoinOperator(operatorContext, setSupplier, probeTypes, probeJoinChannel);
         }
 
         @Override
@@ -83,7 +80,6 @@ public class HashSemiJoinOperator
     }
 
     private final int probeJoinChannel;
-    private final Optional<Integer> probeHashChannel;
     private final List<Type> types;
     private final ListenableFuture<ChannelSet> channelSetFuture;
 
@@ -91,7 +87,7 @@ public class HashSemiJoinOperator
     private Page outputPage;
     private boolean finishing;
 
-    public HashSemiJoinOperator(OperatorContext operatorContext, SetSupplier channelSetFuture, List<Type> probeTypes, int probeJoinChannel, Optional<Integer> probeHashChannel)
+    public HashSemiJoinOperator(OperatorContext operatorContext, SetSupplier channelSetFuture, List<Type> probeTypes, int probeJoinChannel)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
 
@@ -102,7 +98,6 @@ public class HashSemiJoinOperator
 
         this.channelSetFuture = channelSetFuture.getChannelSet();
         this.probeJoinChannel = probeJoinChannel;
-        this.probeHashChannel = probeHashChannel;
 
         this.types = ImmutableList.<Type>builder()
                 .addAll(probeTypes)
