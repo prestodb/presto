@@ -180,7 +180,6 @@ public class PagesIndex
     public void compact()
     {
         for (int channel = 0; channel < types.size(); channel++) {
-            Type type = types.get(channel);
             ObjectArrayList<Block> blocks = channels[channel];
             for (int i = nextBlockToCompact; i < blocks.size(); i++) {
                 Block block = blocks.get(i);
@@ -383,11 +382,7 @@ public class PagesIndex
                 joinChannels,
                 hashChannel);
 
-        ImmutableList.Builder<Type> hashTypes = ImmutableList.builder();
-        for (Integer channel : joinChannels) {
-            hashTypes.add(types.get(channel));
-        }
-        return new InMemoryJoinHash(valueAddresses, hashTypes.build(), hashStrategy);
+        return new InMemoryJoinHash(valueAddresses, hashStrategy);
     }
 
     @Override
