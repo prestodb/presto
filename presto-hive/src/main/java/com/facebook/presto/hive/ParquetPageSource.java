@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.parquet.BooleanColumnVector;
+import com.facebook.presto.hive.parquet.DoubleColumnVector;
+import com.facebook.presto.hive.parquet.LongColumnVector;
+import com.facebook.presto.hive.parquet.SliceColumnVector;
 import com.facebook.presto.hive.parquet.ParquetBatch;
 import com.facebook.presto.hive.parquet.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -22,6 +26,9 @@ import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.LazyBlockLoader;
+import com.facebook.presto.spi.block.LazyFixedWidthBlock;
+import com.facebook.presto.spi.block.LazySliceArrayBlock;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -33,6 +40,7 @@ import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import parquet.schema.MessageType;
+import parquet.schema.PrimitiveType.PrimitiveTypeName;
 
 import java.io.IOException;
 import java.util.List;
@@ -50,7 +58,11 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static io.airlift.slice.Slices.wrappedBooleanArray;
+import static io.airlift.slice.Slices.wrappedDoubleArray;
+import static io.airlift.slice.Slices.wrappedLongArray;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -239,16 +251,44 @@ class ParquetPageSource
                 return null;
             }
 
+            int batchSize = parquetReader.getBatchSize();
             Block[] blocks = new Block[hiveColumnIndexes.length];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
+                Type type = types.get(fieldId);
+                int hiveColumnIndex = hiveColumnIndexes[fieldId];
+                PrimitiveTypeName parquetTypeName = requestedSchema.getType(fieldId).asPrimitiveType().getPrimitiveTypeName();
+                MessageType columnSchema = new MessageType(requestedSchema.getFieldName(fieldId),
+                                                            requestedSchema.getType(fieldId));
                 if (constantBlocks[fieldId] != null) {
-                    blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batch.getSize());
+                    blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
+                }
+                else if (BOOLEAN.equals(type)) {
+                    blocks[fieldId] = new LazyFixedWidthBlock(BOOLEAN.getFixedSize(),
+                                                                batchSize,
+                                                                new LazyBooleanBlockLoader(columnSchema, batchSize));
+                }
+                else if (BIGINT.equals(type)) {
+                    blocks[fieldId] = new LazyFixedWidthBlock(((FixedWidthType) type).getFixedSize(),
+                                                                batchSize,
+                                                                new LazyLongBlockLoader(columnSchema,
+                                                                                        batchSize,
+                                                                                        parquetTypeName));
+                }
+                else if (DOUBLE.equals(type)) {
+                    blocks[fieldId] = new LazyFixedWidthBlock(DOUBLE.getFixedSize(),
+                                                                batchSize,
+                                                                new LazyDoubleBlockLoader(columnSchema,
+                                                                                            batchSize,
+                                                                                            parquetTypeName));
+                }
+                else if (VARCHAR.equals(type)) {
+                    blocks[fieldId] = new LazySliceArrayBlock(batchSize, new LazySliceBlockLoader(columnSchema, batchSize));
                 }
                 else {
-                    blocks[fieldId] = batch.getColumns()[fieldId].getBlock();
+                    throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type);
                 }
             }
-            Page page = new Page(batch.getSize(), blocks);
+            Page page = new Page(batchSize, blocks);
 
             long newCompletedBytes = (long) (totalBytes * parquetReader.getProgress());
             completedBytes = min(totalBytes, max(completedBytes, newCompletedBytes));
@@ -291,6 +331,125 @@ class ParquetPageSource
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
+        }
+    }
+
+    private final class LazyBooleanBlockLoader
+            implements LazyBlockLoader<LazyFixedWidthBlock>
+    {
+        private final int expectedBatchId = batchId;
+        private final int batchSize;
+        private final MessageType columnSchema;
+
+        public LazyBooleanBlockLoader(MessageType columnSchema, int batchSize)
+        {
+            this.batchSize = batchSize;
+            this.columnSchema = columnSchema;
+        }
+
+        @Override
+        public void load(LazyFixedWidthBlock block)
+        {
+            checkState(batchId == expectedBatchId);
+            try {
+                BooleanColumnVector columnVector = new BooleanColumnVector();
+                parquetReader.readColumn(columnVector, columnSchema);
+                block.setNullVector(columnVector.getIsNull());
+                block.setRawSlice(wrappedBooleanArray(columnVector.getValues(), 0, batchSize));
+            }
+            catch (Exception e) {
+                throw new PrestoException(HIVE_CURSOR_ERROR, e);
+            }
+        }
+    }
+
+    private final class LazyLongBlockLoader
+            implements LazyBlockLoader<LazyFixedWidthBlock>
+    {
+        private final int expectedBatchId = batchId;
+        private final int batchSize;
+        private final MessageType columnSchema;
+        private final PrimitiveTypeName parquetTypeName;
+
+        public LazyLongBlockLoader(MessageType columnSchema, int batchSize, PrimitiveTypeName parquetTypeName)
+        {
+            this.batchSize = batchSize;
+            this.columnSchema = columnSchema;
+            this.parquetTypeName = parquetTypeName;
+        }
+
+        @Override
+        public void load(LazyFixedWidthBlock block)
+        {
+            checkState(batchId == expectedBatchId);
+            try {
+                LongColumnVector columnVector = new LongColumnVector(parquetTypeName);
+                parquetReader.readColumn(columnVector, columnSchema);
+                block.setNullVector(columnVector.getIsNull());
+                block.setRawSlice(wrappedLongArray(columnVector.getValues(), 0, batchSize));
+            }
+            catch (Exception e) {
+                throw new PrestoException(HIVE_CURSOR_ERROR, e);
+            }
+        }
+    }
+
+    private final class LazyDoubleBlockLoader
+            implements LazyBlockLoader<LazyFixedWidthBlock>
+    {
+        private final int expectedBatchId = batchId;
+        private final MessageType columnSchema;
+        private final int batchSize;
+        private final PrimitiveTypeName parquetTypeName;
+
+        public LazyDoubleBlockLoader(MessageType columnSchema, int batchSize, PrimitiveTypeName parquetTypeName)
+        {
+            this.batchSize = batchSize;
+            this.columnSchema = columnSchema;
+            this.parquetTypeName = parquetTypeName;
+        }
+
+        @Override
+        public void load(LazyFixedWidthBlock block)
+        {
+            checkState(batchId == expectedBatchId);
+            try {
+                DoubleColumnVector columnVector = new DoubleColumnVector(parquetTypeName);
+                parquetReader.readColumn(columnVector, columnSchema);
+                block.setNullVector(columnVector.getIsNull());
+                block.setRawSlice(wrappedDoubleArray(columnVector.getValues(), 0, batchSize));
+            }
+            catch (Exception e) {
+                throw new PrestoException(HIVE_CURSOR_ERROR, e);
+            }
+        }
+    }
+
+    private final class LazySliceBlockLoader
+            implements LazyBlockLoader<LazySliceArrayBlock>
+    {
+        private final int expectedBatchId = batchId;
+        private final MessageType columnSchema;
+        private final int batchSize;
+
+        public LazySliceBlockLoader(MessageType columnSchema, int batchSize)
+        {
+            this.batchSize = batchSize;
+            this.columnSchema = columnSchema;
+        }
+
+        @Override
+        public void load(LazySliceArrayBlock block)
+        {
+            checkState(batchId == expectedBatchId);
+            try {
+                SliceColumnVector columnVector = new SliceColumnVector();
+                parquetReader.readColumn(columnVector, columnSchema);
+                block.setValues(columnVector.getValues());
+            }
+            catch (Exception e) {
+                throw new PrestoException(HIVE_CURSOR_ERROR, e);
+            }
         }
     }
 }

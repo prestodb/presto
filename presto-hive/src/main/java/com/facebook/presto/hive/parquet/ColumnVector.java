@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.hive.parquet;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
-import parquet.column.ColumnDescriptor;
 import parquet.column.page.DataPage;
 import parquet.column.values.ValuesReader;
 
@@ -24,19 +21,11 @@ public abstract class ColumnVector
     protected int numValues;
     protected DataPage[] pages;
     protected ValuesReader[] readers;
-    protected Type type;
+    protected boolean[] isNull;
 
-    public ColumnVector(Type type)
+    public ColumnVector()
     {
-        this.type = type;
     }
-
-    public Type getType()
-    {
-        return type;
-    }
-
-    public abstract Block getBlock();
 
     public int size()
     {
@@ -58,23 +47,9 @@ public abstract class ColumnVector
         this.readers = readers;
     }
 
-    public static final ColumnVector createVector(ColumnDescriptor descriptor, Type type)
+    public boolean[] getIsNull()
     {
-        switch (descriptor.getType()) {
-            case BOOLEAN:
-                return new BooleanColumnVector(type);
-            case DOUBLE:
-                return new DoubleColumnVector(type);
-            case FLOAT:
-                return new FloatColumnVector(type);
-            case INT32:
-                return new IntColumnVector(type);
-            case INT64:
-                return new LongColumnVector(type);
-            case BINARY:
-                return new SliceColumnVector(type);
-            default:
-                throw new IllegalArgumentException("Unhandled column type " + descriptor.getType());
-        }
+        isNull = new boolean[numValues];
+        return isNull;
     }
 }

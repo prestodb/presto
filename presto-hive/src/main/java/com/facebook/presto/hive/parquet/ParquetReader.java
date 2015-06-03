@@ -40,8 +40,8 @@ public class ParquetReader<T>
     private Map<String, String> extraMetadata;
     private List<BlockMetaData> blocks;
     private Configuration configuration;
-    private long rowCount = 0;
-    private long current = 0;
+    private int rowCount = 0;
+    private int current = 0;
 
     // Parquet Reader iterates through each specified column schema
     private MessageType columnSchema;
@@ -81,6 +81,11 @@ public class ParquetReader<T>
         return (float) current / rowCount;
     }
 
+    public int getBatchSize()
+    {
+        return this.rowCount;
+    }
+
     public ParquetBatch nextBatch(ParquetBatch previous)
         throws IOException, InterruptedException
     {
@@ -88,35 +93,6 @@ public class ParquetReader<T>
         if (current >= rowCount) {
             return null;
         }
-
-        MessageType requestedSchema = previous.getRequestedSchema();
-        List<ColumnDescriptor> columns = requestedSchema.getColumns();
-        int columnCount = columns.size();
-        ColumnVector[] columnVectors;
-
-        // read specified columns one by one
-        // only read the column pages for each specified column schema
-        if (previous.getColumns() == null) {
-            columnVectors = new ColumnVector[columnCount];
-            for (int i = 0; i < columnCount; i++) {
-                ColumnVector columnVector = ColumnVector.createVector(columns.get(i), previous.getTypes().get(i));
-                MessageType columnSchema = new MessageType(requestedSchema.getFieldName(i),
-                                                            requestedSchema.getType(i));
-                readColumn(columnVector, columnSchema);
-                columnVectors[i] = columnVector;
-            }
-        }
-        else {
-            columnVectors = previous.getColumns();
-            for (int i = 0; i < columnCount; i++) {
-                ColumnVector columnVector = columnVectors[i];
-                MessageType columnSchema = new MessageType(requestedSchema.getFieldName(i),
-                                                            requestedSchema.getType(i));
-                readColumn(columnVector, columnSchema);
-            }
-        }
-        previous.setColumns(columnVectors);
-        current += previous.getSize();
         return previous;
     }
 
@@ -128,6 +104,7 @@ public class ParquetReader<T>
         initializaReader();
         this.columnReader.readVector(vector);
         this.columnReader.loadPages();
+        current += vector.size();
     }
 
     private void initializaReader()

@@ -13,33 +13,30 @@
  */
 package com.facebook.presto.hive.parquet;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.Type;
 import parquet.column.page.DataPage;
 
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class BooleanColumnVector extends ColumnVector
 {
-    public BooleanColumnVector(Type type)
+    private boolean[] values;
+
+    public BooleanColumnVector()
     {
-        super(type);
     }
 
-    @Override
-    public Block getBlock()
+    public boolean[] getValues()
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), numValues);
-        if (pages != null) {
-            for (int i = 0; i < pages.length; i++) {
-                DataPage page = pages[i];
-                for (int j = 0; j < page.getValueCount(); j++) {
-                        BOOLEAN.writeBoolean(blockBuilder, readers[i].readBoolean());
-                }
+        checkNotNull(pages, "data pges is null");
+        values = new boolean[numValues];
+        int valueCount = 0;
+        for (int i = 0; i < pages.length; i++) {
+            DataPage page = pages[i];
+            for (int j = 0; j < page.getValueCount(); j++) {
+                values[valueCount] = readers[i].readBoolean();
+                valueCount = valueCount + 1;
             }
         }
-        return blockBuilder.build();
+        return values;
     }
 }

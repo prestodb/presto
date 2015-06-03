@@ -13,33 +13,44 @@
  */
 package com.facebook.presto.hive.parquet;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.Type;
 import parquet.column.page.DataPage;
+import parquet.schema.PrimitiveType.PrimitiveTypeName;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import java.io.IOException;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class LongColumnVector extends ColumnVector
 {
-    public LongColumnVector(Type type)
+    private long[] values;
+    private final PrimitiveTypeName parquetTypeName;
+
+    public LongColumnVector(PrimitiveTypeName parquetTypeName)
     {
-        super(type);
+        this.parquetTypeName = parquetTypeName;
     }
 
-    @Override
-    public Block getBlock()
+    public long[] getValues()
+        throws IOException
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), numValues);
-        if (pages != null) {
-            for (int i = 0; i < pages.length; i++) {
-                DataPage page = pages[i];
-                for (int j = 0; j < page.getValueCount(); j++) {
-                    BIGINT.writeLong(blockBuilder, readers[i].readLong());
+        checkNotNull(pages, "data pges is null");
+        values = new long[numValues];
+        int valueCount = 0;
+        for (int i = 0; i < pages.length; i++) {
+            DataPage page = pages[i];
+            for (int j = 0; j < page.getValueCount(); j++) {
+                if (parquetTypeName == PrimitiveTypeName.INT64) {
+                    values[valueCount] = readers[i].readLong();
                 }
+                else if (parquetTypeName == PrimitiveTypeName.INT32) {
+                    values[valueCount] = (long) readers[i].readInteger();
+                }
+                else {
+                    throw new IOException("Type Mismatch expecting Long but parquet file has: " + parquetTypeName);
+                }
+                valueCount = valueCount + 1;
             }
         }
-        return blockBuilder.build();
+        return values;
     }
 }

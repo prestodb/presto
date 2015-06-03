@@ -13,33 +13,44 @@
  */
 package com.facebook.presto.hive.parquet;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.Type;
 import parquet.column.page.DataPage;
+import parquet.schema.PrimitiveType.PrimitiveTypeName;
 
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import java.io.IOException;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class DoubleColumnVector extends ColumnVector
 {
-    public DoubleColumnVector(Type type)
+    private double[] values;
+    private final PrimitiveTypeName parquetTypeName;
+
+    public DoubleColumnVector(PrimitiveTypeName parquetTypeName)
     {
-        super(type);
+        this.parquetTypeName = parquetTypeName;
     }
 
-    @Override
-    public Block getBlock()
+    public double[] getValues()
+        throws IOException
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), numValues);
-        if (pages != null) {
-            for (int i = 0; i < pages.length; i++) {
-                DataPage page = pages[i];
-                for (int j = 0; j < page.getValueCount(); j++) {
-                        DOUBLE.writeDouble(blockBuilder, readers[i].readDouble());
+        checkNotNull(pages, "data pges is null");
+        values = new double[numValues];
+        int valueCount = 0;
+        for (int i = 0; i < pages.length; i++) {
+            DataPage page = pages[i];
+            for (int j = 0; j < page.getValueCount(); j++) {
+                if (parquetTypeName == PrimitiveTypeName.DOUBLE) {
+                    values[valueCount] = readers[i].readDouble();
                 }
+                else if (parquetTypeName == PrimitiveTypeName.FLOAT) {
+                    values[valueCount] = (double) readers[i].readFloat();
+                }
+                else {
+                    throw new IOException("Type Mismatch expecting Double but parquet file has: " + parquetTypeName);
+                }
+                valueCount = valueCount + 1;
             }
         }
-        return blockBuilder.build();
+        return values;
     }
 }

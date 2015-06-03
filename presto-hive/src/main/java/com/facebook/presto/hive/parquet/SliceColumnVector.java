@@ -13,34 +13,32 @@
  */
 package com.facebook.presto.hive.parquet;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import parquet.column.page.DataPage;
 
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SliceColumnVector extends ColumnVector
 {
-    public SliceColumnVector(Type type)
+    private Slice[] values;
+
+    public SliceColumnVector()
     {
-        super(type);
     }
 
-    @Override
-    public Block getBlock()
+    public Slice[] getValues()
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), numValues);
-        if (pages != null) {
-            for (int i = 0; i < pages.length; i++) {
-                DataPage page = pages[i];
-                for (int j = 0; j < page.getValueCount(); j++) {
-                    VARCHAR.writeSlice(blockBuilder, Slices.wrappedBuffer(readers[i].readBytes().getBytes()));
-                }
+        checkNotNull(pages, "data pges is null");
+        values = new Slice[numValues];
+        int valueCount = 0;
+        for (int i = 0; i < pages.length; i++) {
+            DataPage page = pages[i];
+            for (int j = 0; j < page.getValueCount(); j++) {
+                values[valueCount] = Slices.wrappedBuffer(readers[i].readBytes().getBytes());
+                valueCount = valueCount + 1;
             }
         }
-        return blockBuilder.build();
+        return values;
     }
 }
