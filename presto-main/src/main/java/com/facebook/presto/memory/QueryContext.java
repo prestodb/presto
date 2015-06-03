@@ -14,6 +14,7 @@
 package com.facebook.presto.memory;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.operator.TaskContext;
 import com.google.common.util.concurrent.FutureCallback;
@@ -35,6 +36,7 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 public class QueryContext
 {
+    private final QueryId queryId;
     private final long maxMemory;
     private final Executor executor;
     private final List<TaskContext> taskContexts = new CopyOnWriteArrayList<>();
@@ -49,8 +51,9 @@ public class QueryContext
     @GuardedBy("this")
     private long systemReserved;
 
-    public QueryContext(DataSize maxMemory, MemoryPool memoryPool, MemoryPool systemMemoryPool, Executor executor)
+    public QueryContext(QueryId queryId, DataSize maxMemory, MemoryPool memoryPool, MemoryPool systemMemoryPool, Executor executor)
     {
+        this.queryId = requireNonNull(queryId, "queryId is null");
         this.maxMemory = requireNonNull(maxMemory, "maxMemory is null").toBytes();
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.systemMemoryPool = requireNonNull(systemMemoryPool, "systemMemoryPool is null");
@@ -64,7 +67,7 @@ public class QueryContext
         if (reserved + bytes > maxMemory) {
             throw exceededLocalLimit(new DataSize(maxMemory, DataSize.Unit.BYTE).convertToMostSuccinctDataSize());
         }
-        ListenableFuture<?> future = memoryPool.reserve(bytes);
+        ListenableFuture<?> future = memoryPool.reserve(queryId, bytes);
         reserved += bytes;
         return future;
     }
@@ -73,7 +76,7 @@ public class QueryContext
     {
         checkArgument(bytes >= 0, "bytes is negative");
 
-        ListenableFuture<?> future = systemMemoryPool.reserve(bytes);
+        ListenableFuture<?> future = systemMemoryPool.reserve(queryId, bytes);
         systemReserved += bytes;
         return future;
     }
@@ -85,7 +88,7 @@ public class QueryContext
         if (reserved + bytes > maxMemory) {
             return false;
         }
-        if (memoryPool.tryReserve(bytes)) {
+        if (memoryPool.tryReserve(queryId, bytes)) {
             reserved += bytes;
             return true;
         }
@@ -96,7 +99,7 @@ public class QueryContext
     {
         checkArgument(reserved - bytes >= 0, "tried to free more memory than is reserved");
         reserved -= bytes;
-        memoryPool.free(bytes);
+        memoryPool.free(queryId, bytes);
     }
 
     public synchronized void freeSystemMemory(long bytes)
@@ -104,7 +107,7 @@ public class QueryContext
         checkArgument(bytes >= 0, "bytes is negative");
         checkArgument(systemReserved - bytes >= 0, "tried to free more system memory than is reserved");
         systemReserved -= bytes;
-        systemMemoryPool.free(bytes);
+        systemMemoryPool.free(queryId, bytes);
     }
 
     public synchronized void setMemoryPool(MemoryPool pool)
@@ -117,12 +120,12 @@ public class QueryContext
         MemoryPool originalPool = memoryPool;
         long originalReserved = reserved;
         memoryPool = pool;
-        ListenableFuture<?> future = pool.reserve(reserved);
+        ListenableFuture<?> future = pool.reserve(queryId, reserved);
         Futures.addCallback(future, new FutureCallback<Object>() {
             @Override
             public void onSuccess(Object result)
             {
-                originalPool.free(originalReserved);
+                originalPool.free(queryId, originalReserved);
                 // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
                 taskContexts.stream().forEach(TaskContext::moreMemoryAvailable);
             }
@@ -130,7 +133,7 @@ public class QueryContext
             @Override
             public void onFailure(Throwable t)
             {
-                originalPool.free(originalReserved);
+                originalPool.free(queryId, originalReserved);
                 // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
                 taskContexts.stream().forEach(TaskContext::moreMemoryAvailable);
             }

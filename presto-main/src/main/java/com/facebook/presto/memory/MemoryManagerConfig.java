@@ -16,10 +16,13 @@ package com.facebook.presto.memory;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig("experimental.cluster-memory-manager-enabled")
 public class MemoryManagerConfig
@@ -28,6 +31,34 @@ public class MemoryManagerConfig
 
     private DataSize maxQueryMemory = new DataSize(20, GIGABYTE);
     private DataSize maxQueryMemoryPerNode = new DataSize(1, GIGABYTE);
+    private boolean killOnOutOfMemory;
+    private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
+
+    public boolean isKillOnOutOfMemory()
+    {
+        return killOnOutOfMemory;
+    }
+
+    @Config("query.kill-on-out-of-memory")
+    public MemoryManagerConfig setKillOnOutOfMemory(boolean killOnOutOfMemory)
+    {
+        this.killOnOutOfMemory = killOnOutOfMemory;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("5s")
+    public Duration getKillOnOutOfMemoryDelay()
+    {
+        return killOnOutOfMemoryDelay;
+    }
+
+    @Config("query.kill-on-out-of-memory-delay")
+    public MemoryManagerConfig setKillOnOutOfMemoryDelay(Duration killOnOutOfMemoryDelay)
+    {
+        this.killOnOutOfMemoryDelay = killOnOutOfMemoryDelay;
+        return this;
+    }
 
     @NotNull
     public DataSize getMaxQueryMemory()

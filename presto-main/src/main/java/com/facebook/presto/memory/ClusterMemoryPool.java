@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.memory;
 
+import com.facebook.presto.execution.QueryId;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import org.weakref.jmx.Managed;
@@ -20,7 +21,9 @@ import org.weakref.jmx.Managed;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -42,7 +45,11 @@ public class ClusterMemoryPool
     private int blockedNodes;
 
     @GuardedBy("this")
-    private int queries;
+    private int assignedQueries;
+
+    // Does not include queries with zero memory usage
+    @GuardedBy("this")
+    private final Map<QueryId, Long> queryMemoryReservations = new HashMap<>();
 
     public ClusterMemoryPool(MemoryPoolId id)
     {
@@ -79,18 +86,24 @@ public class ClusterMemoryPool
     }
 
     @Managed
-    public synchronized int getQueries()
+    public synchronized int getAssignedQueries()
     {
-        return queries;
+        return assignedQueries;
     }
 
-    public synchronized void update(List<MemoryInfo> memoryInfos, int queries)
+    public synchronized Map<QueryId, Long> getQueryMemoryReservations()
+    {
+        return queryMemoryReservations;
+    }
+
+    public synchronized void update(List<MemoryInfo> memoryInfos, int assignedQueries)
     {
         nodes = 0;
         blockedNodes = 0;
         totalDistributedBytes = 0;
         freeDistributedBytes = 0;
-        this.queries = queries;
+        this.assignedQueries = assignedQueries;
+        this.queryMemoryReservations.clear();
 
         for (MemoryInfo info : memoryInfos) {
             MemoryPoolInfo poolInfo = info.getPools().get(id);
@@ -101,6 +114,9 @@ public class ClusterMemoryPool
                 }
                 totalDistributedBytes += poolInfo.getMaxBytes();
                 freeDistributedBytes += poolInfo.getFreeBytes();
+                for (Map.Entry<QueryId, Long> entry : poolInfo.getQueryMemoryReservations().entrySet()) {
+                    queryMemoryReservations.merge(entry.getKey(), entry.getValue(), Long::sum);
+                }
             }
         }
     }
@@ -133,7 +149,8 @@ public class ClusterMemoryPool
                 .add("freeDistributedBytes", freeDistributedBytes)
                 .add("nodes", nodes)
                 .add("blockedNodes", blockedNodes)
-                .add("queries", queries)
+                .add("assignedQueries", assignedQueries)
+                .add("queryMemoryReservations", queryMemoryReservations)
                 .toString();
     }
 }

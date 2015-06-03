@@ -14,6 +14,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.MemoryPool;
@@ -107,7 +108,7 @@ public abstract class AbstractOperatorBenchmark
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
         MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
 
-        TaskContext taskContext = new QueryContext(new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, executor)
+        TaskContext taskContext = new QueryContext(new QueryId("test"), new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, executor)
                 .addTaskContext(new TaskStateMachine(new TaskId("query", "stage", "task"), executor),
                         session,
                         new DataSize(1, MEGABYTE),
