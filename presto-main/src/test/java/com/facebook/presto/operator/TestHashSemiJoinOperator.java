@@ -103,8 +103,7 @@ public class TestHashSemiJoinOperator
                 2,
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
-                0,
-                rowPagesBuilderProbe.getHashChannel());
+                0);
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
@@ -160,8 +159,7 @@ public class TestHashSemiJoinOperator
                 2,
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
-                0,
-                rowPagesBuilderProbe.getHashChannel());
+                0);
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
@@ -211,8 +209,7 @@ public class TestHashSemiJoinOperator
                 2,
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
-                0,
-                rowPagesBuilderProbe.getHashChannel());
+                0);
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
@@ -263,8 +260,7 @@ public class TestHashSemiJoinOperator
                 2,
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
-                0,
-                rowPagesBuilderProbe.getHashChannel());
+                0);
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         // expected
