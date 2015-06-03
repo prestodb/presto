@@ -13,21 +13,16 @@
  */
 package com.teradata.presto.functions;
 
+import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
-import com.facebook.presto.operator.Description;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
+import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
-
 import static java.nio.charset.StandardCharsets.UTF_16BE;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class TeradataFunctions
 {
@@ -48,14 +43,8 @@ public final class TeradataFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice char2HexInt(@SqlType(StandardTypes.VARCHAR) Slice string)
     {
-        ByteBuffer utf8Buffer = string.toByteBuffer();
-        ByteBuffer utf16Buffer = UTF_16BE.encode(UTF_8.decode(utf8Buffer));
-        try {
-            ByteBuffer hexBuffer = new HexEncoder().encode(utf16Buffer.asCharBuffer());
-            return Slices.wrappedBuffer(hexBuffer);
-        }
-        catch (CharacterCodingException e) {
-            throw new PrestoException(StandardErrorCode.INTERNAL_ERROR, e);
-        }
+        Slice utf16 = Slices.wrappedBuffer(UTF_16BE.encode(string.toStringUtf8()));
+        String encoded = BaseEncoding.base16().encode(utf16.getBytes());
+        return Slices.utf8Slice(encoded);
     }
 }
