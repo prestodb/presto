@@ -670,30 +670,28 @@ public class HttpRemoteTask
 
         private synchronized void scheduleNextRequest()
         {
-            try (SetThreadName ignored = new SetThreadName("ContinuousTaskInfoFetcher-%s", taskId)) {
-                // stopped or done?
-                TaskInfo taskInfo = HttpRemoteTask.this.taskInfo.get();
-                if (!running || taskInfo.getState().isDone()) {
-                    return;
-                }
-
-                // outstanding request?
-                if (future != null && !future.isDone()) {
-                    // this should never happen
-                    log.error("Can not reschedule update because an update is already running");
-                    return;
-                }
-
-                Request request = prepareGet()
-                        .setUri(uriBuilderFrom(taskInfo.getSelf()).addParameter("summarize").build())
-                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
-                        .setHeader(PrestoHeaders.PRESTO_CURRENT_STATE, taskInfo.getState().toString())
-                        .setHeader(PrestoHeaders.PRESTO_MAX_WAIT, "200ms")
-                        .build();
-
-                future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
-                Futures.addCallback(future, new SimpleHttpResponseHandler<>(this, request.getUri()), executor);
+            // stopped or done?
+            TaskInfo taskInfo = HttpRemoteTask.this.taskInfo.get();
+            if (!running || taskInfo.getState().isDone()) {
+                return;
             }
+
+            // outstanding request?
+            if (future != null && !future.isDone()) {
+                // this should never happen
+                log.error("Can not reschedule update because an update is already running");
+                return;
+            }
+
+            Request request = prepareGet()
+                    .setUri(uriBuilderFrom(taskInfo.getSelf()).addParameter("summarize").build())
+                    .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
+                    .setHeader(PrestoHeaders.PRESTO_CURRENT_STATE, taskInfo.getState().toString())
+                    .setHeader(PrestoHeaders.PRESTO_MAX_WAIT, "200ms")
+                    .build();
+
+            future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
+            Futures.addCallback(future, new SimpleHttpResponseHandler<>(this, request.getUri()), executor);
         }
 
         @Override
