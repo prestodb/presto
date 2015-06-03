@@ -23,7 +23,6 @@ import com.facebook.presto.memory.ReservedSystemMemoryConfig;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.spi.Node;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.event.client.NullEventClient;
@@ -39,6 +38,7 @@ import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.net.URI;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;

@@ -18,12 +18,12 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
 import java.net.URI;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
