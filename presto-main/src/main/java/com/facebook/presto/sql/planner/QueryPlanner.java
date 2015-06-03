@@ -55,6 +55,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -629,8 +630,14 @@ class QueryPlanner
 
         ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
+        Set<Symbol> orderBySymbolSet = new HashSet<Symbol>();
         for (FieldOrExpression fieldOrExpression : orderByExpressions) {
             Symbol symbol = subPlan.translate(fieldOrExpression);
+
+            if (orderBySymbolSet.contains(symbol)) {
+                continue;
+            }
+            orderBySymbolSet.add(symbol);
             orderBySymbols.add(symbol);
 
             orderings.put(symbol, toSortOrder(sortItems.next()));

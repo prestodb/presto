@@ -1754,6 +1754,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOrderByDuplicateFields()
+            throws Exception
+    {
+        assertQueryOrdered("SELECT custkey, custkey FROM orders ORDER BY custkey, custkey");
+    }
+
+    @Test
     public void testOrderByWithNulls()
             throws Exception
     {
