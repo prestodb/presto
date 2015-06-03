@@ -155,6 +155,7 @@ public class HttpRemoteTask
             Executor executor,
             int maxConsecutiveErrorCount,
             Duration minErrorDuration,
+            Duration refreshMaxWait,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)
     {
@@ -209,7 +210,7 @@ public class HttpRemoteTask
                     taskStats,
                     ImmutableList.<ExecutionFailureInfo>of()));
 
-            continuousTaskInfoFetcher = new ContinuousTaskInfoFetcher();
+            continuousTaskInfoFetcher = new ContinuousTaskInfoFetcher(refreshMaxWait);
         }
     }
 
@@ -643,11 +644,18 @@ public class HttpRemoteTask
     private class ContinuousTaskInfoFetcher
             implements SimpleHttpResponseCallback<TaskInfo>
     {
+        private final Duration refreshMaxWait;
+
         @GuardedBy("this")
         private boolean running;
 
         @GuardedBy("this")
         private ListenableFuture<JsonResponse<TaskInfo>> future;
+
+        public ContinuousTaskInfoFetcher(Duration refreshMaxWait)
+        {
+            this.refreshMaxWait = refreshMaxWait;
+        }
 
         public synchronized void start()
         {
@@ -687,7 +695,7 @@ public class HttpRemoteTask
                     .setUri(uriBuilderFrom(taskInfo.getSelf()).addParameter("summarize").build())
                     .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
                     .setHeader(PrestoHeaders.PRESTO_CURRENT_STATE, taskInfo.getState().toString())
-                    .setHeader(PrestoHeaders.PRESTO_MAX_WAIT, "200ms")
+                    .setHeader(PrestoHeaders.PRESTO_MAX_WAIT, refreshMaxWait.toString())
                     .build();
 
             future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));

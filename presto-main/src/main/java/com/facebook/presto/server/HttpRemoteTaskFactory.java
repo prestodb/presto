@@ -21,6 +21,7 @@ import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.spi.Node;
@@ -53,11 +54,13 @@ public class HttpRemoteTaskFactory
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final int maxConsecutiveErrorCount;
     private final Duration minErrorDuration;
+    private final Duration taskInfoRefreshMaxWait;
     private final ExecutorService executor;
     private final ThreadPoolExecutorMBean executorMBean;
 
     @Inject
     public HttpRemoteTaskFactory(QueryManagerConfig config,
+            TaskManagerConfig taskConfig,
             @ForScheduler HttpClient httpClient,
             LocationFactory locationFactory,
             JsonCodec<TaskInfo> taskInfoCodec,
@@ -69,6 +72,7 @@ public class HttpRemoteTaskFactory
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
         this.maxConsecutiveErrorCount = config.getRemoteTaskMaxConsecutiveErrorCount();
         this.minErrorDuration = config.getRemoteTaskMinErrorDuration();
+        this.taskInfoRefreshMaxWait = taskConfig.getInfoRefreshMaxWait();
         ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
         this.executor = ExecutorServiceAdapter.from(new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads()));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
@@ -100,6 +104,7 @@ public class HttpRemoteTaskFactory
                 executor,
                 maxConsecutiveErrorCount,
                 minErrorDuration,
+                taskInfoRefreshMaxWait,
                 taskInfoCodec,
                 taskUpdateRequestCodec
         );
