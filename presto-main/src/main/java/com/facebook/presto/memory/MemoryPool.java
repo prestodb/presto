@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.memory;
 
+import com.facebook.presto.execution.QueryId;
 import com.google.common.base.MoreObjects;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -21,6 +22,9 @@ import org.weakref.jmx.Managed;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -39,6 +43,10 @@ public class MemoryPool
     @GuardedBy("this")
     private SettableFuture<?> future;
 
+    @GuardedBy("this")
+    // TODO: It would be better if we just tracked QueryContexts, but their lifecycle is managed by a weak reference, so we can't do that
+    private final Map<QueryId, Long> queryMemoryReservations = new HashMap<>();
+
     public MemoryPool(MemoryPoolId id, DataSize size)
     {
         this.id = requireNonNull(id, "name is null");
@@ -54,15 +62,16 @@ public class MemoryPool
 
     public synchronized MemoryPoolInfo getInfo()
     {
-        return new MemoryPoolInfo(maxBytes, freeBytes);
+        return new MemoryPoolInfo(maxBytes, freeBytes, queryMemoryReservations);
     }
 
     /**
      * Reserves the given number of bytes. Caller should wait on the returned future, before allocating more memory.
      */
-    public synchronized ListenableFuture<?> reserve(long bytes)
+    public synchronized ListenableFuture<?> reserve(QueryId queryId, long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
+        queryMemoryReservations.merge(queryId, bytes, Long::sum);
         freeBytes -= bytes;
         if (freeBytes <= 0) {
             if (future == null) {
@@ -77,20 +86,36 @@ public class MemoryPool
     /**
      * Try to reserve the given number of bytes. Return value indicates whether the caller may use the requested memory.
      */
-    public synchronized boolean tryReserve(long bytes)
+    public synchronized boolean tryReserve(QueryId queryId, long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
         if (freeBytes - bytes < 0) {
             return false;
         }
         freeBytes -= bytes;
+        queryMemoryReservations.merge(queryId, bytes, Long::sum);
         return true;
     }
 
-    public synchronized void free(long bytes)
+    public synchronized void free(QueryId queryId, long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
         checkArgument(freeBytes + bytes <= maxBytes, "tried to free more memory than is reserved");
+        if (bytes == 0) {
+            // Freeing zero bytes is a no-op
+            return;
+        }
+
+        Long queryReservation = queryMemoryReservations.get(queryId);
+        requireNonNull(queryReservation, "queryReservation is null");
+        checkArgument(queryReservation - bytes >= 0, "tried to free more memory than is reserved by query");
+        queryReservation -= bytes;
+        if (queryReservation == 0) {
+            queryMemoryReservations.remove(queryId);
+        }
+        else {
+            queryMemoryReservations.put(queryId, queryReservation);
+        }
         freeBytes += bytes;
         if (freeBytes > 0 && future != null) {
             future.set(null);

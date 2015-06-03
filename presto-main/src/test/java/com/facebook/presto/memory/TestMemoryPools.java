@@ -14,6 +14,7 @@
 package com.facebook.presto.memory;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.TaskContext;
@@ -50,10 +51,11 @@ public class TestMemoryPools
 
         // reserve all the memory in the pool
         MemoryPool pool = new MemoryPool(new MemoryPoolId("test"), new DataSize(10, MEGABYTE));
-        assertTrue(pool.tryReserve(TEN_MEGABYTES));
+        QueryId fakeQueryId = new QueryId("fake");
+        assertTrue(pool.tryReserve(fakeQueryId, TEN_MEGABYTES));
         MemoryPool systemPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(10, MEGABYTE));
 
-        QueryContext queryContext = new QueryContext(new DataSize(10, MEGABYTE), pool, systemPool, localQueryRunner.getExecutor());
+        QueryContext queryContext = new QueryContext(new QueryId("query"), new DataSize(10, MEGABYTE), pool, systemPool, localQueryRunner.getExecutor());
         LocalQueryRunner.MaterializedOutputFactory outputFactory = new LocalQueryRunner.MaterializedOutputFactory();
         TaskContext taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), session, new DataSize(0, BYTE));
         Driver driver = Iterables.getOnlyElement(localQueryRunner.createDrivers("SELECT COUNT(*), clerk FROM orders GROUP BY clerk", outputFactory, taskContext));
@@ -69,7 +71,7 @@ public class TestMemoryPools
         assertFalse(driver.isFinished());
         assertTrue(pool.getFreeBytes() <= 0);
 
-        pool.free(TEN_MEGABYTES);
+        pool.free(fakeQueryId, TEN_MEGABYTES);
         do {
             // driver should not block
             assertTrue(driver.process().isDone());

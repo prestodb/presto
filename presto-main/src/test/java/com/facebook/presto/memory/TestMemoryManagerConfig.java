@@ -16,6 +16,7 @@ package com.facebook.presto.memory;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -23,6 +24,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestMemoryManagerConfig
 {
@@ -30,6 +33,8 @@ public class TestMemoryManagerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(MemoryManagerConfig.class)
+                .setKillOnOutOfMemory(false)
+                .setKillOnOutOfMemoryDelay(new Duration(5, MINUTES))
                 .setMaxQueryMemory(new DataSize(20, GIGABYTE))
                 .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE)));
     }
@@ -38,11 +43,15 @@ public class TestMemoryManagerConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("query.kill-on-out-of-memory", "true")
+                .put("query.kill-on-out-of-memory-delay", "20s")
                 .put("query.max-memory", "2GB")
                 .put("query.max-memory-per-node", "2GB")
                 .build();
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
+                .setKillOnOutOfMemory(true)
+                .setKillOnOutOfMemoryDelay(new Duration(20, SECONDS))
                 .setMaxQueryMemory(new DataSize(2, GIGABYTE))
                 .setMaxQueryMemoryPerNode(new DataSize(2, GIGABYTE));
 
