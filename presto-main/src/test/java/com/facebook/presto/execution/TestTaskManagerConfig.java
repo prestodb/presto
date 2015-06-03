@@ -32,6 +32,7 @@ public class TestTaskManagerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(TaskManagerConfig.class)
+                .setInfoRefreshMaxWait(new Duration(200, TimeUnit.MILLISECONDS))
                 .setVerboseStats(false)
                 .setTaskCpuTimerEnabled(true)
                 .setMaxWorkerThreads(Runtime.getRuntime().availableProcessors() * 4)
@@ -53,6 +54,7 @@ public class TestTaskManagerConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("task.info-refresh-max-wait", "1s")
                 .put("task.verbose-stats", "true")
                 .put("task.cpu-timer-enabled", "false")
                 .put("task.max-memory", "2GB")
@@ -71,6 +73,7 @@ public class TestTaskManagerConfig
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
+                .setInfoRefreshMaxWait(new Duration(1, TimeUnit.SECONDS))
                 .setVerboseStats(true)
                 .setTaskCpuTimerEnabled(false)
                 .setMaxTaskMemoryUsage(new DataSize(2, Unit.GIGABYTE))

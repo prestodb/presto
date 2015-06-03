@@ -19,6 +19,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Min;
@@ -42,9 +43,25 @@ public class TaskManagerConfig
 
     private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
+    private Duration infoRefreshMaxWait = new Duration(200, TimeUnit.MILLISECONDS);
     private int writerCount = 1;
     private int taskDefaultConcurrency = 1;
     private int httpNotificationThreads = 25;
+
+    @MinDuration("1ms")
+    @MaxDuration("10s")
+    @NotNull
+    public Duration getInfoRefreshMaxWait()
+    {
+        return infoRefreshMaxWait;
+    }
+
+    @Config("task.info-refresh-max-wait")
+    public TaskManagerConfig setInfoRefreshMaxWait(Duration infoRefreshMaxWait)
+    {
+        this.infoRefreshMaxWait = infoRefreshMaxWait;
+        return this;
+    }
 
     public boolean isVerboseStats()
     {
