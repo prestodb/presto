@@ -13,7 +13,7 @@ Teradata Functions Extension
 
 .. function:: char2hexint(string) -> varchar
 
-    Returns the hexadecimal representation for a character string.
+    Returns the hexadecimal representation of the UTF-16BE encoding of the string.
 
 Teradata Date Functions
 -----------------------
@@ -35,7 +35,7 @@ Specifier       Description
 ``yyyy``        4-digit year
 =============== ===========
 
-.. warning:: Case insensitiveness is not currently supported. All specifiers must be lowercase.
+.. warning:: Case insensitivity is not currently supported. All specifiers must be lowercase.
 
 .. function:: to_char(timestamp, format) -> varchar
 
