@@ -24,7 +24,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Function;
 import com.google.common.base.Splitter;
-import com.google.common.base.Supplier;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -52,6 +51,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.SequencePageBuilder.createSequencePage;
@@ -93,6 +93,7 @@ public class TestExchangeOperator
     private HttpClient httpClient;
     private Supplier<ExchangeClient> exchangeClientSupplier;
 
+    @SuppressWarnings("resource")
     @BeforeClass
     public void setUp()
             throws Exception
@@ -101,21 +102,14 @@ public class TestExchangeOperator
 
         httpClient = new TestingHttpClient(new HttpClientHandler(taskBuffers), executor);
 
-        exchangeClientSupplier = new Supplier<ExchangeClient>()
-        {
-            @Override
-            public ExchangeClient get()
-            {
-                return new ExchangeClient(
-                        blockEncodingSerde,
-                        new DataSize(32, MEGABYTE),
-                        new DataSize(10, MEGABYTE),
-                        3,
-                        new Duration(1, TimeUnit.MINUTES),
-                        httpClient,
-                        executor);
-            }
-        };
+        exchangeClientSupplier = () -> new ExchangeClient(
+                blockEncodingSerde,
+                new DataSize(32, MEGABYTE),
+                new DataSize(10, MEGABYTE),
+                3,
+                new Duration(1, TimeUnit.MINUTES),
+                httpClient,
+                executor);
     }
 
     @AfterClass
