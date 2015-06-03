@@ -17,25 +17,19 @@ package com.facebook.presto.plugin.blackhole;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.collect.ImmutableMap;
-import com.google.inject.Injector;
-import io.airlift.bootstrap.Bootstrap;
 
 import java.util.Map;
 
-import static com.google.common.base.Throwables.propagate;
 import static java.util.Objects.requireNonNull;
 
 public class BlackHoleConnectorFactory
         implements ConnectorFactory
 {
     private final TypeManager typeManager;
-    private final Map<String, String> optionalConfig;
 
-    public BlackHoleConnectorFactory(TypeManager typeManager, Map<String, String> optionalConfig)
+    public BlackHoleConnectorFactory(TypeManager typeManager)
     {
-        this.typeManager = requireNonNull(typeManager);
-        this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig));
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -47,20 +41,12 @@ public class BlackHoleConnectorFactory
     @Override
     public Connector create(String connectorId, Map<String, String> requiredConfig)
     {
-        try {
-            Bootstrap app = new Bootstrap(new BlackHoleModule(typeManager));
-
-            Injector injector = app
-                    .strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(requiredConfig)
-                    .setOptionalConfigurationProperties(optionalConfig)
-                    .initialize();
-
-            return injector.getInstance(BlackHoleConnector.class);
-        }
-        catch (Exception e) {
-            throw propagate(e);
-        }
+        return new BlackHoleConnector(
+                new BlackHoleMetadata(typeManager),
+                new BlackHoleHandleResolver(),
+                new BlackHoleSplitManager(),
+                new BlackHolePageSourceProvider(),
+                new BlackHolePageSinkProvider()
+        );
     }
 }

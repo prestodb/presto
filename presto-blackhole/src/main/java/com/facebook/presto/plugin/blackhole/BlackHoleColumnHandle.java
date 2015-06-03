@@ -14,8 +14,8 @@
 
 package com.facebook.presto.plugin.blackhole;
 
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -31,8 +31,7 @@ public final class BlackHoleColumnHandle
 
     public BlackHoleColumnHandle(ColumnMetadata columnMetadata)
     {
-        name = columnMetadata.getName();
-        typeSignature = columnMetadata.getType().getTypeSignature();
+        this(columnMetadata.getName(), columnMetadata.getType().getTypeSignature());
     }
 
     @JsonCreator

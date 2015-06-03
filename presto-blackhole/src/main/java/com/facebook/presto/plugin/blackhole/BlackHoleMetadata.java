@@ -35,20 +35,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
-import javax.inject.Inject;
-
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.facebook.presto.plugin.blackhole.BlackHoleTypes.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Lists.newArrayList;
-import static java.util.Collections.synchronizedMap;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
@@ -57,10 +53,9 @@ public class BlackHoleMetadata
 {
     public static final String SCHEMA_NAME = "default";
 
-    private Map<String, BlackHoleTableHandle> tables = synchronizedMap(new HashMap<>());
+    private final Map<String, BlackHoleTableHandle> tables = new ConcurrentHashMap<>();
     private final TypeManager typeManager;
 
-    @Inject
     public BlackHoleMetadata(TypeManager typeManager)
     {
         this.typeManager = typeManager;
@@ -88,9 +83,8 @@ public class BlackHoleMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
-        if (schemaNameOrNull != null) {
-            checkArgument(schemaNameOrNull.equals(SCHEMA_NAME), "Only '{}' schema is supported", SCHEMA_NAME);
-        }
+        checkArgument(schemaNameOrNull == null || schemaNameOrNull.equals(SCHEMA_NAME),
+                "Only '%s' schema is supported", SCHEMA_NAME);
         return tables.values().stream()
                 .map(BlackHoleTableHandle::toSchemaTableName)
                 .collect(toList());
@@ -99,7 +93,8 @@ public class BlackHoleMetadata
     @Override
     public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
-        //  returns null as the table does not contain sampled data (see {@link com.facebook.presto.spi.ConnectorMetadata.getSampleWeightColumnHandle()}
+        //  returns null as the table does not contain sampled data
+        // (see {@link com.facebook.presto.spi.ConnectorMetadata.getSampleWeightColumnHandle()}
         return null;
     }
 
@@ -114,7 +109,7 @@ public class BlackHoleMetadata
     {
         BlackHoleTableHandle blackHoleTableHandle = checkType(tableHandle, BlackHoleTableHandle.class, "tableHandle");
         return blackHoleTableHandle.getColumnHandles().stream()
-                .collect(toMap(BlackHoleColumnHandle::getName, nullColumnHandle -> nullColumnHandle));
+                .collect(toMap(BlackHoleColumnHandle::getName, column -> column));
     }
 
     @Override
@@ -142,7 +137,13 @@ public class BlackHoleMetadata
     @Override
     public void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renames");
+        BlackHoleTableHandle oldTableHandle = checkType(tableHandle, BlackHoleTableHandle.class, "tableHandle");
+        BlackHoleTableHandle newTableHandle = new BlackHoleTableHandle(
+                oldTableHandle.getSchemaName(), newTableName.getTableName(), oldTableHandle.getColumnHandles());
+        synchronized (tables) {
+            tables.remove(oldTableHandle.getTableName());
+            tables.put(newTableName.getTableName(), newTableHandle);
+        }
     }
 
     @Override
@@ -206,15 +207,12 @@ public class BlackHoleMetadata
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        ConnectorTableLayoutHandle layoutHandle = new ConnectorTableLayoutHandle()
-        {
-        };
-        return newArrayList(new ConnectorTableLayoutResult(getTableLayout(layoutHandle), TupleDomain.<ColumnHandle>none()));
+        return ImmutableList.of(new ConnectorTableLayoutResult(getTableLayout(new BlackHoleConnectorTableLayoutHandle()), TupleDomain.none()));
     }
 
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorTableLayoutHandle handle)
     {
-        return new ConnectorTableLayout(handle, Optional.empty(), TupleDomain.none(), Optional.<Set<ColumnHandle>>empty(), Optional.<List<TupleDomain<ColumnHandle>>>empty(), ImmutableList.of());
+        return new ConnectorTableLayout(handle, Optional.empty(), TupleDomain.none(), Optional.empty(), Optional.empty(), ImmutableList.of());
     }
 }

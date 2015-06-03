@@ -31,16 +31,11 @@ public class BlackHolePageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorOutputTableHandle outputTableHandle)
     {
-        return createPageSink();
+        return new NoOpConnectorPageSink();
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorInsertTableHandle insertTableHandle)
-    {
-        return createPageSink();
-    }
-
-    private ConnectorPageSink createPageSink()
     {
         return new NoOpConnectorPageSink();
     }
