@@ -39,6 +39,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -63,6 +64,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -398,6 +400,12 @@ class QueryPlanner
 
         for (FunctionCall windowFunction : windowFunctions) {
             Window window = windowFunction.getWindow().get();
+
+            List<Expression> partitionBy = window.getPartitionBy().stream()
+                    .filter(e -> !(e instanceof Literal))
+                    .collect(toImmutableList());
+
+            window = new Window(partitionBy, window.getOrderBy(), window.getFrame());
 
             // Extract frame
             WindowFrame.Type frameType = WindowFrame.Type.RANGE;
