@@ -126,8 +126,6 @@
                 <dd><a href="https://github.com/easydatawarehousing">Ivo Herweijer</a></dd>
                 <dt>Description</dt>
                 <dd>C client for Presto.</dd>
-                <dt>Example</dt>
-                <dd><a href="https://github.com/easydatawarehousing/prestoclient/blob/master/C/src/main.c">C Prestoclient Example at GitHub</a></dd>
             </dl>
         </div>
 
@@ -173,22 +171,6 @@ try (Connection connection =
                 <dd><a href="https://github.com/tagomoris">Satoshi Tagomori</a></dd>
                 <dt>Description</dt>
                 <dd>Node.js client for Presto.</dd>
-                <dt>Example</dt>
-                <dd>
-<pre>
-var presto = require('presto-client');
-
-var client = new presto.Client({
-    user: 'myname',
-    catalog: 'hive',
-    schema: 'default',
-});
-
-client.execute('show schemas', function(error, data, columns) {
-    console.log({databases: data});
-});
-</pre>
-                </dd>
             </dl>
         </div>
 
@@ -203,26 +185,6 @@ client.execute('show schemas', function(error, data, columns) {
                 <dd><a href="https://github.com/Xtendsys-labs">Xtendsys-labs</a></dd>
                 <dt>Description</dt>
                 <dd>PHP client for Presto.</dd>
-                <dt>Example</dt>
-                <dd>
-<pre>
-require_once('PhpPrestoClient.php');
-
-// Create a new connection object
-// Provide URL and catalog as parameters
-$presto = new PhpPrestoClient(
-    'http://localhost:8080/v1/statement', 'hive');
-
-// Prepare your SQL request
-$presto->PrestoQuery('select * from hive.default.mytable');
-
-// Execute the request and build the result
-$presto->WaitQueryExec();
-
-// Get the result
-$answer = $presto->GetData();
-</pre>
-                </dd>
             </dl>
         </div>
 
@@ -237,19 +199,6 @@ $answer = $presto->GetData();
                 <dd><a href="https://github.com/dropbox">Dropbox</a></dd>
                 <dt>Description</dt>
                 <dd>PyHive is a collection of Python DB-API and SQLAlchemy interfaces for Presto and Hive.</dd>
-                <dt>Example</dt>
-                <dd>
-<pre>
-from sqlalchemy import *
-from sqlalchemy.engine import create_engine
-from sqlalchemy.schema import *
-
-engine = create_engine('presto://localhost:8080/hive/default')
-logs = Table('my_awesome_data',
-    MetaData(bind=engine), autoload=True)
-print select([func.count('*')], from_obj=logs).scalar()
-</pre>
-                </dd>
             </dl>
         </div>
 
@@ -262,25 +211,6 @@ print select([func.count('*')], from_obj=logs).scalar()
                 <dd><a href="https://github.com/easydatawarehousing">Ivo Herweijer</a></dd>
                 <dt>Description</dt>
                 <dd>Python client for Presto.</dd>
-                <dt>Example</dt>
-                <dd>
-<pre>
-import prestoclient
-
-sql = 'SHOW TABLES'
-
-presto = prestoclient.PrestoClient('localhost')
-
-if not presto.runquery(sql):
-    print 'Error: ', presto.getlasterrormessage()
-else:
-    # We're done now, so let's show the results
-    print 'Columns: ', presto.getcolumns()
-    if presto.getdata():
-        print 'Rows: ', presto.getnumberofdatarows()
-        print 'Data: ', presto.getdata()
-</pre>
-                </dd>
             </dl>
         </div>
 
@@ -295,27 +225,6 @@ else:
                 <dd><a href="https://github.com/easydatawarehousing">Ivo Herweijer</a></dd>
                 <dt>Description</dt>
                 <dd>R client for Presto.</dd>
-                <dt>Example</dt>
-                <dd>
-<pre>
-sql <- "SHOW TABLES"
-
-pc <- PrestoClient("localhost")
-
-if (!pc$startquery(sql) ) {
-  print(pc$getlasterrormessage() )
-} else {
-  # Remove TRUE parameter to skip printing status messages
-  pc$waituntilfinished(TRUE)
-  if (pc$getstatus() == "FAILED") {
-    print(pc$getlasterrormessage() )
-  }
-
-  # We're done now, so let's show the results
-  pc$getdata()
-}
-</pre>
-                </dd>
             </dl>
         </div>
 
@@ -330,25 +239,6 @@ if (!pc$startquery(sql) ) {
                 <dd><a href="https://github.com/frsyuki">Furuhashi Sadayuki</a></dd>
                 <dt>Description</dt>
                 <dd>Ruby client for Presto.</dd>
-                <dt>Example</dt>
-                <dd>
-<pre>
-require 'presto-client'
-
-# create a client object
-client = Presto::Client.new(
-  server: 'localhost:8080',
-  catalog: 'native',
-  schema: 'default',
-  user: 'frsyuki',
-  http_debug: true,
-)
-
-# run a query and get results
-columns, rows = client.run('select * from sys.node')
-rows.each {|row| p row }
-</pre>
-                </dd>
             </dl>
         </div>
 
