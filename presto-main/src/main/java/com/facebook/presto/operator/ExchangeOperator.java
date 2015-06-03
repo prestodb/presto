@@ -90,21 +90,14 @@ public class ExchangeOperator
             OperatorContext operatorContext,
             List<Type> types,
             PlanNodeId sourceId,
-            final ExchangeClient exchangeClient)
+            ExchangeClient exchangeClient)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.sourceId = checkNotNull(sourceId, "sourceId is null");
         this.exchangeClient = checkNotNull(exchangeClient, "exchangeClient is null");
         this.types = checkNotNull(types, "types is null");
 
-        operatorContext.setInfoSupplier(new Supplier<Object>()
-        {
-            @Override
-            public Object get()
-            {
-                return exchangeClient.getStatus();
-            }
-        });
+        operatorContext.setInfoSupplier(exchangeClient::getStatus);
     }
 
     @Override

@@ -27,7 +27,6 @@ import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -144,7 +143,7 @@ public class IndexSourceOperator
         RecordSet result = index.lookup(normalizedRecordSet);
         source = new PageSourceOperator(new RecordPageSource(result), result.getColumnTypes(), operatorContext);
 
-        operatorContext.setInfoSupplier(Suppliers.ofInstance(split.getInfo()));
+        operatorContext.setInfoSupplier(split::getInfo);
     }
 
     @Override
