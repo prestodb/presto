@@ -323,7 +323,7 @@ public class WindowOperator
         Page preGroupedPage = rearrangePage(page, preGroupedChannels);
         if (pagesIndex.getPositionCount() == 0 || pagesIndex.positionEqualsRow(preGroupedPartitionHashStrategy, 0, 0, preGroupedPage.getBlocks())) {
             // Find the position where the pre-grouped columns change
-            int groupEnd = findGroupEnd(preGroupedPage, preGroupedPartitionHashStrategy, 0);
+            int groupEnd = findGroupEnd(preGroupedPage, preGroupedPartitionHashStrategy.getPagePositionEqualitor(), 0);
 
             // Add the section of the page that contains values for the current group
             pagesIndex.addPage(page.getRegion(0, groupEnd));
@@ -423,20 +423,20 @@ public class WindowOperator
     }
 
     // Assumes input grouped on relevant pagesHashStrategy columns
-    private static int findGroupEnd(Page page, PagesHashStrategy pagesHashStrategy, int startPosition)
+    private static int findGroupEnd(Page page, PagePositionEqualitor pagePositionEqualitor, int startPosition)
     {
         checkArgument(page.getPositionCount() > 0, "Must have at least one position");
         checkPositionIndex(startPosition, page.getPositionCount(), "startPosition out of bounds");
 
         // Short circuit if the whole page has the same value
-        if (pagesHashStrategy.rowEqualsRow(startPosition, page.getBlocks(), page.getPositionCount() - 1, page.getBlocks())) {
+        if (pagePositionEqualitor.rowEqualsRow(startPosition, page, page.getPositionCount() - 1, page)) {
             return page.getPositionCount();
         }
 
         // TODO: do position binary search
         int endPosition = startPosition + 1;
         while (endPosition < page.getPositionCount() &&
-                pagesHashStrategy.rowEqualsRow(endPosition - 1, page.getBlocks(), endPosition, page.getBlocks())) {
+                pagePositionEqualitor.rowEqualsRow(endPosition - 1, page, endPosition, page)) {
             endPosition++;
         }
         return endPosition;

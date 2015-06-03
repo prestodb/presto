@@ -35,19 +35,6 @@ public interface PagesHashStrategy
     int hashPosition(int blockIndex, int position);
 
     /**
-     * Calculates the hash code at {@code position} in {@code blocks}. Blocks must have the same number of
-     * entries as the hashed columns and each entry is expected to be the same type.
-     */
-    int hashRow(int position, Block... blocks);
-
-    /**
-     * Compares the values in the specified blocks.  The values are compared positionally, so {@code leftBlocks}
-     * and {@code rightBlocks} must have the same number of entries as the hashed columns and each entry
-     * is expected to be the same type.
-     */
-    boolean rowEqualsRow(int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks);
-
-    /**
      * Compares the hashed columns in this PagesHashStrategy to the values in the specified blocks.  The
      * values are compared positionally, so {@code rightBlocks} must have the same number of entries as
      * the hashed columns and each entry is expected to be the same type.
@@ -58,4 +45,9 @@ public interface PagesHashStrategy
      * Compares the hashed columns in this PagesHashStrategy at the specified positions.
      */
     boolean positionEqualsPosition(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition);
+
+    /**
+     * Returns a PagePositionEqualitor for the current PagesHashStrategy hashed columns layout
+     */
+    PagePositionEqualitor getPagePositionEqualitor();
 }

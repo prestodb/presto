@@ -101,7 +101,7 @@ public final class InMemoryJoinHash
     @Override
     public long getJoinPosition(int position, Page page)
     {
-        return getJoinPosition(position, page, pagesHashStrategy.hashRow(position, page.getBlocks()));
+        return getJoinPosition(position, page, pagesHashStrategy.getPagePositionEqualitor().hashRow(position, page));
     }
 
     @Override

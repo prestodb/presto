@@ -101,7 +101,7 @@ public class TestJoinCompiler
                     for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
                         boolean expected = positionEqualsPosition(VARCHAR, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
                         assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightBlockPosition, rightBlock), expected);
-                        assertEquals(hashStrategy.rowEqualsRow(leftBlockPosition, new Block[] {leftBlock}, rightBlockPosition, new Block[] {rightBlock}), expected);
+                        assertEquals(hashStrategy.getPagePositionEqualitor().rowEqualsRow(leftBlockPosition, new Page(leftBlock), rightBlockPosition, new Page(rightBlock)), expected);
                         assertEquals(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition), expected);
                     }
                 }
@@ -112,7 +112,7 @@ public class TestJoinCompiler
                     for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
                         boolean expected = positionEqualsPosition(VARCHAR, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
                         assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightBlockPosition, rightBlock), expected);
-                        assertEquals(hashStrategy.rowEqualsRow(leftBlockPosition, new Block[] {leftBlock}, rightBlockPosition, new Block[] {rightBlock}), expected);
+                        assertEquals(hashStrategy.getPagePositionEqualitor().rowEqualsRow(leftBlockPosition, new Page(leftBlock), rightBlockPosition, new Page(rightBlock)), expected);
                         assertEquals(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition), expected);
                     }
                 }
@@ -223,7 +223,7 @@ public class TestJoinCompiler
                         boolean expected = expectedHashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, rightBlocks);
 
                         assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, rightBlocks), expected);
-                        assertEquals(hashStrategy.rowEqualsRow(leftBlockPosition, leftBlocks, rightPosition, rightBlocks), expected);
+                        assertEquals(hashStrategy.getPagePositionEqualitor().rowEqualsRow(leftBlockPosition, new Page(leftBlocks), rightPosition, new Page(rightBlocks)), expected);
                         assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, rightBlocks), expected);
                     }
                 }

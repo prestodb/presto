@@ -18,13 +18,16 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.stream.Collectors.toList;
 
 public class SimplePagesHashStrategy
         implements PagesHashStrategy
@@ -82,34 +85,6 @@ public class SimplePagesHashStrategy
     }
 
     @Override
-    public int hashRow(int position, Block... blocks)
-    {
-        int result = 0;
-        for (int i = 0; i < hashChannels.size(); i++) {
-            int hashChannel = hashChannels.get(i);
-            Type type = types.get(hashChannel);
-            Block block = blocks[i];
-            result = result * 31 + TypeUtils.hashPosition(type, block, position);
-        }
-        return result;
-    }
-
-    @Override
-    public boolean rowEqualsRow(int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks)
-    {
-        for (int i = 0; i < hashChannels.size(); i++) {
-            int hashChannel = hashChannels.get(i);
-            Type type = types.get(hashChannel);
-            Block leftBlock = leftBlocks[i];
-            Block rightBlock = rightBlocks[i];
-            if (!TypeUtils.positionEqualsPosition(type, leftBlock, leftPosition, rightBlock, rightPosition)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    @Override
     public boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Block... rightBlocks)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
@@ -138,5 +113,11 @@ public class SimplePagesHashStrategy
         }
 
         return true;
+    }
+
+    @Override
+    public PagePositionEqualitor getPagePositionEqualitor()
+    {
+        return new SimplePagePositionEqualitor(Lists.transform(hashChannels, types::get), IntStream.range(0, hashChannels.size()).boxed().collect(toList()));
     }
 }
