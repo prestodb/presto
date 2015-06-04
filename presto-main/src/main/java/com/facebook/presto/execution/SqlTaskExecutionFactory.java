@@ -18,23 +18,24 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.util.Comparables;
 import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.concurrent.Executor;
 
+import static com.facebook.presto.SystemSessionProperties.getBigQueryTaskMaxMemory;
+import static com.facebook.presto.SystemSessionProperties.getTaskMaxMemory;
 import static com.facebook.presto.SystemSessionProperties.isBigQueryEnabled;
+import static com.facebook.presto.SystemSessionProperties.isVerboseStatsEnabled;
 import static com.facebook.presto.execution.SqlTaskExecution.createSqlTaskExecution;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTaskExecutionFactory
 {
-    private static final String VERBOSE_STATS_PROPERTY = "verbose_stats";
     private final Executor taskNotificationExecutor;
 
     private final TaskExecutor taskExecutor;
@@ -68,7 +69,9 @@ public class SqlTaskExecutionFactory
 
     public SqlTaskExecution create(Session session, QueryContext queryContext, TaskStateMachine taskStateMachine, SharedBuffer sharedBuffer, PlanFragment fragment, List<TaskSource> sources)
     {
-        boolean verboseStats = getVerboseStats(session);
+        boolean verboseStats = isVerboseStatsEnabled(session, this.verboseStats);
+        DataSize maxTaskMemoryUsage = Comparables.min(getTaskMaxMemory(session, this.maxTaskMemoryUsage), this.maxTaskMemoryUsage);
+        DataSize bigQueryMaxTaskMemoryUsage = Comparables.min(getBigQueryTaskMaxMemory(session, this.bigQueryMaxTaskMemoryUsage), this.bigQueryMaxTaskMemoryUsage);
         TaskContext taskContext = queryContext.addTaskContext(
                 taskStateMachine,
                 session,
@@ -87,20 +90,5 @@ public class SqlTaskExecutionFactory
                 taskExecutor,
                 taskNotificationExecutor,
                 queryMonitor);
-    }
-
-    private boolean getVerboseStats(Session session)
-    {
-        String verboseStats = session.getSystemProperties().get(VERBOSE_STATS_PROPERTY);
-        if (verboseStats == null) {
-            return this.verboseStats;
-        }
-
-        try {
-            return Boolean.valueOf(verboseStats.toUpperCase());
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(NOT_SUPPORTED, "Invalid property '" + VERBOSE_STATS_PROPERTY + "=" + verboseStats + "'");
-        }
     }
 }
