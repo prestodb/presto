@@ -86,7 +86,7 @@ public class CreateViewTask
         metadata.createView(session, name, data, statement.isReplace());
     }
 
-    public Analysis analyzeStatement(Statement statement, Session session, Metadata metadata)
+    private Analysis analyzeStatement(Statement statement, Session session, Metadata metadata)
     {
         QueryExplainer explainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.of(explainer), experimentalSyntaxEnabled);
