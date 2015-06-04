@@ -359,13 +359,8 @@ public class PagesIndex
         try {
             LookupSourceFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels);
 
-            ImmutableList.Builder<Type> joinChannelTypes = ImmutableList.builder();
-            for (Integer joinChannel : joinChannels) {
-                joinChannelTypes.add(types.get(joinChannel));
-            }
             LookupSource lookupSource = lookupSourceFactory.createLookupSource(
                     valueAddresses,
-                    joinChannelTypes.build(),
                     ImmutableList.<List<Block>>copyOf(channels),
                     hashChannel);
 
