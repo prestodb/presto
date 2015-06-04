@@ -48,7 +48,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.SystemSessionProperties.BIG_QUERY;
 import static com.facebook.presto.execution.QueuedExecution.createQueuedExecution;
 import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -72,8 +71,6 @@ public class SqlQueryQueueManager
         ImmutableList.Builder<QueryQueueRule> rules = ImmutableList.builder();
         if (config.getQueueConfigFile() == null) {
             QueryQueueDefinition global = new QueryQueueDefinition("global", config.getMaxConcurrentQueries(), config.getMaxQueuedQueries());
-            QueryQueueDefinition big = new QueryQueueDefinition("big", config.getMaxConcurrentBigQueries(), config.getMaxQueuedBigQueries());
-            rules.add(new QueryQueueRule(null, null, ImmutableMap.of(BIG_QUERY, Pattern.compile("true", Pattern.CASE_INSENSITIVE)), ImmutableList.of(big)));
             rules.add(new QueryQueueRule(null, null, ImmutableMap.of(), ImmutableList.of(global)));
         }
         else {

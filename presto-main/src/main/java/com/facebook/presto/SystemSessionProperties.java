@@ -17,7 +17,6 @@ import io.airlift.units.DataSize;
 
 public final class SystemSessionProperties
 {
-    public static final String BIG_QUERY = "experimental_big_query";
     private static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     private static final String DISTRIBUTED_JOIN = "distributed_join";
     private static final String HASH_PARTITION_COUNT = "hash_partition_count";
@@ -30,11 +29,6 @@ public final class SystemSessionProperties
     private static final String QUERY_MAX_MEMORY = "query_max_memory";
 
     private SystemSessionProperties() {}
-
-    public static boolean isBigQueryEnabled(Session session, boolean defaultValue)
-    {
-        return isEnabled(BIG_QUERY, session, defaultValue);
-    }
 
     private static boolean isEnabled(String propertyName, Session session, boolean defaultValue)
     {

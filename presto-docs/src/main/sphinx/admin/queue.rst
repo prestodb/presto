@@ -16,30 +16,22 @@ source submitting the query.
 
 There are also five rules that define which queries go into which queues:
 
-* The first rule makes ``bob`` an admin.
+  * The first rule makes ``bob`` an admin.
 
-* The second rule states that all queries submitted with the ``experimental_big_query``
-  session property and that come from a source that includes ``pipeline`` should
-  first be queued in the user's personal queue, then the ``pipeline`` queue, and
-  finally the ``big`` queue. When a query enters a new queue, it doesn't leave
-  previous queues until the query finishes execution.
+  * The second rule states that all queries that come from a source that includes ``pipeline``
+    should first be queued in the user's personal queue, then the ``pipeline`` queue. When a
+    query enters a new queue, it doesn't leave previous queues until the query finishes execution.
 
-* The third rule is the same as the previous, but without the ``experimental_big_query``
-  requirement, and uses the ``global`` queue instead of the ``big`` queue.
-
-* The last two rules are the same as the previous two, but without the
-  match on ``pipeline`` in the source.
+  * The last rule is a catch all, which puts all queries into the user's personal queue.
 
 All together these rules implement the policy that ``bob`` is an admin and
 all other users are subject to the follow limits:
 
   * Users are allowed to have up to 5 queries running.
 
-  * ``big`` queries may only run one at a time.
-
   * No more than 10 ``pipeline`` queries may run at once.
 
-  * No more than 100 non-``big`` queries may run at once.
+  * No more than 100 other queries may run at once.
 
 .. code-block:: json
 
@@ -60,10 +52,6 @@ all other users are subject to the follow limits:
         "global": {
           "maxConcurrent": 100,
           "maxQueued": 1000
-        },
-        "big": {
-          "maxConcurrent": 1,
-          "maxQueued": 10
         }
       },
       "rules": [
@@ -72,27 +60,11 @@ all other users are subject to the follow limits:
           "queues": ["admin"]
         },
         {
-          "session.experimental_big_query": "true",
-          "source": ".*pipeline.*",
-          "queues": [
-            "user.${USER}",
-            "pipeline",
-            "big"
-          ]
-        },
-        {
           "source": ".*pipeline.*",
           "queues": [
             "user.${USER}",
             "pipeline",
             "global"
-          ]
-        },
-        {
-          "session.experimental_big_query": "true",
-          "queues": [
-            "user.${USER}",
-            "big"
           ]
         },
         {

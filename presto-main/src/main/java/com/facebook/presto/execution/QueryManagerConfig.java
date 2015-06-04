@@ -18,24 +18,23 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
-import javax.annotation.Nullable;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
-@DefunctConfig("query.max-pending-splits-per-node")
+@DefunctConfig({"query.max-pending-splits-per-node",
+                "experimental.big-query-initial-hash-partitions",
+                "experimental.max-concurrent-big-queries",
+                "experimental.max-queued-big-queries"})
 public class QueryManagerConfig
 {
     private int scheduleSplitBatchSize = 1000;
     private int maxConcurrentQueries = 1000;
     private int maxQueuedQueries = 5000;
-    private int maxConcurrentBigQueries = 10;
-    private int maxQueuedBigQueries = 500;
     private String queueConfigFile;
 
     private int initialHashPartitions = 8;
-    private Integer bigQueryInitialHashPartitions;
     private Duration maxQueryAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
@@ -73,36 +72,6 @@ public class QueryManagerConfig
 
     @Deprecated
     @Min(1)
-    public int getMaxConcurrentBigQueries()
-    {
-        return maxConcurrentBigQueries;
-    }
-
-    @Deprecated
-    @Config("experimental.max-concurrent-big-queries")
-    public QueryManagerConfig setMaxConcurrentBigQueries(int maxConcurrentBigQueries)
-    {
-        this.maxConcurrentBigQueries = maxConcurrentBigQueries;
-        return this;
-    }
-
-    @Deprecated
-    @Min(1)
-    public int getMaxQueuedBigQueries()
-    {
-        return maxQueuedBigQueries;
-    }
-
-    @Deprecated
-    @Config("experimental.max-queued-big-queries")
-    public QueryManagerConfig setMaxQueuedBigQueries(int maxQueuedBigQueries)
-    {
-        this.maxQueuedBigQueries = maxQueuedBigQueries;
-        return this;
-    }
-
-    @Deprecated
-    @Min(1)
     public int getMaxConcurrentQueries()
     {
         return maxConcurrentQueries;
@@ -128,20 +97,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxQueuedQueries(int maxQueuedQueries)
     {
         this.maxQueuedQueries = maxQueuedQueries;
-        return this;
-    }
-
-    @Nullable
-    @Min(1)
-    public Integer getBigQueryInitialHashPartitions()
-    {
-        return bigQueryInitialHashPartitions;
-    }
-
-    @Config("experimental.big-query-initial-hash-partitions")
-    public QueryManagerConfig setBigQueryInitialHashPartitions(Integer bigQueryinitialHashPartitions)
-    {
-        this.bigQueryInitialHashPartitions = bigQueryinitialHashPartitions;
         return this;
     }
 
