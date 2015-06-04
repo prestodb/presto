@@ -49,8 +49,6 @@ import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 
-import javax.inject.Inject;
-
 public class BlackHoleConnector
         implements Connector
 {
@@ -60,7 +58,6 @@ public class BlackHoleConnector
     private final BlackHolePageSourceProvider pageSourceProvider;
     private final BlackHolePageSinkProvider pageSinkProvider;
 
-    @Inject
     public BlackHoleConnector(BlackHoleMetadata metadata,
             BlackHoleHandleResolver connectorHandleResolver,
             BlackHoleSplitManager splitManager,
