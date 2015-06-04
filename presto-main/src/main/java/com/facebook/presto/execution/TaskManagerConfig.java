@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -27,12 +28,12 @@ import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
+@DefunctConfig("experimental.big-query-max-task-memory")
 public class TaskManagerConfig
 {
     private boolean verboseStats;
     private boolean taskCpuTimerEnabled = true;
     private DataSize maxTaskMemoryUsage = new DataSize(256, Unit.MEGABYTE);
-    private DataSize bigQueryMaxTaskMemoryUsage;
     private DataSize maxPartialAggregationMemoryUsage = new DataSize(16, Unit.MEGABYTE);
     private DataSize operatorPreAllocatedMemory = new DataSize(16, Unit.MEGABYTE);
     private DataSize maxTaskIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
@@ -97,21 +98,6 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxPartialAggregationMemoryUsage(DataSize maxPartialAggregationMemoryUsage)
     {
         this.maxPartialAggregationMemoryUsage = maxPartialAggregationMemoryUsage;
-        return this;
-    }
-
-    public DataSize getBigQueryMaxTaskMemoryUsage()
-    {
-        if (bigQueryMaxTaskMemoryUsage == null) {
-            return new DataSize(2 * maxTaskMemoryUsage.toBytes(), Unit.BYTE);
-        }
-        return bigQueryMaxTaskMemoryUsage;
-    }
-
-    @Config("experimental.big-query-max-task-memory")
-    public TaskManagerConfig setBigQueryMaxTaskMemoryUsage(DataSize bigQueryMaxTaskMemoryUsage)
-    {
-        this.bigQueryMaxTaskMemoryUsage = bigQueryMaxTaskMemoryUsage;
         return this;
     }
 

@@ -22,7 +22,6 @@ import org.testng.annotations.Test;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.SystemSessionProperties.BIG_QUERY;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryQueueRule
@@ -39,9 +38,9 @@ public class TestQueryQueueRule
     @Test
     public void testBigQuery()
     {
-        Session session = new Session("bob", "the-internet", "", "", TimeZoneKey.UTC_KEY, Locale.ENGLISH, null, null, 0, ImmutableMap.of(BIG_QUERY, "true"), ImmutableMap.of());
+        Session session = new Session("bob", "the-internet", "", "", TimeZoneKey.UTC_KEY, Locale.ENGLISH, null, null, 0, ImmutableMap.of("big_query", "true"), ImmutableMap.of());
         QueryQueueDefinition definition = new QueryQueueDefinition("big", 1, 1);
-        QueryQueueRule rule = new QueryQueueRule(null, null, ImmutableMap.of(BIG_QUERY, Pattern.compile("true", Pattern.CASE_INSENSITIVE)), ImmutableList.of(definition));
+        QueryQueueRule rule = new QueryQueueRule(null, null, ImmutableMap.of("big_query", Pattern.compile("true", Pattern.CASE_INSENSITIVE)), ImmutableList.of(definition));
         assertEquals(rule.match(session), ImmutableList.of(definition));
     }
 }
