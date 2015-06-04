@@ -610,6 +610,11 @@ public final class SqlStageExecution
         localNodeTaskMap.put(node, task.getTaskInfo().getTaskId());
         nodeTaskMap.addTask(node, task);
 
+        // check whether the stage finished while we were scheduling this task
+        if (stateMachine.getState().isDone()) {
+            task.cancel();
+        }
+
         // update in case task finished before listener was registered
         doUpdateState();
 
