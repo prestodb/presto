@@ -38,4 +38,10 @@ public class TpchTableLayoutHandle
     {
         return table.getConnectorId();
     }
+
+    @Override
+    public String toString()
+    {
+        return table.toString();
+    }
 }

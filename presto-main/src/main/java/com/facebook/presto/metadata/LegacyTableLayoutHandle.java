@@ -82,4 +82,10 @@ public final class LegacyTableLayoutHandle
     {
         return Objects.hash(table, partitions);
     }
+
+    @Override
+    public String toString()
+    {
+        return table.toString();
+    }
 }
