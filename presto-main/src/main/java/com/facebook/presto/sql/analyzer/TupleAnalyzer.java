@@ -526,6 +526,7 @@ public class TupleAnalyzer
             analysis.addCoercions(analyzer.getExpressionCoercions());
 
             for (Expression conjunct : ExpressionUtils.extractConjuncts((Expression) optimizedExpression)) {
+                conjunct = ExpressionUtils.normalize(conjunct);
                 if (!(conjunct instanceof ComparisonExpression)) {
                     throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", conjunct);
                 }

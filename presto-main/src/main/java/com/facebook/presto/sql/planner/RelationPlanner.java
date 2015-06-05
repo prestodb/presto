@@ -229,6 +229,7 @@ class RelationPlanner
             List<Expression> rightExpressions = new ArrayList<>();
             List<ComparisonExpression.Type> comparisonTypes = new ArrayList<>();
             for (Expression conjunct : ExpressionUtils.extractConjuncts(criteria)) {
+                conjunct = ExpressionUtils.normalize(conjunct);
                 if (!(conjunct instanceof ComparisonExpression)) {
                     throw new SemanticException(NOT_SUPPORTED, node, "Unsupported non-equi join form: %s", conjunct);
                 }
