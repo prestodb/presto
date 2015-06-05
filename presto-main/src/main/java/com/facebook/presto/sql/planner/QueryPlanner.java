@@ -55,7 +55,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -629,27 +628,24 @@ class QueryPlanner
         Iterator<SortItem> sortItems = orderBy.iterator();
 
         ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
-        Set<Symbol> orderBySymbolSet = new HashSet<Symbol>();
+        Map<Symbol, SortOrder> orderings = new HashMap<Symbol, SortOrder>();
         for (FieldOrExpression fieldOrExpression : orderByExpressions) {
             Symbol symbol = subPlan.translate(fieldOrExpression);
-
-            if (orderBySymbolSet.contains(symbol)) {
+            if (orderings.containsKey(symbol)) {
                 sortItems.next();
                 continue;
             }
-            orderBySymbolSet.add(symbol);
-            orderBySymbols.add(symbol);
 
+            orderBySymbols.add(symbol);
             orderings.put(symbol, toSortOrder(sortItems.next()));
         }
 
         PlanNode planNode;
         if (limit.isPresent()) {
-            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.parseLong(limit.get()), orderBySymbols.build(), orderings.build(), false);
+            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.parseLong(limit.get()), orderBySymbols.build(), orderings, false);
         }
         else {
-            planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderBySymbols.build(), orderings.build());
+            planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderBySymbols.build(), orderings);
         }
 
         return new PlanBuilder(subPlan.getTranslations(), planNode, subPlan.getSampleWeight());
