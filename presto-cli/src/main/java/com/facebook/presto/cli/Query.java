@@ -167,7 +167,7 @@ public class Query
     private void discardResults()
     {
         try (OutputHandler handler = new OutputHandler(new NullPrinter())) {
-            handler.processRows(client);
+            processRows(handler);
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
@@ -205,24 +205,37 @@ public class Query
     {
         // ignore the user pressing ctrl-C while in the pager
         ignoreUserInterrupt.set(true);
-
         try (Writer writer = createWriter(Pager.create());
                 OutputHandler handler = createOutputHandler(format, writer, fieldNames)) {
-            handler.processRows(client);
+            processRows(handler);
         }
     }
 
     private void sendOutput(PrintStream out, OutputFormat format, List<String> fieldNames)
             throws IOException
     {
-        try (OutputHandler handler = createOutputHandler(format, createWriter(out), fieldNames)) {
-            handler.processRows(client);
+        try (Writer writer = createWriter(out);
+                OutputHandler handler = createOutputHandler(format, writer, fieldNames)) {
+            processRows(handler);
         }
     }
 
     private static OutputHandler createOutputHandler(OutputFormat format, Writer writer, List<String> fieldNames)
     {
         return new OutputHandler(createOutputPrinter(format, writer, fieldNames));
+    }
+
+    private void processRows(OutputHandler handler)
+            throws IOException
+    {
+        checkNotNull(handler, "handler is null");
+        try {
+            handler.processRows(client);
+        }
+        catch (IOException e) {
+            handler.fail();
+            throw e;
+        }
     }
 
     private static OutputPrinter createOutputPrinter(OutputFormat format, Writer writer, List<String> fieldNames)

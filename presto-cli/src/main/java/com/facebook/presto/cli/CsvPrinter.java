@@ -58,6 +58,13 @@ public class CsvPrinter
     public void finish()
             throws IOException
     {
+        flush();
+    }
+
+    @Override
+    public void flush()
+            throws IOException
+    {
         printRows(ImmutableList.<List<?>>of(), true);
         writer.flush();
         checkError();

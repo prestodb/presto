@@ -23,4 +23,7 @@ public interface OutputPrinter
 
     void finish()
             throws IOException;
+
+    void flush()
+            throws IOException;
 }

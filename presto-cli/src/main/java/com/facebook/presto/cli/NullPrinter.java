@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cli;
 
+import java.io.IOException;
 import java.util.List;
 
 public class NullPrinter
@@ -25,6 +26,12 @@ public class NullPrinter
 
     @Override
     public void finish()
+    {
+    }
+
+    @Override
+    public void flush()
+            throws IOException
     {
     }
 }

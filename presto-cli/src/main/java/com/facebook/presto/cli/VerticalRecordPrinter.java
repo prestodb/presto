@@ -51,6 +51,13 @@ public class VerticalRecordPrinter
         if (rowCount == 0) {
             writer.append("(no rows)\n");
         }
+        flush();
+    }
+
+    @Override
+    public void flush()
+            throws IOException
+    {
         writer.flush();
     }
 

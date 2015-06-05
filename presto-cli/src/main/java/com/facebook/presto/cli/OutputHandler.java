@@ -34,6 +34,7 @@ public final class OutputHandler
     private static final int MAX_BUFFERED_ROWS = 10_000;
 
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final AtomicBoolean failed = new AtomicBoolean();
     private final List<List<?>> rowBuffer = new ArrayList<>(MAX_BUFFERED_ROWS);
     private final OutputPrinter printer;
 
@@ -63,7 +64,9 @@ public final class OutputHandler
     {
         if (!closed.getAndSet(true)) {
             flush(true);
-            printer.finish();
+            if (!failed.get()) {
+                printer.finish();
+            }
         }
     }
 
@@ -93,5 +96,11 @@ public final class OutputHandler
             printer.printRows(unmodifiableList(rowBuffer), complete);
             rowBuffer.clear();
         }
+        printer.flush();
+    }
+
+    public void fail()
+    {
+        failed.set(true);
     }
 }
