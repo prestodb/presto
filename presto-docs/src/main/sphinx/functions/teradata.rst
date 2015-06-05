@@ -9,7 +9,7 @@ Teradata Functions Extension
 
 .. function:: index(string, substring) -> bigint
 
-    Alias for strpos function.
+    Alias for :func:`strpos` function.
 
 .. function:: char2hexint(string) -> varchar
 
