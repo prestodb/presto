@@ -87,6 +87,7 @@
         <module>presto-cli</module>
         <module>presto-benchmark-driver</module>
         <module>presto-server</module>
+        <module>presto-server-rpm</module>
         <module>presto-docs</module>
         <module>presto-verifier</module>
     </modules>
@@ -203,6 +204,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-server</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-server-rpm</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

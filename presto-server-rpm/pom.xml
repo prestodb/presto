@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.facebook.presto</groupId>
+        <artifactId>presto-root</artifactId>
+        <version>0.108-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>presto-server-rpm</artifactId>
+    <name>presto-server-rpm</name>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-server</artifactId>
+            <version>${project.version}</version>
+            <type>tar.gz</type>
+            <scope>runtime</scope>
+        </dependency>
+    </dependencies>
+
+    <profiles>
+        <profile>
+            <id>rpmbuild</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <!-- Untar presto-server tgz to target build folder -->
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>unpack</id>
+                                <goals>
+                                    <goal>unpack</goal>
+                                </goals>
+                                <configuration>
+                                    <artifactItems>
+                                        <artifactItem>
+                                            <groupId>com.facebook.presto</groupId>
+                                            <artifactId>presto-server</artifactId>
+                                            <version>${project.version}</version>
+                                            <type>tar.gz</type>
+                                            <outputDirectory>${project.build.directory}</outputDirectory>
+                                        </artifactItem>
+                                    </artifactItems>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- Build presto-server rpm using the untarred artifacts -->
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>rpm-maven-plugin</artifactId>
+                        <version>2.1.2</version>
+                        <executions>
+                            <execution>
+                                <id>generate-rpm</id>
+                                <goals>
+                                    <goal>rpm</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <name>presto</name>
+                            <version>${project.version}</version>
+                            <release>1.0</release>
+                            <group>Applications</group>
+                            <description>Presto Server RPM Package.</description>
+                            <needarch>x86_64</needarch>
+                            <requires>
+                                <require>python >= 2.4</require>
+                            </requires>
+                            <mappings>
+                                <mapping>
+                                    <!-- This should go to /usr/bin eventually. But that needs modifying launcher.py in 
+                                    airlift, to have a configurable option for install_path -->
+                                    <directory>/usr/lib/presto/bin</directory>
+                                    <!-- make sure laucher scripts are executable -->
+                                    <filemode>755</filemode>
+                                    <sources>
+                                        <source>
+                                            <location>${project.build.directory}/${server.tar.package}/bin
+                                            </location>
+                                        </source>
+                                    </sources>
+                                </mapping>
+                                <mapping>
+                                    <directory>/etc/rc.d/init.d</directory>
+                                    <!-- make sure init.d scripts are executable -->
+                                    <filemode>755</filemode>
+                                    <sources>
+                                        <source>
+                                            <location>src/main/resources/dist/etc/rc.d/init.d</location>
+                                        </source>
+                                    </sources>
+                                </mapping>
+                                <mapping>
+                                    <!-- This should go to just /usr/lib/presto eventually. But that needs modifying
+                                    launcher.py in airlift, to have a configurable option for install_path -->
+                                    <directory>/usr/lib/presto/lib</directory>
+                                    <sources>
+                                        <source>
+                                            <location>${project.build.directory}/${server.tar.package}/lib
+                                            </location>
+                                        </source>
+                                    </sources>
+                                </mapping>
+                                <mapping>
+                                    <directory>/usr/lib/presto/lib/plugin</directory>
+                                    <sources>
+                                        <source>
+                                            <location>
+                                                ${project.build.directory}/${server.tar.package}/plugin
+                                            </location>
+                                        </source>
+                                    </sources>
+                                </mapping>
+                                <mapping>
+                                    <directory>/etc/presto</directory>
+                                    <sources>
+                                        <source>
+                                            <location>src/main/resources/dist/config</location>
+                                        </source>
+                                    </sources>
+                                </mapping>
+                                <mapping>
+                                    <directory>/usr/shared/doc/presto</directory>
+                                    <sources>
+                                        <source>
+                                            <location>${project.build.directory}/${server.tar.package}
+                                            </location>
+                                            <!-- Just include Presto's README for now.-->
+                                            <includes>
+                                                <include>README.txt</include>
+                                            </includes>
+                                        </source>
+                                    </sources>
+                                </mapping>
+                                <!-- Add these mappings so that .spec knows these dirs are to be removed too on rpm -e -->
+                                <mapping>
+                                    <directory>/usr/lib/presto</directory>
+                                </mapping>
+                                <mapping>
+                                    <directory>/usr/lib/presto/lib</directory>
+                                </mapping>
+                            </mappings>
+                            <preinstallScriptlet>
+                                <scriptFile>src/main/resources/scripts/preinstall</scriptFile>
+                            </preinstallScriptlet>
+                            <postinstallScriptlet>
+                                <scriptFile>src/main/resources/scripts/postinstall</scriptFile>
+                            </postinstallScriptlet>
+                            <postremoveScriptlet>
+                                <scriptFile>src/main/resources/scripts/postremove</scriptFile>
+                            </postremoveScriptlet>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
+        <server.tar.package>presto-server-${project.version}</server.tar.package>
+    </properties>
+</project>

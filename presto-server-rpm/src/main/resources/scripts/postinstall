@@ -1,0 +1,14 @@
+# Post installation script
+
+# Dynamically populated directories that we expect to exist but do
+# not want to remove when removing the RPM
+install --directory --mode=775 /var/log/presto
+
+# Populate node.id from uuidgen by replacing template with the node uuid
+sed -i "s/\${uuid-generated-nodeid}/$(uuidgen)/g" /etc/presto/node.properties
+
+# move the presto_env.sh created during pre-install to presto config location
+if [ -e /tmp/presto_env.sh ]
+then
+    mv /tmp/presto_env.sh /etc/presto/env.sh
+fi

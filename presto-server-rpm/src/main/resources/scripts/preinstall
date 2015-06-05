@@ -1,0 +1,67 @@
+# Pre installation script
+
+# Ensure that the proper version of Java exists on the system
+
+java_version() {
+# The one argument is the location of java (either $JAVA_HOME or a potential
+# candidate for JAVA_HOME.
+  "$1"/bin/java -version 2>&1 | grep "java version" | awk '{ print substr($3, 2, length($3)-2); }'
+}
+
+java_vendor() {
+# The one argument is the location of java (either $JAVA_HOME or a potential
+# candidate for JAVA_HOME).
+# Returns the java vendor name. eg: Oracle Corporation
+  "$1"/bin/java -XshowSettings:properties -version 2>&1 | grep "java.vendor =" | awk '{ print $3 " " $4; }'
+}
+
+check_if_correct_java_version() {
+# The one argument is the location of java (either $JAVA_HOME or a potential
+# candidate for JAVA_HOME).
+  JAVA_VERSION=$(java_version "$1")
+  JAVA_VENDOR=$(java_vendor "$1")
+  JAVA_UPDATE=$(echo $JAVA_VERSION | cut -d'_' -f2)
+  if [[ ("$JAVA_VERSION" > "1.8") && ($JAVA_UPDATE -ge 40) && ("$JAVA_VENDOR" = "Oracle Corporation") ]]; then
+    echo "JAVA8_HOME=$1" > /tmp/presto_env.sh
+    return 0
+  else
+    return 1
+  fi
+}
+
+# if Java version of $JAVA_HOME is not 1.8 update 40 (8u40) and is not Oracle Java, then try to find it again below
+if ! check_if_correct_java_version "$JAVA8_HOME" && ! check_if_correct_java_version "$JAVA_HOME"; then
+  java_found=false
+  for candidate in \
+      /usr/lib/jvm/jdk1.8* \
+      /usr/lib/jvm/jre1.8* \
+      /usr/lib/jvm/java-8-oracle* \
+      /usr/java/jdk1.8* \
+      /usr/java/jre1.8* \
+      /usr/lib/jvm/default-java \
+      /usr/java/default ; do
+      if [ -e "$candidate"/bin/java ]; then
+        if check_if_correct_java_version "$candidate" ; then
+          java_found=true
+          break
+        fi
+      fi
+  done
+fi
+
+# if no appropriate java found
+if [ "$java_found" = false ]; then
+  cat 1>&2 <<EOF
++======================================================================+
+|      Error: Required Java version could not be found                 |
++----------------------------------------------------------------------+
+| Please download the latest Oracle JDK/JRE from the Java web site     |
+|       > http://www.oracle.com/technetwork/java/javase/downloads <    |
+|                                                                      |
+| Presto requires Java 1.8 update 40 (8u40)                            |
+| NOTE: This script will attempt to find Java whether you install      |
+|       using the binary or the RPM based installer.                   |
++======================================================================+
+EOF
+  exit 1
+fi
