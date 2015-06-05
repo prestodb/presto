@@ -1166,6 +1166,7 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey");
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON not(lineitem.orderkey <= orders.orderkey)");
     }
 
     @Test

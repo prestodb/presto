@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -227,5 +228,37 @@ public final class ExpressionUtils
         Iterable<Expression> deterministicDisjuncts = ImmutableSet.copyOf(Iterables.filter(expressions, DeterminismEvaluator::isDeterministic));
 
         return Iterables.concat(nonDeterministicDisjuncts, deterministicDisjuncts);
+    }
+
+    private static ComparisonExpression.Type negate(ComparisonExpression.Type type)
+    {
+        switch (type) {
+            case EQUAL:
+                return NOT_EQUAL;
+            case NOT_EQUAL:
+                return EQUAL;
+            case LESS_THAN:
+                return GREATER_THAN_OR_EQUAL;
+            case LESS_THAN_OR_EQUAL:
+                return GREATER_THAN;
+            case GREATER_THAN:
+                return LESS_THAN_OR_EQUAL;
+            case GREATER_THAN_OR_EQUAL:
+                return LESS_THAN;
+            default:
+                throw new IllegalArgumentException("Unsupported comparison: " + type);
+        }
+    }
+
+    public static Expression normalize(Expression expression)
+    {
+        if (expression instanceof NotExpression) {
+            NotExpression not = (NotExpression) expression;
+            if (not.getValue() instanceof ComparisonExpression) {
+                ComparisonExpression comparison = (ComparisonExpression) not.getValue();
+                return new ComparisonExpression(negate(comparison.getType()), comparison.getLeft(), comparison.getRight());
+            }
+        }
+        return expression;
     }
 }
