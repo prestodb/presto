@@ -406,9 +406,14 @@ public class OrcPageSource
         {
             checkState(batchId == expectedBatchId);
             try {
-                SliceVector vector = new SliceVector(batchSize);
+                SliceVector vector = new SliceVector();
                 recordReader.readVector(columnIndex, vector);
-                block.setValues(vector.vector);
+                if (vector.dictionary) {
+                    block.setValues(vector.vector, vector.ids, vector.isNull);
+                }
+                else {
+                    block.setValues(vector.vector);
+                }
             }
             catch (IOException e) {
                 throw new PrestoException(RAPTOR_ERROR, e);

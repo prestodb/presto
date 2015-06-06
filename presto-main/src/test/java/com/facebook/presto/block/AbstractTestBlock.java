@@ -223,6 +223,15 @@ public abstract class AbstractTestBlock
         return greaterOutput.slice();
     }
 
+    protected static Slice[] createExpectedValues(int positionCount)
+    {
+        Slice[] expectedValues = new Slice[positionCount];
+        for (int position = 0; position < positionCount; position++) {
+            expectedValues[position] = createExpectedValue(position);
+        }
+        return expectedValues;
+    }
+
     protected static Slice createExpectedValue(int length)
     {
         DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(16);

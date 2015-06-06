@@ -134,8 +134,6 @@ public class SliceDictionaryStreamReader
             }
         }
 
-        SliceVector sliceVector = castOrcVector(vector, SliceVector.class);
-
         if (presentStream == null) {
             if (dataStream == null) {
                 throw new OrcCorruptionException("Value is not null but data stream is not present");
@@ -160,17 +158,11 @@ public class SliceDictionaryStreamReader
             inDictionaryStream.getSetBits(nextBatchSize, inDictionary, isNullVector);
         }
 
-        for (int i = 0; i < nextBatchSize; i++) {
-            if (isNullVector[i]) {
-                sliceVector.vector[i] = null;
-            }
-            else if (inDictionary[i]) {
-                sliceVector.vector[i] = dictionary[dataVector[i]];
-            }
-            else {
-                sliceVector.vector[i] = rowGroupDictionary[dataVector[i]];
-            }
-        }
+        int[] ids = Arrays.copyOfRange(dataVector, 0, nextBatchSize);
+        boolean[] isNullVector = Arrays.copyOfRange(this.isNullVector, 0, nextBatchSize);
+
+        SliceVector sliceVector = castOrcVector(vector, SliceVector.class);
+        sliceVector.setDictionary(dictionary, ids, isNullVector);
 
         readOffset = 0;
         nextBatchSize = 0;
