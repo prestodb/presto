@@ -38,7 +38,6 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Arrays.asList;
 import static java.util.Locale.ENGLISH;
 
 @ThreadSafe
@@ -189,15 +188,13 @@ public final class DiscoveryNodeManager
 
     private static URI getHttpUri(ServiceDescriptor descriptor)
     {
-        // favor https over http
-        for (String type : asList("https", "http")) {
-            String url = descriptor.getProperties().get(type);
-            if (url != null) {
-                try {
-                    return new URI(url);
-                }
-                catch (URISyntaxException ignored) {
-                }
+        // TODO only support http for discovery and will revisit this later
+        String url = descriptor.getProperties().get("http");
+        if (url != null) {
+            try {
+                return new URI(url);
+            }
+            catch (URISyntaxException ignored) {
             }
         }
         return null;
