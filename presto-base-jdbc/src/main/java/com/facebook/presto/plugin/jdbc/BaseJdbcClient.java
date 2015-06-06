@@ -381,6 +381,13 @@ public class BaseJdbcClient
         return driver.connect(handle.getConnectionUrl(), toProperties(handle.getConnectionProperties()));
     }
 
+    @Override
+    public Statement getStatement(Connection connection)
+            throws SQLException
+    {
+        return connection.createStatement();
+    }
+
     protected ResultSet getTables(Connection connection, String schemaName, String tableName)
             throws SQLException
     {

@@ -25,6 +25,7 @@ import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Collection;
 
 public class PostgreSqlClient
@@ -53,5 +54,15 @@ public class PostgreSqlClient
         catch (SQLException e) {
             throw Throwables.propagate(e);
         }
+    }
+
+    @Override
+    public Statement getStatement(Connection connection)
+            throws SQLException
+    {
+        connection.setAutoCommit(false);
+        Statement statement = connection.createStatement();
+        statement.setFetchSize(1000);
+        return statement;
     }
 }
