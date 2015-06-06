@@ -37,6 +37,7 @@ import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlQueryQueueManager;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.AllAtOnceExecutionPolicy;
+import com.facebook.presto.execution.scheduler.PhasedExecutionPolicy;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -168,6 +169,7 @@ public class CoordinatorModule
 
         MapBinder<String, ExecutionPolicy> executionPolicyBinder = newMapBinder(binder, String.class, ExecutionPolicy.class);
         executionPolicyBinder.addBinding("all-at-once").to(AllAtOnceExecutionPolicy.class);
+        executionPolicyBinder.addBinding("phased").to(PhasedExecutionPolicy.class);
 
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
     }
