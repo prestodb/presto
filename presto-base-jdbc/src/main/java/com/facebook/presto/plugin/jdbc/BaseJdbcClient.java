@@ -35,7 +35,7 @@ import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
-import java.sql.*;
+import java.sql.;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -392,9 +392,12 @@ public class BaseJdbcClient
             statement = connection.createStatement(java.sql.ResultSet.TYPE_FORWARD_ONLY,
                     java.sql.ResultSet.CONCUR_READ_ONLY);
             statement.setFetchSize(FETCHSIZE);
-        } else {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported customisation database: " + dataBaseName);
         }
+        else {
+            statement = connection.createStatement();
+            statement.setFetchSize(FETCHSIZE);
+        }
+        
         return statement;
     }
 
