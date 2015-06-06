@@ -35,12 +35,7 @@ import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.Driver;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -73,6 +68,7 @@ public class BaseJdbcClient
         implements JdbcClient
 {
     private static final Logger log = Logger.get(BaseJdbcClient.class);
+    private static final int FETCHSIZE = 1000;
 
     private static final Map<Type, String> SQL_TYPES = ImmutableMap.<Type, String>builder()
             .put(BOOLEAN, "boolean")
@@ -381,6 +377,27 @@ public class BaseJdbcClient
         return driver.connect(handle.getConnectionUrl(), toProperties(handle.getConnectionProperties()));
     }
 
+    @Override
+    public Statement getStatement(Connection connection)
+            throws SQLException
+    {
+        Statement statement;
+        String dataBaseName = connection.getMetaData().getDatabaseProductName();
+        if (dataBaseName.contains("PostgreSQL")) {
+            connection.setAutoCommit(false);
+            statement = connection.createStatement();
+            statement.setFetchSize(FETCHSIZE);
+        }
+        else if (dataBaseName.contains("MySQL")) {
+            statement = connection.createStatement(java.sql.ResultSet.TYPE_FORWARD_ONLY,
+                    java.sql.ResultSet.CONCUR_READ_ONLY);
+            statement.setFetchSize(FETCHSIZE);
+        } else {
+            throw new PrestoException(NOT_SUPPORTED, "Unsupported customisation database: " + dataBaseName);
+        }
+        return statement;
+    }
+
     protected ResultSet getTables(Connection connection, String schemaName, String tableName)
             throws SQLException
     {
@@ -448,7 +465,7 @@ public class BaseJdbcClient
         if (sqlType != null) {
             return sqlType;
         }
-        throw new PrestoException(NOT_SUPPORTED, "Unsuported column type: " + type.getTypeSignature());
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getTypeSignature());
     }
 
     protected String quoted(String name)
