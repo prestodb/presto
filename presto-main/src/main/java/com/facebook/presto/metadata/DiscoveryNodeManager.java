@@ -189,8 +189,7 @@ public final class DiscoveryNodeManager
 
     private static URI getHttpUri(ServiceDescriptor descriptor)
     {
-        // favor https over http
-        for (String type : asList("https", "http")) {
+        for (String type : asList("http", "https")) {
             String url = descriptor.getProperties().get(type);
             if (url != null) {
                 try {
