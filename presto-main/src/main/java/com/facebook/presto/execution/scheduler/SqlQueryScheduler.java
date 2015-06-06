@@ -68,6 +68,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class SqlQueryScheduler
 {
     private final QueryStateMachine queryStateMachine;
+    private final ExecutionPolicy executionPolicy;
     private final Map<StageId, SqlStageExecution> stages;
     private final ExecutorService executor;
     private final StageId rootStageId;
@@ -85,9 +86,11 @@ public class SqlQueryScheduler
             int initialHashPartitions,
             ExecutorService executor,
             OutputBuffers rootOutputBuffers,
-            NodeTaskMap nodeTaskMap)
+            NodeTaskMap nodeTaskMap,
+            ExecutionPolicy executionPolicy)
     {
-        this.queryStateMachine = queryStateMachine;
+        this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
+        this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
 
         // todo come up with a better way to build this, or eliminate this map
         ImmutableMap.Builder<StageId, StageScheduler> stageSchedulers = ImmutableMap.builder();
@@ -276,12 +279,12 @@ public class SqlQueryScheduler
     private void schedule()
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
-            List<SqlStageExecution> schedulingStages = new ArrayList<>(this.stages.values());
-            schedulingStages.forEach(SqlStageExecution::beginScheduling);
-
-            while (!schedulingStages.isEmpty()) {
+            ExecutionSchedule executionSchedule = executionPolicy.createExecutionSchedule(stages.values());
+            while (!executionSchedule.isFinished()) {
                 List<CompletableFuture<?>> blockedStages = new ArrayList<>();
-                for (SqlStageExecution stage : ImmutableList.copyOf(schedulingStages)) {
+                for (SqlStageExecution stage : executionSchedule.getStagesToSchedule()) {
+                    stage.beginScheduling();
+
                     // perform some scheduling work
                     ScheduleResult result = stageSchedulers.get(stage.getStageId())
                             .schedule();
@@ -289,15 +292,18 @@ public class SqlQueryScheduler
                     // modify parent and children based on the results of the scheduling
                     if (result.isFinished()) {
                         stage.schedulingComplete();
-                        schedulingStages.remove(stage);
                     }
-                    blockedStages.add(result.getBlocked());
+                    else if (!result.getBlocked().isDone()) {
+                        blockedStages.add(result.getBlocked());
+                    }
                     stageLinkages.get(stage.getStageId())
                             .processScheduleResults(stage.getState(), result.getNewTasks());
                 }
 
                 // wait for a state change and then schedule again
-                tryGetFutureValue(firstCompletedFuture(blockedStages), 100, MILLISECONDS);
+                if (!blockedStages.isEmpty()) {
+                    tryGetFutureValue(firstCompletedFuture(blockedStages), 100, MILLISECONDS);
+                }
             }
         }
         catch (Throwable t) {

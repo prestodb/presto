@@ -27,6 +27,7 @@ import java.util.List;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public final class SystemSessionProperties
@@ -42,6 +43,7 @@ public final class SystemSessionProperties
     public static final String TASK_AGGREGATION_CONCURRENCY = "task_aggregation_concurrency";
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
+    public static final String EXECUTION_POLICY = "execution_policy";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -58,6 +60,11 @@ public final class SystemSessionProperties
             FeaturesConfig featuresConfig)
     {
         sessionProperties = ImmutableList.of(
+                stringSessionProperty(
+                        EXECUTION_POLICY,
+                        "Policy used for scheduling query tasks",
+                        queryManagerConfig.getQueryExecutionPolicy(),
+                        false),
                 booleanSessionProperty(
                         OPTIMIZE_HASH_GENERATION,
                         "Compute hash codes for distribution, joins, and aggregations early in query plan",
@@ -121,6 +128,11 @@ public final class SystemSessionProperties
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    public static String getExecutionPolicy(Session session)
+    {
+        return session.getProperty(EXECUTION_POLICY, String.class);
     }
 
     public static boolean isOptimizeHashGenerationEnabled(Session session)

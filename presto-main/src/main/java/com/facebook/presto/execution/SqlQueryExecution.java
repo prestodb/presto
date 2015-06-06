@@ -15,8 +15,10 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.SqlQueryScheduler;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
@@ -47,6 +49,7 @@ import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
@@ -86,6 +89,7 @@ public final class SqlQueryExecution
     private final AtomicReference<QueryInfo> finalQueryInfo = new AtomicReference<>();
     private final NodeTaskMap nodeTaskMap;
     private final Session session;
+    private final ExecutionPolicy executionPolicy;
 
     public SqlQueryExecution(QueryId queryId,
             String query,
@@ -103,7 +107,8 @@ public final class SqlQueryExecution
             int initialHashPartitions,
             boolean experimentalSyntaxEnabled,
             ExecutorService queryExecutor,
-            NodeTaskMap nodeTaskMap)
+            NodeTaskMap nodeTaskMap,
+            ExecutionPolicy executionPolicy)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryId)) {
             this.statement = checkNotNull(statement, "statement is null");
@@ -117,6 +122,7 @@ public final class SqlQueryExecution
             this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
             this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
             this.session = checkNotNull(session, "session is null");
+            this.executionPolicy = checkNotNull(executionPolicy, "executionPolicy is null");
 
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
@@ -298,7 +304,8 @@ public final class SqlQueryExecution
                 initialHashPartitions,
                 queryExecutor,
                 ROOT_OUTPUT_BUFFERS,
-                nodeTaskMap);
+                nodeTaskMap,
+                executionPolicy);
 
         queryScheduler.set(scheduler);
 
@@ -440,6 +447,7 @@ public final class SqlQueryExecution
         private final LocationFactory locationFactory;
         private final ExecutorService executor;
         private final NodeTaskMap nodeTaskMap;
+        private final Map<String, ExecutionPolicy> executionPolicies;
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
@@ -452,7 +460,8 @@ public final class SqlQueryExecution
                 List<PlanOptimizer> planOptimizers,
                 RemoteTaskFactory remoteTaskFactory,
                 @ForQueryExecution ExecutorService executor,
-                NodeTaskMap nodeTaskMap)
+                NodeTaskMap nodeTaskMap,
+                Map<String, ExecutionPolicy> executionPolicies)
         {
             checkNotNull(config, "config is null");
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
@@ -467,12 +476,19 @@ public final class SqlQueryExecution
             this.experimentalSyntaxEnabled = featuresConfig.isExperimentalSyntaxEnabled();
             this.executor = checkNotNull(executor, "executor is null");
             this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
+
+            this.executionPolicies = checkNotNull(executionPolicies, "schedulerPolicies is null");
         }
 
         @Override
         public SqlQueryExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement)
         {
-            return new SqlQueryExecution(queryId,
+            String executionPolicyName = SystemSessionProperties.getExecutionPolicy(session);
+            ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
+            checkArgument(executionPolicy != null, "No execution policy %s", executionPolicy);
+
+            SqlQueryExecution queryExecution = new SqlQueryExecution(
+                    queryId,
                     query,
                     session,
                     locationFactory.createQueryLocation(queryId),
@@ -488,7 +504,10 @@ public final class SqlQueryExecution
                     getHashPartitionCount(session),
                     experimentalSyntaxEnabled,
                     executor,
-                    nodeTaskMap);
+                    nodeTaskMap,
+                    executionPolicy);
+
+            return queryExecution;
         }
     }
 }
