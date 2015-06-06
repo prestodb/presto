@@ -66,9 +66,7 @@ public class JdbcRecordCursor
         String sql = jdbcClient.buildSql(split, columnHandles);
         try {
             connection = jdbcClient.getConnection(split);
-
-            statement = connection.createStatement();
-            statement.setFetchSize(1000);
+            statement = jdbcClient.getStatement(connection);
 
             log.debug("Executing: %s", sql);
             resultSet = statement.executeQuery(sql);

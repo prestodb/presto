@@ -27,6 +27,7 @@ import javax.inject.Inject;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Set;
 
 import static java.util.Locale.ENGLISH;
@@ -68,6 +69,17 @@ public class MySqlClient
         catch (SQLException e) {
             throw Throwables.propagate(e);
         }
+    }
+
+    @Override
+    public Statement getStatement(Connection connection)
+            throws SQLException
+    {
+        Statement statement = connection.createStatement();
+        if (statement.isWrapperFor(com.mysql.jdbc.Statement.class)) {
+            statement.unwrap(com.mysql.jdbc.Statement.class).enableStreamingResults();
+        }
+        return statement;
     }
 
     @Override
