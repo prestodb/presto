@@ -409,7 +409,7 @@ public abstract class AbstractTestHiveFileFormats
                     Object actualValue = row.getField(i);
                     Object expectedValue = testColumn.getExpectedValue();
                     if (actualValue == null) {
-                        assertEquals(null, expectedValue, String.format("Expected null for column %d", i));
+                        assertEquals(null, expectedValue, String.format("Expected non-null for column %d", i));
                     }
                     else if (testColumn.getObjectInspector().getTypeName().equals("float") ||
                             testColumn.getObjectInspector().getTypeName().equals("double")) {

@@ -60,13 +60,4 @@ public class TestVariableWidthBlock
         }
         return blockBuilder;
     }
-
-    private static Slice[] createExpectedValues(int positionCount)
-    {
-        Slice[] expectedValues = new Slice[positionCount];
-        for (int position = 0; position < positionCount; position++) {
-            expectedValues[position] = createExpectedValue(position);
-        }
-        return expectedValues;
-    }
 }

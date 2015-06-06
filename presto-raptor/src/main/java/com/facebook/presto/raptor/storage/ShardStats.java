@@ -235,7 +235,7 @@ public final class ShardStats
             reader.readVector(columnIndex, vector);
 
             for (int i = 0; i < batchSize; i++) {
-                Slice slice = vector.vector[i];
+                Slice slice = vector.getSliceAtPosition(i);
                 if (slice == null) {
                     continue;
                 }
