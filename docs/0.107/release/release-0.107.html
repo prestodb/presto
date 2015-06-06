@@ -1,0 +1,87 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.1. Release 0.107 &mdash; Presto 0.107 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.107',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.107 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.2. Release 0.106" href="release-0.106.html" />
+    <link rel="prev" title="10. Release Notes" href="../release.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.107 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.1. Release 0.107</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../release.html">10. Release Notes</a>
+    </span>
+    <span class="right">
+        <a href="release-0.106.html">10.2. Release 0.106</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-107">
+<h1>10.1. Release 0.107</h1>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Added <tt class="docutils literal"><span class="pre">query_max_memory</span></tt> session property. Note: this session property cannot
+increase the limit above the limit set by the <tt class="docutils literal"><span class="pre">query.max_memory</span></tt> configuration option.</li>
+<li>Fixed task leak caused by queries that finish early, such as a &#8220;LIMIT&#8221; query or cancelled
+query, when the cluster is under high load.</li>
+<li>Added <tt class="docutils literal"><span class="pre">task.info-refresh-max-wait</span></tt> to configure task info freshness.</li>
+<li>Add support for <cite>DELETE</cite> to language and connector SPI.</li>
+<li>Reenable error classification code for syntax errors.</li>
+<li>Fix out of bounds exception in <a class="reference internal" href="../functions/string.html#lower" title="lower"><tt class="xref py py-func docutils literal"><span class="pre">lower()</span></tt></a> and <a class="reference internal" href="../functions/string.html#upper" title="upper"><tt class="xref py py-func docutils literal"><span class="pre">upper()</span></tt></a> when the string contains the code point <cite>U+10FFFF</cite>.</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../release.html">10. Release Notes</a>
+    </span>
+    <span class="right">
+        <a href="release-0.106.html">10.2. Release 0.106</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
