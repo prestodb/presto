@@ -35,7 +35,12 @@ import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
-import java.sql.;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.Driver;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -397,7 +402,7 @@ public class BaseJdbcClient
             statement = connection.createStatement();
             statement.setFetchSize(FETCHSIZE);
         }
-        
+
         return statement;
     }
 
