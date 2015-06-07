@@ -23,10 +23,11 @@ import com.google.common.collect.ImmutableSet;
 import com.mysql.jdbc.Driver;
 
 import javax.inject.Inject;
-
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Wrapper;
+import java.sql.Statement;
 import java.util.Set;
 
 import static java.util.Locale.ENGLISH;
