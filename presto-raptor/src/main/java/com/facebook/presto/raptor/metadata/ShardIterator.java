@@ -159,6 +159,7 @@ final class ShardIterator
     {
         if (isWrapperFor(statement, com.mysql.jdbc.Statement.class)) {
             statement.unwrap(com.mysql.jdbc.Statement.class).enableStreamingResults();
+            statement.unwrap(com.mysql.jdbc.Statement.class).enableStreamingResults();
         }
     }
 

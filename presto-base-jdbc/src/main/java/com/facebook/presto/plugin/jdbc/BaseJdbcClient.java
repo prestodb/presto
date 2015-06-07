@@ -72,8 +72,8 @@ import static java.util.Locale.ENGLISH;
 public class BaseJdbcClient
         implements JdbcClient
 {
+    public static final int FETCHSIZE = 1000;
     private static final Logger log = Logger.get(BaseJdbcClient.class);
-    private static final int FETCHSIZE = 1000;
 
     private static final Map<Type, String> SQL_TYPES = ImmutableMap.<Type, String>builder()
             .put(BOOLEAN, "boolean")
@@ -386,22 +386,8 @@ public class BaseJdbcClient
     public Statement getStatement(Connection connection)
             throws SQLException
     {
-        Statement statement;
-        String dataBaseName = connection.getMetaData().getDatabaseProductName();
-        if (dataBaseName.contains("PostgreSQL")) {
-            connection.setAutoCommit(false);
-            statement = connection.createStatement();
-            statement.setFetchSize(FETCHSIZE);
-        }
-        else if (dataBaseName.contains("MySQL")) {
-            statement = connection.createStatement(java.sql.ResultSet.TYPE_FORWARD_ONLY,
-                    java.sql.ResultSet.CONCUR_READ_ONLY);
-            statement.setFetchSize(FETCHSIZE);
-        }
-        else {
-            statement = connection.createStatement();
-            statement.setFetchSize(FETCHSIZE);
-        }
+        Statement statement = connection.createStatement();
+        statement.setFetchSize(FETCHSIZE);
 
         return statement;
     }
