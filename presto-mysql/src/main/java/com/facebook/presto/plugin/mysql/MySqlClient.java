@@ -24,7 +24,9 @@ import com.mysql.jdbc.Driver;
 
 import javax.inject.Inject;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Set;
 
 import static java.util.Locale.ENGLISH;
