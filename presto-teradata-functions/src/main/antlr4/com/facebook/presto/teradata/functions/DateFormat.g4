@@ -11,26 +11,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.teradata.presto.functions.dateformat.tokens;
 
-import com.facebook.presto.teradata.functions.DateFormatLexer;
-import com.teradata.presto.functions.dateformat.DateToken;
-import org.joda.time.format.DateTimeFormatterBuilder;
+grammar DateFormat;
 
-/**
- * Day of month token
- */
-public class DDToken extends DateToken
-{
-    @Override
-    public Integer antlrToken()
-    {
-        return DateFormatLexer.DD;
-    }
+dateFormat
+    : token+ EOF
+    ;
 
-    @Override
-    public void appendTo(DateTimeFormatterBuilder builder)
-    {
-        builder.appendDayOfMonth(2);
-    }
-}
+token
+    : TEXT
+    | YYYY
+    | YY
+    | MM
+    ;
+
+DD: 'dd';
+HH24: 'hh24';
+HH: 'hh';
+MM: 'mm';
+MI: 'mi';
+SS: 'ss';
+YYYY: 'yyyy';
+YY: 'yy';
+
+TEXT
+    : [ \r\n\t]
+    | '-'
+    | '/'
+    | ','
+    | '.'
+    | ';'
+    | ':'
+    ;
+
+// Catch-all for anything we can't recognize.
+// We use this to be able to ignore and recover all the text
+// when splitting statements with DelimiterLexer
+UNRECOGNIZED
+    : .+?
+    ;

@@ -20,6 +20,7 @@ import com.teradata.presto.functions.dateformat.tokens.HHToken;
 import com.teradata.presto.functions.dateformat.tokens.MIToken;
 import com.teradata.presto.functions.dateformat.tokens.MMToken;
 import com.teradata.presto.functions.dateformat.tokens.SSToken;
+import com.teradata.presto.functions.dateformat.tokens.YYToken;
 import com.teradata.presto.functions.dateformat.tokens.YYYYToken;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
@@ -28,19 +29,13 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 
 public class TeradataDateFormatterBuilder
 {
-    private DateFormatLexer lexer;
+    private DateFormatParser lexer;
 
     public TeradataDateFormatterBuilder()
     {
-        lexer = DateFormatLexer.builder()
-                .add("-")
-                .add("/")
-                .add(",")
-                .add(".")
-                .add(";")
-                .add(":")
-                .add(" ")
+        lexer = DateFormatParser.builder()
                 .add(new YYYYToken())
+                .add(new YYToken())
                 .add(new MMToken())
                 .add(new DDToken())
                 .add(new HH24Token())
@@ -53,8 +48,8 @@ public class TeradataDateFormatterBuilder
     public DateTimeFormatter createDateTimeFormatter(String format)
     {
         DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
-        for (Token token : lexer.tokenize(format)) {
-            token.appendTo(builder);
+        for (DateToken dateToken : lexer.tokenize(format)) {
+            dateToken.appendTo(builder);
         }
 
         try {

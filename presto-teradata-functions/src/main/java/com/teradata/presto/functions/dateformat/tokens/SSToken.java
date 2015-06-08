@@ -13,15 +13,16 @@
  */
 package com.teradata.presto.functions.dateformat.tokens;
 
-import com.teradata.presto.functions.dateformat.Token;
+import com.facebook.presto.teradata.functions.DateFormatLexer;
+import com.teradata.presto.functions.dateformat.DateToken;
 import org.joda.time.format.DateTimeFormatterBuilder;
 
-public class SSToken extends Token
+public class SSToken extends DateToken
 {
     @Override
-    public String representation()
+    public Integer antlrToken()
     {
-        return "ss";
+        return DateFormatLexer.SS;
     }
 
     @Override

@@ -22,12 +22,12 @@ import org.joda.time.format.DateTimeFormatterBuilder;
  * For example if we encounter "YYYY" string as date format, we must
  * call "appendYear" on DateTimeFormatterBuilder
  */
-public abstract class Token
+public abstract class DateToken
 {
     /**
-     * @return String representation of this token in Teradata.
+     * @return Returns associated antlr Token
      */
-    public abstract String representation();
+    public abstract Integer antlrToken();
 
     /**
      * @param builder Append action associated with this token to the builder
@@ -43,15 +43,15 @@ public abstract class Token
         if (obj == null) {
             return false;
         }
-        if (!(obj instanceof Token)) {
+        if (!(obj instanceof DateToken)) {
             return false;
         }
-        return representation().equals(((Token) obj).representation());
+        return antlrToken().equals(((DateToken) obj).antlrToken());
     }
 
     @Override
     public int hashCode()
     {
-        return representation().hashCode();
+        return antlrToken().hashCode();
     }
 }

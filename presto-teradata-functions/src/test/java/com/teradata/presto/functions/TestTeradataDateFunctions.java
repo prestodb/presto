@@ -83,6 +83,14 @@ public class TestTeradataDateFunctions
         assertVarchar("to_char(DATE '1988-04-08','yyyy/mm/dd hh24:mi:ss')", "1988/04/08 00:00:00");
     }
 
+    @Test
+    public void testYY()
+    {
+        assertVarchar("to_char(TIMESTAMP '1988-04-08','yy')", "88");
+        assertTimestamp("to_timestamp('88/04/08','yy/mm/dd')", 2088, 4, 8, 0, 0, 0);
+        assertDate("to_date('88/04/08','yy/mm/dd')", 2088, 4, 8);
+    }
+
     // TODO: implement this feature SWARM-355
     @Test(enabled = false)
     public void testDefaultValues()

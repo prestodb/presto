@@ -13,18 +13,19 @@
  */
 package com.teradata.presto.functions.dateformat.tokens;
 
-import com.teradata.presto.functions.dateformat.Token;
+import com.facebook.presto.teradata.functions.DateFormatLexer;
+import com.teradata.presto.functions.dateformat.DateToken;
 import org.joda.time.format.DateTimeFormatterBuilder;
 
 /**
  * Hour of half day token (0-12)
  */
-public class HHToken extends Token
+public class HHToken extends DateToken
 {
     @Override
-    public String representation()
+    public Integer antlrToken()
     {
-        return "hh";
+        return DateFormatLexer.HH;
     }
 
     @Override

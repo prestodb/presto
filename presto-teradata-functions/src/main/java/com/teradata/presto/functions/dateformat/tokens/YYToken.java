@@ -18,26 +18,19 @@ import com.teradata.presto.functions.dateformat.DateToken;
 import org.joda.time.format.DateTimeFormatterBuilder;
 
 /**
- * Literal text token
+ * Year token
  */
-public class TextToken extends DateToken
+public class YYToken extends DateToken
 {
-    private String text;
-
-    public TextToken(String text)
-    {
-        this.text = text;
-    }
-
     @Override
     public Integer antlrToken()
     {
-        return DateFormatLexer.TEXT;
+        return DateFormatLexer.YY;
     }
 
     @Override
     public void appendTo(DateTimeFormatterBuilder builder)
     {
-        builder.appendLiteral(text);
+        builder.appendTwoDigitYear(2050);
     }
 }
