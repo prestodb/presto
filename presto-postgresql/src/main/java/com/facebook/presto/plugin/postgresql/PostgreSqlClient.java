@@ -63,7 +63,6 @@ public class PostgreSqlClient
         connection.setAutoCommit(false);
         Statement statement = connection.createStatement();
         statement.setFetchSize(FETCHSIZE);
-
         return statement;
     }
 }
