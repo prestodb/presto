@@ -11,17 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.teradata.presto.functions.dateformat;
+package com.facebook.presto.teradata.functions.dateformat;
 
 import com.facebook.presto.spi.PrestoException;
-import com.teradata.presto.functions.dateformat.tokens.DDToken;
-import com.teradata.presto.functions.dateformat.tokens.HH24Token;
-import com.teradata.presto.functions.dateformat.tokens.HHToken;
-import com.teradata.presto.functions.dateformat.tokens.MIToken;
-import com.teradata.presto.functions.dateformat.tokens.MMToken;
-import com.teradata.presto.functions.dateformat.tokens.SSToken;
-import com.teradata.presto.functions.dateformat.tokens.YYToken;
-import com.teradata.presto.functions.dateformat.tokens.YYYYToken;
+import com.facebook.presto.teradata.functions.dateformat.tokens.HH24Token;
+import com.facebook.presto.teradata.functions.dateformat.tokens.DDToken;
+import com.facebook.presto.teradata.functions.dateformat.tokens.HHToken;
+import com.facebook.presto.teradata.functions.dateformat.tokens.MIToken;
+import com.facebook.presto.teradata.functions.dateformat.tokens.MMToken;
+import com.facebook.presto.teradata.functions.dateformat.tokens.SSToken;
+import com.facebook.presto.teradata.functions.dateformat.tokens.YYToken;
+import com.facebook.presto.teradata.functions.dateformat.tokens.YYYYToken;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 

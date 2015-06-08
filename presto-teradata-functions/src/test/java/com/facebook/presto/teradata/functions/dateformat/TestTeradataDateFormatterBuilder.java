@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.teradata.presto.functions.dateformat;
+package com.facebook.presto.teradata.functions.dateformat;
 
 import com.facebook.presto.spi.PrestoException;
 import org.joda.time.DateTime;

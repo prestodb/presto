@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.teradata.presto.functions.dateformat;
+package com.facebook.presto.teradata.functions.dateformat;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.teradata.functions.DateFormatLexer;
-import com.teradata.presto.functions.dateformat.tokens.TextToken;
+import com.facebook.presto.teradata.functions.dateformat.tokens.TextToken;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.Token;
 

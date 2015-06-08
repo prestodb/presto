@@ -11,26 +11,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.teradata.presto.functions.dateformat.tokens;
+package com.facebook.presto.teradata.functions.dateformat.tokens;
 
 import com.facebook.presto.teradata.functions.DateFormatLexer;
-import com.teradata.presto.functions.dateformat.DateToken;
+import com.facebook.presto.teradata.functions.dateformat.DateToken;
 import org.joda.time.format.DateTimeFormatterBuilder;
 
 /**
- * Minute of hour token
+ * Literal text token
  */
-public class MIToken extends DateToken
+public class TextToken extends DateToken
 {
+    private String text;
+
+    public TextToken(String text)
+    {
+        this.text = text;
+    }
+
     @Override
     public Integer antlrToken()
     {
-        return DateFormatLexer.MI;
+        return DateFormatLexer.TEXT;
     }
 
     @Override
     public void appendTo(DateTimeFormatterBuilder builder)
     {
-        builder.appendMinuteOfHour(2);
+        builder.appendLiteral(text);
     }
 }

@@ -11,26 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.teradata.presto.functions.dateformat.tokens;
+package com.facebook.presto.teradata.functions.dateformat.tokens;
 
 import com.facebook.presto.teradata.functions.DateFormatLexer;
-import com.teradata.presto.functions.dateformat.DateToken;
+import com.facebook.presto.teradata.functions.dateformat.DateToken;
 import org.joda.time.format.DateTimeFormatterBuilder;
 
 /**
- * Hour of day (0-24)
+ * Month number token
  */
-public class HH24Token extends DateToken
+public class MMToken extends DateToken
 {
     @Override
     public Integer antlrToken()
     {
-        return DateFormatLexer.HH24;
+        return DateFormatLexer.MM;
     }
 
     @Override
     public void appendTo(DateTimeFormatterBuilder builder)
     {
-        builder.appendHourOfDay(2);
+        builder.appendMonthOfYear(2);
     }
 }

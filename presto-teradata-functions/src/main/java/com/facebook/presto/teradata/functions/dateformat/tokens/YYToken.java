@@ -11,23 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.teradata.presto.functions.dateformat.tokens;
+package com.facebook.presto.teradata.functions.dateformat.tokens;
 
 import com.facebook.presto.teradata.functions.DateFormatLexer;
-import com.teradata.presto.functions.dateformat.DateToken;
+import com.facebook.presto.teradata.functions.dateformat.DateToken;
 import org.joda.time.format.DateTimeFormatterBuilder;
 
-public class SSToken extends DateToken
+/**
+ * Year token
+ */
+public class YYToken extends DateToken
 {
     @Override
     public Integer antlrToken()
     {
-        return DateFormatLexer.SS;
+        return DateFormatLexer.YY;
     }
 
     @Override
     public void appendTo(DateTimeFormatterBuilder builder)
     {
-        builder.appendSecondOfMinute(2);
+        builder.appendTwoDigitYear(2050);
     }
 }

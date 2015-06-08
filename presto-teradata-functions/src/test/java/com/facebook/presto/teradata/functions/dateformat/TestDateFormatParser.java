@@ -12,13 +12,13 @@
  * limitations under the License.
  */
 
-package com.teradata.presto.functions.dateformat;
+package com.facebook.presto.teradata.functions.dateformat;
 
 import com.facebook.presto.spi.PrestoException;
-import com.teradata.presto.functions.dateformat.tokens.MMToken;
-import com.teradata.presto.functions.dateformat.tokens.TextToken;
-import com.teradata.presto.functions.dateformat.tokens.YYToken;
-import com.teradata.presto.functions.dateformat.tokens.YYYYToken;
+import com.facebook.presto.teradata.functions.dateformat.tokens.YYYYToken;
+import com.facebook.presto.teradata.functions.dateformat.tokens.MMToken;
+import com.facebook.presto.teradata.functions.dateformat.tokens.TextToken;
+import com.facebook.presto.teradata.functions.dateformat.tokens.YYToken;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
