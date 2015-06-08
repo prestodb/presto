@@ -631,13 +631,12 @@ class QueryPlanner
         Map<Symbol, SortOrder> orderings = new HashMap<Symbol, SortOrder>();
         for (FieldOrExpression fieldOrExpression : orderByExpressions) {
             Symbol symbol = subPlan.translate(fieldOrExpression);
-            if (orderings.containsKey(symbol)) {
-                sortItems.next();
-                continue;
-            }
 
-            orderBySymbols.add(symbol);
-            orderings.put(symbol, toSortOrder(sortItems.next()));
+            SortItem sortItem = sortItems.next();
+            if (!orderings.containsKey(symbol)) {
+                orderBySymbols.add(symbol);
+                orderings.put(symbol, toSortOrder(sortItem));
+            }
         }
 
         PlanNode planNode;

@@ -1758,6 +1758,7 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQueryOrdered("SELECT custkey, custkey FROM orders ORDER BY custkey, custkey");
+        assertQueryOrdered("SELECT custkey, custkey FROM orders ORDER BY custkey ASC, custkey DESC");
     }
 
     @Test
