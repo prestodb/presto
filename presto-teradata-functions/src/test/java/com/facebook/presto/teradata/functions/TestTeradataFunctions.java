@@ -27,7 +27,7 @@ public class TestTeradataFunctions
     @BeforeClass
     public void setUp()
     {
-        functionAssertions = new FunctionAssertions().addScalarFunctions(TeradataFunctions.class);
+        functionAssertions = new FunctionAssertions().addScalarFunctions(TeradataStringFunctions.class);
     }
 
     @Test

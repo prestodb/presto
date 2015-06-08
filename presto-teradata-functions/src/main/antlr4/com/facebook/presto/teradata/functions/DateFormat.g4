@@ -12,18 +12,10 @@
  * limitations under the License.
  */
 
-grammar DateFormat;
-
-dateFormat
-    : token+ EOF
-    ;
-
-token
-    : TEXT
-    | YYYY
-    | YY
-    | MM
-    ;
+/**
+ * This grammar is only used to tokenize input - only lexer, no parserZZz
+ */
+lexer grammar DateFormat;
 
 DD: 'dd';
 HH24: 'hh24';

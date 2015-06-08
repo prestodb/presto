@@ -30,16 +30,16 @@ import java.util.stream.Collectors;
  */
 public class DateFormatParser
 {
-    private Map<Integer, DateToken> tokens;
+    private final Map<Integer, DateToken> dateTokens;
 
-    private DateFormatParser(Map<Integer, DateToken> tokens)
+    private DateFormatParser(Map<Integer, DateToken> dateTokens)
     {
-        this.tokens = tokens;
+        this.dateTokens = dateTokens;
     }
 
-    public static DateFormatLexerBuilder builder()
+    public static DateFormatParserBuilder builder()
     {
-        return new DateFormatLexerBuilder();
+        return new DateFormatParserBuilder();
     }
 
     public List<DateToken> tokenize(String string)
@@ -55,36 +55,36 @@ public class DateFormatParser
         if (token.getType() == DateFormatLexer.TEXT) {
             return new TextToken(token.getText());
         }
-        else if (token.getType() == DateFormatLexer.UNRECOGNIZED || !tokens.containsKey(token.getType())) {
+        else if (token.getType() == DateFormatLexer.UNRECOGNIZED || !dateTokens.containsKey(token.getType())) {
             throw new PrestoException(
                     StandardErrorCode.INVALID_FUNCTION_ARGUMENT,
                     String.format("Failed to tokenize string [%s] at offset [%d]", token.getText(), token.getCharPositionInLine()));
         }
-        return tokens.get(token.getType());
+        return dateTokens.get(token.getType());
     }
 
-    public static class DateFormatLexerBuilder
+    public static class DateFormatParserBuilder
     {
-        private Map<Integer, DateToken> tokens = new HashMap<>();
+        private Map<Integer, DateToken> dateTokens = new HashMap<>();
 
         public DateFormatParser build()
         {
-            return new DateFormatParser(tokens);
+            return new DateFormatParser(dateTokens);
         }
 
-        public DateFormatLexerBuilder add(DateToken dateToken)
+        public DateFormatParserBuilder add(DateToken dateToken)
         {
             Integer key = dateToken.antlrToken();
-            if (tokens.containsKey(key)) {
+            if (dateTokens.containsKey(key)) {
                 throw new PrestoException(
                         StandardErrorCode.INTERNAL_ERROR,
                         String.format("Token [%d] is already registered", key));
             }
-            tokens.put(key, dateToken);
+            dateTokens.put(key, dateToken);
             return this;
         }
 
-        public DateFormatLexerBuilder add(String text)
+        public DateFormatParserBuilder add(String text)
         {
             return add(new TextToken(text));
         }

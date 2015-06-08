@@ -20,9 +20,9 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 
-public final class TeradataFunctions
+public final class TeradataStringFunctions
 {
-    private TeradataFunctions()
+    private TeradataStringFunctions()
     {
     }
 

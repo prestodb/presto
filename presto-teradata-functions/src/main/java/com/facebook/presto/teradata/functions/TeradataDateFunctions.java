@@ -63,14 +63,14 @@ public final class TeradataDateFunctions
         return Slices.copiedBuffer(formatter.print(unpackMillisUtc(timestampWithTimeZone)), UTF_8);
     }
 
-    @Description("Converts string_expr to a DATE data type. Teradata extension to the ANSI SQL-2003 standard")
+    @Description("Converts a string to a DATE data type. Teradata extension to the ANSI SQL-2003 standard")
     @ScalarFunction("to_date")
     @SqlType(StandardTypes.DATE)
     public static long toDate(ConnectorSession session,
             @SqlType(StandardTypes.VARCHAR) Slice dateTime,
             @SqlType(StandardTypes.VARCHAR) Slice formatString)
     {
-        return castToDate(session, parseMilis(session, dateTime, formatString));
+        return castToDate(session, parseMillis(session, dateTime, formatString));
     }
 
     @Description("Converts string_expr to a TIMESTAMP data type. Teradata extension to the ANSI SQL-2003 standard")
@@ -80,10 +80,10 @@ public final class TeradataDateFunctions
             @SqlType(StandardTypes.VARCHAR) Slice dateTime,
             @SqlType(StandardTypes.VARCHAR) Slice formatString)
     {
-        return parseMilis(session, dateTime, formatString);
+        return parseMillis(session, dateTime, formatString);
     }
 
-    private static long parseMilis(ConnectorSession session, Slice dateTime, Slice formatString)
+    private static long parseMillis(ConnectorSession session, Slice dateTime, Slice formatString)
     {
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
                 .withChronology(getChronology(session.getTimeZoneKey()))

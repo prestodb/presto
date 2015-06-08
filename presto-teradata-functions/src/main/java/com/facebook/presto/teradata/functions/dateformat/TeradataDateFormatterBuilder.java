@@ -29,11 +29,11 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 
 public class TeradataDateFormatterBuilder
 {
-    private DateFormatParser lexer;
+    private DateFormatParser parser;
 
     public TeradataDateFormatterBuilder()
     {
-        lexer = DateFormatParser.builder()
+        parser = DateFormatParser.builder()
                 .add(new YYYYToken())
                 .add(new YYToken())
                 .add(new MMToken())
@@ -48,7 +48,7 @@ public class TeradataDateFormatterBuilder
     public DateTimeFormatter createDateTimeFormatter(String format)
     {
         DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
-        for (DateToken dateToken : lexer.tokenize(format)) {
+        for (DateToken dateToken : parser.tokenize(format)) {
             dateToken.appendTo(builder);
         }
 

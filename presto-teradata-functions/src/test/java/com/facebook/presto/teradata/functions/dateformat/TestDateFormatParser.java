@@ -21,9 +21,7 @@ import com.facebook.presto.teradata.functions.dateformat.tokens.TextToken;
 import com.facebook.presto.teradata.functions.dateformat.tokens.YYToken;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
-import java.util.List;
-
+import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 
 public class TestDateFormatParser
@@ -34,29 +32,24 @@ public class TestDateFormatParser
             .add(new MMToken())
             .build();
 
-    private static List<DateToken> tokenize(String format)
-    {
-        return parser.tokenize(format);
-    }
-
     @Test
     public void testLexer() throws Exception
     {
         String format = "yyyy mm";
-        assertEquals(tokenize(format), Arrays.asList(new YYYYToken(), new TextToken(" "), new MMToken()));
+        assertEquals(parser.tokenize(format), asList(new YYYYToken(), new TextToken(" "), new MMToken()));
     }
 
     @Test
     public void testGreedinessLongFirst()
     {
-        assertEquals(1, tokenize("yy").size());
-        assertEquals(1, tokenize("yyyy").size());
-        assertEquals(2, tokenize("yyyyyy").size());
+        assertEquals(1, parser.tokenize("yy").size());
+        assertEquals(1, parser.tokenize("yyyy").size());
+        assertEquals(2, parser.tokenize("yyyyyy").size());
     }
 
     @Test(expectedExceptions = PrestoException.class)
     public void testInvalidToken()
     {
-        tokenize("ala");
+        parser.tokenize("ala");
     }
 }
