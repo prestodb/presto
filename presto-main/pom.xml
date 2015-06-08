@@ -13,7 +13,6 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.jmh.version>0.9.5</dep.jmh.version>
     </properties>
 
     <dependencies>
@@ -278,14 +277,12 @@
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-core</artifactId>
-            <version>${dep.jmh.version}</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-generator-annprocess</artifactId>
-            <version>${dep.jmh.version}</version>
             <scope>test</scope>
         </dependency>
 

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
-import org.openjdk.jmh.annotations.GenerateMicroBenchmark;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
@@ -42,7 +42,7 @@ import java.util.concurrent.TimeUnit;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkSortedRangeSet
 {
-    @GenerateMicroBenchmark
+    @Benchmark
     public SortedRangeSet benchmarkBuilder(Data data)
     {
         SortedRangeSet build = new SortedRangeSet.Builder(Integer.class)
