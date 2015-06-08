@@ -171,6 +171,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
         <server.tar.package>presto-server-${project.version}</server.tar.package>
     </properties>
 </project>
