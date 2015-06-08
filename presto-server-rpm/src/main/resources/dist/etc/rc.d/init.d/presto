@@ -32,12 +32,12 @@ source /etc/presto/env.sh
 
 start () {
     echo "Starting ${SERVICE_NAME} "
-    if [ -z "$PRESTO_JAVA" ]
+    if [ -z "$JAVA8_HOME" ]
     then
-        echo "Warning: No value found for PRESTO_JAVA. Default Java will be used."
+        echo "Warning: No value found for JAVA8_HOME. Default Java will be used."
         /usr/lib/presto/bin/launcher start ${CONFIGURATION}
     else
-        PATH=${PRESTO_JAVA}/bin:$PATH /usr/lib/presto/bin/launcher start ${CONFIGURATION}
+        PATH=${JAVA8_HOME}/bin:$PATH /usr/lib/presto/bin/launcher start ${CONFIGURATION}
     fi
     return $?
 }

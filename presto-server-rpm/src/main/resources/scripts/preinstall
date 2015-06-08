@@ -15,14 +15,13 @@ java_vendor() {
   "$1"/bin/java -XshowSettings:properties -version 2>&1 | grep "java.vendor =" | awk '{ print $3 " " $4; }'
 }
 
-java_version_is_correct() {
+check_if_correct_java_version() {
 # The one argument is the location of java (either $JAVA_HOME or a potential
 # candidate for JAVA_HOME.
-
   JAVA_VERSION=$(java_version "$1")
   JAVA_VENDOR=$(java_vendor "$1")
   if [[ ("$JAVA_VERSION" > "1.8") && ("$JAVA_VENDOR" = "Oracle Corporation") ]]; then
-    echo "PRESTO_JAVA=$1" > /tmp/presto_env.sh
+    echo "JAVA8_HOME=$1" > /tmp/presto_env.sh
     return 0
   else
     return 1
@@ -30,7 +29,7 @@ java_version_is_correct() {
 }
 
 # if Java version of $JAVA_HOME is not 1.8 and is not Oracle Java, then try to find it again below
-if ! java_version_is_correct "$JAVA_HOME" ; then
+if ! check_if_correct_java_version "$JAVA8_HOME" && ! check_if_correct_java_version "$JAVA_HOME"; then
   java_found=false
   for candidate in \
       /usr/lib/jvm/jdk1.8* \
@@ -41,7 +40,7 @@ if ! java_version_is_correct "$JAVA_HOME" ; then
       /usr/lib/jvm/default-java \
       /usr/java/default ; do
       if [ -e "$candidate"/bin/java ]; then
-        if java_version_is_correct "$candidate" ; then
+        if check_if_correct_java_version "$candidate" ; then
           java_found=true
           break
         fi
