@@ -131,7 +131,7 @@ public class SliceArrayBlock
             Slice distinct = distinctValues.get(slice);
             if (distinct == null) {
                 distinct = Slices.copyOf(slice);
-                distinctValues.put(distinct, distinct);
+                distinctValues.put(slice, distinct);
             }
             newValues[i] = distinct;
         }
