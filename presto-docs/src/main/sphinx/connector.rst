@@ -8,6 +8,7 @@ from different data sources.
 .. toctree::
     :maxdepth: 1
 
+    connector/blackhole
     connector/cassandra
     connector/hive
     connector/jmx
@@ -17,4 +18,3 @@ from different data sources.
     connector/postgresql
     connector/system
     connector/tpch
-    connector/blackhole

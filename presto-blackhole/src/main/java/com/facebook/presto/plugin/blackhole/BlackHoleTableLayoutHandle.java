@@ -11,23 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.plugin.blackhole;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
-public final class BlackHoleTypes
+// HACK: this class is an enum to make this class to be auto serializable
+enum BlackHoleTableLayoutHandle
+        implements ConnectorTableLayoutHandle
 {
-    private BlackHoleTypes() {}
-
-    public static <A, B extends A> B checkType(A value, Class<B> target, String name)
-    {
-        checkNotNull(value, "%s is null", name);
-        checkArgument(target.isInstance(value),
-                "%s must be of type %s, not %s",
-                name,
-                target.getName(),
-                value.getClass().getName());
-        return target.cast(value);
-    }
+        BLACK_HOLE_TABLE_LAYOUT_HANDLE
 }

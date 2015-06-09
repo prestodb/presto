@@ -14,30 +14,25 @@
 
 package com.facebook.presto.plugin.blackhole;
 
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-class BlackHoleConnectorTableLayoutHandle
-        implements ConnectorTableLayoutHandle
+// HACK: this class is an enum to make this class to be auto serializable
+public final class BlackHoleOutputTableHandle
+        implements ConnectorOutputTableHandle
 {
-    // HACK: dummy field is required to make this class be auto serializable
-    private String dummy;
-
-    public BlackHoleConnectorTableLayoutHandle()
-    {
-        this("dummy");
-    }
+    private final String tableName;
 
     @JsonCreator
-    public BlackHoleConnectorTableLayoutHandle(@JsonProperty("dummy") String dummy)
+    public BlackHoleOutputTableHandle(@JsonProperty("tableName") String tableName)
     {
-        this.dummy = dummy;
+        this.tableName = tableName;
     }
 
     @JsonProperty
-    public String getDummy()
+    public String getTableName()
     {
-        return dummy;
+        return tableName;
     }
 }

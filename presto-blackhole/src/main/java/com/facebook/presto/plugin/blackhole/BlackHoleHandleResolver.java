@@ -46,19 +46,19 @@ public final class BlackHoleHandleResolver
     @Override
     public boolean canHandle(ConnectorOutputTableHandle tableHandle)
     {
-        return tableHandle instanceof BlackHoleConnectorOutputTableHandle;
+        return tableHandle instanceof BlackHoleOutputTableHandle;
     }
 
     @Override
     public boolean canHandle(ConnectorInsertTableHandle tableHandle)
     {
-        return tableHandle instanceof BlackHoleConnectorInsertTableHandle;
+        return tableHandle instanceof BlackHoleInsertTableHandle;
     }
 
     @Override
     public boolean canHandle(ConnectorTableLayoutHandle handle)
     {
-        return handle instanceof BlackHoleConnectorTableLayoutHandle;
+        return handle instanceof BlackHoleTableLayoutHandle;
     }
 
     @Override
@@ -82,18 +82,18 @@ public final class BlackHoleHandleResolver
     @Override
     public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
     {
-        return BlackHoleConnectorOutputTableHandle.class;
+        return BlackHoleOutputTableHandle.class;
     }
 
     @Override
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
-        return BlackHoleConnectorInsertTableHandle.class;
+        return BlackHoleInsertTableHandle.class;
     }
 
     @Override
     public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
     {
-        return BlackHoleConnectorTableLayoutHandle.class;
+        return BlackHoleTableLayoutHandle.class;
     }
 }

@@ -42,9 +42,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.facebook.presto.plugin.blackhole.BlackHoleTypes.checkType;
+import static com.facebook.presto.plugin.blackhole.BlackHoleInsertTableHandle.BLACK_HOLE_INSERT_TABLE_HANDLE;
+import static com.facebook.presto.plugin.blackhole.BlackHoleTableLayoutHandle.BLACK_HOLE_TABLE_LAYOUT_HANDLE;
+import static com.facebook.presto.plugin.blackhole.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
@@ -54,6 +57,7 @@ public class BlackHoleMetadata
     public static final String SCHEMA_NAME = "default";
 
     private final Map<String, BlackHoleTableHandle> tables = new ConcurrentHashMap<>();
+    private final Map<String, BlackHoleTableHandle> tablesNotYetCommitted = new ConcurrentHashMap<>();
     private final TypeManager typeManager;
 
     public BlackHoleMetadata(TypeManager typeManager)
@@ -139,7 +143,10 @@ public class BlackHoleMetadata
     {
         BlackHoleTableHandle oldTableHandle = checkType(tableHandle, BlackHoleTableHandle.class, "tableHandle");
         BlackHoleTableHandle newTableHandle = new BlackHoleTableHandle(
-                oldTableHandle.getSchemaName(), newTableName.getTableName(), oldTableHandle.getColumnHandles());
+                oldTableHandle.getSchemaName(),
+                newTableName.getTableName(),
+                oldTableHandle.getColumnHandles()
+        );
         synchronized (tables) {
             tables.remove(oldTableHandle.getTableName());
             tables.put(newTableName.getTableName(), newTableHandle);
@@ -149,25 +156,39 @@ public class BlackHoleMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        beginCreateTable(session, tableMetadata);
+        ConnectorOutputTableHandle outputTableHandle = beginCreateTable(session, tableMetadata);
+        commitCreateTable(outputTableHandle, ImmutableList.of());
     }
 
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        tables.put(tableMetadata.getTable().getTableName(), new BlackHoleTableHandle(tableMetadata));
-        return new BlackHoleConnectorOutputTableHandle("dummy");
+        BlackHoleTableHandle blackHoleTableHandle = new BlackHoleTableHandle(tableMetadata);
+        tablesNotYetCommitted.put(tableMetadata.getTable().getTableName(), blackHoleTableHandle);
+        return new BlackHoleOutputTableHandle(blackHoleTableHandle.getTableName());
     }
 
     @Override
     public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
+        BlackHoleOutputTableHandle blackHoleOutputTableHandle = checkType(tableHandle, BlackHoleOutputTableHandle.class, "tableHandle");
+        String tableName = blackHoleOutputTableHandle.getTableName();
+        synchronized (tables) {
+            BlackHoleTableHandle tableToCommit = tablesNotYetCommitted.remove(tableName);
+            if (tableToCommit != null) {
+                tables.put(tableName, tableToCommit);
+            }
+            else {
+                // it could be possible that table is already committed
+                checkState(tables.containsKey(tableName), "Unable to find table to commit: '%s'", tableName);
+            }
+        }
     }
 
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return new BlackHoleConnectorInsertTableHandle("dummy");
+        return BLACK_HOLE_INSERT_TABLE_HANDLE;
     }
 
     @Override
@@ -207,7 +228,7 @@ public class BlackHoleMetadata
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        return ImmutableList.of(new ConnectorTableLayoutResult(getTableLayout(new BlackHoleConnectorTableLayoutHandle()), TupleDomain.none()));
+        return ImmutableList.of(new ConnectorTableLayoutResult(getTableLayout(BLACK_HOLE_TABLE_LAYOUT_HANDLE), TupleDomain.none()));
     }
 
     @Override

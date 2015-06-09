@@ -11,28 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.plugin.blackhole;
 
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
-public final class BlackHoleConnectorInsertTableHandle
-        implements ConnectorInsertTableHandle
+public final class Types
 {
-    // HACK: dummy field is required to make this class be auto serializable
-    private String dummy;
-
-    @JsonCreator
-    public BlackHoleConnectorInsertTableHandle(@JsonProperty("dummy") String dummy)
+    public static <A, B extends A> B checkType(A value, Class<B> target, String name)
     {
-        this.dummy = dummy;
+        checkNotNull(value, "%s is null", name);
+        checkArgument(target.isInstance(value),
+                "%s must be of type %s, not %s",
+                name,
+                target.getName(),
+                value.getClass().getName());
+        return target.cast(value);
     }
 
-    @JsonProperty
-    public String getDummy()
-    {
-        return dummy;
-    }
+    private Types() {}
 }
