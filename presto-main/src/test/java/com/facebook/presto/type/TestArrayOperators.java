@@ -373,21 +373,6 @@ public class TestArrayOperators
         assertFunction("ARRAY_DISTINCT(ARRAY [NULL, NULL, NULL])", new ArrayType(UNKNOWN), asList((Object) null));
     }
 
-    @Test void testSlice()
-            throws Exception
-    {
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4, 5], 0, 4)", new ArrayType(BIGINT), ImmutableList.of(1L, 2L, 3L, 4L));
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2], 0, 4)", new ArrayType(BIGINT), ImmutableList.of(1L, 2L));
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4, 5], 2, 2)", new ArrayType(BIGINT), ImmutableList.of(3L, 4L));
-        assertFunction("ARRAY_SLICE(ARRAY ['1', '2', '3', '4'], 1, 1)", new ArrayType(VARCHAR), ImmutableList.of("2"));
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], 2, 3)", new ArrayType(BIGINT), ImmutableList.of(3L, 4L));
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], -3, 3)", new ArrayType(BIGINT), ImmutableList.of(2L, 3L, 4L));
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], -3, 5)", new ArrayType(BIGINT), ImmutableList.of(2L, 3L, 4L));
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], 1, -2)", new ArrayType(BIGINT), ImmutableList.of(2L));
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], -2, -1)", new ArrayType(BIGINT), ImmutableList.of(3L));
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], -2, -2)", new ArrayType(BIGINT), null);
-    }
-
     @Test
     public void testArrayIntersect()
             throws Exception
