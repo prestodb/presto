@@ -13,11 +13,8 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.spi.Page;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-
-import java.util.List;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
@@ -29,5 +26,4 @@ import java.util.List;
 })
 public interface PagePartitionFunction
 {
-    List<Page> partition(List<Page> pages);
 }

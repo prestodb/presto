@@ -14,8 +14,6 @@
 package com.facebook.presto;
 
 import com.facebook.presto.operator.HashGenerator;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -88,43 +86,6 @@ public final class HashPagePartitionFunction
     public Optional<Integer> getHashChannel()
     {
         return hashChannel;
-    }
-
-    @Override
-    public List<Page> partition(List<Page> pages)
-    {
-        if (pages.isEmpty()) {
-            return pages;
-        }
-        PageBuilder pageBuilder = new PageBuilder(types);
-
-        ImmutableList.Builder<Page> partitionedPages = ImmutableList.builder();
-        for (Page page : pages) {
-            for (int position = 0; position < page.getPositionCount(); position++) {
-                // if hash is not in range skip
-                int partitionHashBucket = hashGenerator.getPartitionHashBucket(partitionCount, position, page);
-                if (partitionHashBucket != partition) {
-                    continue;
-                }
-
-                pageBuilder.declarePosition();
-                for (int channel = 0; channel < types.size(); channel++) {
-                    Type type = types.get(channel);
-                    type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
-                }
-
-                // if page is full, flush
-                if (pageBuilder.isFull()) {
-                    partitionedPages.add(pageBuilder.build());
-                    pageBuilder.reset();
-                }
-            }
-        }
-        if (!pageBuilder.isEmpty()) {
-            partitionedPages.add(pageBuilder.build());
-        }
-
-        return partitionedPages.build();
     }
 
     @Override
