@@ -13,10 +13,8 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.spi.Page;
 import com.fasterxml.jackson.annotation.JsonCreator;
 
-import java.util.List;
 import java.util.Objects;
 
 public final class UnpartitionedPagePartitionFunction
@@ -25,12 +23,6 @@ public final class UnpartitionedPagePartitionFunction
     @JsonCreator
     public UnpartitionedPagePartitionFunction()
     {
-    }
-
-    @Override
-    public List<Page> partition(List<Page> pages)
-    {
-        return pages;
     }
 
     @Override
