@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.teradata.presto.functions;
+package com.facebook.presto.teradata.functions;
 
+import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.type.Type;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-import com.facebook.presto.operator.scalar.FunctionAssertions;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
