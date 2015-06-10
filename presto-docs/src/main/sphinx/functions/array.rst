@@ -58,3 +58,7 @@ Array Functions
 .. function:: array_remove(x, element) -> array
 
     Remove all elements that equal ``element`` from array ``x``.
+
+.. function:: slice(x, start, length) -> array
+
+    Subsets array ``x`` starting from index ``start`` (or starting from the end if ``start`` is negative) with a length of ``length``.
