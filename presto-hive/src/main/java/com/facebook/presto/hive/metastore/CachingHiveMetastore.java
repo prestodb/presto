@@ -20,6 +20,7 @@ import com.facebook.presto.hive.HiveMetastoreClient;
 import com.facebook.presto.hive.HiveViewNotSupportedException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.base.Throwables;
@@ -414,8 +415,8 @@ public class CachingHiveMetastore
         catch (AlreadyExistsException e) {
             throw new TableAlreadyExistsException(new SchemaTableName(table.getDbName(), table.getTableName()));
         }
-        catch (InvalidObjectException | NoSuchObjectException | MetaException e) {
-            throw Throwables.propagate(e);
+        catch (NoSuchObjectException e) {
+            throw new SchemaNotFoundException(table.getDbName());
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -482,9 +483,6 @@ public class CachingHiveMetastore
                         }
                         return null;
                     }));
-        }
-        catch (InvalidOperationException | MetaException e) {
-            throw Throwables.propagate(e);
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
