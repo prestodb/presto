@@ -181,6 +181,11 @@ public class RowNumberOperator
         return !finishing && inputPage == null;
     }
 
+    private long getEstimatedByteSize()
+    {
+        return groupByHash.map(GroupByHash::getEstimatedSize).orElse(0L) + partitionRowCount.sizeOf();
+    }
+
     @Override
     public void addInput(Page page)
     {
@@ -192,6 +197,7 @@ public class RowNumberOperator
             partitionIds = groupByHash.get().getGroupIds(inputPage);
             partitionRowCount.ensureCapacity(partitionIds.getGroupCount());
         }
+        operatorContext.setMemoryReservation(getEstimatedByteSize());
     }
 
     @Override
@@ -210,6 +216,7 @@ public class RowNumberOperator
         }
 
         inputPage = null;
+        operatorContext.setMemoryReservation(getEstimatedByteSize());
         return outputPage;
     }
 
