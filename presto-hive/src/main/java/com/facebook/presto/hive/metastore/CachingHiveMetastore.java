@@ -58,6 +58,7 @@ import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
@@ -400,6 +401,7 @@ public class CachingHiveMetastore
     {
         try {
             retry()
+                    .exceptionMapper(getExceptionMapper())
                     .stopOn(AlreadyExistsException.class, InvalidObjectException.class, MetaException.class, NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("createTable", stats.getCreateTable().wrap(() -> {
@@ -468,6 +470,7 @@ public class CachingHiveMetastore
     {
         try {
             retry()
+                    .exceptionMapper(getExceptionMapper())
                     .stopOn(InvalidOperationException.class, MetaException.class)
                     .stopOnIllegalExceptions()
                     .run("renameTable", stats.getRenameTable().wrap(() -> {
@@ -529,6 +532,11 @@ public class CachingHiveMetastore
             throws NoSuchObjectException
     {
         return get(partitionNamesCache, HiveTableName.table(databaseName, tableName), NoSuchObjectException.class);
+    }
+
+    protected Function<Exception, Exception> getExceptionMapper()
+    {
+        return Function.identity();
     }
 
     private List<String> loadPartitionNames(HiveTableName hiveTableName)
