@@ -15,78 +15,73 @@ package com.facebook.presto.teradata.functions.dateformat;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.teradata.functions.DateFormatLexer;
-import com.facebook.presto.teradata.functions.dateformat.tokens.TextToken;
+import com.facebook.presto.teradata.functions.DateFormat;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.Token;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.DateTimeFormatterBuilder;
 
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.stream.Collectors;
 
-/*
- * Priority of tokens is determined by order of adding them
- */
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+
 public class DateFormatParser
 {
-    private final Map<Integer, DateToken> dateTokens;
-
-    private DateFormatParser(Map<Integer, DateToken> dateTokens)
+    private DateFormatParser()
     {
-        this.dateTokens = dateTokens;
     }
 
-    public static DateFormatParserBuilder builder()
+    public static DateTimeFormatter createDateTimeFormatter(String format)
     {
-        return new DateFormatParserBuilder();
-    }
-
-    public List<DateToken> tokenize(String string)
-    {
-        DateFormatLexer lexer = new com.facebook.presto.teradata.functions.DateFormatLexer(new ANTLRInputStream(string));
-        return lexer.getAllTokens().stream()
-                .map(this::getDateToken)
-                .collect(Collectors.toList());
-    }
-
-    private DateToken getDateToken(Token token)
-    {
-        if (token.getType() == DateFormatLexer.TEXT) {
-            return new TextToken(token.getText());
-        }
-        else if (token.getType() == DateFormatLexer.UNRECOGNIZED || !dateTokens.containsKey(token.getType())) {
-            throw new PrestoException(
-                    StandardErrorCode.INVALID_FUNCTION_ARGUMENT,
-                    String.format("Failed to tokenize string [%s] at offset [%d]", token.getText(), token.getCharPositionInLine()));
-        }
-        return dateTokens.get(token.getType());
-    }
-
-    public static class DateFormatParserBuilder
-    {
-        private Map<Integer, DateToken> dateTokens = new HashMap<>();
-
-        public DateFormatParser build()
-        {
-            return new DateFormatParser(dateTokens);
-        }
-
-        public DateFormatParserBuilder add(DateToken dateToken)
-        {
-            Integer key = dateToken.antlrToken();
-            if (dateTokens.containsKey(key)) {
-                throw new PrestoException(
-                        StandardErrorCode.INTERNAL_ERROR,
-                        String.format("Token [%d] is already registered", key));
+        DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
+        for (Token token : tokenize(format)) {
+            switch (token.getType()) {
+                case DateFormat.TEXT:
+                    builder.appendLiteral(token.getText());
+                    break;
+                case DateFormat.DD:
+                    builder.appendDayOfMonth(2);
+                    break;
+                case DateFormat.HH24:
+                    builder.appendHourOfDay(2);
+                    break;
+                case DateFormat.HH:
+                    builder.appendHourOfHalfday(2);
+                    break;
+                case DateFormat.MI:
+                    builder.appendMinuteOfHour(2);
+                    break;
+                case DateFormat.MM:
+                    builder.appendMonthOfYear(2);
+                    break;
+                case DateFormat.SS:
+                    builder.appendSecondOfMinute(2);
+                    break;
+                case DateFormat.YY:
+                    builder.appendTwoDigitYear(2050);
+                    break;
+                case DateFormat.YYYY:
+                    builder.appendYear(4, 4);
+                    break;
+                case DateFormat.UNRECOGNIZED:
+                default:
+                    throw new PrestoException(
+                            StandardErrorCode.INVALID_FUNCTION_ARGUMENT,
+                            String.format("Failed to tokenize string [%s] at offset [%d]", token.getText(), token.getCharPositionInLine()));
             }
-            dateTokens.put(key, dateToken);
-            return this;
         }
 
-        public DateFormatParserBuilder add(String text)
-        {
-            return add(new TextToken(text));
+        try {
+            return builder.toFormatter();
         }
+        catch (UnsupportedOperationException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+    }
+
+    public static List<? extends Token> tokenize(String format)
+    {
+        DateFormat lexer = new com.facebook.presto.teradata.functions.DateFormat(new ANTLRInputStream(format));
+        return lexer.getAllTokens();
     }
 }

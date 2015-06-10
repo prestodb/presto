@@ -20,7 +20,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.util.ThreadLocalCache;
-import com.facebook.presto.teradata.functions.dateformat.TeradataDateFormatterBuilder;
+import com.facebook.presto.teradata.functions.dateformat.DateFormatParser;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.format.DateTimeFormatter;
@@ -34,14 +34,13 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class TeradataDateFunctions
 {
-    private static final TeradataDateFormatterBuilder formatterBuilder = new TeradataDateFormatterBuilder();
     private static final ThreadLocalCache<Slice, DateTimeFormatter> DATETIME_FORMATTER_CACHE = new ThreadLocalCache<Slice, DateTimeFormatter>(100)
     {
         @Override
         protected DateTimeFormatter load(Slice format)
         {
             String formatString = format.toString(UTF_8);
-            return formatterBuilder.createDateTimeFormatter(formatString);
+            return DateFormatParser.createDateTimeFormatter(formatString);
         }
     };
 

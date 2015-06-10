@@ -15,41 +15,59 @@
 package com.facebook.presto.teradata.functions.dateformat;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.teradata.functions.dateformat.tokens.YYYYToken;
-import com.facebook.presto.teradata.functions.dateformat.tokens.MMToken;
-import com.facebook.presto.teradata.functions.dateformat.tokens.TextToken;
-import com.facebook.presto.teradata.functions.dateformat.tokens.YYToken;
+import com.facebook.presto.teradata.functions.DateFormat;
+import org.antlr.v4.runtime.Token;
+import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormatter;
 import org.testng.annotations.Test;
+
+import java.util.stream.Collectors;
 
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 
 public class TestDateFormatParser
 {
-    private static DateFormatParser parser = DateFormatParser.builder()
-            .add(new YYYYToken())
-            .add(new YYToken())
-            .add(new MMToken())
-            .build();
-
     @Test
-    public void testLexer() throws Exception
+    public void testTokenize() throws Exception
     {
-        String format = "yyyy mm";
-        assertEquals(parser.tokenize(format), asList(new YYYYToken(), new TextToken(" "), new MMToken()));
+        assertEquals(
+                DateFormatParser.tokenize("yyyy mm").stream().map(Token::getType).collect(Collectors.toList()),
+                asList(DateFormat.YYYY, DateFormat.TEXT, DateFormat.MM));
     }
 
     @Test
     public void testGreedinessLongFirst()
     {
-        assertEquals(1, parser.tokenize("yy").size());
-        assertEquals(1, parser.tokenize("yyyy").size());
-        assertEquals(2, parser.tokenize("yyyyyy").size());
+        assertEquals(1, DateFormatParser.tokenize("yy").size());
+        assertEquals(1, DateFormatParser.tokenize("yyyy").size());
+        assertEquals(2, DateFormatParser.tokenize("yyyyyy").size());
+    }
+
+    @Test
+    public void testInvalidTokenTokenize()
+    {
+        assertEquals(
+                DateFormatParser.tokenize("ala").stream().map(Token::getType).collect(Collectors.toList()),
+                asList(DateFormat.UNRECOGNIZED, DateFormat.UNRECOGNIZED, DateFormat.UNRECOGNIZED));
     }
 
     @Test(expectedExceptions = PrestoException.class)
-    public void testInvalidToken()
+    public void testInvalidTokenCreate1()
     {
-        parser.tokenize("ala");
+        DateFormatParser.createDateTimeFormatter("ala");
+    }
+
+    @Test(expectedExceptions = PrestoException.class)
+    public void testInvalidTokenCreate2()
+    {
+        DateFormatParser.createDateTimeFormatter("yyym/mm/dd");
+    }
+
+    @Test
+    public void testCreateDateTimeFormatter()
+    {
+        DateTimeFormatter formatter = DateFormatParser.createDateTimeFormatter("yyyy/mm/dd");
+        assertEquals(formatter.parseDateTime("1988/04/08"), new DateTime(1988, 4, 8, 0, 0));
     }
 }

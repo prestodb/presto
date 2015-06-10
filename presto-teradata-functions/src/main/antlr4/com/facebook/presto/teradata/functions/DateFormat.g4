@@ -37,8 +37,4 @@ TEXT
     ;
 
 // Catch-all for anything we can't recognize.
-// We use this to be able to ignore and recover all the text
-// when splitting statements with DelimiterLexer
-UNRECOGNIZED
-    : .+?
-    ;
+UNRECOGNIZED: .;
