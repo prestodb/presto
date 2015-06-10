@@ -46,7 +46,6 @@ import io.airlift.units.DataSize;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -86,7 +85,6 @@ import static com.google.common.collect.Iterables.transform;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
-import static org.apache.hadoop.hive.metastore.Warehouse.makePartName;
 
 public class HiveSplitManager
         implements ConnectorSplitManager
@@ -429,7 +427,7 @@ public class HiveSplitManager
 
                             // verify all partition is online
                             String protectMode = partition.getParameters().get(ProtectMode.PARAMETER_NAME);
-                            String partName = makePartName(table.getPartitionKeys(), partition.getValues());
+                            String partName = HiveUtil.createPartitionName(partition, table);
                             if (protectMode != null && getProtectModeFromString(protectMode).offline) {
                                 throw new PartitionOfflineException(tableName, partName);
                             }
@@ -473,7 +471,7 @@ public class HiveSplitManager
                     catch (PrestoException | NoSuchObjectException | NullPointerException | IllegalStateException | IllegalArgumentException e) {
                         throw Throwables.propagate(e);
                     }
-                    catch (MetaException | RuntimeException e) {
+                    catch (RuntimeException e) {
                         exception = e;
                         log.debug("getPartitions attempt %s failed, will retry. Exception: %s", attempt, e.getMessage());
                     }

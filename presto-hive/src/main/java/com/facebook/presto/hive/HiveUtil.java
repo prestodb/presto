@@ -31,6 +31,8 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.JavaUtils;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
@@ -95,6 +97,7 @@ import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getTableMetadata;
+import static org.apache.hadoop.hive.metastore.Warehouse.makePartName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
@@ -539,6 +542,16 @@ public final class HiveUtil
         }
 
         return columns.build();
+    }
+
+    public static String createPartitionName(Partition partition, Table table)
+    {
+        try {
+            return makePartName(table.getPartitionKeys(), partition.getValues());
+        }
+        catch (MetaException e) {
+            throw new PrestoException(HIVE_INVALID_METADATA, e);
+        }
     }
 
     public static Slice base64Decode(byte[] bytes)
