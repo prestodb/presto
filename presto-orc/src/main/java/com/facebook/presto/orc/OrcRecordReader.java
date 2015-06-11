@@ -336,7 +336,7 @@ public class OrcRecordReader
             List<ColumnEncoding> columnEncodings = stripe.getColumnEncodings();
             for (StreamReader column : streamReaders) {
                 if (column != null) {
-                    column.startStripe(dictionaryStreamSources, columnEncodings);
+                    column.startStripe(dictionaryStreamSources, columnEncodings, stripe.getRowCount());
                 }
             }
 

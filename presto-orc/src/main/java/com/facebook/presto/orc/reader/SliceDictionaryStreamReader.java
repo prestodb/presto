@@ -241,7 +241,7 @@ public class SliceDictionaryStreamReader
     }
 
     @Override
-    public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding, long numberOfRows)
             throws IOException
     {
         dictionaryDataStreamSource = dictionaryStreamSources.getStreamSource(streamDescriptor, DICTIONARY_DATA, ByteArrayStream.class);

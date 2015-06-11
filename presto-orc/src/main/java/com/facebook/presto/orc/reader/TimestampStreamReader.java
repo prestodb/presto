@@ -157,7 +157,7 @@ public class TimestampStreamReader
     }
 
     @Override
-    public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding, long numberOfRows)
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanStream.class);

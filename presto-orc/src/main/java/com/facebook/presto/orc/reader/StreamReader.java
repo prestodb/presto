@@ -33,7 +33,7 @@ public interface StreamReader
 
     void prepareNextRead(int batchSize);
 
-    void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding, long numberOfRows)
             throws IOException;
 
     void startRowGroup(StreamSources dataStreamSources)

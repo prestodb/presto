@@ -57,7 +57,7 @@ public class LongStreamReader
     }
 
     @Override
-    public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding, long numberOfRows)
             throws IOException
     {
         ColumnEncodingKind kind = encoding.get(streamDescriptor.getStreamId()).getColumnEncodingKind();
@@ -71,7 +71,7 @@ public class LongStreamReader
             throw new IllegalArgumentException("Unsupported encoding " + kind);
         }
 
-        currentReader.startStripe(dictionaryStreamSources, encoding);
+        currentReader.startStripe(dictionaryStreamSources, encoding, numberOfRows);
     }
 
     @Override
