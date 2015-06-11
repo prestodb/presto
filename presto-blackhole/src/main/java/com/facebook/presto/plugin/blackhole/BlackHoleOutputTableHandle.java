@@ -22,17 +22,17 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public final class BlackHoleOutputTableHandle
         implements ConnectorOutputTableHandle
 {
-    private final String tableName;
+    private final BlackHoleTableHandle table;
 
     @JsonCreator
-    public BlackHoleOutputTableHandle(@JsonProperty("tableName") String tableName)
+    public BlackHoleOutputTableHandle(@JsonProperty("table") BlackHoleTableHandle table)
     {
-        this.tableName = tableName;
+        this.table = table;
     }
 
     @JsonProperty
-    public String getTableName()
+    public BlackHoleTableHandle getTable()
     {
-        return tableName;
+        return table;
     }
 }

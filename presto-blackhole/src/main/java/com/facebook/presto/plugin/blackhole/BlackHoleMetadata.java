@@ -47,7 +47,6 @@ import static com.facebook.presto.plugin.blackhole.BlackHoleTableLayoutHandle.BL
 import static com.facebook.presto.plugin.blackhole.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
@@ -57,7 +56,6 @@ public class BlackHoleMetadata
     public static final String SCHEMA_NAME = "default";
 
     private final Map<String, BlackHoleTableHandle> tables = new ConcurrentHashMap<>();
-    private final Map<String, BlackHoleTableHandle> tablesNotYetCommitted = new ConcurrentHashMap<>();
     private final TypeManager typeManager;
 
     public BlackHoleMetadata(TypeManager typeManager)
@@ -163,26 +161,15 @@ public class BlackHoleMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        BlackHoleTableHandle blackHoleTableHandle = new BlackHoleTableHandle(tableMetadata);
-        tablesNotYetCommitted.put(tableMetadata.getTable().getTableName(), blackHoleTableHandle);
-        return new BlackHoleOutputTableHandle(blackHoleTableHandle.getTableName());
+        return new BlackHoleOutputTableHandle(new BlackHoleTableHandle(tableMetadata));
     }
 
     @Override
     public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         BlackHoleOutputTableHandle blackHoleOutputTableHandle = checkType(tableHandle, BlackHoleOutputTableHandle.class, "tableHandle");
-        String tableName = blackHoleOutputTableHandle.getTableName();
-        synchronized (tables) {
-            BlackHoleTableHandle tableToCommit = tablesNotYetCommitted.remove(tableName);
-            if (tableToCommit != null) {
-                tables.put(tableName, tableToCommit);
-            }
-            else {
-                // it could be possible that table is already committed
-                checkState(tables.containsKey(tableName), "Unable to find table to commit: '%s'", tableName);
-            }
-        }
+        BlackHoleTableHandle table = blackHoleOutputTableHandle.getTable();
+        tables.put(table.getTableName(), table);
     }
 
     @Override
