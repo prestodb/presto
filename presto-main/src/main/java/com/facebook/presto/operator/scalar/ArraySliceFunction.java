@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -84,18 +85,15 @@ public final class ArraySliceFunction
             return array;
         }
 
+        if (length <= 0) {
+            return buildStructuralSlice(type.createBlockBuilder(new BlockBuilderStatus(), 0).build());
+        }
+
         if (offset < 0) {
             offset = size + offset;
         }
 
-        long toIndex;
-
-        if (length < 0) {
-            toIndex = size + length;
-        }
-        else {
-            toIndex = Math.min(offset + length, size);
-        }
+        long toIndex = Math.min(offset + length, size);
 
         if (offset >= toIndex || offset < 0 || toIndex < 0) {
             return null;
