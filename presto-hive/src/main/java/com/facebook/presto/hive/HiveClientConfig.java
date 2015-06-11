@@ -20,6 +20,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
@@ -69,7 +70,6 @@ public class HiveClientConfig
     private Duration dfsConnectTimeout = new Duration(500, TimeUnit.MILLISECONDS);
     private int dfsConnectMaxRetries = 5;
     private boolean verifyChecksum = true;
-
     private String domainSocketPath;
 
     private String s3AwsAccessKey;
@@ -416,7 +416,8 @@ public class HiveClientConfig
         return domainSocketPath;
     }
 
-    @Config("dfs.domain-socket-path")
+    @Config("hive.dfs.domain-socket-path")
+    @LegacyConfig("dfs.domain-socket-path")
     public HiveClientConfig setDomainSocketPath(String domainSocketPath)
     {
         this.domainSocketPath = domainSocketPath;

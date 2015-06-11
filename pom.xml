@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>39</version>
+        <version>40</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -69,6 +69,7 @@
         <module>presto-hive-hadoop2</module>
         <module>presto-hive-cdh4</module>
         <module>presto-hive-cdh5</module>
+        <module>presto-teradata-functions</module>
         <module>presto-example-http</module>
         <module>presto-tpch</module>
         <module>presto-raptor</module>
@@ -411,7 +412,7 @@
             <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-all</artifactId>
-                <version>4.1</version>
+                <version>5.0.4</version>
             </dependency>
 
             <dependency>

@@ -232,6 +232,7 @@ primaryExpression
     | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?                         #specialDateTimeFunction
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'  #substring
     | EXTRACT '(' identifier FROM valueExpression ')'                                #extract
+    | POSITION '(' valueExpression IN valueExpression ')'                            #position
     | '(' expression ')'                                                             #parenthesizedExpression
     ;
 
@@ -369,6 +370,7 @@ ESCAPE: 'ESCAPE';
 ASC: 'ASC';
 DESC: 'DESC';
 SUBSTRING: 'SUBSTRING';
+POSITION: 'POSITION';
 FOR: 'FOR';
 DATE: 'DATE';
 TIME: 'TIME';
