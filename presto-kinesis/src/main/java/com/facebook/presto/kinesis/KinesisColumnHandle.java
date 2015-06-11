@@ -149,7 +149,7 @@ public class KinesisColumnHandle
 
     ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(name, type, ordinalPosition, false, null, hidden);
+        return new ColumnMetadata(name, type, false, null, hidden);
     }
 
     @Override

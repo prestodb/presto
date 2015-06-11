@@ -56,13 +56,18 @@ public class KinesisRecordSet
     private final List<KinesisColumnHandle> columnHandles;
     private final List<Type> columnTypes;
 
+    private final int batchSize;
+    private final int fetchAttempts;
+    private final int sleepTime;
+
     private final Set<KinesisFieldValueProvider> globalInternalFieldValueProviders;
 
     KinesisRecordSet(KinesisSplit split,
             KinesisClientManager clientManager,
             List<KinesisColumnHandle> columnHandles,
             KinesisRowDecoder messageDecoder,
-            Map<KinesisColumnHandle, KinesisFieldDecoder<?>> messageFieldDecoders)
+            Map<KinesisColumnHandle, KinesisFieldDecoder<?>> messageFieldDecoders,
+            KinesisConnectorConfig kinesisConnectorConfig)
     {
         this.split = checkNotNull(split, "split is null");
         this.globalInternalFieldValueProviders = ImmutableSet.of(
@@ -83,6 +88,10 @@ public class KinesisRecordSet
         }
 
         this.columnTypes = typeBuilder.build();
+
+        this.batchSize = kinesisConnectorConfig.getBatchSize();
+        this.fetchAttempts = kinesisConnectorConfig.getFetchAttempts();
+        this.sleepTime = kinesisConnectorConfig.getSleepTime();
     }
     @Override
     public List<Type> getColumnTypes()
@@ -171,10 +180,23 @@ public class KinesisRecordSet
         {
             getRecordsRequest = new GetRecordsRequest();
             getRecordsRequest.setShardIterator(shardIterator);
-            getRecordsRequest.setLimit(25);
+            getRecordsRequest.setLimit(batchSize);
 
             getRecordsResult = clientManager.getClient().getRecords(getRecordsRequest);
-            kinesisRecords = getRecordsResult.getRecords();
+            int iterationsLeft = fetchAttempts;
+            do {
+                kinesisRecords = getRecordsResult.getRecords();
+                if (!kinesisRecords.isEmpty()) {
+                    break;
+                }
+                try {
+                    Thread.sleep(sleepTime);
+                }
+                catch (InterruptedException e) {
+                    // it's fine to fall out early
+                }
+                iterationsLeft--;
+            } while (iterationsLeft > 0);
             if (kinesisRecords.isEmpty()) {
                 return false;
             }

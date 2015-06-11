@@ -38,7 +38,11 @@ public class TestKinesisConnectorConfig
                 .setTableNames("")
                 .setTableDescriptionDir(new File("etc/kinesis/"))
                 .setAccessKey(null)
-                .setSecretKey(null));
+                .setSecretKey(null)
+                .setAwsRegion("us-east-1")
+                .setSleepTime(1000)
+                .setFetchAttempts(3)
+                .setBatchSize(10000));
     }
 
     @Parameters({
@@ -55,6 +59,10 @@ public class TestKinesisConnectorConfig
                 .put("kinesis.hide-internal-columns", "false")
                 .put("kinesis.access-key", accessKey)
                 .put("kinesis.secret-key", secretKey)
+                .put("kinesis.fetch-attempts", "5")
+                .put("kinesis.aws-region", "us-west-1")
+                .put("kinesis.sleep-time", "100")
+                .put("kinesis.batch-size", "9000")
                 .build();
 
         KinesisConnectorConfig expected = new KinesisConnectorConfig()
@@ -63,7 +71,11 @@ public class TestKinesisConnectorConfig
                 .setDefaultSchema("kinesis")
                 .setHideInternalColumns(false)
                 .setAccessKey(accessKey)
-                .setSecretKey(secretKey);
+                .setSecretKey(secretKey)
+                .setAwsRegion("us-west-1")
+                .setFetchAttempts(5)
+                .setSleepTime(100)
+                .setBatchSize(9000);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

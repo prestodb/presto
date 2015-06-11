@@ -109,9 +109,9 @@ public class KinesisStreamFieldDescription
                 false);
     }
 
-    ColumnMetadata getColumnMetadata(int index)
+    ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(getName(), getType(), index, false, getComment(), isHidden());
+        return new ColumnMetadata(getName(), getType(), false, getComment(), isHidden());
     }
 
     @Override

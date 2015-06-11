@@ -34,15 +34,18 @@ public class KinesisRecordSetProvider
     private final KinesisHandleResolver handleResolver;
     private final KinesisClientManager clientManager;
     private final KinesisDecoderRegistry registry;
+    private final KinesisConnectorConfig kinesisConnectorConfig;
 
     @Inject
     public  KinesisRecordSetProvider(KinesisDecoderRegistry registry,
             KinesisHandleResolver handleResolver,
-            KinesisClientManager clientManager)
+            KinesisClientManager clientManager,
+            KinesisConnectorConfig kinesisConnectorConfig)
     {
         this.registry = checkNotNull(registry, "registry is null");
         this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
         this.clientManager = checkNotNull(clientManager, "clientManager is null");
+        this.kinesisConnectorConfig = checkNotNull(kinesisConnectorConfig, "kinesisConnectorConfig is null");
     }
 
     @Override
@@ -71,6 +74,6 @@ public class KinesisRecordSetProvider
         ImmutableList<KinesisColumnHandle> handles = handleBuilder.build();
         ImmutableMap<KinesisColumnHandle, KinesisFieldDecoder<?>> messageFieldDecoders = messageFieldDecoderBuilder.build();
 
-        return new KinesisRecordSet(kinesisSplit, clientManager, handles, messageDecoder, messageFieldDecoders);
+        return new KinesisRecordSet(kinesisSplit, clientManager, handles, messageDecoder, messageFieldDecoders, kinesisConnectorConfig);
     }
 }

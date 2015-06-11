@@ -28,10 +28,8 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
-import com.amazonaws.services.kinesis.model.DescribeStreamRequest;
 import com.amazonaws.services.kinesis.model.PutRecordsRequest;
 import com.amazonaws.services.kinesis.model.PutRecordsRequestEntry;
-import com.amazonaws.services.kinesis.model.StreamDescription;
 import com.facebook.presto.Session;
 import com.facebook.presto.kinesis.util.EmbeddedKinesisStream;
 import com.facebook.presto.kinesis.util.TestUtils;
@@ -48,7 +46,6 @@ import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertTrue;
 import static com.facebook.presto.kinesis.util.TestUtils.createEmptyStreamDescription;
 import static org.testng.Assert.assertEquals;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Test(singleThreaded = true)
 public class TestMinimalFunctionality
@@ -103,15 +100,6 @@ public class TestMinimalFunctionality
                 accessKey, secretKey);
     }
 
-    private String checkStreamStatus(String streamName)
-    {
-        DescribeStreamRequest describeStreamRequest = new DescribeStreamRequest();
-        describeStreamRequest.setStreamName(streamName);
-
-        StreamDescription streamDescription = embeddedKinesisStream.getKinesisClient().describeStream(describeStreamRequest).getStreamDescription();
-        return streamDescription.getStreamStatus();
-    }
-
     private void createMessages(String streamName, int count)
             throws Exception
     {
@@ -125,10 +113,6 @@ public class TestMinimalFunctionality
             putRecordsRequestEntryList.add(putRecordsRequestEntry);
         }
 
-        while (checkStreamStatus(streamName).equals("ACTIVE") == false) {
-            log.debug("Waiting for Stream %s to become active. CurrentStatus : %s", streamName, checkStreamStatus(streamName));
-            MILLISECONDS.sleep(1000);
-        }
         putRecordsRequest.setRecords(putRecordsRequestEntryList);
         embeddedKinesisStream.getKinesisClient().putRecords(putRecordsRequest);
     }

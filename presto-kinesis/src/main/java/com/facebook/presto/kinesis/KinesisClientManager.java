@@ -39,6 +39,7 @@ public class KinesisClientManager
         log.info("Creating new client for Consuner");
         this.kinesisAwsCredentials = new KinesisAwsCredentials(kinesisConnectorConfig.getAccessKey(), kinesisConnectorConfig.getSecretKey());
         this.client = new AmazonKinesisClient(this.kinesisAwsCredentials);
+        this.client.setEndpoint("kinesis." + kinesisConnectorConfig.getAwsRegion() + ".amazonaws.com");
     }
 
     public AmazonKinesisClient getClient()

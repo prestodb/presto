@@ -119,7 +119,6 @@ public class KinesisMetadata
         return null;
     }
 
-    @SuppressWarnings("ValueOfIncrementOrDecrementUsed")
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
@@ -160,7 +159,6 @@ public class KinesisMetadata
         return columnHandles.build();
     }
 
-    @SuppressWarnings("ValueOfIncrementOrDecrementUsed")
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
@@ -208,30 +206,19 @@ public class KinesisMetadata
         }
 
         ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
-        int index = 0;
-
-        /*KinesisStreamFieldGroup key = table.getPartitionKey();
-        if (key != null) {
-            List<KinesisStreamFieldDescription> fields = key.getFields();
-            if (fields != null) {
-                for (KinesisStreamFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.getColumnMetadata(index++));
-                }
-            }
-        }*/
 
         KinesisStreamFieldGroup message = table.getMessage();
         if (message != null) {
             List<KinesisStreamFieldDescription> fields = message.getFields();
             if (fields != null) {
                 for (KinesisStreamFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.getColumnMetadata(index++));
+                    builder.add(fieldDescription.getColumnMetadata());
                 }
             }
         }
 
         for (KinesisInternalFieldDescription fieldDescription : internalFieldDescriptions) {
-            builder.add(fieldDescription.getColumnMetadata(index++, kinesisConnectorConfig.isHideInternalColumns()));
+            builder.add(fieldDescription.getColumnMetadata(kinesisConnectorConfig.isHideInternalColumns()));
         }
 
         return new ConnectorTableMetadata(schemaTableName, builder.build());

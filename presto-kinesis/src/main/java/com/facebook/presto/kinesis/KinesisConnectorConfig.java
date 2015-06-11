@@ -49,6 +49,26 @@ public class KinesisConnectorConfig
      */
     private boolean hideInternalColumns = true;
 
+    /**
+     * Region to be used to read stream from.
+     */
+    private String awsRegion = "us-east-1";
+
+    /**
+     * Defines maximum number of records to return in one call
+     */
+    private int batchSize = 10000;
+
+    /**
+     * Defines number of attempts to fetch records from stream until received non-empty
+     */
+    private int fetchAttmepts = 3;
+
+    /**
+     *  Defines sleep time (in milliseconds) for the thread which is trying to fetch the records from kinesis streams
+     */
+    private int sleepTime = 1000;
+
     private String accessKey = null;
 
     private String secretKey = null;
@@ -126,5 +146,53 @@ public class KinesisConnectorConfig
     public String getSecretKey()
     {
         return this.secretKey;
+    }
+
+    @Config("kinesis.aws-region")
+    public KinesisConnectorConfig setAwsRegion(String awsRegion)
+    {
+        this.awsRegion = awsRegion;
+        return this;
+    }
+
+    public String getAwsRegion()
+    {
+        return awsRegion;
+    }
+
+    @Config("kinesis.batch-size")
+    public KinesisConnectorConfig setBatchSize(int batchSize)
+    {
+        this.batchSize = batchSize;
+        return this;
+    }
+
+    public int getBatchSize()
+    {
+        return this.batchSize;
+    }
+
+    @Config("kinesis.fetch-attempts")
+    public KinesisConnectorConfig setFetchAttempts(int fetchAttempts)
+    {
+        this.fetchAttmepts = fetchAttempts;
+        return this;
+    }
+
+    public int getFetchAttempts()
+    {
+        return this.fetchAttmepts;
+    }
+
+    @Config("kinesis.sleep-time")
+    public KinesisConnectorConfig setSleepTime(int sleepTime)
+    {
+        this.sleepTime = sleepTime;
+        return this;
+    }
+
+    public int getSleepTime()
+    {
+        return this.sleepTime;
     }
 }
