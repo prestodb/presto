@@ -250,7 +250,7 @@ public class OperatorContext
                 }
             });
         }
-        long newReservation = memoryReservation.getAndAdd(bytes);
+        long newReservation = memoryReservation.addAndGet(bytes);
         if (newReservation > maxMemoryReservation) {
             memoryReservation.getAndAdd(-bytes);
             throw new ExceededMemoryLimitException(getMaxMemorySize());
@@ -263,7 +263,7 @@ public class OperatorContext
             return false;
         }
 
-        long newReservation = memoryReservation.getAndAdd(bytes);
+        long newReservation = memoryReservation.addAndGet(bytes);
         if (newReservation > maxMemoryReservation) {
             memoryReservation.getAndAdd(-bytes);
             return false;
