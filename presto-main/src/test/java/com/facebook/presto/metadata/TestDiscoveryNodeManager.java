@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.server.NoOpFailureDetector;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;

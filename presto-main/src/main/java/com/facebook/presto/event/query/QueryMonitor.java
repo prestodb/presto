@@ -14,13 +14,13 @@
 package com.facebook.presto.event.query;
 
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
-import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.operator.TaskStats;
 import com.fasterxml.jackson.core.JsonProcessingException;

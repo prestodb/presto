@@ -11,21 +11,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.client;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class NodeVersion
 {
     public static final NodeVersion UNKNOWN = new NodeVersion("<unknown>");
 
     private final String version;
 
-    public NodeVersion(String version)
+    @JsonCreator
+    public NodeVersion(@JsonProperty("version") String version)
     {
         this.version = requireNonNull(version, "version is null");
+    }
+
+    @JsonProperty
+    public String getVersion()
+    {
+        return version;
     }
 
     @Override

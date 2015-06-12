@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
 import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
