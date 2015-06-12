@@ -9,3 +9,4 @@ General Changes
   both partitioned on the same columns.
 * Add :func:`from_iso8601_timestamp`, :func:`from_iso8601_date`, and
   :func:`to_iso8601` function.
+* Make ``ctrl-C`` in CLI cancel the query (rather than a partial cancel).

@@ -25,7 +25,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 import org.fusesource.jansi.Ansi;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
@@ -46,7 +45,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class Query
         implements Closeable
@@ -79,14 +77,6 @@ public class Query
         SignalHandler oldHandler = Signal.handle(SIGINT, signal -> {
             if (ignoreUserInterrupt.get() || client.isClosed()) {
                 return;
-            }
-            try {
-                if (client.cancelLeafStage(new Duration(1, SECONDS))) {
-                    return;
-                }
-            }
-            catch (RuntimeException e) {
-                log.debug(e, "error canceling leaf stage");
             }
             client.close();
             clientThread.interrupt();
