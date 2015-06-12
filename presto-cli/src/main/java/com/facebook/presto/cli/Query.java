@@ -16,6 +16,7 @@ package com.facebook.presto.cli;
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.ErrorLocation;
+import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.base.Splitter;
@@ -42,6 +43,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -74,25 +76,20 @@ public class Query
     public void renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
     {
         Thread clientThread = Thread.currentThread();
-        SignalHandler oldHandler = Signal.handle(SIGINT, new SignalHandler()
-        {
-            @Override
-            public void handle(Signal signal)
-            {
-                if (ignoreUserInterrupt.get() || client.isClosed()) {
+        SignalHandler oldHandler = Signal.handle(SIGINT, signal -> {
+            if (ignoreUserInterrupt.get() || client.isClosed()) {
+                return;
+            }
+            try {
+                if (client.cancelLeafStage(new Duration(1, SECONDS))) {
                     return;
                 }
-                try {
-                    if (client.cancelLeafStage(new Duration(1, SECONDS))) {
-                        return;
-                    }
-                }
-                catch (RuntimeException e) {
-                    log.debug(e, "error canceling leaf stage");
-                }
-                client.close();
-                clientThread.interrupt();
             }
+            catch (RuntimeException e) {
+                log.debug(e, "error canceling leaf stage");
+            }
+            client.close();
+            clientThread.interrupt();
         });
         try {
             renderQueryOutput(out, outputFormat, interactive);
@@ -142,7 +139,7 @@ public class Query
             errorChannel.println("Query is gone (server restarted?)");
         }
         else if (client.isFailed()) {
-            renderFailure(client.finalResults(), errorChannel);
+            renderFailure(errorChannel);
         }
     }
 
@@ -257,21 +254,20 @@ public class Query
         client.close();
     }
 
-    public void renderFailure(QueryResults results, PrintStream out)
+    public void renderFailure(PrintStream out)
     {
-        out.printf("Query %s failed: %s%n", results.getId(), results.getError().getMessage());
-        if (client.isDebug()) {
-            renderStack(results, out);
-        }
-        renderErrorLocation(client.getQuery(), results, out);
-        out.println();
-    }
+        QueryResults results = client.finalResults();
+        QueryError error = results.getError();
+        checkState(error != null);
 
-    private static void renderErrorLocation(String query, QueryResults results, PrintStream out)
-    {
-        if (results.getError().getErrorLocation() != null) {
-            renderErrorLocation(query, results.getError().getErrorLocation(), out);
+        out.printf("Query %s failed: %s%n", results.getId(), error.getMessage());
+        if (client.isDebug() && (error.getFailureInfo() != null)) {
+            error.getFailureInfo().toException().printStackTrace(out);
         }
+        if (error.getErrorLocation() != null) {
+            renderErrorLocation(client.getQuery(), error.getErrorLocation(), out);
+        }
+        out.println();
     }
 
     private static void renderErrorLocation(String query, ErrorLocation location, PrintStream out)
@@ -309,13 +305,6 @@ public class Query
             String padding = Strings.repeat(" ", prefix.length() + (location.getColumnNumber() - 1));
             out.println(prefix + errorLine);
             out.println(padding + "^");
-        }
-    }
-
-    private static void renderStack(QueryResults results, PrintStream out)
-    {
-        if (results.getError().getFailureInfo() != null) {
-            results.getError().getFailureInfo().toException().printStackTrace(out);
         }
     }
 }
