@@ -11,21 +11,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.client;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class NodeVersion
+@Immutable
+public class ServerInfo
 {
-    public static final NodeVersion UNKNOWN = new NodeVersion("<unknown>");
+    private final NodeVersion nodeVersion;
 
-    private final String version;
-
-    public NodeVersion(String version)
+    @JsonCreator
+    public ServerInfo(@JsonProperty("nodeVersion") NodeVersion nodeVersion)
     {
-        this.version = checkNotNull(version, "version is null");
+        this.nodeVersion = checkNotNull(nodeVersion, "nodeVersion is null");
+    }
+
+    @JsonProperty
+    public NodeVersion getNodeVersion()
+    {
+        return nodeVersion;
     }
 
     @Override
@@ -38,19 +50,21 @@ public class NodeVersion
             return false;
         }
 
-        NodeVersion that = (NodeVersion) o;
-        return Objects.equals(version, that.version);
+        ServerInfo that = (ServerInfo) o;
+        return Objects.equals(nodeVersion, that.nodeVersion);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(version);
+        return Objects.hash(nodeVersion);
     }
 
     @Override
     public String toString()
     {
-        return version;
+        return toStringHelper(this)
+                .add("nodeVersion", nodeVersion)
+                .toString();
     }
 }

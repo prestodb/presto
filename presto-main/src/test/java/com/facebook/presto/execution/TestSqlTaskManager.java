@@ -20,7 +20,7 @@ import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.ReservedSystemMemoryConfig;
-import com.facebook.presto.metadata.NodeVersion;
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableList;
