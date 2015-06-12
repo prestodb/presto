@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
@@ -565,6 +566,11 @@ public class PrestoConnection
     String getUser()
     {
         return user;
+    }
+
+    ServerInfo getServerInfo()
+    {
+        return queryExecutor.getServerInfo(createHttpUri(address));
     }
 
     StatementClient startQuery(String sql)
