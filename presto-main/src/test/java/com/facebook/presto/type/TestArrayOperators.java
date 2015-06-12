@@ -383,9 +383,8 @@ public class TestArrayOperators
         assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], 2, 3)", new ArrayType(BIGINT), ImmutableList.of(3L, 4L));
         assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], -3, 3)", new ArrayType(BIGINT), ImmutableList.of(2L, 3L, 4L));
         assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], -3, 5)", new ArrayType(BIGINT), ImmutableList.of(2L, 3L, 4L));
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], 1, -2)", new ArrayType(BIGINT), ImmutableList.of());
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], -2, -1)", new ArrayType(BIGINT), ImmutableList.of());
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], -2, -2)", new ArrayType(BIGINT), ImmutableList.of());
+        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], 1, 0)", new ArrayType(BIGINT), ImmutableList.of());
+        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], -2, 0)", new ArrayType(BIGINT), ImmutableList.of());
     }
 
     @Test

@@ -77,7 +77,7 @@ public final class ArraySliceFunction
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false, false, false));
     }
 
-    public static Slice slice(Type type, Slice array, long offset, long length)
+    public static Slice slice(Type type, Slice array, long offset, long length) throws IllegalArgumentException
     {
         Block elementsBlock = readStructuralBlock(array);
         int size = elementsBlock.getPositionCount();
@@ -85,8 +85,8 @@ public final class ArraySliceFunction
             return array;
         }
 
-        if (length <= 0) {
-            return buildStructuralSlice(type.createBlockBuilder(new BlockBuilderStatus(), 0).build());
+        if (length < 0) {
+            throw new IllegalArgumentException("Not a valid length");
         }
 
         if (offset < 0) {
@@ -96,7 +96,7 @@ public final class ArraySliceFunction
         long toIndex = Math.min(offset + length, size);
 
         if (offset >= toIndex || offset < 0 || toIndex < 0) {
-            return null;
+            return buildStructuralSlice(type.createBlockBuilder(new BlockBuilderStatus(), 0).build());
         }
 
         return buildStructuralSlice(elementsBlock.getRegion((int) offset, (int) (toIndex - offset)));
