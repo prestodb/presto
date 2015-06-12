@@ -249,6 +249,15 @@ public class TestDriver
     }
 
     @Test
+    public void testGetDatabaseProductVersion()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            assertNotNull(connection.getMetaData().getDatabaseProductVersion());
+        }
+    }
+
+    @Test
     public void testGetSchemas()
             throws Exception
     {

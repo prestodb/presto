@@ -116,8 +116,12 @@ public class PrestoDatabaseMetaData
     public String getDatabaseProductVersion()
             throws SQLException
     {
-        // TODO: get version from server
-        return "UNKNOWN";
+        try {
+            return connection.getServerInfo().getNodeVersion().getVersion();
+        }
+        catch (RuntimeException e) {
+            throw new SQLException("Error fetching version from server", e);
+        }
     }
 
     @Override
