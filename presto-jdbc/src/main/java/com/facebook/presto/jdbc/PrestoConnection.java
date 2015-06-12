@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
@@ -41,6 +42,7 @@ import java.sql.Struct;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
@@ -572,11 +574,22 @@ public class PrestoConnection
 
     StatementClient startQuery(String sql)
     {
+        return queryExecutor.startQuery(createClientSession(), sql);
+    }
+
+    Optional<ServerInfo> getServerInfo()
+    {
+        ServerInfo serverInfo = queryExecutor.getServerInfo(createClientSession());
+        return serverInfo != null ? Optional.of(serverInfo) : Optional.empty();
+    }
+
+    private ClientSession createClientSession()
+    {
         URI uri = createHttpUri(address);
 
         String source = firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
 
-        ClientSession session = new ClientSession(
+        return new ClientSession(
                 uri,
                 user,
                 source,
@@ -586,8 +599,6 @@ public class PrestoConnection
                 locale.get(),
                 ImmutableMap.copyOf(sessionProperties),
                 false);
-
-        return queryExecutor.startQuery(session, sql);
     }
 
     private void checkOpen()

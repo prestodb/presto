@@ -25,6 +25,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -46,6 +47,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -239,6 +241,16 @@ public class TestDriver
                 assertEquals(metadata.getColumnLabel(1), "TABLE_CAT");
                 assertEquals(metadata.getColumnType(1), Types.LONGNVARCHAR);
             }
+        }
+    }
+
+    @Test
+    public void testGetDatabaseProductVersion()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            DatabaseMetaData dbMetadata = connection.getMetaData();
+            assertNotEquals(dbMetadata.getDatabaseProductVersion(), "UNKNOWN");
         }
     }
 
