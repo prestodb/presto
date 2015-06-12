@@ -2,9 +2,15 @@
 Black Hole Connector
 ====================
 
-The Black Hole connector works like the /dev/null device file in the Linux operating system.
-Metadata for any tables created via this connector is kept in memory and discarded when
-Presto restarts. Tables are always empty, and any data written to them will be ignored.
+The Black Hole connector works like the ``/dev/null`` device on Unix-like
+operating systems. Metadata for any tables created via this connector is
+kept in memory on the coordinator and discarded when Presto restarts.
+Tables are always empty, and any data written to them will be ignored.
+
+.. warning::
+
+    This connector will not work properly with multiple coordinators,
+    since each coordinator will have a different metadata.
 
 Configuration
 -------------
@@ -16,23 +22,21 @@ To configure the Black Hole connector, create a catalog properties file
 
     connector.name=blackhole
 
-Example usage
--------------
+Examples
+--------
 
-Create table using blackhole connector:
+Create a table using the blackhole connector::
 
-.. code-block:: sql
+    CREATE TABLE blackhole.test.nation AS
+    SELECT * from tpch.tiny.nation;
 
-    CREATE TABLE blackhole.default.nation AS SELECT * from tpch.tiny.nation;
+Insert data into a table in the blackhole connector::
 
-Insert data into table in blackhole connector:
+    INSERT INTO blackhole.test.nation
+    SELECT * FROM tpch.tiny.nation;
 
-.. code-block:: sql
+Select from the blackhole connector::
 
-    INSERT INTO blackhole.default.nation SELECT * FROM tpch.tiny.nation;
+    SELECT COUNT(*) FROM blackhole.test.nation;
 
-Read from blackhole connector:
-
-.. code-block:: sql
-
-    SELECT COUNT(*) FROM blackhole.default.nation;
+The above query will always return ``0``.
