@@ -28,17 +28,19 @@ import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class ArraySliceFunction
         extends ParametricScalar
 {
     public static final ArraySliceFunction ARRAY_SLICE_FUNCTION = new ArraySliceFunction();
-    private static final String FUNCTION_NAME = "array_slice";
+    private static final String FUNCTION_NAME = "slice";
     private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(comparableTypeParameter("E")), "array<E>", ImmutableList.of("array<E>", "bigint", "bigint"), false, false);
     private static final MethodHandle METHOD_HANDLE = methodHandle(ArraySliceFunction.class, "slice", Type.class, Slice.class, long.class, long.class);
 
@@ -77,7 +79,7 @@ public final class ArraySliceFunction
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false, false, false));
     }
 
-    public static Slice slice(Type type, Slice array, long offset, long length) throws IllegalArgumentException
+    public static Slice slice(Type type, Slice array, long offset, long length)
     {
         Block elementsBlock = readStructuralBlock(array);
         int size = elementsBlock.getPositionCount();
@@ -85,9 +87,7 @@ public final class ArraySliceFunction
             return array;
         }
 
-        if (length < 0) {
-            throw new IllegalArgumentException("Not a valid length");
-        }
+        checkCondition(length >= 0, INVALID_FUNCTION_ARGUMENT, "Invalid array length");
 
         if (offset < 0) {
             offset = size + offset;

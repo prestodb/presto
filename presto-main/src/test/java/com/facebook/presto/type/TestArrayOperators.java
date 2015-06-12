@@ -376,15 +376,15 @@ public class TestArrayOperators
     @Test void testSlice()
             throws Exception
     {
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4, 5], 0, 4)", new ArrayType(BIGINT), ImmutableList.of(1L, 2L, 3L, 4L));
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2], 0, 4)", new ArrayType(BIGINT), ImmutableList.of(1L, 2L));
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4, 5], 2, 2)", new ArrayType(BIGINT), ImmutableList.of(3L, 4L));
-        assertFunction("ARRAY_SLICE(ARRAY ['1', '2', '3', '4'], 1, 1)", new ArrayType(VARCHAR), ImmutableList.of("2"));
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], 2, 3)", new ArrayType(BIGINT), ImmutableList.of(3L, 4L));
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], -3, 3)", new ArrayType(BIGINT), ImmutableList.of(2L, 3L, 4L));
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], -3, 5)", new ArrayType(BIGINT), ImmutableList.of(2L, 3L, 4L));
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], 1, 0)", new ArrayType(BIGINT), ImmutableList.of());
-        assertFunction("ARRAY_SLICE(ARRAY [1, 2, 3, 4], -2, 0)", new ArrayType(BIGINT), ImmutableList.of());
+        assertFunction("SLICE(ARRAY [1, 2, 3, 4, 5], 0, 4)", new ArrayType(BIGINT), ImmutableList.of(1L, 2L, 3L, 4L));
+        assertFunction("SLICE(ARRAY [1, 2], 0, 4)", new ArrayType(BIGINT), ImmutableList.of(1L, 2L));
+        assertFunction("SLICE(ARRAY [1, 2, 3, 4, 5], 2, 2)", new ArrayType(BIGINT), ImmutableList.of(3L, 4L));
+        assertFunction("SLICE(ARRAY ['1', '2', '3', '4'], 1, 1)", new ArrayType(VARCHAR), ImmutableList.of("2"));
+        assertFunction("SLICE(ARRAY [1, 2, 3, 4], 2, 3)", new ArrayType(BIGINT), ImmutableList.of(3L, 4L));
+        assertFunction("SLICE(ARRAY [1, 2, 3, 4], -3, 3)", new ArrayType(BIGINT), ImmutableList.of(2L, 3L, 4L));
+        assertFunction("SLICE(ARRAY [1, 2, 3, 4], -3, 5)", new ArrayType(BIGINT), ImmutableList.of(2L, 3L, 4L));
+        assertFunction("SLICE(ARRAY [1, 2, 3, 4], 1, 0)", new ArrayType(BIGINT), ImmutableList.of());
+        assertFunction("SLICE(ARRAY [1, 2, 3, 4], -2, 0)", new ArrayType(BIGINT), ImmutableList.of());
     }
 
     @Test
