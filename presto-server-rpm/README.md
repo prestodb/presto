@@ -10,7 +10,7 @@ Building the RPM is currently an optional maven task and can be enabled by the '
 
 This will create the RPM under the directory `presto-server-rpm/target/rpm/presto/RPMS/x86_64/`
 
-The RPM has a pre-requisite of Python >= 2.6 and <= 2.7. It also needs Oracle Java 1.8 (64-bit) pre-installed. The RPM installation will fail if any of these requirements are not
+The RPM has a pre-requisite of Python >= 2.4. It also needs Oracle Java 1.8 update 40 (8u40 64-bit) pre-installed. The RPM installation will fail if any of these requirements are not
 satisfied.
 
 To install Presto using an RPM, run:
@@ -31,8 +31,6 @@ The Presto RPM will also deploy service scripts to control the Presto server pro
 so that the service is started automatically on OS boot. After installing Presto from the RPM, you can run:
 
     service presto [start|stop|restart|status]
-
-The log files created during server start are available at `/var/log/presto/launcher_<log_uid>.log` and `/var/log/presto/server_<log_uid>.log`, where log_uid is the timestamp at which server is started.
 
 ## Installation directory structure
 

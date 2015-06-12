@@ -20,13 +20,11 @@ SCRIPT_NAME=$0
 ACTION_NAME=$1
 SERVICE_NAME='presto'
 
-log_uid=$(date "+%Y.%d.%m-%H.%M.%S")
-
-# Launcher Config. 
+# Launcher Config.
 # Use data-dir from node.properties file (assumes it to be at /etc/presto). For other args use defaults from rpm install
 NODE_PROPERTIES=/etc/presto/node.properties
 DATA_DIR=$(grep -Po "(?<=^node.data-dir=).*" $NODE_PROPERTIES)
-CONFIGURATION="--launcher-config /usr/lib/presto/bin/launcher.properties --data-dir $DATA_DIR --node-config $NODE_PROPERTIES --jvm-config /etc/presto/jvm.config --config /etc/presto/config.properties --launcher-log-file /var/log/presto/launcher_$log_uid.log --server-log-file /var/log/presto/server_$log_uid.log"
+CONFIGURATION=(--launcher-config /usr/lib/presto/bin/launcher.properties --data-dir "$DATA_DIR" --node-config "$NODE_PROPERTIES" --jvm-config /etc/presto/jvm.config --config /etc/presto/config.properties --launcher-log-file /var/log/presto/launcher.log --server-log-file /var/log/presto/server.log)
 
 source /etc/presto/env.sh
 
@@ -37,26 +35,26 @@ start () {
         echo "Warning: No value found for JAVA8_HOME. Default Java will be used."
         /usr/lib/presto/bin/launcher start ${CONFIGURATION}
     else
-        PATH=${JAVA8_HOME}/bin:$PATH /usr/lib/presto/bin/launcher start ${CONFIGURATION}
+        PATH=${JAVA8_HOME}/bin:$PATH /usr/lib/presto/bin/launcher start "${CONFIGURATION[@]}"
     fi
     return $?
 }
 
 stop () {
     echo "Stopping ${SERVICE_NAME} "
-    /usr/lib/presto/bin/launcher stop ${CONFIGURATION}
+    /usr/lib/presto/bin/launcher stop "${CONFIGURATION[@]}"
     return $?
 }
 
 status () {
     echo "Getting status for ${SERVICE_NAME} "
-    /usr/lib/presto/bin/launcher status ${CONFIGURATION}
+    /usr/lib/presto/bin/launcher status "${CONFIGURATION[@]}"
     return $?
 }
 
 
 restart () {
-    stop && start
+    /usr/lib/presto/bin/launcher restart "${CONFIGURATION[@]}"
     return $?
 }
 
