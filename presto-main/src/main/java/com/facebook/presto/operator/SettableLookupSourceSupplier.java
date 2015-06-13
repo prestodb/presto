@@ -46,10 +46,12 @@ public final class SettableLookupSourceSupplier
         return types;
     }
 
+    @SuppressWarnings("RedundantCast")
     @Override
     public ListenableFuture<LookupSource> getLookupSource(OperatorContext operatorContext)
     {
-        return transform(lookupSourceFuture, (AsyncFunction<SharedLookupSource, LookupSource>) Futures::immediateFuture);
+        // The Eclipse compiler requires the explicit <LookupSource> cast.
+        return transform(lookupSourceFuture, (AsyncFunction<SharedLookupSource, LookupSource>) Futures::<LookupSource>immediateFuture);
     }
 
     public void setLookupSource(SharedLookupSource lookupSource)
