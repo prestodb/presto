@@ -353,18 +353,18 @@ function taskData(d) {
     });
 
     return [
-        d.taskId,
-        new URL(d.self).hostname,
-        formatState(d.state, d.stats.fullyBlocked),
-        formatCount(rows),
-        formatCount(computeRate(rows, elapsed)),
-        formatDataSize(bytes),
-        formatDataSize(computeRate(bytes, elapsed)),
-        d.stats.queuedDrivers,
-        d.stats.runningDrivers,
-        d.stats.completedDrivers,
-        finishedBuffers + ' / ' + allBuffers,
-        bufferedPages
+        "<a href=" + d.self + ">" + htmlEscape(d.taskId) + "</a>",
+        htmlEscape(new URL(d.self).hostname),
+        htmlEscape(formatState(d.state, d.stats.fullyBlocked)),
+        htmlEscape(formatCount(rows)),
+        htmlEscape(formatCount(computeRate(rows, elapsed))),
+        htmlEscape(formatDataSize(bytes)),
+        htmlEscape(formatDataSize(computeRate(bytes, elapsed))),
+        htmlEscape(d.stats.queuedDrivers),
+        htmlEscape(d.stats.runningDrivers),
+        htmlEscape(d.stats.completedDrivers),
+        htmlEscape(finishedBuffers + ' / ' + allBuffers),
+        htmlEscape(bufferedPages)
     ];
 }
 
@@ -514,7 +514,7 @@ function renderTable(id, data) {
             })
             .enter()
             .append("td")
-            .text(function (d) {
+            .html(function (d) {
                 return d;
             });
 }
