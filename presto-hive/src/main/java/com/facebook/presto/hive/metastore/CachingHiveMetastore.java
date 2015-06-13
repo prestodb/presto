@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveCluster;
 import com.facebook.presto.hive.HiveMetastoreClient;
 import com.facebook.presto.hive.HiveViewNotSupportedException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
+import com.facebook.presto.hive.util.BackgroundBatchCacheLoader;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -95,15 +96,18 @@ public class CachingHiveMetastore
         this(checkNotNull(hiveCluster, "hiveCluster is null"),
                 checkNotNull(executor, "executor is null"),
                 checkNotNull(hiveClientConfig, "hiveClientConfig is null").getMetastoreCacheTtl(),
-                hiveClientConfig.getMetastoreRefreshInterval());
+                hiveClientConfig.getMetastoreRefreshInterval(),
+                hiveClientConfig.getMetastoreBatchPartitionLoadInterval(),
+                hiveClientConfig.getMetastoreBatchPartitionLoadSize());
     }
 
-    public CachingHiveMetastore(HiveCluster hiveCluster, ExecutorService executor, Duration cacheTtl, Duration refreshInterval)
+    public CachingHiveMetastore(HiveCluster hiveCluster, ExecutorService executor, Duration cacheTtl, Duration refreshInterval, Duration batchPartitionLoadInterval, int batchPartitionLoadSize)
     {
         this.clientProvider = checkNotNull(hiveCluster, "hiveCluster is null");
 
         long expiresAfterWriteMillis = checkNotNull(cacheTtl, "cacheTtl is null").toMillis();
         long refreshMills = checkNotNull(refreshInterval, "refreshInterval is null").toMillis();
+        final Long batchPartitionLoadIntervalMillis = checkNotNull(batchPartitionLoadInterval, "batchPartitionLoadInterval is null").toMillis();
 
         databaseNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
@@ -199,22 +203,15 @@ public class CachingHiveMetastore
         partitionCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
                 .refreshAfterWrite(refreshMills, MILLISECONDS)
-                .build(asyncReloading(new CacheLoader<HivePartitionName, Partition>()
+                .build(new BackgroundBatchCacheLoader<HivePartitionName, Partition>(batchPartitionLoadIntervalMillis, batchPartitionLoadSize)
                 {
-                    @Override
-                    public Partition load(HivePartitionName partitionName)
-                            throws Exception
-                    {
-                        return loadPartitionByName(partitionName);
-                    }
-
                     @Override
                     public Map<HivePartitionName, Partition> loadAll(Iterable<? extends HivePartitionName> partitionNames)
                             throws Exception
                     {
                         return loadPartitionsByNames(partitionNames);
                     }
-                }, executor));
+                });
     }
 
     @Managed
@@ -594,30 +591,6 @@ public class CachingHiveMetastore
             partitionsByName.put(entry.getKey().getPartitionName(), entry.getValue());
         }
         return partitionsByName.build();
-    }
-
-    private Partition loadPartitionByName(final HivePartitionName partitionName)
-            throws Exception
-    {
-        checkNotNull(partitionName, "partitionName is null");
-        try {
-            return retry()
-                    .stopOn(NoSuchObjectException.class)
-                    .stopOnIllegalExceptions()
-                    .run("getPartitionsByNames", stats.getGetPartitionByName().wrap(() -> {
-                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            return client.get_partition_by_name(partitionName.getHiveTableName().getDatabaseName(),
-                                    partitionName.getHiveTableName().getTableName(),
-                                    partitionName.getPartitionName());
-                        }
-                    }));
-        }
-        catch (NoSuchObjectException e) {
-            throw e;
-        }
-        catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
-        }
     }
 
     private Map<HivePartitionName, Partition> loadPartitionsByNames(Iterable<? extends HivePartitionName> partitionNames)

@@ -25,7 +25,6 @@ public class CachingHiveMetastoreStats
     private final HiveMetastoreApiStats getTable = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPartitionNames = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPartitionNamesPs = new HiveMetastoreApiStats();
-    private final HiveMetastoreApiStats getPartitionByName = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPartitionsByNames = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats createTable = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats dropTable = new HiveMetastoreApiStats();
@@ -78,13 +77,6 @@ public class CachingHiveMetastoreStats
     public HiveMetastoreApiStats getGetPartitionNamesPs()
     {
         return getPartitionNamesPs;
-    }
-
-    @Managed
-    @Nested
-    public HiveMetastoreApiStats getGetPartitionByName()
-    {
-        return getPartitionByName;
     }
 
     @Managed
