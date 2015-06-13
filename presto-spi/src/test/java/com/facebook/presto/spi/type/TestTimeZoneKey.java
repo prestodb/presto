@@ -57,6 +57,8 @@ public class TestTimeZoneKey
         assertSame(TimeZoneKey.getTimeZoneKey("GMT0"), UTC_KEY);
         assertSame(TimeZoneKey.getTimeZoneKey("GMT+0"), UTC_KEY);
         assertSame(TimeZoneKey.getTimeZoneKey("GMT-0"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT+00:00"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("GMT-00:00"), UTC_KEY);
         assertSame(TimeZoneKey.getTimeZoneKey("+00:00"), UTC_KEY);
         assertSame(TimeZoneKey.getTimeZoneKey("-00:00"), UTC_KEY);
         assertSame(TimeZoneKey.getTimeZoneKey("etc/utc"), UTC_KEY);

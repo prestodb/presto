@@ -278,6 +278,8 @@ public final class TimeZoneKey
                 zoneId.equals("ut") ||
                 zoneId.equals("gmt") ||
                 zoneId.equals("gmt0") ||
+                zoneId.equals("gmt+00:00") ||
+                zoneId.equals("gmt-00:00") ||
                 zoneId.equals("greenwich") ||
                 zoneId.equals("universal") ||
                 zoneId.equals("zulu") ||
