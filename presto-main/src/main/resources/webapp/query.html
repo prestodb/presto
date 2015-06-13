@@ -354,7 +354,7 @@ function taskData(d) {
 
     return [
         d.taskId,
-        d.self.replace(/http:\/\/([a-z0-9-.]+)[\/:].*/, '$1'),
+        new URL(d.self).hostname,
         formatState(d.state, d.stats.fullyBlocked),
         formatCount(rows),
         formatCount(computeRate(rows, elapsed)),
