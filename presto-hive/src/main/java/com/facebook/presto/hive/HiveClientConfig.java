@@ -62,6 +62,8 @@ public class HiveClientConfig
 
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(1, TimeUnit.SECONDS);
+    private Duration metastoreBatchPartitionLoadInterval = new Duration(10, TimeUnit.SECONDS);
+    private int metastoreBatchPartitionLoadSize = 100;
     private int maxMetastoreRefreshThreads = 100;
     private HostAndPort metastoreSocksProxy;
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
@@ -273,6 +275,31 @@ public class HiveClientConfig
     public HiveClientConfig setMetastoreRefreshInterval(Duration metastoreRefreshInterval)
     {
         this.metastoreRefreshInterval = metastoreRefreshInterval;
+        return this;
+    }
+
+    public Duration getMetastoreBatchPartitionLoadInterval()
+    {
+        return metastoreBatchPartitionLoadInterval;
+    }
+
+    @Config("hive.metastore-partition-batch-load-interval")
+    public HiveClientConfig setMetastoreBatchPartitionLoadInterval(Duration metastoreBatchPartitionLoadInterval)
+    {
+        this.metastoreBatchPartitionLoadInterval = metastoreBatchPartitionLoadInterval;
+        return this;
+    }
+
+    @Min(1)
+    public int getMetastoreBatchPartitionLoadSize()
+    {
+        return metastoreBatchPartitionLoadSize;
+    }
+
+    @Config("hive.metastore-partition-batch-load-size")
+    public HiveClientConfig setMetastoreBatchPartitionLoadSize(int metastoreBatchPartitionLoadSize)
+    {
+        this.metastoreBatchPartitionLoadSize = metastoreBatchPartitionLoadSize;
         return this;
     }
 

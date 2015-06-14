@@ -15,6 +15,9 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveCluster;
 import com.facebook.presto.hive.HiveMetastoreClient;
+import com.facebook.presto.hive.util.BackgroundBatchCacheLoader;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
@@ -22,7 +25,16 @@ import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.hive.metastore.MockHiveMetastoreClient.BAD_DATABASE;
 import static com.facebook.presto.hive.metastore.MockHiveMetastoreClient.TEST_DATABASE;
@@ -48,7 +60,7 @@ public class TestCachingHiveMetastore
         mockClient = new MockHiveMetastoreClient();
         MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
-        metastore = new CachingHiveMetastore(mockHiveCluster, executor, new Duration(5, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES));
+        metastore = new CachingHiveMetastore(mockHiveCluster, executor, new Duration(5, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES), 10);
     }
 
     @Test
@@ -238,5 +250,38 @@ public class TestCachingHiveMetastore
         {
             return client;
         }
+    }
+
+    @Test
+    public void testBatchCacheLoader()
+            throws Exception
+    {
+        int batchSize = 25;
+        AtomicInteger loadAllCalls = new AtomicInteger();
+        CountDownLatch done = new CountDownLatch(2);
+        ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1, daemonThreadsNamed("batch-cache-loader-%s"));
+
+        LoadingCache<Integer, String> cache = CacheBuilder.newBuilder()
+                //test batch loading based on size as we don't want to depend on timing in tests
+                .build(new BackgroundBatchCacheLoader<Integer, String>(Long.MAX_VALUE, batchSize, scheduledExecutorService)
+                {
+                    @Override
+                    public Map<Integer, String> loadAll(Iterable<? extends Integer> keys)
+                            throws Exception
+                    {
+                        Map map = new HashMap();
+                        for (Integer k : keys) {
+                            map.put(k, String.valueOf(k));
+                        }
+                        done.countDown();
+                        loadAllCalls.incrementAndGet();
+                        return map;
+                    }
+                });
+        List<Integer> keys = IntStream.rangeClosed(1, batchSize).boxed().collect(Collectors.toList());
+        cache.getAll(keys); // load the initial set of keys
+        keys.stream().forEach(key -> cache.refresh(key)); // only the last refresh call should trigger another loadAll
+        done.await();
+        assertEquals(loadAllCalls.get(), 2);
     }
 }
