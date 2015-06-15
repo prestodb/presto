@@ -14,3 +14,8 @@ General Changes
   The read-only status for the connection is currently ignored.
 * Add missing ``CAST`` from ``VARCHAR`` to ``TIMESTAMP WITH TIME ZONE``.
 * Add support for fixed time zones ``+00:00`` and ``-00:00``.
+
+Cassandra Changes
+-----------------
+
+* Randomly select Cassandra node for split generation.
