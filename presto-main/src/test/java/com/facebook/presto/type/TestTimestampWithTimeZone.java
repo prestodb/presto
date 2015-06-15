@@ -290,6 +290,20 @@ public class TestTimestampWithTimeZone
     }
 
     @Test
+    public void testCastFromSlice()
+    {
+        assertFunction("cast('2001-1-22 03:04:05.321 +07:09' as timestamp with time zone) = TIMESTAMP '2001-01-22 03:04:05.321 +07:09'", BOOLEAN, true);
+        assertFunction("cast('2001-1-22 03:04:05 +07:09' as timestamp with time zone) = TIMESTAMP '2001-01-22 03:04:05.000 +07:09'", BOOLEAN, true);
+        assertFunction("cast('2001-1-22 03:04 +07:09' as timestamp with time zone) = TIMESTAMP '2001-01-22 03:04:00.000 +07:09'", BOOLEAN, true);
+        assertFunction("cast('2001-1-22 +07:09' as timestamp with time zone) = TIMESTAMP '2001-01-22 00:00:00.000 +07:09'", BOOLEAN, true);
+
+        assertFunction("cast('2001-1-22 03:04:05.321 Europe/Berlin' as timestamp with time zone) = TIMESTAMP '2001-01-22 03:04:05.321 Europe/Berlin'", BOOLEAN, true);
+        assertFunction("cast('2001-1-22 03:04:05 Europe/Berlin' as timestamp with time zone) = TIMESTAMP '2001-01-22 03:04:05.000 Europe/Berlin'", BOOLEAN, true);
+        assertFunction("cast('2001-1-22 03:04 Europe/Berlin' as timestamp with time zone) = TIMESTAMP '2001-01-22 03:04:00.000 Europe/Berlin'", BOOLEAN, true);
+        assertFunction("cast('2001-1-22 Europe/Berlin' as timestamp with time zone) = TIMESTAMP '2001-01-22 00:00:00.000 Europe/Berlin'", BOOLEAN, true);
+    }
+
+    @Test
     public void testGreatest()
             throws Exception
     {

@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -30,10 +31,12 @@ import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
 import static com.facebook.presto.metadata.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -136,6 +139,18 @@ public final class TimestampWithTimeZoneOperators
     public static Slice castToSlice(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
         return Slices.copiedBuffer(printTimestampWithTimeZone(value), UTF_8);
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
+    public static long castFromSlice(@SqlType(StandardTypes.VARCHAR) Slice value)
+    {
+        try {
+            return parseTimestampWithTimeZone(value.toStringUtf8());
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, e);
+        }
     }
 
     @ScalarOperator(HASH_CODE)

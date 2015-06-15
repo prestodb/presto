@@ -12,3 +12,4 @@ General Changes
 * Make ``ctrl-C`` in CLI cancel the query (rather than a partial cancel).
 * Allow calling ``Connection.setReadOnly(false)`` in the JDBC driver.
   The read-only status for the connection is currently ignored.
+* Add missing ``CAST`` from ``VARCHAR`` to ``TIMESTAMP WITH TIME ZONE``.
