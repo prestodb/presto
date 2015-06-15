@@ -240,6 +240,15 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus <> 'F')");
 
         assertQueryTrue("DROP TABLE test_delete");
+
+        // delete using a constant property
+
+        assertQuery("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+
+        assertQuery("DELETE FROM test_delete WHERE orderstatus = 'O'", "SELECT count(*) FROM orders WHERE orderstatus = 'O'");
+        assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders WHERE orderstatus <> 'O'");
+
+        assertQueryTrue("DROP TABLE test_delete");
     }
 
     @Test

@@ -241,7 +241,8 @@ class PropertyDerivations
         @Override
         public ActualProperties visitDelete(DeleteNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            // drop all symbols in property because delete doesn't pass on any of the columns
+            return Iterables.getOnlyElement(inputProperties).translate(symbol -> Optional.empty());
         }
 
         @Override
