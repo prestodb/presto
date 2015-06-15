@@ -5,8 +5,8 @@ Release 0.108
 General Changes
 ---------------
 
-* Fix incorrect query results when one window function follows another row_number() window function and are
-  both partitioned on the same columns.
+* Fix incorrect query results when a window function follows a :func:`row_number`
+  function and both are partitioned on the same column(s).
 * Add :func:`from_iso8601_timestamp`, :func:`from_iso8601_date`, and
   :func:`to_iso8601` function.
 * Make ``ctrl-C`` in CLI cancel the query (rather than a partial cancel).
