@@ -185,17 +185,14 @@ public class PrestoConnection
             throws SQLException
     {
         checkOpen();
-        if (!readOnly) {
-            throw new SQLFeatureNotSupportedException("Disabling read-only mode not supported");
-        }
+        // TODO: implement this
     }
 
     @Override
     public boolean isReadOnly()
             throws SQLException
     {
-        checkOpen();
-        return true;
+        return false;
     }
 
     @Override

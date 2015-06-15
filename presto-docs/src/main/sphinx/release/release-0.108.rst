@@ -10,3 +10,5 @@ General Changes
 * Add :func:`from_iso8601_timestamp`, :func:`from_iso8601_date`, and
   :func:`to_iso8601` function.
 * Make ``ctrl-C`` in CLI cancel the query (rather than a partial cancel).
+* Allow calling ``Connection.setReadOnly(false)`` in the JDBC driver.
+  The read-only status for the connection is currently ignored.
