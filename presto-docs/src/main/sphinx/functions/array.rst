@@ -29,6 +29,12 @@ Array Functions
 
     Returns the maximum value of input array.
 
+.. function:: element_at(x<E>, index) -> E
+
+    Get element at given ``index``.
+    If ``index`` >= 0, this function provides the same functionality as the SQL-standard subscript operator (``[]``).
+    In addition, if ``index`` < 0, ``element_at`` accesses elements from the last to first.
+
 .. function:: array_distinct(x) -> array
 
     Remove duplicate values from the array ``x``.

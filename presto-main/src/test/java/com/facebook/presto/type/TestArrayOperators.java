@@ -17,6 +17,7 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.operator.scalar.TestingRowConstructor;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -370,6 +371,78 @@ public class TestArrayOperators
         assertFunction("ARRAY [infinity()][1]", DOUBLE, POSITIVE_INFINITY);
         assertFunction("ARRAY [-infinity()][1]", DOUBLE, NEGATIVE_INFINITY);
         assertFunction("ARRAY [sqrt(-1)][1]", DOUBLE, NaN);
+    }
+
+    @Test
+    public void testElementAt()
+            throws Exception
+    {
+        final String outOfBounds = "Index out of bounds";
+        assertInvalidFunction("ELEMENT_AT(ARRAY[], -1)", outOfBounds);
+        assertInvalidFunction("ELEMENT_AT(ARRAY[], 0)", outOfBounds);
+        assertInvalidFunction("ELEMENT_AT(ARRAY[], 1)", outOfBounds);
+        assertInvalidFunction("ELEMENT_AT(ARRAY[1, 2, 3], 0)", outOfBounds);
+        assertInvalidFunction("ELEMENT_AT(ARRAY[1, 2, 3], 4)", outOfBounds);
+        assertInvalidFunction("ELEMENT_AT(ARRAY[1, 2, 3], -4)", outOfBounds);
+
+        try {
+            assertFunction("ELEMENT_AT(ARRAY[1, 2, 3], 1.1)", BIGINT, null);
+            fail("Access to array with double subscript should fail");
+        }
+        catch (PrestoException e) {
+            assertTrue(e.getErrorCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode());
+        }
+
+        try {
+            assertFunction("ELEMENT_AT(ARRAY[1, 2, 3], '1')", BIGINT, null);
+            fail("Access to array with string subscript should fail");
+        }
+        catch (PrestoException e) {
+            assertTrue(e.getErrorCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode());
+        }
+
+        try {
+            assertFunction("ELEMENT_AT(ARRAY[1, 2, 3], true)", BIGINT, null);
+            fail("Access to array with boolean subscript should fail");
+        }
+        catch (PrestoException e) {
+            assertTrue(e.getErrorCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode());
+        }
+
+        assertFunction("ELEMENT_AT(ARRAY[NULL], 1)", UNKNOWN, null);
+        assertFunction("ELEMENT_AT(ARRAY[NULL], -1)", UNKNOWN, null);
+        assertFunction("ELEMENT_AT(ARRAY[NULL, NULL, NULL], 3)", UNKNOWN, null);
+        assertFunction("ELEMENT_AT(ARRAY[NULL, NULL, NULL], -1)", UNKNOWN, null);
+        assertFunction("1 + ELEMENT_AT(ARRAY [2, 1, 3], 2)", BIGINT, 2);
+        assertFunction("1 + ELEMENT_AT(ARRAY [2, 1, 3], -2)", BIGINT, 2);
+        assertFunction("ELEMENT_AT(ARRAY [2, 1, 3], 2)", BIGINT, 1);
+        assertFunction("ELEMENT_AT(ARRAY [2, 1, 3], -2)", BIGINT, 1);
+        assertFunction("ELEMENT_AT(ARRAY [2, NULL, 3], 2)", BIGINT, null);
+        assertFunction("ELEMENT_AT(ARRAY [2, NULL, 3], -2)", BIGINT, null);
+        assertFunction("ELEMENT_AT(ARRAY [1.0, 2.5, 3.5], 3)", DOUBLE, 3.5);
+        assertFunction("ELEMENT_AT(ARRAY [1.0, 2.5, 3.5], -1)", DOUBLE, 3.5);
+        assertFunction("ELEMENT_AT(ARRAY [ARRAY[1, 2], ARRAY[3]], 2)", new ArrayType(BIGINT), ImmutableList.of(3L));
+        assertFunction("ELEMENT_AT(ARRAY [ARRAY[1, 2], ARRAY[3]], -1)", new ArrayType(BIGINT), ImmutableList.of(3L));
+        assertFunction("ELEMENT_AT(ARRAY [ARRAY[1, 2], NULL, ARRAY[3]], 2)", new ArrayType(BIGINT), null);
+        assertFunction("ELEMENT_AT(ARRAY [ARRAY[1, 2], NULL, ARRAY[3]], -2)", new ArrayType(BIGINT), null);
+        assertFunction("ELEMENT_AT(ELEMENT_AT(ARRAY[ARRAY[1, 2], ARRAY[3]], 2) , 1)", BIGINT, 3);
+        assertFunction("ELEMENT_AT(ELEMENT_AT(ARRAY[ARRAY[1, 2], ARRAY[3]], -1) , 1)", BIGINT, 3);
+        assertFunction("ELEMENT_AT(ELEMENT_AT(ARRAY[ARRAY[1, 2], ARRAY[3]], 2) , -1)", BIGINT, 3);
+        assertFunction("ELEMENT_AT(ELEMENT_AT(ARRAY[ARRAY[1, 2], ARRAY[3]], -1) , -1)", BIGINT, 3);
+        assertFunction("ELEMENT_AT(ARRAY ['puppies', 'kittens'], 2)", VARCHAR, "kittens");
+        assertFunction("ELEMENT_AT(ARRAY ['puppies', 'kittens'], -1)", VARCHAR, "kittens");
+        assertFunction("ELEMENT_AT(ARRAY ['puppies', 'kittens', NULL], 3)", VARCHAR, null);
+        assertFunction("ELEMENT_AT(ARRAY ['puppies', 'kittens', NULL], -1)", VARCHAR, null);
+        assertFunction("ELEMENT_AT(ARRAY [TRUE, FALSE], 2)", BOOLEAN, false);
+        assertFunction("ELEMENT_AT(ARRAY [TRUE, FALSE], -1)", BOOLEAN, false);
+        assertFunction("ELEMENT_AT(ARRAY [from_unixtime(1), from_unixtime(100)], 1)", TIMESTAMP, sqlTimestamp(1000));
+        assertFunction("ELEMENT_AT(ARRAY [from_unixtime(1), from_unixtime(100)], -2)", TIMESTAMP, sqlTimestamp(1000));
+        assertFunction("ELEMENT_AT(ARRAY [infinity()], 1)", DOUBLE, POSITIVE_INFINITY);
+        assertFunction("ELEMENT_AT(ARRAY [infinity()], -1)", DOUBLE, POSITIVE_INFINITY);
+        assertFunction("ELEMENT_AT(ARRAY [-infinity()], 1)", DOUBLE, NEGATIVE_INFINITY);
+        assertFunction("ELEMENT_AT(ARRAY [-infinity()], -1)", DOUBLE, NEGATIVE_INFINITY);
+        assertFunction("ELEMENT_AT(ARRAY [sqrt(-1)], 1)", DOUBLE, NaN);
+        assertFunction("ELEMENT_AT(ARRAY [sqrt(-1)], -1)", DOUBLE, NaN);
     }
 
     @Test
