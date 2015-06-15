@@ -12,3 +12,8 @@ memory a query may use and ``query.max-memory-per-node`` which limits the amount
 of memory a query may use on any one node. On each worker, the
 ``resources.reserved-system-memory`` config property controls how much memory is reserved
 for internal Presto data structures and temporary allocations.
+
+General Changes
+---------------
+
+* Add :func:`element_at` function.
