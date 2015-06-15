@@ -21,6 +21,7 @@ import org.joda.time.DateTimeZone;
 import org.joda.time.MutablePeriod;
 import org.joda.time.Period;
 import org.joda.time.ReadWritablePeriod;
+import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
@@ -36,10 +37,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
+import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackDateTimeZone;
 
 public final class DateTimeUtils
@@ -60,8 +64,9 @@ public final class DateTimeUtils
         return DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(days));
     }
 
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER;
+    private static final DateTimeFormatter TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER;
     private static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER;
+    private static final DateTimeFormatter TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER;
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
@@ -70,7 +75,10 @@ public final class DateTimeUtils
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s").getParser(),
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSS").getParser()};
         DateTimePrinter timestampWithoutTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").getPrinter();
-        TIMESTAMP_FORMATTER = new DateTimeFormatterBuilder().append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser).toFormatter().withZoneUTC();
+        TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
+                .append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser)
+                .toFormatter()
+                .withOffsetParsed();
 
         DateTimeParser[] timestampWithTimeZoneParser = {
                 DateTimeFormat.forPattern("yyyy-M-dZ").getParser(),
@@ -90,46 +98,57 @@ public final class DateTimeUtils
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSSZZZ").getParser(),
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSS ZZZ").getParser()};
         DateTimePrinter timestampWithTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getPrinter();
-        TIMESTAMP_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder().append(timestampWithTimeZonePrinter, timestampWithTimeZoneParser).toFormatter().withOffsetParsed();
+        TIMESTAMP_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
+                .append(timestampWithTimeZonePrinter, timestampWithTimeZoneParser)
+                .toFormatter()
+                .withOffsetParsed();
+
+        DateTimeParser[] timestampWithOrWithoutTimeZoneParser = Stream.concat(Stream.of(timestampWithoutTimeZoneParser), Stream.of(timestampWithTimeZoneParser))
+                .toArray(DateTimeParser[]::new);
+        TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
+                .append(timestampWithTimeZonePrinter, timestampWithOrWithoutTimeZoneParser)
+                .toFormatter()
+                .withOffsetParsed();
     }
 
-    public static long parseTimestamp(TimeZoneKey timeZoneKey, String value)
+    public static long parseTimestampLiteral(TimeZoneKey timeZoneKey, String value)
     {
         try {
-            return parseTimestampWithTimeZone(value);
+            DateTime dateTime = TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseDateTime(value);
+            return packDateTimeWithZone(dateTime);
         }
         catch (Exception e) {
-            return parseTimestampWithoutTimeZone(timeZoneKey, value);
+            return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
         }
     }
 
-    public static long parseTimestampWithTimeZone(String timestampWithTimeZone)
+    public static long parseTimestampWithTimeZone(TimeZoneKey timeZoneKey, String timestampWithTimeZone)
     {
-        DateTime dateTime = TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseDateTime(timestampWithTimeZone);
+        DateTime dateTime = TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).withOffsetParsed().parseDateTime(timestampWithTimeZone);
         return packDateTimeWithZone(dateTime);
     }
 
     public static long parseTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, String value)
     {
-        return TIMESTAMP_FORMATTER.withZone(getDateTimeZone(timeZoneKey)).parseMillis(value);
+        return TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
     }
 
     public static String printTimestampWithTimeZone(long timestampWithTimeZone)
     {
-        DateTimeZone timeZone = unpackDateTimeZone(timestampWithTimeZone);
+        ISOChronology chronology = unpackChronology(timestampWithTimeZone);
         long millis = unpackMillisUtc(timestampWithTimeZone);
-        return TIMESTAMP_WITH_TIME_ZONE_FORMATTER.withZone(timeZone).print(millis);
+        return TIMESTAMP_WITH_TIME_ZONE_FORMATTER.withChronology(chronology).print(millis);
     }
 
     public static String printTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, long timestamp)
     {
-        return TIMESTAMP_FORMATTER.withZone(getDateTimeZone(timeZoneKey)).print(timestamp);
+        return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).print(timestamp);
     }
 
     public static boolean timestampHasTimeZone(String value)
     {
         try {
-            parseTimestampWithTimeZone(value);
+            TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseMillis(value);
             return true;
         }
         catch (Exception e) {

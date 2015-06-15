@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
@@ -143,10 +144,10 @@ public final class TimestampWithTimeZoneOperators
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long castFromSlice(@SqlType(StandardTypes.VARCHAR) Slice value)
+    public static long castFromSlice(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice value)
     {
         try {
-            return parseTimestampWithTimeZone(value.toStringUtf8());
+            return parseTimestampWithTimeZone(session.getTimeZoneKey(), value.toStringUtf8());
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, e);

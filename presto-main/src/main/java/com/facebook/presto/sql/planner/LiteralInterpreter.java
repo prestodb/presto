@@ -52,7 +52,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTime;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestamp;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -222,7 +222,7 @@ public final class LiteralInterpreter
         @Override
         protected Long visitTimestampLiteral(TimestampLiteral node, ConnectorSession session)
         {
-            return parseTimestamp(session.getTimeZoneKey(), node.getValue());
+            return parseTimestampLiteral(session.getTimeZoneKey(), node.getValue());
         }
 
         @Override

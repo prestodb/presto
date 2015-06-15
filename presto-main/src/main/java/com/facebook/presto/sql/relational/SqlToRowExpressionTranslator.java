@@ -213,7 +213,7 @@ public final class SqlToRowExpressionTranslator
         {
             long value;
             if (types.get(node).equals(TIMESTAMP_WITH_TIME_ZONE)) {
-                value = parseTimestampWithTimeZone(node.getValue());
+                value = parseTimestampWithTimeZone(timeZoneKey, node.getValue());
             }
             else {
                 // parse in time zone of client

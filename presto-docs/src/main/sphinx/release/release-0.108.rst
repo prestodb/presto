@@ -13,6 +13,8 @@ General Changes
 * Allow calling ``Connection.setReadOnly(false)`` in the JDBC driver.
   The read-only status for the connection is currently ignored.
 * Add missing ``CAST`` from ``VARCHAR`` to ``TIMESTAMP WITH TIME ZONE``.
+* Allow optional time zone in ``CAST`` from ``VARCHAR`` to ``TIMESTAMP`` and
+  ``TIMESTAMP WITH TIME ZONE``.
 * Add support for fixed time zones ``+00:00`` and ``-00:00``.
 
 Cassandra Changes
