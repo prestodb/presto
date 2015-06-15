@@ -24,6 +24,7 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,7 +60,10 @@ public class CassandraThriftConnectionFactory
     private Cassandra.Client getClientFromAddressList() throws IOException
     {
         List<IOException> exceptions = new ArrayList<IOException>();
-        for (String address : addresses) {
+        // randomly select host to connect to
+        List<String> hostAddresses = new ArrayList<String>(addresses);
+        Collections.shuffle(hostAddresses);
+        for (String address : hostAddresses) {
             try {
                 return createConnection(address, port, factoryClassName);
             }
