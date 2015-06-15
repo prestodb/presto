@@ -248,6 +248,10 @@ public abstract class AbstractTestDistributedQueries
         assertQuery("DELETE FROM test_delete WHERE orderstatus = 'O'", "SELECT count(*) FROM orders WHERE orderstatus = 'O'");
         assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders WHERE orderstatus <> 'O'");
 
+        // delete without matching any rows
+
+        assertQuery("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+        assertQuery("DELETE FROM test_delete WHERE rand() < 0", "SELECT 0");
         assertQueryTrue("DROP TABLE test_delete");
     }
 

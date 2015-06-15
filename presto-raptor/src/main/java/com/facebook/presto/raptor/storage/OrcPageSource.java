@@ -71,6 +71,8 @@ public class OrcPageSource
 
     private final OrcRecordReader recordReader;
     private final OrcDataSource orcDataSource;
+    
+    private final BitSet rowsToDelete;
 
     private final List<Long> columnIds;
     private final List<Type> types;
@@ -83,8 +85,6 @@ public class OrcPageSource
     private int batchId;
     private boolean closed;
 
-    private BitSet rowsToDelete;
-
     public OrcPageSource(
             ShardRewriter shardRewriter,
             OrcRecordReader recordReader,
@@ -96,6 +96,8 @@ public class OrcPageSource
         this.shardRewriter = checkNotNull(shardRewriter, "shardRewriter is null");
         this.recordReader = checkNotNull(recordReader, "recordReader is null");
         this.orcDataSource = checkNotNull(orcDataSource, "orcDataSource is null");
+
+        this.rowsToDelete = new BitSet(Ints.checkedCast(recordReader.getFileRowCount()));
 
         checkArgument(columnIds.size() == columnTypes.size(), "ids and types mismatch");
         checkArgument(columnIds.size() == columnIndexes.size(), "ids and indexes mismatch");
@@ -215,9 +217,6 @@ public class OrcPageSource
     @Override
     public void deleteRows(Block rowIds)
     {
-        if (rowsToDelete == null) {
-            rowsToDelete = new BitSet(Ints.checkedCast(recordReader.getFileRowCount()));
-        }
         for (int i = 0; i < rowIds.getPositionCount(); i++) {
             long rowId = BIGINT.getLong(rowIds, i);
             rowsToDelete.set(Ints.checkedCast(rowId));
