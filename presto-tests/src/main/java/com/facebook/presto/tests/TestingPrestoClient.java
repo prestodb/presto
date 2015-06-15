@@ -50,8 +50,8 @@ import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.util.DateTimeUtils.parseDate;
 import static com.facebook.presto.util.DateTimeUtils.parseTime;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestamp;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
@@ -155,10 +155,10 @@ public class TestingPrestoClient
                         row.add(new Time(unpackMillisUtc(parseTimeWithTimeZone((String) value))));
                     }
                     else if (TIMESTAMP.equals(type)) {
-                        row.add(new Timestamp(parseTimestamp(timeZoneKey, (String) value)));
+                        row.add(new Timestamp(parseTimestampWithoutTimeZone(timeZoneKey, (String) value)));
                     }
                     else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-                        row.add(new Timestamp(unpackMillisUtc(parseTimestampWithTimeZone((String) value))));
+                        row.add(new Timestamp(unpackMillisUtc(parseTimestampWithTimeZone(timeZoneKey, (String) value))));
                     }
                     else {
                         throw new AssertionError("unhandled type: " + type);

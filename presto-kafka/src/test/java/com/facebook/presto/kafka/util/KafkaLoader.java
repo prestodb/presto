@@ -44,8 +44,8 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.DateTimeUtils.parseTime;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestamp;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -141,10 +141,10 @@ public class KafkaLoader
                 return ISO8601_FORMATTER.print(parseTime(timeZoneKey, (String) value));
             }
             if (TIMESTAMP.equals(type)) {
-                return ISO8601_FORMATTER.print(parseTimestamp(timeZoneKey, (String) value));
+                return ISO8601_FORMATTER.print(parseTimestampWithoutTimeZone(timeZoneKey, (String) value));
             }
             if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-                return ISO8601_FORMATTER.print(unpackMillisUtc(parseTimestampWithTimeZone((String) value)));
+                return ISO8601_FORMATTER.print(unpackMillisUtc(parseTimestampWithTimeZone(timeZoneKey, (String) value)));
             }
             throw new AssertionError("unhandled type: " + type);
         }
