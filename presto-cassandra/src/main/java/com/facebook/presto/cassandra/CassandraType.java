@@ -24,6 +24,7 @@ import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.InetAddresses;
@@ -50,8 +51,8 @@ public enum CassandraType
 {
     ASCII(VarcharType.VARCHAR, String.class),
     BIGINT(BigintType.BIGINT, Long.class),
-    BLOB(VarcharType.VARCHAR, ByteBuffer.class),
-    CUSTOM(VarcharType.VARCHAR, ByteBuffer.class),
+    BLOB(VarbinaryType.VARBINARY, ByteBuffer.class),
+    CUSTOM(VarbinaryType.VARBINARY, ByteBuffer.class),
     BOOLEAN(BooleanType.BOOLEAN, Boolean.class),
     COUNTER(BigintType.BIGINT, Long.class),
     DECIMAL(DoubleType.DOUBLE, BigDecimal.class),
@@ -208,7 +209,7 @@ public enum CassandraType
                     return row.getVarint(i).toString();
                 case BLOB:
                 case CUSTOM:
-                    return Bytes.toHexString(row.getBytesUnsafe(i));
+                    return row.getBytesUnsafe(i);
                 case SET:
                     checkTypeArguments(cassandraType, 1, typeArguments);
                     return buildSetValue(row, i, typeArguments.get(0));
@@ -420,7 +421,7 @@ public enum CassandraType
                 return java.util.UUID.fromString(((Slice) comparable).toString(UTF_8));
             case BLOB:
             case CUSTOM:
-                return Bytes.fromHexString((String) comparable);
+                return comparable;
             case VARINT:
                 return new BigInteger((String) comparable);
             case SET:

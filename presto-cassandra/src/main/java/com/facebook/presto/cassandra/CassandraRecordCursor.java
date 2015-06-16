@@ -22,6 +22,7 @@ import io.airlift.slice.Slice;
 import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 
 public class CassandraRecordCursor
         implements RecordCursor
@@ -118,7 +119,14 @@ public class CassandraRecordCursor
     @Override
     public Slice getSlice(int i)
     {
-        return utf8Slice(CassandraType.getColumnValue(currentRow, i, fullCassandraTypes.get(i)).toString());
+        Object value = CassandraType.getColumnValue(currentRow, i, fullCassandraTypes.get(i));
+        switch (getCassandraType(i)) {
+            case BLOB:
+            case CUSTOM:
+                return wrappedBuffer((java.nio.ByteBuffer) value);
+            default:
+                return utf8Slice(value.toString());
+        }
     }
 
     @Override
