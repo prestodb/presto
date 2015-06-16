@@ -278,6 +278,46 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testArrayMin()
+            throws Exception
+    {
+        assertFunction("ARRAY_MIN(ARRAY [])", UNKNOWN, null);
+        assertFunction("ARRAY_MIN(ARRAY [NULL])", UNKNOWN, null);
+        assertFunction("ARRAY_MIN(ARRAY [NULL, NULL, NULL])", UNKNOWN, null);
+        assertFunction("ARRAY_MIN(ARRAY [NULL, 2, 3])", BIGINT, null);
+        assertFunction("ARRAY_MIN(ARRAY [1.0, NULL, 3])", DOUBLE, null);
+        assertFunction("ARRAY_MIN(ARRAY ['1', '2', NULL])", VARCHAR, null);
+        assertFunction("ARRAY_MIN(ARRAY [3, 2, 1])", BIGINT, 1);
+        assertFunction("ARRAY_MIN(ARRAY [1, 2, 3])", BIGINT, 1);
+        assertFunction("ARRAY_MIN(ARRAY [1, 2.0, 3])", DOUBLE, 1.0);
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[1, 2], ARRAY[3]])", new ArrayType(BIGINT), ImmutableList.of(1L, 2L));
+        assertFunction("ARRAY_MIN(ARRAY [1.0, 2.5, 3.0])", DOUBLE, 1.0);
+        assertFunction("ARRAY_MIN(ARRAY ['puppies', 'kittens'])", VARCHAR, "kittens");
+        assertFunction("ARRAY_MIN(ARRAY [TRUE, FALSE])", BOOLEAN, false);
+        assertFunction("ARRAY_MIN(ARRAY [NULL, FALSE])", BOOLEAN, null);
+    }
+
+    @Test
+    public void testArrayMax()
+            throws Exception
+    {
+        assertFunction("ARRAY_MAX(ARRAY [])", UNKNOWN, null);
+        assertFunction("ARRAY_MAX(ARRAY [NULL])", UNKNOWN, null);
+        assertFunction("ARRAY_MAX(ARRAY [NULL, NULL, NULL])", UNKNOWN, null);
+        assertFunction("ARRAY_MAX(ARRAY [NULL, 2, 3])", BIGINT, null);
+        assertFunction("ARRAY_MAX(ARRAY [1.0, NULL, 3])", DOUBLE, null);
+        assertFunction("ARRAY_MAX(ARRAY ['1', '2', NULL])", VARCHAR, null);
+        assertFunction("ARRAY_MAX(ARRAY [3, 2, 1])", BIGINT, 3);
+        assertFunction("ARRAY_MAX(ARRAY [1, 2, 3])", BIGINT, 3);
+        assertFunction("ARRAY_MAX(ARRAY [1, 2.0, 3])", DOUBLE, 3.0);
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[1, 2], ARRAY[3]])", new ArrayType(BIGINT), ImmutableList.of(3L));
+        assertFunction("ARRAY_MAX(ARRAY [1.0, 2.5, 3.0])", DOUBLE, 3.0);
+        assertFunction("ARRAY_MAX(ARRAY ['puppies', 'kittens'])", VARCHAR, "puppies");
+        assertFunction("ARRAY_MAX(ARRAY [TRUE, FALSE])", BOOLEAN, true);
+        assertFunction("ARRAY_MAX(ARRAY [NULL, FALSE])", BOOLEAN, null);
+    }
+
+    @Test
     public void testArrayPosition()
             throws Exception
     {
