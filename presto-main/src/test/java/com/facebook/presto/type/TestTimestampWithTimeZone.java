@@ -332,6 +332,16 @@ public class TestTimestampWithTimeZone
         assertFunction("cast('2001-1-22 Europe/Berlin' as timestamp with time zone)",
                 TIMESTAMP_WITH_TIME_ZONE,
                 new SqlTimestampWithTimeZone(new DateTime(2001, 1, 22, 0, 0, 0, 0, BERLIN_ZONE).getMillis(), BERLIN_TIME_ZONE_KEY));
+
+        assertFunction("cast('\n\t 2001-1-22 03:04:05.321 Europe/Berlin' as timestamp with time zone)",
+                TIMESTAMP_WITH_TIME_ZONE,
+                new SqlTimestampWithTimeZone(new DateTime(2001, 1, 22, 3, 4, 5, 321, BERLIN_ZONE).getMillis(), BERLIN_TIME_ZONE_KEY));
+        assertFunction("cast('2001-1-22 03:04:05.321 Europe/Berlin \t\n' as timestamp with time zone)",
+                TIMESTAMP_WITH_TIME_ZONE,
+                new SqlTimestampWithTimeZone(new DateTime(2001, 1, 22, 3, 4, 5, 321, BERLIN_ZONE).getMillis(), BERLIN_TIME_ZONE_KEY));
+        assertFunction("cast('\n\t 2001-1-22 03:04:05.321 Europe/Berlin \t\n' as timestamp with time zone)",
+                TIMESTAMP_WITH_TIME_ZONE,
+                new SqlTimestampWithTimeZone(new DateTime(2001, 1, 22, 3, 4, 5, 321, BERLIN_ZONE).getMillis(), BERLIN_TIME_ZONE_KEY));
     }
 
     @Test

@@ -40,6 +40,7 @@ import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
+import static io.airlift.slice.SliceUtf8.trim;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class TimestampWithTimeZoneOperators
@@ -147,7 +148,7 @@ public final class TimestampWithTimeZoneOperators
     public static long castFromSlice(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice value)
     {
         try {
-            return parseTimestampWithTimeZone(session.getTimeZoneKey(), value.toStringUtf8());
+            return parseTimestampWithTimeZone(session.getTimeZoneKey(), trim(value).toStringUtf8());
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, e);
