@@ -149,7 +149,8 @@ public class ShardCompactionManager
         compactionDiscoveryService.scheduleWithFixedDelay(() -> {
             try {
                 // jitter to avoid overloading database
-                SECONDS.sleep(ThreadLocalRandom.current().nextInt(1, 30));
+                long interval = (long) compactionDiscoveryInterval.convertTo(SECONDS).getValue();
+                SECONDS.sleep(ThreadLocalRandom.current().nextLong(1, interval));
                 discoverShards();
             }
             catch (InterruptedException e) {
