@@ -31,13 +31,13 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
+import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
 
 public abstract class ArrayAbstractMinMaxFunction
         extends ParametricScalar
@@ -45,6 +45,7 @@ public abstract class ArrayAbstractMinMaxFunction
     private final OperatorType operatorType;
     private final String functionName;
     private final Signature signature;
+    private final String description;
 
     private static final Map<Class<?>, MethodHandle> METHOD_HANDLES = ImmutableMap.<Class<?>, MethodHandle>builder()
             .put(boolean.class, methodHandle(ArrayAbstractMinMaxFunction.class, "booleanArrayMinMax", MethodHandle.class, Type.class, Slice.class))
@@ -54,11 +55,12 @@ public abstract class ArrayAbstractMinMaxFunction
             .put(void.class, methodHandle(ArrayAbstractMinMaxFunction.class, "arrayWithUnknownType", MethodHandle.class, Type.class, Slice.class))
             .build();
 
-    public ArrayAbstractMinMaxFunction(OperatorType operatorType, String functionName)
+    public ArrayAbstractMinMaxFunction(OperatorType operatorType, String functionName, String description)
     {
         this.operatorType = operatorType;
         this.functionName = functionName;
-        this.signature = new Signature(functionName, ImmutableList.of(comparableTypeParameter("E")), "E", ImmutableList.of("array<E>"), false, false);
+        this.signature = new Signature(functionName, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("array<E>"), false, false);
+        this.description = description;
     }
 
     @Override
@@ -82,7 +84,7 @@ public abstract class ArrayAbstractMinMaxFunction
     @Override
     public String getDescription()
     {
-        return "Get min value of array";
+        return description;
     }
 
     @Override
@@ -93,8 +95,11 @@ public abstract class ArrayAbstractMinMaxFunction
         checkArgument(elementType.isOrderable(), "Type must be orderable");
 
         MethodHandle compareMethodHandle = functionRegistry.resolveOperator(operatorType, ImmutableList.of(elementType, elementType)).getMethodHandle();
-        MethodHandle methodHandle = METHOD_HANDLES.get(elementType.getJavaType()).bindTo(compareMethodHandle).bindTo(elementType);
-        requireNonNull(methodHandle, "methodHandle is null");
+        MethodHandle methodHandle = METHOD_HANDLES.get(elementType.getJavaType());
+        if (methodHandle == null) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Argument type to array_min/max unsupported");
+        }
+        methodHandle = methodHandle.bindTo(compareMethodHandle).bindTo(elementType);
 
         Signature signature = new Signature(functionName, elementType.getTypeSignature(), parameterizedTypeName(StandardTypes.ARRAY, elementType.getTypeSignature()));
 
@@ -105,13 +110,14 @@ public abstract class ArrayAbstractMinMaxFunction
     {
     }
 
-    public static Long longArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Slice array)
+    public static long longArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Slice array)
     {
         try {
             Block block = readStructuralBlock(array);
-            int currentPosition = 0;
-            for (int i = 1; i < block.getPositionCount(); i++) {
-                if ((boolean) compareMethodHandle.invokeExact(elementType.getLong(block, i), elementType.getLong(block, currentPosition))) {
+
+            int currentPosition = firstNonNullPosition(block);
+            for (int i = currentPosition + 1; i < block.getPositionCount(); i++) {
+                if (!block.isNull(i) && (boolean) compareMethodHandle.invokeExact(elementType.getLong(block, i), elementType.getLong(block, currentPosition))) {
                     currentPosition = i;
                 }
             }
@@ -125,13 +131,13 @@ public abstract class ArrayAbstractMinMaxFunction
         }
     }
 
-    public static Boolean booleanArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Slice array)
+    public static boolean booleanArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Slice array)
     {
         try {
             Block block = readStructuralBlock(array);
-            int currentPosition = 0;
-            for (int i = 1; i < block.getPositionCount(); i++) {
-                if ((boolean) compareMethodHandle.invokeExact(elementType.getBoolean(block, i), elementType.getBoolean(block, currentPosition))) {
+            int currentPosition = firstNonNullPosition(block);
+            for (int i = currentPosition + 1; i < block.getPositionCount(); i++) {
+                if (!block.isNull(i) && (boolean) compareMethodHandle.invokeExact(elementType.getBoolean(block, i), elementType.getBoolean(block, currentPosition))) {
                     currentPosition = i;
                 }
             }
@@ -145,13 +151,13 @@ public abstract class ArrayAbstractMinMaxFunction
         }
     }
 
-    public static Double doubleArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Slice array)
+    public static double doubleArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Slice array)
     {
         try {
             Block block = readStructuralBlock(array);
-            int currentPosition = 0;
-            for (int i = 1; i < block.getPositionCount(); i++) {
-                if ((boolean) compareMethodHandle.invokeExact(elementType.getDouble(block, i), elementType.getDouble(block, currentPosition))) {
+            int currentPosition = firstNonNullPosition(block);
+            for (int i = currentPosition + 1; i < block.getPositionCount(); i++) {
+                if (!block.isNull(i) && (boolean) compareMethodHandle.invokeExact(elementType.getDouble(block, i), elementType.getDouble(block, currentPosition))) {
                     currentPosition = i;
                 }
             }
@@ -169,9 +175,9 @@ public abstract class ArrayAbstractMinMaxFunction
     {
         try {
             Block block = readStructuralBlock(array);
-            int currentPosition = 0;
-            for (int i = 1; i < block.getPositionCount(); i++) {
-                if ((boolean) compareMethodHandle.invokeExact(elementType.getSlice(block, i), elementType.getSlice(block, currentPosition))) {
+            int currentPosition = firstNonNullPosition(block);
+            for (int i = currentPosition + 1; i < block.getPositionCount(); i++) {
+                if (!block.isNull(i) && (boolean) compareMethodHandle.invokeExact(elementType.getSlice(block, i), elementType.getSlice(block, currentPosition))) {
                     currentPosition = i;
                 }
             }
@@ -183,5 +189,16 @@ public abstract class ArrayAbstractMinMaxFunction
             Throwables.propagateIfInstanceOf(t, PrestoException.class);
             throw new PrestoException(INTERNAL_ERROR, t);
         }
+    }
+
+    private static int firstNonNullPosition(Block block)
+    {
+        // Block should have at least one non-null element
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            if (!block.isNull(i)) {
+                return i;
+            }
+        }
+        throw new PrestoException(INTERNAL_ERROR, "All elements in block is null.");
     }
 }

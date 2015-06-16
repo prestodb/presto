@@ -283,10 +283,15 @@ public class TestArrayOperators
     {
         assertFunction("ARRAY_MIN(ARRAY [])", UNKNOWN, null);
         assertFunction("ARRAY_MIN(ARRAY [NULL])", UNKNOWN, null);
-        assertFunction("ARRAY_MIN(ARRAY [1, 2, 3])", BIGINT, 1);
+        assertFunction("ARRAY_MIN(ARRAY [NULL, NULL, NULL])", UNKNOWN, null);
+        assertFunction("ARRAY_MIN(ARRAY [NULL, 2, 3])", BIGINT, 2);
         assertFunction("ARRAY_MIN(ARRAY [1, NULL, 3])", BIGINT, 1);
+        assertFunction("ARRAY_MIN(ARRAY [1, 2, NULL])", BIGINT, 1);
+        assertFunction("ARRAY_MIN(ARRAY [NULL, NULL, 3])", BIGINT, 3);
+        assertFunction("ARRAY_MIN(ARRAY [NULL, 2, NULL])", BIGINT, 2);
+        assertFunction("ARRAY_MIN(ARRAY [1, 2, 3])", BIGINT, 1);
         assertFunction("ARRAY_MIN(ARRAY [1, 2.0, 3])", DOUBLE, 1.0);
-        assertFunction("ARRAY_MIN(ARRAY [ARRAY[1, 2], ARRAY[3]])", new ArrayType(BIGINT), ImmutableList.of(3));
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[1, 2], ARRAY[3]])", new ArrayType(BIGINT), ImmutableList.of(1L, 2L));
         assertFunction("ARRAY_MIN(ARRAY [1.0, 2.5, 3.0])", DOUBLE, 1.0);
         assertFunction("ARRAY_MIN(ARRAY ['puppies', 'kittens'])", VARCHAR, "kittens");
         assertFunction("ARRAY_MIN(ARRAY [TRUE, FALSE])", BOOLEAN, false);
@@ -298,10 +303,16 @@ public class TestArrayOperators
     {
         assertFunction("ARRAY_MAX(ARRAY [])", UNKNOWN, null);
         assertFunction("ARRAY_MAX(ARRAY [NULL])", UNKNOWN, null);
+        assertFunction("ARRAY_MAX(ARRAY [NULL, NULL, NULL])", UNKNOWN, null);
+        assertFunction("ARRAY_MAX(ARRAY [NULL, 2, 3])", BIGINT, 3);
+        assertFunction("ARRAY_MAX(ARRAY [1, NULL, 3])", BIGINT, 3);
+        assertFunction("ARRAY_MAX(ARRAY [1, 2, NULL])", BIGINT, 2);
+        assertFunction("ARRAY_MAX(ARRAY [NULL, NULL, 3])", BIGINT, 3);
+        assertFunction("ARRAY_MAX(ARRAY [NULL, 2, NULL])", BIGINT, 2);
         assertFunction("ARRAY_MAX(ARRAY [1, 2, 3])", BIGINT, 3);
         assertFunction("ARRAY_MAX(ARRAY [1, NULL, 3])", BIGINT, 3);
         assertFunction("ARRAY_MAX(ARRAY [1, 2.0, 3])", DOUBLE, 3.0);
-        assertFunction("ARRAY_MAX(ARRAY [ARRAY[1, 2], ARRAY[3]])", new ArrayType(BIGINT), ImmutableList.of(1, 2));
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[1, 2], ARRAY[3]])", new ArrayType(BIGINT), ImmutableList.of(3L));
         assertFunction("ARRAY_MAX(ARRAY [1.0, 2.5, 3.0])", DOUBLE, 3.0);
         assertFunction("ARRAY_MAX(ARRAY ['puppies', 'kittens'])", VARCHAR, "puppies");
         assertFunction("ARRAY_MAX(ARRAY [TRUE, FALSE])", BOOLEAN, true);

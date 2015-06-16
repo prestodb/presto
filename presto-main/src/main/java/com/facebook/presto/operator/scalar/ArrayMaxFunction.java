@@ -17,10 +17,10 @@ import com.facebook.presto.metadata.OperatorType;
 
 public class ArrayMaxFunction extends ArrayAbstractMinMaxFunction
 {
-    public static final ArrayMaxFunction ARRAY_MAX = new ArrayMaxFunction(OperatorType.GREATER_THAN, "array_max");
+    public static final ArrayMaxFunction ARRAY_MAX = new ArrayMaxFunction();
 
-    public ArrayMaxFunction(OperatorType operatorType, String functionName)
+    private ArrayMaxFunction()
     {
-        super(operatorType, functionName);
+        super(OperatorType.GREATER_THAN, "array_max", "Get maximum value of array");
     }
 }

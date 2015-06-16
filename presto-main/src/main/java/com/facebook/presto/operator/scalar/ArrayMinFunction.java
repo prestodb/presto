@@ -17,10 +17,10 @@ import com.facebook.presto.metadata.OperatorType;
 
 public class ArrayMinFunction extends ArrayAbstractMinMaxFunction
 {
-    public static final ArrayMinFunction ARRAY_MIN = new ArrayMinFunction(OperatorType.LESS_THAN, "array_min");
+    public static final ArrayMinFunction ARRAY_MIN = new ArrayMinFunction();
 
-    public ArrayMinFunction(OperatorType operatorType, String functionName)
+    private ArrayMinFunction()
     {
-        super(operatorType, functionName);
+        super(OperatorType.LESS_THAN, "array_min", "Get minimum value of array");
     }
 }
