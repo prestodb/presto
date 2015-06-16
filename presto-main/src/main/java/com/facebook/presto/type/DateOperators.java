@@ -37,6 +37,7 @@ import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone
 import static com.facebook.presto.util.DateTimeUtils.parseDate;
 import static com.facebook.presto.util.DateTimeUtils.printDate;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
+import static io.airlift.slice.SliceUtf8.trim;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class DateOperators
@@ -131,7 +132,7 @@ public final class DateOperators
     public static long castFromSlice(@SqlType(StandardTypes.VARCHAR) Slice value)
     {
         try {
-            return parseDate(value.toStringUtf8());
+            return parseDate(trim(value).toStringUtf8());
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, e);

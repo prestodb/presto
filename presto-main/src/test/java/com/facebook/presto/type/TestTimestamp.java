@@ -253,6 +253,16 @@ public class TestTimestamp
         assertFunction("cast('2001-1-22 Asia/Oral' as timestamp)",
                 TIMESTAMP,
                 new SqlTimestamp(new DateTime(2001, 1, 22, 0, 0, 0, 0, ORAL_ZONE).getMillis(), TIME_ZONE_KEY));
+
+        assertFunction("cast('\n\t 2001-1-22 03:04:05.321' as timestamp)",
+                TIMESTAMP,
+                new SqlTimestamp(new DateTime(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("cast('2001-1-22 03:04:05.321 \t\n' as timestamp)",
+                TIMESTAMP,
+                new SqlTimestamp(new DateTime(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("cast('\n\t 2001-1-22 03:04:05.321 \t\n' as timestamp)",
+                TIMESTAMP,
+                new SqlTimestamp(new DateTime(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
     }
 
     @Test

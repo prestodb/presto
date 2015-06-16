@@ -176,6 +176,9 @@ public class TestDate
             throws Exception
     {
         assertFunction("cast('2001-1-22' as date) = Date '2001-1-22'", BOOLEAN, true);
+        assertFunction("cast('\n\t 2001-1-22' as date) = Date '2001-1-22'", BOOLEAN, true);
+        assertFunction("cast('2001-1-22 \t\n' as date) = Date '2001-1-22'", BOOLEAN, true);
+        assertFunction("cast('\n\t 2001-1-22 \t\n' as date) = Date '2001-1-22'", BOOLEAN, true);
     }
 
     @Test

@@ -15,6 +15,7 @@ General Changes
 * Add missing ``CAST`` from ``VARCHAR`` to ``TIMESTAMP WITH TIME ZONE``.
 * Allow optional time zone in ``CAST`` from ``VARCHAR`` to ``TIMESTAMP`` and
   ``TIMESTAMP WITH TIME ZONE``.
+* Trim in ``CAST`` from ``VARCHAR`` to date time types.
 * Add support for fixed time zones ``+00:00`` and ``-00:00``.
 
 Cassandra Changes
