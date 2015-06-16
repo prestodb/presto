@@ -21,6 +21,14 @@ The ``||`` operator is used to concatenate an array with an array or an element 
 Array Functions
 ---------------
 
+.. function:: array_min(x) -> x
+
+    Returns the minimum value of input array.
+
+.. function:: array_max(x) -> x
+
+    Returns the maximum value of input array.
+
 .. function:: array_distinct(x) -> array
 
     Remove duplicate values from the array ``x``.
