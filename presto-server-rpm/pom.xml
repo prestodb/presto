@@ -11,6 +11,19 @@
 
     <artifactId>presto-server-rpm</artifactId>
     <name>presto-server-rpm</name>
+    <packaging>pom</packaging>
+
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+
+        <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
+        <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
+        <air.check.skip-dependency>true</air.check.skip-dependency>
+        <air.check.skip-dependency-version-check>true</air.check.skip-dependency-version-check>
+        <air.check.skip-extended>true</air.check.skip-extended>
+
+        <server.tar.package>presto-server-${project.version}</server.tar.package>
+    </properties>
 
     <dependencies>
         <dependency>
@@ -79,7 +92,7 @@
                             </requires>
                             <mappings>
                                 <mapping>
-                                    <!-- This should go to /usr/bin eventually. But that needs modifying launcher.py in 
+                                    <!-- This should go to /usr/bin eventually. But that needs modifying launcher.py in
                                     airlift, to have a configurable option for install_path -->
                                     <directory>/usr/lib/presto/bin</directory>
                                     <!-- make sure laucher scripts are executable -->
@@ -166,10 +179,4 @@
             </build>
         </profile>
     </profiles>
-
-    <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
-        <server.tar.package>presto-server-${project.version}</server.tar.package>
-    </properties>
 </project>
