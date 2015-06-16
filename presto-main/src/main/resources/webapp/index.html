@@ -210,19 +210,17 @@ var QueryList = React.createClass({
 });
 
 var QueryPane = React.createClass({
-    loadQueriesFromServer: function(finishCallback)
-    {
-        d3.json('/v1/query', function (queries) {
-            this.setState({queries: queries, initialized: true});
-            finishCallback();
-        }.bind(this));
-    },
     getInitialState: function() {
         return {queries: [], autoRefresh: true, initialized: false};
     },
     refreshLoop: function() {
-        clearTimeout(this.timeoutId);
-        this.loadQueriesFromServer(function () {
+        clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
+        d3.json('/v1/query', function (queries) {
+            if (!this.state.autoRefresh) { // to stop refreshing when user turns off auto-refresh at the same time json was being fetched
+                return;
+            }
+            this.setState({queries: queries, initialized: true});
+            clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
             this.timeoutId = setTimeout(this.refreshLoop, 1000);
         }.bind(this));
     },
