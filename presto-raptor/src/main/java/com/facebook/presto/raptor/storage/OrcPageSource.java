@@ -71,7 +71,7 @@ public class OrcPageSource
 
     private final OrcRecordReader recordReader;
     private final OrcDataSource orcDataSource;
-    
+
     private final BitSet rowsToDelete;
 
     private final List<Long> columnIds;
