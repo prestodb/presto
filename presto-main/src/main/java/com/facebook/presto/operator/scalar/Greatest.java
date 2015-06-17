@@ -54,7 +54,6 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.metadata.Signature.internalFunction;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -110,13 +109,6 @@ public final class Greatest
 
         Signature specializedSignature = internalFunction(SIGNATURE.getName(), type.getTypeSignature(), Collections.nCopies(arity, type.getTypeSignature()));
         return new FunctionInfo(specializedSignature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, nullableParameters);
-    }
-
-    public static void checkNotNaN(double value)
-    {
-        if (Double.isNaN(value)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid argument to greatest(): NaN");
-        }
     }
 
     private static Class<?> generateGreatest(List<Class<?>> nativeContainerTypes, Type type)
