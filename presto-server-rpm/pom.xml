@@ -18,7 +18,6 @@
 
         <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
-        <air.check.skip-dependency>true</air.check.skip-dependency>
         <air.check.skip-dependency-version-check>true</air.check.skip-dependency-version-check>
         <air.check.skip-extended>true</air.check.skip-extended>
 
