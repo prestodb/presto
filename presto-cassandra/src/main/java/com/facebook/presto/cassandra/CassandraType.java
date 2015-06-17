@@ -39,6 +39,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -229,10 +230,17 @@ public enum CassandraType
         if (row.isNull(i)) {
             return null;
         }
-        if (cassandraType == ASCII || cassandraType == TEXT || cassandraType == VARCHAR) {
-            return Slices.utf8Slice(row.getString(i));
+        switch (cassandraType) {
+            case ASCII:
+            case TEXT:
+            case VARCHAR:
+                return Slices.utf8Slice(row.getString(i));
+            case UUID:
+            case TIMEUUID:
+                return Slices.utf8Slice(row.getUUID(i).toString());
+            default:
+                return getColumnValue(row, i, cassandraType, typeArguments);
         }
-        return getColumnValue(row, i, cassandraType, typeArguments);
     }
 
     private static String buildSetValue(Row row, int i, CassandraType elemType)
@@ -409,7 +417,7 @@ public enum CassandraType
                 return new Date((Long) comparable);
             case UUID:
             case TIMEUUID:
-                return java.util.UUID.fromString((String) comparable);
+                return java.util.UUID.fromString(((Slice) comparable).toString(UTF_8));
             case BLOB:
             case CUSTOM:
                 return Bytes.fromHexString((String) comparable);
