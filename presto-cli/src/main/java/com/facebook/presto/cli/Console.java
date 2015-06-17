@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.command.Command;
 import io.airlift.command.HelpOption;
-import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import jline.console.history.FileHistory;
@@ -91,7 +90,7 @@ public class Console
             AnsiConsole.systemInstall();
         }
 
-        initializeLogging(session.isDebug());
+        initializeLogging();
 
         String query = clientOptions.execute;
         if (hasQuery) {
@@ -300,25 +299,18 @@ public class Console
         return history;
     }
 
-    public static void initializeLogging(boolean debug)
+    private static void initializeLogging()
     {
         // unhook out and err while initializing logging or logger will print to them
         PrintStream out = System.out;
         PrintStream err = System.err;
         try {
-            if (debug) {
-                Logging logging = Logging.initialize();
-                logging.configure(new LoggingConfiguration());
-                logging.setLevel("com.facebook.presto", Level.DEBUG);
-            }
-            else {
-                System.setOut(nullPrintStream());
-                System.setErr(nullPrintStream());
+            System.setOut(new PrintStream(nullOutputStream()));
+            System.setErr(new PrintStream(nullOutputStream()));
 
-                Logging logging = Logging.initialize();
-                logging.configure(new LoggingConfiguration());
-                logging.disableConsole();
-            }
+            Logging logging = Logging.initialize();
+            logging.configure(new LoggingConfiguration());
+            logging.disableConsole();
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
@@ -327,10 +319,5 @@ public class Console
             System.setOut(out);
             System.setErr(err);
         }
-    }
-
-    public static PrintStream nullPrintStream()
-    {
-        return new PrintStream(nullOutputStream());
     }
 }
