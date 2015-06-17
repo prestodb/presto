@@ -155,12 +155,6 @@ public class TestDatabaseShardManager
             Set<UUID> actualUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
             assertEquals(actualUuids, expectedUuids);
         }
-
-        shardManager.dropTableShards(tableId);
-        for (String node : nodes) {
-            Set<ShardMetadata> shardMetadata = shardManager.getNodeTableShards(node, tableId);
-            assertEquals(shardMetadata.size(), 0);
-        }
     }
 
     @Test

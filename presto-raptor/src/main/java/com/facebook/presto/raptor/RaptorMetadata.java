@@ -16,10 +16,10 @@ package com.facebook.presto.raptor;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.MetadataDao;
-import com.facebook.presto.raptor.metadata.MetadataDaoUtils;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
+import com.facebook.presto.raptor.metadata.ShardManagerDao;
 import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.raptor.metadata.ViewResult;
@@ -42,8 +42,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
+import org.skife.jdbi.v2.exceptions.DBIException;
 import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
 
 import javax.annotation.Nullable;
@@ -59,6 +62,7 @@ import java.util.function.Predicate;
 import static com.facebook.presto.raptor.RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.raptor.RaptorColumnHandle.shardRowIdHandle;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
+import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.metadata.MetadataDaoUtils.createMetadataTablesWithRetry;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -74,6 +78,8 @@ import static java.util.stream.Collectors.toList;
 public class RaptorMetadata
         implements ConnectorMetadata
 {
+    private static final Logger log = Logger.get(RaptorMetadata.class);
+
     private final IDBI dbi;
     private final MetadataDao dao;
     private final ShardManager shardManager;
@@ -236,11 +242,26 @@ public class RaptorMetadata
     public void dropTable(ConnectorTableHandle tableHandle)
     {
         RaptorTableHandle raptorHandle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
+        long tableId = raptorHandle.getTableId();
         dbi.inTransaction((handle, status) -> {
-            shardManager.dropTableShards(raptorHandle.getTableId());
-            MetadataDaoUtils.dropTable(dao, raptorHandle.getTableId());
+            ShardManagerDao shardManagerDao = handle.attach(ShardManagerDao.class);
+            shardManagerDao.dropShardNodes(tableId);
+            shardManagerDao.dropShards(tableId);
+
+            MetadataDao dao = handle.attach(MetadataDao.class);
+            dao.dropColumns(tableId);
+            dao.dropTable(tableId);
             return null;
         });
+
+        // TODO: add a cleanup process for leftover index tables
+        // It is not possible to drop the index tables in a transaction.
+        try (Handle handle = dbi.open()) {
+            handle.execute("DROP TABLE " + shardIndexTable(tableId));
+        }
+        catch (DBIException e) {
+            log.warn(e, "Failed to drop index table %s", shardIndexTable(tableId));
+        }
     }
 
     @Override

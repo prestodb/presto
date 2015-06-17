@@ -276,24 +276,6 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void dropTableShards(long tableId)
-    {
-        dbi.inTransaction((handle, status) -> {
-            ShardManagerDao dao = handle.attach(ShardManagerDao.class);
-            dao.dropShardNodes(tableId);
-            dao.dropShards(tableId);
-            return null;
-        });
-
-        try (Handle handle = dbi.open()) {
-            handle.execute("DROP TABLE " + shardIndexTable(tableId));
-        }
-        catch (DBIException e) {
-            log.warn(e, "Failed to drop table %s", shardIndexTable(tableId));
-        }
-    }
-
-    @Override
     public void assignShard(long tableId, UUID shardUuid, String nodeIdentifier)
     {
         int nodeId = getOrCreateNodeId(nodeIdentifier);
@@ -374,7 +356,7 @@ public class DatabaseShardManager
         handle.execute(sql, intArrayToBytes(nodeIds), uuidToBytes(shardUuid));
     }
 
-    static String shardIndexTable(long tableId)
+    public static String shardIndexTable(long tableId)
     {
         return INDEX_TABLE_PREFIX + tableId;
     }
