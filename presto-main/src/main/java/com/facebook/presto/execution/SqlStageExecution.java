@@ -684,22 +684,30 @@ public final class SqlStageExecution
     {
         for (RemoteSourceNode remoteSourceNode : fragment.getRemoteSourceNodes()) {
             if (!completeSources.contains(remoteSourceNode.getId())) {
-                boolean exchangeFinished = true;
-                for (PlanFragmentId planFragmentId : remoteSourceNode.getSourceFragmentIds()) {
-                    SqlStageExecution subStage = subStages.get(planFragmentId);
-                    switch (subStage.getState()) {
-                        case PLANNED:
-                        case SCHEDULING:
-                            exchangeFinished = false;
-                            break;
-                    }
-                }
+                boolean exchangeFinished = remoteSourceNode.getSourceFragmentIds().stream()
+                        .allMatch(this::isExchangeFinished);
                 if (exchangeFinished) {
                     completeSources.add(remoteSourceNode.getId());
                 }
             }
         }
         return completeSources;
+    }
+
+    private boolean isExchangeFinished(PlanFragmentId planFragmentId)
+    {
+        SqlStageExecution subStage = subStages.get(planFragmentId);
+        switch (subStage.getState()) {
+            case SCHEDULED:
+            case RUNNING:
+            case FINISHED:
+            case CANCELED:
+                return true;
+            // DO NOT complete a FAILED or ABORTED stage.  This will cause the
+            // stage above to finish normally, which will result in a query
+            // completing successfully when it should fail..
+        }
+        return false;
     }
 
     @SuppressWarnings("NakedNotify")
