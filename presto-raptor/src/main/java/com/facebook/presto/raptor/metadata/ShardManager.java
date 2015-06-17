@@ -61,11 +61,6 @@ public interface ShardManager
     Set<UUID> getNodeShards(String nodeIdentifier);
 
     /**
-     * Drop all shards in a given table.
-     */
-    void dropTableShards(long tableId);
-
-    /**
      * Assign a shard to a node.
      */
     void assignShard(long tableId, UUID shardUuid, String nodeIdentifier);

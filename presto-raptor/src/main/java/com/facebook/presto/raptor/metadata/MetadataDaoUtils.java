@@ -26,12 +26,6 @@ public final class MetadataDaoUtils
 
     private MetadataDaoUtils() {}
 
-    public static void dropTable(MetadataDao dao, long tableId)
-    {
-        dao.dropColumns(tableId);
-        dao.dropTable(tableId);
-    }
-
     public static void createMetadataTablesWithRetry(MetadataDao dao)
     {
         Duration delay = new Duration(10, TimeUnit.SECONDS);
