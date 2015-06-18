@@ -16,12 +16,12 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
@@ -73,9 +73,9 @@ public class Row
                 rowBuilder.add(type.getDouble(block, position), SIZE_OF_DOUBLE);
             }
             else if (type.getJavaType() == Slice.class) {
-                byte[] bytes = type.getSlice(block, position).getBytes();
-                Object value = type.equals(VarcharType.VARCHAR) ? new String(bytes) : bytes;
-                rowBuilder.add(value, bytes.length);
+                Slice slice = type.getSlice(block, position);
+                Object value = type.equals(VARCHAR) ? slice.toStringUtf8() : slice.getBytes();
+                rowBuilder.add(value, slice.length());
             }
             else {
                 throw new AssertionError("unimplemented type: " + type);

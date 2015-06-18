@@ -127,6 +127,11 @@ public abstract class AbstractTestDistributedQueries
                 "test_limit",
                 "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
                 "SELECT 10");
+
+        assertCreateTable(
+                "test_unicode",
+                "SELECT '\u2603' unicode",
+                "SELECT 1");
     }
 
     @Test

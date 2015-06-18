@@ -77,7 +77,7 @@ public class TestShardWriter
         RowPagesBuilder rowPagesBuilder = RowPagesBuilder.rowPagesBuilder(columnTypes)
                 .row(123, "hello", wrappedBuffer(bytes1), 123.456, true)
                 .row(null, "world", null, Double.POSITIVE_INFINITY, null)
-                .row(456, "bye", wrappedBuffer(bytes3), Double.NaN, false);
+                .row(456, "bye \u2603", wrappedBuffer(bytes3), Double.NaN, false);
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(new EmptyClassLoader());
              OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
@@ -104,7 +104,7 @@ public class TestShardWriter
             reader.readVector(1, stringVector);
             assertEquals(stringVector.vector[0], utf8Slice("hello"));
             assertEquals(stringVector.vector[1], utf8Slice("world"));
-            assertEquals(stringVector.vector[2], utf8Slice("bye"));
+            assertEquals(stringVector.vector[2], utf8Slice("bye \u2603"));
 
             SliceVector sliceVector = new SliceVector(3);
             reader.readVector(2, sliceVector);
