@@ -33,3 +33,7 @@ Binary Functions
 .. function:: from_hex(string) -> varbinary
 
     Decodes binary data from the hex encoded ``string``.
+
+.. function:: md5(binary) -> varbinary
+
+    Computes the md5 hash of ``binary``.
