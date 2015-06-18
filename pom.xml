@@ -43,7 +43,7 @@
         <air.check.skip-checkstyle>false</air.check.skip-checkstyle>
 
         <dep.antlr.version>4.3</dep.antlr.version>
-        <dep.airlift.version>0.110</dep.airlift.version>
+        <dep.airlift.version>0.111-SNAPSHOT</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.14</dep.slice.version>
 
