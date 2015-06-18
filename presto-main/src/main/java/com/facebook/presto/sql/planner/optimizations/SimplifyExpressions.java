@@ -28,8 +28,10 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
@@ -60,7 +62,7 @@ public class SimplifyExpressions
         checkNotNull(symbolAllocator, "symbolAllocator is null");
         checkNotNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(metadata, sqlParser, session, types), plan);
+        return PlanRewriter.rewriteWith(new Rewriter(metadata, sqlParser, session, types, idAllocator), plan);
     }
 
     private static class Rewriter
@@ -70,13 +72,15 @@ public class SimplifyExpressions
         private final SqlParser sqlParser;
         private final Session session;
         private final Map<Symbol, Type> types;
+        private final PlanNodeIdAllocator idAllocator;
 
-        public Rewriter(Metadata metadata, SqlParser sqlParser, Session session, Map<Symbol, Type> types)
+        public Rewriter(Metadata metadata, SqlParser sqlParser, Session session, Map<Symbol, Type> types, PlanNodeIdAllocator idAllocator)
         {
             this.metadata = metadata;
             this.sqlParser = sqlParser;
             this.session = session;
             this.types = types;
+            this.idAllocator = idAllocator;
         }
 
         @Override
@@ -94,6 +98,9 @@ public class SimplifyExpressions
             Expression simplified = simplifyExpression(node.getPredicate());
             if (simplified.equals(BooleanLiteral.TRUE_LITERAL)) {
                 return source;
+            }
+            else if (simplified.equals(BooleanLiteral.FALSE_LITERAL)) {
+                return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of());
             }
             return new FilterNode(node.getId(), source, simplified);
         }
