@@ -62,31 +62,13 @@ public class TestKafkaDistributed
     }
 
     @Override
-    public void testCreateSampledTableAsSelectLimit()
-            throws Exception
-    {
-    }
-
-    @Override
     public void testCreateTableAsSelect()
             throws Exception
     {
     }
 
     @Override
-    public void testCreateTableAsSelectGroupBy()
-            throws Exception
-    {
-    }
-
-    @Override
-    public void testCreateTableAsSelectJoin()
-            throws Exception
-    {
-    }
-
-    @Override
-    public void testCreateTableAsSelectLimit()
+    public void testCreateTableAsSelectSampled()
             throws Exception
     {
     }
