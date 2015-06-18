@@ -124,6 +124,14 @@ public class TestVarbinaryFunctions
         assertInvalidFunction("from_hex('fff')", INVALID_FUNCTION_ARGUMENT);
     }
 
+    @Test
+    public void testMd5()
+            throws Exception
+    {
+        assertFunction("md5(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("D41D8CD98F00B204E9800998ECF8427E"));
+        assertFunction("md5(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("533F6357E0210E67D91F651BC49E1278"));
+    }
+
     private static String encodeBase64(byte[] value)
     {
         return Base64.getEncoder().encodeToString(value);
@@ -152,5 +160,10 @@ public class TestVarbinaryFunctions
     private static SqlVarbinary sqlVarbinary(String value)
     {
         return new SqlVarbinary(value.getBytes(UTF_8));
+    }
+
+    private static SqlVarbinary sqlVarbinaryHex(String value)
+    {
+        return new SqlVarbinary(base16().decode(value));
     }
 }
