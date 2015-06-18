@@ -124,6 +124,13 @@ public class TestVarbinaryFunctions
         assertInvalidFunction("from_hex('fff')", INVALID_FUNCTION_ARGUMENT);
     }
 
+    @Test
+    public void testMd5()
+            throws Exception
+    {
+        assertFunction("md5('hashme')", VARBINARY, new SqlVarbinary(base16().decode("533F6357E0210E67D91F651BC49E1278")));
+    }
+
     private static String encodeBase64(byte[] value)
     {
         return Base64.getEncoder().encodeToString(value);
