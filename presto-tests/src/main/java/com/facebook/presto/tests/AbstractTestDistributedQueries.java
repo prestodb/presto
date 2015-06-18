@@ -94,17 +94,6 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
-    public void testCreateSampledTableAsSelectLimit()
-            throws Exception
-    {
-        assertCreateTable(
-                "test_limit_sampled",
-                "SELECT orderkey FROM tpch_sampled.tiny.orders ORDER BY orderkey LIMIT 10",
-                "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
-                "SELECT 10");
-    }
-
-    @Test
     public void testCreateTable()
             throws Exception
     {
@@ -120,37 +109,33 @@ public abstract class AbstractTestDistributedQueries
             throws Exception
     {
         assertCreateTable(
-                "test_simple",
+                "test_select",
                 "SELECT orderdate, orderkey, totalprice FROM orders",
                 "SELECT count(*) FROM orders");
-    }
 
-    @Test
-    public void testCreateTableAsSelectGroupBy()
-            throws Exception
-    {
         assertCreateTable(
                 "test_group",
                 "SELECT orderstatus, sum(totalprice) x FROM orders GROUP BY orderstatus",
                 "SELECT count(DISTINCT orderstatus) FROM orders");
-    }
 
-    @Test
-    public void testCreateTableAsSelectJoin()
-            throws Exception
-    {
         assertCreateTable(
                 "test_join",
                 "SELECT count(*) x FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey",
                 "SELECT 1");
+
+        assertCreateTable(
+                "test_limit",
+                "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
+                "SELECT 10");
     }
 
     @Test
-    public void testCreateTableAsSelectLimit()
+    public void testCreateTableAsSelectSampled()
             throws Exception
     {
         assertCreateTable(
-                "test_limit",
+                "test_sampled",
+                "SELECT orderkey FROM tpch_sampled.tiny.orders ORDER BY orderkey LIMIT 10",
                 "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
                 "SELECT 10");
     }
