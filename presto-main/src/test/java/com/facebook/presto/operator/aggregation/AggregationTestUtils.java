@@ -47,8 +47,18 @@ public final class AggregationTestUtils
         if (positions == 0) {
             assertAggregation(function, confidence, expectedValue);
         }
-        else {
+        else if (positions == 1) {
             assertAggregation(function, confidence, expectedValue, new Page(positions, blocks));
+        }
+        else {
+            int split = positions / 2; // [0, split - 1] goes to first list of blocks; [split, positions - 1] goes to second list of blocks.
+            Block[] blockArray1 = new Block[blocks.length];
+            Block[] blockArray2 = new Block[blocks.length];
+            for (int i = 0; i < blocks.length; i++) {
+                blockArray1[i] = blocks[i].getRegion(0, split);
+                blockArray2[i] = blocks[i].getRegion(split, positions - split);
+            }
+            assertAggregation(function, confidence, expectedValue, new Page(blockArray1), new Page(blockArray2));
         }
     }
 
@@ -81,10 +91,24 @@ public final class AggregationTestUtils
         return blockBuilder.build();
     }
 
+    public static Block getIntermediateBlock(GroupedAccumulator accumulator)
+    {
+        BlockBuilder blockBuilder = accumulator.getIntermediateType().createBlockBuilder(new BlockBuilderStatus(), 1000);
+        accumulator.evaluateIntermediate(0, blockBuilder);
+        return blockBuilder.build();
+    }
+
     public static Block getFinalBlock(Accumulator accumulator)
     {
         BlockBuilder blockBuilder = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1000);
         accumulator.evaluateFinal(blockBuilder);
+        return blockBuilder.build();
+    }
+
+    public static Block getFinalBlock(GroupedAccumulator accumulator)
+    {
+        BlockBuilder blockBuilder = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1000);
+        accumulator.evaluateFinal(0, blockBuilder);
         return blockBuilder.build();
     }
 
@@ -238,22 +262,24 @@ public final class AggregationTestUtils
     public static Object partialAggregation(InternalAggregationFunction function, double confidence, int[] args, Page... pages)
     {
         AccumulatorFactory factory = function.bind(Ints.asList(args), Optional.empty(), Optional.empty(), confidence);
-        Accumulator partialAggregation = factory.createAccumulator();
-        for (Page page : pages) {
-            if (page.getPositionCount() > 0) {
-                partialAggregation.addInput(page);
-            }
-        }
-
-        Block partialBlock = getIntermediateBlock(partialAggregation);
-
         Accumulator finalAggregation = factory.createIntermediateAccumulator();
+
         // Test handling of empty intermediate blocks
         Accumulator emptyAggregation = factory.createAccumulator();
         Block emptyBlock = getIntermediateBlock(emptyAggregation);
 
         finalAggregation.addIntermediate(emptyBlock);
-        finalAggregation.addIntermediate(partialBlock);
+
+        for (Page page : pages) {
+            Accumulator partialAggregation = factory.createAccumulator();
+            if (page.getPositionCount() > 0) {
+                partialAggregation.addInput(page);
+            }
+            Block partialBlock = getIntermediateBlock(partialAggregation);
+            finalAggregation.addIntermediate(partialBlock);
+        }
+
+        finalAggregation.addIntermediate(emptyBlock);
 
         Block finalBlock = getFinalBlock(finalAggregation);
         return BlockAssertions.getOnlyValue(finalAggregation.getFinalType(), finalBlock);
@@ -315,24 +341,20 @@ public final class AggregationTestUtils
     public static Object groupedPartialAggregation(InternalAggregationFunction function, double confidence, int[] args, Page... pages)
     {
         AccumulatorFactory factory = function.bind(Ints.asList(args), Optional.empty(), Optional.empty(), confidence);
-        GroupedAccumulator partialAggregation = factory.createGroupedAccumulator();
-        for (Page page : pages) {
-            partialAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
-        }
-
-        BlockBuilder partialOut = partialAggregation.getIntermediateType().createBlockBuilder(new BlockBuilderStatus(), 1);
-        partialAggregation.evaluateIntermediate(0, partialOut);
-        Block partialBlock = partialOut.build();
-
         GroupedAccumulator finalAggregation = factory.createGroupedIntermediateAccumulator();
+
         // Add an empty block to test the handling of empty intermediates
         GroupedAccumulator emptyAggregation = factory.createGroupedAccumulator();
-        BlockBuilder emptyOut = emptyAggregation.getIntermediateType().createBlockBuilder(new BlockBuilderStatus(), 1);
-        emptyAggregation.evaluateIntermediate(0, emptyOut);
-        Block emptyBlock = emptyOut.build();
+        Block emptyBlock = getIntermediateBlock(emptyAggregation);
+
         finalAggregation.addIntermediate(createGroupByIdBlock(0, emptyBlock.getPositionCount()), emptyBlock);
 
-        finalAggregation.addIntermediate(createGroupByIdBlock(0, partialBlock.getPositionCount()), partialBlock);
+        for (Page page : pages) {
+            GroupedAccumulator partialAggregation = factory.createGroupedAccumulator();
+            partialAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
+            Block partialBlock = getIntermediateBlock(partialAggregation);
+            finalAggregation.addIntermediate(createGroupByIdBlock(0, partialBlock.getPositionCount()), partialBlock);
+        }
 
         finalAggregation.addIntermediate(createGroupByIdBlock(0, emptyBlock.getPositionCount()), emptyBlock);
 
