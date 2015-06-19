@@ -90,7 +90,7 @@ public class Console
             AnsiConsole.systemInstall();
         }
 
-        initializeLogging();
+        initializeLogging(clientOptions.logLevelsFile);
 
         String query = clientOptions.execute;
         if (hasQuery) {
@@ -299,18 +299,27 @@ public class Console
         return history;
     }
 
-    private static void initializeLogging()
+    private static void initializeLogging(String logLevelsFile)
     {
         // unhook out and err while initializing logging or logger will print to them
         PrintStream out = System.out;
         PrintStream err = System.err;
+
         try {
-            System.setOut(new PrintStream(nullOutputStream()));
-            System.setErr(new PrintStream(nullOutputStream()));
+            LoggingConfiguration config = new LoggingConfiguration();
+
+            if (logLevelsFile == null) {
+                System.setOut(new PrintStream(nullOutputStream()));
+                System.setErr(new PrintStream(nullOutputStream()));
+
+                config.setConsoleEnabled(false);
+            }
+            else {
+                config.setLevelsFile(logLevelsFile);
+            }
 
             Logging logging = Logging.initialize();
-            logging.configure(new LoggingConfiguration());
-            logging.disableConsole();
+            logging.configure(config);
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
