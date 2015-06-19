@@ -52,7 +52,7 @@ public final class BlockUtils
             type.writeSlice(blockBuilder, slice, 0, slice.length());
         }
         else {
-            throw new IllegalArgumentException("Unsupported type: " + value.getClass().getName());
+            type.writeObject(blockBuilder, value);
         }
     }
 }

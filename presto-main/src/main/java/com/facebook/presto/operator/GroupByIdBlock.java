@@ -106,6 +106,12 @@ public class GroupByIdBlock
     }
 
     @Override
+    public <T> T getObject(int position, Class<T> clazz)
+    {
+        return block.getObject(position, clazz);
+    }
+
+    @Override
     public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
     {
         return block.bytesEqual(position, offset, otherSlice, otherOffset, length);
@@ -121,6 +127,12 @@ public class GroupByIdBlock
     public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
     {
         block.writeBytesTo(position, offset, length, blockBuilder);
+    }
+
+    @Override
+    public void writePositionTo(int position, BlockBuilder blockBuilder)
+    {
+        block.writePositionTo(position, blockBuilder);
     }
 
     @Override

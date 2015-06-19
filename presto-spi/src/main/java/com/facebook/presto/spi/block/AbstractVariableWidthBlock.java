@@ -131,6 +131,12 @@ public abstract class AbstractVariableWidthBlock
     }
 
     @Override
+    public void writePositionTo(int position, BlockBuilder blockBuilder)
+    {
+        writeBytesTo(position, 0, getLength(position), blockBuilder);
+    }
+
+    @Override
     public Block getSingleValueBlock(int position)
     {
         if (isNull(position)) {

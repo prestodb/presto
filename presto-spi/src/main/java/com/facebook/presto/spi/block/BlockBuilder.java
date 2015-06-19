@@ -54,6 +54,14 @@ public interface BlockBuilder
     BlockBuilder writeBytes(Slice source, int sourceIndex, int length);
 
     /**
+     * Write an object to the current entry;
+     */
+    default BlockBuilder writeObject(Object value)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
      * Write a byte to the current entry;
      */
     BlockBuilder closeEntry();
