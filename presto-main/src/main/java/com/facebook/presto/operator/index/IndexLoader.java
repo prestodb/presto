@@ -367,6 +367,12 @@ public class IndexLoader
         }
 
         @Override
+        public boolean isEmpty()
+        {
+            return true;
+        }
+
+        @Override
         public long getInMemorySizeInBytes()
         {
             return 0;
