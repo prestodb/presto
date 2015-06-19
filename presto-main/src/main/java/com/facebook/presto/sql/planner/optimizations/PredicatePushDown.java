@@ -761,6 +761,11 @@ public class PredicatePushDown
         @Override
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Expression> context)
         {
+            if (node.getGroupBy().isEmpty()) {
+                // cannot push down through non-grouped aggregation
+                return visitPlan(node, context);
+            }
+
             Expression inheritedPredicate = context.get();
 
             EqualityInference equalityInference = createEqualityInference(inheritedPredicate);
