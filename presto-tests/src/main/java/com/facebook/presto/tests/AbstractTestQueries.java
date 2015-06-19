@@ -4264,4 +4264,12 @@ public abstract class AbstractTestQueries
         MaterializedRow row = rows.get(0);
         assertEquals(row.getField(0), row.getField(1));
     }
+
+    @Test
+    public void testFilterPushdownWithAggregation()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM (SELECT count(*) FROM orders) WHERE 0=1");
+        assertQuery("SELECT * FROM (SELECT count(*) FROM orders) WHERE null");
+    }
 }
