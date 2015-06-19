@@ -24,6 +24,8 @@ public interface LookupSource
 {
     int getChannelCount();
 
+    boolean isEmpty();
+
     long getInMemorySizeInBytes();
 
     long getJoinPosition(int position, Page page, int rawHash);
