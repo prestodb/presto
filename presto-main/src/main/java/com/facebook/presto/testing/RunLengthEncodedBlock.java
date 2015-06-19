@@ -132,6 +132,12 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public <T> T getObject(int position, Class<T> clazz)
+    {
+        return value.getObject(0, clazz);
+    }
+
+    @Override
     public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
     {
         return value.bytesEqual(0, offset, otherSlice, otherOffset, length);
@@ -147,6 +153,12 @@ public class RunLengthEncodedBlock
     public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
     {
         value.writeBytesTo(0, offset, length, blockBuilder);
+    }
+
+    @Override
+    public void writePositionTo(int position, BlockBuilder blockBuilder)
+    {
+        value.writePositionTo(position, blockBuilder);
     }
 
     @Override

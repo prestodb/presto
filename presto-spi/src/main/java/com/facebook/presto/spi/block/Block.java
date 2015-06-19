@@ -58,6 +58,14 @@ public interface Block
     Slice getSlice(int position, int offset, int length);
 
     /**
+     * Gets an object in the value at {@code position}.
+     */
+    default <T> T getObject(int position, Class<T> clazz)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
      * Is the byte sequences at {@code offset} in the value at {@code position} equal
      * to the byte sequence at {@code otherOffset} in {@code otherSlice}.
      */
@@ -74,6 +82,11 @@ public interface Block
      * to {@code blockBuilder}.
      */
     void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder);
+
+    /**
+     * Appends the value at {@code position} to {@code blockBuilder}.
+     */
+    void writePositionTo(int position, BlockBuilder blockBuilder);
 
     /**
      * Is the byte sequences at {@code offset} in the value at {@code position} equal

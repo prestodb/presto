@@ -101,6 +101,11 @@ public interface Type
     Slice getSlice(Block block, int position);
 
     /**
+     * Gets the value at the {@code block} {@code position} as an Object.
+     */
+    Object getObject(Block block, int position);
+
+    /**
      * Writes the boolean value into the {@code BlockBuilder}.
      */
     void writeBoolean(BlockBuilder blockBuilder, boolean value);
@@ -124,6 +129,11 @@ public interface Type
      * Writes the Slice value into the {@code BlockBuilder}.
      */
     void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length);
+
+    /**
+     * Writes the Object value into the {@code BlockBuilder}.
+     */
+    void writeObject(BlockBuilder blockBuilder, Object value);
 
     /**
      * Append the value at {@code position} in {@code block} to {@code blockBuilder}.
