@@ -58,6 +58,9 @@ public class ClientOptions
     @Option(name = "--debug", title = "debug", description = "Enable debug information")
     public boolean debug;
 
+    @Option(name = "--log-levels-file", title = "log levels", description = "Configure log levels for debugging")
+    public String logLevelsFile;
+
     @Option(name = "--execute", title = "execute", description = "Execute specified statements and exit")
     public String execute;
 
