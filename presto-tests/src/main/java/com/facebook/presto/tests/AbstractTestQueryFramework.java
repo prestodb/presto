@@ -34,6 +34,7 @@ import org.testng.annotations.AfterClass;
 import java.util.List;
 import java.util.OptionalLong;
 
+import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.lang.String.format;
@@ -252,6 +253,11 @@ public abstract class AbstractTestQueryFramework
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
     {
         return h2QueryRunner.execute(getSession(), sql, resultTypes);
+    }
+
+    protected String formatSqlText(String sql)
+    {
+        return formatSql(sqlParser.createStatement(sql));
     }
 
     public String getExplainPlan(String query, ExplainType.Type planType)

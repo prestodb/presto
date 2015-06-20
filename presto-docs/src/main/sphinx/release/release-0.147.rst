@@ -5,6 +5,7 @@ Release 0.147
 General Changes
 ---------------
 
+* Add :doc:`/sql/show-create-view`.
 * Support ``LIKE`` clause for :doc:`/sql/show-catalogs` and :doc:`/sql/show-schemas`.
 
 Hive Changes

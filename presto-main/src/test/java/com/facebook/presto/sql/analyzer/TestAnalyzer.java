@@ -847,6 +847,16 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testShowCreateView()
+    {
+        analyze("SHOW CREATE VIEW v1");
+        analyze("SHOW CREATE VIEW v2");
+
+        assertFails(NOT_SUPPORTED, "SHOW CREATE VIEW t1");
+        assertFails(MISSING_TABLE, "SHOW CREATE VIEW none");
+    }
+
+    @Test
     public void testStaleView()
             throws Exception
     {

@@ -128,6 +128,11 @@ public final class MetadataUtil
         return new QualifiedObjectName(catalogName, schemaName, objectName);
     }
 
+    public static QualifiedName createQualifiedName(QualifiedObjectName name)
+    {
+        return QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getObjectName());
+    }
+
     public static boolean tableExists(Metadata metadata, Session session, String table)
     {
         if (!session.getCatalog().isPresent() || !session.getSchema().isPresent()) {
