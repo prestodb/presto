@@ -379,6 +379,8 @@ public abstract class AbstractTestDistributedQueries
         @Language("SQL") String query = "SELECT 123 x, 'foo' y";
         assertQueryTrue("CREATE VIEW meta_test_view AS " + query);
 
+        String formattedViewSql = formatSql(new SqlParser().createStatement(query));
+
         // test INFORMATION_SCHEMA.TABLES
         MaterializedResult actual = computeActual(format(
                 "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '%s'",
@@ -415,7 +417,7 @@ public abstract class AbstractTestDistributedQueries
                 getSession().getSchema()));
 
         expected = resultBuilder(getSession(), actual.getTypes())
-                .row("meta_test_view", formatSql(new SqlParser().createStatement(query)))
+                .row("meta_test_view", formattedViewSql)
                 .build();
 
         assertContains(actual, expected);
@@ -426,6 +428,15 @@ public abstract class AbstractTestDistributedQueries
         expected = resultBuilder(getSession(), VARCHAR, VARCHAR, BOOLEAN, BOOLEAN, VARCHAR)
                 .row("x", "bigint", true, false, "")
                 .row("y", "varchar", true, false, "")
+                .build();
+
+        assertEquals(actual, expected);
+
+        // test SHOW CREATE VIEW
+        actual = computeActual("SHOW CREATE VIEW meta_test_view");
+
+        expected = resultBuilder(getSession(), VARCHAR, VARCHAR)
+                .row("meta_test_view", formattedViewSql)
                 .build();
 
         assertEquals(actual, expected);

@@ -57,6 +57,7 @@ statement
         (WHERE booleanExpression)?
         (ORDER BY sortItem (',' sortItem)*)?
         (LIMIT limit=(INTEGER_VALUE | ALL))?                           #showPartitions
+    | SHOW CREATE VIEW qualifiedName                                   #showCreateView
     ;
 
 query

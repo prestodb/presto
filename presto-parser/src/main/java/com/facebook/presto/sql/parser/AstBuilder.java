@@ -82,6 +82,7 @@ import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
+import com.facebook.presto.sql.tree.ShowCreateView;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
@@ -435,6 +436,12 @@ class AstBuilder
                 visitIfPresent(context.booleanExpression(), Expression.class),
                 visit(context.sortItem(), SortItem.class),
                 getTextIfPresent(context.limit));
+    }
+
+    @Override
+    public Node visitShowCreateView(SqlBaseParser.ShowCreateViewContext context)
+    {
+        return new ShowCreateView(getQualifiedName(context.qualifiedName()));
     }
 
     @Override

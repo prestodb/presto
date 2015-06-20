@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
@@ -43,6 +44,7 @@ import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
+import com.facebook.presto.sql.tree.ShowCreateView;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
@@ -70,6 +72,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_VIEWS;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.aliasedName;
@@ -295,6 +298,32 @@ class StatementAnalyzer
                         .add(ascending("partition_number"))
                         .build(),
                 showPartitions.getLimit());
+
+        return process(query, context);
+    }
+
+    @Override
+    protected TupleDescriptor visitShowCreateView(ShowCreateView showCreateView, AnalysisContext context)
+    {
+        QualifiedTableName viewName = MetadataUtil.createQualifiedTableName(session, showCreateView.getView());
+        Optional<ViewDefinition> view = metadata.getView(session, viewName);
+        if (!view.isPresent()) {
+            if (metadata.getTableHandle(session, viewName).isPresent()) {
+                throw new SemanticException(MISSING_TABLE, showCreateView, "'%s' is a Table", viewName);
+            }
+            else {
+                throw new SemanticException(MISSING_TABLE, showCreateView, "View '%s' does not exist", viewName);
+            }
+        }
+
+        Query query = simpleQuery(
+                selectList(
+                        aliasedName("table_name", "View"),
+                        aliasedName("view_definition", "Create View")),
+                from(viewName.getCatalogName(), TABLE_VIEWS),
+                logicalAnd(
+                        equal(nameReference("table_schema"), new StringLiteral(viewName.getSchemaName())),
+                        equal(nameReference("table_name"), new StringLiteral(viewName.getTableName()))));
 
         return process(query, context);
     }
