@@ -89,7 +89,7 @@ The following truth table demonstrate the handling of ``NULL`` in
 ``IS DISTINCT FROM`` and ``IS NOT DISTINCT FROM``:
 
 ======== ======== ========= ========= ============ ================
-a        b        a = a     a <> b    a DISTINCT b a NOT DISTINCT b
+a        b        a = b     a <> b    a DISTINCT b a NOT DISTINCT b
 ======== ======== ========= ========= ============ ================
 ``1``    ``1``    ``TRUE``  ``FALSE`` ``FALSE``       ``TRUE``
 ``1``    ``2``    ``FALSE`` ``TRUE``  ``TRUE``        ``FALSE``
