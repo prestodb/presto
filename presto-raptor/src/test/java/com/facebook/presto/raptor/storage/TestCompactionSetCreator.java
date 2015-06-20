@@ -16,7 +16,6 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
@@ -27,12 +26,52 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static org.testng.Assert.assertEquals;
 
 public class TestCompactionSetCreator
 {
+    @Test
+    public void testNonTemporalCompactionSetSimple()
+            throws Exception
+    {
+        CompactionSetCreator compactionSetCreator = new FileCompactionSetCreator(new DataSize(1, KILOBYTE));
+
+        // compact into one shard
+        Set<ShardMetadata> inputShards = ImmutableSet.of(
+                shardWithSize(100),
+                shardWithSize(100),
+                shardWithSize(100));
+
+        Set<CompactionSet> compactionSets = compactionSetCreator.createCompactionSets(1L, inputShards);
+        assertEquals(compactionSets.size(), 1);
+        assertEquals(getOnlyElement(compactionSets).getShardsToCompact(), inputShards);
+    }
+
+    @Test
+    public void testNonTemporalCompactionSet()
+            throws Exception
+    {
+        CompactionSetCreator compactionSetCreator = new FileCompactionSetCreator(new DataSize(100, BYTE));
+        long tableId = 1L;
+
+        // compact into two shards
+        List<ShardMetadata> inputShards = ImmutableList.of(
+                shardWithSize(70),
+                shardWithSize(20),
+                shardWithSize(30),
+                shardWithSize(120));
+
+        Set<CompactionSet> compactionSets = compactionSetCreator.createCompactionSets(tableId, ImmutableSet.copyOf(inputShards));
+        assertEquals(compactionSets.size(), 2);
+        Set<CompactionSet> expected = ImmutableSet.of(
+                new CompactionSet(tableId, ImmutableSet.of(inputShards.get(0), inputShards.get(2))),
+                new CompactionSet(tableId, ImmutableSet.of(inputShards.get(1))));
+        assertEquals(compactionSets, expected);
+    }
+
     @Test
     public void testTemporalCompactionNoCompactionAcrossDays()
             throws Exception
