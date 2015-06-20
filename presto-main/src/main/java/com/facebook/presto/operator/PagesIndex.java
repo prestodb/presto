@@ -366,7 +366,6 @@ public class PagesIndex
             }
             LookupSource lookupSource = lookupSourceFactory.createLookupSource(
                     valueAddresses,
-                    joinChannelTypes.build(),
                     ImmutableList.<List<Block>>copyOf(channels),
                     hashChannel);
 
@@ -383,11 +382,7 @@ public class PagesIndex
                 joinChannels,
                 hashChannel);
 
-        ImmutableList.Builder<Type> hashTypes = ImmutableList.builder();
-        for (Integer channel : joinChannels) {
-            hashTypes.add(types.get(channel));
-        }
-        return new InMemoryJoinHash(valueAddresses, hashTypes.build(), hashStrategy);
+        return new InMemoryJoinHash(valueAddresses, hashStrategy);
     }
 
     @Override

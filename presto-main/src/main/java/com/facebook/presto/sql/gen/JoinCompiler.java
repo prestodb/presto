@@ -524,18 +524,18 @@ public class JoinCompiler
         {
             this.pagesHashStrategyFactory = pagesHashStrategyFactory;
             try {
-                constructor = lookupSourceClass.getConstructor(LongArrayList.class, List.class, PagesHashStrategy.class);
+                constructor = lookupSourceClass.getConstructor(LongArrayList.class, PagesHashStrategy.class);
             }
             catch (NoSuchMethodException e) {
                 throw Throwables.propagate(e);
             }
         }
 
-        public LookupSource createLookupSource(LongArrayList addresses, List<Type> types, List<List<com.facebook.presto.spi.block.Block>> channels, Optional<Integer> hashChannel)
+        public LookupSource createLookupSource(LongArrayList addresses, List<List<com.facebook.presto.spi.block.Block>> channels, Optional<Integer> hashChannel)
         {
             PagesHashStrategy pagesHashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
             try {
-                return constructor.newInstance(addresses, types, pagesHashStrategy);
+                return constructor.newInstance(addresses, pagesHashStrategy);
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);
