@@ -14,7 +14,6 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -26,7 +25,6 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -650,7 +648,7 @@ public abstract class AbstractTestDistributedQueries
                 getSession().getSchema().get()));
 
         expected = resultBuilder(getSession(), actual.getTypes())
-                .row("meta_test_view", formatSql(new SqlParser().createStatement(query)))
+                .row("meta_test_view", formatSqlText(query))
                 .build();
 
         assertContains(actual, expected);
@@ -664,6 +662,18 @@ public abstract class AbstractTestDistributedQueries
                 .build();
 
         assertEquals(actual, expected);
+
+        // test SHOW CREATE VIEW
+        String expectedSql = formatSqlText(format(
+                "CREATE VIEW %s.%s.%s AS %s",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                "meta_test_view",
+                query)).trim();
+
+        actual = computeActual("SHOW CREATE VIEW meta_test_view");
+
+        assertEquals(getOnlyElement(actual.getOnlyColumnAsSet()), expectedSql);
 
         assertUpdate("DROP VIEW meta_test_view");
     }

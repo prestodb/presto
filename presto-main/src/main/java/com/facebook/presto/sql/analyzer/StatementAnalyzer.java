@@ -84,6 +84,7 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
+import com.facebook.presto.sql.tree.ShowCreateView;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
@@ -135,6 +136,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.APPROXIMATE_AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
+import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -158,6 +160,7 @@ import static com.facebook.presto.sql.QueryUtil.singleValueQuery;
 import static com.facebook.presto.sql.QueryUtil.subquery;
 import static com.facebook.presto.sql.QueryUtil.table;
 import static com.facebook.presto.sql.QueryUtil.unaliasedName;
+import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
@@ -435,6 +438,25 @@ class StatementAnalyzer
                 showPartitions.getLimit());
 
         return process(query, context);
+    }
+
+    @Override
+    protected RelationType visitShowCreateView(ShowCreateView node, AnalysisContext context)
+    {
+        QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getView());
+        Optional<ViewDefinition> view = metadata.getView(session, viewName);
+        if (!view.isPresent()) {
+            if (metadata.getTableHandle(session, viewName).isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a view", viewName);
+            }
+            throw new SemanticException(MISSING_TABLE, node, "View '%s' does not exist", viewName);
+        }
+
+        Query query = parseView(view.get().getOriginalSql(), viewName, node);
+
+        String sql = formatSql(new CreateView(createQualifiedName(viewName), query, false)).trim();
+
+        return process(singleValueQuery("Create View", sql), context);
     }
 
     @Override
@@ -1847,7 +1869,7 @@ class StatementAnalyzer
         }
     }
 
-    private Query parseView(String view, QualifiedObjectName name, Table node)
+    private Query parseView(String view, QualifiedObjectName name, Node node)
     {
         try {
             Statement statement = sqlParser.createStatement(view);
