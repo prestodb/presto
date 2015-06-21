@@ -186,7 +186,7 @@ public abstract class AbstractTestHiveClient
     protected ExecutorService executor;
 
     @BeforeClass
-    public void setUp()
+    public void setupClass()
             throws Exception
     {
         executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
@@ -921,7 +921,7 @@ public abstract class AbstractTestHiveClient
         ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
         ImmutableList<ColumnHandle> columnHandles = ImmutableList.of(column);
-        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, split, columnHandles)) {
+        try (ConnectorPageSource ignored = pageSourceProvider.createPageSource(SESSION, split, columnHandles)) {
             // TODO coercion of non-canonical values should be supported
             fail("expected exception");
         }

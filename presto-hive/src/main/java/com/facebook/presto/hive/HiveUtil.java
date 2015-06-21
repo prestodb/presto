@@ -132,7 +132,7 @@ public final class HiveUtil
     {
     }
 
-    public static RecordReader<?, ?> createRecordReader(String clientId, Configuration configuration, Path path, long start, long length, Properties schema, List<HiveColumnHandle> columns, TypeManager typeManager)
+    public static RecordReader<?, ?> createRecordReader(Configuration configuration, Path path, long start, long length, Properties schema, List<HiveColumnHandle> columns)
     {
         // determine which hive columns we will read
         List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, not(HiveColumnHandle::isPartitionKey)));
@@ -141,16 +141,14 @@ public final class HiveUtil
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
         setReadColumns(configuration, readHiveColumnIndexes);
 
-        final InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, true);
-        final JobConf jobConf = new JobConf(configuration);
-        final FileSplit fileSplit = new FileSplit(path, start, length, (String[]) null);
+        InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, true);
+        JobConf jobConf = new JobConf(configuration);
+        FileSplit fileSplit = new FileSplit(path, start, length, (String[]) null);
 
         // propagate serialization configuration to getRecordReader
-        for (String name : schema.stringPropertyNames()) {
-            if (name.startsWith("serialization.")) {
-                jobConf.set(name, schema.getProperty(name));
-            }
-        }
+        schema.stringPropertyNames().stream()
+                .filter(name -> name.startsWith("serialization."))
+                .forEach(name -> jobConf.set(name, schema.getProperty(name)));
 
         try {
             return retry()
@@ -261,7 +259,7 @@ public final class HiveUtil
         return getTableObjectInspector(getDeserializer(schema));
     }
 
-    public static StructObjectInspector getTableObjectInspector(Deserializer deserializer)
+    public static StructObjectInspector getTableObjectInspector(@SuppressWarnings("deprecation") Deserializer deserializer)
     {
         try {
             ObjectInspector inspector = deserializer.getObjectInspector();
