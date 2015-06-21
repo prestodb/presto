@@ -72,7 +72,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
-import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_VIEWS;
+import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.aliasedName;
@@ -94,6 +94,7 @@ import static com.facebook.presto.sql.QueryUtil.table;
 import static com.facebook.presto.sql.QueryUtil.unaliasedName;
 import static com.facebook.presto.sql.QueryUtil.values;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
+import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
@@ -108,6 +109,7 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -316,14 +318,16 @@ class StatementAnalyzer
             }
         }
 
+        Query viewQuery = checkType(new SqlParser().createStatement(view.get().getOriginalSql()), Query.class, "viewQuery");
+        Statement createViewStatement = new CreateView(createQualifiedName(viewName), viewQuery, false);
+        String createViewFormatted = formatSql(createViewStatement);
+
         Query query = simpleQuery(
-                selectList(
-                        aliasedName("table_name", "View"),
-                        aliasedName("view_definition", "Create View")),
-                from(viewName.getCatalogName(), TABLE_VIEWS),
-                logicalAnd(
-                        equal(nameReference("table_schema"), new StringLiteral(viewName.getSchemaName())),
-                        equal(nameReference("table_name"), new StringLiteral(viewName.getTableName()))));
+                selectList(new AllColumns()),
+                aliased(
+                        values(row(new StringLiteral(viewName.getTableName()), new StringLiteral(createViewFormatted))),
+                        "view",
+                        ImmutableList.of("View", "Create View")));
 
         return process(query, context);
     }

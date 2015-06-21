@@ -6,3 +6,4 @@ General Changes
 ---------------
 
 * Add :func:`multimap_agg` function.
+* Add ``SHOW CREATE VIEW`` statement.

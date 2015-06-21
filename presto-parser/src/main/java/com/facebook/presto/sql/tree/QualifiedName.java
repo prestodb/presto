@@ -87,6 +87,7 @@ public class QualifiedName
     @Override
     public String toString()
     {
+        // TODO: We are using this method in SQLFormatter, Shouldn't we escape parts with quotes here?
         return Joiner.on('.').join(parts);
     }
 
