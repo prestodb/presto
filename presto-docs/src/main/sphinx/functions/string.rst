@@ -96,6 +96,12 @@ String Functions
     Field indexes start with ``1``. If the index is larger than than
     the number of fields, then null is returned.
 
+.. function:: split_to_map(string, entryDelimiter, keyValueDelimiter) -> map<varchar, varchar>
+
+    Splits ``string`` by ``entryDelimiter`` and ``keyValueDelimiter`` and returns a map.
+    ``entryDelimiter`` splits ``string`` into key-value pairs. ``keyValueDelimiter`` splits
+    each pair into key and value.
+
 .. function:: strpos(string, substring) -> bigint
 
     Returns the starting position of the first instance of ``substring`` in
