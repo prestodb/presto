@@ -16,8 +16,10 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
@@ -239,6 +241,91 @@ public class TestStringFunctions
         assertInvalidFunction("SPLIT('a.b.c', '.', 0)", "Limit must be positive");
         assertInvalidFunction("SPLIT('a.b.c', '.', -1)", "Limit must be positive");
         assertInvalidFunction("SPLIT('a.b.c', '.', 2147483648)", "Limit is too large");
+    }
+
+    @Test
+    public void testSplitToMap()
+    {
+        assertFunction("SPLIT_TO_MAP('', ',', '=')", new MapType(VARCHAR, VARCHAR), ImmutableMap.of());
+        assertFunction("SPLIT_TO_MAP('a=123,b=.4,c=', ' ', ' ')", new MapType(VARCHAR, VARCHAR), ImmutableMap.of());
+
+        assertFunction("SPLIT_TO_MAP('a=123,b=.4,c=', ' ', '=')",
+                new MapType(VARCHAR, VARCHAR),
+                ImmutableMap.of("a", "123,b=.4,c="));
+
+        assertFunction("SPLIT_TO_MAP('a=123,', ',', '=')",
+                new MapType(VARCHAR, VARCHAR),
+                ImmutableMap.of("a", "123"));
+
+        assertFunction("SPLIT_TO_MAP('a=123,b=.4,c=', ',', '=')",
+                new MapType(VARCHAR, VARCHAR),
+                ImmutableMap.of("a", "123", "b", ".4", "c", ""));
+
+        assertFunction("SPLIT_TO_MAP('a=123,b=.4,=c', ',', '=')",
+                new MapType(VARCHAR, VARCHAR),
+                ImmutableMap.of("a", "123", "b", ".4", "", "c"));
+
+        assertFunction("SPLIT_TO_MAP('notSplittableByKeyValueDelimiter,b=.4,c=', ',', '=')",
+                new MapType(VARCHAR, VARCHAR),
+                ImmutableMap.of("b", ".4", "c", ""));
+
+        assertFunction("SPLIT_TO_MAP('a=123,notSplittableByKeyValueDelimiter,c=', ',', '=')",
+                new MapType(VARCHAR, VARCHAR),
+                ImmutableMap.of("a", "123", "c", ""));
+
+        assertFunction("SPLIT_TO_MAP('a=123,b=.4,notSplittableByKeyValueDelimiter', ',', '=')",
+                new MapType(VARCHAR, VARCHAR),
+                ImmutableMap.of("a", "123", "b", ".4"));
+
+        assertFunction("SPLIT_TO_MAP('a=123,a=.4,a=', ',', '=')",
+                new MapType(VARCHAR, VARCHAR),
+                ImmutableMap.of("a", ""));
+
+        assertFunction("SPLIT_TO_MAP('key==value,key2=va=lue2,key3=value3=', ',', '=')",
+                new MapType(VARCHAR, VARCHAR),
+                ImmutableMap.of("key", "=value", "key2", "va=lue2", "key3", "value3="));
+
+        // Test SPLIT_TO_MAP for non-ASCII
+        assertFunction("SPLIT_TO_MAP('\u4EA0\u4EA1\u4EA2\u4EA3\u4EA4\u4EA5', '\u4E00', '\u4EFF')",
+                new MapType(VARCHAR, VARCHAR),
+                ImmutableMap.of());
+
+        assertFunction("SPLIT_TO_MAP('\u4EA0\u4EFF\u4EA1\u4E00', '\u4E00', '\u4EFF')",
+                new MapType(VARCHAR, VARCHAR),
+                ImmutableMap.of("\u4EA0", "\u4EA1"));
+
+        // If corresponding value is not found, then ""(empty string) is its value
+        assertFunction("SPLIT_TO_MAP('\u4EA0\u4EFF\u4EA1\u4E00\u4EB0\u4EFF\u4EB1\u4E00\u4EC0\u4EFF', '\u4E00', '\u4EFF')",
+                new MapType(VARCHAR, VARCHAR),
+                ImmutableMap.of("\u4EA0", "\u4EA1", "\u4EB0", "\u4EB1", "\u4EC0", ""));
+
+        // If corresponding key is not found, then ""(empty string) is its key
+        assertFunction("SPLIT_TO_MAP('\u4EA0\u4EFF\u4EA1\u4E00\u4EB0\u4EFF\u4EB1\u4E00\u4EFF\u4EC1', '\u4E00', '\u4EFF')",
+                new MapType(VARCHAR, VARCHAR),
+                ImmutableMap.of("\u4EA0", "\u4EA1", "\u4EB0", "\u4EB1", "", "\u4EC1"));
+
+        // If split words don't contain keyValueDelimiter '\u4EFF', then they're not contained the result map.
+        assertFunction("SPLIT_TO_MAP('\u4EA0\u4EA1\u4E00\u4EB0\u4EFF\u4EB1\u4E00\u4EC0\u4EFF', '\u4E00', '\u4EFF')",
+                new MapType(VARCHAR, VARCHAR),
+                ImmutableMap.of("\u4EB0", "\u4EB1", "\u4EC0", ""));
+
+        assertFunction("SPLIT_TO_MAP('\u4EA0\u4EFF\u4EA1\u4E00\u4EB0\u4EB1\u4E00\u4EC0\u4EFF', '\u4E00', '\u4EFF')",
+                new MapType(VARCHAR, VARCHAR),
+                ImmutableMap.of("\u4EA0", "\u4EA1", "\u4EC0", ""));
+
+        assertFunction("SPLIT_TO_MAP('\u4EA0\u4EFF\u4EA1\u4E00\u4EB0\u4EFF\u4EB1\u4E00\u4EC0', '\u4E00', '\u4EFF')",
+                new MapType(VARCHAR, VARCHAR),
+                ImmutableMap.of("\u4EA0", "\u4EA1", "\u4EB0", "\u4EB1"));
+
+        // If there are same keys, the last corresponding key and value pair is honored.
+        assertFunction("SPLIT_TO_MAP('\u4EA0\u4EFF\u4EA1\u4E00\u4EA0\u4EFF\u4EB1\u4E00\u4EA0\u4EFF', '\u4E00', '\u4EFF')",
+                new MapType(VARCHAR, VARCHAR),
+                ImmutableMap.of("\u4EA0", ""));
+
+        // If split words contain multiple keyValueDelimiters, then the first occurrence of the delimiter is the point to split words.
+        assertFunction("SPLIT_TO_MAP('\u4EA0\u4EFF\u4EFF\u4EA1\u4E00\u4EB0\u4EFF\u4EB1\u4EFF\u4EB2\u4E00\u4EC0\u4EFF\u4EC1\u4EFF', '\u4E00', '\u4EFF')",
+                new MapType(VARCHAR, VARCHAR),
+                ImmutableMap.of("\u4EA0", "\u4EFF\u4EA1", "\u4EB0", "\u4EB1\u4EFF\u4EB2", "\u4EC0", "\u4EC1\u4EFF"));
     }
 
     @Test

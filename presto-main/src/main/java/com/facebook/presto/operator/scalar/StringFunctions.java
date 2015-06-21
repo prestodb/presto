@@ -358,6 +358,48 @@ public final class StringFunctions
         return null;
     }
 
+    @Description("creates a map using entryDelimiter and keyValueDelimiter")
+    @ScalarFunction
+    @SqlType("map<varchar,varchar>")
+    public static Block splitToMap(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice entryDelimiter, @SqlType(StandardTypes.VARCHAR) Slice keyValueDelimiter)
+    {
+        checkCondition(entryDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "The entryDelimiter may not be the empty string");
+        checkCondition(keyValueDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "The keyValueDelimiter may not be the empty string");
+
+        final BlockBuilder parts = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 32);
+        int index = 0;
+        while (index < string.length()) {
+            // Extract key-value pair based on current index
+            // then add the pair if it can be split by keyValueDelimiter
+            final Slice keyValuePair;
+            final int entryDelimiterIndex = string.indexOf(entryDelimiter, index);
+            if (entryDelimiterIndex >= 0) {
+                keyValuePair = string.slice(index, entryDelimiterIndex - index);
+            }
+            else {
+                // The rest of the string is the last possible pair.
+                keyValuePair = string.slice(index, string.length() - index);
+            }
+
+            final int keyValueDelimiterIndex = keyValuePair.indexOf(keyValueDelimiter);
+            if (keyValueDelimiterIndex >= 0) { // Found key-value pair
+                final int offset = keyValueDelimiterIndex + keyValueDelimiter.length();
+                Slice key = keyValuePair.slice(0, keyValueDelimiterIndex);
+                Slice value = keyValuePair.slice(offset, keyValuePair.length() - offset);
+                VARCHAR.writeSlice(parts, key);
+                VARCHAR.writeSlice(parts, value);
+            }
+
+            if (entryDelimiterIndex < 0) { // No more pairs to add
+                break;
+            }
+            // Next possible pair is placed next to the current entryDelimiter
+            index = entryDelimiterIndex + entryDelimiter.length();
+        }
+
+        return parts.build();
+    }
+
     @Description("removes whitespace from the beginning of a string")
     @ScalarFunction("ltrim")
     @LiteralParameters("x")
