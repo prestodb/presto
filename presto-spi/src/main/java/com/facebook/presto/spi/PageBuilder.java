@@ -66,6 +66,11 @@ public class PageBuilder
         }
     }
 
+    public Type getType(int channel)
+    {
+        return types.get(channel);
+    }
+
     public BlockBuilder getBlockBuilder(int channel)
     {
         return blockBuilders[channel];
