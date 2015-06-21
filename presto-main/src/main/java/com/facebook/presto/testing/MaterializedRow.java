@@ -17,13 +17,16 @@ import com.google.common.base.Preconditions;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 /**
  * Materialize all values in a row
@@ -44,18 +47,30 @@ public class MaterializedRow
         checkArgument(precision > 0, "Need at least one digit of precision");
         this.precision = precision;
 
-        this.values = new ArrayList<>(values.size());
-        for (Object object : values) {
-            if (object instanceof Double || object instanceof Float) {
-                this.values.add(new ApproximateDouble(((Number) object).doubleValue(), precision));
-            }
-            else if (object instanceof Number) {
-                this.values.add(((Number) object).longValue());
-            }
-            else {
-                this.values.add(object);
-            }
+        this.values = (List<Object>) processValue(precision, values);
+    }
+
+    private static Object processValue(int precision, Object value)
+    {
+        if (value instanceof Double || value instanceof Float) {
+            return new ApproximateDouble(((Number) value).doubleValue(), precision);
         }
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        if (value instanceof List) {
+            return ((List<?>) value).stream()
+                    .map(element -> processValue(precision, element))
+                    .collect(toList());
+        }
+        if (value instanceof Map) {
+            Map<Object, Object> map = new HashMap<>();
+            for (Entry<Object, Object> entry : ((Map<Object, Object>) value).entrySet()) {
+                map.put(processValue(precision, entry.getKey()), processValue(precision, entry.getValue()));
+            }
+            return map;
+        }
+        return value;
     }
 
     public int getPrecision()
@@ -68,11 +83,38 @@ public class MaterializedRow
         return values.size();
     }
 
+    public List<Object> getFields()
+    {
+        return values.stream()
+                .map(MaterializedRow::processField)
+                .collect(toList());
+    }
+
     public Object getField(int field)
     {
         Preconditions.checkElementIndex(field, values.size());
-        Object o = values.get(field);
-        return (o instanceof ApproximateDouble) ? ((ApproximateDouble) o).getValue() : o;
+        return processField(values.get(field));
+    }
+
+    private static Object processField(Object value)
+    {
+        if (value instanceof ApproximateDouble) {
+            return ((ApproximateDouble) value).getValue();
+        }
+        if (value instanceof List) {
+            return ((List<?>) value).stream()
+                    .map(MaterializedRow::processField)
+                    .collect(toList());
+        }
+        if (value instanceof Map) {
+            Map<Object, Object> map = new HashMap<>();
+            for (Entry<Object, Object> entry : ((Map<Object, Object>) value).entrySet()) {
+                map.put(processField(entry.getKey()), processField(entry.getValue()));
+            }
+            return map;
+        }
+
+        return value;
     }
 
     @Override

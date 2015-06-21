@@ -59,7 +59,6 @@ import static com.facebook.presto.hadoop.HadoopFileStatus.isFile;
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
-import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
 import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
@@ -459,7 +458,7 @@ public class BackgroundHiveSplitLoader
         checkCondition(keys.size() == values.size(), HIVE_INVALID_METADATA, "Expected %s partition key values, but got %s", keys.size(), values.size());
         for (int i = 0; i < keys.size(); i++) {
             String name = keys.get(i).getName();
-            HiveType hiveType = getSupportedHiveType(keys.get(i).getType());
+            HiveType hiveType = HiveType.valueOf(keys.get(i).getType());
             String value = values.get(i);
             checkCondition(value != null, HIVE_INVALID_PARTITION_VALUE, "partition key value cannot be null for field: %s", name);
             partitionKeys.add(new HivePartitionKey(name, hiveType, value));

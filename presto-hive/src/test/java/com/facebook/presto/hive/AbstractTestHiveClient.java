@@ -129,6 +129,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -136,7 +137,9 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -164,6 +167,10 @@ public abstract class AbstractTestHiveClient
 
     private static final Type ARRAY_TYPE = TYPE_MANAGER.getParameterizedType(ARRAY, ImmutableList.of(VARCHAR.getTypeSignature()), ImmutableList.of());
     private static final Type MAP_TYPE = TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(VARCHAR.getTypeSignature(), BIGINT.getTypeSignature()), ImmutableList.of());
+    private static final Type ROW_TYPE = TYPE_MANAGER.getParameterizedType(
+            ROW,
+            ImmutableList.of(VARCHAR.getTypeSignature(), BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature()),
+            ImmutableList.of("f_string", "f_bigint", "f_boolean"));
 
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
             .add(new ColumnMetadata("id", BIGINT, false))
@@ -173,12 +180,13 @@ public abstract class AbstractTestHiveClient
             .add(new ColumnMetadata("t_boolean", BOOLEAN, false))
             .add(new ColumnMetadata("t_array", ARRAY_TYPE, false))
             .add(new ColumnMetadata("t_map", MAP_TYPE, false))
+            .add(new ColumnMetadata("t_row", ROW_TYPE, false))
             .build();
 
-    private static final MaterializedResult CREATE_TABLE_DATA = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, BIGINT, DOUBLE, BOOLEAN, ARRAY_TYPE, MAP_TYPE)
-            .row(1, "hello", 123, 43.5, true, ImmutableList.of("apple", "banana"), ImmutableMap.of("one", 1L, "two", 2L))
-            .row(2, null, null, null, null, null, null)
-            .row(3, "bye", 456, 98.1, false, ImmutableList.of("ape", "bear"), ImmutableMap.of("three", 3L, "four", 4L))
+    private static final MaterializedResult CREATE_TABLE_DATA = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, BIGINT, DOUBLE, BOOLEAN, ARRAY_TYPE, MAP_TYPE, ROW_TYPE)
+            .row(1, "hello", 123, 43.5, true, ImmutableList.of("apple", "banana"), ImmutableMap.of("one", 1L, "two", 2L), ImmutableList.of("true", 1, true))
+            .row(2, null, null, null, null, null, null, null)
+            .row(3, "bye", 456, 98.1, false, ImmutableList.of("ape", "bear"), ImmutableMap.of("three", 3L, "four", 4L), ImmutableList.of("false", 0, false))
             .build();
 
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_PARTITIONED = ImmutableList.<ColumnMetadata>builder()
@@ -186,19 +194,14 @@ public abstract class AbstractTestHiveClient
             .add(new ColumnMetadata("ds", VARCHAR, true))
             .build();
 
-    private static final MaterializedResult CREATE_TABLE_PARTITIONED_DATA = MaterializedResult.resultBuilder(SESSION,
-            BIGINT,
-            VARCHAR,
-            BIGINT,
-            DOUBLE,
-            BOOLEAN,
-            ARRAY_TYPE,
-            MAP_TYPE,
-            VARCHAR)
-            .row(1, "hello", 123, 43.5, true, ImmutableList.of("apple", "banana"), ImmutableMap.of("one", 1L, "two", 2L), "2015-07-01")
-            .row(2, null, null, null, null, null, null, "2015-07-02")
-            .row(3, "bye", 456, 98.1, false, ImmutableList.of("ape", "bear"), ImmutableMap.of("three", 3L, "four", 4L), "2015-07-03")
-            .build();
+    private static final MaterializedResult CREATE_TABLE_PARTITIONED_DATA = new MaterializedResult(
+            CREATE_TABLE_DATA.getMaterializedRows().stream()
+                    .map(row -> new MaterializedRow(row.getPrecision(), newArrayList(concat(row.getFields(), ImmutableList.of("2015-07-0" + row.getField(0))))))
+                    .collect(toList()),
+            ImmutableList.<Type>builder()
+                    .addAll(CREATE_TABLE_DATA.getTypes())
+                    .add(VARCHAR)
+                    .build());
 
     protected Set<HiveStorageFormat> createTableFormats = ImmutableSet.copyOf(HiveStorageFormat.values());
 
@@ -1976,11 +1979,20 @@ public abstract class AbstractTestHiveClient
     {
         try {
             ConnectorTableHandle handle = metadata.getTableHandle(SESSION, table);
-            if (handle != null) {
+            if (handle == null) {
+                return;
+            }
+
+            metadata.dropTable(SESSION, handle);
+            try {
+                // todo I have no idea why this is needed... maybe there is a propagation delay in the metastore?
                 metadata.dropTable(SESSION, handle);
+                fail("expected NotFoundException");
+            }
+            catch (TableNotFoundException expected) {
             }
         }
-        catch (RuntimeException e) {
+        catch (Exception e) {
             Logger.get(getClass()).warn(e, "failed to drop table");
         }
     }
