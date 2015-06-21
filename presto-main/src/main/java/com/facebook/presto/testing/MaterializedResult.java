@@ -29,6 +29,7 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
+import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -231,6 +232,15 @@ public class MaterializedResult
             for (Entry<Object, Object> entry : map.entrySet()) {
                 writeValue(keyType, mapBlockBuilder, entry.getKey());
                 writeValue(valueType, mapBlockBuilder, entry.getValue());
+            }
+            blockBuilder.closeEntry();
+        }
+        else if (type instanceof RowType) {
+            List<Object> row = (List<Object>) value;
+            List<Type> fieldTypes = type.getTypeParameters();
+            BlockBuilder rowBlockBuilder = blockBuilder.beginBlockEntry();
+            for (int field = 0; field < row.size(); field++) {
+                writeValue(fieldTypes.get(field), rowBlockBuilder, row.get(field));
             }
             blockBuilder.closeEntry();
         }

@@ -424,6 +424,31 @@ public class TestHiveIntegrationSmokeTest
         assertOneNotNullResult("SELECT col[TIMESTAMP '2001-08-22 03:04:05.321'] FROM tmp_map7");
     }
 
+    @Test
+    public void testRows()
+            throws Exception
+    {
+        assertQuery("CREATE TABLE tmp_row1 AS SELECT test_row(1, CAST(NULL as BIGINT)) AS a",
+                "SELECT 1");
+
+        assertQuery(
+                "SELECT a.col0, a.col1 FROM tmp_row1",
+                "SELECT 1, cast(null as bigint)");
+    }
+
+    @Test
+    public void testComplex()
+            throws Exception
+    {
+        assertQuery("CREATE TABLE tmp_complex1 AS SELECT " +
+                "ARRAY [MAP(ARRAY['a', 'b'], ARRAY[2.0, 4.0]), MAP(ARRAY['c', 'd'], ARRAY[12.0, 14.0])] AS a",
+                "SELECT 1");
+
+        assertQuery(
+                "SELECT a[1]['a'], a[2]['d'] FROM tmp_complex1",
+                "SELECT 2.0, 14.0");
+    }
+
     private void assertOneNotNullResult(@Language("SQL") String query)
     {
         MaterializedResult results = queryRunner.execute(getSession(), query).toJdbcTypes();
