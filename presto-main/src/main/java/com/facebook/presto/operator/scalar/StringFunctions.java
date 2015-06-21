@@ -31,6 +31,8 @@ import io.airlift.slice.Slices;
 import javax.annotation.Nullable;
 
 import java.text.Normalizer;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -45,6 +47,7 @@ import static io.airlift.slice.SliceUtf8.toUpperCase;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.SURROGATE;
+import static java.lang.String.format;
 
 /**
  * Current implementation is based on code points from Unicode and does ignore grapheme cluster boundaries.
@@ -356,6 +359,66 @@ public final class StringFunctions
 
         // index is too big, null is returned
         return null;
+    }
+
+    @Description("creates a map using entryDelimiter and keyValueDelimiter")
+    @ScalarFunction
+    @SqlType("map<varchar,varchar>")
+    public static Block splitToMap(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice entryDelimiter, @SqlType(StandardTypes.VARCHAR) Slice keyValueDelimiter)
+    {
+        checkCondition(entryDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "entryDelimiter is empty");
+        checkCondition(keyValueDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "keyValueDelimiter is empty");
+        checkCondition(!entryDelimiter.equals(keyValueDelimiter), INVALID_FUNCTION_ARGUMENT, "entryDelimiter and keyValueDelimiter must not be the same");
+
+        Map<Slice, Slice> map = new HashMap<>();
+        int entryStart = 0;
+        while (entryStart < string.length()) {
+            // Extract key-value pair based on current index
+            // then add the pair if it can be split by keyValueDelimiter
+            Slice keyValuePair;
+            int entryEnd = string.indexOf(entryDelimiter, entryStart);
+            if (entryEnd >= 0) {
+                keyValuePair = string.slice(entryStart, entryEnd - entryStart);
+            }
+            else {
+                // The rest of the string is the last possible pair.
+                keyValuePair = string.slice(entryStart, string.length() - entryStart);
+            }
+
+            int keyEnd = keyValuePair.indexOf(keyValueDelimiter);
+            if (keyEnd >= 0) {
+                int valueStart = keyEnd + keyValueDelimiter.length();
+                Slice key = keyValuePair.slice(0, keyEnd);
+                Slice value = keyValuePair.slice(valueStart, keyValuePair.length() - valueStart);
+
+                if (value.indexOf(keyValueDelimiter) >= 0) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: '" + keyValuePair.toStringUtf8() + "'");
+                }
+                if (map.containsKey(key)) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Duplicate keys (%s) are not allowed", key.toStringUtf8()));
+                }
+
+                map.put(key, value);
+            }
+            else {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: '" + keyValuePair.toStringUtf8() + "'");
+            }
+
+            if (entryEnd < 0) {
+                // No more pairs to add
+                break;
+            }
+            // Next possible pair is placed next to the current entryDelimiter
+            entryStart = entryEnd + entryDelimiter.length();
+        }
+
+        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), map.size());
+        for (Map.Entry<Slice, Slice> entry : map.entrySet()) {
+            VARCHAR.writeSlice(builder, entry.getKey());
+            VARCHAR.writeSlice(builder, entry.getValue());
+        }
+
+        return builder.build();
     }
 
     @Description("removes whitespace from the beginning of a string")

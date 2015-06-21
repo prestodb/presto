@@ -16,8 +16,10 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
@@ -239,6 +241,38 @@ public class TestStringFunctions
         assertInvalidFunction("SPLIT('a.b.c', '.', 0)", "Limit must be positive");
         assertInvalidFunction("SPLIT('a.b.c', '.', -1)", "Limit must be positive");
         assertInvalidFunction("SPLIT('a.b.c', '.', 2147483648)", "Limit is too large");
+    }
+
+    @Test
+    public void testSplitToMap()
+    {
+        MapType expectedType = new MapType(VARCHAR, VARCHAR);
+
+        assertFunction("SPLIT_TO_MAP('', ',', '=')", expectedType, ImmutableMap.of());
+        assertFunction("SPLIT_TO_MAP('a=123,b=.4,c=,=d', ',', '=')", expectedType, ImmutableMap.of("a", "123", "b", ".4", "c", "", "", "d"));
+        assertFunction("SPLIT_TO_MAP('=', ',', '=')", expectedType, ImmutableMap.of("", ""));
+        assertFunction("SPLIT_TO_MAP('key=>value', ',', '=>')", expectedType, ImmutableMap.of("key", "value"));
+        assertFunction("SPLIT_TO_MAP('key => value', ',', '=>')", expectedType, ImmutableMap.of("key ", " value"));
+
+        // Test SPLIT_TO_MAP for non-ASCII
+        assertFunction("SPLIT_TO_MAP('\u4EA0\u4EFF\u4EA1', '\u4E00', '\u4EFF')", expectedType, ImmutableMap.of("\u4EA0", "\u4EA1"));
+        // If corresponding value is not found, then ""(empty string) is its value
+        assertFunction("SPLIT_TO_MAP('\u4EC0\u4EFF', '\u4E00', '\u4EFF')", expectedType, ImmutableMap.of("\u4EC0", ""));
+        // If corresponding key is not found, then ""(empty string) is its key
+        assertFunction("SPLIT_TO_MAP('\u4EFF\u4EC1', '\u4E00', '\u4EFF')", expectedType, ImmutableMap.of("", "\u4EC1"));
+
+        // Entry delimiter and key-value delimiter must not be the same.
+        assertInvalidFunction("SPLIT_TO_MAP('', '\u4EFF', '\u4EFF')", expectedType, "entryDelimiter and keyValueDelimiter must not be the same");
+        assertInvalidFunction("SPLIT_TO_MAP('a=123,b=.4,c=', '=', '=')", expectedType, "entryDelimiter and keyValueDelimiter must not be the same");
+
+        // Duplicate keys are not allowed to exist.
+        assertInvalidFunction("SPLIT_TO_MAP('a=123,a=.4', ',', '=')", expectedType, "Duplicate keys (a) are not allowed");
+        assertInvalidFunction("SPLIT_TO_MAP('\u4EA0\u4EFF\u4EA1\u4E00\u4EA0\u4EFF\u4EB1', '\u4E00', '\u4EFF')", expectedType, "Duplicate keys (\u4EA0) are not allowed");
+
+        // Key-value delimiter must appear exactly once in each entry.
+        assertInvalidFunction("SPLIT_TO_MAP('key', ',', '=')", expectedType, "Key-value delimiter must appear exactly once in each entry. Bad input: 'key'");
+        assertInvalidFunction("SPLIT_TO_MAP('key==value', ',', '=')", expectedType, "Key-value delimiter must appear exactly once in each entry. Bad input: 'key==value'");
+        assertInvalidFunction("SPLIT_TO_MAP('key=va=lue', ',', '=')", expectedType, "Key-value delimiter must appear exactly once in each entry. Bad input: 'key=va=lue'");
     }
 
     @Test
