@@ -42,7 +42,6 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -761,6 +760,11 @@ public class PredicatePushDown
         @Override
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Expression> context)
         {
+            if (node.getGroupBy().isEmpty()) {
+                // cannot push down through non-grouped aggregation
+                return visitPlan(node, context);
+            }
+
             Expression inheritedPredicate = context.get();
 
             EqualityInference equalityInference = createEqualityInference(inheritedPredicate);
@@ -864,10 +868,7 @@ public class PredicatePushDown
         {
             Expression predicate = simplifyExpression(context.get());
 
-            if (BooleanLiteral.FALSE_LITERAL.equals(predicate) || predicate instanceof NullLiteral) {
-                return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of());
-            }
-            else if (!BooleanLiteral.TRUE_LITERAL.equals(predicate)) {
+            if (!BooleanLiteral.TRUE_LITERAL.equals(predicate)) {
                 return new FilterNode(idAllocator.getNextId(), node, predicate);
             }
 

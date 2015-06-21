@@ -482,12 +482,12 @@ public class TestDatabaseShardManager
         }
     }
 
-    static ShardInfo shardInfo(UUID shardUuid, String nodeIdentifier)
+    public static ShardInfo shardInfo(UUID shardUuid, String nodeIdentifier)
     {
         return shardInfo(shardUuid, nodeIdentifier, ImmutableList.of());
     }
 
-    private static ShardInfo shardInfo(UUID shardUuid, String nodeId, List<ColumnStats> columnStats)
+    public static ShardInfo shardInfo(UUID shardUuid, String nodeId, List<ColumnStats> columnStats)
     {
         return new ShardInfo(shardUuid, ImmutableSet.of(nodeId), columnStats, 0, 0, 0);
     }

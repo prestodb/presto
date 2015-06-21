@@ -20,12 +20,14 @@ import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Objects;
+import java.util.OptionalLong;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ShardMetadata
 {
@@ -34,8 +36,15 @@ public class ShardMetadata
     private final long rowCount;
     private final long compressedSize;
     private final long uncompressedSize;
+    private final OptionalLong rangeStart;
+    private final OptionalLong rangeEnd;
 
     public ShardMetadata(long shardId, UUID shardUuid, long rowCount, long compressedSize, long uncompressedSize)
+    {
+        this(shardId, shardUuid, rowCount, compressedSize, uncompressedSize, OptionalLong.empty(), OptionalLong.empty());
+    }
+
+    public ShardMetadata(long shardId, UUID shardUuid, long rowCount, long compressedSize, long uncompressedSize, OptionalLong rangeStart, OptionalLong rangeEnd)
     {
         checkArgument(shardId > 0, "shardId must be > 0");
         checkArgument(rowCount >= 0, "rowCount must be >= 0");
@@ -47,6 +56,8 @@ public class ShardMetadata
         this.rowCount = rowCount;
         this.compressedSize = compressedSize;
         this.uncompressedSize = uncompressedSize;
+        this.rangeStart = requireNonNull(rangeStart, "rangeStart is null");
+        this.rangeEnd = requireNonNull(rangeEnd, "rangeEnd is null");
     }
 
     public UUID getShardUuid()
@@ -74,6 +85,27 @@ public class ShardMetadata
         return uncompressedSize;
     }
 
+    public OptionalLong getRangeStart()
+    {
+        return rangeStart;
+    }
+
+    public OptionalLong getRangeEnd()
+    {
+        return rangeEnd;
+    }
+
+    public ShardMetadata withTimeRange(long rangeStart, long rangeEnd)
+    {
+        return new ShardMetadata(
+                shardId,
+                shardUuid,
+                rowCount,
+                compressedSize,
+                uncompressedSize,
+                OptionalLong.of(rangeStart),
+                OptionalLong.of(rangeEnd));
+    }
     @Override
     public String toString()
     {
@@ -83,32 +115,34 @@ public class ShardMetadata
                 .add("rowCount", rowCount)
                 .add("compressedSize", DataSize.succinctBytes(compressedSize))
                 .add("uncompressedSize", DataSize.succinctBytes(uncompressedSize))
+                .add("rangeStart", rangeStart)
+                .add("rangeEnd", rangeEnd)
                 .toString();
     }
 
     @Override
-    public boolean equals(Object other)
+    public boolean equals(Object o)
     {
-        if (this == other) {
+        if (this == o) {
             return true;
         }
-        if (other == null || getClass() != other.getClass()) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
-        ShardMetadata that = (ShardMetadata) other;
-
-        return Objects.equals(this.shardId, that.shardId) &&
-                Objects.equals(this.shardUuid, that.shardUuid) &&
-                Objects.equals(this.rowCount, that.rowCount) &&
-                Objects.equals(this.compressedSize, that.compressedSize) &&
-                Objects.equals(this.uncompressedSize, that.uncompressedSize);
+        ShardMetadata that = (ShardMetadata) o;
+        return Objects.equals(shardId, that.shardId) &&
+                Objects.equals(rowCount, that.rowCount) &&
+                Objects.equals(compressedSize, that.compressedSize) &&
+                Objects.equals(uncompressedSize, that.uncompressedSize) &&
+                Objects.equals(shardUuid, that.shardUuid) &&
+                Objects.equals(rangeStart, that.rangeStart) &&
+                Objects.equals(rangeEnd, that.rangeEnd);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(shardId, shardUuid, rowCount, compressedSize, uncompressedSize);
+        return Objects.hash(shardId, shardUuid, rowCount, compressedSize, uncompressedSize, rangeStart, rangeEnd);
     }
 
     public static class Mapper
