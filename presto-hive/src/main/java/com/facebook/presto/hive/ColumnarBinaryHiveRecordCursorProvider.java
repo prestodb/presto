@@ -51,7 +51,7 @@ public class ColumnarBinaryHiveRecordCursorProvider
             return Optional.empty();
         }
 
-        RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(clientId, configuration, path, start, length, schema, columns, typeManager);
+        RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(configuration, path, start, length, schema, columns);
 
         return Optional.<HiveRecordCursor>of(new ColumnarBinaryHiveRecordCursor<>(
                 bytesRecordReader(recordReader),

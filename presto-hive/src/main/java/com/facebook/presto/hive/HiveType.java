@@ -14,17 +14,10 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableList;
@@ -150,25 +143,25 @@ public final class HiveType
 
     public static HiveType toHiveType(Type type)
     {
-        if (BooleanType.BOOLEAN.equals(type)) {
+        if (BOOLEAN.equals(type)) {
             return HIVE_BOOLEAN;
         }
-        if (BigintType.BIGINT.equals(type)) {
+        if (BIGINT.equals(type)) {
             return HIVE_LONG;
         }
-        if (DoubleType.DOUBLE.equals(type)) {
+        if (DOUBLE.equals(type)) {
             return HIVE_DOUBLE;
         }
-        if (VarcharType.VARCHAR.equals(type)) {
+        if (VARCHAR.equals(type)) {
             return HIVE_STRING;
         }
-        if (VarbinaryType.VARBINARY.equals(type)) {
+        if (VARBINARY.equals(type)) {
             return HIVE_BINARY;
         }
-        if (DateType.DATE.equals(type)) {
+        if (DATE.equals(type)) {
             return HIVE_DATE;
         }
-        if (TimestampType.TIMESTAMP.equals(type)) {
+        if (TIMESTAMP.equals(type)) {
             return HIVE_TIMESTAMP;
         }
         if (isArrayType(type)) {
