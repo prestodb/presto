@@ -21,6 +21,9 @@ import io.airlift.command.SingleCommand;
 
 import javax.inject.Inject;
 
+import static io.airlift.command.SingleCommand.singleCommand;
+import static java.lang.Runtime.getRuntime;
+
 @Command(name = "testing_presto_server", description = "Testing Presto Server Launcher")
 public class TestingPrestoServerLauncher
 {
@@ -32,7 +35,7 @@ public class TestingPrestoServerLauncher
 
     private static void registerServerCloseShutdownHook(final TestingPrestoServer server)
     {
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> server.close()));
+        getRuntime().addShutdownHook(new Thread(() -> server.close()));
     }
 
     private static void waitForInterruption()
@@ -68,7 +71,7 @@ public class TestingPrestoServerLauncher
     public static void main(String[] args)
             throws Exception
     {
-        TestingPrestoServerLauncher launcher = SingleCommand.singleCommand(TestingPrestoServerLauncher.class).parse(args);
+        TestingPrestoServerLauncher launcher = singleCommand(TestingPrestoServerLauncher.class).parse(args);
         if (launcher.helpOption.showHelpIfRequested()) {
             return;
         }
