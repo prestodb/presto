@@ -64,7 +64,7 @@ public class TestingPrestoServerLauncher
             server.createCatalog(catalog.getCatalogName(), catalog.getConnectorName());
         }
 
-        System.out.println(server.getAddress().getHostText() + ":" + server.getAddress().getPort());
+        System.out.println(server.getAddress());
         waitForInterruption();
     }
 
