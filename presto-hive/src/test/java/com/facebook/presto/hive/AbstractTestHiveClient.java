@@ -1836,7 +1836,7 @@ public abstract class AbstractTestHiveClient
         return index.build();
     }
 
-    private static ConnectorSession createSession(HiveStorageFormat storageFormat)
+    protected static ConnectorSession createSession(HiveStorageFormat storageFormat)
     {
         return new ConnectorSession(
                 SESSION.getUser(),
@@ -1846,7 +1846,7 @@ public abstract class AbstractTestHiveClient
                 ImmutableMap.of(STORAGE_FORMAT_PROPERTY, storageFormat.name().toLowerCase()));
     }
 
-    private static String randomName()
+    protected static String randomName()
     {
         return UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
     }
