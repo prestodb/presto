@@ -52,10 +52,10 @@ class TestingPrestoServerLauncherOptions
         }
     }
 
-    @Option(name = "--catalog", title = "catalog", description = "Default catalog")
+    @Option(name = "--catalog", title = "catalog", description = "Catalog:Connector mapping (can be repeated)")
     private List<String> catalogOptions = new ArrayList<>();
 
-    @Option(name = "--plugin", title = "plugin", description = "Plugin class name")
+    @Option(name = "--plugin", title = "plugin", description = "Fully qualified class name of plugin to be registered (can be repeated)")
     private List<String> pluginClassNames = new ArrayList<>();
 
     public List<Catalog> getCatalogs()
