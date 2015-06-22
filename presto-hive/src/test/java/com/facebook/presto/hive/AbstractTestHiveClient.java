@@ -1120,7 +1120,7 @@ public abstract class AbstractTestHiveClient
     {
         for (HiveStorageFormat storageFormat : createTableFormats) {
             try {
-                doCreateTable(storageFormat);
+                doCreateTable(temporaryCreateTable, storageFormat);
             }
             finally {
                 dropTable(temporaryCreateTable);
@@ -1133,7 +1133,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         try {
-            doCreateSampledTable();
+            doCreateSampledTable(temporaryCreateSampledTable);
         }
         finally {
             dropTable(temporaryCreateSampledTable);
@@ -1146,7 +1146,7 @@ public abstract class AbstractTestHiveClient
     {
         for (HiveStorageFormat storageFormat : createTableFormats) {
             try {
-                doCreateEmptyTable(storageFormat);
+                doCreateEmptyTable(temporaryCreateEmptyTable, storageFormat);
             }
             finally {
                 dropTable(temporaryCreateEmptyTable);
@@ -1243,7 +1243,7 @@ public abstract class AbstractTestHiveClient
         assertTrue(metadata.listViews(SESSION, viewName.getSchemaName()).contains(viewName));
     }
 
-    private void doCreateSampledTable()
+    protected void doCreateSampledTable(SchemaTableName tableName)
             throws Exception
     {
         // begin creating the table
@@ -1251,7 +1251,7 @@ public abstract class AbstractTestHiveClient
                 .add(new ColumnMetadata("sales", BIGINT, false))
                 .build();
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateSampledTable, columns, SESSION.getUser(), true);
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, SESSION.getUser(), true);
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, tableMetadata);
 
         // write the records
@@ -1275,7 +1275,7 @@ public abstract class AbstractTestHiveClient
         metadata.commitCreateTable(outputHandle, fragments);
 
         // load the new table
-        ConnectorTableHandle tableHandle = getTableHandle(temporaryCreateSampledTable);
+        ConnectorTableHandle tableHandle = getTableHandle(tableName);
         List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>builder()
                 .addAll(metadata.getColumnHandles(tableHandle).values())
                 .add(metadata.getSampleWeightColumnHandle(tableHandle))
@@ -1283,7 +1283,7 @@ public abstract class AbstractTestHiveClient
         assertEquals(columnHandles.size(), 2);
 
         // verify the metadata
-        tableMetadata = metadata.getTableMetadata(getTableHandle(temporaryCreateSampledTable));
+        tableMetadata = metadata.getTableMetadata(getTableHandle(tableName));
         assertEquals(tableMetadata.getOwner(), SESSION.getUser());
 
         Map<String, ColumnMetadata> columnMap = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
@@ -1318,7 +1318,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private void doCreateTable(HiveStorageFormat storageFormat)
+    protected void doCreateTable(SchemaTableName tableName, HiveStorageFormat storageFormat)
             throws Exception
     {
         // begin creating the table
@@ -1330,7 +1330,7 @@ public abstract class AbstractTestHiveClient
                 .add(new ColumnMetadata("t_boolean", BOOLEAN, false))
                 .build();
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateTable, columns, SESSION.getUser());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, SESSION.getUser());
 
         ConnectorSession session = createSession(storageFormat);
 
@@ -1369,11 +1369,11 @@ public abstract class AbstractTestHiveClient
         metadata.commitCreateTable(outputHandle, fragments);
 
         // load the new table
-        ConnectorTableHandle tableHandle = getTableHandle(temporaryCreateTable);
+        ConnectorTableHandle tableHandle = getTableHandle(tableName);
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
 
         // verify the metadata
-        tableMetadata = metadata.getTableMetadata(getTableHandle(temporaryCreateTable));
+        tableMetadata = metadata.getTableMetadata(getTableHandle(tableName));
         assertEquals(tableMetadata.getOwner(), session.getUser());
 
         Map<String, ColumnMetadata> columnMap = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
@@ -1420,7 +1420,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private void doCreateEmptyTable(HiveStorageFormat storageFormat)
+    protected void doCreateEmptyTable(SchemaTableName tableName, HiveStorageFormat storageFormat)
             throws Exception
     {
         // create the table
@@ -1434,17 +1434,17 @@ public abstract class AbstractTestHiveClient
                 .add(new ColumnMetadata("t_array_string", arrayStringType, false))
                 .build();
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateEmptyTable, columns, SESSION.getUser());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, SESSION.getUser());
 
         ConnectorSession session = createSession(storageFormat);
 
         metadata.createTable(session, tableMetadata);
 
         // load the new table
-        ConnectorTableHandle tableHandle = getTableHandle(temporaryCreateEmptyTable);
+        ConnectorTableHandle tableHandle = getTableHandle(tableName);
 
         // verify the metadata
-        tableMetadata = metadata.getTableMetadata(getTableHandle(temporaryCreateEmptyTable));
+        tableMetadata = metadata.getTableMetadata(getTableHandle(tableName));
         assertEquals(tableMetadata.getOwner(), session.getUser());
 
         Map<String, ColumnMetadata> columnMap = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
@@ -1681,7 +1681,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private void dropTable(SchemaTableName table)
+    protected void dropTable(SchemaTableName table)
     {
         try {
             ConnectorTableHandle handle = metadata.getTableHandle(SESSION, table);
