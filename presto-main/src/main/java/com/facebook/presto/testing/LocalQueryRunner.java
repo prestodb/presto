@@ -175,6 +175,7 @@ public class LocalQueryRunner
         Session session = localQueryRunner.getDefaultSession();
         Session.SessionBuilder builder = Session.builder()
                 .setUser(session.getUser())
+                .setDelegatePrincipal(session.getDelegatePrincipal())
                 .setSource(session.getSource())
                 .setCatalog(session.getCatalog())
                 .setTimeZoneKey(session.getTimeZoneKey())

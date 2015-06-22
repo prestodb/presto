@@ -40,6 +40,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_DELEGATION_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
@@ -79,6 +80,7 @@ public class ExecuteResource
     public Response createQuery(
             String query,
             @HeaderParam(PRESTO_USER) String user,
+            @HeaderParam(PRESTO_DELEGATION_TOKEN) String delegationToken,
             @HeaderParam(PRESTO_SOURCE) String source,
             @HeaderParam(PRESTO_CATALOG) String catalog,
             @HeaderParam(PRESTO_SCHEMA) String schema,

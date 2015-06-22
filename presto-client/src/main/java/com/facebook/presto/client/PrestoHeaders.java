@@ -24,6 +24,7 @@ public final class PrestoHeaders
     public static final String PRESTO_SESSION = "X-Presto-Session";
     public static final String PRESTO_SET_SESSION = "X-Presto-Set-Session";
     public static final String PRESTO_CLEAR_SESSION = "X-Presto-Clear-Session";
+    public static final String PRESTO_DELEGATION_TOKEN = "X-Presto-Delegation-Token";
 
     public static final String PRESTO_CURRENT_STATE = "X-Presto-Current-State";
     public static final String PRESTO_MAX_WAIT = "X-Presto-Max-Wait";

@@ -1077,6 +1077,7 @@ public class TupleAnalyzer
         try {
             Session viewSession = Session.builder()
                     .setUser(session.getUser())
+                    .setDelegatePrincipal(session.getDelegatePrincipal())
                     .setSource(session.getSource())
                     .setCatalog(catalog)
                     .setSchema(schema)

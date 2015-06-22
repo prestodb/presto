@@ -16,13 +16,16 @@ package com.facebook.presto.server;
 import com.facebook.presto.Session;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.sun.security.auth.UnixPrincipal;
 import org.testng.annotations.Test;
 
+import javax.security.auth.kerberos.KerberosPrincipal;
 import javax.servlet.http.HttpServletRequest;
 
 import java.util.Locale;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_DELEGATION_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
@@ -55,6 +58,150 @@ public class TestResourceUtil
         Session session = createSessionForRequest(request);
 
         assertEquals(session.getUser(), "testUser");
+        assertEquals(session.getDelegatePrincipal(), null);
+        assertEquals(session.getSource(), "testSource");
+        assertEquals(session.getCatalog(), "testCatalog");
+        assertEquals(session.getSchema(), "testSchema");
+        assertEquals(session.getLocale(), Locale.TAIWAN);
+        assertEquals(session.getTimeZoneKey(), getTimeZoneKey("Asia/Taipei"));
+        assertEquals(session.getRemoteUserAddress(), "testRemote");
+        assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
+                .put("first", "abc")
+                .put("second", "mno")
+                .put("third", "xyz")
+                .build());
+    }
+
+    // delegation token will be ignored for insecure session
+    @Test
+    public void testCreateSessionWithDelegationToken()
+            throws Exception
+    {
+        String delegationToken = "{\"identity\":{\"name\": \"delegatedUser\", \"type\": \"user_name\"}}";
+        HttpServletRequest request = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .put(PRESTO_DELEGATION_TOKEN, delegationToken)
+                        .put(PRESTO_SOURCE, "testSource")
+                        .put(PRESTO_CATALOG, "testCatalog")
+                        .put(PRESTO_SCHEMA, "testSchema")
+                        .put(PRESTO_LANGUAGE, "zh-TW")
+                        .put(PRESTO_TIME_ZONE, "Asia/Taipei")
+                        .put(PRESTO_SESSION, "first=abc")
+                        .put(PRESTO_SESSION, "second=mno,third=xyz")
+                        .build(),
+                "testRemote");
+
+        Session session = createSessionForRequest(request);
+
+        assertEquals(session.getUser(), "testUser");
+        assertEquals(session.getDelegatePrincipal(), null);
+        assertEquals(session.getSource(), "testSource");
+        assertEquals(session.getCatalog(), "testCatalog");
+        assertEquals(session.getSchema(), "testSchema");
+        assertEquals(session.getLocale(), Locale.TAIWAN);
+        assertEquals(session.getTimeZoneKey(), getTimeZoneKey("Asia/Taipei"));
+        assertEquals(session.getRemoteUserAddress(), "testRemote");
+        assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
+                .put("first", "abc")
+                .put("second", "mno")
+                .put("third", "xyz")
+                .build());
+    }
+
+    // presto user will be ignored for secure session
+    @Test
+    public void testCreateAuthenticatedSession()
+            throws Exception
+    {
+        HttpServletRequest request = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .put(PRESTO_SOURCE, "testSource")
+                        .put(PRESTO_CATALOG, "testCatalog")
+                        .put(PRESTO_SCHEMA, "testSchema")
+                        .put(PRESTO_LANGUAGE, "zh-TW")
+                        .put(PRESTO_TIME_ZONE, "Asia/Taipei")
+                        .put(PRESTO_SESSION, "first=abc")
+                        .put(PRESTO_SESSION, "second=mno,third=xyz")
+                        .build(),
+                "testRemote").setUserPrincipal(new UnixPrincipal("testAuthenticatedUser"));
+
+        Session session = createSessionForRequest(request);
+
+        assertEquals(session.getUser(), "testAuthenticatedUser");
+        assertEquals(session.getDelegatePrincipal().getName(), "testAuthenticatedUser");
+        assertEquals(session.getSource(), "testSource");
+        assertEquals(session.getCatalog(), "testCatalog");
+        assertEquals(session.getSchema(), "testSchema");
+        assertEquals(session.getLocale(), Locale.TAIWAN);
+        assertEquals(session.getTimeZoneKey(), getTimeZoneKey("Asia/Taipei"));
+        assertEquals(session.getRemoteUserAddress(), "testRemote");
+        assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
+                .put("first", "abc")
+                .put("second", "mno")
+                .put("third", "xyz")
+                .build());
+    }
+
+    @Test
+    public void testCreateAuthenticatedSessionWithDelegation1()
+            throws Exception
+    {
+        String delegationToken = "{\"identity\":{\"name\": \"delegatedUser\", \"type\": \"user_name\"}}";
+        HttpServletRequest request = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .put(PRESTO_DELEGATION_TOKEN, delegationToken)
+                        .put(PRESTO_SOURCE, "testSource")
+                        .put(PRESTO_CATALOG, "testCatalog")
+                        .put(PRESTO_SCHEMA, "testSchema")
+                        .put(PRESTO_LANGUAGE, "zh-TW")
+                        .put(PRESTO_TIME_ZONE, "Asia/Taipei")
+                        .put(PRESTO_SESSION, "first=abc")
+                        .put(PRESTO_SESSION, "second=mno,third=xyz")
+                        .build(),
+                "testRemote").setUserPrincipal(new UnixPrincipal("testAuthenticatedUser"));
+
+        Session session = createSessionForRequest(request);
+
+        assertEquals(session.getUser(), "delegatedUser");
+        assertEquals(session.getDelegatePrincipal().getName(), "testAuthenticatedUser");
+        assertEquals(session.getSource(), "testSource");
+        assertEquals(session.getCatalog(), "testCatalog");
+        assertEquals(session.getSchema(), "testSchema");
+        assertEquals(session.getLocale(), Locale.TAIWAN);
+        assertEquals(session.getTimeZoneKey(), getTimeZoneKey("Asia/Taipei"));
+        assertEquals(session.getRemoteUserAddress(), "testRemote");
+        assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
+                .put("first", "abc")
+                .put("second", "mno")
+                .put("third", "xyz")
+                .build());
+    }
+    @Test
+    public void testCreateAuthenticatedSessionWithDelegation2()
+            throws Exception
+    {
+        String delegation = "{\"identity\":{\"name\": \"delegatedUser/PRESTO.COM@REALM1\", \"type\": \"kerberos_principal\"}}";
+        HttpServletRequest request = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .put(PRESTO_DELEGATION_TOKEN, delegation)
+                        .put(PRESTO_SOURCE, "testSource")
+                        .put(PRESTO_CATALOG, "testCatalog")
+                        .put(PRESTO_SCHEMA, "testSchema")
+                        .put(PRESTO_LANGUAGE, "zh-TW")
+                        .put(PRESTO_TIME_ZONE, "Asia/Taipei")
+                        .put(PRESTO_SESSION, "first=abc")
+                        .put(PRESTO_SESSION, "second=mno,third=xyz")
+                        .build(),
+                "testRemote").setUserPrincipal(new KerberosPrincipal("testAuthenticatedUser/DELEGATE.COM@REALM2"));
+
+        Session session = createSessionForRequest(request);
+
+        assertEquals(session.getUser(), "delegatedUser/PRESTO.COM@REALM1");
+        assertEquals(session.getDelegatePrincipal().getName(), "testAuthenticatedUser/DELEGATE.COM@REALM2");
         assertEquals(session.getSource(), "testSource");
         assertEquals(session.getCatalog(), "testCatalog");
         assertEquals(session.getSchema(), "testSchema");

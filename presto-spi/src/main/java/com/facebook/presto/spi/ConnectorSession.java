@@ -17,6 +17,7 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.security.Principal;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -31,8 +32,8 @@ public class ConnectorSession
     private final Locale locale;
     private final long startTime;
     private final Map<String, String> properties;
+    private Principal delegatePrincipal;
 
-    @JsonCreator
     public ConnectorSession(
             @JsonProperty("user") String user,
             @JsonProperty("timeZoneKey") TimeZoneKey timeZoneKey,
@@ -51,10 +52,29 @@ public class ConnectorSession
         this.properties = unmodifiableMap(new HashMap<>(properties));
     }
 
+    @JsonCreator
+    public ConnectorSession(
+            @JsonProperty("user") String user,
+            @JsonProperty("delegatePrincipal") Principal delegatePrincipal,
+            @JsonProperty("timeZoneKey") TimeZoneKey timeZoneKey,
+            @JsonProperty("locale") Locale locale,
+            @JsonProperty("startTime") long startTime,
+            @JsonProperty("properties") Map<String, String> properties)
+    {
+        this(user, timeZoneKey, locale, startTime, properties);
+        this.delegatePrincipal = delegatePrincipal;
+    }
+
     @JsonProperty
     public String getUser()
     {
         return user;
+    }
+
+    @JsonProperty
+    public Principal getDelegate()
+    {
+        return delegatePrincipal;
     }
 
     @JsonProperty
@@ -86,6 +106,7 @@ public class ConnectorSession
     {
         StringBuilder builder = new StringBuilder("Session{");
         builder.append("user='").append(user).append('\'');
+        builder.append("delegatePrincipal='").append(delegatePrincipal).append('\'');
         builder.append(", timeZoneKey=").append(timeZoneKey);
         builder.append(", locale=").append(locale);
         builder.append(", startTime=").append(startTime);

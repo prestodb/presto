@@ -14,6 +14,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.server.security.DelegationToken;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -24,6 +25,7 @@ import com.google.common.collect.Maps;
 import javax.annotation.Nullable;
 
 import java.net.URI;
+import java.security.Principal;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -52,8 +54,8 @@ public final class Session
     private final long startTime;
     private final Map<String, String> systemProperties;
     private final Map<String, Map<String, String>> catalogProperties;
+    private Principal delegatePrincipal = null;
 
-    @JsonCreator
     public Session(
             @JsonProperty("user") String user,
             @JsonProperty("source") @Nullable String source,
@@ -85,10 +87,35 @@ public final class Session
         this.catalogProperties = catalogPropertiesBuilder.build();
     }
 
+    @JsonCreator
+    public Session(
+            @JsonProperty("user") String user,
+            @JsonProperty("delegatePrincipal") Principal delegatePrincipal,
+            @JsonProperty("source") @Nullable String source,
+            @JsonProperty("catalog") String catalog,
+            @JsonProperty("schema") String schema,
+            @JsonProperty("timeZoneKey") TimeZoneKey timeZoneKey,
+            @JsonProperty("locale") Locale locale,
+            @JsonProperty("remoteUserAddress") @Nullable String remoteUserAddress,
+            @JsonProperty("userAgent") @Nullable String userAgent,
+            @JsonProperty("startTime") long startTime,
+            @JsonProperty("systemProperties") Map<String, String> systemProperties,
+            @JsonProperty("catalogProperties") Map<String, Map<String, String>> catalogProperties)
+    {
+        this(user, source, catalog, schema, timeZoneKey, locale, remoteUserAddress, userAgent, startTime, systemProperties, catalogProperties);
+        this.delegatePrincipal = delegatePrincipal;
+    }
+
     @JsonProperty
     public String getUser()
     {
         return user;
+    }
+
+    @JsonProperty
+    public Principal getDelegatePrincipal()
+    {
+        return delegatePrincipal;
     }
 
     @Nullable
@@ -164,6 +191,7 @@ public final class Session
 
         return new Session(
                 user,
+                delegatePrincipal,
                 source,
                 catalog,
                 schema,
@@ -195,6 +223,7 @@ public final class Session
 
         return new Session(
                 user,
+                delegatePrincipal,
                 source,
                 catalog,
                 schema,
@@ -209,12 +238,12 @@ public final class Session
 
     public ConnectorSession toConnectorSession()
     {
-        return new ConnectorSession(user, timeZoneKey, locale, startTime, null);
+        return new ConnectorSession(user, delegatePrincipal, timeZoneKey, locale, startTime, null);
     }
 
     public ConnectorSession toConnectorSession(String catalog)
     {
-        return new ConnectorSession(user, timeZoneKey, locale, startTime, catalogProperties.get(checkNotNull(catalog, "catalog is null")));
+        return new ConnectorSession(user, delegatePrincipal, timeZoneKey, locale, startTime, catalogProperties.get(checkNotNull(catalog, "catalog is null")));
     }
 
     public ClientSession toClientSession(URI server, boolean debug)
@@ -231,6 +260,7 @@ public final class Session
         return new ClientSession(
                 checkNotNull(server, "server is null"),
                 user,
+                DelegationToken.toJson(delegatePrincipal),
                 source,
                 catalog,
                 schema,
@@ -245,6 +275,7 @@ public final class Session
     {
         return toStringHelper(this)
                 .add("user", user)
+                .add("delegatePrincipal", delegatePrincipal)
                 .add("source", source)
                 .add("catalog", catalog)
                 .add("schema", schema)
@@ -264,6 +295,7 @@ public final class Session
     public static class SessionBuilder
     {
         private String user;
+        private Principal delegatePrincipal;
         private String source;
         private String catalog;
         private String schema;
@@ -327,6 +359,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setDelegatePrincipal(Principal delegatePrincipal)
+        {
+            this.delegatePrincipal = delegatePrincipal;
+            return this;
+        }
+
         public SessionBuilder setUserAgent(String userAgent)
         {
             this.userAgent = userAgent;
@@ -358,7 +396,7 @@ public final class Session
 
         public Session build()
         {
-            return new Session(user, source, catalog, schema, timeZoneKey, locale, remoteUserAddress, userAgent, startTime, systemProperties, catalogProperties);
+            return new Session(user, delegatePrincipal, source, catalog, schema, timeZoneKey, locale, remoteUserAddress, userAgent, startTime, systemProperties, catalogProperties);
         }
     }
 }

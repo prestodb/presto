@@ -15,6 +15,8 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
+import com.facebook.presto.server.security.DelegationToken;
+import com.facebook.presto.server.security.Identity;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
 import com.google.common.base.Splitter;
@@ -23,12 +25,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 
+import javax.security.auth.kerberos.KerberosPrincipal;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
+import java.security.Principal;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -38,12 +42,15 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_DELEGATION_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.server.security.Identity.Type.KERBEROS_PRINCIPAL;
+import static com.facebook.presto.server.security.Identity.Type.USER_NAME;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
@@ -57,8 +64,38 @@ final class ResourceUtil
 
     public static Session createSessionForRequest(HttpServletRequest servletRequest)
     {
+        String realUser = getRequiredHeader(servletRequest, PRESTO_USER, "User");
+        // this principal, if exists, has already been authenticated by security filters
+        Principal delegatePrincipal = servletRequest.getUserPrincipal();
+        if (delegatePrincipal != null) {
+            String tokenJsonValue = servletRequest.getHeader(PRESTO_DELEGATION_TOKEN);
+            if (tokenJsonValue != null) {
+                try {
+                    DelegationToken delegationToken = DelegationToken.fromJson(tokenJsonValue);
+                    Identity identity = delegationToken.getIdentity();
+                    if (identity != null) {
+                        if (identity.getType() == USER_NAME) {
+                            realUser = identity.getName();
+                        }
+                        else if (identity.getType() == KERBEROS_PRINCIPAL) {
+                            // the identity should contain REALM, otherwise the default REALM
+                            // will be appended.
+                            realUser = (new KerberosPrincipal(identity.getName())).getName();
+                        }
+                    }
+                }
+                catch (IllegalArgumentException e) {
+                    throw new IllegalArgumentException(format("Invalid %s header: %s", PRESTO_DELEGATION_TOKEN, tokenJsonValue));
+                }
+            }
+            else {
+                realUser = delegatePrincipal.getName();
+            }
+        }
+
         SessionBuilder sessionBuilder = Session.builder()
-                .setUser(getRequiredHeader(servletRequest, PRESTO_USER, "User"))
+                .setUser(realUser)
+                .setDelegatePrincipal(delegatePrincipal)
                 .setSource(servletRequest.getHeader(PRESTO_SOURCE))
                 .setCatalog(getRequiredHeader(servletRequest, PRESTO_CATALOG, "Catalog"))
                 .setSchema(getRequiredHeader(servletRequest, PRESTO_SCHEMA, "Schema"))

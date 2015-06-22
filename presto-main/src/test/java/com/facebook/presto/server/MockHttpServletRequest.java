@@ -49,6 +49,7 @@ public class MockHttpServletRequest
 {
     private final ListMultimap<String, String> headers;
     private final String remoteAddress;
+    private Principal principal;
 
     public MockHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress)
     {
@@ -149,7 +150,13 @@ public class MockHttpServletRequest
     @Override
     public Principal getUserPrincipal()
     {
-        throw new UnsupportedOperationException();
+        return principal;
+    }
+
+    public MockHttpServletRequest setUserPrincipal(Principal principal)
+    {
+        this.principal = principal;
+        return this;
     }
 
     @Override
