@@ -17,7 +17,6 @@ import com.facebook.presto.server.testing.TestingPrestoServerLauncherOptions.Cat
 import com.facebook.presto.spi.Plugin;
 import io.airlift.command.Command;
 import io.airlift.command.HelpOption;
-import io.airlift.command.SingleCommand;
 
 import javax.inject.Inject;
 

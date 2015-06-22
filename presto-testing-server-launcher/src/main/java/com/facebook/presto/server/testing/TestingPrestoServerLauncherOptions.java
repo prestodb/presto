@@ -15,7 +15,6 @@
 package com.facebook.presto.server.testing;
 
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import io.airlift.command.Option;
 
 import java.util.ArrayList;
