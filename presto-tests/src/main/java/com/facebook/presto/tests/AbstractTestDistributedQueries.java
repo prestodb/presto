@@ -385,6 +385,7 @@ public abstract class AbstractTestDistributedQueries
         assertEquals(emptySample.getMaterializedRows().size(), 0);
     }
 
+    @Override
     @Test
     public void testTableSamplePoissonizedRescaled()
             throws Exception
@@ -392,7 +393,7 @@ public abstract class AbstractTestDistributedQueries
         MaterializedResult sample = computeActual("SELECT * FROM orders TABLESAMPLE POISSONIZED (10) RESCALED");
         MaterializedResult all = computeExpected("SELECT * FROM orders", sample.getTypes());
 
-        assertTrue(sample.getMaterializedRows().size() > 0);
+        assertTrue(!sample.getMaterializedRows().isEmpty());
         assertTrue(all.getMaterializedRows().containsAll(sample.getMaterializedRows()));
     }
 
