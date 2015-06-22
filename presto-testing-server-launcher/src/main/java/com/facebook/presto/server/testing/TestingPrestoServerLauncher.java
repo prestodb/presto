@@ -32,14 +32,7 @@ public class TestingPrestoServerLauncher
 
     private static void registerServerCloseShutdownHook(final TestingPrestoServer server)
     {
-        Runtime.getRuntime().addShutdownHook(new Thread()
-        {
-            @Override
-            public void run()
-            {
-                server.close();
-            }
-        });
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> server.close()));
     }
 
     private static void waitForInterruption()
@@ -50,23 +43,25 @@ public class TestingPrestoServerLauncher
             }
         }
         catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
     public void run()
             throws Exception
     {
-        TestingPrestoServer testingPrestoServer = new TestingPrestoServer();
-        for (String pluginClassName : options.getPluginClassNames()) {
-            Plugin plugin = (Plugin) Class.forName(pluginClassName).newInstance();
-            testingPrestoServer.installPlugin(plugin);
+        TestingPrestoServer server = new TestingPrestoServer();
+        registerServerCloseShutdownHook(server);
+        for (String pluginClass : options.getPluginClassNames()) {
+            Plugin plugin = (Plugin) Class.forName(pluginClass).newInstance();
+            server.installPlugin(plugin);
         }
 
         for (Catalog catalog : options.getCatalogs()) {
-            testingPrestoServer.createCatalog(catalog.getCatalogName(), catalog.getConnectorName());
+            server.createCatalog(catalog.getCatalogName(), catalog.getConnectorName());
         }
 
-        System.out.println(testingPrestoServer.getAddress().getHostText() + ":" + testingPrestoServer.getAddress().getPort());
+        System.out.println(server.getAddress().getHostText() + ":" + server.getAddress().getPort());
         waitForInterruption();
     }
 

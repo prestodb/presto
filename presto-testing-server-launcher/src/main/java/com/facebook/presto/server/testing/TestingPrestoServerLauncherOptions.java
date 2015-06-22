@@ -14,16 +14,21 @@
 
 package com.facebook.presto.server.testing;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import io.airlift.command.Option;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.stream.Collectors.toList;
 
 class TestingPrestoServerLauncherOptions
 {
+    private static final Splitter CATALOG_OPTION_SPLITTER = Splitter.on(':').trimResults();
+
     public static class Catalog
     {
         private final String catalogName;
@@ -54,10 +59,10 @@ class TestingPrestoServerLauncherOptions
 
     public List<Catalog> getCatalogs()
     {
-        return catalogOptions.stream().map(o -> {
-            String[] split = o.split(":");
-            checkState(split.length == 2, "bad format of catalog definition '" + o + "'; should be catalog_name:connector_name");
-            return new Catalog(split[0], split[1]);
+        return catalogOptions.stream().map(catalogOption -> {
+            ImmutableList<String> parts = ImmutableList.copyOf(CATALOG_OPTION_SPLITTER.split(catalogOption));
+            checkArgument(parts.size() == 2, "bad format of catalog definition '%s'; should be catalog_name:connector_name", catalogOption);
+            return new Catalog(parts.get(0), parts.get(1));
         }).collect(toList());
     }
 
