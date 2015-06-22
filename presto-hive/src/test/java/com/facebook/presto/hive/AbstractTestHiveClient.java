@@ -460,18 +460,17 @@ public abstract class AbstractTestHiveClient
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(getTableHandle(tablePartitionFormat));
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
 
-        int i = 0;
-        assertPrimitiveField(map, i++, "t_string", VARCHAR, false);
-        assertPrimitiveField(map, i++, "t_tinyint", BIGINT, false);
-        assertPrimitiveField(map, i++, "t_smallint", BIGINT, false);
-        assertPrimitiveField(map, i++, "t_int", BIGINT, false);
-        assertPrimitiveField(map, i++, "t_bigint", BIGINT, false);
-        assertPrimitiveField(map, i++, "t_float", DOUBLE, false);
-        assertPrimitiveField(map, i++, "t_double", DOUBLE, false);
-        assertPrimitiveField(map, i++, "t_boolean", BOOLEAN, false);
-        assertPrimitiveField(map, i++, "ds", VARCHAR, true);
-        assertPrimitiveField(map, i++, "file_format", VARCHAR, true);
-        assertPrimitiveField(map, i++, "dummy", BIGINT, true);
+        assertPrimitiveField(map, "t_string", VARCHAR, false);
+        assertPrimitiveField(map, "t_tinyint", BIGINT, false);
+        assertPrimitiveField(map, "t_smallint", BIGINT, false);
+        assertPrimitiveField(map, "t_int", BIGINT, false);
+        assertPrimitiveField(map, "t_bigint", BIGINT, false);
+        assertPrimitiveField(map, "t_float", DOUBLE, false);
+        assertPrimitiveField(map, "t_double", DOUBLE, false);
+        assertPrimitiveField(map, "t_boolean", BOOLEAN, false);
+        assertPrimitiveField(map, "ds", VARCHAR, true);
+        assertPrimitiveField(map, "file_format", VARCHAR, true);
+        assertPrimitiveField(map, "dummy", BIGINT, true);
     }
 
     @Test
@@ -482,8 +481,8 @@ public abstract class AbstractTestHiveClient
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
 
-        assertPrimitiveField(map, 0, "t_string", VARCHAR, false);
-        assertPrimitiveField(map, 1, "t_tinyint", BIGINT, false);
+        assertPrimitiveField(map, "t_string", VARCHAR, false);
+        assertPrimitiveField(map, "t_tinyint", BIGINT, false);
     }
 
     @Test
@@ -494,7 +493,7 @@ public abstract class AbstractTestHiveClient
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
 
-        assertPrimitiveField(map, 0, "t_string", VARCHAR, false);
+        assertPrimitiveField(map, "t_string", VARCHAR, false);
     }
 
     @Test
@@ -505,7 +504,7 @@ public abstract class AbstractTestHiveClient
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
 
-        assertPrimitiveField(map, 0, "t_string", VARCHAR, false);
+        assertPrimitiveField(map, "t_string", VARCHAR, false);
     }
 
     @Test
@@ -1290,7 +1289,7 @@ public abstract class AbstractTestHiveClient
         Map<String, ColumnMetadata> columnMap = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
         assertEquals(columnMap.size(), 1);
 
-        assertPrimitiveField(columnMap, 0, "sales", BIGINT, false);
+        assertPrimitiveField(columnMap, "sales", BIGINT, false);
 
         // verify the data
         ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
@@ -1379,11 +1378,11 @@ public abstract class AbstractTestHiveClient
 
         Map<String, ColumnMetadata> columnMap = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
 
-        assertPrimitiveField(columnMap, 0, "id", BIGINT, false);
-        assertPrimitiveField(columnMap, 1, "t_string", VARCHAR, false);
-        assertPrimitiveField(columnMap, 2, "t_bigint", BIGINT, false);
-        assertPrimitiveField(columnMap, 3, "t_double", DOUBLE, false);
-        assertPrimitiveField(columnMap, 4, "t_boolean", BOOLEAN, false);
+        assertPrimitiveField(columnMap, "id", BIGINT, false);
+        assertPrimitiveField(columnMap, "t_string", VARCHAR, false);
+        assertPrimitiveField(columnMap, "t_bigint", BIGINT, false);
+        assertPrimitiveField(columnMap, "t_double", DOUBLE, false);
+        assertPrimitiveField(columnMap, "t_boolean", BOOLEAN, false);
 
         // verify the data
         ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
@@ -1450,12 +1449,12 @@ public abstract class AbstractTestHiveClient
 
         Map<String, ColumnMetadata> columnMap = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
 
-        assertPrimitiveField(columnMap, 0, "id", BIGINT, false);
-        assertPrimitiveField(columnMap, 1, "t_string", VARCHAR, false);
-        assertPrimitiveField(columnMap, 2, "t_bigint", BIGINT, false);
-        assertPrimitiveField(columnMap, 3, "t_double", DOUBLE, false);
-        assertPrimitiveField(columnMap, 4, "t_boolean", BOOLEAN, false);
-        assertPrimitiveField(columnMap, 5, "t_array_string", arrayStringType, false);
+        assertPrimitiveField(columnMap, "id", BIGINT, false);
+        assertPrimitiveField(columnMap, "t_string", VARCHAR, false);
+        assertPrimitiveField(columnMap, "t_bigint", BIGINT, false);
+        assertPrimitiveField(columnMap, "t_double", DOUBLE, false);
+        assertPrimitiveField(columnMap, "t_boolean", BOOLEAN, false);
+        assertPrimitiveField(columnMap, "t_array_string", arrayStringType, false);
 
         // verify the table is empty
         ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
@@ -1805,7 +1804,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private static void assertPrimitiveField(Map<String, ColumnMetadata> map, int position, String name, Type type, boolean partitionKey)
+    private static void assertPrimitiveField(Map<String, ColumnMetadata> map, String name, Type type, boolean partitionKey)
     {
         assertTrue(map.containsKey(name));
         ColumnMetadata column = map.get(name);
