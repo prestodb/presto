@@ -14,9 +14,14 @@
 package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
+
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -25,7 +30,38 @@ import static org.testng.Assert.assertEquals;
 
 public class TestVariableWidthBlockEncoding
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, 0, null);
+    private static final ConnectorSession SESSION = new ConnectorSession()
+    {
+        @Override
+        public String getUser()
+        {
+            return "user";
+        }
+
+        @Override
+        public TimeZoneKey getTimeZoneKey()
+        {
+            return UTC_KEY;
+        }
+
+        @Override
+        public Locale getLocale()
+        {
+            return ENGLISH;
+        }
+
+        @Override
+        public long getStartTime()
+        {
+            return 0;
+        }
+
+        @Override
+        public Map<String, String> getProperties()
+        {
+            return new HashMap<>();
+        }
+    };
 
     @Test
     public void testRoundTrip()

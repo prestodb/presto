@@ -16,6 +16,7 @@ package com.facebook.presto.operator.index;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -54,7 +55,7 @@ public class TestTupleFilterProcessor
                 .row("a", 0L, false, 0.2, 0.2)
                 .build());
 
-        ConnectorSession session = new ConnectorSession("user", TimeZoneKey.UTC_KEY, Locale.ENGLISH, 0, ImmutableMap.<String, String>of());
+        ConnectorSession session = new TestingConnectorSession("user", TimeZoneKey.UTC_KEY, Locale.ENGLISH, 0, ImmutableMap.<String, String>of());
 
         PageBuilder pageBuilder = new PageBuilder(outputTypes);
         int end = tupleFilterProcessor.process(session, inputPage, 0, inputPage.getPositionCount(), pageBuilder);
@@ -88,7 +89,7 @@ public class TestTupleFilterProcessor
                 .row("a", 1L, false, 0.1, 3.0)
                 .build());
 
-        ConnectorSession session = new ConnectorSession("user", TimeZoneKey.UTC_KEY, Locale.ENGLISH, 0, ImmutableMap.<String, String>of());
+        ConnectorSession session = new TestingConnectorSession("user", TimeZoneKey.UTC_KEY, Locale.ENGLISH, 0, ImmutableMap.<String, String>of());
 
         PageBuilder pageBuilder = new PageBuilder(outputTypes);
         int end = tupleFilterProcessor.process(session, inputPage, 1, 4, pageBuilder);

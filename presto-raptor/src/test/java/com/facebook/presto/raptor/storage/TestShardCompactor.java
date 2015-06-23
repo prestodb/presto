@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
@@ -60,7 +61,7 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestShardCompactor
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("presto_test", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
+    private static final ConnectorSession SESSION = new TestingConnectorSession("presto_test", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
     private static final PagesIndexPageSorter PAGE_SORTER = new PagesIndexPageSorter();
 
     private OrcStorageManager storageManager;

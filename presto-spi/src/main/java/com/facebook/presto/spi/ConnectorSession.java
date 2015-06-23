@@ -15,74 +15,18 @@ package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.type.TimeZoneKey;
 
-import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-import static java.util.Collections.unmodifiableMap;
-import static java.util.Objects.requireNonNull;
-
-public class ConnectorSession
+public interface ConnectorSession
 {
-    private final String user;
-    private final TimeZoneKey timeZoneKey;
-    private final Locale locale;
-    private final long startTime;
-    private final Map<String, String> properties;
+    String getUser();
 
-    public ConnectorSession(
-            String user,
-            TimeZoneKey timeZoneKey,
-            Locale locale,
-            long startTime,
-            Map<String, String> properties)
-    {
-        this.user = requireNonNull(user, "user is null");
-        this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
-        this.locale = requireNonNull(locale, "locale is null");
-        this.startTime = startTime;
+    TimeZoneKey getTimeZoneKey();
 
-        if (properties == null) {
-            properties = new HashMap<>();
-        }
-        this.properties = unmodifiableMap(new HashMap<>(properties));
-    }
+    Locale getLocale();
 
-    public String getUser()
-    {
-        return user;
-    }
+    long getStartTime();
 
-    public TimeZoneKey getTimeZoneKey()
-    {
-        return timeZoneKey;
-    }
-
-    public Locale getLocale()
-    {
-        return locale;
-    }
-
-    public long getStartTime()
-    {
-        return startTime;
-    }
-
-    public Map<String, String> getProperties()
-    {
-        return properties;
-    }
-
-    @Override
-    public String toString()
-    {
-        StringBuilder builder = new StringBuilder("Session{");
-        builder.append("user='").append(user).append('\'');
-        builder.append(", timeZoneKey=").append(timeZoneKey);
-        builder.append(", locale=").append(locale);
-        builder.append(", startTime=").append(startTime);
-        builder.append(", properties=").append(properties);
-        builder.append('}');
-        return builder.toString();
-    }
+    Map<String, String> getProperties();
 }
