@@ -20,6 +20,7 @@ import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.type.ArrayType;
@@ -28,6 +29,7 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -82,7 +84,7 @@ public class TestHiveFileFormats
         extends AbstractTestHiveFileFormats
 {
     private static final TimeZoneKey TIME_ZONE_KEY = TimeZoneKey.getTimeZoneKey(DateTimeZone.getDefault().getID());
-    private static final ConnectorSession SESSION = new ConnectorSession("user", TIME_ZONE_KEY, ENGLISH, System.currentTimeMillis(), null);
+    private static final ConnectorSession SESSION = new TestingConnectorSession("user", TIME_ZONE_KEY, ENGLISH, System.currentTimeMillis(), ImmutableMap.of());
     private static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
 
     @BeforeClass(alwaysRun = true)

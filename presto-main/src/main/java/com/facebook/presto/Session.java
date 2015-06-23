@@ -209,12 +209,12 @@ public final class Session
 
     public ConnectorSession toConnectorSession()
     {
-        return new ConnectorSession(user, timeZoneKey, locale, startTime, null);
+        return new FullConnectorSession(user, timeZoneKey, locale, startTime, ImmutableMap.of());
     }
 
     public ConnectorSession toConnectorSession(String catalog)
     {
-        return new ConnectorSession(user, timeZoneKey, locale, startTime, catalogProperties.get(checkNotNull(catalog, "catalog is null")));
+        return new FullConnectorSession(user, timeZoneKey, locale, startTime, catalogProperties.getOrDefault(checkNotNull(catalog, "catalog is null"), ImmutableMap.of()));
     }
 
     public ClientSession toClientSession(URI server, boolean debug)

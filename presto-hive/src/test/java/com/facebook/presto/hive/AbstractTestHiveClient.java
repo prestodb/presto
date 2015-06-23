@@ -44,6 +44,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.type.SqlDate;
@@ -135,7 +136,7 @@ import static org.testng.Assert.fail;
 @Test(groups = "hive")
 public abstract class AbstractTestHiveClient
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("presto_test", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
+    private static final ConnectorSession SESSION = new TestingConnectorSession("presto_test", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
 
     protected static final String INVALID_DATABASE = "totally_invalid_database_name";
     protected static final String INVALID_TABLE = "totally_invalid_table_name";
@@ -1839,7 +1840,7 @@ public abstract class AbstractTestHiveClient
 
     protected static ConnectorSession createSession(HiveStorageFormat storageFormat)
     {
-        return new ConnectorSession(
+        return new TestingConnectorSession(
                 SESSION.getUser(),
                 SESSION.getTimeZoneKey(),
                 SESSION.getLocale(),
