@@ -28,10 +28,9 @@ import org.joda.time.DateTimeZone;
 import java.io.File;
 import java.util.Map;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 
 public final class HiveQueryRunner
@@ -101,13 +100,9 @@ public final class HiveQueryRunner
 
     private static Session createHiveSession(String schema)
     {
-        return Session.builder()
-                .setUser("user")
-                .setSource("test")
+        return testSessionBuilder()
                 .setCatalog("hive")
                 .setSchema(schema)
-                .setTimeZoneKey(UTC_KEY)
-                .setLocale(ENGLISH)
                 .build();
     }
 }

@@ -230,4 +230,6 @@ public interface Metadata
     TypeManager getTypeManager();
 
     BlockEncodingSerde getBlockEncodingSerde();
+
+    SessionPropertyManager getSessionPropertyManager();
 }

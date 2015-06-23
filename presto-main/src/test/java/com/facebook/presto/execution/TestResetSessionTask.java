@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -26,6 +27,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.session.SessionPropertyMetadata.stringSessionProperty;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -33,6 +35,21 @@ import static org.testng.Assert.assertEquals;
 public class TestResetSessionTask
 {
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stage-executor-%s"));
+    private final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+
+    public TestResetSessionTask()
+    {
+        metadata.getSessionPropertyManager().addSystemSessionProperty(stringSessionProperty(
+                "foo",
+                "test property",
+                null,
+                false));
+        metadata.getSessionPropertyManager().addConnectorSessionProperties("catalog", ImmutableList.of(stringSessionProperty(
+                "baz",
+                "test property",
+                null,
+                false)));
+    }
 
     @AfterClass
     public void tearDown()
@@ -48,7 +65,7 @@ public class TestResetSessionTask
         Session session = TEST_SESSION.withSystemProperty("foo", "bar").withCatalogProperty("catalog", "baz", "blah");
 
         QueryStateMachine stateMachine = new QueryStateMachine(new QueryId("query"), "reset foo", session, URI.create("fake://uri"), executor);
-        new ResetSessionTask().execute(new ResetSession(QualifiedName.of("catalog", "baz")), session, MetadataManager.createTestMetadataManager(), stateMachine);
+        new ResetSessionTask().execute(new ResetSession(QualifiedName.of("catalog", "baz")), session, metadata, stateMachine);
 
         Set<String> sessionProperties = stateMachine.getResetSessionProperties();
         assertEquals(sessionProperties, ImmutableSet.of("catalog.baz"));

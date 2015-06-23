@@ -19,10 +19,13 @@ import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.session.SessionPropertyMetadata;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 
 import javax.inject.Inject;
+
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -37,6 +40,7 @@ public class RaptorConnector
     private final RaptorPageSourceProvider pageSourceProvider;
     private final RaptorPageSinkProvider pageSinkProvider;
     private final RaptorHandleResolver handleResolver;
+    private final List<SessionPropertyMetadata<?>> sessionProperties;
 
     @Inject
     public RaptorConnector(
@@ -45,7 +49,8 @@ public class RaptorConnector
             RaptorSplitManager splitManager,
             RaptorPageSourceProvider pageSourceProvider,
             RaptorPageSinkProvider pageSinkProvider,
-            RaptorHandleResolver handleResolver)
+            RaptorHandleResolver handleResolver,
+            RaptorSessionProperties sessionProperties)
     {
         this.lifeCycleManager = checkNotNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
@@ -53,6 +58,7 @@ public class RaptorConnector
         this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = checkNotNull(pageSinkProvider, "pageSinkProvider is null");
         this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
+        this.sessionProperties = checkNotNull(sessionProperties, "sessionProperties is null").getSessionProperties();
     }
 
     @Override
@@ -83,6 +89,12 @@ public class RaptorConnector
     public ConnectorSplitManager getSplitManager()
     {
         return splitManager;
+    }
+
+    @Override
+    public List<SessionPropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties;
     }
 
     @Override

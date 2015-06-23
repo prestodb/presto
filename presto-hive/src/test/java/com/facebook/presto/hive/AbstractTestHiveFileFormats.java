@@ -75,6 +75,7 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.arrayBlockOf;
 import static com.facebook.presto.hive.HiveTestUtils.mapBlockOf;
 import static com.facebook.presto.hive.HiveTestUtils.rowBlockOf;
@@ -86,7 +87,6 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
-import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;

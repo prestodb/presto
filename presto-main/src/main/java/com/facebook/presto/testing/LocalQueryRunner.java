@@ -30,6 +30,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
@@ -136,7 +137,7 @@ public class LocalQueryRunner
     public LocalQueryRunner(Session defaultSession)
     {
         this.defaultSession = checkNotNull(defaultSession, "defaultSession is null");
-        this.hashEnabled = SystemSessionProperties.isOptimizeHashGenerationEnabled(defaultSession, false);
+        this.hashEnabled = SystemSessionProperties.isOptimizeHashGenerationEnabled(defaultSession);
         this.executor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-%s"));
 
         this.sqlParser = new SqlParser();
@@ -147,7 +148,7 @@ public class LocalQueryRunner
 
         this.splitManager = new SplitManager();
         this.blockEncodingSerde = new BlockEncodingManager(typeRegistry);
-        this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry, splitManager, blockEncodingSerde);
+        this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry, splitManager, blockEncodingSerde, new SessionPropertyManager());
         this.pageSourceManager = new PageSourceManager();
 
         this.compiler = new ExpressionCompiler(metadata);
@@ -173,7 +174,7 @@ public class LocalQueryRunner
     public static LocalQueryRunner createHashEnabledQueryRunner(LocalQueryRunner localQueryRunner)
     {
         Session session = localQueryRunner.getDefaultSession();
-        Session.SessionBuilder builder = Session.builder()
+        Session.SessionBuilder builder = Session.builder(localQueryRunner.getMetadata().getSessionPropertyManager())
                 .setUser(session.getUser())
                 .setSource(session.getSource().orElse(null))
                 .setCatalog(session.getCatalog())

@@ -95,29 +95,41 @@ public class MetadataManager
     private final JsonCodec<ViewDefinition> viewCodec;
     private final SplitManager splitManager;
     private final BlockEncodingSerde blockEncodingSerde;
+    private final SessionPropertyManager sessionPropertyManager;
 
-    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, SplitManager splitManager, BlockEncodingSerde blockEncodingSerde)
+    public MetadataManager(FeaturesConfig featuresConfig,
+            TypeManager typeManager,
+            SplitManager splitManager,
+            BlockEncodingSerde blockEncodingSerde,
+            SessionPropertyManager sessionPropertyManager)
     {
-        this(featuresConfig, typeManager, createTestingViewCodec(), splitManager, blockEncodingSerde);
+        this(featuresConfig, typeManager, createTestingViewCodec(), splitManager, blockEncodingSerde, sessionPropertyManager);
     }
 
     @Inject
-    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, JsonCodec<ViewDefinition> viewCodec, SplitManager splitManager, BlockEncodingSerde blockEncodingSerde)
+    public MetadataManager(FeaturesConfig featuresConfig,
+            TypeManager typeManager,
+            JsonCodec<ViewDefinition> viewCodec,
+            SplitManager splitManager,
+            BlockEncodingSerde blockEncodingSerde,
+            SessionPropertyManager sessionPropertyManager)
     {
         functions = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig.isExperimentalSyntaxEnabled());
         this.typeManager = checkNotNull(typeManager, "types is null");
         this.viewCodec = checkNotNull(viewCodec, "viewCodec is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
         this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingSerde is null");
+        this.sessionPropertyManager = checkNotNull(sessionPropertyManager, "sessionPropertyManager is null");
     }
 
     public static MetadataManager createTestMetadataManager()
     {
         FeaturesConfig featuresConfig = new FeaturesConfig();
         TypeManager typeManager = new TypeRegistry();
+        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
         SplitManager splitManager = new SplitManager();
         BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
-        return new MetadataManager(featuresConfig, typeManager, splitManager, blockEncodingSerde);
+        return new MetadataManager(featuresConfig, typeManager, splitManager, blockEncodingSerde, sessionPropertyManager);
     }
 
     public synchronized void addConnectorMetadata(String connectorId, String catalogName, ConnectorMetadata connectorMetadata)
@@ -601,6 +613,12 @@ public class MetadataManager
         return blockEncodingSerde;
     }
 
+    @Override
+    public SessionPropertyManager getSessionPropertyManager()
+    {
+        return sessionPropertyManager;
+    }
+
     private ViewDefinition deserializeView(String data)
     {
         try {
@@ -670,11 +688,6 @@ public class MetadataManager
         ConnectorMetadataEntry result = connectorsById.get(connectorId);
         checkArgument(result != null, "No connector for connector ID: %s", connectorId);
         return result;
-    }
-
-    private String getCatalog(String connectorId)
-    {
-        return getConnectorMetadata(connectorId).getCatalog();
     }
 
     private static class ConnectorMetadataEntry

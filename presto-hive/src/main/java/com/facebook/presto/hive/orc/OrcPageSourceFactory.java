@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.orc;
 
-import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.hive.HivePartitionKey;
@@ -58,37 +57,17 @@ import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEn
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 
 public class OrcPageSourceFactory
         implements HivePageSourceFactory
 {
     private final TypeManager typeManager;
-    private final boolean enabled;
-    private final DataSize orcMaxMergeDistance;
-    private final DataSize orcMaxBufferSize;
-    private final DataSize orcStreamBufferSize;
 
     @Inject
-    public OrcPageSourceFactory(TypeManager typeManager, HiveClientConfig config)
-    {
-        //noinspection deprecation
-        this(typeManager, config.isOptimizedReaderEnabled(), config.getOrcMaxMergeDistance(), config.getOrcMaxBufferSize(), config.getOrcStreamBufferSize());
-    }
-
     public OrcPageSourceFactory(TypeManager typeManager)
     {
-        this(typeManager, true, new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(8, MEGABYTE));
-    }
-
-    public OrcPageSourceFactory(TypeManager typeManager, boolean enabled, DataSize orcMaxMergeDistance, DataSize orcMaxBufferSize, DataSize orcStreamBufferSize)
-    {
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
-        this.enabled = enabled;
-        this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
-        this.orcMaxBufferSize = checkNotNull(orcMaxBufferSize, "orcMaxBufferSize is null");
-        this.orcStreamBufferSize = checkNotNull(orcStreamBufferSize, "orcStreamBufferSize is null");
     }
 
     @Override
@@ -104,7 +83,7 @@ public class OrcPageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!isOptimizedReaderEnabled(session, enabled)) {
+        if (!isOptimizedReaderEnabled(session)) {
             return Optional.empty();
         }
 
@@ -123,9 +102,9 @@ public class OrcPageSourceFactory
                 effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager,
-                getOrcMaxMergeDistance(session, orcMaxMergeDistance),
-                getOrcMaxBufferSize(session, orcMaxBufferSize),
-                getOrcStreamBufferSize(session, orcStreamBufferSize)));
+                getOrcMaxMergeDistance(session),
+                getOrcMaxBufferSize(session),
+                getOrcStreamBufferSize(session)));
     }
 
     public static OrcPageSource createOrcPageSource(MetadataReader metadataReader,

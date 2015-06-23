@@ -1075,7 +1075,7 @@ public class TupleAnalyzer
     private TupleDescriptor analyzeView(Query query, QualifiedTableName name, String catalog, String schema, Table node)
     {
         try {
-            Session viewSession = Session.builder()
+            Session viewSession = Session.builder(metadata.getSessionPropertyManager())
                     .setUser(session.getUser())
                     .setSource(session.getSource().orElse(null))
                     .setCatalog(catalog)

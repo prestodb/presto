@@ -93,7 +93,6 @@ public class HiveMetadata
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final DateTimeZone timeZone;
-    private final HiveStorageFormat hiveStorageFormat;
     private final TypeManager typeManager;
 
     @Inject
@@ -113,7 +112,6 @@ public class HiveMetadata
                 hiveClientConfig.getAllowDropTable(),
                 hiveClientConfig.getAllowRenameTable(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
-                hiveClientConfig.getHiveStorageFormat(),
                 typeManager);
     }
 
@@ -125,7 +123,6 @@ public class HiveMetadata
             boolean allowDropTable,
             boolean allowRenameTable,
             boolean allowCorruptWritesForTesting,
-            HiveStorageFormat hiveStorageFormat,
             TypeManager typeManager)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
@@ -137,7 +134,6 @@ public class HiveMetadata
         this.metastore = checkNotNull(metastore, "metastore is null");
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.timeZone = checkNotNull(timeZone, "timeZone is null");
-        this.hiveStorageFormat = hiveStorageFormat;
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
@@ -317,7 +313,7 @@ public class HiveMetadata
 
         Path targetPath = getTargetPath(schemaName, tableName, schemaTableName);
 
-        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(session, this.hiveStorageFormat);
+        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(session);
         SerDeInfo serdeInfo = new SerDeInfo();
         serdeInfo.setName(tableName);
         serdeInfo.setSerializationLib(hiveStorageFormat.getSerDe());
@@ -384,7 +380,7 @@ public class HiveMetadata
 
         checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
 
-        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(session, this.hiveStorageFormat);
+        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(session);
 
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();

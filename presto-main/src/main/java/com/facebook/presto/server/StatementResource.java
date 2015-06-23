@@ -32,6 +32,7 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ErrorCode;
@@ -114,15 +115,19 @@ public class StatementResource
     private static final long DESIRED_RESULT_BYTES = new DataSize(1, MEGABYTE).toBytes();
 
     private final QueryManager queryManager;
+    private final SessionPropertyManager sessionPropertyManager;
     private final Supplier<ExchangeClient> exchangeClientSupplier;
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("query-purger"));
 
     @Inject
-    public StatementResource(QueryManager queryManager, Supplier<ExchangeClient> exchangeClientSupplier)
+    public StatementResource(QueryManager queryManager,
+            SessionPropertyManager sessionPropertyManager,
+            Supplier<ExchangeClient> exchangeClientSupplier)
     {
         this.queryManager = checkNotNull(queryManager, "queryManager is null");
+        this.sessionPropertyManager = checkNotNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.exchangeClientSupplier = checkNotNull(exchangeClientSupplier, "exchangeClientSupplier is null");
 
         queryPurger.scheduleWithFixedDelay(new PurgeQueriesRunnable(queries, queryManager), 200, 200, MILLISECONDS);
@@ -144,7 +149,7 @@ public class StatementResource
     {
         assertRequest(!isNullOrEmpty(statement), "SQL statement is empty");
 
-        Session session = createSessionForRequest(servletRequest);
+        Session session = createSessionForRequest(servletRequest, sessionPropertyManager);
 
         ExchangeClient exchangeClient = exchangeClientSupplier.get();
         Query query = new Query(session, statement, queryManager, exchangeClient);

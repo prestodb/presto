@@ -25,11 +25,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static java.util.Locale.ENGLISH;
 
 public final class JdbcQueryRunner
 {
@@ -82,13 +81,9 @@ public final class JdbcQueryRunner
 
     public static Session createSession()
     {
-        return Session.builder()
-                .setUser("user")
-                .setSource("test")
+        return testSessionBuilder()
                 .setCatalog("jdbc")
                 .setSchema(TPCH_SCHEMA)
-                .setTimeZoneKey(UTC_KEY)
-                .setLocale(ENGLISH)
                 .build();
     }
 }

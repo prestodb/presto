@@ -18,6 +18,7 @@ import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.http.client.HttpClient;
@@ -60,16 +61,19 @@ import static javax.ws.rs.core.Response.status;
 public class ExecuteResource
 {
     private final HttpServerInfo serverInfo;
+    private final SessionPropertyManager sessionPropertyManager;
     private final HttpClient httpClient;
     private final JsonCodec<QueryResults> queryResultsCodec;
 
     @Inject
     public ExecuteResource(
             HttpServerInfo serverInfo,
+            SessionPropertyManager sessionPropertyManager,
             @ForExecute HttpClient httpClient,
             JsonCodec<QueryResults> queryResultsCodec)
     {
         this.serverInfo = checkNotNull(serverInfo, "serverInfo is null");
+        this.sessionPropertyManager = checkNotNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
         this.queryResultsCodec = checkNotNull(queryResultsCodec, "queryResultsCodec is null");
     }
@@ -88,7 +92,7 @@ public class ExecuteResource
     {
         assertRequest(!isNullOrEmpty(query), "SQL query is empty");
 
-        Session session = createSessionForRequest(servletRequest);
+        Session session = createSessionForRequest(servletRequest, sessionPropertyManager);
         ClientSession clientSession = session.toClientSession(serverUri(), false);
 
         StatementClient client = new StatementClient(httpClient, queryResultsCodec, clientSession, query);

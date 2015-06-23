@@ -62,6 +62,7 @@ import java.util.function.Predicate;
 import static com.facebook.presto.raptor.RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.raptor.RaptorColumnHandle.shardRowIdHandle;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
+import static com.facebook.presto.raptor.RaptorSessionProperties.getExternalBatchId;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.metadata.MetadataDaoUtils.createMetadataTablesWithRetry;
 import static com.facebook.presto.raptor.util.Types.checkType;
@@ -346,7 +347,7 @@ public class RaptorMetadata
             columnTypes.add(column.getDataType());
         }
 
-        String externalBatchId = session.getProperties().get("external_batch_id");
+        String externalBatchId = getExternalBatchId(session);
         List<RaptorColumnHandle> sortColumnHandles = getSortColumnHandles(tableId);
         return new RaptorInsertTableHandle(connectorId,
                 tableId,

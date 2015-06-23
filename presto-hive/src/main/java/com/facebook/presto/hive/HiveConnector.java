@@ -20,10 +20,13 @@ import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.session.SessionPropertyMetadata;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 
+import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -40,6 +43,7 @@ public class HiveConnector
     private final ConnectorRecordSinkProvider recordSinkProvider;
     private final ConnectorHandleResolver handleResolver;
     private final Set<SystemTable> systemTables;
+    private final List<SessionPropertyMetadata<?>> sessionProperties;
 
     public HiveConnector(
             LifeCycleManager lifeCycleManager,
@@ -48,7 +52,8 @@ public class HiveConnector
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorRecordSinkProvider recordSinkProvider,
             ConnectorHandleResolver handleResolver,
-            Set<SystemTable> systemTables)
+            Set<SystemTable> systemTables,
+            List<SessionPropertyMetadata<?>> sessionProperties)
     {
         this.lifeCycleManager = checkNotNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
@@ -57,6 +62,7 @@ public class HiveConnector
         this.recordSinkProvider = checkNotNull(recordSinkProvider, "recordSinkProvider is null");
         this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
         this.systemTables = ImmutableSet.copyOf(checkNotNull(systemTables, "systemTables is null"));
+        this.sessionProperties = ImmutableList.copyOf(checkNotNull(sessionProperties, "sessionProperties is null"));
     }
 
     @Override
@@ -93,6 +99,12 @@ public class HiveConnector
     public Set<SystemTable> getSystemTables()
     {
         return systemTables;
+    }
+
+    @Override
+    public List<SessionPropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties;
     }
 
     @Override

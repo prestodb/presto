@@ -14,13 +14,18 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.session.SessionPropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -28,26 +33,40 @@ import static java.util.Objects.requireNonNull;
 public class TestingConnectorSession
         implements ConnectorSession
 {
-    public static final ConnectorSession SESSION = new TestingConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), ImmutableMap.of());
+    public static final ConnectorSession SESSION = new TestingConnectorSession(
+            "user",
+            UTC_KEY,
+            ENGLISH,
+            System.currentTimeMillis(),
+            ImmutableList.of(),
+            ImmutableMap.of());
 
     private final String user;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
     private final long startTime;
-    private final Map<String, String> properties;
+    private final Map<String, SessionPropertyMetadata<?>> properties;
+    private final Map<String, Object> propertyValues;
 
     public TestingConnectorSession(
             String user,
             TimeZoneKey timeZoneKey,
             Locale locale,
             long startTime,
-            Map<String, String> properties)
+            List<SessionPropertyMetadata<?>> sessionPropertyMetadatas,
+            Map<String, Object> propertyValues)
     {
         this.user = requireNonNull(user, "user is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.startTime = startTime;
-        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+
+        ImmutableMap.Builder<String, SessionPropertyMetadata<?>> builder = ImmutableMap.builder();
+        for (SessionPropertyMetadata<?> sessionPropertyMetadata : sessionPropertyMetadatas) {
+            builder.put(sessionPropertyMetadata.getName(), sessionPropertyMetadata);
+        }
+        this.properties = builder.build();
+        this.propertyValues = ImmutableMap.copyOf(propertyValues);
     }
 
     @Override
@@ -75,9 +94,17 @@ public class TestingConnectorSession
     }
 
     @Override
-    public Map<String, String> getProperties()
+    public <T> T getProperty(String name, Class<T> type)
     {
-        return properties;
+        SessionPropertyMetadata<?> metadata = properties.get(name);
+        if (metadata == null) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name);
+        }
+        Object value = propertyValues.get(name);
+        if (value == null) {
+            value = metadata.getDefaultValue();
+        }
+        return type.cast(value);
     }
 
     @Override

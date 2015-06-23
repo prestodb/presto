@@ -14,14 +14,14 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.tpch.testing.SampledTpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static java.util.Locale.ENGLISH;
 
 public class TestLocalQueries
         extends AbstractTestApproximateQueries
@@ -35,13 +35,9 @@ public class TestLocalQueries
 
     private static LocalQueryRunner createLocalQueryRunner()
     {
-        Session defaultSession = Session.builder()
-                .setUser("user")
-                .setSource("test")
+        Session defaultSession = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema(TINY_SCHEMA_NAME)
-                .setTimeZoneKey(UTC_KEY)
-                .setLocale(ENGLISH)
                 .build();
 
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
@@ -56,18 +52,18 @@ public class TestLocalQueries
 
         localQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
 
+        SessionPropertyManager sessionPropertyManager = localQueryRunner.getMetadata().getSessionPropertyManager();
+        sessionPropertyManager.addSystemSessionProperties(AbstractTestQueries.TEST_SYSTEM_PROPERTIES);
+        sessionPropertyManager.addConnectorSessionProperties("connector", AbstractTestQueries.TEST_CATALOG_PROPERTIES);
+
         return localQueryRunner;
     }
 
     private static Session createDefaultSampledSession()
     {
-        return Session.builder()
-                .setUser("user")
-                .setSource("test")
+        return testSessionBuilder()
                 .setCatalog(TPCH_SAMPLED_SCHEMA)
                 .setSchema(TINY_SCHEMA_NAME)
-                .setTimeZoneKey(UTC_KEY)
-                .setLocale(ENGLISH)
                 .build();
     }
 }

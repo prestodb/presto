@@ -17,8 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.tpch.testing.SampledTpchPlugin;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static java.util.Locale.ENGLISH;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class TestTpchDistributedQueries
         extends AbstractTestQueries
@@ -32,13 +31,10 @@ public class TestTpchDistributedQueries
     private static DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        Session session = Session.builder()
-                .setUser("user")
+        Session session = testSessionBuilder()
                 .setSource("test")
                 .setCatalog("tpch")
                 .setSchema("tiny")
-                .setTimeZoneKey(UTC_KEY)
-                .setLocale(ENGLISH)
                 .build();
 
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 4);

@@ -106,7 +106,7 @@ public class ClusterMemoryManager
         long totalBytes = 0;
         for (QueryExecution query : queries) {
             long bytes = query.getTotalMemoryReservation();
-            DataSize sessionMaxQueryMemory = getQueryMaxMemory(query.getSession(), maxQueryMemory);
+            DataSize sessionMaxQueryMemory = getQueryMaxMemory(query.getSession());
             long queryMemoryLimit = Math.min(maxQueryMemory.toBytes(), sessionMaxQueryMemory.toBytes());
             totalBytes += bytes;
             if (bytes > queryMemoryLimit) {

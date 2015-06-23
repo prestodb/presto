@@ -15,6 +15,8 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
+import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.spi.session.SessionPropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
 import com.google.common.base.Splitter;
@@ -55,9 +57,9 @@ final class ResourceUtil
     {
     }
 
-    public static Session createSessionForRequest(HttpServletRequest servletRequest)
+    public static Session createSessionForRequest(HttpServletRequest servletRequest, SessionPropertyManager sessionPropertyManager)
     {
-        SessionBuilder sessionBuilder = Session.builder()
+        SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
                 .setUser(getRequiredHeader(servletRequest, PRESTO_USER, "User"))
                 .setSource(servletRequest.getHeader(PRESTO_SOURCE))
                 .setCatalog(getRequiredHeader(servletRequest, PRESTO_CATALOG, "Catalog"))
@@ -78,7 +80,7 @@ final class ResourceUtil
         // parse session properties
         Multimap<String, Entry<String, String>> sessionPropertiesByCatalog = HashMultimap.create();
         for (String sessionHeader : splitSessionHeader(servletRequest.getHeaders(PRESTO_SESSION))) {
-            parseSessionHeader(sessionHeader, sessionPropertiesByCatalog);
+            parseSessionHeader(sessionHeader, sessionPropertiesByCatalog, sessionPropertyManager);
         }
         sessionBuilder.setSystemProperties(toMap(sessionPropertiesByCatalog.get(null)));
         for (Entry<String, Collection<Entry<String, String>>> entry : sessionPropertiesByCatalog.asMap().entrySet()) {
@@ -99,14 +101,15 @@ final class ResourceUtil
                 .collect(toImmutableList());
     }
 
-    private static void parseSessionHeader(String header, Multimap<String, Entry<String, String>> sessionPropertiesByCatalog)
+    private static void parseSessionHeader(String header, Multimap<String, Entry<String, String>> sessionPropertiesByCatalog, SessionPropertyManager sessionPropertyManager)
     {
-        List<String> nameValue = Splitter.on('=').limit(2).splitToList(header);
+        List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
         assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_SESSION);
+        String fullPropertyName = nameValue.get(0);
 
         String catalog;
         String name;
-        List<String> nameParts = Splitter.on('.').splitToList(nameValue.get(0));
+        List<String> nameParts = Splitter.on('.').splitToList(fullPropertyName);
         if (nameParts.size() == 1) {
             catalog = null;
             name = nameParts.get(0);
@@ -122,6 +125,15 @@ final class ResourceUtil
         assertRequest(!name.isEmpty(), "Invalid %s header", PRESTO_SESSION);
 
         String value = nameValue.get(1);
+
+        // validate session property value
+        SessionPropertyMetadata<?> metadata = sessionPropertyManager.getSessionPropertyMetadata(fullPropertyName);
+        try {
+            sessionPropertyManager.decodeProperty(fullPropertyName, value, metadata.getJavaType());
+        }
+        catch (RuntimeException e) {
+            throw badRequest(format("Invalid %s header", PRESTO_SESSION));
+        }
 
         sessionPropertiesByCatalog.put(catalog, Maps.immutableEntry(name, value));
     }

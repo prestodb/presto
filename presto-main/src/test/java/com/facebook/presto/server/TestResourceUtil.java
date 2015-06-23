@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -22,6 +23,9 @@ import javax.servlet.http.HttpServletRequest;
 
 import java.util.Locale;
 
+import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_JOIN;
+import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
@@ -47,12 +51,12 @@ public class TestResourceUtil
                         .put(PRESTO_SCHEMA, "testSchema")
                         .put(PRESTO_LANGUAGE, "zh-TW")
                         .put(PRESTO_TIME_ZONE, "Asia/Taipei")
-                        .put(PRESTO_SESSION, "first=abc")
-                        .put(PRESTO_SESSION, "second=mno,third=xyz")
+                        .put(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
+                        .put(PRESTO_SESSION, DISTRIBUTED_JOIN + "=true," + HASH_PARTITION_COUNT + " = 43")
                         .build(),
                 "testRemote");
 
-        Session session = createSessionForRequest(request);
+        Session session = createSessionForRequest(request, new SessionPropertyManager());
 
         assertEquals(session.getUser(), "testUser");
         assertEquals(session.getSource().get(), "testSource");
@@ -62,9 +66,9 @@ public class TestResourceUtil
         assertEquals(session.getTimeZoneKey(), getTimeZoneKey("Asia/Taipei"));
         assertEquals(session.getRemoteUserAddress().get(), "testRemote");
         assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
-                .put("first", "abc")
-                .put("second", "mno")
-                .put("third", "xyz")
+                .put(QUERY_MAX_MEMORY, "1GB")
+                .put(DISTRIBUTED_JOIN, "true")
+                .put(HASH_PARTITION_COUNT, "43")
                 .build());
     }
 }

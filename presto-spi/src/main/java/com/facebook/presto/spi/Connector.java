@@ -13,8 +13,12 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.session.SessionPropertyMetadata;
+
+import java.util.List;
 import java.util.Set;
 
+import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 
 public interface Connector
@@ -71,6 +75,14 @@ public interface Connector
     default Set<SystemTable> getSystemTables()
     {
         return emptySet();
+    }
+
+    /**
+     * @return the system properties for this connector
+     */
+    default List<SessionPropertyMetadata<?>> getSessionProperties()
+    {
+        return emptyList();
     }
 
     /**

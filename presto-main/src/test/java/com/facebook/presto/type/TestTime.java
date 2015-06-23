@@ -26,6 +26,7 @@ import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -34,7 +35,6 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
-import static java.util.Locale.ENGLISH;
 
 public class TestTime
 {
@@ -46,13 +46,8 @@ public class TestTime
     @BeforeClass
     public void setUp()
     {
-        Session session = Session.builder()
-                .setUser("user")
-                .setSource("test")
-                .setCatalog("catalog")
-                .setSchema("schema")
+        Session session = testSessionBuilder()
                 .setTimeZoneKey(TIME_ZONE_KEY)
-                .setLocale(ENGLISH)
                 .build();
         functionAssertions = new FunctionAssertions(session);
     }

@@ -22,14 +22,11 @@ import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.Analysis;
-import com.facebook.presto.sql.analyzer.AnalysisContext;
-import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.TupleAnalyzer;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
-import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -49,11 +46,8 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionRewriter;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -85,11 +79,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.ExpressionUtils.flipComparison;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
+import static com.facebook.presto.sql.ExpressionUtils.flipComparison;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -429,12 +423,12 @@ class RelationPlanner
                 List<Expression> items = ((Row) row).getItems();
                 for (int i = 0; i < items.size(); i++) {
                     Expression expression = items.get(i);
-                    Object constantValue = evaluateConstantExpression(expression);
+                    Object constantValue = evaluateConstantExpression(expression, analysis.getCoercions(), metadata, session);
                     values.add(LiteralInterpreter.toExpression(constantValue, descriptor.getFieldByIndex(i).getType()));
                 }
             }
             else {
-                Object constantValue = evaluateConstantExpression(row);
+                Object constantValue = evaluateConstantExpression(row, analysis.getCoercions(), metadata, session);
                 values.add(LiteralInterpreter.toExpression(constantValue, descriptor.getFieldByIndex(0).getType()));
             }
 
@@ -462,7 +456,7 @@ class RelationPlanner
         ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
         Iterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
         for (Expression expression : node.getExpressions()) {
-            Object constantValue = evaluateConstantExpression(expression);
+            Object constantValue = evaluateConstantExpression(expression, analysis.getCoercions(), metadata, session);
             Type type = analysis.getType(expression);
             values.add(LiteralInterpreter.toExpression(constantValue, type));
             Symbol inputSymbol = symbolAllocator.newSymbol(expression, type);
@@ -483,68 +477,6 @@ class RelationPlanner
 
         UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.<Symbol>of(), unnestSymbols.build(), ordinalitySymbol);
         return new RelationPlan(unnestNode, descriptor, unnestedSymbols, Optional.empty());
-    }
-
-    private Object evaluateConstantExpression(Expression expression)
-    {
-        // verify expression is constant
-        expression.accept(new DefaultTraversalVisitor<Void, Void>()
-        {
-            @Override
-            protected Void visitQualifiedNameReference(QualifiedNameReference node, Void context)
-            {
-                throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
-            }
-
-            @Override
-            protected Void visitInputReference(InputReference node, Void context)
-            {
-                throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain input references");
-            }
-        }, null);
-
-        // add coercions
-        Expression rewrite = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
-        {
-            @Override
-            public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
-
-                // cast expression if coercion is registered
-                Type coercion = analysis.getCoercion(node);
-                if (coercion != null) {
-                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getTypeSignature().toString());
-                }
-
-                return rewrittenExpression;
-            }
-        }, expression);
-
-        try {
-            // expressionInterpreter/optimizer only understands a subset of expression types
-            // TODO: remove this when the new expression tree is implemented
-            Expression canonicalized = CanonicalizeExpressions.canonicalizeExpression(rewrite);
-
-            // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
-            // to re-analyze coercions that might be necessary
-            ExpressionAnalyzer analyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                    metadata.getFunctionRegistry(),
-                    metadata.getTypeManager(),
-                    session,
-                    EXPRESSION_NOT_CONSTANT,
-                    "Constant expression cannot contain as sub-query");
-            analyzer.analyze(canonicalized, new TupleDescriptor(), new AnalysisContext());
-
-            // evaluate the expression
-            Object result = ExpressionInterpreter.expressionInterpreter(canonicalized, metadata, session, analyzer.getExpressionTypes()).evaluate(0);
-            checkState(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
-
-            return result;
-        }
-        catch (Exception e) {
-            throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Error evaluating constant expression: %s", e.getMessage());
-        }
     }
 
     private RelationPlan processAndCoerceIfNecessary(Relation node, Void context)

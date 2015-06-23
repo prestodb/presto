@@ -19,6 +19,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskState;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.util.MoreFutures;
 import com.google.common.collect.ImmutableList;
@@ -73,12 +74,16 @@ public class TaskResource
     private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(1, SECONDS);
 
     private final TaskManager taskManager;
+    private final SessionPropertyManager sessionPropertyManager;
     private final ScheduledExecutorService executor;
 
     @Inject
-    public TaskResource(TaskManager taskManager, @ForAsyncHttpResponse ScheduledExecutorService executor)
+    public TaskResource(TaskManager taskManager,
+            SessionPropertyManager sessionPropertyManager,
+            @ForAsyncHttpResponse ScheduledExecutorService executor)
     {
         this.taskManager = checkNotNull(taskManager, "taskManager is null");
+        this.sessionPropertyManager = checkNotNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.executor = checkNotNull(executor, "executor is null");
     }
 
@@ -101,7 +106,7 @@ public class TaskResource
     {
         checkNotNull(taskUpdateRequest, "taskUpdateRequest is null");
 
-        Session session = taskUpdateRequest.getSession().toSession();
+        Session session = taskUpdateRequest.getSession().toSession(sessionPropertyManager);
         TaskInfo taskInfo = taskManager.updateTask(session,
                 taskId,
                 taskUpdateRequest.getFragment(),

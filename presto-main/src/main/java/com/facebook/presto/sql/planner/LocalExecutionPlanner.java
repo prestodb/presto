@@ -198,8 +198,6 @@ public class LocalExecutionPlanner
     private final DataSize maxIndexMemorySize;
     private final IndexJoinLookupStats indexJoinLookupStats;
     private final DataSize maxPartialAggregationMemorySize;
-    private final int writerCount;
-    private final int defaultConcurrency;
 
     @Inject
     public LocalExecutionPlanner(
@@ -225,8 +223,6 @@ public class LocalExecutionPlanner
         this.indexJoinLookupStats = checkNotNull(indexJoinLookupStats, "indexJoinLookupStats is null");
         this.maxIndexMemorySize = checkNotNull(taskManagerConfig, "taskManagerConfig is null").getMaxTaskIndexMemoryUsage();
         this.maxPartialAggregationMemorySize = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
-        this.writerCount = taskManagerConfig.getWriterCount();
-        this.defaultConcurrency = taskManagerConfig.getTaskDefaultConcurrency();
 
         interpreterEnabled = compilerConfig.isInterpreterEnabled();
     }
@@ -688,7 +684,7 @@ public class LocalExecutionPlanner
                 return planGlobalAggregation(context.getNextOperatorId(), node, source);
             }
 
-            int aggregationConcurrency = getTaskAggregationConcurrency(session, defaultConcurrency);
+            int aggregationConcurrency = getTaskAggregationConcurrency(session);
             if (node.getStep() == Step.PARTIAL || !context.isAllowLocalParallel() || context.getDriverInstanceCount() > 1 || aggregationConcurrency <= 1) {
                 PhysicalOperation source = node.getSource().accept(this, context);
                 return planGroupByAggregation(node, source, context, Optional.empty());
@@ -1281,7 +1277,7 @@ public class LocalExecutionPlanner
             // Plan probe and introduce a projection to put all fields from the probe side into a single channel if necessary
             PhysicalOperation probeSource;
             LocalExecutionPlanContext parallelParentContext = null;
-            int joinConcurrency = getTaskJoinConcurrency(session, defaultConcurrency);
+            int joinConcurrency = getTaskJoinConcurrency(session);
             // currently we can not run joins with an outer build in parallel
             if (!isBuildOuter(node) && context.isAllowLocalParallel() && context.getDriverInstanceCount() == 1 && joinConcurrency > 1) {
                 parallelParentContext = context;
@@ -1302,7 +1298,7 @@ public class LocalExecutionPlanner
             Optional<Integer> buildHashChannel = buildHashSymbol.map(channelGetter(buildSource));
 
             LookupSourceSupplier lookupSourceSupplier;
-            int hashBuildConcurrency = getTaskHashBuildConcurrency(session, defaultConcurrency);
+            int hashBuildConcurrency = getTaskHashBuildConcurrency(session);
             if (isBuildOuter(node) || hashBuildConcurrency <= 1) {
                 HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                         buildContext.getNextOperatorId(),
@@ -1404,7 +1400,7 @@ public class LocalExecutionPlanner
             // introduce a projection to put all fields from the probe side into a single channel if necessary
             PhysicalOperation probeSource;
             LocalExecutionPlanContext parallelParentContext = null;
-            int joinConcurrency = getTaskJoinConcurrency(session, defaultConcurrency);
+            int joinConcurrency = getTaskJoinConcurrency(session);
             if (context.isAllowLocalParallel() && context.getDriverInstanceCount() == 1 && joinConcurrency > 1) {
                 parallelParentContext = context;
                 context = context.createSubContext();
@@ -1461,7 +1457,7 @@ public class LocalExecutionPlanner
             Optional<Integer> sampleWeightChannel = node.getSampleWeightSymbol().map(exchange::symbolToChannel);
 
             // Set table writer count
-            context.setDriverInstanceCount(getTaskWriterCount(session, writerCount));
+            context.setDriverInstanceCount(getTaskWriterCount(session));
 
             List<Integer> inputChannels = node.getColumns().stream()
                     .map(exchange::symbolToChannel)

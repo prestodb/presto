@@ -26,21 +26,18 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.type.TimestampOperators.castToDate;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
-import static java.util.Locale.ENGLISH;
 
 public class TestTeradataDateFunctions
 {
     private static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("Asia/Kathmandu");
     private static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
-    private static final Session SESSION = Session.builder()
-            .setUser("user")
-            .setSource("test")
+    private static final Session SESSION = testSessionBuilder()
             .setCatalog("catalog")
             .setSchema("schema")
             .setTimeZoneKey(TIME_ZONE_KEY)
-            .setLocale(ENGLISH)
             .build();
     private static final FunctionAssertions FUNCTION_ASSERTIONS = new FunctionAssertions(SESSION)
             .addScalarFunctions(TeradataDateFunctions.class);

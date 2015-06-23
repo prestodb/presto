@@ -482,7 +482,6 @@ public final class SqlQueryExecution
             implements QueryExecutionFactory<SqlQueryExecution>
     {
         private final int scheduleSplitBatchSize;
-        private final int initialHashPartitions;
         private final boolean experimentalSyntaxEnabled;
         private final Metadata metadata;
         private final SqlParser sqlParser;
@@ -509,7 +508,6 @@ public final class SqlQueryExecution
         {
             checkNotNull(config, "config is null");
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
-            this.initialHashPartitions = config.getInitialHashPartitions();
             this.metadata = checkNotNull(metadata, "metadata is null");
             this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
@@ -539,7 +537,7 @@ public final class SqlQueryExecution
                     remoteTaskFactory,
                     locationFactory,
                     scheduleSplitBatchSize,
-                    getHashPartitionCount(session, this.initialHashPartitions),
+                    getHashPartitionCount(session),
                     experimentalSyntaxEnabled,
                     executor,
                     nodeTaskMap);

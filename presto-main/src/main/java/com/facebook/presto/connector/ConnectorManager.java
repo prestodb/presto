@@ -240,6 +240,7 @@ public class ConnectorManager
         splitManager.addConnectorSplitManager(connectorId, connectorSplitManager);
         handleResolver.addHandleResolver(connectorId, connectorHandleResolver);
         pageSourceManager.addConnectorPageSourceProvider(connectorId, connectorPageSourceProvider);
+        metadataManager.getSessionPropertyManager().addConnectorSessionProperties(catalogName, connector.getSessionProperties());
 
         if (connectorPageSinkProvider != null) {
             pageSinkManager.addConnectorPageSinkProvider(connectorId, connectorPageSinkProvider);

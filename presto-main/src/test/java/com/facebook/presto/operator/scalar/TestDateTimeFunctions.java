@@ -37,6 +37,7 @@ import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -45,7 +46,6 @@ import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeUtils.getInstantChronology;
 import static org.joda.time.Days.daysBetween;
@@ -89,13 +89,8 @@ public class TestDateTimeFunctions
     @BeforeClass
     public void setUp()
     {
-        session = Session.builder()
-                .setUser("user")
-                .setSource("test")
-                .setCatalog("catalog")
-                .setSchema("schema")
+        session = testSessionBuilder()
                 .setTimeZoneKey(TIME_ZONE_KEY)
-                .setLocale(ENGLISH)
                 .build();
         functionAssertions = new FunctionAssertions(session);
     }
@@ -761,11 +756,7 @@ public class TestDateTimeFunctions
     public void testLocale()
     {
         Locale locale = Locale.JAPANESE;
-        Session localeSession = Session.builder()
-                .setUser("user")
-                .setSource("test")
-                .setCatalog("catalog")
-                .setSchema("schema")
+        Session localeSession = testSessionBuilder()
                 .setTimeZoneKey(TIME_ZONE_KEY)
                 .setLocale(locale)
                 .build();
