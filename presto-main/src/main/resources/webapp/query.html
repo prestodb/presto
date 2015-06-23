@@ -354,7 +354,7 @@ function taskData(d) {
 
     return [
         "<a href=" + d.self + "?pretty>" + htmlEscape(d.taskId) + "</a>",
-        htmlEscape(new URL(d.self).hostname),
+        htmlEscape(urlHostname(d.self)),
         htmlEscape(formatState(d.state, d.stats.fullyBlocked)),
         htmlEscape(formatCount(rows)),
         htmlEscape(formatCount(computeRate(rows, elapsed))),
@@ -366,6 +366,14 @@ function taskData(d) {
         htmlEscape(finishedBuffers + ' / ' + allBuffers),
         htmlEscape(bufferedPages)
     ];
+}
+
+function urlHostname(url) {
+    var s = new URL(url).hostname;
+    if ((s.charAt(0) == '[') && (s.charAt(s.length - 1) == ']')) {
+        s = s.substr(1, s.length - 2);
+    }
+    return s;
 }
 
 function formatState(state, fullyBlocked) {
