@@ -25,7 +25,6 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 
 public class QueryQueueRule
@@ -70,8 +69,8 @@ public class QueryQueueRule
             return null;
         }
         if (sourceRegex != null) {
-            String source = session.getSource();
-            if (!sourceRegex.matcher(nullToEmpty(source)).matches()) {
+            String source = session.getSource().orElse("");
+            if (!sourceRegex.matcher(source).matches()) {
                 return null;
             }
         }
