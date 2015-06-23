@@ -164,7 +164,7 @@ public class HiveMetadata
         checkNotNull(tableName, "tableName is null");
         try {
             metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            return new HiveTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName(), session);
+            return new HiveTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName());
         }
         catch (NoSuchObjectException e) {
             // table was not found
@@ -383,7 +383,7 @@ public class HiveMetadata
 
         try {
             Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
-            if (!handle.getSession().getUser().equals(table.getOwner())) {
+            if (!session.getUser().equals(table.getOwner())) {
                 throw new PrestoException(PERMISSION_DENIED, format("Unable to drop table '%s': owner of the table is different from session user", table));
             }
             metastore.dropTable(handle.getSchemaName(), handle.getTableName());
@@ -424,7 +424,6 @@ public class HiveMetadata
                     tableMetadata.getOwner(),
                     targetPath.toString(),
                     targetPath.toString(),
-                    session,
                     hiveStorageFormat);
         }
 
@@ -446,7 +445,6 @@ public class HiveMetadata
                 tableMetadata.getOwner(),
                 targetPath.toString(),
                 temporaryPath.toString(),
-                session,
                 hiveStorageFormat);
     }
 

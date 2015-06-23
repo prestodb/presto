@@ -14,8 +14,6 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.type.TimeZoneKey;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -32,13 +30,12 @@ public class ConnectorSession
     private final long startTime;
     private final Map<String, String> properties;
 
-    @JsonCreator
     public ConnectorSession(
-            @JsonProperty("user") String user,
-            @JsonProperty("timeZoneKey") TimeZoneKey timeZoneKey,
-            @JsonProperty("locale") Locale locale,
-            @JsonProperty("startTime") long startTime,
-            @JsonProperty("properties") Map<String, String> properties)
+            String user,
+            TimeZoneKey timeZoneKey,
+            Locale locale,
+            long startTime,
+            Map<String, String> properties)
     {
         this.user = requireNonNull(user, "user is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
@@ -51,31 +48,26 @@ public class ConnectorSession
         this.properties = unmodifiableMap(new HashMap<>(properties));
     }
 
-    @JsonProperty
     public String getUser()
     {
         return user;
     }
 
-    @JsonProperty
     public TimeZoneKey getTimeZoneKey()
     {
         return timeZoneKey;
     }
 
-    @JsonProperty
     public Locale getLocale()
     {
         return locale;
     }
 
-    @JsonProperty
     public long getStartTime()
     {
         return startTime;
     }
 
-    @JsonProperty
     public Map<String, String> getProperties()
     {
         return properties;

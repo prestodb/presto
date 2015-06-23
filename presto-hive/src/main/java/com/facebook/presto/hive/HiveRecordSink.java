@@ -93,13 +93,13 @@ public class HiveRecordSink
 
     private int field = -1;
 
-    public HiveRecordSink(HiveOutputTableHandle handle, Path target, JobConf conf)
+    public HiveRecordSink(ConnectorSession session, HiveOutputTableHandle handle, Path target, JobConf conf)
     {
         fieldCount = handle.getColumnNames().size();
 
         sampleWeightField = handle.getColumnNames().indexOf(SAMPLE_WEIGHT_COLUMN_NAME);
         columnTypes = ImmutableList.copyOf(handle.getColumnTypes());
-        connectorSession = handle.getConnectorSession();
+        connectorSession = session;
         hasDateTimeTypes = handle.getColumnTypes().stream().map(this::containsDateTime).collect(toList());
 
         Iterable<String> hiveTypeNames = transform(transform(handle.getColumnTypes(), HiveType::toHiveType), HiveType::getHiveTypeName);

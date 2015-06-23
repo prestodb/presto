@@ -13,23 +13,19 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ConnectorSession;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveTableHandle
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
     private final JsonCodec<HiveTableHandle> codec = JsonCodec.jsonCodec(HiveTableHandle.class);
 
     @Test
     public void testRoundTrip()
     {
-        HiveTableHandle expected = new HiveTableHandle("client", "schema", "table", SESSION);
+        HiveTableHandle expected = new HiveTableHandle("client", "schema", "table");
 
         String json = codec.toJson(expected);
         HiveTableHandle actual = codec.fromJson(json);

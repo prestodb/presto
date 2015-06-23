@@ -349,7 +349,7 @@ public class HiveSplitManager
     @Override
     public ConnectorSplitSource getPartitionSplits(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorPartition> connectorPartitions)
     {
-        HiveTableHandle hiveTableHandle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
+        checkType(tableHandle, HiveTableHandle.class, "tableHandle");
 
         checkNotNull(connectorPartitions, "connectorPartitions is null");
         List<HivePartition> partitions = Lists.transform(connectorPartitions, partition -> checkType(partition, HivePartition.class, "partition"));
@@ -380,7 +380,7 @@ public class HiveSplitManager
                 hivePartitions,
                 bucket,
                 maxSplitSize,
-                hiveTableHandle.getSession(),
+                session,
                 hdfsEnvironment,
                 namenodeStats,
                 directoryLister,

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.TupleDomain;
@@ -42,7 +41,6 @@ public class HiveSplit
     private final String database;
     private final String table;
     private final String partitionName;
-    private final ConnectorSession session;
     private final TupleDomain<HiveColumnHandle> effectivePredicate;
     private final boolean forceLocalScheduling;
 
@@ -59,7 +57,6 @@ public class HiveSplit
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
-            @JsonProperty("session") ConnectorSession session,
             @JsonProperty("effectivePredicate") TupleDomain<HiveColumnHandle> effectivePredicate)
     {
         checkNotNull(clientId, "clientId is null");
@@ -85,7 +82,6 @@ public class HiveSplit
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.addresses = ImmutableList.copyOf(addresses);
         this.forceLocalScheduling = forceLocalScheduling;
-        this.session = session;
         this.effectivePredicate = effectivePredicate;
     }
 
@@ -148,12 +144,6 @@ public class HiveSplit
     public List<HostAddress> getAddresses()
     {
         return addresses;
-    }
-
-    @JsonProperty
-    public ConnectorSession getSession()
-    {
-        return session;
     }
 
     @JsonProperty
