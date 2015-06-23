@@ -50,7 +50,7 @@ statement
     | DESC qualifiedName                                               #showColumns
     | SHOW FUNCTIONS                                                   #showFunctions
     | SHOW SESSION                                                     #showSession
-    | SET SESSION qualifiedName EQ STRING                              #setSession
+    | SET SESSION qualifiedName EQ expression                          #setSession
     | RESET SESSION qualifiedName                                      #resetSession
     | SHOW PARTITIONS (FROM | IN) qualifiedName
         (WHERE booleanExpression)?

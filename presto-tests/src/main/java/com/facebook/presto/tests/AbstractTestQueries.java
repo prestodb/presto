@@ -16,6 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.operator.scalar.TestingRowConstructor;
+import com.facebook.presto.spi.session.SessionPropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
@@ -25,9 +26,11 @@ import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.DateTimeZoneIndex;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
@@ -78,6 +81,39 @@ public abstract class AbstractTestQueries
             .scalar(CreateHll.class)
             .scalar(TestingRowConstructor.class)
             .getFunctions();
+
+    public static final List<SessionPropertyMetadata<?>> TEST_SYSTEM_PROPERTIES = ImmutableList.of(
+            SessionPropertyMetadata.stringSessionProperty(
+                    "test_string",
+                    "test string property",
+                    "test default",
+                    false),
+            SessionPropertyMetadata.longSessionProperty(
+                    "test_long",
+                    "test long property",
+                    42L,
+                    false));
+    public static final List<SessionPropertyMetadata<?>> TEST_CATALOG_PROPERTIES = ImmutableList.of(
+            SessionPropertyMetadata.stringSessionProperty(
+                    "connector_string",
+                    "connector string property",
+                    "connector default",
+                    false),
+            SessionPropertyMetadata.longSessionProperty(
+                    "connector_long",
+                    "connector long property",
+                    33L,
+                    false),
+            SessionPropertyMetadata.booleanSessionProperty(
+                    "connector_boolean",
+                    "connector boolean property",
+                    true,
+                    false),
+            SessionPropertyMetadata.doubleSessionProperty(
+                    "connector_double",
+                    "connector double property",
+                    99.0,
+                    false));
 
     protected AbstractTestQueries(QueryRunner queryRunner)
     {
@@ -3406,13 +3442,23 @@ public abstract class AbstractTestQueries
     public void testShowSession()
             throws Exception
     {
-        assertQueryOrdered(
+        MaterializedResult result = computeActual(
                 getSession()
-                        .withCatalogProperty("connector", "cheese", "burger")
-                        .withSystemProperty("foo", "bar")
-                        .withSystemProperty("apple", "pie"),
-                "SHOW SESSION",
-                "SELECT * FROM VALUES ('apple', 'pie'), ('foo', 'bar'), ('connector.cheese', 'burger')");
+                        .withSystemProperty("test_string", "foo string")
+                        .withSystemProperty("test_long", "424242")
+                        .withCatalogProperty("connector", "connector_string", "bar string")
+                        .withCatalogProperty("connector", "connector_long", "11"),
+                "SHOW SESSION");
+
+        ImmutableMap<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
+            assertEquals(input.getFieldCount(), 5);
+            return (String) input.getField(0);
+        });
+
+        assertEquals(properties.get("test_string"), new MaterializedRow(1, "test_string", "foo string", "test default", "varchar", "test string property"));
+        assertEquals(properties.get("test_long"), new MaterializedRow(1, "test_long", "424242", "42", "bigint", "test long property"));
+        assertEquals(properties.get("connector.connector_string"), new MaterializedRow(1, "connector.connector_string", "bar string", "connector default", "varchar", "connector string property"));
+        assertEquals(properties.get("connector.connector_long"), new MaterializedRow(1, "connector.connector_long", "11", "33", "bigint", "connector long property"));
     }
 
     @Test

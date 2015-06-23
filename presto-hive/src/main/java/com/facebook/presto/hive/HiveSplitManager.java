@@ -106,7 +106,6 @@ public class HiveSplitManager
     private final DataSize maxSplitSize;
     private final DataSize maxInitialSplitSize;
     private final int maxInitialSplits;
-    private final boolean forceLocalScheduling;
     private final boolean recursiveDfsWalkerEnabled;
     private final boolean assumeCanonicalPartitionKeys;
     private final int domainCompactionThreshold;
@@ -134,7 +133,6 @@ public class HiveSplitManager
                 hiveClientConfig.getMaxSplitSize(),
                 hiveClientConfig.getMaxInitialSplitSize(),
                 hiveClientConfig.getMaxInitialSplits(),
-                hiveClientConfig.isForceLocalScheduling(),
                 hiveClientConfig.isAssumeCanonicalPartitionKeys(),
                 hiveClientConfig.getRecursiveDirWalkerEnabled(),
                 hiveClientConfig.getDomainCompactionThreshold());
@@ -154,7 +152,6 @@ public class HiveSplitManager
             DataSize maxSplitSize,
             DataSize maxInitialSplitSize,
             int maxInitialSplits,
-            boolean forceLocalScheduling,
             boolean assumeCanonicalPartitionKeys,
             boolean recursiveDfsWalkerEnabled,
             int domainCompactionThreshold)
@@ -173,7 +170,6 @@ public class HiveSplitManager
         this.maxSplitSize = checkNotNull(maxSplitSize, "maxSplitSize is null");
         this.maxInitialSplitSize = checkNotNull(maxInitialSplitSize, "maxInitialSplitSize is null");
         this.maxInitialSplits = maxInitialSplits;
-        this.forceLocalScheduling = forceLocalScheduling;
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
@@ -377,7 +373,6 @@ public class HiveSplitManager
                 maxPartitionBatchSize,
                 maxInitialSplitSize,
                 maxInitialSplits,
-                forceLocalScheduling,
                 recursiveDfsWalkerEnabled);
 
         HiveSplitSource splitSource = new HiveSplitSource(connectorId, maxOutstandingSplits, hiveSplitLoader);

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.CreateTableTask;
 import com.facebook.presto.execution.CreateViewTask;
 import com.facebook.presto.execution.DataDefinitionTask;
@@ -36,6 +37,7 @@ import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlQueryQueueManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.split.SplitManager;
@@ -111,6 +113,10 @@ public class CoordinatorModule
 
         // split manager
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
+
+        // session properties
+        binder.bind(SessionPropertyManager.class).in(Scopes.SINGLETON);
+        binder.bind(SystemSessionProperties.class).in(Scopes.SINGLETON);
 
         // node scheduler
         binder.bind(InternalNodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);

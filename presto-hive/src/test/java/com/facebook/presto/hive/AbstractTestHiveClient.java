@@ -44,7 +44,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.type.SqlDate;
@@ -54,6 +53,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.TypeRegistry;
@@ -97,6 +97,7 @@ import static com.facebook.presto.hive.HiveStorageFormat.SEQUENCEFILE;
 import static com.facebook.presto.hive.HiveStorageFormat.TEXTFILE;
 import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_DATA_STREAM_FACTORIES;
 import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_RECORD_CURSOR_PROVIDER;
+import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
@@ -132,8 +133,6 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
-
-import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 
 @Test(groups = "hive")
 public abstract class AbstractTestHiveClient
@@ -306,7 +305,6 @@ public abstract class AbstractTestHiveClient
                 true,
                 true,
                 true,
-                hiveClientConfig.getHiveStorageFormat(),
                 new TypeRegistry());
         splitManager = new HiveSplitManager(
                 connectorId,
@@ -322,7 +320,6 @@ public abstract class AbstractTestHiveClient
                 hiveClientConfig.getMaxSplitSize(),
                 hiveClientConfig.getMaxInitialSplitSize(),
                 hiveClientConfig.getMaxInitialSplits(),
-                false,
                 false,
                 false,
                 hiveClientConfig.getDomainCompactionThreshold());
@@ -1845,7 +1842,8 @@ public abstract class AbstractTestHiveClient
                 SESSION.getTimeZoneKey(),
                 SESSION.getLocale(),
                 SESSION.getStartTime(),
-                ImmutableMap.of(STORAGE_FORMAT_PROPERTY, storageFormat.name().toLowerCase()));
+                new HiveSessionProperties(new HiveClientConfig()).getSessionProperties(),
+                ImmutableMap.of(STORAGE_FORMAT_PROPERTY, storageFormat.name()));
     }
 
     protected static String randomName()

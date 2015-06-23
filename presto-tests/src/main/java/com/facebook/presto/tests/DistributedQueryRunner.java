@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
@@ -103,6 +104,12 @@ public class DistributedQueryRunner
             server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
         }
         log.info("Added functions in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
+
+        for (TestingPrestoServer server : servers) {
+            SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
+            sessionPropertyManager.addSystemSessionProperties(AbstractTestQueries.TEST_SYSTEM_PROPERTIES);
+            sessionPropertyManager.addConnectorSessionProperties("connector", AbstractTestQueries.TEST_CATALOG_PROPERTIES);
+        }
     }
 
     private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator, Map<String, String> extraProperties)

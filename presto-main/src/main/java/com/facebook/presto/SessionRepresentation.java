@@ -13,6 +13,7 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -137,7 +138,7 @@ public final class SessionRepresentation
         return catalogProperties;
     }
 
-    public Session toSession()
+    public Session toSession(SessionPropertyManager sessionPropertyManager)
     {
         return new Session(
                 user,
@@ -150,6 +151,7 @@ public final class SessionRepresentation
                 userAgent,
                 startTime,
                 systemProperties,
-                catalogProperties);
+                catalogProperties,
+                sessionPropertyManager);
     }
 }

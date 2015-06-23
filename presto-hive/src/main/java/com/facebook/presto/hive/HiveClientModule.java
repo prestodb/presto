@@ -68,6 +68,8 @@ public class HiveClientModule
         binder.bind(DirectoryLister.class).to(HadoopDirectoryLister.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(HiveClientConfig.class);
 
+        binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
+
         if (metastore != null) {
             binder.bind(HiveMetastore.class).toInstance(metastore);
         }

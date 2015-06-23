@@ -13,114 +13,172 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.memory.MemoryManagerConfig;
+import com.facebook.presto.spi.session.SessionPropertyMetadata;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+
+import javax.inject.Inject;
+
+import java.util.List;
+
+import static com.facebook.presto.spi.session.SessionPropertyMetadata.booleanSessionProperty;
+import static com.facebook.presto.spi.session.SessionPropertyMetadata.integerSessionProperty;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public final class SystemSessionProperties
 {
-    private static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
-    private static final String DISTRIBUTED_JOIN = "distributed_join";
-    private static final String HASH_PARTITION_COUNT = "hash_partition_count";
-    private static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
-    private static final String TASK_WRITER_COUNT = "task_writer_count";
-    private static final String TASK_DEFAULT_CONCURRENCY = "task_default_concurrency";
-    private static final String TASK_JOIN_CONCURRENCY = "task_join_concurrency";
-    private static final String TASK_HASH_BUILD_CONCURRENCY = "task_hash_build_concurrency";
-    private static final String TASK_AGGREGATION_CONCURRENCY = "task_aggregation_concurrency";
-    private static final String QUERY_MAX_MEMORY = "query_max_memory";
-    private static final String REDISTRIBUTE_WRITES = "redistribute_writes";
+    public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
+    public static final String DISTRIBUTED_JOIN = "distributed_join";
+    public static final String HASH_PARTITION_COUNT = "hash_partition_count";
+    public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
+    public static final String TASK_WRITER_COUNT = "task_writer_count";
+    public static final String TASK_DEFAULT_CONCURRENCY = "task_default_concurrency";
+    public static final String TASK_JOIN_CONCURRENCY = "task_join_concurrency";
+    public static final String TASK_HASH_BUILD_CONCURRENCY = "task_hash_build_concurrency";
+    public static final String TASK_AGGREGATION_CONCURRENCY = "task_aggregation_concurrency";
+    public static final String QUERY_MAX_MEMORY = "query_max_memory";
+    public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
 
-    private SystemSessionProperties() {}
+    private final List<SessionPropertyMetadata<?>> sessionProperties;
 
-    private static boolean isEnabled(String propertyName, Session session, boolean defaultValue)
+    public SystemSessionProperties()
     {
-        String enabled = session.getSystemProperties().get(propertyName);
-        if (enabled == null) {
-            return defaultValue;
+        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig());
+    }
+
+    @Inject
+    public SystemSessionProperties(
+            QueryManagerConfig queryManagerConfig,
+            TaskManagerConfig taskManagerConfig,
+            MemoryManagerConfig memoryManagerConfig,
+            FeaturesConfig featuresConfig)
+    {
+        sessionProperties = ImmutableList.of(
+                booleanSessionProperty(
+                        OPTIMIZE_HASH_GENERATION,
+                        "Compute hash codes for distribution, joins, and aggregations early in query plan",
+                        featuresConfig.isOptimizeHashGeneration(),
+                        false),
+                booleanSessionProperty(
+                        DISTRIBUTED_JOIN,
+                        "Use a distributed join instead of a broadcast join",
+                        featuresConfig.isDistributedJoinsEnabled(),
+                        false),
+                integerSessionProperty(
+                        HASH_PARTITION_COUNT,
+                        "Number of partitions for distributed joins and aggregations",
+                        queryManagerConfig.getInitialHashPartitions(),
+                        false),
+                booleanSessionProperty(
+                        PREFER_STREAMING_OPERATORS,
+                        "Prefer source table layouts that produce streaming operators",
+                        false,
+                        false),
+                integerSessionProperty(
+                        TASK_WRITER_COUNT,
+                        "Default number of local parallel table writer jobs per worker",
+                        taskManagerConfig.getWriterCount(),
+                        false),
+                booleanSessionProperty(
+                        REDISTRIBUTE_WRITES,
+                        "Force parallel distributed writes",
+                        featuresConfig.isRedistributeWrites(),
+                        false),
+                integerSessionProperty(
+                        TASK_DEFAULT_CONCURRENCY,
+                        "Experimental: Default number of local parallel jobs per worker",
+                        taskManagerConfig.getTaskDefaultConcurrency(),
+                        false),
+                integerSessionProperty(
+                        TASK_JOIN_CONCURRENCY,
+                        "Experimental: Default number of local parallel join jobs per worker",
+                        taskManagerConfig.getTaskDefaultConcurrency(),
+                        false),
+                integerSessionProperty(
+                        TASK_HASH_BUILD_CONCURRENCY,
+                        "Experimental: Default number of local parallel hash build jobs per worker",
+                        taskManagerConfig.getTaskDefaultConcurrency(),
+                        false),
+                integerSessionProperty(
+                        TASK_AGGREGATION_CONCURRENCY,
+                        "Experimental: Default number of local parallel aggregation jobs per worker",
+                        taskManagerConfig.getTaskDefaultConcurrency(),
+                        false),
+                new SessionPropertyMetadata<>(
+                        QUERY_MAX_MEMORY,
+                        "Maximum amount of distributed memory a query can use",
+                        VARCHAR,
+                        DataSize.class,
+                        memoryManagerConfig.getMaxQueryMemory(),
+                        true,
+                        value -> DataSize.valueOf((String) value)));
+    }
+
+    public List<SessionPropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties;
+    }
+
+    public static boolean isOptimizeHashGenerationEnabled(Session session)
+    {
+        return session.getProperty(OPTIMIZE_HASH_GENERATION, Boolean.class);
+    }
+
+    public static boolean isDistributedJoinEnabled(Session session)
+    {
+        return session.getProperty(DISTRIBUTED_JOIN, Boolean.class);
+    }
+
+    public static int getHashPartitionCount(Session session)
+    {
+        return session.getProperty(HASH_PARTITION_COUNT, Integer.class);
+    }
+
+    public static boolean preferStreamingOperators(Session session)
+    {
+        return session.getProperty(PREFER_STREAMING_OPERATORS, Boolean.class);
+    }
+
+    public static int getTaskWriterCount(Session session)
+    {
+        return session.getProperty(TASK_WRITER_COUNT, Integer.class);
+    }
+
+    public static boolean isRedistributeWrites(Session session)
+    {
+        return session.getProperty(REDISTRIBUTE_WRITES, Boolean.class);
+    }
+
+    public static int getTaskJoinConcurrency(Session session)
+    {
+        return getPropertyOr(session, TASK_JOIN_CONCURRENCY, TASK_DEFAULT_CONCURRENCY, Integer.class);
+    }
+
+    public static int getTaskHashBuildConcurrency(Session session)
+    {
+        return getPropertyOr(session, TASK_HASH_BUILD_CONCURRENCY, TASK_DEFAULT_CONCURRENCY, Integer.class);
+    }
+
+    public static int getTaskAggregationConcurrency(Session session)
+    {
+        return getPropertyOr(session, TASK_AGGREGATION_CONCURRENCY, TASK_DEFAULT_CONCURRENCY, Integer.class);
+    }
+
+    public static DataSize getQueryMaxMemory(Session session)
+    {
+        return session.getProperty(QUERY_MAX_MEMORY, DataSize.class);
+    }
+
+    private static <T> T getPropertyOr(Session session, String propertyName, String defaultPropertyName, Class<T> type)
+    {
+        T value = session.getProperty(propertyName, type);
+        if (value == null) {
+            value = session.getProperty(defaultPropertyName, type);
         }
-
-        return Boolean.valueOf(enabled);
-    }
-
-    private static int getNumber(String propertyName, Session session, int defaultValue)
-    {
-        String count = session.getSystemProperties().get(propertyName);
-        if (count != null) {
-            try {
-                return Integer.parseInt(count);
-            }
-            catch (NumberFormatException ignored) {
-            }
-        }
-
-        return defaultValue;
-    }
-
-    private static DataSize getDataSize(String propertyName, Session session, DataSize defaultValue)
-    {
-        String size = session.getSystemProperties().get(propertyName);
-        if (size != null) {
-            try {
-                return DataSize.valueOf(size);
-            }
-            catch (IllegalArgumentException ignored) {
-            }
-        }
-
-        return defaultValue;
-    }
-
-    public static boolean isOptimizeHashGenerationEnabled(Session session, boolean defaultValue)
-    {
-        return isEnabled(OPTIMIZE_HASH_GENERATION, session, defaultValue);
-    }
-
-    public static boolean isDistributedJoinEnabled(Session session, boolean defaultValue)
-    {
-        return isEnabled(DISTRIBUTED_JOIN, session, defaultValue);
-    }
-
-    public static int getHashPartitionCount(Session session, int defaultValue)
-    {
-        return getNumber(HASH_PARTITION_COUNT, session, defaultValue);
-    }
-
-    public static boolean preferStreamingOperators(Session session, boolean defaultValue)
-    {
-        return isEnabled(PREFER_STREAMING_OPERATORS, session, defaultValue);
-    }
-
-    public static int getTaskWriterCount(Session session, int defaultValue)
-    {
-        return getNumber(TASK_WRITER_COUNT, session, defaultValue);
-    }
-
-    public static int getTaskDefaultConcurrency(Session session, int defaultValue)
-    {
-        return getNumber(TASK_DEFAULT_CONCURRENCY, session, defaultValue);
-    }
-
-    public static int getTaskJoinConcurrency(Session session, int defaultValue)
-    {
-        return getNumber(TASK_JOIN_CONCURRENCY, session, getTaskDefaultConcurrency(session, defaultValue));
-    }
-
-    public static int getTaskHashBuildConcurrency(Session session, int defaultValue)
-    {
-        return getNumber(TASK_HASH_BUILD_CONCURRENCY, session, getTaskDefaultConcurrency(session, defaultValue));
-    }
-
-    public static int getTaskAggregationConcurrency(Session session, int defaultValue)
-    {
-        return getNumber(TASK_AGGREGATION_CONCURRENCY, session, getTaskDefaultConcurrency(session, defaultValue));
-    }
-
-    public static DataSize getQueryMaxMemory(Session session, DataSize defaultValue)
-    {
-        return getDataSize(QUERY_MAX_MEMORY, session, defaultValue);
-    }
-
-    public static boolean isRedistributeWrites(Session session, boolean defaultValue)
-    {
-        return isEnabled(REDISTRIBUTE_WRITES, session, defaultValue);
+        return value;
     }
 }

@@ -37,8 +37,7 @@ import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.SYSTEM_POOL;
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static java.util.Locale.ENGLISH;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
@@ -50,25 +49,15 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestMemoryManager
 {
-    private static final Session SESSION = Session.builder()
-            .setUser("user")
-            .setSource("test")
+    private static final Session SESSION = testSessionBuilder()
             .setCatalog("tpch")
             // Use sf1000 to make sure this takes at least one second, so that the memory manager will fail the query
             .setSchema("sf1000")
-            .setTimeZoneKey(UTC_KEY)
-            .setLocale(ENGLISH)
             .build();
 
-    private static final Session TINY_SESSION = Session.builder()
-            .setUser("user")
-            .setSource("source")
+    private static final Session TINY_SESSION = testSessionBuilder()
             .setCatalog("tpch")
             .setSchema("tiny")
-            .setTimeZoneKey(UTC_KEY)
-            .setLocale(ENGLISH)
-            .setRemoteUserAddress("address")
-            .setUserAgent("agent")
             .build();
 
     private final ExecutorService executor = newCachedThreadPool();

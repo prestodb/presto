@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
@@ -586,9 +587,15 @@ public class TestSqlParser
     public void testSetSession()
             throws Exception
     {
-        assertStatement("SET SESSION foo = 'bar'", new SetSession(QualifiedName.of("foo"), "bar"));
-        assertStatement("SET SESSION foo.bar = 'baz'", new SetSession(QualifiedName.of("foo", "bar"), "baz"));
-        assertStatement("SET SESSION foo.bar.boo = 'baz'", new SetSession(QualifiedName.of("foo", "bar", "boo"), "baz"));
+        assertStatement("SET SESSION foo = 'bar'", new SetSession(QualifiedName.of("foo"), new StringLiteral("bar")));
+        assertStatement("SET SESSION foo.bar = 'baz'", new SetSession(QualifiedName.of("foo", "bar"), new StringLiteral("baz")));
+        assertStatement("SET SESSION foo.bar.boo = 'baz'", new SetSession(QualifiedName.of("foo", "bar", "boo"), new StringLiteral("baz")));
+
+        assertStatement("SET SESSION foo.bar = 'ban' || 'ana'", new SetSession(
+                QualifiedName.of("foo", "bar"),
+                new FunctionCall(new QualifiedName("concat"), ImmutableList.of(
+                        new StringLiteral("ban"),
+                        new StringLiteral("ana")))));
     }
 
     @Test

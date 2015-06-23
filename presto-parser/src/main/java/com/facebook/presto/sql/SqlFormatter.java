@@ -674,7 +674,7 @@ public final class SqlFormatter
             builder.append("SET SESSION ")
                     .append(node.getName())
                     .append(" = ")
-                    .append(formatStringLiteral(node.getValue()));
+                    .append(formatExpression(node.getValue()));
 
             return null;
         }

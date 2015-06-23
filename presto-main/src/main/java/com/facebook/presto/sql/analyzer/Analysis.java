@@ -155,6 +155,11 @@ public class Analysis
         relationCoercions.put(relation, types);
     }
 
+    public IdentityHashMap<Expression, Type> getCoercions()
+    {
+        return coercions;
+    }
+
     public Type getCoercion(Expression expression)
     {
         return coercions.get(expression);

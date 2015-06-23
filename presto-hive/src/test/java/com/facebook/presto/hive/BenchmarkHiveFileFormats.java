@@ -71,12 +71,12 @@ import java.io.PrintStream;
 import java.util.List;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveType.getType;
 import static com.facebook.presto.hive.HiveUtil.setReadColumns;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.Lists.transform;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static io.airlift.tpch.LineItemColumn.DISCOUNT;

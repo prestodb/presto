@@ -438,7 +438,7 @@ class AstBuilder
     @Override
     public Node visitSetSession(@NotNull SqlBaseParser.SetSessionContext context)
     {
-        return new SetSession(getQualifiedName(context.qualifiedName()), unquote(context.STRING().getText()));
+        return new SetSession(getQualifiedName(context.qualifiedName()), (Expression) visit(context.expression()));
     }
 
     @Override

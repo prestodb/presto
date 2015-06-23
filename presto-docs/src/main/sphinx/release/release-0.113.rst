@@ -13,6 +13,25 @@ of memory a query may use on any one node. On each worker, the
 ``resources.reserved-system-memory`` config property controls how much memory is reserved
 for internal Presto data structures and temporary allocations.
 
+Session Properties
+------------------
+
+All session properties now have a SQL type, default value and description.  The
+value for :doc:`/sql/set-session` can now be any constant expression, and the
+:doc:`/sql/show-session` command prints the current effective value and default
+value for all session properties.
+
+This type safety extends to the :doc:`SPI </develop/spi-overview>` where properties
+can be validated and converted to any Java type using
+``SessionPropertyMetadata``. For an example, see ``HiveSessionProperties``.
+
+.. note::
+    This is a backwards incompatible change with the previous connector SPI.
+    If you have written a connector that uses session properties, you will need
+    to update your code to declare the properties in the ``Connector``
+    implementation and callers of ``ConnectorSession.getProperty()`` will now
+    need the expected Java type of the property.
+
 General Changes
 ---------------
 

@@ -21,9 +21,9 @@ public class SetSession
         extends Statement
 {
     private final QualifiedName name;
-    private final String value;
+    private final Expression value;
 
-    public SetSession(QualifiedName name, String value)
+    public SetSession(QualifiedName name, Expression value)
     {
         this.name = name;
         this.value = value;
@@ -34,7 +34,7 @@ public class SetSession
         return name;
     }
 
-    public String getValue()
+    public Expression getValue()
     {
         return value;
     }

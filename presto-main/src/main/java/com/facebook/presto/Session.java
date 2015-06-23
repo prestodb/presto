@@ -14,6 +14,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
@@ -46,6 +47,7 @@ public final class Session
     private final long startTime;
     private final Map<String, String> systemProperties;
     private final Map<String, Map<String, String>> catalogProperties;
+    private final SessionPropertyManager sessionPropertyManager;
 
     public Session(
             String user,
@@ -58,7 +60,8 @@ public final class Session
             Optional<String> userAgent,
             long startTime,
             Map<String, String> systemProperties,
-            Map<String, Map<String, String>> catalogProperties)
+            Map<String, Map<String, String>> catalogProperties,
+            SessionPropertyManager sessionPropertyManager)
     {
         this.user = requireNonNull(user, "user is null");
         this.source = source;
@@ -70,6 +73,7 @@ public final class Session
         this.userAgent = userAgent;
         this.startTime = startTime;
         this.systemProperties = ImmutableMap.copyOf(systemProperties);
+        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
 
         ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.<String, Map<String, String>>builder();
         catalogProperties.entrySet().stream()
@@ -123,14 +127,19 @@ public final class Session
         return startTime;
     }
 
+    public <T> T getProperty(String name, Class<T> type)
+    {
+        return sessionPropertyManager.decodeProperty(name, systemProperties.get(name), type);
+    }
+
+    public Map<String, String> getCatalogProperties(String catalog)
+    {
+        return catalogProperties.getOrDefault(catalog, ImmutableMap.of());
+    }
+
     public Map<String, String> getSystemProperties()
     {
         return systemProperties;
-    }
-
-    public Map<String, Map<String, String>> getCatalogProperties()
-    {
-        return catalogProperties;
     }
 
     public Session withSystemProperty(String key, String value)
@@ -152,7 +161,8 @@ public final class Session
                 userAgent,
                 startTime,
                 systemProperties,
-                catalogProperties);
+                catalogProperties,
+                sessionPropertyManager);
     }
 
     public Session withCatalogProperty(String catalog, String key, String value)
@@ -183,17 +193,26 @@ public final class Session
                 userAgent,
                 startTime,
                 systemProperties,
-                catalogProperties);
+                catalogProperties,
+                sessionPropertyManager);
     }
 
     public ConnectorSession toConnectorSession()
     {
-        return new FullConnectorSession(user, timeZoneKey, locale, startTime, ImmutableMap.of());
+        return new FullConnectorSession(user, timeZoneKey, locale, startTime);
     }
 
     public ConnectorSession toConnectorSession(String catalog)
     {
-        return new FullConnectorSession(user, timeZoneKey, locale, startTime, catalogProperties.getOrDefault(checkNotNull(catalog, "catalog is null"), ImmutableMap.of()));
+        checkNotNull(catalog, "catalog is null");
+        return new FullConnectorSession(
+                user,
+                timeZoneKey,
+                locale,
+                startTime,
+                catalogProperties.getOrDefault(catalog, ImmutableMap.of()),
+                catalog,
+                sessionPropertyManager);
     }
 
     public ClientSession toClientSession(URI server, boolean debug)
@@ -251,9 +270,9 @@ public final class Session
                 .toString();
     }
 
-    public static SessionBuilder builder()
+    public static SessionBuilder builder(SessionPropertyManager sessionPropertyManager)
     {
-        return new SessionBuilder();
+        return new SessionBuilder(sessionPropertyManager);
     }
 
     public static class SessionBuilder
@@ -269,9 +288,11 @@ public final class Session
         private long startTime = System.currentTimeMillis();
         private Map<String, String> systemProperties = ImmutableMap.of();
         private final Map<String, Map<String, String>> catalogProperties = new HashMap<>();
+        private final SessionPropertyManager sessionPropertyManager;
 
-        private SessionBuilder()
+        private SessionBuilder(SessionPropertyManager sessionPropertyManager)
         {
+            this.sessionPropertyManager = checkNotNull(sessionPropertyManager, "sessionPropertyManager is null");
         }
 
         public SessionBuilder setCatalog(String catalog)
@@ -364,7 +385,8 @@ public final class Session
                     Optional.ofNullable(userAgent),
                     startTime,
                     systemProperties,
-                    catalogProperties);
+                    catalogProperties,
+                    sessionPropertyManager);
         }
     }
 }

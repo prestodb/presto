@@ -75,26 +75,50 @@ public abstract class AbstractTestDistributedQueries
     public void testSetSession()
             throws Exception
     {
-        MaterializedResult result = computeActual("SET SESSION foo = 'bar'");
+        MaterializedResult result = computeActual("SET SESSION test_string = 'bar'");
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("foo", "bar"));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("test_string", "bar"));
 
-        result = computeActual("SET SESSION foo.bar = 'baz'");
+        result = computeActual("SET SESSION connector.connector_long = 999");
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("foo.bar", "baz"));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_long", "999"));
+
+        result = computeActual("SET SESSION connector.connector_string = 'baz'");
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_string", "baz"));
+
+        result = computeActual("SET SESSION connector.connector_string = 'ban' || 'ana'");
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_string", "banana"));
+
+        result = computeActual("SET SESSION connector.connector_long = 444");
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_long", "444"));
+
+        result = computeActual("SET SESSION connector.connector_long = 111 + 111");
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_long", "222"));
+
+        result = computeActual("SET SESSION connector.connector_boolean = 111 < 3");
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_boolean", "false"));
+
+        result = computeActual("SET SESSION connector.connector_double = 11.1");
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_double", "11.1"));
     }
 
     @Test
     public void testResetSession()
             throws Exception
     {
-        MaterializedResult result = computeActual(getSession(), "RESET SESSION foo");
+        MaterializedResult result = computeActual(getSession(), "RESET SESSION test_string");
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getResetSessionProperties(), ImmutableSet.of("foo"));
+        assertEquals(result.getResetSessionProperties(), ImmutableSet.of("test_string"));
 
-        result = computeActual(getSession(), "RESET SESSION connector.cheese");
+        result = computeActual(getSession(), "RESET SESSION connector.connector_string");
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getResetSessionProperties(), ImmutableSet.of("connector.cheese"));
+        assertEquals(result.getResetSessionProperties(), ImmutableSet.of("connector.connector_string"));
     }
 
     @Test

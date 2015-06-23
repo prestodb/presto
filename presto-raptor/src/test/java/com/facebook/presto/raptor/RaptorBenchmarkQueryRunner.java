@@ -33,10 +33,9 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Map;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.util.Locale.ENGLISH;
 
 public final class RaptorBenchmarkQueryRunner
 {
@@ -57,13 +56,9 @@ public final class RaptorBenchmarkQueryRunner
 
     public static LocalQueryRunner createLocalQueryRunner()
     {
-        Session session = Session.builder()
-                .setUser("user")
-                .setSource("test")
+        Session session = testSessionBuilder()
                 .setCatalog("default")
                 .setSchema("default")
-                .setTimeZoneKey(UTC_KEY)
-                .setLocale(ENGLISH)
                 .build();
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
 

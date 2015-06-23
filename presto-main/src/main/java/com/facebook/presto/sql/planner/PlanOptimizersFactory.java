@@ -75,7 +75,7 @@ public class PlanOptimizersFactory
                 new IndexJoinOptimizer(metadata, indexManager), // Run this after projections and filters have been fully simplified and pushed down
                 new CountConstantOptimizer(),
                 new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
-                new HashGenerationOptimizer(featuresConfig.isOptimizeHashGeneration()), // This must run after all other optimizers have run to that all the PlanNodes are created
+                new HashGenerationOptimizer(), // This must run after all other optimizers have run to that all the PlanNodes are created
                 new MergeProjections(),
                 new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
                 new PruneRedundantProjections()); // This MUST run after PruneUnreferencedOutputs as it may introduce new redundant projections
@@ -92,7 +92,7 @@ public class PlanOptimizersFactory
         builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
 
         if (!forceSingleNode) {
-            builder.add(new AddExchanges(metadata, sqlParser, featuresConfig.isDistributedIndexJoinsEnabled(), featuresConfig.isDistributedJoinsEnabled(), featuresConfig.isRedistributeWrites()));
+            builder.add(new AddExchanges(metadata, sqlParser, featuresConfig.isDistributedIndexJoinsEnabled()));
         }
 
         builder.add(new PickLayout(metadata));
