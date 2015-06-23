@@ -353,7 +353,7 @@ function taskData(d) {
     });
 
     return [
-        "<a href=" + d.self + ">" + htmlEscape(d.taskId) + "</a>",
+        "<a href=" + d.self + "?pretty>" + htmlEscape(d.taskId) + "</a>",
         htmlEscape(new URL(d.self).hostname),
         htmlEscape(formatState(d.state, d.stats.fullyBlocked)),
         htmlEscape(formatCount(rows)),
