@@ -65,7 +65,7 @@ class TpchIndexedData
         for (TpchScaledTable table : tables) {
             SchemaTableName tableName = new SchemaTableName("sf" + table.getScaleFactor(), table.getTableName());
             TpchTableHandle tableHandle = tpchMetadata.getTableHandle(null, tableName);
-            Map<String, ColumnHandle> columnHandles = new LinkedHashMap<>(tpchMetadata.getColumnHandles(tableHandle));
+            Map<String, ColumnHandle> columnHandles = new LinkedHashMap<>(tpchMetadata.getColumnHandles(null, tableHandle));
             for (Set<String> columnNames : tpchIndexSpec.getColumnIndexes(table)) {
                 List<String> keyColumnNames = ImmutableList.copyOf(columnNames); // Finalize the key order
                 Set<TpchScaledColumn> keyColumns = FluentIterable.from(keyColumnNames)

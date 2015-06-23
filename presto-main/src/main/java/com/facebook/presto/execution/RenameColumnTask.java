@@ -47,7 +47,7 @@ public class RenameColumnTask
             throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
         }
 
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(tableHandle.get());
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
         if (!columnHandles.containsKey(statement.getSource())) {
             throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", statement.getSource());
         }
@@ -55,6 +55,6 @@ public class RenameColumnTask
         if (columnHandles.containsKey(statement.getTarget())) {
             throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", statement.getTarget());
         }
-        metadata.renameColumn(tableHandle.get(), columnHandles.get(statement.getSource()), statement.getTarget());
+        metadata.renameColumn(session, tableHandle.get(), columnHandles.get(statement.getSource()), statement.getTarget());
     }
 }

@@ -72,7 +72,7 @@ public class TestingMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         SchemaTableName tableName = getTableName(tableHandle);
@@ -82,11 +82,11 @@ public class TestingMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
         int index = 0;
-        for (ColumnMetadata columnMetadata : getTableMetadata(tableHandle).getColumns()) {
+        for (ColumnMetadata columnMetadata : getTableMetadata(session, tableHandle).getColumns()) {
             builder.put(columnMetadata.getName(), new InMemoryColumnHandle(columnMetadata.getName(), index, columnMetadata.getType()));
             index++;
         }
@@ -94,7 +94,7 @@ public class TestingMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return null;
     }
@@ -122,7 +122,7 @@ public class TestingMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         SchemaTableName tableName = getTableName(tableHandle);
         int columnIndex = checkType(columnHandle, InMemoryColumnHandle.class, "columnHandle").getOrdinalPosition();
@@ -142,10 +142,10 @@ public class TestingMetadata
     }
 
     @Override
-    public void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         // TODO: use locking to do this properly
-        ConnectorTableMetadata table = getTableMetadata(tableHandle);
+        ConnectorTableMetadata table = getTableMetadata(session, tableHandle);
         if (tables.putIfAbsent(newTableName, table) != null) {
             throw new IllegalArgumentException("Target table already exists: " + newTableName);
         }
@@ -160,7 +160,7 @@ public class TestingMetadata
     }
 
     @Override
-    public void dropTable(ConnectorTableHandle tableHandle)
+    public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         tables.remove(getTableName(tableHandle));
     }
@@ -172,7 +172,7 @@ public class TestingMetadata
     }
 
     @Override
-    public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new UnsupportedOperationException();
     }
@@ -184,7 +184,7 @@ public class TestingMetadata
     }
 
     @Override
-    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         throw new UnsupportedOperationException();
     }

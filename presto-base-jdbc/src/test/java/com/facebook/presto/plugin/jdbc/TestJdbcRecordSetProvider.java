@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Range;
@@ -33,14 +34,18 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 @Test
 public class TestJdbcRecordSetProvider
 {
+    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
+
     private TestingDatabase database;
     private JdbcClient jdbcClient;
     private JdbcSplit split;
@@ -76,7 +81,7 @@ public class TestJdbcRecordSetProvider
             throws Exception
     {
         JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
-        RecordSet recordSet = recordSetProvider.getRecordSet(split, ImmutableList.of(textColumn, valueColumn));
+        RecordSet recordSet = recordSetProvider.getRecordSet(SESSION, split, ImmutableList.of(textColumn, valueColumn));
         assertNotNull(recordSet, "recordSet is null");
 
         RecordCursor cursor = recordSet.cursor();
@@ -184,7 +189,7 @@ public class TestJdbcRecordSetProvider
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(1000)));
 
         JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
-        RecordSet recordSet = recordSetProvider.getRecordSet(split, columns);
+        RecordSet recordSet = recordSetProvider.getRecordSet(SESSION, split, columns);
 
         return recordSet.cursor();
     }

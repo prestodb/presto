@@ -25,7 +25,7 @@ public interface ConnectorSplitManager
      * this information to perform connector-specific optimizations.
      */
     @Deprecated
-    default ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain)
+    default ConnectorPartitionResult getPartitions(ConnectorSession session, ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
@@ -34,12 +34,12 @@ public interface ConnectorSplitManager
      * Gets the Splits for the specified Partitions in the indicated table.
      */
     @Deprecated
-    default ConnectorSplitSource getPartitionSplits(ConnectorTableHandle table, List<ConnectorPartition> partitions)
+    default ConnectorSplitSource getPartitionSplits(ConnectorSession session, ConnectorTableHandle table, List<ConnectorPartition> partitions)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
 
-    default ConnectorSplitSource getSplits(ConnectorTableLayoutHandle layout)
+    default ConnectorSplitSource getSplits(ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }

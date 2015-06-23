@@ -166,17 +166,17 @@ public abstract class AbstractTestHiveClientS3
             throws Exception
     {
         ConnectorTableHandle table = getTableHandle(tableS3);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(table).values());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, table).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(table, TupleDomain.<ColumnHandle>all());
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, table, TupleDomain.<ColumnHandle>all());
         assertEquals(partitionResult.getPartitions().size(), 1);
-        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(table, partitionResult.getPartitions());
+        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(SESSION, table, partitionResult.getPartitions());
 
         long sum = 0;
 
         for (ConnectorSplit split : getAllSplits(splitSource)) {
-            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(split, columnHandles)) {
+            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, split, columnHandles)) {
                 MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, getTypes(columnHandles));
 
                 for (MaterializedRow row : result) {
@@ -290,7 +290,7 @@ public abstract class AbstractTestHiveClientS3
         HiveOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, tableMetadata);
 
         // write the records
-        RecordSink sink = recordSinkProvider.getRecordSink(outputHandle);
+        RecordSink sink = recordSinkProvider.getRecordSink(SESSION, outputHandle);
 
         sink.beginRecord(1);
         sink.appendLong(1);
@@ -307,7 +307,7 @@ public abstract class AbstractTestHiveClientS3
         Collection<Slice> fragments = sink.commit();
 
         // commit the table
-        metadata.commitCreateTable(outputHandle, fragments);
+        metadata.commitCreateTable(SESSION, outputHandle, fragments);
 
         // Hack to work around the metastore not being configured for S3.
         // The metastore tries to validate the location when creating the
@@ -318,15 +318,15 @@ public abstract class AbstractTestHiveClientS3
 
         // load the new table
         ConnectorTableHandle tableHandle = getTableHandle(tableName);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
 
         // verify the data
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
         assertEquals(partitionResult.getPartitions().size(), 1);
-        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
+        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(SESSION, tableHandle, partitionResult.getPartitions());
         ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
-        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(split, columnHandles)) {
+        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, split, columnHandles)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, getTypes(columnHandles));
             assertEquals(result.getRowCount(), 3);
 

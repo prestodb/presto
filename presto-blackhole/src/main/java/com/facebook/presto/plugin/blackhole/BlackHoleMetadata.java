@@ -76,7 +76,7 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         BlackHoleTableHandle blackHoleTableHandle = checkType(tableHandle, BlackHoleTableHandle.class, "tableHandle");
         return blackHoleTableHandle.toTableMetadata(typeManager);
@@ -93,7 +93,7 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         //  returns null as the table does not contain sampled data
         // (see {@link com.facebook.presto.spi.ConnectorMetadata.getSampleWeightColumnHandle()}
@@ -107,7 +107,7 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         BlackHoleTableHandle blackHoleTableHandle = checkType(tableHandle, BlackHoleTableHandle.class, "tableHandle");
         return blackHoleTableHandle.getColumnHandles().stream()
@@ -115,7 +115,7 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         BlackHoleColumnHandle blackHoleColumnHandle = checkType(columnHandle, BlackHoleColumnHandle.class, "columnHandle");
         return blackHoleColumnHandle.toColumnMetadata(typeManager);
@@ -130,14 +130,14 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public void dropTable(ConnectorTableHandle tableHandle)
+    public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         BlackHoleTableHandle blackHoleTableHandle = checkType(tableHandle, BlackHoleTableHandle.class, "tableHandle");
         tables.remove(blackHoleTableHandle.getTableName());
     }
 
     @Override
-    public void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         BlackHoleTableHandle oldTableHandle = checkType(tableHandle, BlackHoleTableHandle.class, "tableHandle");
         BlackHoleTableHandle newTableHandle = new BlackHoleTableHandle(
@@ -155,7 +155,7 @@ public class BlackHoleMetadata
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         ConnectorOutputTableHandle outputTableHandle = beginCreateTable(session, tableMetadata);
-        commitCreateTable(outputTableHandle, ImmutableList.of());
+        commitCreateTable(session, outputTableHandle, ImmutableList.of());
     }
 
     @Override
@@ -165,7 +165,7 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         BlackHoleOutputTableHandle blackHoleOutputTableHandle = checkType(tableHandle, BlackHoleOutputTableHandle.class, "tableHandle");
         BlackHoleTableHandle table = blackHoleOutputTableHandle.getTable();
@@ -179,7 +179,7 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
     }
 
@@ -213,13 +213,16 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session,
+            ConnectorTableHandle table,
+            Constraint<ColumnHandle> constraint,
+            Optional<Set<ColumnHandle>> desiredColumns)
     {
-        return ImmutableList.of(new ConnectorTableLayoutResult(getTableLayout(BLACK_HOLE_TABLE_LAYOUT_HANDLE), TupleDomain.none()));
+        return ImmutableList.of(new ConnectorTableLayoutResult(getTableLayout(session, BLACK_HOLE_TABLE_LAYOUT_HANDLE), TupleDomain.none()));
     }
 
     @Override
-    public ConnectorTableLayout getTableLayout(ConnectorTableLayoutHandle handle)
+    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
         return new ConnectorTableLayout(handle, Optional.empty(), TupleDomain.none(), Optional.empty(), Optional.empty(), ImmutableList.of());
     }

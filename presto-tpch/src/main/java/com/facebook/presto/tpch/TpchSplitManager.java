@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -44,7 +45,7 @@ public class TpchSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTableLayoutHandle layout)
+    public ConnectorSplitSource getSplits(ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
         TpchTableHandle tableHandle = checkType(layout, TpchTableLayoutHandle.class, "layout").getTable();
 

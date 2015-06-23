@@ -45,7 +45,7 @@ public class BlackHoleMetadataTest
 
         assertThatNoTableIsCreated();
 
-        metadata.commitCreateTable(table, ImmutableList.of());
+        metadata.commitCreateTable(connectorSession, table, ImmutableList.of());
 
         List<SchemaTableName> tables = metadata.listTables(connectorSession, null);
         assertTrue(tables.size() == 1, "Expected only one table.");

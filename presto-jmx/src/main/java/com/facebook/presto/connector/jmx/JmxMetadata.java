@@ -100,7 +100,7 @@ public class JmxMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return checkType(tableHandle, JmxTableHandle.class, "tableHandle").getTableMetadata();
     }
@@ -121,20 +121,20 @@ public class JmxMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return null;
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         JmxTableHandle jmxTableHandle = checkType(tableHandle, JmxTableHandle.class, "tableHandle");
         return ImmutableMap.copyOf(Maps.uniqueIndex(jmxTableHandle.getColumns(), column -> column.getColumnName().toLowerCase(ENGLISH)));
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         checkType(tableHandle, JmxTableHandle.class, "tableHandle");
         return checkType(columnHandle, JmxColumnHandle.class, "columnHandle").getColumnMetadata();

@@ -143,7 +143,7 @@ class RelationPlanner
         }
 
         List<Symbol> planOutputSymbols = outputSymbolsBuilder.build();
-        Optional<ColumnHandle> sampleWeightColumn = metadata.getSampleWeightColumnHandle(handle);
+        Optional<ColumnHandle> sampleWeightColumn = metadata.getSampleWeightColumnHandle(session, handle);
         Symbol sampleWeightSymbol = null;
         if (sampleWeightColumn.isPresent()) {
             sampleWeightSymbol = symbolAllocator.newSymbol("$sampleWeight", BIGINT);

@@ -1120,7 +1120,7 @@ public class LocalExecutionPlanner
             // Declare the input and output schemas for the index and acquire the actual Index
             List<ColumnHandle> lookupSchema = Lists.transform(lookupSymbolSchema, forMap(node.getAssignments()));
             List<ColumnHandle> outputSchema = Lists.transform(node.getOutputSymbols(), forMap(node.getAssignments()));
-            ConnectorIndex index = indexManager.getIndex(node.getIndexHandle(), lookupSchema, outputSchema);
+            ConnectorIndex index = indexManager.getIndex(session, node.getIndexHandle(), lookupSchema, outputSchema);
 
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
             OperatorFactory operatorFactory = new IndexSourceOperator.IndexSourceOperatorFactory(context.getNextOperatorId(), node.getId(), index, types, probeKeyNormalizer);
@@ -1467,7 +1467,8 @@ public class LocalExecutionPlanner
                     .map(exchange::symbolToChannel)
                     .collect(toImmutableList());
 
-            OperatorFactory operatorFactory = new TableWriterOperatorFactory(context.getNextOperatorId(), pageSinkManager, node.getTarget(), inputChannels, sampleWeightChannel);
+            OperatorFactory operatorFactory = new TableWriterOperatorFactory(context.getNextOperatorId(), pageSinkManager, node.getTarget(), inputChannels, sampleWeightChannel,
+                    session);
 
             Map<Symbol, Integer> layout = ImmutableMap.<Symbol, Integer>builder()
                     .put(node.getOutputSymbols().get(0), 0)
@@ -1513,7 +1514,7 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            OperatorFactory operatorFactory = new TableCommitOperatorFactory(context.getNextOperatorId(), createTableCommitter(node, metadata));
+            OperatorFactory operatorFactory = new TableCommitOperatorFactory(context.getNextOperatorId(), createTableCommitter(session, node, metadata));
             Map<Symbol, Integer> layout = ImmutableMap.of(node.getOutputSymbols().get(0), 0);
 
             return new PhysicalOperation(operatorFactory, layout, source);
@@ -1709,7 +1710,7 @@ public class LocalExecutionPlanner
         return builder.build();
     }
 
-    private static TableCommitter createTableCommitter(TableCommitNode node, Metadata metadata)
+    private static TableCommitter createTableCommitter(Session session, TableCommitNode node, Metadata metadata)
     {
         WriterTarget target = node.getTarget();
         return new TableCommitter()
@@ -1718,13 +1719,13 @@ public class LocalExecutionPlanner
             public void commitTable(Collection<Slice> fragments)
             {
                 if (target instanceof CreateHandle) {
-                    metadata.commitCreateTable(((CreateHandle) target).getHandle(), fragments);
+                    metadata.commitCreateTable(session, ((CreateHandle) target).getHandle(), fragments);
                 }
                 else if (target instanceof InsertHandle) {
-                    metadata.commitInsert(((InsertHandle) target).getHandle(), fragments);
+                    metadata.commitInsert(session, ((InsertHandle) target).getHandle(), fragments);
                 }
                 else if (target instanceof DeleteHandle) {
-                    metadata.commitDelete(((DeleteHandle) target).getHandle(), fragments);
+                    metadata.commitDelete(session, ((DeleteHandle) target).getHandle(), fragments);
                 }
                 else {
                     throw new AssertionError("Unhandled target type: " + target.getClass().getName());
@@ -1735,13 +1736,13 @@ public class LocalExecutionPlanner
             public void rollbackTable()
             {
                 if (target instanceof CreateHandle) {
-                    metadata.rollbackCreateTable(((CreateHandle) target).getHandle());
+                    metadata.rollbackCreateTable(session, ((CreateHandle) target).getHandle());
                 }
                 else if (target instanceof InsertHandle) {
-                    metadata.rollbackInsert(((InsertHandle) target).getHandle());
+                    metadata.rollbackInsert(session, ((InsertHandle) target).getHandle());
                 }
                 else if (target instanceof DeleteHandle) {
-                    metadata.rollbackDelete(((DeleteHandle) target).getHandle());
+                    metadata.rollbackDelete(session, ((DeleteHandle) target).getHandle());
                 }
                 else {
                     throw new AssertionError("Unhandled target type: " + target.getClass().getName());

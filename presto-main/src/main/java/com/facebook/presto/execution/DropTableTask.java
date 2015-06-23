@@ -47,6 +47,6 @@ public class DropTableTask
             return;
         }
 
-        metadata.dropTable(tableHandle.get());
+        metadata.dropTable(session, tableHandle.get());
     }
 }

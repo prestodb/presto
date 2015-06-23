@@ -615,7 +615,7 @@ public class AddExchanges
 
             // Layouts will be returned in order of the connector's preference
             List<TableLayoutResult> layouts = metadata.getLayouts(
-                    node.getTable(),
+                    session, node.getTable(),
                     new Constraint<>(simplifiedConstraint, bindings -> !shouldPrune(constraint, node.getAssignments(), bindings)),
                     Optional.of(node.getOutputSymbols().stream()
                             .map(node.getAssignments()::get)

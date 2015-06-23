@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageSorter;
 import io.airlift.json.JsonCodec;
 
@@ -47,7 +48,7 @@ public class RaptorPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorOutputTableHandle tableHandle)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorOutputTableHandle tableHandle)
     {
         RaptorOutputTableHandle handle = checkType(tableHandle, RaptorOutputTableHandle.class, "tableHandle");
         return new RaptorPageSink(
@@ -62,7 +63,7 @@ public class RaptorPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorInsertTableHandle tableHandle)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorInsertTableHandle tableHandle)
     {
         RaptorInsertTableHandle handle = checkType(tableHandle, RaptorInsertTableHandle.class, "tableHandle");
         return new RaptorPageSink(

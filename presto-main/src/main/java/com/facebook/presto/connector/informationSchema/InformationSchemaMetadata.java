@@ -144,7 +144,7 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
         return TABLES.get(informationSchemaTableHandle.getSchemaTableName());
@@ -161,13 +161,13 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return null;
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
         ConnectorTableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
@@ -180,7 +180,7 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
 

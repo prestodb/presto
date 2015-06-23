@@ -255,7 +255,7 @@ public class TableScanOperator
     private void createSourceIfNecessary()
     {
         if ((split != null) && (source == null)) {
-            source = pageSourceProvider.createPageSource(split, columns);
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
         }
     }
 }

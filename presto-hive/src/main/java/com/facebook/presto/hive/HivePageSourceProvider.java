@@ -66,12 +66,11 @@ public class HivePageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
         HiveSplit hiveSplit = checkType(split, HiveSplit.class, "split");
 
         String clientId = hiveSplit.getClientId();
-        ConnectorSession session = hiveSplit.getSession();
 
         Path path = new Path(hiveSplit.getPath());
         long start = hiveSplit.getStart();

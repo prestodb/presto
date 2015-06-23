@@ -93,12 +93,12 @@ public class TestRaptorMetadata
         assertInstanceOf(tableHandle, RaptorTableHandle.class);
 
         RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
-        ColumnHandle columnHandle = metadata.getColumnHandles(tableHandle).get("orderkey");
+        ColumnHandle columnHandle = metadata.getColumnHandles(SESSION, tableHandle).get("orderkey");
 
-        metadata.renameColumn(raptorTableHandle, columnHandle, "orderkey_renamed");
+        metadata.renameColumn(SESSION, raptorTableHandle, columnHandle, "orderkey_renamed");
 
-        assertNull(metadata.getColumnHandles(tableHandle).get("orderkey"));
-        assertNotNull(metadata.getColumnHandles(tableHandle).get("orderkey_renamed"));
+        assertNull(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey"));
+        assertNotNull(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey_renamed"));
     }
 
     @Test
@@ -113,7 +113,7 @@ public class TestRaptorMetadata
         RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
         SchemaTableName renamedTable = new SchemaTableName(raptorTableHandle.getSchemaName(), "orders_renamed");
 
-        metadata.renameTable(raptorTableHandle, renamedTable);
+        metadata.renameTable(SESSION, raptorTableHandle, renamedTable);
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
         ConnectorTableHandle renamedTableHandle = metadata.getTableHandle(SESSION, renamedTable);
         assertNotNull(renamedTableHandle);
@@ -130,14 +130,14 @@ public class TestRaptorMetadata
         assertInstanceOf(tableHandle, RaptorTableHandle.class);
         assertEquals(((RaptorTableHandle) tableHandle).getTableId(), 1);
 
-        ConnectorTableMetadata table = metadata.getTableMetadata(tableHandle);
+        ConnectorTableMetadata table = metadata.getTableMetadata(SESSION, tableHandle);
         assertTableEqual(table, getOrdersTable());
 
-        ColumnHandle columnHandle = metadata.getColumnHandles(tableHandle).get("orderkey");
+        ColumnHandle columnHandle = metadata.getColumnHandles(SESSION, tableHandle).get("orderkey");
         assertInstanceOf(columnHandle, RaptorColumnHandle.class);
         assertEquals(((RaptorColumnHandle) columnHandle).getColumnId(), 1);
 
-        ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableHandle, columnHandle);
+        ColumnMetadata columnMetadata = metadata.getColumnMetadata(SESSION, tableHandle, columnHandle);
         assertNotNull(columnMetadata);
         assertEquals(columnMetadata.getName(), "orderkey");
         assertEquals(columnMetadata.getType(), BIGINT);

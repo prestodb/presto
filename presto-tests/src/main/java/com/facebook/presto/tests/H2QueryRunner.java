@@ -88,7 +88,7 @@ public class H2QueryRunner
                 ")");
         handle.execute("CREATE INDEX custkey_index ON orders (custkey)");
         TpchTableHandle ordersHandle = tpchMetadata.getTableHandle(null, new SchemaTableName(TINY_SCHEMA_NAME, ORDERS.getTableName()));
-        insertRows(tpchMetadata.getTableMetadata(ordersHandle), handle, createTpchRecordSet(ORDERS, ordersHandle.getScaleFactor()));
+        insertRows(tpchMetadata.getTableMetadata(null, ordersHandle), handle, createTpchRecordSet(ORDERS, ordersHandle.getScaleFactor()));
 
         handle.execute("CREATE TABLE lineitem (\n" +
                 "  orderkey BIGINT,\n" +
@@ -110,7 +110,7 @@ public class H2QueryRunner
                 "  PRIMARY KEY (orderkey, linenumber)" +
                 ")");
         TpchTableHandle lineItemHandle = tpchMetadata.getTableHandle(null, new SchemaTableName(TINY_SCHEMA_NAME, LINE_ITEM.getTableName()));
-        insertRows(tpchMetadata.getTableMetadata(lineItemHandle), handle, createTpchRecordSet(LINE_ITEM, lineItemHandle.getScaleFactor()));
+        insertRows(tpchMetadata.getTableMetadata(null, lineItemHandle), handle, createTpchRecordSet(LINE_ITEM, lineItemHandle.getScaleFactor()));
     }
 
     public void close()

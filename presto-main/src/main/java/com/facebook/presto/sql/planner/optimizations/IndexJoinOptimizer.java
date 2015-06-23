@@ -269,7 +269,7 @@ public class IndexJoinOptimizer
 
             Set<ColumnHandle> outputColumns = node.getOutputSymbols().stream().map(node.getAssignments()::get).collect(toImmutableSet());
 
-            Optional<ResolvedIndex> optionalResolvedIndex = indexManager.resolveIndex(node.getTable(), lookupColumns, outputColumns, simplifiedConstraint);
+            Optional<ResolvedIndex> optionalResolvedIndex = indexManager.resolveIndex(session, node.getTable(), lookupColumns, outputColumns, simplifiedConstraint);
             if (!optionalResolvedIndex.isPresent()) {
                 // No index available, so give up by returning something
                 return node;

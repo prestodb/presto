@@ -152,7 +152,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         RaptorTableHandle handle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
         SchemaTableName tableName = new SchemaTableName(handle.getSchemaName(), handle.getTableName());
@@ -173,7 +173,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         RaptorTableHandle raptorTableHandle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
         ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
@@ -187,7 +187,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getSampleWeightColumnHandle();
     }
@@ -199,7 +199,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
         RaptorColumnHandle column = checkType(columnHandle, RaptorColumnHandle.class, "columnHandle");
@@ -235,11 +235,11 @@ public class RaptorMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        commitCreateTable(beginCreateTable(session, tableMetadata), ImmutableList.of());
+        commitCreateTable(session, beginCreateTable(session, tableMetadata), ImmutableList.of());
     }
 
     @Override
-    public void dropTable(ConnectorTableHandle tableHandle)
+    public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         RaptorTableHandle raptorHandle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
         long tableId = raptorHandle.getTableId();
@@ -265,7 +265,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         RaptorTableHandle table = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
         dbi.inTransaction((handle, status) -> {
@@ -276,7 +276,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public void renameColumn(ConnectorTableHandle tableHandle, ColumnHandle source, String target)
+    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
         RaptorTableHandle table = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
         RaptorColumnHandle sourceColumn = checkType(source, RaptorColumnHandle.class, "columnHandle");
@@ -312,7 +312,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public void commitCreateTable(ConnectorOutputTableHandle outputTableHandle, Collection<Slice> fragments)
+    public void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, Collection<Slice> fragments)
     {
         RaptorOutputTableHandle table = checkType(outputTableHandle, RaptorOutputTableHandle.class, "outputTableHandle");
 
@@ -368,7 +368,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         RaptorInsertTableHandle handle = checkType(insertHandle, RaptorInsertTableHandle.class, "insertHandle");
         long tableId = handle.getTableId();
@@ -379,23 +379,23 @@ public class RaptorMetadata
     }
 
     @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return shardRowIdHandle(connectorId);
     }
 
     @Override
-    public ConnectorTableHandle beginDelete(ConnectorTableHandle tableHandle)
+    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return tableHandle;
     }
 
     @Override
-    public void commitDelete(ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    public void commitDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
         long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
 
-        List<ColumnInfo> columns = getColumnHandles(tableHandle).values().stream()
+        List<ColumnInfo> columns = getColumnHandles(session, tableHandle).values().stream()
                 .map(handle -> checkType(handle, RaptorColumnHandle.class, "columnHandle"))
                 .map(ColumnInfo::fromHandle).collect(toList());
 

@@ -161,19 +161,19 @@ public class TestCassandraConnector
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(table);
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
-        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
+        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(SESSION, tableHandle, partitionResult.getPartitions()));
 
         long rowNumber = 0;
         for (ConnectorSplit split : splits) {
             CassandraSplit cassandraSplit = (CassandraSplit) split;
 
             long completedBytes = 0;
-            try (RecordCursor cursor = recordSetProvider.getRecordSet(cassandraSplit, columnHandles).cursor()) {
+            try (RecordCursor cursor = recordSetProvider.getRecordSet(SESSION, cassandraSplit, columnHandles).cursor()) {
                 while (cursor.advanceNextPosition()) {
                     try {
                         assertReadFields(cursor, tableMetadata.getColumns());

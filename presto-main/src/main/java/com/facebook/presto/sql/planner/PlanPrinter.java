@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.TableHandle;
@@ -93,12 +94,12 @@ public class PlanPrinter
     private final StringBuilder output = new StringBuilder();
     private final Metadata metadata;
 
-    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata)
+    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Session sesion)
     {
-        this(plan, types, metadata, 0);
+        this(plan, types, metadata, sesion, 0);
     }
 
-    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, int indent)
+    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Session session, int indent)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(types, "types is null");
@@ -106,7 +107,7 @@ public class PlanPrinter
 
         this.metadata = metadata;
 
-        Visitor visitor = new Visitor(types);
+        Visitor visitor = new Visitor(types, session);
         plan.accept(visitor, indent);
     }
 
@@ -116,19 +117,19 @@ public class PlanPrinter
         return output.toString();
     }
 
-    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata)
+    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Session session)
     {
-        return new PlanPrinter(plan, types, metadata).toString();
+        return new PlanPrinter(plan, types, metadata, session).toString();
     }
 
     public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, int indent)
     {
-        return new PlanPrinter(plan, types, metadata, indent).toString();
+        return new PlanPrinter(plan, types, metadata, null, indent).toString();
     }
 
-    public static String getJsonPlanSource(PlanNode plan, Metadata metadata)
+    public static String getJsonPlanSource(PlanNode plan, Metadata metadata, Session session)
     {
-        return JsonPlanPrinter.getPlan(plan, metadata);
+        return JsonPlanPrinter.getPlan(plan, metadata, session);
     }
 
     public static String textDistributedPlan(SubPlan plan, Metadata metadata)
@@ -196,11 +197,13 @@ public class PlanPrinter
             extends PlanVisitor<Integer, Void>
     {
         private final Map<Symbol, Type> types;
+        private final Session session;
 
         @SuppressWarnings("AssignmentToCollectionOrArrayFieldFromParameter")
-        public Visitor(Map<Symbol, Type> types)
+        public Visitor(Map<Symbol, Type> types, Session session)
         {
             this.types = types;
+            this.session = session;
         }
 
         @Override
@@ -403,7 +406,7 @@ public class PlanPrinter
             print(indent, "- TableScan[%s, originalConstraint = %s] => [%s]", table, node.getOriginalConstraint(), formatOutputs(node.getOutputSymbols()));
 
             TupleDomain<ColumnHandle> predicate = node.getLayout()
-                    .map(metadata::getLayout)
+                    .map(layoutHandle -> metadata.getLayout(session, layoutHandle))
                     .map(TableLayout::getPredicate)
                     .orElse(TupleDomain.<ColumnHandle>all());
 
@@ -597,65 +600,65 @@ public class PlanPrinter
         {
             return Joiner.on(", ").join(Iterables.transform(symbols, input -> input + ":" + types.get(input)));
         }
-    }
 
-    private void printConstraint(int indent, TableHandle table, ColumnHandle column, TupleDomain<ColumnHandle> constraint)
-    {
-        if (!constraint.isAll() && constraint.getDomains().containsKey(column)) {
-            print(indent, ":: %s", formatDomain(table, column, simplifyDomain(constraint.getDomains().get(column))));
-        }
-    }
-
-    private String formatDomain(TableHandle table, ColumnHandle column, Domain domain)
-    {
-        ImmutableList.Builder<String> parts = ImmutableList.builder();
-
-        if (domain.isNullAllowed()) {
-            parts.add("NULL");
-        }
-
-        try {
-            ColumnMetadata columnMetadata = metadata.getColumnMetadata(table, column);
-            MethodHandle method = metadata.getFunctionRegistry().getCoercion(columnMetadata.getType(), VARCHAR)
-                    .getMethodHandle();
-
-            for (Range range : domain.getRanges()) {
-                StringBuilder builder = new StringBuilder();
-                if (range.isSingleValue()) {
-                    String value = ((Slice) method.invokeWithArguments(range.getSingleValue())).toStringUtf8();
-                    builder.append('[').append(value).append(']');
-                }
-                else {
-                    builder.append((range.getLow().getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
-
-                    if (range.getLow().isLowerUnbounded()) {
-                        builder.append("<min>");
-                    }
-                    else {
-                        builder.append(((Slice) method.invokeWithArguments(range.getLow().getValue())).toStringUtf8());
-                    }
-
-                    builder.append(", ");
-
-                    if (range.getHigh().isUpperUnbounded()) {
-                        builder.append("<max>");
-                    }
-                    else {
-                        builder.append(((Slice) method.invokeWithArguments(range.getHigh().getValue())).toStringUtf8());
-                    }
-
-                    builder.append((range.getHigh().getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
-                }
-                parts.add(builder.toString());
+        private void printConstraint(int indent, TableHandle table, ColumnHandle column, TupleDomain<ColumnHandle> constraint)
+        {
+            if (!constraint.isAll() && constraint.getDomains().containsKey(column)) {
+                print(indent, ":: %s", formatDomain(table, column, simplifyDomain(constraint.getDomains().get(column))));
             }
         }
-        catch (OperatorNotFoundException e) {
-            parts.add("<UNREPRESENTABLE VALUE>");
-        }
-        catch (Throwable e) {
-            throw Throwables.propagate(e);
-        }
 
-        return "[" + Joiner.on(", ").join(parts.build()) + "]";
+        private String formatDomain(TableHandle table, ColumnHandle column, Domain domain)
+        {
+            ImmutableList.Builder<String> parts = ImmutableList.builder();
+
+            if (domain.isNullAllowed()) {
+                parts.add("NULL");
+            }
+
+            try {
+                ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, table, column);
+                MethodHandle method = metadata.getFunctionRegistry().getCoercion(columnMetadata.getType(), VARCHAR)
+                        .getMethodHandle();
+
+                for (Range range : domain.getRanges()) {
+                    StringBuilder builder = new StringBuilder();
+                    if (range.isSingleValue()) {
+                        String value = ((Slice) method.invokeWithArguments(range.getSingleValue())).toStringUtf8();
+                        builder.append('[').append(value).append(']');
+                    }
+                    else {
+                        builder.append((range.getLow().getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
+
+                        if (range.getLow().isLowerUnbounded()) {
+                            builder.append("<min>");
+                        }
+                        else {
+                            builder.append(((Slice) method.invokeWithArguments(range.getLow().getValue())).toStringUtf8());
+                        }
+
+                        builder.append(", ");
+
+                        if (range.getHigh().isUpperUnbounded()) {
+                            builder.append("<max>");
+                        }
+                        else {
+                            builder.append(((Slice) method.invokeWithArguments(range.getHigh().getValue())).toStringUtf8());
+                        }
+
+                        builder.append((range.getHigh().getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
+                    }
+                    parts.add(builder.toString());
+                }
+            }
+            catch (OperatorNotFoundException e) {
+                parts.add("<UNREPRESENTABLE VALUE>");
+            }
+            catch (Throwable e) {
+                throw Throwables.propagate(e);
+            }
+
+            return "[" + Joiner.on(", ").join(parts.build()) + "]";
+        }
     }
 }

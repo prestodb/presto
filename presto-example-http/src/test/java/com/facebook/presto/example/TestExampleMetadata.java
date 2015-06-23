@@ -78,19 +78,19 @@ public class TestExampleMetadata
     public void testGetColumnHandles()
     {
         // known table
-        assertEquals(metadata.getColumnHandles(NUMBERS_TABLE_HANDLE), ImmutableMap.of(
+        assertEquals(metadata.getColumnHandles(SESSION, NUMBERS_TABLE_HANDLE), ImmutableMap.of(
                 "text", new ExampleColumnHandle(CONNECTOR_ID, "text", VARCHAR, 0),
                 "value", new ExampleColumnHandle(CONNECTOR_ID, "value", BIGINT, 1)));
 
         // unknown table
         try {
-            metadata.getColumnHandles(new ExampleTableHandle(CONNECTOR_ID, "unknown", "unknown"));
+            metadata.getColumnHandles(SESSION, new ExampleTableHandle(CONNECTOR_ID, "unknown", "unknown"));
             fail("Expected getColumnHandle of unknown table to throw a TableNotFoundException");
         }
         catch (TableNotFoundException expected) {
         }
         try {
-            metadata.getColumnHandles(new ExampleTableHandle(CONNECTOR_ID, "example", "unknown"));
+            metadata.getColumnHandles(SESSION, new ExampleTableHandle(CONNECTOR_ID, "example", "unknown"));
             fail("Expected getColumnHandle of unknown table to throw a TableNotFoundException");
         }
         catch (TableNotFoundException expected) {
@@ -101,16 +101,16 @@ public class TestExampleMetadata
     public void getTableMetadata()
     {
         // known table
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(NUMBERS_TABLE_HANDLE);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, NUMBERS_TABLE_HANDLE);
         assertEquals(tableMetadata.getTable(), new SchemaTableName("example", "numbers"));
         assertEquals(tableMetadata.getColumns(), ImmutableList.of(
                 new ColumnMetadata("text", VARCHAR, false),
                 new ColumnMetadata("value", BIGINT, false)));
 
         // unknown tables should produce null
-        assertNull(metadata.getTableMetadata(new ExampleTableHandle(CONNECTOR_ID, "unknown", "unknown")));
-        assertNull(metadata.getTableMetadata(new ExampleTableHandle(CONNECTOR_ID, "example", "unknown")));
-        assertNull(metadata.getTableMetadata(new ExampleTableHandle(CONNECTOR_ID, "unknown", "numbers")));
+        assertNull(metadata.getTableMetadata(SESSION, new ExampleTableHandle(CONNECTOR_ID, "unknown", "unknown")));
+        assertNull(metadata.getTableMetadata(SESSION, new ExampleTableHandle(CONNECTOR_ID, "example", "unknown")));
+        assertNull(metadata.getTableMetadata(SESSION, new ExampleTableHandle(CONNECTOR_ID, "unknown", "numbers")));
     }
 
     @Test
@@ -136,7 +136,7 @@ public class TestExampleMetadata
     @Test
     public void getColumnMetadata()
     {
-        assertEquals(metadata.getColumnMetadata(NUMBERS_TABLE_HANDLE, new ExampleColumnHandle(CONNECTOR_ID, "text", VARCHAR, 0)),
+        assertEquals(metadata.getColumnMetadata(SESSION, NUMBERS_TABLE_HANDLE, new ExampleColumnHandle(CONNECTOR_ID, "text", VARCHAR, 0)),
                 new ColumnMetadata("text", VARCHAR, false));
 
         // example connector assumes that the table handle and column handle are
@@ -157,6 +157,6 @@ public class TestExampleMetadata
     @Test(expectedExceptions = PrestoException.class)
     public void testDropTableTable()
     {
-        metadata.dropTable(NUMBERS_TABLE_HANDLE);
+        metadata.dropTable(SESSION, NUMBERS_TABLE_HANDLE);
     }
 }

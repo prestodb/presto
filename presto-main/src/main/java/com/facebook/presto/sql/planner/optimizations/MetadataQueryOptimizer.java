@@ -74,17 +74,19 @@ public class MetadataQueryOptimizer
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return PlanRewriter.rewriteWith(new Optimizer(metadata, idAllocator), plan, null);
+        return PlanRewriter.rewriteWith(new Optimizer(session, metadata, idAllocator), plan, null);
     }
 
     private static class Optimizer
             extends PlanRewriter<Void>
     {
         private final PlanNodeIdAllocator idAllocator;
+        private final Session session;
         private final Metadata metadata;
 
-        private Optimizer(Metadata metadata, PlanNodeIdAllocator idAllocator)
+        private Optimizer(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator)
         {
+            this.session = session;
             this.metadata = metadata;
             this.idAllocator = idAllocator;
         }
@@ -113,7 +115,7 @@ public class MetadataQueryOptimizer
             List<Symbol> inputs = tableScan.getOutputSymbols();
             for (Symbol symbol : inputs) {
                 ColumnHandle column = tableScan.getAssignments().get(symbol);
-                ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableScan.getTable(), column);
+                ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableScan.getTable(), column);
 
                 if (!columnMetadata.isPartitionKey()) {
                     // the optimization is only valid if the aggregation node only
@@ -132,13 +134,13 @@ public class MetadataQueryOptimizer
             // with a Values node
             TableLayout layout = null;
             if (!tableScan.getLayout().isPresent()) {
-                List<TableLayoutResult> layouts = metadata.getLayouts(tableScan.getTable(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty());
+                List<TableLayoutResult> layouts = metadata.getLayouts(session, tableScan.getTable(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty());
                 if (layouts.size() == 1) {
                     layout = Iterables.getOnlyElement(layouts).getLayout();
                 }
             }
             else {
-                layout = metadata.getLayout(tableScan.getLayout().get());
+                layout = metadata.getLayout(session, tableScan.getLayout().get());
             }
 
             if (layout == null || !layout.getDiscretePredicates().isPresent()) {

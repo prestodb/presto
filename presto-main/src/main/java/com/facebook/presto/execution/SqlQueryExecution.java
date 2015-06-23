@@ -258,7 +258,7 @@ public final class SqlQueryExecution
         Plan plan = logicalPlanner.plan(analysis);
 
         // extract inputs
-        List<Input> inputs = new InputExtractor(metadata).extract(plan.getRoot());
+        List<Input> inputs = new InputExtractor(metadata, session).extract(plan.getRoot());
         stateMachine.setInputs(inputs);
 
         // fragment the plan
@@ -277,7 +277,7 @@ public final class SqlQueryExecution
 
         // plan the execution on the active nodes
         DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager);
-        StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(subplan);
+        StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(subplan, session);
 
         if (stateMachine.isDone()) {
             return;

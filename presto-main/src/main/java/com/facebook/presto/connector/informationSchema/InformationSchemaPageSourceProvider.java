@@ -29,6 +29,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.FixedPageSource;
@@ -81,7 +82,7 @@ public class InformationSchemaPageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
         InternalTable table = getInternalTable(split, columns);
 
@@ -252,9 +253,9 @@ public class InformationSchemaPageSourceProvider
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         checkArgument(tableHandle.isPresent(), "Table %s does not exist", tableName);
-        Map<ColumnHandle, String> columnHandles = ImmutableBiMap.copyOf(metadata.getColumnHandles(tableHandle.get())).inverse();
+        Map<ColumnHandle, String> columnHandles = ImmutableBiMap.copyOf(metadata.getColumnHandles(session, tableHandle.get())).inverse();
 
-        List<TableLayoutResult> layouts = metadata.getLayouts(tableHandle.get(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty());
+        List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle.get(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty());
 
         if (layouts.size() == 1) {
             TableLayout layout = Iterables.getOnlyElement(layouts).getLayout();
@@ -267,7 +268,7 @@ public class InformationSchemaPageSourceProvider
                         String columnName = columnHandles.get(columnHandle);
                         String value = null;
                         if (entry.getValue().getValue() != null) {
-                            ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableHandle.get(), columnHandle);
+                            ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle.get(), columnHandle);
                             try {
                                 FunctionInfo operator = metadata.getFunctionRegistry().getCoercion(columnMetadata.getType(), VARCHAR);
                                 value = ((Slice) operator.getMethodHandle().invokeWithArguments(entry.getValue().getValue())).toStringUtf8();
