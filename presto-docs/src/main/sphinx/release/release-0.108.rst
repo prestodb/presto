@@ -17,6 +17,7 @@ General Changes
   ``TIMESTAMP WITH TIME ZONE``.
 * Trim in ``CAST`` from ``VARCHAR`` to date time types.
 * Add support for fixed time zones ``+00:00`` and ``-00:00``.
+* Properly account for query memory when using row_number() window function.
 
 Cassandra Changes
 -----------------
