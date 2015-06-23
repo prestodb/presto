@@ -77,7 +77,7 @@ public class ExampleMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle table)
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         ExampleTableHandle exampleTableHandle = checkType(table, ExampleTableHandle.class, "table");
         checkArgument(exampleTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
@@ -107,13 +107,13 @@ public class ExampleMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return null;
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         ExampleTableHandle exampleTableHandle = checkType(tableHandle, ExampleTableHandle.class, "tableHandle");
         checkArgument(exampleTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
@@ -170,7 +170,7 @@ public class ExampleMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         checkType(tableHandle, ExampleTableHandle.class, "tableHandle");
         return checkType(columnHandle, ExampleColumnHandle.class, "columnHandle").getColumnMetadata();

@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.LegacyTableLayoutHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -36,10 +38,13 @@ public class SplitManager
         checkState(splitManagers.putIfAbsent(connectorId, connectorSplitManager) == null, "SplitManager for connector '%s' is already registered", connectorId);
     }
 
-    public SplitSource getSplits(TableLayoutHandle layout)
+    public SplitSource getSplits(Session session, TableLayoutHandle layout)
     {
         String connectorId = layout.getConnectorId();
         ConnectorSplitManager splitManager = getConnectorSplitManager(connectorId);
+
+        // assumes connectorId and catalog are the same
+        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
 
         ConnectorSplitSource source;
         if (layout.getConnectorHandle() instanceof LegacyTableLayoutHandle) {
@@ -48,10 +53,10 @@ public class SplitManager
                 return new ConnectorAwareSplitSource(connectorId, new FixedSplitSource(connectorId, ImmutableList.<ConnectorSplit>of()));
             }
 
-            source = splitManager.getPartitionSplits(handle.getTable(), handle.getPartitions());
+            source = splitManager.getPartitionSplits(connectorSession, handle.getTable(), handle.getPartitions());
         }
         else {
-            source = splitManager.getSplits(layout.getConnectorHandle());
+            source = splitManager.getSplits(connectorSession, layout.getConnectorHandle());
         }
 
         return new ConnectorAwareSplitSource(connectorId, source);

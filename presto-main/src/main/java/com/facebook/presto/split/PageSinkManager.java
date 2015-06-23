@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.ConnectorSession;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -34,15 +36,19 @@ public class PageSinkManager
     }
 
     @Override
-    public ConnectorPageSink createPageSink(OutputTableHandle tableHandle)
+    public ConnectorPageSink createPageSink(Session session, OutputTableHandle tableHandle)
     {
-        return providerFor(tableHandle.getConnectorId()).createPageSink(tableHandle.getConnectorHandle());
+        // assumes connectorId and catalog are the same
+        ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getConnectorId());
+        return providerFor(tableHandle.getConnectorId()).createPageSink(connectorSession, tableHandle.getConnectorHandle());
     }
 
     @Override
-    public ConnectorPageSink createPageSink(InsertTableHandle tableHandle)
+    public ConnectorPageSink createPageSink(Session session, InsertTableHandle tableHandle)
     {
-        return providerFor(tableHandle.getConnectorId()).createPageSink(tableHandle.getConnectorHandle());
+        // assumes connectorId and catalog are the same
+        ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getConnectorId());
+        return providerFor(tableHandle.getConnectorId()).createPageSink(connectorSession, tableHandle.getConnectorHandle());
     }
 
     private ConnectorPageSinkProvider providerFor(String connectorId)

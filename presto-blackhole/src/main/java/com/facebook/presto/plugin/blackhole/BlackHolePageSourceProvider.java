@@ -17,6 +17,7 @@ package com.facebook.presto.plugin.blackhole;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordPageSource;
@@ -28,7 +29,7 @@ public final class BlackHolePageSourceProvider
         implements ConnectorPageSourceProvider
 {
     @Override
-    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
         return new RecordPageSource(new InMemoryRecordSet(ImmutableList.of(), ImmutableList.of()));
     }

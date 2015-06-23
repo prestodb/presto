@@ -135,7 +135,7 @@ public class TestRaptorSplitManager
 
         tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
 
-        List<ColumnInfo> columns = metadata.getColumnHandles(tableHandle).values().stream()
+        List<ColumnInfo> columns = metadata.getColumnHandles(SESSION, tableHandle).values().stream()
                 .map(handle -> checkType(handle, RaptorColumnHandle.class, "columnHandle"))
                 .map(ColumnInfo::fromHandle)
                 .collect(toList());
@@ -156,7 +156,7 @@ public class TestRaptorSplitManager
     public void testSanity()
             throws InterruptedException
     {
-        ConnectorPartitionResult partitionResult = raptorSplitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
+        ConnectorPartitionResult partitionResult = raptorSplitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
         assertEquals(partitionResult.getPartitions().size(), 1);
         assertTrue(partitionResult.getUndeterminedTupleDomain().isAll());
 
@@ -165,7 +165,7 @@ public class TestRaptorSplitManager
         TupleDomain<ColumnHandle> columnUnionedTupleDomain = TupleDomain.columnWiseUnion(partition.getTupleDomain(), partition.getTupleDomain());
         assertEquals(columnUnionedTupleDomain, TupleDomain.<ColumnHandle>all());
 
-        ConnectorSplitSource splitSource = raptorSplitManager.getPartitionSplits(tableHandle, partitions);
+        ConnectorSplitSource splitSource = raptorSplitManager.getPartitionSplits(SESSION, tableHandle, partitions);
         int splitCount = 0;
         while (!splitSource.isFinished()) {
             splitCount += getFutureValue(splitSource.getNextBatch(1000)).size();
@@ -179,9 +179,9 @@ public class TestRaptorSplitManager
     {
         deleteShardNodes();
 
-        ConnectorPartitionResult result = raptorSplitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
+        ConnectorPartitionResult result = raptorSplitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
 
-        ConnectorSplitSource splitSource = raptorSplitManager.getPartitionSplits(tableHandle, result.getPartitions());
+        ConnectorSplitSource splitSource = raptorSplitManager.getPartitionSplits(SESSION, tableHandle, result.getPartitions());
         getFutureValue(splitSource.getNextBatch(1000));
     }
 
@@ -196,8 +196,8 @@ public class TestRaptorSplitManager
 
         deleteShardNodes();
 
-        ConnectorPartitionResult result = raptorSplitManagerWithBackup.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
-        ConnectorSplitSource partitionSplit = raptorSplitManagerWithBackup.getPartitionSplits(tableHandle, result.getPartitions());
+        ConnectorPartitionResult result = raptorSplitManagerWithBackup.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
+        ConnectorSplitSource partitionSplit = raptorSplitManagerWithBackup.getPartitionSplits(SESSION, tableHandle, result.getPartitions());
         List<ConnectorSplit> batch = getFutureValue(partitionSplit.getNextBatch(1), PrestoException.class);
         assertEquals(getOnlyElement(getOnlyElement(batch).getAddresses()), node.getHostAndPort());
     }
@@ -209,8 +209,8 @@ public class TestRaptorSplitManager
         deleteShardNodes();
 
         RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), new InMemoryNodeManager(), shardManager, storageManagerWithBackup);
-        ConnectorPartitionResult result = raptorSplitManagerWithBackup.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
-        ConnectorSplitSource splitSource = raptorSplitManagerWithBackup.getPartitionSplits(tableHandle, result.getPartitions());
+        ConnectorPartitionResult result = raptorSplitManagerWithBackup.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
+        ConnectorSplitSource splitSource = raptorSplitManagerWithBackup.getPartitionSplits(SESSION, tableHandle, result.getPartitions());
         getFutureValue(splitSource.getNextBatch(1000), PrestoException.class);
     }
 

@@ -97,14 +97,17 @@ public class TpchMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session,
+            ConnectorTableHandle table,
+            Constraint<ColumnHandle> constraint,
+            Optional<Set<ColumnHandle>> desiredColumns)
     {
         TpchTableHandle tableHandle = checkType(table, TpchTableHandle.class, "table");
 
         Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
         List<LocalProperty<ColumnHandle>> localProperties = ImmutableList.of();
 
-        Map<String, ColumnHandle> columns = getColumnHandles(tableHandle);
+        Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
         if (tableHandle.getTableName().equals(TpchTable.ORDERS.getTableName())) {
             partitioningColumns = Optional.of(ImmutableSet.of(columns.get(OrderColumn.ORDER_KEY.getColumnName())));
             localProperties = ImmutableList.of(new SortingProperty<>(columns.get(OrderColumn.ORDER_KEY.getColumnName()), SortOrder.ASC_NULLS_FIRST));
@@ -128,18 +131,18 @@ public class TpchMetadata
     }
 
     @Override
-    public ConnectorTableLayout getTableLayout(ConnectorTableLayoutHandle handle)
+    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
         TpchTableLayoutHandle layout = checkType(handle, TpchTableLayoutHandle.class, "layout");
 
         // tables in this connector have a single layout
-        return getTableLayouts(layout.getTable(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty())
+        return getTableLayouts(session, layout.getTable(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty())
                 .get(0)
                 .getTableLayout();
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         TpchTableHandle tpchTableHandle = checkType(tableHandle, TpchTableHandle.class, "tableHandle");
 
@@ -162,17 +165,17 @@ public class TpchMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
-        for (ColumnMetadata columnMetadata : getTableMetadata(tableHandle).getColumns()) {
+        for (ColumnMetadata columnMetadata : getTableMetadata(session, tableHandle).getColumns()) {
             builder.put(columnMetadata.getName(), new TpchColumnHandle(columnMetadata.getName(), columnMetadata.getType()));
         }
         return builder.build();
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return null;
     }
@@ -193,9 +196,9 @@ public class TpchMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        ConnectorTableMetadata tableMetadata = getTableMetadata(tableHandle);
+        ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
         String columnName = checkType(columnHandle, TpchColumnHandle.class, "columnHandle").getColumnName();
 
         for (ColumnMetadata column : tableMetadata.getColumns()) {

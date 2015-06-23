@@ -17,5 +17,5 @@ import java.util.List;
 
 public interface ConnectorRecordSetProvider
 {
-    RecordSet getRecordSet(ConnectorSplit split, List<? extends ColumnHandle> columns);
+    RecordSet getRecordSet(ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns);
 }

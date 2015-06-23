@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.Column;
 import com.facebook.presto.execution.Input;
 import com.facebook.presto.execution.SimpleDomain;
@@ -58,17 +59,17 @@ public final class JsonPlanPrinter
     private static final JsonCodec<QueryExplanation> CODEC = JsonCodec.jsonCodec(QueryExplanation.class);
     private final ImmutableList.Builder<Input> inputBuilder = ImmutableList.builder();
 
-    private JsonPlanPrinter(PlanNode plan, Metadata metadata)
+    private JsonPlanPrinter(PlanNode plan, Metadata metadata, Session session)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(metadata, "metadata is null");
-        SourceVisitor visitor = new SourceVisitor(metadata);
+        SourceVisitor visitor = new SourceVisitor(metadata, session);
         plan.accept(visitor, null);
     }
 
-    public static String getPlan(PlanNode plan, Metadata metadata)
+    public static String getPlan(PlanNode plan, Metadata metadata, Session session)
     {
-        return new JsonPlanPrinter(plan, metadata).toString();
+        return new JsonPlanPrinter(plan, metadata, session).toString();
     }
 
     @Override
@@ -81,9 +82,11 @@ public final class JsonPlanPrinter
             extends PlanVisitor<Void, Void>
     {
         private final Metadata metadata;
+        private final Session session;
 
-        public SourceVisitor(Metadata metadata)
+        public SourceVisitor(Metadata metadata, Session session)
         {
+            this.session = session;
             this.metadata = checkNotNull(metadata);
         }
 
@@ -153,12 +156,12 @@ public final class JsonPlanPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Void context)
         {
-            TableMetadata tableMetadata = metadata.getTableMetadata(node.getTable());
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, node.getTable());
 
             ImmutableList.Builder<Column> columnBuilder = ImmutableList.builder();
 
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                ColumnMetadata columnMetadata = metadata.getColumnMetadata(node.getTable(), entry.getValue());
+                ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, node.getTable(), entry.getValue());
                 TupleDomain<ColumnHandle> constraint = node.getCurrentConstraint();
                 Domain domain = null;
                 if (constraint.isNone()) {
@@ -186,12 +189,12 @@ public final class JsonPlanPrinter
         @Override
         public Void visitIndexSource(IndexSourceNode node, Void context)
         {
-            TableMetadata tableMetadata = metadata.getTableMetadata(node.getTableHandle());
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, node.getTableHandle());
 
             ImmutableList.Builder<Column> columnBuilder = ImmutableList.builder();
 
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                ColumnMetadata columnMetadata = metadata.getColumnMetadata(node.getTableHandle(), entry.getValue());
+                ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, node.getTableHandle(), entry.getValue());
                 Domain domain = null;
                 if (!node.getEffectiveTupleDomain().isNone() && node.getEffectiveTupleDomain().getDomains().containsKey(entry.getValue())) {
                     domain = node.getEffectiveTupleDomain().getDomains().get(entry.getValue());

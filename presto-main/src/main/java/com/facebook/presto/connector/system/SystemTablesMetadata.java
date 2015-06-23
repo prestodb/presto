@@ -83,7 +83,7 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         SystemTableHandle tableHandle = checkType(table, SystemTableHandle.class, "table");
         ConnectorTableLayout layout = new ConnectorTableLayout(
@@ -97,14 +97,14 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public ConnectorTableLayout getTableLayout(ConnectorTableLayoutHandle handle)
+    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
         SystemTableLayoutHandle layout = checkType(handle, SystemTableLayoutHandle.class, "layout");
         return new ConnectorTableLayout(layout, Optional.empty(), TupleDomain.<ColumnHandle>all(), Optional.empty(), Optional.empty(), ImmutableList.of());
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         SystemTableHandle systemTableHandle = checkTableHandle(tableHandle);
         return tables.get(systemTableHandle.getSchemaTableName());
@@ -123,13 +123,13 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return null;
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         SystemTableHandle systemTableHandle = checkTableHandle(tableHandle);
         ConnectorTableMetadata tableMetadata = tables.get(systemTableHandle.getSchemaTableName());
@@ -142,7 +142,7 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         SystemTableHandle systemTableHandle = checkTableHandle(tableHandle);
 

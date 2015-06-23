@@ -33,19 +33,19 @@ public abstract class ReadOnlyConnectorMetadata
     }
 
     @Override
-    public final void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    public final void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming tables");
     }
 
     @Override
-    public void renameColumn(ConnectorTableHandle tableHandle, ColumnHandle source, String target)
+    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming columns");
     }
 
     @Override
-    public final void dropTable(ConnectorTableHandle tableHandle)
+    public final void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping tables");
     }
@@ -63,7 +63,7 @@ public abstract class ReadOnlyConnectorMetadata
     }
 
     @Override
-    public final void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public final void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new UnsupportedOperationException();
     }
@@ -75,7 +75,7 @@ public abstract class ReadOnlyConnectorMetadata
     }
 
     @Override
-    public final void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public final void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         throw new UnsupportedOperationException();
     }

@@ -16,6 +16,7 @@ package com.facebook.presto.spi.classloader;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 
 import java.util.List;
@@ -35,11 +36,11 @@ public class ClassLoaderSafeConnectorPageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorSplit split,
+    public ConnectorPageSource createPageSource(ConnectorSession session, ConnectorSplit split,
             List<ColumnHandle> columns)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.createPageSource(split, columns);
+            return delegate.createPageSource(session, split, columns);
         }
     }
 

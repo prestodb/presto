@@ -630,7 +630,7 @@ public final class FunctionAssertions
             implements PageSourceProvider
     {
         @Override
-        public ConnectorPageSource createPageSource(Split split, List<ColumnHandle> columns)
+        public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
         {
             assertInstanceOf(split.getConnectorSplit(), FunctionAssertions.TestSplit.class);
             FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split.getConnectorSplit();

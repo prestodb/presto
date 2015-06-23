@@ -240,8 +240,8 @@ public class TupleAnalyzer
 
             throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
         }
-        TableMetadata tableMetadata = metadata.getTableMetadata(tableHandle.get());
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(tableHandle.get());
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get());
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
         // TODO: discover columns lazily based on where they are needed (to support datasources that can't enumerate all tables)
         ImmutableList.Builder<Field> fields = ImmutableList.builder();

@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.split;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 
 import java.util.List;
 
 public interface PageSourceProvider
 {
-    ConnectorPageSource createPageSource(Split split, List<ColumnHandle> columns);
+    ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns);
 }

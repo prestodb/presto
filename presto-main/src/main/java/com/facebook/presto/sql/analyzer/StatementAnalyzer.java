@@ -261,7 +261,7 @@ class StatementAnalyzer
         ImmutableList.Builder<SelectItem> selectList = ImmutableList.builder();
         ImmutableList.Builder<SelectItem> wrappedList = ImmutableList.builder();
         selectList.add(unaliasedName("partition_number"));
-        for (ColumnMetadata column : metadata.getTableMetadata(tableHandle.get()).getColumns()) {
+        for (ColumnMetadata column : metadata.getTableMetadata(session, tableHandle.get()).getColumns()) {
             if (!column.isPartitionKey()) {
                 continue;
             }
@@ -371,7 +371,7 @@ class StatementAnalyzer
         }
         analysis.setInsertTarget(targetTableHandle.get());
 
-        List<ColumnMetadata> columns = metadata.getTableMetadata(targetTableHandle.get()).getColumns();
+        List<ColumnMetadata> columns = metadata.getTableMetadata(session, targetTableHandle.get()).getColumns();
         Iterable<Type> tableTypes = columns.stream()
                 .filter(column -> !column.isHidden())
                 .map(ColumnMetadata::getType)

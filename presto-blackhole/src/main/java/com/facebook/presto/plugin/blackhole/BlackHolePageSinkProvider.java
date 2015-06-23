@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
@@ -29,13 +30,13 @@ public class BlackHolePageSinkProvider
         implements ConnectorPageSinkProvider
 {
     @Override
-    public ConnectorPageSink createPageSink(ConnectorOutputTableHandle outputTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
         return new NoOpConnectorPageSink();
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorInsertTableHandle insertTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
         return new NoOpConnectorPageSink();
     }

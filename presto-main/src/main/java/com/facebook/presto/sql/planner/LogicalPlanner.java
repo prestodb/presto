@@ -123,7 +123,7 @@ public class LogicalPlanner
         return createTableWriterPlan(
                 analysis,
                 createRelationPlan(analysis),
-                metadata.getTableMetadata(target),
+                metadata.getTableMetadata(session, target),
                 new InsertReference(target));
     }
 

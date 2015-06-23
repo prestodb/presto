@@ -118,7 +118,7 @@ public class PickLayout
                     .intersect(node.getCurrentConstraint());
 
             List<TableLayoutResult> layouts = metadata.getLayouts(
-                    node.getTable(),
+                    session, node.getTable(),
                     new Constraint<>(simplifiedConstraint, bindings -> true),
                     Optional.of(ImmutableSet.copyOf(node.getAssignments().values())));
 

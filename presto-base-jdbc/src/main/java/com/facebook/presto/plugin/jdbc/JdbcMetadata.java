@@ -68,7 +68,7 @@ public class JdbcMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle table)
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         JdbcTableHandle handle = checkType(table, JdbcTableHandle.class, "tableHandle");
 
@@ -86,13 +86,13 @@ public class JdbcMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return null;
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         JdbcTableHandle jdbcTableHandle = checkType(tableHandle, JdbcTableHandle.class, "tableHandle");
 
@@ -113,7 +113,7 @@ public class JdbcMetadata
                 if (tableHandle == null) {
                     continue;
                 }
-                columns.put(tableName, getTableMetadata(tableHandle).getColumns());
+                columns.put(tableName, getTableMetadata(session, tableHandle).getColumns());
             }
             catch (TableNotFoundException e) {
                 // table disappeared during listing operation
@@ -123,7 +123,7 @@ public class JdbcMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         checkType(tableHandle, JdbcTableHandle.class, "tableHandle");
         return checkType(columnHandle, JdbcColumnHandle.class, "columnHandle").getColumnMetadata();
@@ -142,7 +142,7 @@ public class JdbcMetadata
     }
 
     @Override
-    public void dropTable(ConnectorTableHandle tableHandle)
+    public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         if (!allowDropTable) {
             throw new PrestoException(PERMISSION_DENIED, "DROP TABLE is disabled in this catalog");
@@ -158,14 +158,14 @@ public class JdbcMetadata
     }
 
     @Override
-    public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         JdbcOutputTableHandle handle = checkType(tableHandle, JdbcOutputTableHandle.class, "tableHandle");
         jdbcClient.commitCreateTable(handle, fragments);
     }
 
     @Override
-    public void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming tables");
     }
@@ -177,7 +177,7 @@ public class JdbcMetadata
     }
 
     @Override
-    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         throw new UnsupportedOperationException();
     }

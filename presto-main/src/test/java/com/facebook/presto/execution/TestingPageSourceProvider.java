@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
@@ -30,7 +31,7 @@ public class TestingPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     @Override
-    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
         checkNotNull(columns, "columns is null");
         checkType(split, TestingSplit.class, "split");

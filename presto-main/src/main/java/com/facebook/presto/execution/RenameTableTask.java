@@ -53,6 +53,6 @@ public class RenameTableTask
             throw new SemanticException(TABLE_ALREADY_EXISTS, statement, "Target table '%s' already exists", target);
         }
 
-        metadata.renameTable(tableHandle.get(), target);
+        metadata.renameTable(session, tableHandle.get(), target);
     }
 }

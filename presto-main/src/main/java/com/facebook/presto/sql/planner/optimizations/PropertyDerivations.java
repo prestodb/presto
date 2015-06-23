@@ -440,7 +440,7 @@ class PropertyDerivations
         {
             checkArgument(node.getLayout().isPresent(), "table layout has not yet been chosen");
 
-            TableLayout layout = metadata.getLayout(node.getLayout().get());
+            TableLayout layout = metadata.getLayout(session, node.getLayout().get());
             Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
             ActualProperties.Builder properties = ActualProperties.builder();

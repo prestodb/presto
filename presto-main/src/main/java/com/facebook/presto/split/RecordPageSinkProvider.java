@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordPageSink;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -33,14 +34,14 @@ public class RecordPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorOutputTableHandle outputTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
-        return new RecordPageSink(recordSinkProvider.getRecordSink(outputTableHandle));
+        return new RecordPageSink(recordSinkProvider.getRecordSink(session, outputTableHandle));
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorInsertTableHandle insertTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
-        return new RecordPageSink(recordSinkProvider.getRecordSink(insertTableHandle));
+        return new RecordPageSink(recordSinkProvider.getRecordSink(session, insertTableHandle));
     }
 }

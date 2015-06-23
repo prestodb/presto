@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
@@ -60,18 +61,18 @@ public class DistributedExecutionPlanner
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
     }
 
-    public StageExecutionPlan plan(SubPlan root)
+    public StageExecutionPlan plan(SubPlan root, Session session)
     {
         PlanFragment currentFragment = root.getFragment();
 
         // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
-        Visitor visitor = new Visitor();
+        Visitor visitor = new Visitor(session);
         Optional<SplitSource> splits = currentFragment.getRoot().accept(visitor, null);
 
         // create child stages
         ImmutableList.Builder<StageExecutionPlan> dependencies = ImmutableList.builder();
         for (SubPlan childPlan : root.getChildren()) {
-            dependencies.add(plan(childPlan));
+            dependencies.add(plan(childPlan, session));
         }
 
         return new StageExecutionPlan(currentFragment,
@@ -83,11 +84,18 @@ public class DistributedExecutionPlanner
     private final class Visitor
             extends PlanVisitor<Void, Optional<SplitSource>>
     {
+        private final Session session;
+
+        private Visitor(Session session)
+        {
+            this.session = session;
+        }
+
         @Override
         public Optional<SplitSource> visitTableScan(TableScanNode node, Void context)
         {
             // get dataSource for table
-            SplitSource splitSource = splitManager.getSplits(node.getLayout().get());
+            SplitSource splitSource = splitManager.getSplits(session, node.getLayout().get());
 
             return Optional.of(splitSource);
         }

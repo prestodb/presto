@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 
 public interface PageSinkProvider
 {
-    ConnectorPageSink createPageSink(OutputTableHandle tableHandle);
+    ConnectorPageSink createPageSink(Session session, OutputTableHandle tableHandle);
 
-    ConnectorPageSink createPageSink(InsertTableHandle tableHandle);
+    ConnectorPageSink createPageSink(Session session, InsertTableHandle tableHandle);
 }
