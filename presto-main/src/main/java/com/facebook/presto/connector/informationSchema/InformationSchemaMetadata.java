@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -130,17 +129,7 @@ public class InformationSchemaMetadata
             return null;
         }
 
-        Session session = Session.builder()
-                .setUser(connectorSession.getUser())
-                .setSource("information_schema")
-                .setCatalog("") // default catalog is not be used
-                .setSchema("") // default schema is not be used
-                .setTimeZoneKey(connectorSession.getTimeZoneKey())
-                .setLocale(connectorSession.getLocale())
-                .setStartTime(connectorSession.getStartTime())
-                .build();
-
-        return new InformationSchemaTableHandle(session, catalogName, tableName.getSchemaName(), tableName.getTableName());
+        return new InformationSchemaTableHandle(catalogName, tableName.getSchemaName(), tableName.getTableName());
     }
 
     @Override

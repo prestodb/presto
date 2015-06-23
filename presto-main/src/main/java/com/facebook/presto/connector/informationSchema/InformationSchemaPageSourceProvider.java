@@ -84,7 +84,7 @@ public class InformationSchemaPageSourceProvider
     @Override
     public ConnectorPageSource createPageSource(ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
-        InternalTable table = getInternalTable(split, columns);
+        InternalTable table = getInternalTable(session, split, columns);
 
         List<Integer> channels = new ArrayList<>();
         for (ColumnHandle column : columns) {
@@ -104,7 +104,7 @@ public class InformationSchemaPageSourceProvider
         return new FixedPageSource(pages.build());
     }
 
-    private InternalTable getInternalTable(ConnectorSplit connectorSplit, List<ColumnHandle> columns)
+    private InternalTable getInternalTable(ConnectorSession connectorSession, ConnectorSplit connectorSplit, List<ColumnHandle> columns)
     {
         InformationSchemaSplit split = checkType(connectorSplit, InformationSchemaSplit.class, "split");
 
@@ -113,7 +113,17 @@ public class InformationSchemaPageSourceProvider
         InformationSchemaTableHandle handle = split.getTableHandle();
         Map<String, SerializableNativeValue> filters = split.getFilters();
 
-        return getInformationSchemaTable(handle.getSession(), handle.getCatalogName(), handle.getSchemaTableName(), filters);
+        Session session = Session.builder()
+                .setUser(connectorSession.getUser())
+                .setSource("information_schema")
+                .setCatalog("") // default catalog is not be used
+                .setSchema("") // default schema is not be used
+                .setTimeZoneKey(connectorSession.getTimeZoneKey())
+                .setLocale(connectorSession.getLocale())
+                .setStartTime(connectorSession.getStartTime())
+                .build();
+
+        return getInformationSchemaTable(session, handle.getCatalogName(), handle.getSchemaTableName(), filters);
     }
 
     public InternalTable getInformationSchemaTable(Session session, String catalog, SchemaTableName table, Map<String, SerializableNativeValue> filters)
