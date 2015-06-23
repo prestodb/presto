@@ -381,7 +381,6 @@ public class BackgroundHiveSplitLoader
                             partitionKeys,
                             addresses,
                             forceLocalScheduling,
-                            session,
                             effectivePredicate));
 
                     chunkOffset += chunkLength;
@@ -408,7 +407,6 @@ public class BackgroundHiveSplitLoader
                     partitionKeys,
                     addresses,
                     forceLocalScheduling,
-                    session,
                     effectivePredicate));
         }
         return builder.build();

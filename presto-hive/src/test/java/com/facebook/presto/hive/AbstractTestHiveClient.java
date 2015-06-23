@@ -224,7 +224,7 @@ public abstract class AbstractTestHiveClient
         temporaryRenameTableNew = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
         temporaryCreateView = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
 
-        invalidTableHandle = new HiveTableHandle("hive", database, INVALID_TABLE, SESSION);
+        invalidTableHandle = new HiveTableHandle("hive", database, INVALID_TABLE);
 
         dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);
         fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", 1, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);

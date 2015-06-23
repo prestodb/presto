@@ -46,7 +46,7 @@ public class HiveRecordSinkProvider
         Path target = new Path(handle.getTemporaryPath(), randomUUID().toString());
         JobConf conf = new JobConf(hdfsEnvironment.getConfiguration(target));
 
-        return new HiveRecordSink(handle, target, conf);
+        return new HiveRecordSink(session, handle, target, conf);
     }
 
     @Override

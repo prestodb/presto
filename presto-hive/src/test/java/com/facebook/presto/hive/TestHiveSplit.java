@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
@@ -22,13 +21,10 @@ import org.testng.annotations.Test;
 
 import java.util.Properties;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveSplit
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
     private final JsonCodec<HiveSplit> codec = JsonCodec.jsonCodec(HiveSplit.class);
 
     @Test
@@ -52,7 +48,6 @@ public class TestHiveSplit
                 partitionKeys,
                 addresses,
                 true,
-                SESSION,
                 TupleDomain.<HiveColumnHandle>all());
 
         String json = codec.toJson(expected);
@@ -68,10 +63,6 @@ public class TestHiveSplit
         assertEquals(actual.getSchema(), expected.getSchema());
         assertEquals(actual.getPartitionKeys(), expected.getPartitionKeys());
         assertEquals(actual.getAddresses(), expected.getAddresses());
-        assertEquals(actual.getSession().getUser(), expected.getSession().getUser());
-        assertEquals(actual.getSession().getLocale(), expected.getSession().getLocale());
-        assertEquals(actual.getSession().getTimeZoneKey(), expected.getSession().getTimeZoneKey());
-        assertEquals(actual.getSession().getStartTime(), expected.getSession().getStartTime());
         assertEquals(actual.isForceLocalScheduling(), expected.isForceLocalScheduling());
     }
 }

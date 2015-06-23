@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -36,7 +35,6 @@ public class HiveOutputTableHandle
     private final String tableOwner;
     private final String targetPath;
     private final String temporaryPath;
-    private final ConnectorSession connectorSession;
     private final HiveStorageFormat hiveStorageFormat;
 
     @JsonCreator
@@ -49,7 +47,6 @@ public class HiveOutputTableHandle
             @JsonProperty("tableOwner") String tableOwner,
             @JsonProperty("targetPath") String targetPath,
             @JsonProperty("temporaryPath") String temporaryPath,
-            @JsonProperty("connectorSession") ConnectorSession connectorSession,
             @JsonProperty("hiveStorageFormat") HiveStorageFormat hiveStorageFormat)
     {
         this.clientId = checkNotNull(clientId, "clientId is null");
@@ -58,7 +55,6 @@ public class HiveOutputTableHandle
         this.tableOwner = checkNotNull(tableOwner, "tableOwner is null");
         this.targetPath = checkNotNull(targetPath, "targetPath is null");
         this.temporaryPath = checkNotNull(temporaryPath, "temporaryPath is null");
-        this.connectorSession = checkNotNull(connectorSession, "session is null");
         this.hiveStorageFormat = checkNotNull(hiveStorageFormat, "hiveStorageFormat is null");
 
         checkNotNull(columnNames, "columnNames is null");
@@ -115,12 +111,6 @@ public class HiveOutputTableHandle
     public String getTemporaryPath()
     {
         return temporaryPath;
-    }
-
-    @JsonProperty
-    public ConnectorSession getConnectorSession()
-    {
-        return connectorSession;
     }
 
     @JsonProperty
