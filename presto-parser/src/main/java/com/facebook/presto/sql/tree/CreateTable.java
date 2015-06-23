@@ -26,7 +26,7 @@ public class CreateTable
 {
     private final QualifiedName name;
     private final List<TableElement> elements;
-    private boolean notExists;
+    private final boolean notExists;
 
     public CreateTable(QualifiedName name, List<TableElement> elements, boolean notExists)
     {
