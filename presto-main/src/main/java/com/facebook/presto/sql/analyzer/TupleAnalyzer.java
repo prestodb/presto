@@ -1077,13 +1077,13 @@ public class TupleAnalyzer
         try {
             Session viewSession = Session.builder()
                     .setUser(session.getUser())
-                    .setSource(session.getSource())
+                    .setSource(session.getSource().orElse(null))
                     .setCatalog(catalog)
                     .setSchema(schema)
                     .setTimeZoneKey(session.getTimeZoneKey())
                     .setLocale(session.getLocale())
-                    .setRemoteUserAddress(session.getRemoteUserAddress())
-                    .setUserAgent(session.getUserAgent())
+                    .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))
+                    .setUserAgent(session.getUserAgent().orElse(null))
                     .setStartTime(session.getStartTime())
                     .build();
 

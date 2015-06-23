@@ -55,12 +55,12 @@ public class TestResourceUtil
         Session session = createSessionForRequest(request);
 
         assertEquals(session.getUser(), "testUser");
-        assertEquals(session.getSource(), "testSource");
+        assertEquals(session.getSource().get(), "testSource");
         assertEquals(session.getCatalog(), "testCatalog");
         assertEquals(session.getSchema(), "testSchema");
         assertEquals(session.getLocale(), Locale.TAIWAN);
         assertEquals(session.getTimeZoneKey(), getTimeZoneKey("Asia/Taipei"));
-        assertEquals(session.getRemoteUserAddress(), "testRemote");
+        assertEquals(session.getRemoteUserAddress().get(), "testRemote");
         assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
                 .put("first", "abc")
                 .put("second", "mno")

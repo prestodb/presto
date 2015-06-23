@@ -21,14 +21,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
-import javax.annotation.Nullable;
-
 import java.net.URI;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.TimeZone;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -39,16 +38,13 @@ import static java.util.Objects.requireNonNull;
 public final class Session
 {
     private final String user;
-    @Nullable
-    private final String source;
+    private final Optional<String> source;
     private final String catalog;
     private final String schema;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
-    @Nullable
-    private final String remoteUserAddress;
-    @Nullable
-    private final String userAgent;
+    private final Optional<String> remoteUserAddress;
+    private final Optional<String> userAgent;
     private final long startTime;
     private final Map<String, String> systemProperties;
     private final Map<String, Map<String, String>> catalogProperties;
@@ -56,13 +52,13 @@ public final class Session
     @JsonCreator
     public Session(
             @JsonProperty("user") String user,
-            @JsonProperty("source") @Nullable String source,
+            @JsonProperty("source") Optional<String> source,
             @JsonProperty("catalog") String catalog,
             @JsonProperty("schema") String schema,
             @JsonProperty("timeZoneKey") TimeZoneKey timeZoneKey,
             @JsonProperty("locale") Locale locale,
-            @JsonProperty("remoteUserAddress") @Nullable String remoteUserAddress,
-            @JsonProperty("userAgent") @Nullable String userAgent,
+            @JsonProperty("remoteUserAddress") Optional<String> remoteUserAddress,
+            @JsonProperty("userAgent") Optional<String> userAgent,
             @JsonProperty("startTime") long startTime,
             @JsonProperty("systemProperties") Map<String, String> systemProperties,
             @JsonProperty("catalogProperties") Map<String, Map<String, String>> catalogProperties)
@@ -91,9 +87,8 @@ public final class Session
         return user;
     }
 
-    @Nullable
     @JsonProperty
-    public String getSource()
+    public Optional<String> getSource()
     {
         return source;
     }
@@ -122,16 +117,14 @@ public final class Session
         return locale;
     }
 
-    @Nullable
     @JsonProperty
-    public String getRemoteUserAddress()
+    public Optional<String> getRemoteUserAddress()
     {
         return remoteUserAddress;
     }
 
-    @Nullable
     @JsonProperty
-    public String getUserAgent()
+    public Optional<String> getUserAgent()
     {
         return userAgent;
     }
@@ -231,7 +224,7 @@ public final class Session
         return new ClientSession(
                 checkNotNull(server, "server is null"),
                 user,
-                source,
+                source.orElse(null),
                 catalog,
                 schema,
                 timeZoneKey.getId(),
@@ -358,7 +351,18 @@ public final class Session
 
         public Session build()
         {
-            return new Session(user, source, catalog, schema, timeZoneKey, locale, remoteUserAddress, userAgent, startTime, systemProperties, catalogProperties);
+            return new Session(
+                    user,
+                    Optional.ofNullable(source),
+                    catalog,
+                    schema,
+                    timeZoneKey,
+                    locale,
+                    Optional.ofNullable(remoteUserAddress),
+                    Optional.ofNullable(userAgent),
+                    startTime,
+                    systemProperties,
+                    catalogProperties);
         }
     }
 }

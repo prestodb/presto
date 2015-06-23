@@ -20,7 +20,6 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Strings.nullToEmpty;
 
 public class QueryQueueDefinition
 {
@@ -47,7 +46,7 @@ public class QueryQueueDefinition
     public String getExpandedTemplate(Session session)
     {
         String expanded = USER_PATTERN.matcher(template).replaceAll(session.getUser());
-        return SOURCE_PATTERN.matcher(expanded).replaceAll(nullToEmpty(session.getSource()));
+        return SOURCE_PATTERN.matcher(expanded).replaceAll(session.getSource().orElse(""));
     }
 
     String getTemplate()
