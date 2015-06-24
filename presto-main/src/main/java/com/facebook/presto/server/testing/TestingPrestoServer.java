@@ -89,7 +89,7 @@ public class TestingPrestoServer
     private final InternalNodeManager nodeManager;
     private final ServiceSelectorManager serviceSelectorManager;
     private final Announcer announcer;
-    private QueryManager queryManager;
+    private final QueryManager queryManager;
 
     public TestingPrestoServer()
             throws Exception
