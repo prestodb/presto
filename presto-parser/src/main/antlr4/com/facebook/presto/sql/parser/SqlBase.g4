@@ -336,6 +336,7 @@ nonReserved
     | VIEW | REPLACE
     | IF | NULLIF | COALESCE
     | normalForm
+    | POSITION
     ;
 
 normalForm
