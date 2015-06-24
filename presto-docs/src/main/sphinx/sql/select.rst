@@ -188,7 +188,7 @@ LIMIT Clause
 ------------
 
 The ``LIMIT`` clause restricts the number of rows in the result set.
-``LIMIT ALL`` is the same as omitting the LIMIT clause.
+``LIMIT ALL`` is the same as omitting the ``LIMIT`` clause.
 The following example queries a large table, but the limit clause restricts
 the output to only have five rows (because the query lacks an ``ORDER BY``,
 exactly which rows are returned is arbitrary)::
