@@ -16,12 +16,13 @@ package com.facebook.presto.server;
 import com.google.common.base.StandardSystemProperty;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.joda.time.DateTime;
 
 import java.nio.ByteOrder;
 
-final class PrestoJvmRequirements
+final class PrestoSystemRequirements
 {
-    private PrestoJvmRequirements() {}
+    private PrestoSystemRequirements() {}
 
     public static void verifyJvmRequirements()
     {
@@ -72,6 +73,18 @@ final class PrestoJvmRequirements
         slice.setByte(1, 0xEF);
         if (slice.getInt(1) != 0xDEADBEEF) {
             failRequirement("Slice library produced an unexpected result");
+        }
+    }
+
+    /**
+     * Perform a sanity check to make sure that the year is reasonably current, to guard against
+     * issues in third party libraries.
+     */
+    public static void verifySystemTimeIsReasonable()
+    {
+        int currentYear = DateTime.now().year().get();
+        if (currentYear < 2015) {
+           failRequirement("Presto requires the system time to be current (found year %s)", currentYear);
         }
     }
 
