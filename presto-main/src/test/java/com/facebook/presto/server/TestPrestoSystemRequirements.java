@@ -15,14 +15,22 @@ package com.facebook.presto.server;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.server.PrestoJvmRequirements.verifyJvmRequirements;
+import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
+import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 
-public class TestPrestoJvmRequirements
+public class TestPrestoSystemRequirements
 {
     @Test
     public void testVerifyJvmRequirements()
             throws Exception
     {
         verifyJvmRequirements();
+    }
+
+    @Test
+    public void testSystemTimeSanityCheck()
+            throws Exception
+    {
+        verifySystemTimeIsReasonable();
     }
 }
