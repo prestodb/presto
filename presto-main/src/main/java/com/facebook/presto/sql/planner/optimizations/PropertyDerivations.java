@@ -413,7 +413,14 @@ class PropertyDerivations
         @Override
         public ActualProperties visitUnnest(UnnestNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            Set<Symbol> passThroughInputs = ImmutableSet.copyOf(node.getReplicateSymbols());
+
+            return Iterables.getOnlyElement(inputProperties).translate(column -> {
+                if (passThroughInputs.contains(column)) {
+                    return Optional.of(column);
+                }
+                return Optional.empty();
+            });
         }
 
         @Override
