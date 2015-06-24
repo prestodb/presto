@@ -655,10 +655,24 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testLimitAll()
+            throws Exception
+    {
+        assertQuery("SELECT custkey, totalprice FROM orders LIMIT ALL", "SELECT custkey, totalprice FROM orders");
+    }
+
+    @Test
     public void testOrderByLimitZero()
             throws Exception
     {
         assertQuery("SELECT custkey, totalprice FROM orders ORDER BY orderkey LIMIT 0");
+    }
+
+    @Test
+    public void testOrderByLimitAll()
+            throws Exception
+    {
+        assertQuery("SELECT custkey, totalprice FROM orders ORDER BY orderkey LIMIT ALL", "SELECT custkey, totalprice FROM orders ORDER BY orderkey");
     }
 
     @Test
