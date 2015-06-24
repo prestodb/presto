@@ -56,7 +56,7 @@ statement
     | SHOW PARTITIONS (FROM | IN) qualifiedName
         (WHERE booleanExpression)?
         (ORDER BY sortItem (',' sortItem)*)?
-        (LIMIT limit=INTEGER_VALUE)?                                   #showPartitions
+        (LIMIT limit=(INTEGER_VALUE | ALL))?                           #showPartitions
     ;
 
 query
@@ -82,7 +82,7 @@ tableProperty
 queryNoWith:
       queryTerm
       (ORDER BY sortItem (',' sortItem)*)?
-      (LIMIT limit=INTEGER_VALUE)?
+      (LIMIT limit=(INTEGER_VALUE | ALL))?
       (APPROXIMATE AT confidence=number CONFIDENCE)?
     ;
 
