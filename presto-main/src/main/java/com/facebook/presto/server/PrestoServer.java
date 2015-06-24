@@ -46,7 +46,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.server.PrestoJvmRequirements.verifyJvmRequirements;
+import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
+import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
@@ -76,6 +77,7 @@ public class PrestoServer
     public void run()
     {
         verifyJvmRequirements();
+        verifySystemTimeIsReasonable();
 
         Logger log = Logger.get(PrestoServer.class);
 
