@@ -1,0 +1,96 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>7.18. SHOW SCHEMAS &mdash; Presto 0.108 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.108',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.108 Documentation" href="../index.html" />
+    <link rel="up" title="7. SQL Statement Syntax" href="../sql.html" />
+    <link rel="next" title="7.19. SHOW SESSION" href="show-session.html" />
+    <link rel="prev" title="7.17. SHOW PARTITIONS" href="show-partitions.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.108 Documentation</span></a></h1>
+    <h2 class="heading"><span>7.18. SHOW SCHEMAS</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="show-partitions.html">7.17. SHOW PARTITIONS</a>
+    </span>
+    <span class="right">
+        <a href="show-session.html">7.19. SHOW SESSION</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="show-schemas">
+<h1>7.18. SHOW SCHEMAS</h1>
+<div class="section" id="synopsis">
+<h2>Synopsis</h2>
+<div class="highlight-none"><div class="highlight"><pre>SHOW SCHEMAS [ FROM catalog ]
+</pre></div>
+</div>
+</div>
+<div class="section" id="description">
+<h2>Description</h2>
+<p>List the schemas in <tt class="docutils literal"><span class="pre">catalog</span></tt> or in the current catalog.</p>
+</div>
+<div class="section" id="examples">
+<h2>Examples</h2>
+<div class="highlight-none"><div class="highlight"><pre>presto:default&gt; show schemas;
+       Schema
+--------------------
+ information_schema
+ jmx
+ sys
+(3 rows)
+</pre></div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="show-partitions.html">7.17. SHOW PARTITIONS</a>
+    </span>
+    <span class="right">
+        <a href="show-session.html">7.19. SHOW SESSION</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
