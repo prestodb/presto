@@ -17,6 +17,7 @@ import com.facebook.presto.discovery.EmbeddedDiscoveryModule;
 import com.facebook.presto.execution.NodeSchedulerConfig;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -93,6 +94,7 @@ public class PrestoServer
                 new JsonEventModule(),
                 new HttpEventModule(),
                 new EmbeddedDiscoveryModule(),
+                new ServerSecurityModule(),
                 new ServerMainModule(sqlParserOptions));
 
         modules.addAll(getAdditionalModules());
