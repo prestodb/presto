@@ -73,7 +73,7 @@ tableElement
 queryNoWith:
       queryTerm
       (ORDER BY sortItem (',' sortItem)*)?
-      (LIMIT limit=INTEGER_VALUE)?
+      (LIMIT limit=(INTEGER_VALUE | ALL))?
       (APPROXIMATE AT confidence=number CONFIDENCE)?
     ;
 

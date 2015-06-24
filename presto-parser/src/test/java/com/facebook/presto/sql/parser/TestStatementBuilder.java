@@ -140,6 +140,9 @@ public class TestStatementBuilder
         printStatement("(table foo) limit 10");
         printStatement("(table foo limit 5) limit 10");
 
+        printStatement("select * from a limit all");
+        printStatement("select * from a order by x limit all");
+
         printStatement("select * from a union select * from b");
         printStatement("table a union all table b");
         printStatement("(table foo) union select * from foo union (table foo order by x)");

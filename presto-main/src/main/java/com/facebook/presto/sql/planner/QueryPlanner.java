@@ -700,7 +700,7 @@ class QueryPlanner
         }
 
         PlanNode planNode;
-        if (limit.isPresent()) {
+        if (limit.isPresent() && !limit.get().equalsIgnoreCase("all")) {
             planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.parseLong(limit.get()), orderBySymbols.build(), orderings, false);
         }
         else {
@@ -723,8 +723,13 @@ class QueryPlanner
     private PlanBuilder limit(PlanBuilder subPlan, List<SortItem> orderBy, Optional<String> limit)
     {
         if (orderBy.isEmpty() && limit.isPresent()) {
-            long limitValue = Long.parseLong(limit.get());
-            return new PlanBuilder(subPlan.getTranslations(), new LimitNode(idAllocator.getNextId(), subPlan.getRoot(), limitValue), subPlan.getSampleWeight());
+            if (limit.get().equalsIgnoreCase("all")) {
+                return subPlan;
+            }
+            else {
+                long limitValue = Long.parseLong(limit.get());
+                return new PlanBuilder(subPlan.getTranslations(), new LimitNode(idAllocator.getNextId(), subPlan.getRoot(), limitValue), subPlan.getSampleWeight());
+            }
         }
 
         return subPlan;

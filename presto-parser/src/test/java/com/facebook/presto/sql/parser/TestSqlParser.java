@@ -312,6 +312,23 @@ public class TestSqlParser
     }
 
     @Test
+    public void testLimitAll()
+    {
+        Query valuesQuery = query(values(
+                row(new LongLiteral("1"), new StringLiteral("1")),
+                row(new LongLiteral("2"), new StringLiteral("2"))));
+
+        assertStatement("SELECT * FROM (VALUES (1, '1'), (2, '2')) LIMIT ALL",
+                simpleQuery(selectList(new AllColumns()),
+                        subquery(valuesQuery),
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        Optional.of("ALL")));
+    }
+
+    @Test
     public void testValues()
     {
         Query valuesQuery = query(values(
