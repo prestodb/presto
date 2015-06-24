@@ -14,7 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.Session;
+import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -28,14 +28,14 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class TaskUpdateRequest
 {
-    private final Session session;
+    private final SessionRepresentation session;
     private final PlanFragment fragment;
     private final List<TaskSource> sources;
     private final OutputBuffers outputIds;
 
     @JsonCreator
     public TaskUpdateRequest(
-            @JsonProperty("session") Session session,
+            @JsonProperty("session") SessionRepresentation session,
             @JsonProperty("fragment") PlanFragment fragment,
             @JsonProperty("sources") List<TaskSource> sources,
             @JsonProperty("outputIds") OutputBuffers outputIds)
@@ -52,7 +52,7 @@ public class TaskUpdateRequest
     }
 
     @JsonProperty
-    public Session getSession()
+    public SessionRepresentation getSession()
     {
         return session;
     }

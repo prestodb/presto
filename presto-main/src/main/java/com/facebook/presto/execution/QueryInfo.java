@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.Session;
+import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.memory.MemoryPoolId;
 import com.facebook.presto.spi.ErrorCode;
@@ -41,7 +41,7 @@ import static java.util.Objects.requireNonNull;
 public class QueryInfo
 {
     private final QueryId queryId;
-    private final Session session;
+    private final SessionRepresentation session;
     private final QueryState state;
     private final MemoryPoolId memoryPool;
     private final boolean scheduled;
@@ -61,7 +61,7 @@ public class QueryInfo
     @JsonCreator
     public QueryInfo(
             @JsonProperty("queryId") QueryId queryId,
-            @JsonProperty("session") Session session,
+            @JsonProperty("session") SessionRepresentation session,
             @JsonProperty("state") QueryState state,
             @JsonProperty("memoryPool") MemoryPoolId memoryPool,
             @JsonProperty("scheduled") boolean scheduled,
@@ -114,7 +114,7 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public Session getSession()
+    public SessionRepresentation getSession()
     {
         return session;
     }

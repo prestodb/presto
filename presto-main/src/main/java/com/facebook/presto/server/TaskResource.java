@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.BufferResult;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
@@ -100,7 +101,8 @@ public class TaskResource
     {
         checkNotNull(taskUpdateRequest, "taskUpdateRequest is null");
 
-        TaskInfo taskInfo = taskManager.updateTask(taskUpdateRequest.getSession(),
+        Session session = taskUpdateRequest.getSession().toSession();
+        TaskInfo taskInfo = taskManager.updateTask(session,
                 taskId,
                 taskUpdateRequest.getFragment(),
                 taskUpdateRequest.getSources(),

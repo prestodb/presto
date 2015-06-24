@@ -16,8 +16,6 @@ package com.facebook.presto;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.TimeZoneKey;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
@@ -49,19 +47,18 @@ public final class Session
     private final Map<String, String> systemProperties;
     private final Map<String, Map<String, String>> catalogProperties;
 
-    @JsonCreator
     public Session(
-            @JsonProperty("user") String user,
-            @JsonProperty("source") Optional<String> source,
-            @JsonProperty("catalog") String catalog,
-            @JsonProperty("schema") String schema,
-            @JsonProperty("timeZoneKey") TimeZoneKey timeZoneKey,
-            @JsonProperty("locale") Locale locale,
-            @JsonProperty("remoteUserAddress") Optional<String> remoteUserAddress,
-            @JsonProperty("userAgent") Optional<String> userAgent,
-            @JsonProperty("startTime") long startTime,
-            @JsonProperty("systemProperties") Map<String, String> systemProperties,
-            @JsonProperty("catalogProperties") Map<String, Map<String, String>> catalogProperties)
+            String user,
+            Optional<String> source,
+            String catalog,
+            String schema,
+            TimeZoneKey timeZoneKey,
+            Locale locale,
+            Optional<String> remoteUserAddress,
+            Optional<String> userAgent,
+            long startTime,
+            Map<String, String> systemProperties,
+            Map<String, Map<String, String>> catalogProperties)
     {
         this.user = requireNonNull(user, "user is null");
         this.source = source;
@@ -81,67 +78,56 @@ public final class Session
         this.catalogProperties = catalogPropertiesBuilder.build();
     }
 
-    @JsonProperty
     public String getUser()
     {
         return user;
     }
 
-    @JsonProperty
     public Optional<String> getSource()
     {
         return source;
     }
 
-    @JsonProperty
     public String getCatalog()
     {
         return catalog;
     }
 
-    @JsonProperty
     public String getSchema()
     {
         return schema;
     }
 
-    @JsonProperty
     public TimeZoneKey getTimeZoneKey()
     {
         return timeZoneKey;
     }
 
-    @JsonProperty
     public Locale getLocale()
     {
         return locale;
     }
 
-    @JsonProperty
     public Optional<String> getRemoteUserAddress()
     {
         return remoteUserAddress;
     }
 
-    @JsonProperty
     public Optional<String> getUserAgent()
     {
         return userAgent;
     }
 
-    @JsonProperty
     public long getStartTime()
     {
         return startTime;
     }
 
-    @JsonProperty
     public Map<String, String> getSystemProperties()
     {
         return systemProperties;
     }
 
-    @JsonProperty
     public Map<String, Map<String, String>> getCatalogProperties()
     {
         return catalogProperties;
@@ -231,6 +217,22 @@ public final class Session
                 locale,
                 properties.build(),
                 debug);
+    }
+
+    public SessionRepresentation toSessionRepresentation()
+    {
+        return new SessionRepresentation(
+                user,
+                source,
+                catalog,
+                schema,
+                timeZoneKey,
+                locale,
+                remoteUserAddress,
+                userAgent,
+                startTime,
+                systemProperties,
+                catalogProperties);
     }
 
     @Override

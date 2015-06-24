@@ -269,7 +269,7 @@ public class QueryStateMachine
                 outputPositions);
 
         return new QueryInfo(queryId,
-                session,
+                session.toSessionRepresentation(),
                 state,
                 memoryPool.get().getId(),
                 isScheduled(rootStage),

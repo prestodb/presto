@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.Session;
+import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
@@ -41,7 +41,7 @@ import static java.util.Objects.requireNonNull;
 public class BasicQueryInfo
 {
     private final QueryId queryId;
-    private final Session session;
+    private final SessionRepresentation session;
     private final QueryState state;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
@@ -61,7 +61,7 @@ public class BasicQueryInfo
     @JsonCreator
     public BasicQueryInfo(
             @JsonProperty("queryId") QueryId queryId,
-            @JsonProperty("session") Session session,
+            @JsonProperty("session") SessionRepresentation session,
             @JsonProperty("state") QueryState state,
             @JsonProperty("errorType") ErrorType errorType,
             @JsonProperty("errorCode") ErrorCode errorCode,
@@ -131,7 +131,7 @@ public class BasicQueryInfo
     }
 
     @JsonProperty
-    public Session getSession()
+    public SessionRepresentation getSession()
     {
         return session;
     }
