@@ -316,6 +316,23 @@ public class TestSqlParser
     }
 
     @Test
+    public void testLimitAll()
+    {
+        Query valuesQuery = query(values(
+                row(new LongLiteral("1"), new StringLiteral("1")),
+                row(new LongLiteral("2"), new StringLiteral("2"))));
+
+        assertStatement("SELECT * FROM (VALUES (1, '1'), (2, '2')) LIMIT ALL",
+                simpleQuery(selectList(new AllColumns()),
+                        subquery(valuesQuery),
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        Optional.of("ALL")));
+    }
+
+    @Test
     public void testValues()
     {
         Query valuesQuery = query(values(
@@ -664,6 +681,13 @@ public class TestSqlParser
                         Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
                         ImmutableList.of(new SortItem(new QualifiedNameReference(QualifiedName.of("y")), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
                         Optional.of("10")));
+
+        assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y LIMIT ALL",
+                new ShowPartitions(
+                        QualifiedName.of("t"),
+                        Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
+                        ImmutableList.of(new SortItem(new QualifiedNameReference(QualifiedName.of("y")), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
+                        Optional.of("ALL")));
     }
 
     @Test
