@@ -34,10 +34,10 @@ public class KeyValuePairs
 
     private final TypedSet keySet;
     private final BlockBuilder keyBlockBuilder;
-    private final Type keyType;
+    protected final Type keyType;
 
     private final BlockBuilder valueBlockBuilder;
-    private final Type valueType;
+    protected final Type valueType;
 
     public KeyValuePairs(Type keyType, Type valueType)
     {
