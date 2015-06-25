@@ -65,7 +65,7 @@ public final class ArraySliceFunction
     @Override
     public String getDescription()
     {
-        return "Subsets an array given an offset (zero-indexed) and length";
+        return "Subsets an array given an offset (1-indexed) and length";
     }
 
     @Override
