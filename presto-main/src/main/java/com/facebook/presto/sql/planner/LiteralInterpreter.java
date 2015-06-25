@@ -48,6 +48,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
@@ -222,7 +223,12 @@ public final class LiteralInterpreter
         @Override
         protected Long visitTimestampLiteral(TimestampLiteral node, ConnectorSession session)
         {
-            return parseTimestampLiteral(session.getTimeZoneKey(), node.getValue());
+            try {
+                return parseTimestampLiteral(session.getTimeZoneKey(), node.getValue());
+            }
+            catch (Exception e) {
+                throw new SemanticException(INVALID_LITERAL, node, "'%s' is not a valid timestamp literal", node.getValue());
+            }
         }
 
         @Override
