@@ -53,7 +53,7 @@ following services:
 * ``ConnectorHandleResolver``
 * ``ConnectorRecordSetProvider``
 
-ConnectorMetdata
+ConnectorMetadata
 ^^^^^^^^^^^^^^^^
 
 The connector metadata interface has a large number of important
