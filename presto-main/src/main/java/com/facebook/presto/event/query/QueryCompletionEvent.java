@@ -47,6 +47,8 @@ public class QueryCompletionEvent
     private final List<String> fieldNames;
     private final String query;
 
+    private final Long peakMemoryBytes;
+
     private final DateTime createTime;
     private final DateTime executionStartTime;
     private final DateTime endTime;
@@ -85,6 +87,7 @@ public class QueryCompletionEvent
             URI uri,
             List<String> fieldNames,
             String query,
+            Long peakMemoryBytes,
             DateTime createTime,
             DateTime executionStartTime,
             DateTime endTime,
@@ -117,6 +120,7 @@ public class QueryCompletionEvent
         this.uri = uri;
         this.errorCode = errorCode;
         this.fieldNames = ImmutableList.copyOf(fieldNames);
+        this.peakMemoryBytes = peakMemoryBytes;
         this.query = query;
         this.createTime = createTime;
         this.executionStartTime = executionStartTime;
@@ -231,6 +235,12 @@ public class QueryCompletionEvent
     public String getQuery()
     {
         return query;
+    }
+
+    @EventField
+    public Long getPeakMemoryBytes()
+    {
+        return peakMemoryBytes;
     }
 
     @EventField

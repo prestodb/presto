@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.QueryState.FAILED;
@@ -71,6 +72,8 @@ public class QueryStateMachine
 
     private final AtomicReference<VersionedMemoryPoolId> memoryPool = new AtomicReference<>(new VersionedMemoryPoolId(GENERAL_POOL, 0));
 
+    private final AtomicLong peakMemory = new AtomicLong();
+    private final AtomicLong currentMemory = new AtomicLong();
     private final AtomicReference<DateTime> lastHeartbeat = new AtomicReference<>(DateTime.now());
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> endTime = new AtomicReference<>();
@@ -115,6 +118,19 @@ public class QueryStateMachine
         return session;
     }
 
+    public long getPeakMemoryInBytes()
+    {
+        return peakMemory.get();
+    }
+
+    public void updateMemoryUsage(long deltaMemoryInBytes)
+    {
+        long currentMemoryValue = currentMemory.addAndGet(deltaMemoryInBytes);
+        if (currentMemoryValue > peakMemory.get()) {
+            peakMemory.updateAndGet(x -> currentMemoryValue > x ? currentMemoryValue : x);
+        }
+    }
+
     public QueryInfo getQueryInfoWithoutDetails()
     {
         return getQueryInfo(null);
@@ -157,6 +173,7 @@ public class QueryStateMachine
         int completedDrivers = 0;
 
         long totalMemoryReservation = 0;
+        long peakMemoryReservation = 0;
 
         long totalScheduledTime = 0;
         long totalCpuTime = 0;
@@ -188,6 +205,7 @@ public class QueryStateMachine
                 completedDrivers += stageStats.getCompletedDrivers();
 
                 totalMemoryReservation += stageStats.getTotalMemoryReservation().toBytes();
+                peakMemoryReservation = getPeakMemoryInBytes();
 
                 totalScheduledTime += stageStats.getTotalScheduledTime().roundTo(NANOSECONDS);
                 totalCpuTime += stageStats.getTotalCpuTime().roundTo(NANOSECONDS);
@@ -235,6 +253,7 @@ public class QueryStateMachine
                 completedDrivers,
 
                 new DataSize(totalMemoryReservation, BYTE).convertToMostSuccinctDataSize(),
+                new DataSize(peakMemoryReservation, BYTE).convertToMostSuccinctDataSize(),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
