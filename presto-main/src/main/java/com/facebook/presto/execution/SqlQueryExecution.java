@@ -113,7 +113,6 @@ public final class SqlQueryExecution
             this.splitManager = checkNotNull(splitManager, "splitManager is null");
             this.nodeScheduler = checkNotNull(nodeScheduler, "nodeScheduler is null");
             this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
-            this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
             this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
@@ -148,6 +147,8 @@ public final class SqlQueryExecution
                 finalQueryInfo.compareAndSet(null, getQueryInfo(stage));
                 outputStage.set(null);
             });
+
+            this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(checkNotNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
 
             this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled);
         }
