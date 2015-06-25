@@ -27,7 +27,7 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
+import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
@@ -41,7 +41,7 @@ public final class ArraySliceFunction
 {
     public static final ArraySliceFunction ARRAY_SLICE_FUNCTION = new ArraySliceFunction();
     private static final String FUNCTION_NAME = "slice";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(comparableTypeParameter("E")), "array<E>", ImmutableList.of("array<E>", "bigint", "bigint"), false, false);
+    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("array<E>", "bigint", "bigint"), false, false);
     private static final MethodHandle METHOD_HANDLE = methodHandle(ArraySliceFunction.class, "slice", Type.class, Slice.class, long.class, long.class);
 
     @Override
@@ -76,7 +76,7 @@ public final class ArraySliceFunction
         Signature signature = new Signature(FUNCTION_NAME,
                 parameterizedTypeName("array", type.getTypeSignature()),
                 parameterizedTypeName("array", type.getTypeSignature()), parseTypeSignature("bigint"), parseTypeSignature("bigint"));
-        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false, false, false));
+        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false, false, false));
     }
 
     public static Slice slice(Type type, Slice array, long offset, long length)
