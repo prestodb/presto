@@ -53,8 +53,8 @@ following services:
 * ``ConnectorHandleResolver``
 * ``ConnectorRecordSetProvider``
 
-ConnectorMetdata
-^^^^^^^^^^^^^^^^
+ConnectorMetadata
+^^^^^^^^^^^^^^^^^
 
 The connector metadata interface has a large number of important
 methods that are responsible for allowing Presto to look at lists of
