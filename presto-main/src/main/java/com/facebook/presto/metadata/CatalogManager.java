@@ -81,7 +81,7 @@ public class CatalogManager
         Map<String, String> properties = new HashMap<>(loadProperties(file));
 
         String connectorName = properties.remove("connector.name");
-        checkState(connectorName != null, "Catalog configuration %s does not contain conector.name", file.getAbsoluteFile());
+        checkState(connectorName != null, "Catalog configuration %s does not contain connector.name", file.getAbsoluteFile());
 
         String catalogName = Files.getNameWithoutExtension(file.getName());
 
