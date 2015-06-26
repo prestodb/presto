@@ -96,14 +96,16 @@ public class MetadataManager
     private final SplitManager splitManager;
     private final BlockEncodingSerde blockEncodingSerde;
     private final SessionPropertyManager sessionPropertyManager;
+    private final TablePropertyManager tablePropertyManager;
 
     public MetadataManager(FeaturesConfig featuresConfig,
             TypeManager typeManager,
             SplitManager splitManager,
             BlockEncodingSerde blockEncodingSerde,
-            SessionPropertyManager sessionPropertyManager)
+            SessionPropertyManager sessionPropertyManager,
+            TablePropertyManager tablePropertyManager)
     {
-        this(featuresConfig, typeManager, createTestingViewCodec(), splitManager, blockEncodingSerde, sessionPropertyManager);
+        this(featuresConfig, typeManager, createTestingViewCodec(), splitManager, blockEncodingSerde, sessionPropertyManager, tablePropertyManager);
     }
 
     @Inject
@@ -112,7 +114,8 @@ public class MetadataManager
             JsonCodec<ViewDefinition> viewCodec,
             SplitManager splitManager,
             BlockEncodingSerde blockEncodingSerde,
-            SessionPropertyManager sessionPropertyManager)
+            SessionPropertyManager sessionPropertyManager,
+            TablePropertyManager tablePropertyManager)
     {
         functions = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig.isExperimentalSyntaxEnabled());
         this.typeManager = checkNotNull(typeManager, "types is null");
@@ -120,6 +123,7 @@ public class MetadataManager
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
         this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.sessionPropertyManager = checkNotNull(sessionPropertyManager, "sessionPropertyManager is null");
+        this.tablePropertyManager = checkNotNull(tablePropertyManager, "tablePropertyManager is null");
     }
 
     public static MetadataManager createTestMetadataManager()
@@ -129,7 +133,7 @@ public class MetadataManager
         SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
         SplitManager splitManager = new SplitManager();
         BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
-        return new MetadataManager(featuresConfig, typeManager, splitManager, blockEncodingSerde, sessionPropertyManager);
+        return new MetadataManager(featuresConfig, typeManager, splitManager, blockEncodingSerde, sessionPropertyManager, new TablePropertyManager());
     }
 
     public synchronized void addConnectorMetadata(String connectorId, String catalogName, ConnectorMetadata connectorMetadata)
@@ -617,6 +621,12 @@ public class MetadataManager
     public SessionPropertyManager getSessionPropertyManager()
     {
         return sessionPropertyManager;
+    }
+
+    @Override
+    public TablePropertyManager getTablePropertyManager()
+    {
+        return tablePropertyManager;
     }
 
     private ViewDefinition deserializeView(String data)

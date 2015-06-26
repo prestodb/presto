@@ -33,6 +33,7 @@ import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.RecordPageSinkProvider;
@@ -43,6 +44,7 @@ import io.airlift.log.Logger;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -223,6 +225,9 @@ public class ConnectorManager
         catch (UnsupportedOperationException ignored) {
         }
 
+        List<PropertyMetadata<?>> tableProperties = connector.getTableProperties();
+        checkNotNull(tableProperties, "Connector %s returned null table properties", connectorId);
+
         // IMPORTANT: all the instances need to be fetched from the connector *before* we add them to the corresponding managers.
         // Otherwise, a broken connector would leave the managers in an inconsistent state with respect to each other
 
@@ -241,6 +246,7 @@ public class ConnectorManager
         handleResolver.addHandleResolver(connectorId, connectorHandleResolver);
         pageSourceManager.addConnectorPageSourceProvider(connectorId, connectorPageSourceProvider);
         metadataManager.getSessionPropertyManager().addConnectorSessionProperties(catalogName, connector.getSessionProperties());
+        metadataManager.getTablePropertyManager().addTableProperties(catalogName, tableProperties);
 
         if (connectorPageSinkProvider != null) {
             pageSinkManager.addConnectorPageSinkProvider(connectorId, connectorPageSinkProvider);

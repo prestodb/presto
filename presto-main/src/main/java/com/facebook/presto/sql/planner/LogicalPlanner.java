@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
@@ -29,11 +30,14 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
@@ -41,7 +45,6 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReferen
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 public class LogicalPlanner
 {
@@ -106,28 +109,31 @@ public class LogicalPlanner
 
         RelationPlan plan = createRelationPlan(analysis);
 
-        TableMetadata tableMetadata = createTableMetadata(destination, getOutputTableColumns(plan), plan.getSampleWeight().isPresent());
-        checkState(!plan.getSampleWeight().isPresent() || metadata.canCreateSampledTables(session, destination.getCatalogName()), "Cannot write sampled data to a store that doesn't support sampling");
+        TableMetadata tableMetadata = createTableMetadata(destination, getOutputTableColumns(plan), analysis.getCreateTableProperties(), plan.getSampleWeight().isPresent());
+        if (plan.getSampleWeight().isPresent() && !metadata.canCreateSampledTables(session, destination.getCatalogName())) {
+          throw new PrestoException(NOT_SUPPORTED, "Cannot write sampled data to a store that doesn't support sampling");
+        }
 
         return createTableWriterPlan(
                 analysis,
                 plan,
-                tableMetadata,
-                new CreateName(destination.getCatalogName(), tableMetadata));
+                new CreateName(destination.getCatalogName(), tableMetadata), getVisibleColumnNames(tableMetadata));
     }
 
     private RelationPlan createInsertPlan(Analysis analysis)
     {
         TableHandle target = analysis.getInsertTarget().get();
 
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, target);
+
         return createTableWriterPlan(
                 analysis,
                 createRelationPlan(analysis),
-                metadata.getTableMetadata(session, target),
-                new InsertReference(target));
+                new InsertReference(target),
+                getVisibleColumnNames(tableMetadata));
     }
 
-    private RelationPlan createTableWriterPlan(Analysis analysis, RelationPlan plan, TableMetadata tableMetadata, WriterTarget target)
+    private RelationPlan createTableWriterPlan(Analysis analysis, RelationPlan plan, WriterTarget target, List<String> columnNames)
     {
         List<Symbol> writerOutputs = ImmutableList.of(
                 symbolAllocator.newSymbol("partialrows", BIGINT),
@@ -138,7 +144,7 @@ public class LogicalPlanner
                 plan.getRoot(),
                 target,
                 plan.getOutputSymbols(),
-                getVisibleColumnNames(tableMetadata),
+                columnNames,
                 writerOutputs,
                 plan.getSampleWeight());
 
@@ -191,10 +197,17 @@ public class LogicalPlanner
                 .process(analysis.getQuery(), null);
     }
 
-    private TableMetadata createTableMetadata(QualifiedTableName table, List<ColumnMetadata> columns, boolean sampled)
+    private TableMetadata createTableMetadata(QualifiedTableName table, List<ColumnMetadata> columns, Map<String, Expression> propertyExpressions, boolean sampled)
     {
         String owner = session.getUser();
-        ConnectorTableMetadata metadata = new ConnectorTableMetadata(table.asSchemaTableName(), columns, owner, sampled);
+
+        Map<String, Object> properties = metadata.getTablePropertyManager().getTableProperties(
+                table.getCatalogName(),
+                propertyExpressions,
+                session,
+                metadata);
+
+        ConnectorTableMetadata metadata = new ConnectorTableMetadata(table.asSchemaTableName(), columns, properties, owner, sampled);
         // TODO: first argument should actually be connectorId
         return new TableMetadata(table.getCatalogName(), metadata);
     }

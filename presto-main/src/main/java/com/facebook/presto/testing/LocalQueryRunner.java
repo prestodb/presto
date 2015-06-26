@@ -21,6 +21,7 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.NodeSystemTable;
 import com.facebook.presto.connector.system.SystemConnector;
+import com.facebook.presto.connector.system.TablePropertiesSystemTable;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.HandleResolver;
@@ -34,6 +35,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.metadata.TableLayoutResult;
+import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
@@ -145,7 +147,13 @@ public class LocalQueryRunner
 
         this.splitManager = new SplitManager();
         this.blockEncodingSerde = new BlockEncodingManager(typeRegistry);
-        this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry, splitManager, blockEncodingSerde, new SessionPropertyManager());
+        this.metadata = new MetadataManager(
+                new FeaturesConfig().setExperimentalSyntaxEnabled(true),
+                typeRegistry,
+                splitManager,
+                blockEncodingSerde,
+                new SessionPropertyManager(),
+                new TablePropertyManager());
         this.pageSourceManager = new PageSourceManager();
 
         this.compiler = new ExpressionCompiler(metadata);
@@ -163,7 +171,8 @@ public class LocalQueryRunner
 
         Connector systemConnector = new SystemConnector(nodeManager, ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
-                new CatalogSystemTable(metadata)));
+                new CatalogSystemTable(metadata),
+                new TablePropertiesSystemTable(metadata)));
 
         connectorManager.createConnection(SystemConnector.NAME, systemConnector);
 

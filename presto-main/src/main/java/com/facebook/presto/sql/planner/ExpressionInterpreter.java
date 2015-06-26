@@ -86,6 +86,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
@@ -196,16 +197,6 @@ public class ExpressionInterpreter
         Object result = expressionInterpreter(canonicalized, metadata, session, analyzer.getExpressionTypes()).evaluate(0);
         verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
         return result;
-    }
-
-    private static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session)
-    {
-        return ExpressionAnalyzer.createWithoutSubqueries(
-                        metadata.getFunctionRegistry(),
-                        metadata.getTypeManager(),
-                        session,
-                        EXPRESSION_NOT_CONSTANT,
-                        "cannot contain a subquery");
     }
 
     private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes, boolean optimize)

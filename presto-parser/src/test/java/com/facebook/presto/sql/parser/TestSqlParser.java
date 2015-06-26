@@ -76,6 +76,7 @@ import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -672,11 +673,13 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(new TableElement("a", "VARCHAR"), new TableElement("b", "BIGINT")),
-                        false));
+                        false,
+                        ImmutableMap.of()));
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(new TableElement("c", "TIMESTAMP")),
-                        true));
+                        true,
+                        ImmutableMap.of()));
     }
 
     @Test
@@ -685,7 +688,23 @@ public class TestSqlParser
     {
         assertStatement("CREATE TABLE foo AS SELECT * FROM t",
                 new CreateTableAsSelect(QualifiedName.of("foo"),
-                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")))));
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                        ImmutableMap.of()));
+
+        assertStatement("CREATE TABLE foo " +
+                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana' ) " +
+                        "AS " +
+                        "SELECT * " +
+                        "FROM t",
+                new CreateTableAsSelect(QualifiedName.of("foo"),
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                        ImmutableMap.<String, Expression>builder()
+                                .put("string", new StringLiteral("bar"))
+                                .put("long", new LongLiteral("42"))
+                                .put("computed", new FunctionCall(new QualifiedName("concat"), ImmutableList.of(
+                                        new StringLiteral("ban"),
+                                        new StringLiteral("ana"))))
+                                .build()));
     }
 
     @Test

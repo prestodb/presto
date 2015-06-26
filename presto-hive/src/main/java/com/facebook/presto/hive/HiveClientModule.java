@@ -69,6 +69,7 @@ public class HiveClientModule
         configBinder(binder).bindConfig(HiveClientConfig.class);
 
         binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
+        binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
 
         if (metastore != null) {
             binder.bind(HiveMetastore.class).toInstance(metastore);

@@ -54,6 +54,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
+import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_DATA_STREAM_FACTORIES;
 import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_RECORD_CURSOR_PROVIDER;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
@@ -139,7 +140,7 @@ public abstract class AbstractTestHiveClientS3
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig);
-        metastoreClient = new TestingHiveMetastore(hiveCluster, executor, hiveClientConfig, writableBucket);
+        metastoreClient = new TestingHiveMetastore(hiveCluster, executor, hiveClientConfig, writableBucket, hdfsEnvironment);
         metadata = new HiveMetadata(
                 connectorId,
                 hiveClientConfig,
@@ -268,15 +269,17 @@ public abstract class AbstractTestHiveClientS3
     public void testTableCreation()
             throws Exception
     {
-        try {
-            doCreateTable(temporaryCreateTable, "presto_test");
-        }
-        finally {
-            dropTable(temporaryCreateTable);
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            try {
+                doCreateTable(temporaryCreateTable, storageFormat, "presto_test");
+            }
+            finally {
+                dropTable(temporaryCreateTable);
+            }
         }
     }
 
-    private void doCreateTable(SchemaTableName tableName, String tableOwner)
+    private void doCreateTable(SchemaTableName tableName, HiveStorageFormat storageFormat, String tableOwner)
             throws Exception
     {
         // begin creating the table
@@ -284,7 +287,8 @@ public abstract class AbstractTestHiveClientS3
                 .add(new ColumnMetadata("id", BIGINT, false))
                 .build();
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, tableOwner);
+        Map<String, Object> properties = ImmutableMap.of(STORAGE_FORMAT_PROPERTY, storageFormat);
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, properties, tableOwner);
         HiveOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, tableMetadata);
 
         // write the records
@@ -384,11 +388,13 @@ public abstract class AbstractTestHiveClientS3
             extends CachingHiveMetastore
     {
         private final String writableBucket;
+        private final HdfsEnvironment hdfsEnvironment;
 
-        public TestingHiveMetastore(HiveCluster hiveCluster, ExecutorService executor, HiveClientConfig hiveClientConfig, String writableBucket)
+        public TestingHiveMetastore(HiveCluster hiveCluster, ExecutorService executor, HiveClientConfig hiveClientConfig, String writableBucket, HdfsEnvironment hdfsEnvironment)
         {
             super(hiveCluster, executor, hiveClientConfig);
             this.writableBucket = writableBucket;
+            this.hdfsEnvironment = hdfsEnvironment;
         }
 
         @Override
@@ -413,19 +419,29 @@ public abstract class AbstractTestHiveClientS3
         public void dropTable(String databaseName, String tableName)
         {
             try {
-                // hack to work around the metastore not being configured for S3
                 Optional<Table> table = getTable(databaseName, tableName);
                 if (!table.isPresent()) {
                     throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
                 }
+
+                // hack to work around the metastore not being configured for S3
+                Path path = new Path(table.get().getSd().getLocation());
                 table.get().getSd().setLocation("/");
+
+                // drop table
                 try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                     client.alter_table(databaseName, tableName, table.get());
                     client.drop_table(databaseName, tableName, false);
                 }
+
+                // drop data
+                hdfsEnvironment.getFileSystem(path).delete(path, true);
             }
-            catch (TException e) {
+            catch (Exception e) {
                 throw Throwables.propagate(e);
+            }
+            finally {
+                invalidateTable(databaseName, tableName);
             }
         }
 

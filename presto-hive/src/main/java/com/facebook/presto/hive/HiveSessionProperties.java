@@ -24,11 +24,9 @@ import java.util.List;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static java.util.Locale.ENGLISH;
 
 public final class HiveSessionProperties
 {
-    public static final String STORAGE_FORMAT_PROPERTY = "storage_format";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String OPTIMIZED_READER_ENABLED = "optimized_reader_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
@@ -41,14 +39,6 @@ public final class HiveSessionProperties
     public HiveSessionProperties(HiveClientConfig config)
     {
         sessionProperties = ImmutableList.of(
-                new PropertyMetadata<>(
-                        STORAGE_FORMAT_PROPERTY,
-                        "Default storage format for new tables",
-                        VARCHAR,
-                        HiveStorageFormat.class,
-                        config.getHiveStorageFormat(),
-                        false,
-                        value -> HiveStorageFormat.valueOf(((String) value).toUpperCase(ENGLISH))),
                 booleanSessionProperty(
                         FORCE_LOCAL_SCHEDULING,
                         "Only schedule splits on workers colocated with data node",
@@ -79,11 +69,6 @@ public final class HiveSessionProperties
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
-    }
-
-    public static HiveStorageFormat getHiveStorageFormat(ConnectorSession session)
-    {
-        return session.getProperty(STORAGE_FORMAT_PROPERTY, HiveStorageFormat.class);
     }
 
     public static boolean isForceLocalScheduling(ConnectorSession session)

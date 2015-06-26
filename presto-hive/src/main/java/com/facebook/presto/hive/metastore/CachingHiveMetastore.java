@@ -423,9 +423,7 @@ public class CachingHiveMetastore
             throw Throwables.propagate(e);
         }
         finally {
-            tableCache.invalidate(new HiveTableName(table.getDbName(), table.getTableName()));
-            tableNamesCache.invalidate(table.getDbName());
-            viewNamesCache.invalidate(table.getDbName());
+            invalidateTable(table.getDbName(), table.getTableName());
         }
     }
 
@@ -456,10 +454,15 @@ public class CachingHiveMetastore
             throw Throwables.propagate(e);
         }
         finally {
-            tableCache.invalidate(new HiveTableName(databaseName, tableName));
-            tableNamesCache.invalidate(databaseName);
-            viewNamesCache.invalidate(databaseName);
+            invalidateTable(databaseName, tableName);
         }
+    }
+
+    protected void invalidateTable(String databaseName, String tableName)
+    {
+        tableCache.invalidate(new HiveTableName(databaseName, tableName));
+        tableNamesCache.invalidate(databaseName);
+        viewNamesCache.invalidate(databaseName);
     }
 
     @Override
@@ -500,10 +503,8 @@ public class CachingHiveMetastore
             throw Throwables.propagate(e);
         }
         finally {
-            tableCache.invalidate(new HiveTableName(databaseName, tableName));
-            tableCache.invalidate(new HiveTableName(newDatabaseName, newTableName));
-            tableNamesCache.invalidate(databaseName);
-            viewNamesCache.invalidate(databaseName);
+            invalidateTable(databaseName, tableName);
+            invalidateTable(newDatabaseName, newTableName);
         }
     }
 

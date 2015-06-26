@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.TableElement;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
@@ -68,9 +69,15 @@ public class CreateTableTask
             columns.add(new ColumnMetadata(element.getName(), type, false));
         }
 
+        Map<String, Object> properties = metadata.getTablePropertyManager().getTableProperties(
+                tableName.getCatalogName(),
+                statement.getProperties(),
+                session,
+                metadata);
+
         TableMetadata tableMetadata = new TableMetadata(
                 tableName.getCatalogName(),
-                new ConnectorTableMetadata(tableName.asSchemaTableName(), columns, session.getUser(), false));
+                new ConnectorTableMetadata(tableName.asSchemaTableName(), columns, properties, session.getUser(), false));
 
         metadata.createTable(session, tableName.getCatalogName(), tableMetadata);
     }

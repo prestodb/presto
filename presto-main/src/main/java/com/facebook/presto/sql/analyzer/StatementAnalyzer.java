@@ -90,6 +90,7 @@ import static com.facebook.presto.sql.QueryUtil.subquery;
 import static com.facebook.presto.sql.QueryUtil.table;
 import static com.facebook.presto.sql.QueryUtil.unaliasedName;
 import static com.facebook.presto.sql.QueryUtil.values;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
@@ -410,6 +411,13 @@ class StatementAnalyzer
         // turn this into a query that has a new table writer node on top.
         QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, node.getName());
         analysis.setCreateTableDestination(targetTable);
+
+        for (Expression expression : node.getProperties().values()) {
+            // analyze table property value expressions which must be constant
+            createConstantAnalyzer(metadata, session)
+                    .analyze(expression, new TupleDescriptor(), context);
+        }
+        analysis.setCreateTableProperties(node.getProperties());
 
         Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
         if (targetTableHandle.isPresent()) {
