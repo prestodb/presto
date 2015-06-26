@@ -518,6 +518,38 @@ public class HiveMetadata
         metastore.createTable(table);
     }
 
+    @Override
+    public void rollbackCreateTable(ConnectorOutputTableHandle tableHandle)
+    {
+        HiveOutputTableHandle handle = checkType(tableHandle, HiveOutputTableHandle.class, "tableHandle");
+
+        // cleanup temporary path
+        if (handle.hasTemporaryPath()) {
+            Path temporaryPath = new Path(handle.getTemporaryPath());
+            if (pathExists(temporaryPath)) {
+                try {
+                    delete(temporaryPath, true);
+                }
+                catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        // drop table if exists
+        boolean tableExists = true;
+        try {
+            metastore.getTable(handle.getSchemaName(), handle.getTableName());
+        }
+        catch (NoSuchObjectException e) {
+            // table not found
+            tableExists = false;
+        }
+        if (tableExists) {
+            metastore.dropTable(handle.getSchemaName(), handle.getTableName());
+        }
+    }
+
     private Path getTargetPath(String schemaName, String tableName, SchemaTableName schemaTableName)
     {
         String location = getDatabase(schemaName).getLocationUri();
@@ -603,6 +635,13 @@ public class HiveMetadata
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Failed to rename %s to %s", source, target), e);
+        }
+    }
+
+    private void delete(Path source, boolean recursive) throws IOException
+    {
+        if (!hdfsEnvironment.getFileSystem(source).delete(source, recursive)) {
+            throw new IOException(String.format("delete on '%s' returned false", source));
         }
     }
 
