@@ -57,9 +57,12 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
-import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
@@ -181,7 +184,17 @@ public class HiveMetadata
         }
         List<HiveColumnHandle> handles = hiveColumnHandles(typeManager, connectorId, table.get(), false);
         List<ColumnMetadata> columns = ImmutableList.copyOf(transform(handles, columnMetadataGetter(table.get(), typeManager)));
-        return new ConnectorTableMetadata(tableName, columns, table.get().getOwner());
+
+        ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        try {
+            HiveStorageFormat format = extractHiveStorageFormat(table.get());
+            properties.put(STORAGE_FORMAT_PROPERTY, format);
+        }
+        catch (PrestoException ignored) {
+            // todo fail if format is not known
+        }
+
+        return new ConnectorTableMetadata(tableName, columns, properties.build(), table.get().getOwner());
     }
 
     @Override
@@ -313,7 +326,7 @@ public class HiveMetadata
 
         Path targetPath = getTargetPath(schemaName, tableName, schemaTableName);
 
-        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(session);
+        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         SerDeInfo serdeInfo = new SerDeInfo();
         serdeInfo.setName(tableName);
         serdeInfo.setSerializationLib(hiveStorageFormat.getSerDe());
@@ -380,8 +393,7 @@ public class HiveMetadata
 
         checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
 
-        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(session);
-
+        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
 
@@ -534,6 +546,27 @@ public class HiveMetadata
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
+    }
+
+    private static HiveStorageFormat extractHiveStorageFormat(Table table)
+    {
+        StorageDescriptor descriptor = table.getSd();
+        if (descriptor == null) {
+            throw new PrestoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
+        }
+        SerDeInfo serdeInfo = descriptor.getSerdeInfo();
+        if (serdeInfo == null) {
+            throw new PrestoException(HIVE_INVALID_METADATA, "Table storage descriptor is missing SerDe info");
+        }
+        String outputFormat = descriptor.getOutputFormat();
+        String serializationLib = serdeInfo.getSerializationLib();
+
+        for (HiveStorageFormat format : HiveStorageFormat.values()) {
+            if (format.getOutputFormat().equals(outputFormat) && format.getSerDe().equals(serializationLib)) {
+                return format;
+            }
+        }
+        throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Output format %s with SerDe %s is not supported", outputFormat, serializationLib));
     }
 
     private boolean pathExists(Path path)

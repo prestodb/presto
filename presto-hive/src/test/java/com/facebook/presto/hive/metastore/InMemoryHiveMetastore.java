@@ -81,6 +81,7 @@ public class InMemoryHiveMetastore
         else if (tableCopy.getSd().getLocation() != null) {
             File directory = new File(URI.create(tableCopy.getSd().getLocation()));
             checkArgument(directory.exists(), "Table directory does not exist");
+            checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
         }
 
         if (relations.putIfAbsent(schemaTableName, tableCopy) != null) {

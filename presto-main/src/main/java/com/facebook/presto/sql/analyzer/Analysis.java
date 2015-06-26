@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 
@@ -82,6 +83,7 @@ public class Analysis
 
     // for create table
     private Optional<QualifiedTableName> createTableDestination = Optional.empty();
+    private Map<String, Expression> createTableProperties = ImmutableMap.of();
 
     // for insert
     private Optional<TableHandle> insertTarget = Optional.empty();
@@ -339,6 +341,16 @@ public class Analysis
     public Optional<QualifiedTableName> getCreateTableDestination()
     {
         return createTableDestination;
+    }
+
+    public void setCreateTableProperties(Map<String, Expression> createTableProperties)
+    {
+        this.createTableProperties = createTableProperties;
+    }
+
+    public Map<String, Expression> getCreateTableProperties()
+    {
+        return createTableProperties;
     }
 
     public void setInsertTarget(TableHandle target)

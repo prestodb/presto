@@ -15,13 +15,17 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.google.common.collect.ComparisonChain;
@@ -43,6 +47,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -50,7 +55,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class SessionPropertyManager
+public final class SessionPropertyManager
 {
     private static final JsonCodecFactory JSON_CODEC_FACTORY = new JsonCodecFactory();
     private final ConcurrentMap<String, SessionProperty<?>> allSessionProperties = new ConcurrentHashMap<>();
@@ -179,6 +184,22 @@ public class SessionPropertyManager
             // the system property decoder can throw any exception
             throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s is invalid: %s", name, value), e);
         }
+    }
+
+    @NotNull
+    public static Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata)
+    {
+        Object value = evaluateConstantExpression(expression, expectedType, metadata, session);
+
+        // convert to object value type of SQL type
+        BlockBuilder blockBuilder = expectedType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockUtils.appendObject(expectedType, blockBuilder, value);
+        Object objectValue = expectedType.getObjectValue(session.toConnectorSession(), blockBuilder, 0);
+
+        if (objectValue == null) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, "Session property value must not be null");
+        }
+        return objectValue;
     }
 
     @NotNull

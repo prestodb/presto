@@ -232,4 +232,6 @@ public interface Metadata
     BlockEncodingSerde getBlockEncodingSerde();
 
     SessionPropertyManager getSessionPropertyManager();
+
+    TablePropertyManager getTablePropertyManager();
 }

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableMap;
+
+import java.util.Map;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -23,11 +26,13 @@ public class CreateTableAsSelect
 {
     private final QualifiedName name;
     private final Query query;
+    private final Map<String, Expression> properties;
 
-    public CreateTableAsSelect(QualifiedName name, Query query)
+    public CreateTableAsSelect(QualifiedName name, Query query, Map<String, Expression> properties)
     {
         this.name = checkNotNull(name, "name is null");
         this.query = checkNotNull(query, "query is null");
+        this.properties = ImmutableMap.copyOf(checkNotNull(properties, "properties is null"));
     }
 
     public QualifiedName getName()
@@ -40,6 +45,11 @@ public class CreateTableAsSelect
         return query;
     }
 
+    public Map<String, Expression> getProperties()
+    {
+        return properties;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -49,7 +59,7 @@ public class CreateTableAsSelect
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, query);
+        return Objects.hash(name, query, properties);
     }
 
     @Override
@@ -63,7 +73,8 @@ public class CreateTableAsSelect
         }
         CreateTableAsSelect o = (CreateTableAsSelect) obj;
         return Objects.equals(name, o.name)
-                && Objects.equals(query, o.query);
+                && Objects.equals(query, o.query)
+                && Objects.equals(properties, o.properties);
     }
 
     @Override
@@ -72,6 +83,7 @@ public class CreateTableAsSelect
         return toStringHelper(this)
                 .add("name", name)
                 .add("query", query)
+                .add("properties", properties)
                 .toString();
     }
 }

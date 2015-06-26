@@ -595,9 +595,16 @@ public final class SqlFormatter
         protected Void visitCreateTableAsSelect(CreateTableAsSelect node, Integer indent)
         {
             builder.append("CREATE TABLE ")
-                    .append(node.getName())
-                    .append(" AS ");
+                    .append(node.getName());
 
+            if (!node.getProperties().isEmpty()) {
+                builder.append(" WITH (");
+                Joiner.on(", ").appendTo(builder, transform(node.getProperties().entrySet(),
+                        entry -> entry.getKey() + " = " + formatExpression(entry.getValue())));
+                builder.append(")");
+            }
+
+            builder.append(" AS ");
             process(node.getQuery(), indent);
 
             return null;
@@ -617,6 +624,14 @@ public final class SqlFormatter
                     element -> element.getName() + " " + element.getType()));
 
             builder.append(")");
+
+            if (!node.getProperties().isEmpty()) {
+                builder.append(" WITH (");
+                Joiner.on(", ").appendTo(builder, transform(node.getProperties().entrySet(),
+                        entry -> entry.getKey() + " = " + formatExpression(entry.getValue())));
+                builder.append(")");
+            }
+
             return null;
         }
 

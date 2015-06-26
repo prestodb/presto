@@ -102,6 +102,7 @@ public class HiveConnectorFactory
             ConnectorRecordSinkProvider recordSinkProvider = injector.getInstance(ConnectorRecordSinkProvider.class);
             ConnectorHandleResolver handleResolver = injector.getInstance(ConnectorHandleResolver.class);
             HiveSessionProperties hiveSessionProperties = injector.getInstance(HiveSessionProperties.class);
+            HiveTableProperties hiveTableProperties = injector.getInstance(HiveTableProperties.class);
 
             return new HiveConnector(
                     lifeCycleManager,
@@ -111,7 +112,8 @@ public class HiveConnectorFactory
                     new ClassLoaderSafeConnectorRecordSinkProvider(recordSinkProvider, classLoader),
                     new ClassLoaderSafeConnectorHandleResolver(handleResolver, classLoader),
                     ImmutableSet.of(),
-                    hiveSessionProperties.getSessionProperties());
+                    hiveSessionProperties.getSessionProperties(),
+                    hiveTableProperties.getTableProperties());
         }
         catch (Exception e) {
             throw Throwables.propagate(e);

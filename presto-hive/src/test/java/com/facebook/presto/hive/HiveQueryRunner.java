@@ -39,7 +39,8 @@ public final class HiveQueryRunner
     {
     }
 
-    private static final String TPCH_SCHEMA = "tpch";
+    public static final String HIVE_CATALOG = "hive";
+    public static final String TPCH_SCHEMA = "tpch";
     private static final String TPCH_SAMPLED_SCHEMA = "tpch_sampled";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("Asia/Kathmandu");
 
@@ -63,19 +64,19 @@ public final class HiveQueryRunner
             queryRunner.installPlugin(new SampledTpchPlugin());
             queryRunner.createCatalog("tpch_sampled", "tpch_sampled");
 
-            File baseDir = new File(queryRunner.getCoordinator().getBaseDataDir().toFile(), "hive_data");
+            File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
             InMemoryHiveMetastore metastore = new InMemoryHiveMetastore(baseDir);
             metastore.createDatabase(new Database("tpch", null, new File(baseDir, "tpch").toURI().toString(), null));
             metastore.createDatabase(new Database("tpch_sampled", null, new File(baseDir, "tpch_sampled").toURI().toString(), null));
 
-            queryRunner.installPlugin(new HivePlugin("hive", metastore));
+            queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, metastore));
             Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                     .put("hive.metastore.uri", "thrift://localhost:8080")
                     .put("hive.allow-drop-table", "true")
                     .put("hive.allow-rename-table", "true")
                     .put("hive.time-zone", TIME_ZONE.getID())
                     .build();
-            queryRunner.createCatalog("hive", "hive", hiveProperties);
+            queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
             copyTpchTables(queryRunner, "tpch_sampled", TINY_SCHEMA_NAME, createSampledSession(), tables);
@@ -101,7 +102,7 @@ public final class HiveQueryRunner
     private static Session createHiveSession(String schema)
     {
         return testSessionBuilder()
-                .setCatalog("hive")
+                .setCatalog(HIVE_CATALOG)
                 .setSchema(schema)
                 .build();
     }

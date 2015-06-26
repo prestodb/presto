@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.sql.parser.SqlBaseParser.TablePropertiesContext;
+import com.facebook.presto.sql.parser.SqlBaseParser.TablePropertyContext;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
@@ -107,6 +109,7 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
@@ -115,6 +118,7 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -146,13 +150,24 @@ class AstBuilder
     @Override
     public Node visitCreateTableAsSelect(SqlBaseParser.CreateTableAsSelectContext context)
     {
-        return new CreateTableAsSelect(getQualifiedName(context.qualifiedName()), (Query) visit(context.query()));
+        return new CreateTableAsSelect(getQualifiedName(context.qualifiedName()), (Query) visit(context.query()), processTableProperties(context.tableProperties()));
     }
 
     @Override
     public Node visitCreateTable(SqlBaseParser.CreateTableContext context)
     {
-        return new CreateTable(getQualifiedName(context.qualifiedName()), visit(context.tableElement(), TableElement.class), context.EXISTS() != null);
+        return new CreateTable(getQualifiedName(context.qualifiedName()), visit(context.tableElement(), TableElement.class), context.EXISTS() != null, processTableProperties(context.tableProperties()));
+    }
+
+    private Map<String, Expression> processTableProperties(TablePropertiesContext tablePropertiesContext)
+    {
+        ImmutableMap.Builder<String, Expression> properties = ImmutableMap.builder();
+        if (tablePropertiesContext != null) {
+            for (TablePropertyContext tablePropertyContext : tablePropertiesContext.tableProperty()) {
+                properties.put(tablePropertyContext.identifier().getText(), (Expression) visit(tablePropertyContext.expression()));
+            }
+        }
+        return properties.build();
     }
 
     @Override

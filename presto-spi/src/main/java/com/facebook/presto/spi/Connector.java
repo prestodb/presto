@@ -86,6 +86,14 @@ public interface Connector
     }
 
     /**
+     * @return the table properties for this connector
+     */
+    default List<PropertyMetadata<?>> getTableProperties()
+    {
+        return emptyList();
+    }
+
+    /**
      * Shutdown the connector by releasing any held resources such as
      * threads, sockets, etc. This method will only be called when no
      * queries are using the connector. After this method is called,

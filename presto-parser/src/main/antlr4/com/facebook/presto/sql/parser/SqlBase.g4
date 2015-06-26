@@ -30,9 +30,10 @@ statement
     : query                                                            #statementDefault
     | USE schema=identifier                                            #use
     | USE catalog=identifier '.' schema=identifier                     #use
-    | CREATE TABLE qualifiedName AS query                              #createTableAsSelect
+    | CREATE TABLE qualifiedName (WITH tableProperties)? AS query      #createTableAsSelect
     | CREATE TABLE (IF NOT EXISTS)? qualifiedName
-        '(' tableElement (',' tableElement)* ')'                       #createTable
+        '(' tableElement (',' tableElement)* ')'
+        (WITH tableProperties)?                                        #createTable
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
     | INSERT INTO qualifiedName query                                  #insertInto
     | DELETE FROM qualifiedName (WHERE booleanExpression)?             #delete
@@ -68,6 +69,14 @@ with
 
 tableElement
     : identifier type
+    ;
+
+tableProperties
+    : '(' tableProperty (',' tableProperty)* ')'
+    ;
+
+tableProperty
+    : identifier EQ expression
     ;
 
 queryNoWith:

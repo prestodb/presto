@@ -13,24 +13,35 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import com.facebook.presto.tests.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.Optional;
 
+import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
+import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveQueryRunner.createSampledSession;
+import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestHiveIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
@@ -105,6 +116,47 @@ public class TestHiveIntegrationSmokeTest
         assertQueryTrue("DROP TABLE test_types_table");
 
         assertFalse(queryRunner.tableExists(getSession(), "test_types_table"));
+    }
+
+    @Test
+    public void createTableAs()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            createTableAs(storageFormat);
+        }
+    }
+
+    public void createTableAs(HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        String select = "SELECT" +
+                " 'foo' _varchar" +
+                ", 1 _bigint" +
+                ", 3.14 _double" +
+                ", true _boolean";
+
+        String createTableAs = String.format("CREATE TABLE test_format_table WITH (%s = '%s') AS %s", STORAGE_FORMAT_PROPERTY, storageFormat, select);
+
+        assertQuery(createTableAs, "SELECT 1");
+
+        TableMetadata tableMetadata = getTableMetadata("test_format_table");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+
+        assertQuery("SELECT * from test_format_table", select);
+
+        assertQueryTrue("DROP TABLE test_format_table");
+
+        assertFalse(queryRunner.tableExists(getSession(), "test_format_table"));
+    }
+
+    private TableMetadata getTableMetadata(String tableName)
+    {
+        Session session = getSession();
+        Metadata metadata = ((DistributedQueryRunner) queryRunner).getCoordinator().getMetadata();
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, new QualifiedTableName(HIVE_CATALOG, TPCH_SCHEMA, tableName));
+        assertTrue(tableHandle.isPresent());
+        return metadata.getTableMetadata(session, tableHandle.get());
     }
 
     // TODO: These should be moved to another class, when more connectors support arrays

@@ -44,6 +44,7 @@ public class HiveConnector
     private final ConnectorHandleResolver handleResolver;
     private final Set<SystemTable> systemTables;
     private final List<PropertyMetadata<?>> sessionProperties;
+    private final List<PropertyMetadata<?>> tableProperties;
 
     public HiveConnector(
             LifeCycleManager lifeCycleManager,
@@ -53,7 +54,8 @@ public class HiveConnector
             ConnectorRecordSinkProvider recordSinkProvider,
             ConnectorHandleResolver handleResolver,
             Set<SystemTable> systemTables,
-            List<PropertyMetadata<?>> sessionProperties)
+            List<PropertyMetadata<?>> sessionProperties,
+            List<PropertyMetadata<?>> tableProperties)
     {
         this.lifeCycleManager = checkNotNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
@@ -63,6 +65,7 @@ public class HiveConnector
         this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
         this.systemTables = ImmutableSet.copyOf(checkNotNull(systemTables, "systemTables is null"));
         this.sessionProperties = ImmutableList.copyOf(checkNotNull(sessionProperties, "sessionProperties is null"));
+        this.tableProperties = ImmutableList.copyOf(checkNotNull(tableProperties, "tableProperties is null"));
     }
 
     @Override
@@ -105,6 +108,12 @@ public class HiveConnector
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getTableProperties()
+    {
+        return tableProperties;
     }
 
     @Override
