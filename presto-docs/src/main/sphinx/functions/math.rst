@@ -90,9 +90,18 @@ Mathematical Functions
 
     Alias for ``random()``.
 
+.. function:: rand(seed) -> double
+
+    Alias for ``random(seed)``.
+
 .. function:: random() -> double
 
     Returns a pseudo-random value in the range 0.0 <= x < 1.0
+
+.. function:: random(seed) -> double
+
+    Returns a pseudo-random value in the range 0.0 <= x < 1.0.
+    The random number generator is initialized with the given seed.
 
 .. function:: round(x) -> [same as input]
 

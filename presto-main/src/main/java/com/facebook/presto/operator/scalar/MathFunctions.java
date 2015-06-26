@@ -14,12 +14,14 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -239,6 +241,15 @@ public final class MathFunctions
     public static double random()
     {
         return ThreadLocalRandom.current().nextDouble();
+    }
+
+    @Description("a pseudo-random value")
+    @ScalarFunction(alias = "rand", deterministic = true)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double random(ConnectorSession session, @SqlType(StandardTypes.BIGINT) long seed)
+    {
+        Random rand = RandCache.get(new RandCache.Session(session.getStartTime(), seed));
+        return rand.nextDouble();
     }
 
     @Description("round to nearest integer")
