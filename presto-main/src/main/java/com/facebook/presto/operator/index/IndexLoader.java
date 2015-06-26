@@ -26,6 +26,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -169,19 +170,28 @@ public class IndexLoader
                 List<UpdateRequest> requests = new ArrayList<>();
                 updateRequests.drainTo(requests);
 
-                long initialCacheSizeInBytes = indexSnapshotLoader.getCacheSizeInBytes();
+                try {
+                    long initialCacheSizeInBytes = indexSnapshotLoader.getCacheSizeInBytes();
 
-                // TODO: add heuristic to jump to load strategy that is most likely to succeed
+                    // TODO: add heuristic to jump to load strategy that is most likely to succeed
 
-                // Try to load all the requests
-                if (indexSnapshotLoader.load(requests)) {
-                    return myUpdateRequest.getFinishedIndexSnapshot();
+                    // Try to load all the requests
+                    if (indexSnapshotLoader.load(requests)) {
+                        return myUpdateRequest.getFinishedIndexSnapshot();
+                    }
+
+                    // Retry again if there was initial data (load failures will clear the cache automatically)
+                    if (initialCacheSizeInBytes > 0 && indexSnapshotLoader.load(requests)) {
+                        stats.recordSuccessfulIndexJoinLookupByCacheReset();
+                        return myUpdateRequest.getFinishedIndexSnapshot();
+                    }
                 }
-
-                // Retry again if there was initial data (load failures will clear the cache automatically)
-                if (initialCacheSizeInBytes > 0 && indexSnapshotLoader.load(requests)) {
-                    stats.recordSuccessfulIndexJoinLookupByCacheReset();
-                    return myUpdateRequest.getFinishedIndexSnapshot();
+                catch (Throwable t) {
+                    // Mark requests as failed since they will not be requeued
+                    for (UpdateRequest request : requests) {
+                        request.failed(t);
+                    }
+                    Throwables.propagate(t);
                 }
 
                 // Try loading just my request
@@ -347,7 +357,6 @@ public class IndexLoader
             indexSnapshotReference.set(new IndexSnapshot(new EmptyLookupSource(outputTypes.size()), new EmptyLookupSource(indexTypes.size())));
             indexSnapshotBuilder.reset();
         }
-
     }
 
     private static class EmptyLookupSource
