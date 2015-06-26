@@ -21,12 +21,14 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class RowGroup
 {
     private final int groupId;
+    private final long rowOffset;
     private final long rowCount;
     private final StreamSources streamSources;
 
-    public RowGroup(int groupId, long rowCount, StreamSources streamSources)
+    public RowGroup(int groupId, long rowOffset, long rowCount, StreamSources streamSources)
     {
         this.groupId = groupId;
+        this.rowOffset = rowOffset;
         this.rowCount = rowCount;
         this.streamSources = checkNotNull(streamSources, "streamSources is null");
     }
@@ -34,6 +36,11 @@ public class RowGroup
     public int getGroupId()
     {
         return groupId;
+    }
+
+    public long getRowOffset()
+    {
+        return rowOffset;
     }
 
     public long getRowCount()
@@ -51,6 +58,7 @@ public class RowGroup
     {
         return toStringHelper(this)
                 .add("groupId", groupId)
+                .add("rowOffset", rowOffset)
                 .add("rowCount", rowCount)
                 .add("streamSources", streamSources)
                 .toString();

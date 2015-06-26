@@ -348,6 +348,8 @@ public class OrcTester
             throws IOException
     {
         OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(objectInspector, expectedValues), type);
+        assertEquals(recordReader.getReaderPosition(), 0);
+        assertEquals(recordReader.getFilePosition(), 0);
 
         Vector vector = createResultsVector(objectInspector);
 
@@ -380,11 +382,14 @@ public class OrcTester
                     }
                 }
             }
-            rowsProcessed += batchSize;
-            assertEquals(recordReader.getPosition(), rowsProcessed);
+            assertEquals(recordReader.getReaderPosition(), rowsProcessed);
             assertEquals(recordReader.getFilePosition(), rowsProcessed);
+            rowsProcessed += batchSize;
         }
         assertFalse(iterator.hasNext());
+
+        assertEquals(recordReader.getReaderPosition(), rowsProcessed);
+        assertEquals(recordReader.getFilePosition(), rowsProcessed);
         recordReader.close();
     }
 
@@ -425,6 +430,7 @@ public class OrcTester
         OrcReader orcReader = new OrcReader(orcDataSource, metadataReader);
 
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
+        assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
         return orcReader.createRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE);
     }

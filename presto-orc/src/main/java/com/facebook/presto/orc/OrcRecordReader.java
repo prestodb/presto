@@ -42,7 +42,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Comparator.comparingLong;
 
 public class OrcRecordReader
@@ -55,6 +54,8 @@ public class OrcRecordReader
     private final long splitLength;
     private final Set<Integer> presentColumns;
     private long currentPosition;
+    private long currentStripePosition;
+    private int currentBatchSize;
 
     private final List<StripeInformation> stripes;
     private final StripeReader stripeReader;
@@ -62,7 +63,7 @@ public class OrcRecordReader
 
     private final long fileRowCount;
     private final List<Long> stripeFilePositions;
-    private long filePosition = -1;
+    private long filePosition;
 
     private Iterator<RowGroup> rowGroups = ImmutableList.<RowGroup>of().iterator();
     private long currentGroupRowCount;
@@ -146,7 +147,11 @@ public class OrcRecordReader
         this.totalRowCount = totalRowCount;
         this.stripes = stripes.build();
         this.stripeFilePositions = stripeFilePositions.build();
-        this.fileRowCount = fileRowCount;
+
+        this.fileRowCount = stripeInfos.stream()
+                .map(StripeInfo::getStripe)
+                .mapToLong(StripeInformation::getNumberOfRows)
+                .sum();
 
         stripeReader = new StripeReader(
                 orcDataSource,
@@ -185,7 +190,6 @@ public class OrcRecordReader
      */
     public long getFilePosition()
     {
-        checkState(filePosition >= 0, "file position is only valid after nextBatch()");
         return filePosition;
     }
 
@@ -200,18 +204,22 @@ public class OrcRecordReader
 
     /**
      * Return the row position within the stripes being read by this reader.
+     * This position will include rows that were never read due to row groups
+     * that are excluded due to row group statistics. Thus, it will advance
+     * faster than the number of rows actually read.
      */
-    public long getPosition()
+    public long getReaderPosition()
     {
         return currentPosition;
     }
 
     /**
-     * Returns the total number of rows that are available for this reader.
+     * Returns the total number of rows that can possibly be read by this reader.
      * This count may be fewer than the number of rows in the file if some
-     * stripes were excluded due to stripe statistics.
+     * stripes were excluded due to stripe statistics, but may be more than
+     * the number of rows read if some row groups are excluded due to statistics.
      */
-    public long getTotalRowCount()
+    public long getReaderRowCount()
     {
         return totalRowCount;
     }
@@ -240,25 +248,29 @@ public class OrcRecordReader
     public int nextBatch()
             throws IOException
     {
+        // update position for current row group (advancing resets them)
+        filePosition += currentBatchSize;
+        currentPosition += currentBatchSize;
+
         // if next row is within the current group return
         if (nextRowInGroup >= currentGroupRowCount) {
             // attempt to advance to next row group
             if (!advanceToNextRowGroup()) {
+                filePosition = fileRowCount;
+                currentPosition = totalRowCount;
                 return -1;
             }
         }
 
-        int batchSize = Ints.checkedCast(Math.min(Vector.MAX_VECTOR_LENGTH, currentGroupRowCount - nextRowInGroup));
+        currentBatchSize = Ints.checkedCast(Math.min(Vector.MAX_VECTOR_LENGTH, currentGroupRowCount - nextRowInGroup));
 
         for (StreamReader column : streamReaders) {
             if (column != null) {
-                column.prepareNextRead(batchSize);
+                column.prepareNextRead(currentBatchSize);
             }
         }
-        filePosition += batchSize;
-        nextRowInGroup += batchSize;
-        currentPosition += batchSize;
-        return batchSize;
+        nextRowInGroup += currentBatchSize;
+        return currentBatchSize;
     }
 
     public void readVector(int columnIndex, Object vector)
@@ -284,6 +296,9 @@ public class OrcRecordReader
         RowGroup currentRowGroup = rowGroups.next();
         currentGroupRowCount = currentRowGroup.getRowCount();
 
+        currentPosition = currentStripePosition + currentRowGroup.getRowOffset();
+        filePosition = stripeFilePositions.get(currentStripe) + currentRowGroup.getRowOffset();
+
         // give reader data streams from row group
         StreamSources rowGroupStreamSources = currentRowGroup.getStreamSources();
         for (StreamReader column : streamReaders) {
@@ -302,7 +317,10 @@ public class OrcRecordReader
         if (currentStripe >= stripes.size()) {
             return;
         }
-        filePosition = stripeFilePositions.get(currentStripe);
+
+        if (currentStripe > 0) {
+            currentStripePosition += stripes.get(currentStripe - 1).getNumberOfRows();
+        }
 
         StripeInformation stripeInformation = stripes.get(currentStripe);
         Stripe stripe = stripeReader.readStripe(stripeInformation);

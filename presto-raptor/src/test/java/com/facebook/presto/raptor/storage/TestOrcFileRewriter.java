@@ -86,7 +86,7 @@ public class TestOrcFileRewriter
         try (OrcDataSource dataSource = fileOrcDataSource(file)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
-            assertEquals(reader.getTotalRowCount(), 5);
+            assertEquals(reader.getReaderRowCount(), 5);
             assertEquals(reader.getFileRowCount(), 5);
             assertEquals(reader.getSplitLength(), file.length());
 
@@ -127,7 +127,7 @@ public class TestOrcFileRewriter
         try (OrcDataSource dataSource = fileOrcDataSource(newFile)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
-            assertEquals(reader.getTotalRowCount(), 2);
+            assertEquals(reader.getReaderRowCount(), 2);
             assertEquals(reader.getFileRowCount(), 2);
             assertEquals(reader.getSplitLength(), newFile.length());
 

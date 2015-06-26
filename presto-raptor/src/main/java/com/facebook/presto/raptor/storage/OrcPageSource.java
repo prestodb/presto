@@ -151,7 +151,7 @@ public class OrcPageSource
                 close();
                 return null;
             }
-            long filePosition = recordReader.getFilePosition() - batchSize;
+            long filePosition = recordReader.getFilePosition();
 
             Block[] blocks = new Block[columnIndexes.length];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
