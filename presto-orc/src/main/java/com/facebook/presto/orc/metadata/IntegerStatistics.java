@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class IntegerStatistics
         implements RangeStatistics<Long>
 {
@@ -25,13 +27,24 @@ public class IntegerStatistics
         this.maximum = maximum;
     }
 
+    @Override
     public Long getMin()
     {
         return minimum;
     }
 
+    @Override
     public Long getMax()
     {
         return maximum;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("min", minimum)
+                .add("max", maximum)
+                .toString();
     }
 }

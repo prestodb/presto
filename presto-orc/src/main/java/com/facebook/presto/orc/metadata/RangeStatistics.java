@@ -16,5 +16,6 @@ package com.facebook.presto.orc.metadata;
 public interface RangeStatistics<T>
 {
     T getMin();
+
     T getMax();
 }

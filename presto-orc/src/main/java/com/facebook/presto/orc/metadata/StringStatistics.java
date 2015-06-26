@@ -15,6 +15,8 @@ package com.facebook.presto.orc.metadata;
 
 import io.airlift.slice.Slice;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class StringStatistics
         implements RangeStatistics<Slice>
 {
@@ -37,5 +39,14 @@ public class StringStatistics
     public Slice getMax()
     {
         return maximum;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("min", minimum)
+                .add("max", maximum)
+                .toString();
     }
 }
