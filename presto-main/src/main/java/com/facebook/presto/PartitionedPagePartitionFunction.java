@@ -14,33 +14,48 @@
 package com.facebook.presto;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-public final class UnpartitionedPagePartitionFunction
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
+
+public class PartitionedPagePartitionFunction
         implements PagePartitionFunction
 {
+    protected final int partition;
+    protected final int partitionCount;
+
     @JsonCreator
-    public UnpartitionedPagePartitionFunction()
+    public PartitionedPagePartitionFunction(
+            @JsonProperty("partition") int partition,
+            @JsonProperty("partitionCount") int partitionCount)
     {
+        checkArgument(partition < partitionCount, "partition must be less than partitionCount");
+
+        this.partition = partition;
+        this.partitionCount = partitionCount;
     }
 
     @Override
+    @JsonProperty
     public int getPartition()
     {
-        return 0;
+        return partition;
     }
 
     @Override
+    @JsonProperty
     public int getPartitionCount()
     {
-        return 1;
+        return partitionCount;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(getClass());
+        return Objects.hash(partition, partitionCount);
     }
 
     @Override
@@ -52,13 +67,17 @@ public final class UnpartitionedPagePartitionFunction
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final UnpartitionedPagePartitionFunction other = (UnpartitionedPagePartitionFunction) obj;
-        return Objects.equals(this.getClass(), other.getClass());
+        PartitionedPagePartitionFunction other = (PartitionedPagePartitionFunction) obj;
+        return Objects.equals(this.partition, other.partition) &&
+                Objects.equals(this.partitionCount, other.partitionCount);
     }
 
     @Override
     public String toString()
     {
-        return "unpartitioned";
+        return toStringHelper(this)
+                .add("partition", partition)
+                .add("partitionCount", partitionCount)
+                .toString();
     }
 }

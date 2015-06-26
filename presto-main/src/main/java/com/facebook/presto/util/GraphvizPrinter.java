@@ -50,6 +50,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -294,7 +295,7 @@ public final class GraphvizPrinter
         {
             List<Symbol> symbols = node.getOutputSymbols();
             if (node.getType() == REPARTITION) {
-                symbols = node.getPartitionKeys();
+                symbols = node.getPartitionKeys().orElseGet(() -> ImmutableList.of(new Symbol("(absent)")));
             }
             String columns = Joiner.on(", ").join(symbols);
             printNode(node, format("ExchangeNode[%s]", node.getType()), columns, NODE_COLORS.get(NodeType.EXCHANGE));

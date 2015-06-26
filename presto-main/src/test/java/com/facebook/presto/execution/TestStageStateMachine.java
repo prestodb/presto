@@ -329,7 +329,7 @@ public class TestStageStateMachine
                 PlanDistribution.SINGLE,
                 valuesNodeId,
                 OutputPartitioning.NONE,
-                ImmutableList.<Symbol>of(),
+                Optional.empty(),
                 Optional.empty());
 
         return planFragment;

@@ -142,9 +142,10 @@ public class PlanPrinter
                             Joiner.on(", ").join(fragment.getOutputLayout())));
 
             if (fragment.getOutputPartitioning() == OutputPartitioning.HASH) {
+                List<Symbol> symbols = fragment.getPartitionBy().orElseGet(() -> ImmutableList.of(new Symbol("(absent)")));
                 builder.append(indentString(1))
                         .append(String.format("Output partitioning: [%s]\n",
-                                Joiner.on(", ").join(fragment.getPartitionBy())));
+                                Joiner.on(", ").join(symbols)));
             }
 
             builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, 1))
@@ -156,7 +157,7 @@ public class PlanPrinter
 
     public static String graphvizLogicalPlan(PlanNode plan, Map<Symbol, Type> types)
     {
-        PlanFragment fragment = new PlanFragment(new PlanFragmentId("graphviz_plan"), plan, types, plan.getOutputSymbols(), PlanDistribution.SINGLE, plan.getId(), OutputPartitioning.NONE, ImmutableList.<Symbol>of(), Optional.empty());
+        PlanFragment fragment = new PlanFragment(new PlanFragmentId("graphviz_plan"), plan, types, plan.getOutputSymbols(), PlanDistribution.SINGLE, plan.getId(), OutputPartitioning.NONE, Optional.empty(), Optional.empty());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
 

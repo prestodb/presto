@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.HashPagePartitionFunction;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.PagePartitionFunction;
+import com.facebook.presto.PartitionedPagePartitionFunction;
 import com.facebook.presto.Session;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.NodeScheduler.NodeSelector;
@@ -285,7 +286,20 @@ public final class SqlStageExecution
             ImmutableMap.Builder<TaskId, PagePartitionFunction> buffers = ImmutableMap.builder();
             for (int nodeIndex = 0; nodeIndex < parentTasks.size(); nodeIndex++) {
                 TaskId taskId = parentTasks.get(nodeIndex);
-                buffers.put(taskId, new HashPagePartitionFunction(nodeIndex, parentTasks.size(), getPartitioningChannels(fragment), getHashChannel(fragment), fragment.getTypes()));
+                buffers.put(taskId, new HashPagePartitionFunction(nodeIndex, parentTasks.size(), getPartitioningChannels(fragment).get(), getHashChannel(fragment), fragment.getTypes()));
+            }
+
+            newOutputBuffers = startingOutputBuffers
+                    .withBuffers(buffers.build())
+                    .withNoMoreBufferIds();
+        }
+        else if (fragment.getOutputPartitioning() == OutputPartitioning.ROUND_ROBIN) {
+            checkArgument(noMoreParentNodes, "Round-robin partitioned output requires all parent nodes be added in a single call");
+
+            ImmutableMap.Builder<TaskId, PagePartitionFunction> buffers = ImmutableMap.builder();
+            for (int nodeIndex = 0; nodeIndex < parentTasks.size(); nodeIndex++) {
+                TaskId taskId = parentTasks.get(nodeIndex);
+                buffers.put(taskId, new PartitionedPagePartitionFunction(nodeIndex, parentTasks.size()));
             }
 
             newOutputBuffers = startingOutputBuffers
@@ -817,12 +831,13 @@ public final class SqlStageExecution
         return fragment.getHash().map(symbol -> fragment.getOutputLayout().indexOf(symbol));
     }
 
-    private static List<Integer> getPartitioningChannels(PlanFragment fragment)
+    private static Optional<List<Integer>> getPartitioningChannels(PlanFragment fragment)
     {
         checkState(fragment.getOutputPartitioning() == OutputPartitioning.HASH, "fragment is not hash partitioned");
         // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
-        return fragment.getPartitionBy().stream()
-                .map(symbol -> fragment.getOutputLayout().indexOf(symbol))
-                .collect(toImmutableList());
+        return fragment.getPartitionBy().map(
+                t -> t.stream()
+                        .map(symbol -> fragment.getOutputLayout().indexOf(symbol))
+                        .collect(toImmutableList()));
     }
 }

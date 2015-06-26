@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.HashPagePartitionFunction;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.PagePartitionFunction;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -216,10 +215,7 @@ public class SharedBuffer
                 checkState(state.get().canAddBuffers(), "Cannot add buffers to %s", SharedBuffer.class.getSimpleName());
                 PagePartitionFunction partitionFunction = entry.getValue();
 
-                int partition = 0;
-                if (partitionFunction instanceof HashPagePartitionFunction) {
-                    partition = ((HashPagePartitionFunction) partitionFunction).getPartition();
-                }
+                int partition = partitionFunction.getPartition();
 
                 PartitionBuffer partitionBuffer = createOrGetPartitionBuffer(partition);
                 NamedBuffer namedBuffer = new NamedBuffer(bufferId, partitionBuffer);

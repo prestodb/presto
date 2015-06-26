@@ -313,7 +313,7 @@ public class TestSqlStageExecution
                 PlanDistribution.SOURCE,
                 new PlanNodeId(planId),
                 OutputPartitioning.NONE,
-                ImmutableList.<Symbol>of(),
+                Optional.empty(),
                 Optional.empty());
 
         return new StageExecutionPlan(joinPlan,
@@ -343,7 +343,7 @@ public class TestSqlStageExecution
                 PlanDistribution.SOURCE,
                 tableScanNodeId,
                 OutputPartitioning.NONE,
-                ImmutableList.<Symbol>of(),
+                Optional.empty(),
                 Optional.empty());
 
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();

@@ -22,8 +22,12 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         property = "type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = UnpartitionedPagePartitionFunction.class, name = "unpartitioned"),
+        @JsonSubTypes.Type(value = PartitionedPagePartitionFunction.class, name = "partitioned"),
         @JsonSubTypes.Type(value = HashPagePartitionFunction.class, name = "hash")
 })
 public interface PagePartitionFunction
 {
+    int getPartition();
+
+    int getPartitionCount();
 }
