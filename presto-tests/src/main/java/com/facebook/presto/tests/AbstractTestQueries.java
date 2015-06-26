@@ -3137,6 +3137,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testShowPartitionsLimitAll()
+            throws Exception
+    {
+        MaterializedResult result = computeActual("SHOW PARTITIONS FROM orders");
+        MaterializedResult resultWithLimitAll = computeActual("SHOW PARTITIONS FROM orders LIMIT ALL");
+
+        // table is not partitioned
+        // TODO: add a partitioned table for limit all
+        assertEquals(result.getMaterializedRows().size(), resultWithLimitAll.getMaterializedRows().size());
+    }
+
+    @Test
     public void testShowFunctions()
             throws Exception
     {
