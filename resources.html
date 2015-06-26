@@ -44,6 +44,36 @@
 
 <div class="content homecontent width clearfix">
     <div class="leftcol widecol faq">
+
+        <h2 id="tools">Presto Management Tools</h2>
+
+        <div class="item">
+            <h4>Presto-Admin</h4>
+            <dl>
+                <dt>Project</dt>
+                <dd><a href="https://github.com/prestodb/presto-admin/">Presto-Admin</a></dd>
+                <dt>Maintained by</dt>
+                <dd><a href="https://github.com/TeradataCenterForHadoop">Teradata Center for Hadoop</a></dd>
+                <dt>Description</dt>
+                <dd>
+                    Presto-Admin is a tool for installing and managing the Presto query engine on a cluster. It provides easy-to-use commands to:
+                    <p/>
+                    <ul>
+                        <li>Install and uninstall Presto across your cluster</li>
+                        <li>Configure your Presto cluster</li>
+                        <li>Start and stop the Presto servers</li>
+                        <li>Gather status and log information from your Presto cluster</li>
+                    </ul>
+                </dd>
+                <dt>Examples</dt>
+<pre>
+presto-admin server start|stop|restart|status
+presto-admin server install path-to-presto-rpm
+presto-admin connector add connector-name
+</pre>
+            </dl>
+        </div>
+
         <h2 id="clients">Presto Clients and GUIs</h2>
 
         <div class="item">
@@ -283,6 +313,7 @@ try (Connection connection =
     <div class="rightcol">
     <h3>Presto Resources</h3>
     <ul>
+        <li><a href="#tools">Presto Management Tools</a></li>
         <li><a href="#clients">Presto Clients</a></li>
         <li><a href="#odbc">Presto ODBC</a></li>
         <li><a href="#libraries">Presto Libraries</a></li>
