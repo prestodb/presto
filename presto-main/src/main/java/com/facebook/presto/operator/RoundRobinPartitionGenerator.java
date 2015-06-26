@@ -14,23 +14,28 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
+import com.google.common.base.MoreObjects;
 
-import static com.google.common.base.Preconditions.checkState;
-
-public interface HashGenerator
-    extends PartitionGenerator
+public class RoundRobinPartitionGenerator
+    implements PartitionGenerator
 {
-    int hashPosition(int position, Page page);
+    private int counter;
 
-    default int getPartitionBucket(int partitionCount, int position, Page page)
+    public RoundRobinPartitionGenerator() {}
+
+    @Override
+    public int getPartitionBucket(int partitionCount, int position, Page page)
     {
-        int rawHash = hashPosition(position, page);
-
-        // clear the sign bit
-        rawHash &= 0x7fff_ffffL;
-
-        int bucket = rawHash % partitionCount;
-        checkState(bucket >= 0 && bucket < partitionCount);
+        int bucket = counter % partitionCount;
+        counter = (counter + 1) & 0x7fff_ffff;
         return bucket;
+    }
+
+    @Override
+    public String toString()
+    {
+        return MoreObjects.toStringHelper(this)
+                .add("counter", counter)
+                .toString();
     }
 }

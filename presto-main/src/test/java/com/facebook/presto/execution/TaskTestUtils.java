@@ -77,7 +77,7 @@ public final class TaskTestUtils
             PlanDistribution.SOURCE,
             TABLE_SCAN_NODE_ID,
             OutputPartitioning.NONE,
-            ImmutableList.<Symbol>of(),
+            Optional.empty(),
             Optional.empty());
 
     public static LocalExecutionPlanner createTestingPlanner()

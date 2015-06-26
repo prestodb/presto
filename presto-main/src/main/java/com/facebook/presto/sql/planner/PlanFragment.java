@@ -50,7 +50,8 @@ public class PlanFragment
     public enum OutputPartitioning
     {
         NONE,
-        HASH
+        HASH,
+        ROUND_ROBIN
     }
 
     private final PlanFragmentId id;
@@ -63,7 +64,7 @@ public class PlanFragment
     private final PlanNode partitionedSourceNode;
     private final List<RemoteSourceNode> remoteSourceNodes;
     private final OutputPartitioning outputPartitioning;
-    private final List<Symbol> partitionBy;
+    private final Optional<List<Symbol>> partitionBy;
     private final Optional<Symbol> hash;
 
     @JsonCreator
@@ -75,7 +76,7 @@ public class PlanFragment
             @JsonProperty("distribution") PlanDistribution distribution,
             @JsonProperty("partitionedSource") PlanNodeId partitionedSource,
             @JsonProperty("outputPartitioning") OutputPartitioning outputPartitioning,
-            @JsonProperty("partitionBy") List<Symbol> partitionBy,
+            @JsonProperty("partitionBy") Optional<List<Symbol>> partitionBy,
             @JsonProperty("hash") Optional<Symbol> hash)
     {
         this.id = checkNotNull(id, "id is null");
@@ -84,7 +85,7 @@ public class PlanFragment
         this.outputLayout = checkNotNull(outputLayout, "outputLayout is null");
         this.distribution = checkNotNull(distribution, "distribution is null");
         this.partitionedSource = partitionedSource;
-        this.partitionBy = ImmutableList.copyOf(checkNotNull(partitionBy, "partitionBy is null"));
+        this.partitionBy = checkNotNull(partitionBy, "partitionBy is null").map(ImmutableList::copyOf);
         this.hash = hash;
 
         checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(outputLayout),
@@ -146,7 +147,7 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public List<Symbol> getPartitionBy()
+    public Optional<List<Symbol>> getPartitionBy()
     {
         return partitionBy;
     }

@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.HashPagePartitionFunction;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.PagePartitionFunction;
+import com.facebook.presto.PartitionedPagePartitionFunction;
 import com.facebook.presto.execution.SharedBuffer;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.Page;
@@ -26,11 +27,12 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.operator.HashGenerator.createHashGenerator;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.operator.PartitionGenerator.createHashPartitionGenerator;
+import static com.facebook.presto.operator.PartitionGenerator.createRoundRobinPartitionGenerator;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
@@ -170,7 +172,7 @@ public class PartitionedOutputOperator
     {
         private final SharedBuffer sharedBuffer;
         private final List<Type> sourceTypes;
-        private final HashGenerator hashGenerator;
+        private final PartitionGenerator partitionGenerator;
         private final int partitionCount;
         private final List<PageBuilder> pageBuilders;
 
@@ -183,24 +185,28 @@ public class PartitionedOutputOperator
             checkArgument(outputBuffers.isNoMoreBufferIds(), "output buffers is not final version");
             Map<TaskId, PagePartitionFunction> buffers = outputBuffers.getBuffers();
             checkArgument(!buffers.isEmpty(), "output buffers is empty");
-            checkArgument(buffers.values().stream().allMatch(HashPagePartitionFunction.class::isInstance), "All buffers must use hash partitioning");
+            checkArgument(buffers.values().stream().allMatch(PartitionedPagePartitionFunction.class::isInstance), "None of the buffers can be unpartitioned");
 
-            List<HashPagePartitionFunction> hashFunctions = buffers.values().stream()
-                    .map(HashPagePartitionFunction.class::cast)
-                    .collect(toImmutableList());
+            Collection<PagePartitionFunction> partitionFunctions = buffers.values();
 
-            checkArgument(hashFunctions.stream()
-                    .map(HashPagePartitionFunction::getPartitionCount)
+            checkArgument(partitionFunctions.stream()
+                    .map(PagePartitionFunction::getPartitionCount)
                     .distinct().count() == 1,
                     "All buffers must have the same partition count");
 
-            checkArgument(hashFunctions.stream()
-                    .map(HashPagePartitionFunction::getPartition)
-                    .distinct().count() == hashFunctions.size(),
+            checkArgument(partitionFunctions.stream()
+                    .map(PagePartitionFunction::getPartition)
+                    .distinct().count() == partitionFunctions.size(),
                     "All buffers must have a different partition");
 
-            HashPagePartitionFunction partitionFunction = hashFunctions.stream().findAny().get();
-            hashGenerator = createHashGenerator(partitionFunction.getHashChannel(), partitionFunction.getPartitioningChannels(), partitionFunction.getTypes());
+            PagePartitionFunction partitionFunction = partitionFunctions.stream().findAny().get();
+            if (partitionFunction instanceof HashPagePartitionFunction) {
+                HashPagePartitionFunction hashPartitionFunction = (HashPagePartitionFunction) partitionFunction;
+                partitionGenerator = createHashPartitionGenerator(hashPartitionFunction.getHashChannel(), hashPartitionFunction.getPartitioningChannels(), hashPartitionFunction.getTypes());
+            }
+            else {
+                partitionGenerator = createRoundRobinPartitionGenerator();
+            }
 
             partitionCount = partitionFunction.getPartitionCount();
 
@@ -216,7 +222,7 @@ public class PartitionedOutputOperator
             requireNonNull(page, "page is null");
 
             for (int position = 0; position < page.getPositionCount(); position++) {
-                int partitionHashBucket = hashGenerator.getPartitionHashBucket(partitionCount, position, page);
+                int partitionHashBucket = partitionGenerator.getPartitionBucket(partitionCount, position, page);
                 PageBuilder pageBuilder = pageBuilders.get(partitionHashBucket);
                 pageBuilder.declarePosition();
 
