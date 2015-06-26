@@ -110,10 +110,10 @@ public final class VarbinaryFunctions
         return Slices.wrappedBuffer(result);
     }
 
-    @Description("return the md5")
+    @Description("compute md5 hash")
     @ScalarFunction("md5")
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice md5(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    public static Slice md5(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return Slices.wrappedBuffer(Hashing.md5().hashBytes(slice.getBytes()).asBytes());
     }
