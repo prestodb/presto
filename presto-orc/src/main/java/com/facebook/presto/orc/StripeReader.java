@@ -114,7 +114,8 @@ public class StripeReader
             }
         }
 
-        if (stripe.getNumberOfRows() > 10_000 || hasRowGroupDictionary) {
+        // handle stripes with more than one row group or a dictionary
+        if ((stripe.getNumberOfRows() > rowsInRowGroup) || hasRowGroupDictionary) {
             // determine ranges of the stripe to read
             Map<StreamId, DiskRange> diskRanges = getDiskRanges(stripeFooter.getStreams());
             diskRanges = Maps.filterKeys(diskRanges, Predicates.in(streams.keySet()));
@@ -161,6 +162,7 @@ public class StripeReader
             }
         }
 
+        // stripe only has one row group and no dictionary
         ImmutableMap.Builder<StreamId, DiskRange> diskRangesBuilder = ImmutableMap.builder();
         for (Entry<StreamId, DiskRange> entry : getDiskRanges(stripeFooter.getStreams()).entrySet()) {
             StreamId streamId = entry.getKey();
