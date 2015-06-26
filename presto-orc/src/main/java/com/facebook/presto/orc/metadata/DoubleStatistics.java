@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class DoubleStatistics
         implements RangeStatistics<Double>
 {
@@ -35,5 +37,14 @@ public class DoubleStatistics
     public Double getMax()
     {
         return maximum;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("min", minimum)
+                .add("max", maximum)
+                .toString();
     }
 }
