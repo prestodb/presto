@@ -511,13 +511,12 @@ public final class HiveUtil
 
         // add the data fields first
         int hiveColumnIndex = 0;
-        for (StructField field : getTableStructFields(table)) {
+        for (FieldSchema field : table.getSd().getCols()) {
             // ignore unsupported types rather than failing
-            HiveType hiveType = getHiveType(field.getFieldObjectInspector());
-            if (hiveType != null && (includeSampleWeight || !field.getFieldName().equals(SAMPLE_WEIGHT_COLUMN_NAME))) {
-                Type type = getType(field.getFieldObjectInspector(), typeManager);
-                checkCondition(type != null, NOT_SUPPORTED, "Unsupported Hive type: %s", field.getFieldObjectInspector().getTypeName());
-                columns.add(new HiveColumnHandle(connectorId, field.getFieldName(), hiveColumnIndex, hiveType, type.getTypeSignature(), hiveColumnIndex, false));
+            HiveType hiveType = getHiveType(field.getType());
+            if (hiveType != null && (includeSampleWeight || !field.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME))) {
+                Type type = getType(field.getType(), typeManager);
+                columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveColumnIndex, hiveType, type.getTypeSignature(), hiveColumnIndex, false));
             }
             hiveColumnIndex++;
         }

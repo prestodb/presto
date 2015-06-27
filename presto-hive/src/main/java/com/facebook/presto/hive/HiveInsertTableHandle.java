@@ -13,34 +13,26 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
-
-public class HiveOutputTableHandle
+public class HiveInsertTableHandle
         extends HiveWritableTableHandle
-        implements ConnectorOutputTableHandle
+        implements ConnectorInsertTableHandle
 {
-    private final List<String> partitionedBy;
-    private final String tableOwner;
-
     @JsonCreator
-    public HiveOutputTableHandle(
+    public HiveInsertTableHandle(
             @JsonProperty("clientId") String clientId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("inputColumns") List<HiveColumnHandle> inputColumns,
             @JsonProperty("filePrefix") String filePrefix,
-            @JsonProperty("writePath") String writePath,
-            @JsonProperty("hiveStorageFormat") HiveStorageFormat hiveStorageFormat,
-            @JsonProperty("partitionedBy") List<String> partitionedBy,
-            @JsonProperty("tableOwner") String tableOwner)
+            @JsonProperty("writePath") Optional<String> writePath,
+            @JsonProperty("hiveStorageFormat") HiveStorageFormat hiveStorageFormat)
     {
         super(
                 clientId,
@@ -48,22 +40,7 @@ public class HiveOutputTableHandle
                 tableName,
                 inputColumns,
                 filePrefix,
-                Optional.of(requireNonNull(writePath, "writePath is null")),
+                writePath,
                 hiveStorageFormat);
-
-        this.partitionedBy = ImmutableList.copyOf(requireNonNull(partitionedBy, "partitionedBy is null"));
-        this.tableOwner = requireNonNull(tableOwner, "tableOwner is null");
-    }
-
-    @JsonProperty
-    public List<String> getPartitionedBy()
-    {
-        return partitionedBy;
-    }
-
-    @JsonProperty
-    public String getTableOwner()
-    {
-        return tableOwner;
     }
 }

@@ -19,7 +19,9 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.type.TypeManager;
+import io.airlift.json.JsonCodec;
 import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
@@ -31,35 +33,56 @@ public class HivePageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final HdfsEnvironment hdfsEnvironment;
+    private final HiveMetastore metastore;
+    private final PageIndexerFactory pageIndexerFactory;
     private final TypeManager typeManager;
+    private final int maxWriters = 100;
+    private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
 
     @Inject
-    public HivePageSinkProvider(HdfsEnvironment hdfsEnvironment,
+    public HivePageSinkProvider(
+            HdfsEnvironment hdfsEnvironment,
             HiveMetastore metastore,
-            TypeManager typeManager)
+            PageIndexerFactory pageIndexerFactory,
+            TypeManager typeManager,
+            JsonCodec<PartitionUpdate> partitionUpdateCodec)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.metastore = requireNonNull(metastore, "metastore is null");
+        this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorOutputTableHandle tableHandle)
     {
-        HiveOutputTableHandle handle = checkType(tableHandle, HiveOutputTableHandle.class, "tableHandle");
-        return new HivePageSink(
-                handle.getSchemaName(),
-                handle.getTableName(),
-                handle.getInputColumns(),
-                handle.getHiveStorageFormat(),
-                new Path(handle.getWritePath()),
-                handle.getFilePrefix(),
-                typeManager,
-                hdfsEnvironment);
+        HiveWritableTableHandle handle = checkType(tableHandle, HiveOutputTableHandle.class, "tableHandle");
+        return createPageSink(handle, true);
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorInsertTableHandle tableHandle)
     {
-        throw new UnsupportedOperationException();
+        HiveInsertTableHandle handle = checkType(tableHandle, HiveInsertTableHandle.class, "tableHandle");
+        return createPageSink(handle, false);
+    }
+
+    private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable)
+    {
+        return new HivePageSink(
+                handle.getSchemaName(),
+                handle.getTableName(),
+                isCreateTable,
+                handle.getInputColumns(),
+                handle.getHiveStorageFormat(),
+                handle.getWritePath().map(Path::new),
+                handle.getFilePrefix(),
+                metastore,
+                pageIndexerFactory,
+                typeManager,
+                hdfsEnvironment,
+                maxWriters,
+                partitionUpdateCodec);
     }
 }

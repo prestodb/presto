@@ -17,23 +17,31 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.TableLayout;
+import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveQueryRunner.createSampledSession;
+import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -90,7 +98,7 @@ public class TestHiveIntegrationSmokeTest
     public void createTableWithEveryType()
             throws Exception
     {
-        String query = "" +
+        @Language("SQL") String query = "" +
                 "CREATE TABLE test_types_table AS " +
                 "SELECT" +
                 " 'foo' _varchar" +
@@ -119,6 +127,52 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void createPartitionedTable()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            createPartitionedTable(storageFormat);
+        }
+    }
+
+    public void createPartitionedTable(HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_partitioned_table (" +
+                "  _partition_varchar VARCHAR" +
+                ", _partition_bigint BIGINT" +
+                ", _varchar VARCHAR" +
+                ", _varbinary VARBINARY" +
+                ", _bigint BIGINT" +
+                ", _double DOUBLE" +
+                ", _boolean BOOLEAN" +
+                ") " +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ '_partition_varchar', '_partition_bigint' ]" +
+                ") ";
+
+        assertQuery(createTable, "SELECT 1");
+
+        TableMetadata tableMetadata = getTableMetadata("test_partitioned_table");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+
+        List<String> partitionedBy = ImmutableList.of("_partition_varchar", "_partition_bigint");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
+        for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+            assertEquals(columnMetadata.isPartitionKey(), partitionedBy.contains(columnMetadata.getName()));
+        }
+
+        MaterializedResult result = computeActual("SELECT * from test_partitioned_table");
+        assertEquals(result.getRowCount(), 0);
+
+        assertQueryTrue("DROP TABLE test_partitioned_table");
+
+        assertFalse(queryRunner.tableExists(getSession(), "test_partitioned_table"));
+    }
+
+    @Test
     public void createTableAs()
             throws Exception
     {
@@ -130,13 +184,13 @@ public class TestHiveIntegrationSmokeTest
     public void createTableAs(HiveStorageFormat storageFormat)
             throws Exception
     {
-        String select = "SELECT" +
+        @Language("SQL") String select = "SELECT" +
                 " 'foo' _varchar" +
                 ", 1 _bigint" +
                 ", 3.14 _double" +
                 ", true _boolean";
 
-        String createTableAs = String.format("CREATE TABLE test_format_table WITH (%s = '%s') AS %s", STORAGE_FORMAT_PROPERTY, storageFormat, select);
+        String createTableAs = String.format("CREATE TABLE test_format_table WITH (format = '%s') AS %s", storageFormat, select);
 
         assertQuery(createTableAs, "SELECT 1");
 
@@ -150,6 +204,140 @@ public class TestHiveIntegrationSmokeTest
         assertFalse(queryRunner.tableExists(getSession(), "test_format_table"));
     }
 
+    @Test
+    public void createPartitionedTableAs()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            createPartitionedTableAs(storageFormat);
+        }
+    }
+
+    public void createPartitionedTableAs(HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_create_partitioned_table_as " +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'SHIP_PRIORITY', 'ORDER_STATUS' ]" +
+                ") " +
+                "AS " +
+                "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status " +
+                "FROM tpch.tiny.orders";
+
+        assertQuery(createTable, "SELECT count(*) from orders");
+
+        TableMetadata tableMetadata = getTableMetadata("test_create_partitioned_table_as");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+
+        List<String> partitionedBy = ImmutableList.of("ship_priority", "order_status");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
+        for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+            assertEquals(columnMetadata.isPartitionKey(), partitionedBy.contains(columnMetadata.getName()));
+        }
+
+        List<HivePartition> partitions = getPartitions("test_create_partitioned_table_as");
+        assertEquals(partitions.size(), 3);
+
+        // Hive will reorder the partition keys to the end
+        assertQuery("SELECT * from test_create_partitioned_table_as", "SELECT orderkey, shippriority, orderstatus FROM orders");
+
+        assertQueryTrue("DROP TABLE test_create_partitioned_table_as");
+
+        assertFalse(queryRunner.tableExists(getSession(), "test_create_partitioned_table_as"));
+    }
+
+    @Test
+    public void insertTable()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            insertTable(storageFormat);
+        }
+    }
+
+    public void insertTable(HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_insert_format_table " +
+                "(" +
+                "  _varchar VARCHAR," +
+                "  _bigint BIGINT," +
+                "  _doube DOUBLE," +
+                "  _boolean BOOLEAN" +
+                ") " +
+                "WITH (format = '" + storageFormat + "') ";
+
+        assertQuery(createTable, "SELECT 1");
+
+        TableMetadata tableMetadata = getTableMetadata("test_insert_format_table");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+
+        @Language("SQL") String select = "SELECT" +
+                " 'foo' _varchar" +
+                ", 1 _bigint" +
+                ", 3.14 _double" +
+                ", true _boolean";
+
+        assertQuery("INSERT INTO test_insert_format_table " + select, "SELECT 1");
+
+        assertQuery("SELECT * from test_insert_format_table", select);
+
+        assertQueryTrue("DROP TABLE test_insert_format_table");
+
+        assertFalse(queryRunner.tableExists(getSession(), "test_insert_format_table"));
+    }
+
+    @Test
+    public void insertPartitionedTable()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            insertPartitionedTable(storageFormat);
+        }
+    }
+
+    public void insertPartitionedTable(HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_insert_partitioned_table " +
+                "(" +
+                "  ORDER_STATUS VARCHAR," +
+                "  SHIP_PRIORITY BIGINT," +
+                "  ORDER_KEY BIGINT" +
+                ") " +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'SHIP_PRIORITY', 'ORDER_STATUS' ]" +
+                ") ";
+
+        assertQuery(createTable, "SELECT 1");
+
+        TableMetadata tableMetadata = getTableMetadata("test_insert_partitioned_table");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("ship_priority", "order_status"));
+
+        // Hive will reorder the partition keys, so we must insert into the table assuming the partition keys have been moved to the end
+        assertQuery("" +
+                        "INSERT INTO test_insert_partitioned_table " +
+                        "SELECT orderkey, shippriority, orderstatus " +
+                        "FROM tpch.tiny.orders",
+                "SELECT count(*) from orders");
+
+        // verify the partitions
+        List<HivePartition> partitions = getPartitions("test_insert_partitioned_table");
+        assertEquals(partitions.size(), 3);
+
+        assertQuery("SELECT * from test_insert_partitioned_table", "SELECT orderkey, shippriority, orderstatus FROM orders");
+
+        assertQueryTrue("DROP TABLE test_insert_partitioned_table");
+
+        assertFalse(queryRunner.tableExists(getSession(), "test_insert_partitioned_table"));
+    }
+
     private TableMetadata getTableMetadata(String tableName)
     {
         Session session = getSession();
@@ -157,6 +345,19 @@ public class TestHiveIntegrationSmokeTest
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, new QualifiedTableName(HIVE_CATALOG, TPCH_SCHEMA, tableName));
         assertTrue(tableHandle.isPresent());
         return metadata.getTableMetadata(session, tableHandle.get());
+    }
+
+    private List<HivePartition> getPartitions(String tableName)
+    {
+        Session session = getSession();
+        Metadata metadata = ((DistributedQueryRunner) queryRunner).getCoordinator().getMetadata();
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, new QualifiedTableName(HIVE_CATALOG, TPCH_SCHEMA, tableName));
+        assertTrue(tableHandle.isPresent());
+
+        List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty());
+        TableLayout layout = Iterables.getOnlyElement(layouts).getLayout();
+        List<HivePartition> partitions = ((HiveTableLayoutHandle) layout.getHandle().getConnectorHandle()).getPartitions();
+        return partitions;
     }
 
     // TODO: These should be moved to another class, when more connectors support arrays
