@@ -14,14 +14,12 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class HiveOutputTableHandle
@@ -30,39 +28,31 @@ public class HiveOutputTableHandle
     private final String clientId;
     private final String schemaName;
     private final String tableName;
-    private final List<String> columnNames;
-    private final List<Type> columnTypes;
-    private final String tableOwner;
-    private final String targetPath;
-    private final String temporaryPath;
+    private final List<HiveColumnHandle> inputColumns;
+    private final String filePrefix;
+    private final String writePath;
     private final HiveStorageFormat hiveStorageFormat;
+    private final String tableOwner;
 
     @JsonCreator
     public HiveOutputTableHandle(
             @JsonProperty("clientId") String clientId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("columnNames") List<String> columnNames,
-            @JsonProperty("columnTypes") List<Type> columnTypes,
-            @JsonProperty("tableOwner") String tableOwner,
-            @JsonProperty("targetPath") String targetPath,
-            @JsonProperty("temporaryPath") String temporaryPath,
-            @JsonProperty("hiveStorageFormat") HiveStorageFormat hiveStorageFormat)
+            @JsonProperty("inputColumns") List<HiveColumnHandle> inputColumns,
+            @JsonProperty("filePrefix") String filePrefix,
+            @JsonProperty("writePath") String writePath,
+            @JsonProperty("hiveStorageFormat") HiveStorageFormat hiveStorageFormat,
+            @JsonProperty("tableOwner") String tableOwner)
     {
         this.clientId = requireNonNull(clientId, "clientId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.tableOwner = requireNonNull(tableOwner, "tableOwner is null");
-        this.targetPath = requireNonNull(targetPath, "targetPath is null");
-        this.temporaryPath = requireNonNull(temporaryPath, "temporaryPath is null");
+        this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
+        this.filePrefix = requireNonNull(filePrefix, "filePrefix is null");
+        this.writePath = requireNonNull(writePath, "writePath is null");
         this.hiveStorageFormat = requireNonNull(hiveStorageFormat, "hiveStorageFormat is null");
-
-        requireNonNull(columnNames, "columnNames is null");
-        requireNonNull(columnTypes, "columnTypes is null");
-        checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
-        this.columnNames = ImmutableList.copyOf(columnNames);
-        this.columnTypes = ImmutableList.copyOf(columnTypes);
-
+        this.tableOwner = requireNonNull(tableOwner, "tableOwner is null");
     }
 
     @JsonProperty
@@ -84,33 +74,21 @@ public class HiveOutputTableHandle
     }
 
     @JsonProperty
-    public List<String> getColumnNames()
+    public List<HiveColumnHandle> getInputColumns()
     {
-        return columnNames;
+        return inputColumns;
     }
 
     @JsonProperty
-    public List<Type> getColumnTypes()
+    public String getFilePrefix()
     {
-        return columnTypes;
+        return filePrefix;
     }
 
     @JsonProperty
-    public String getTableOwner()
+    public String getWritePath()
     {
-        return tableOwner;
-    }
-
-    @JsonProperty
-    public String getTargetPath()
-    {
-        return targetPath;
-    }
-
-    @JsonProperty
-    public String getTemporaryPath()
-    {
-        return temporaryPath;
+        return writePath;
     }
 
     @JsonProperty
@@ -125,8 +103,9 @@ public class HiveOutputTableHandle
         return "hive:" + schemaName + "." + tableName;
     }
 
-    public boolean hasTemporaryPath()
+    @JsonProperty
+    public String getTableOwner()
     {
-        return !temporaryPath.equals(targetPath);
+        return tableOwner;
     }
 }
