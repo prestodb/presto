@@ -26,9 +26,10 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorPageSink;
+import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -40,10 +41,10 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.Domain;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.RecordPageSource;
-import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SerializableNativeValue;
@@ -51,6 +52,8 @@ import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.ViewNotFoundException;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
@@ -112,6 +115,8 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -192,7 +197,7 @@ public abstract class AbstractTestHiveClient
     protected HiveMetastore metastoreClient;
     protected ConnectorSplitManager splitManager;
     protected ConnectorPageSourceProvider pageSourceProvider;
-    protected ConnectorRecordSinkProvider recordSinkProvider;
+    protected ConnectorPageSinkProvider pageSinkProvider;
     protected ExecutorService executor;
 
     @BeforeClass
@@ -346,6 +351,7 @@ public abstract class AbstractTestHiveClient
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig);
+        TypeRegistry typeManager = new TypeRegistry();
         metadata = new HiveMetadata(
                 connectorId,
                 metastoreClient,
@@ -357,7 +363,7 @@ public abstract class AbstractTestHiveClient
                 true,
                 true,
                 true,
-                new TypeRegistry());
+                typeManager);
         splitManager = new HiveSplitManager(
                 connectorId,
                 metastoreClient,
@@ -373,7 +379,7 @@ public abstract class AbstractTestHiveClient
                 hiveClientConfig.getMaxInitialSplits(),
                 false
         );
-        recordSinkProvider = new HiveRecordSinkProvider(hdfsEnvironment);
+        pageSinkProvider = new HivePageSinkProvider(hdfsEnvironment, metastoreClient, typeManager);
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER, DEFAULT_HIVE_DATA_STREAM_FACTORIES, TYPE_MANAGER);
     }
 
@@ -1320,19 +1326,21 @@ public abstract class AbstractTestHiveClient
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, tableMetadata);
 
         // write the records
-        RecordSink sink = recordSinkProvider.getRecordSink(SESSION, outputHandle);
+        ConnectorPageSink sink = pageSinkProvider.createPageSink(SESSION, outputHandle);
 
-        sink.beginRecord(8);
-        sink.appendLong(2);
-        sink.finishRecord();
+        BlockBuilder sampleBlockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 3);
+        BlockBuilder dataBlockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 3);
 
-        sink.beginRecord(5);
-        sink.appendLong(3);
-        sink.finishRecord();
+        BIGINT.writeLong(sampleBlockBuilder, 8);
+        BIGINT.writeLong(dataBlockBuilder, 2);
 
-        sink.beginRecord(7);
-        sink.appendLong(4);
-        sink.finishRecord();
+        BIGINT.writeLong(sampleBlockBuilder, 5);
+        BIGINT.writeLong(dataBlockBuilder, 3);
+
+        BIGINT.writeLong(sampleBlockBuilder, 7);
+        BIGINT.writeLong(dataBlockBuilder, 4);
+
+        sink.appendPage(new Page(dataBlockBuilder.build()), sampleBlockBuilder.build());
 
         Collection<Slice> fragments = sink.commit();
 
@@ -1388,12 +1396,16 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         // begin creating the table
+        Type arrayType = TYPE_MANAGER.getParameterizedType(ARRAY, ImmutableList.of(VARCHAR.getTypeSignature()), ImmutableList.of());
+        Type mapType = TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(VARCHAR.getTypeSignature(), BIGINT.getTypeSignature()), ImmutableList.of());
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
                 .add(new ColumnMetadata("id", BIGINT, false))
                 .add(new ColumnMetadata("t_string", VARCHAR, false))
                 .add(new ColumnMetadata("t_bigint", BIGINT, false))
                 .add(new ColumnMetadata("t_double", DOUBLE, false))
                 .add(new ColumnMetadata("t_boolean", BOOLEAN, false))
+                .add(new ColumnMetadata("t_array", arrayType, false))
+                .add(new ColumnMetadata("t_map", mapType, false))
                 .build();
 
         Map<String, Object> properties = ImmutableMap.of(STORAGE_FORMAT_PROPERTY, storageFormat);
@@ -1401,33 +1413,15 @@ public abstract class AbstractTestHiveClient
 
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, tableMetadata);
 
-        // write the records
-        RecordSink sink = recordSinkProvider.getRecordSink(SESSION, outputHandle);
+        MaterializedResult data = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, BIGINT, DOUBLE, BOOLEAN, arrayType, mapType)
+                .row(1, "hello", 123, 43.5, true, ImmutableList.of("apple", "banana"), ImmutableMap.of("one", 1L, "two", 2L))
+                .row(2, null, null, null, null, null, null)
+                .row(3, "bye", 456, 98.1, false, ImmutableList.of("ape", "bear"), ImmutableMap.of("three", 3L, "four", 4L))
+                .build();
 
-        sink.beginRecord(1);
-        sink.appendLong(1);
-        sink.appendString("hello".getBytes(UTF_8));
-        sink.appendLong(123);
-        sink.appendDouble(43.5);
-        sink.appendBoolean(true);
-        sink.finishRecord();
-
-        sink.beginRecord(1);
-        sink.appendLong(2);
-        sink.appendNull();
-        sink.appendNull();
-        sink.appendNull();
-        sink.appendNull();
-        sink.finishRecord();
-
-        sink.beginRecord(1);
-        sink.appendLong(3);
-        sink.appendString("bye".getBytes(UTF_8));
-        sink.appendLong(456);
-        sink.appendDouble(98.1);
-        sink.appendBoolean(false);
-        sink.finishRecord();
-
+        // write the data
+        ConnectorPageSink sink = pageSinkProvider.createPageSink(SESSION, outputHandle);
+        sink.appendPage(data.toPage(), null);
         Collection<Slice> fragments = sink.commit();
 
         // commit the table
@@ -1440,14 +1434,7 @@ public abstract class AbstractTestHiveClient
         // verify the metadata
         tableMetadata = metadata.getTableMetadata(SESSION, getTableHandle(tableName));
         assertEquals(tableMetadata.getOwner(), SESSION.getUser());
-
-        Map<String, ColumnMetadata> columnMap = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
-
-        assertPrimitiveField(columnMap, "id", BIGINT, false);
-        assertPrimitiveField(columnMap, "t_string", VARCHAR, false);
-        assertPrimitiveField(columnMap, "t_bigint", BIGINT, false);
-        assertPrimitiveField(columnMap, "t_double", DOUBLE, false);
-        assertPrimitiveField(columnMap, "t_boolean", BOOLEAN, false);
+        assertEquals(tableMetadata.getColumns(), columns);
 
         // verify the data
         List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(SESSION, tableHandle, new Constraint<>(TupleDomain.all(), bindings -> true), Optional.empty());
@@ -1461,28 +1448,7 @@ public abstract class AbstractTestHiveClient
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, getTypes(columnHandles));
             assertEquals(result.getRowCount(), 3);
 
-            MaterializedRow row;
-
-            row = result.getMaterializedRows().get(0);
-            assertEquals(row.getField(0), 1L);
-            assertEquals(row.getField(1), "hello");
-            assertEquals(row.getField(2), 123L);
-            assertEquals(row.getField(3), 43.5);
-            assertEquals(row.getField(4), true);
-
-            row = result.getMaterializedRows().get(1);
-            assertEquals(row.getField(0), 2L);
-            assertNull(row.getField(1));
-            assertNull(row.getField(2));
-            assertNull(row.getField(3));
-            assertNull(row.getField(4));
-
-            row = result.getMaterializedRows().get(2);
-            assertEquals(row.getField(0), 3L);
-            assertEquals(row.getField(1), "bye");
-            assertEquals(row.getField(2), 456L);
-            assertEquals(row.getField(3), 98.1);
-            assertEquals(row.getField(4), false);
+            assertEqualsIgnoreOrder(result.getMaterializedRows(), data.getMaterializedRows());
         }
     }
 

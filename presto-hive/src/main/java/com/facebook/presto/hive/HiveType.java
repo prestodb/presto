@@ -28,6 +28,9 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 
 import javax.annotation.Nullable;
@@ -209,6 +212,11 @@ public final class HiveType
 
     public static Type getType(String hiveType)
     {
+        return getType(hiveType, null);
+    }
+
+    public static Type getType(String hiveType, TypeManager typeManager)
+    {
         switch (hiveType) {
             case BOOLEAN_TYPE_NAME:
                 return BOOLEAN;
@@ -228,9 +236,23 @@ public final class HiveType
                 return TIMESTAMP;
             case BINARY_TYPE_NAME:
                 return VARBINARY;
-            default:
-                throw new IllegalArgumentException("Unsupported hive type " + hiveType);
         }
+        if (typeManager != null) {
+            // todo support full struct types
+            TypeInfo typeInfo = TypeInfoUtils.getTypeInfoFromTypeString(hiveType);
+            if (typeInfo.getCategory() == Category.LIST) {
+                ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
+                TypeSignature elementType = getType(listTypeInfo.getListElementTypeInfo().getTypeName(), typeManager).getTypeSignature();
+                return typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(elementType), ImmutableList.of());
+            }
+            if (typeInfo.getCategory() == Category.MAP) {
+                MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
+                TypeSignature keyType = getType(mapTypeInfo.getMapKeyTypeInfo().getTypeName(), typeManager).getTypeSignature();
+                TypeSignature valueType = getType(mapTypeInfo.getMapValueTypeInfo().getTypeName(), typeManager).getTypeSignature();
+                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(keyType, valueType), ImmutableList.of());
+            }
+        }
+        throw new IllegalArgumentException("Unsupported hive type " + hiveType);
     }
 
     @Nullable

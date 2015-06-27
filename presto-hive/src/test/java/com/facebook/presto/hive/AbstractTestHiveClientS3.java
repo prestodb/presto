@@ -16,9 +16,10 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorPageSink;
+import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -26,7 +27,6 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
@@ -89,7 +89,7 @@ public abstract class AbstractTestHiveClientS3
     protected TestingHiveMetastore metastoreClient;
     protected HiveMetadata metadata;
     protected ConnectorSplitManager splitManager;
-    protected ConnectorRecordSinkProvider recordSinkProvider;
+    protected ConnectorPageSinkProvider pageSinkProvider;
     protected ConnectorPageSourceProvider pageSourceProvider;
 
     private ExecutorService executor;
@@ -143,6 +143,7 @@ public abstract class AbstractTestHiveClientS3
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig);
         metastoreClient = new TestingHiveMetastore(hiveCluster, executor, hiveClientConfig, writableBucket, hdfsEnvironment);
+        TypeRegistry typeManager = new TypeRegistry();
         metadata = new HiveMetadata(
                 connectorId,
                 hiveClientConfig,
@@ -150,7 +151,7 @@ public abstract class AbstractTestHiveClientS3
                 hdfsEnvironment,
                 hivePartitionManager,
                 newDirectExecutorService(),
-                new TypeRegistry());
+                typeManager);
         splitManager = new HiveSplitManager(
                 connectorId,
                 hiveClientConfig,
@@ -159,7 +160,7 @@ public abstract class AbstractTestHiveClientS3
                 hdfsEnvironment,
                 new HadoopDirectoryLister(),
                 executor);
-        recordSinkProvider = new HiveRecordSinkProvider(hdfsEnvironment);
+        pageSinkProvider = new HivePageSinkProvider(hdfsEnvironment, metastoreClient, typeManager);
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER, DEFAULT_HIVE_DATA_STREAM_FACTORIES, TYPE_MANAGER);
     }
 
@@ -295,21 +296,15 @@ public abstract class AbstractTestHiveClientS3
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, properties, tableOwner);
         HiveOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, tableMetadata);
 
+        MaterializedResult data = MaterializedResult.resultBuilder(SESSION, BIGINT)
+                .row(1)
+                .row(3)
+                .row(2)
+                .build();
+
         // write the records
-        RecordSink sink = recordSinkProvider.getRecordSink(SESSION, outputHandle);
-
-        sink.beginRecord(1);
-        sink.appendLong(1);
-        sink.finishRecord();
-
-        sink.beginRecord(1);
-        sink.appendLong(3);
-        sink.finishRecord();
-
-        sink.beginRecord(1);
-        sink.appendLong(2);
-        sink.finishRecord();
-
+        ConnectorPageSink sink = pageSinkProvider.createPageSink(SESSION, outputHandle);
+        sink.appendPage(data.toPage(), null);
         Collection<Slice> fragments = sink.commit();
 
         // commit the table
@@ -320,7 +315,7 @@ public abstract class AbstractTestHiveClientS3
         // table, which fails without explicit configuration for S3.
         // We work around that by using a dummy location when creating the
         // table and update it here to the correct S3 location.
-        metastoreClient.updateTableLocation(database, tableName.getTableName(), outputHandle.getTargetPath());
+        metastoreClient.updateTableLocation(database, tableName.getTableName(), outputHandle.getWritePath());
 
         // load the new table
         ConnectorTableHandle tableHandle = getTableHandle(tableName);
