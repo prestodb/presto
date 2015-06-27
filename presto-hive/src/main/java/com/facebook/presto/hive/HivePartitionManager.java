@@ -220,7 +220,7 @@ public class HivePartitionManager
                 .orElseThrow(() -> new TableNotFoundException(tableName));
     }
 
-    private static List<String> extractPartitionKeyValues(String partitionName)
+    public static List<String> extractPartitionKeyValues(String partitionName)
     {
         ImmutableList.Builder<String> values = ImmutableList.builder();
 

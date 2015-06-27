@@ -57,6 +57,9 @@ public class HiveClientConfig
     private int domainCompactionThreshold = 100;
     private boolean forceLocalScheduling;
     private boolean recursiveDirWalkerEnabled;
+
+    private int maxConcurrentFileRenames = 20;
+
     private boolean allowAddColumn;
     private boolean allowDropTable;
     private boolean allowRenameTable;
@@ -157,6 +160,19 @@ public class HiveClientConfig
     public HiveClientConfig setForceLocalScheduling(boolean forceLocalScheduling)
     {
         this.forceLocalScheduling = forceLocalScheduling;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxConcurrentFileRenames()
+    {
+        return maxConcurrentFileRenames;
+    }
+
+    @Config("hive.max-concurrent-file-renames")
+    public HiveClientConfig setMaxConcurrentFileRenames(int maxConcurrentFileRenames)
+    {
+        this.maxConcurrentFileRenames = maxConcurrentFileRenames;
         return this;
     }
 

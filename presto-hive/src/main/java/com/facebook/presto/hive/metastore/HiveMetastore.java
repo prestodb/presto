@@ -47,9 +47,20 @@ public interface HiveMetastore
 
     Optional<Database> getDatabase(String databaseName);
 
+    /**
+     * Adds partitions to the table in a single atomic task.  The implementation
+     * must either add all partitions and return normally, or add no partitions and
+     * throw an exception.
+     */
+    void addPartitions(String databaseName, String tableName, List<Partition> partitions);
+
+    void dropPartition(String databaseName, String tableName, List<String> parts);
+
     Optional<List<String>> getPartitionNames(String databaseName, String tableName);
 
     Optional<List<String>> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts);
+
+    Optional<Partition> getPartition(String databaseName, String tableName, String partitionName);
 
     Optional<Map<String, Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames);
 

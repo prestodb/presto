@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorHandleResolver;
@@ -52,7 +53,8 @@ public class TestHiveConnectorFactory
                         .build(),
                 HiveConnector.class.getClassLoader(),
                 null,
-                new TypeRegistry());
+                new TypeRegistry(),
+                new GroupByHashPageIndexerFactory());
 
         Connector connector = connectorFactory.create("hive-test", ImmutableMap.<String, String>of());
         assertInstanceOf(connector.getMetadata(), ClassLoaderSafeConnectorMetadata.class);

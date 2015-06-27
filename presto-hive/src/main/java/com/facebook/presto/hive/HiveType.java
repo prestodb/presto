@@ -30,6 +30,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 
@@ -54,6 +55,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde.Constants.BIGINT_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.BINARY_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.BOOLEAN_TYPE_NAME;
@@ -250,6 +252,14 @@ public final class HiveType
                 TypeSignature keyType = getType(mapTypeInfo.getMapKeyTypeInfo().getTypeName(), typeManager).getTypeSignature();
                 TypeSignature valueType = getType(mapTypeInfo.getMapValueTypeInfo().getTypeName(), typeManager).getTypeSignature();
                 return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(keyType, valueType), ImmutableList.of());
+            }
+            if (typeInfo.getCategory() == Category.STRUCT) {
+                StructTypeInfo listTypeInfo = (StructTypeInfo) typeInfo;
+                return typeManager.getParameterizedType(StandardTypes.ROW,
+                        listTypeInfo.getAllStructFieldTypeInfos().stream()
+                                .map(fieldInfo -> getType(fieldInfo.getTypeName(), typeManager).getTypeSignature())
+                                .collect(toList()),
+                        ImmutableList.copyOf(listTypeInfo.getAllStructFieldNames()));
             }
         }
         throw new IllegalArgumentException("Unsupported hive type " + hiveType);

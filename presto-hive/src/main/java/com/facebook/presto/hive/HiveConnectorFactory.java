@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorMetadata;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorPageSinkProvider;
@@ -56,8 +57,15 @@ public class HiveConnectorFactory
     private final ClassLoader classLoader;
     private final HiveMetastore metastore;
     private final TypeManager typeManager;
+    private final PageIndexerFactory pageIndexerFactory;
 
-    public HiveConnectorFactory(String name, Map<String, String> optionalConfig, ClassLoader classLoader, HiveMetastore metastore, TypeManager typeManager)
+    public HiveConnectorFactory(
+            String name,
+            Map<String, String> optionalConfig,
+            ClassLoader classLoader,
+            HiveMetastore metastore,
+            TypeManager typeManager,
+            PageIndexerFactory pageIndexerFactory)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
@@ -65,6 +73,7 @@ public class HiveConnectorFactory
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
         this.metastore = metastore;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexer is null");
     }
 
     @Override
@@ -83,7 +92,7 @@ public class HiveConnectorFactory
                     new NodeModule(),
                     new MBeanModule(),
                     new JsonModule(),
-                    new HiveClientModule(connectorId, metastore, typeManager),
+                    new HiveClientModule(connectorId, metastore, typeManager, pageIndexerFactory),
                     installModuleIf(
                             SecurityConfig.class,
                             security -> "none".equalsIgnoreCase(security.getSecuritySystem()),
