@@ -83,6 +83,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.BigintOperators;
@@ -94,6 +95,7 @@ import com.facebook.presto.type.HyperLogLogOperators;
 import com.facebook.presto.type.IntervalDayTimeOperators;
 import com.facebook.presto.type.IntervalYearMonthOperators;
 import com.facebook.presto.type.LikeFunctions;
+import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.RowParametricType;
 import com.facebook.presto.type.RowType;
 import com.facebook.presto.type.TimeOperators;
@@ -183,6 +185,7 @@ import static com.facebook.presto.operator.scalar.RowHashCodeOperator.ROW_HASH_C
 import static com.facebook.presto.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
 import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST;
+import static com.facebook.presto.operator.scalar.VarcharToVarcharCast.VARCHAR_TO_VARCHAR_CAST;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -195,6 +198,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.RegexpType.REGEXP;
@@ -342,6 +346,8 @@ public class FunctionRegistry
                 .functions(MAP_EQUAL, MAP_NOT_EQUAL, MAP_HASH_CODE)
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_CARDINALITY, ARRAY_POSITION, ARRAY_SORT_FUNCTION, ARRAY_INTERSECT_FUNCTION, ARRAY_TO_JSON, JSON_TO_ARRAY, ARRAY_DISTINCT_FUNCTION, ARRAY_REMOVE_FUNCTION, ARRAY_SLICE_FUNCTION)
                 .functions(MAP_CONSTRUCTOR, MAP_CARDINALITY, MAP_SUBSCRIPT, MAP_TO_JSON, JSON_TO_MAP, MAP_KEYS, MAP_VALUES, MAP_AGG)
+                .functions(VARCHAR_TO_VARCHAR_CAST)
+                .function(IDENTITY_CAST)
                 .function(ARBITRARY_AGGREGATION)
                 .function(ARRAY_AGGREGATION)
                 .function(LEAST)
@@ -408,7 +414,7 @@ public class FunctionRegistry
         }
 
         if (match != null) {
-            return match;
+            return match.resolveCalculatedTypes(parameterTypes);
         }
 
         // search for coerced match
@@ -417,7 +423,8 @@ public class FunctionRegistry
             if (boundTypeParameters != null) {
                 // TODO: This should also check for ambiguities
                 try {
-                    return specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, resolvedTypes.size()));
+                    match = specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, resolvedTypes.size()));
+                    return match.resolveCalculatedTypes(parameterTypes);
                 }
                 catch (UncheckedExecutionException e) {
                     throw Throwables.propagate(e.getCause());
@@ -490,7 +497,7 @@ public class FunctionRegistry
                 }
 
                 if (match != null) {
-                    return match;
+                    return match.resolveCalculatedTypes(parameterTypes);
                 }
             }
         }
@@ -576,6 +583,10 @@ public class FunctionRegistry
         if (expectedType.equals(actualType)) {
             return true;
         }
+        // is this a coercion of the type only (no data change)
+        if (isTypeOnlyCoercion(actualType, expectedType)) {
+            return true;
+        }
         // null can be cast to anything
         if (actualType.equals(UNKNOWN)) {
             return true;
@@ -601,15 +612,15 @@ public class FunctionRegistry
             return true;
         }
 
-        if (actualType.equals(VARCHAR) && expectedType.equals(REGEXP)) {
+        if (actualType instanceof VarcharType && expectedType.equals(REGEXP)) {
             return true;
         }
 
-        if (actualType.equals(VARCHAR) && expectedType.equals(LIKE_PATTERN)) {
+        if (actualType instanceof VarcharType && expectedType.equals(LIKE_PATTERN)) {
             return true;
         }
 
-        if (actualType.equals(VARCHAR) && expectedType.equals(JSON_PATH)) {
+        if (actualType instanceof VarcharType && expectedType.equals(JSON_PATH)) {
             return true;
         }
 
@@ -617,6 +628,22 @@ public class FunctionRegistry
             Type actualElementType = ((ArrayType) actualType).getElementType();
             Type expectedElementType = ((ArrayType) expectedType).getElementType();
             return canCoerce(actualElementType, expectedElementType);
+        }
+
+        return false;
+    }
+
+    public static boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
+    {
+        if (actualType.equals(expectedType)) {
+            return true;
+        }
+
+        if (actualType instanceof VarcharType && expectedType instanceof VarcharType) {
+            if (expectedType.equals(VARCHAR)) {
+                return true;
+            }
+            return ((VarcharType) actualType).getLength().orElse(Integer.MAX_VALUE) < ((VarcharType) expectedType).getLength().orElse(Integer.MAX_VALUE);
         }
 
         return false;
@@ -662,6 +689,16 @@ public class FunctionRegistry
             return Optional.<Type>of(TIMESTAMP_WITH_TIME_ZONE);
         }
 
+        if (firstType instanceof VarcharType && secondType instanceof VarcharType) {
+            VarcharType firstVarchar = (VarcharType) firstType;
+            VarcharType secondVarchar = (VarcharType) secondType;
+            if (!firstVarchar.getLength().isPresent() || !secondVarchar.getLength().isPresent()) {
+                return Optional.of(VARCHAR);
+            }
+            int length = Math.max(firstVarchar.getLength().getAsInt(), secondVarchar.getLength().getAsInt());
+            return Optional.of(createVarcharType(length));
+        }
+
         if (firstType instanceof ArrayType && secondType instanceof ArrayType) {
             Optional<Type> elementType = getCommonSuperType(((ArrayType) firstType).getElementType(), ((ArrayType) secondType).getElementType());
             if (elementType.isPresent()) {
@@ -669,13 +706,26 @@ public class FunctionRegistry
             }
         }
 
-        // TODO add row and map type
+        if (firstType instanceof MapType && secondType instanceof MapType) {
+            Optional<Type> keyType = getCommonSuperType(((MapType) firstType).getKeyType(), ((MapType) secondType).getKeyType());
+            Optional<Type> valueType = getCommonSuperType(((MapType) firstType).getValueType(), ((MapType) secondType).getValueType());
+            if (keyType.isPresent() && valueType.isPresent()) {
+                return Optional.of(new MapType(keyType.get(), valueType.get()));
+            }
+        }
+
+        // TODO add row type
 
         return Optional.empty();
     }
 
-    public static Type type(Class<?> clazz)
+    public static Type literalType(Type type)
     {
+        if (type instanceof VarcharType) {
+            return type;
+        }
+
+        Class<?> clazz = type.getJavaType();
         clazz = Primitives.unwrap(clazz);
         if (clazz == long.class) {
             return BIGINT;
@@ -699,7 +749,7 @@ public class FunctionRegistry
             argumentType = VARBINARY.getTypeSignature();
         }
         else {
-            argumentType = type(type.getJavaType()).getTypeSignature();
+            argumentType = literalType(type).getTypeSignature();
         }
 
         return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature(),

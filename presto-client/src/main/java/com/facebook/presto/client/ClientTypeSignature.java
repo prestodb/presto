@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Collections.unmodifiableList;
@@ -57,9 +58,16 @@ public class ClientTypeSignature
         checkArgument(!PATTERN.matcher(rawType).matches(), "Bad characters in rawType type: %s", rawType);
         checkArgument(typeArguments != null, "typeArguments is null");
         checkArgument(literalArguments != null, "literalArguments is null");
+
+        // Jackson will convert small a small long to an int
+        literalArguments = literalArguments.stream()
+                .map(literal -> literal instanceof Integer ? ((Number) literal).longValue() : literal)
+                .collect(Collectors.toList());
+
         for (Object literal : literalArguments) {
             checkArgument(literal instanceof String || literal instanceof Long, "Unsupported literal type: %s", literal.getClass());
         }
+
         this.typeArguments = unmodifiableList(new ArrayList<>(typeArguments));
         this.literalArguments = unmodifiableList(new ArrayList<>(literalArguments));
     }

@@ -120,6 +120,7 @@ public class TestSqlParser
     public static void assertGenericLiteral(String type)
     {
         assertExpression(type + " 'abc'", new GenericLiteral(type, "abc"));
+        assertExpression(type + "(42) 'abc'", new GenericLiteral(type + "(42)", "abc"));
     }
 
     @Test
@@ -130,6 +131,8 @@ public class TestSqlParser
         assertExpression("TIMESTAMP" + " 'abc'", new TimestampLiteral("abc"));
         assertExpression("INTERVAL '33' day", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, Optional.empty()));
         assertExpression("INTERVAL '33' day to second", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, Optional.of(IntervalField.SECOND)));
+        assertExpression("VARCHAR(42)" + " 'abc'", new GenericLiteral("VARCHAR(42)", "abc"));
+        assertExpression("FOO(42, 55)" + " 'abc'", new GenericLiteral("FOO(42, 55)", "abc"));
     }
 
     @Test
@@ -211,6 +214,13 @@ public class TestSqlParser
         assertCast("boolean array  array ARRAY", "ARRAY<ARRAY<ARRAY<boolean>>>");
         assertCast("boolean ARRAY ARRAY ARRAY", "ARRAY<ARRAY<ARRAY<boolean>>>");
         assertCast("ARRAY<boolean> ARRAY ARRAY", "ARRAY<ARRAY<ARRAY<boolean>>>");
+
+        assertCast("varchar(42)");
+        assertCast("foo(42, 55)");
+        assertCast("ARRAY<varchar(42)>");
+        assertCast("ARRAY<foo(42, 55)>");
+        assertCast("varchar(42) ARRAY", "ARRAY<varchar(42)>");
+        assertCast("foo(42, 55) ARRAY", "ARRAY<foo(42, 55)>");
     }
 
     @Test
