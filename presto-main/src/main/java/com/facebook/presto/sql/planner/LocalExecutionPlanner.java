@@ -138,7 +138,6 @@ import io.airlift.units.DataSize;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -775,11 +774,9 @@ public class LocalExecutionPlanner
 
             Expression filterExpression = node.getPredicate();
 
-            List<Expression> projectionExpressions = new ArrayList<>();
-            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                Symbol symbol = node.getOutputSymbols().get(i);
-                projectionExpressions.add(new QualifiedNameReference(symbol.toQualifiedName()));
-            }
+            List<Expression> projectionExpressions = node.getOutputSymbols().stream()
+                    .map(Symbol::toQualifiedNameReference)
+                    .collect(toImmutableList());
 
             List<Symbol> outputSymbols = node.getOutputSymbols();
 
