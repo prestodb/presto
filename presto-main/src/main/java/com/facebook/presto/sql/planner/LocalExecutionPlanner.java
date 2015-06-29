@@ -774,14 +774,11 @@ public class LocalExecutionPlanner
             PlanNode sourceNode = node.getSource();
 
             Expression filterExpression = node.getPredicate();
-
-            List<Expression> projectionExpressions = new ArrayList<>();
-            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                Symbol symbol = node.getOutputSymbols().get(i);
-                projectionExpressions.add(new QualifiedNameReference(symbol.toQualifiedName()));
-            }
-
             List<Symbol> outputSymbols = node.getOutputSymbols();
+
+            List<Expression> projectionExpressions = outputSymbols.stream()
+                    .map(Symbol::toQualifiedNameReference)
+                    .collect(toImmutableList());
 
             return visitScanFilterAndProject(context, sourceNode, filterExpression, projectionExpressions, outputSymbols);
         }
@@ -1425,7 +1422,6 @@ public class LocalExecutionPlanner
             int probeChannel = probeSource.getLayout().get(node.getSourceJoinSymbol());
             int buildChannel = buildSource.getLayout().get(node.getFilteringSourceJoinSymbol());
 
-            Optional<Integer> probeHashChannel = node.getSourceHashSymbol().map(channelGetter(probeSource));
             Optional<Integer> buildHashChannel = node.getFilteringSourceHashSymbol().map(channelGetter(buildSource));
 
             SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(buildContext.getNextOperatorId(), buildSource.getTypes(), buildChannel, buildHashChannel, 10_000);
@@ -1445,7 +1441,7 @@ public class LocalExecutionPlanner
                     .put(node.getSemiJoinOutput(), probeSource.getLayout().size())
                     .build();
 
-            HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), setProvider, probeSource.getTypes(), probeChannel, probeHashChannel);
+            HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), setProvider, probeSource.getTypes(), probeChannel);
             PhysicalOperation operation = new PhysicalOperation(operator, outputMappings, probeSource);
 
             // merge parallel joiners back into a single stream

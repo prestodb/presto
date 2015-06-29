@@ -557,6 +557,7 @@ class RelationPlanner
             ExpressionAnalyzer analyzer = ExpressionAnalyzer.createWithoutSubqueries(
                     metadata.getFunctionRegistry(),
                     metadata.getTypeManager(),
+                    session,
                     EXPRESSION_NOT_CONSTANT,
                     "Constant expression cannot contain as sub-query");
             analyzer.analyze(canonicalized, new TupleDescriptor(), new AnalysisContext());

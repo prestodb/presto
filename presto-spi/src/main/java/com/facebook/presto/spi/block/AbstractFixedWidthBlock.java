@@ -148,6 +148,12 @@ public abstract class AbstractFixedWidthBlock
     }
 
     @Override
+    public void writePositionTo(int position, BlockBuilder blockBuilder)
+    {
+        writeBytesTo(position, 0, getLength(position), blockBuilder);
+    }
+
+    @Override
     public BlockEncoding getEncoding()
     {
         return new FixedWidthBlockEncoding(fixedSize);

@@ -142,6 +142,18 @@ public abstract class AbstractType
     }
 
     @Override
+    public Object getObject(Block block, int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void writeObject(BlockBuilder blockBuilder, Object value)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public final String toString()
     {
         return getTypeSignature().toString();

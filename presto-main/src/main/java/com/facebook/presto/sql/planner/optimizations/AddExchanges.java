@@ -128,7 +128,8 @@ public class AddExchanges
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         boolean distributedJoinEnabled = SystemSessionProperties.isDistributedJoinEnabled(session, distributedJoins);
-        PlanWithProperties result = plan.accept(new Rewriter(symbolAllocator, idAllocator, symbolAllocator, session, distributedIndexJoins, distributedJoinEnabled), PreferredProperties.any());
+        boolean preferStreamingOperators = SystemSessionProperties.preferStreamingOperators(session, false);
+        PlanWithProperties result = plan.accept(new Rewriter(symbolAllocator, idAllocator, symbolAllocator, session, distributedIndexJoins, distributedJoinEnabled, preferStreamingOperators), PreferredProperties.any());
         return result.getNode();
     }
 
@@ -141,8 +142,9 @@ public class AddExchanges
         private final Session session;
         private final boolean distributedIndexJoins;
         private final boolean distributedJoins;
+        private final boolean preferStreamingOperators;
 
-        public Rewriter(SymbolAllocator allocator, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session, boolean distributedIndexJoins, boolean distributedJoins)
+        public Rewriter(SymbolAllocator allocator, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session, boolean distributedIndexJoins, boolean distributedJoins, boolean preferStreamingOperators)
         {
             this.allocator = allocator;
             this.idAllocator = idAllocator;
@@ -150,6 +152,7 @@ public class AddExchanges
             this.session = session;
             this.distributedIndexJoins = distributedIndexJoins;
             this.distributedJoins = distributedJoins;
+            this.preferStreamingOperators = preferStreamingOperators;
         }
 
         @Override
@@ -612,7 +615,7 @@ public class AddExchanges
         {
             checkArgument(!possiblePlans.isEmpty());
 
-            if (SystemSessionProperties.preferStreamingOperators(session, false)) {
+            if (preferStreamingOperators) {
                 possiblePlans = new ArrayList<>(possiblePlans);
                 Collections.sort(possiblePlans, Comparator.comparing(PlanWithProperties::getProperties, streamingExecutionPreference(preferred))); // stable sort; is Collections.min() guaranteed to be stable?
             }
@@ -754,7 +757,11 @@ public class AddExchanges
         public PlanWithProperties visitIndexJoin(IndexJoinNode node, PreferredProperties preferredProperties)
         {
             List<Symbol> joinColumns = Lists.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getProbe);
-            PlanWithProperties probeSource = node.getProbeSource().accept(this, PreferredProperties.derivePreferences(preferredProperties, ImmutableSet.copyOf(joinColumns), grouped(joinColumns)));
+
+            // Only prefer grouping on join columns if no parent local property preferences
+            List<LocalProperty<Symbol>> desiredLocalProperties = preferredProperties.getLocalProperties().isEmpty() ? grouped(joinColumns) : ImmutableList.of();
+
+            PlanWithProperties probeSource = node.getProbeSource().accept(this, PreferredProperties.derivePreferences(preferredProperties, ImmutableSet.copyOf(joinColumns), desiredLocalProperties));
             ActualProperties probeProperties = probeSource.getProperties();
 
             PlanWithProperties indexSource = node.getIndexSource().accept(this, PreferredProperties.any());
@@ -763,7 +770,11 @@ public class AddExchanges
             if (distributedIndexJoins && probeProperties.isDistributed()) {
                 // Force partitioned exchange if we are not effectively partitioned on the join keys, or if the probe is currently executing as a single stream
                 // and the repartitioning will make a difference.
-                if (!probeProperties.isPartitionedOn(joinColumns) || (probeProperties.isEffectivelySinglePartition() && probeProperties.isRepartitionEffective(joinColumns))) {
+                boolean parentPartitioningPreferences = preferredProperties.getGlobalProperties()
+                        .flatMap(PreferredProperties.Global::getPartitioningProperties)
+                        .isPresent();
+                boolean enableSinglePartitionRedistribute = !parentPartitioningPreferences || !preferStreamingOperators;
+                if (!probeProperties.isPartitionedOn(joinColumns) || (enableSinglePartitionRedistribute && probeProperties.isEffectivelySinglePartition() && probeProperties.isRepartitionEffective(joinColumns))) {
                     probeSource = withDerivedProperties(
                             partitionedExchange(idAllocator.getNextId(), probeSource.getNode(), joinColumns, node.getProbeHashSymbol()),
                             probeProperties);
