@@ -64,7 +64,8 @@ public class InCodeGenerator
         ImmutableList.Builder<ByteCodeNode> defaultBucket = ImmutableList.builder();
         ImmutableSet.Builder<Object> constantValuesBuilder = ImmutableSet.builder();
 
-        long maxAbsoluteValue = -1;
+        long maxValue = -1;
+        long minValue = 1;
 
         for (RowExpression testValue : values) {
             ByteCodeNode testByteCode = generatorContext.generate(testValue);
@@ -72,7 +73,8 @@ public class InCodeGenerator
             if (testValue instanceof ConstantExpression && ((ConstantExpression) testValue).getValue() != null) {
                 ConstantExpression constant = (ConstantExpression) testValue;
                 Object object = constant.getValue();
-                maxAbsoluteValue = Math.max((long) object, maxAbsoluteValue);
+                maxValue = Math.max((long) object, maxValue);
+                minValue = Math.min((long) object, minValue);
                 constantValuesBuilder.add(object);
 
                 try {
@@ -100,8 +102,8 @@ public class InCodeGenerator
 
         ByteCodeNode switchBlock;
 
-        if (maxAbsoluteValue < Integer.MAX_VALUE) {
-            switchBlock = new Block().comment("value").dup(javaType).ap
+        if (maxValue <= Integer.MAX_VALUE && minValue >= Integer.MIN_VALUE) {
+            switchBlock = new Block().comment("value between max and min integer").dup(javaType).append(ByteCodeUtils.boxPrimitive(javaType)).longToInt();
         }
         else if (constantValues.size() < 1000) {
             Block switchCaseBlocks = new Block();
