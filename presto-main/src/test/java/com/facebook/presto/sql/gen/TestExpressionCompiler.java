@@ -216,29 +216,29 @@ public class TestExpressionCompiler
         assertExecute("cast(null as boolean) is null", BOOLEAN, true);
 
         for (Boolean value : booleanValues) {
-            assertExecute(generateExpression("%s", value), BOOLEAN, value == null ? null : (value ? true : false));
-            assertExecute(generateExpression("%s is null", value), BOOLEAN, (value == null ? true : false));
-            assertExecute(generateExpression("%s is not null", value), BOOLEAN, (value != null ? true : false));
+            assertExecute(generateExpression("%s", value), BOOLEAN, value == null ? null : value);
+            assertExecute(generateExpression("%s is null", value), BOOLEAN, value == null);
+            assertExecute(generateExpression("%s is not null", value), BOOLEAN, value != null);
         }
 
         for (Long value : longLefts) {
             assertExecute(generateExpression("%s", value), BIGINT, value == null ? null : value);
             assertExecute(generateExpression("- (%s)", value), BIGINT, value == null ? null : -value);
-            assertExecute(generateExpression("%s is null", value), BOOLEAN, (value == null ? true : false));
-            assertExecute(generateExpression("%s is not null", value), BOOLEAN, (value != null ? true : false));
+            assertExecute(generateExpression("%s is null", value), BOOLEAN, value == null);
+            assertExecute(generateExpression("%s is not null", value), BOOLEAN, value != null);
         }
 
         for (Double value : doubleLefts) {
             assertExecute(generateExpression("%s", value), DOUBLE, value == null ? null : value);
             assertExecute(generateExpression("- (%s)", value), DOUBLE, value == null ? null : -value);
-            assertExecute(generateExpression("%s is null", value), BOOLEAN, (value == null ? true : false));
-            assertExecute(generateExpression("%s is not null", value), BOOLEAN, (value != null ? true : false));
+            assertExecute(generateExpression("%s is null", value), BOOLEAN, value == null);
+            assertExecute(generateExpression("%s is not null", value), BOOLEAN, value != null);
         }
 
         for (String value : stringLefts) {
             assertExecute(generateExpression("%s", value), VARCHAR, value == null ? null : value);
-            assertExecute(generateExpression("%s is null", value), BOOLEAN, (value == null ? true : false));
-            assertExecute(generateExpression("%s is not null", value), BOOLEAN, (value != null ? true : false));
+            assertExecute(generateExpression("%s is null", value), BOOLEAN, value == null);
+            assertExecute(generateExpression("%s is not null", value), BOOLEAN, value != null);
         }
 
         Futures.allAsList(futures).get();
