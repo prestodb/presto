@@ -183,8 +183,17 @@ public final class TypeJsonUtils
             return canCastFromJson(((ArrayType) type).getElementType());
         }
         if (type instanceof MapType) {
-            return canCastFromJson(((MapType) type).getKeyType()) && canCastFromJson(((MapType) type).getValueType());
+            return isValidJsonObjectKeyType(((MapType) type).getKeyType()) && canCastFromJson(((MapType) type).getValueType());
         }
         return false;
+    }
+
+    private static boolean isValidJsonObjectKeyType(Type type)
+    {
+        String baseType = type.getTypeSignature().getBase();
+        return baseType.equals(StandardTypes.BOOLEAN) ||
+                baseType.equals(StandardTypes.BIGINT) ||
+                baseType.equals(StandardTypes.DOUBLE) ||
+                baseType.equals(StandardTypes.VARCHAR);
     }
 }
