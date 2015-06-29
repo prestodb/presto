@@ -138,6 +138,7 @@ public class TestArrayOperators
         assertFunction("CAST(CAST('[true, false]' AS JSON) AS ARRAY<BOOLEAN>)", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
         assertFunction("CAST(CAST('[[1], [null]]' AS JSON) AS ARRAY<ARRAY<BIGINT>>)", new ArrayType(new ArrayType(BIGINT)), asList(asList(1L), asList((Long) null)));
         assertFunction("CAST(CAST('null' AS JSON) AS ARRAY<BIGINT>)", new ArrayType(BIGINT), null);
+        assertFunction("CAST(CAST('[5, [1, 2, 3], \"e\", {\"a\": \"b\"}, null, \"null\", [null]]' AS JSON) AS ARRAY<JSON>)", new ArrayType(JSON), ImmutableList.of("5", "[1,2,3]", "\"e\"", "{\"a\":\"b\"}", "null", "\"null\"", "[null]"));
         assertInvalidCast("CAST(CAST('[1, null, 3]' AS JSON) AS ARRAY<TIMESTAMP>)");
         assertInvalidCast("CAST(CAST('[1, null, 3]' AS JSON) AS ARRAY<ARRAY<TIMESTAMP>>)");
         assertInvalidCast("CAST(CAST('[1, 2, 3]' AS JSON) AS ARRAY<BOOLEAN>)");
