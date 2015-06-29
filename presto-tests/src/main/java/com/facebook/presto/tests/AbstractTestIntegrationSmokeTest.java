@@ -54,7 +54,7 @@ public abstract class AbstractTestIntegrationSmokeTest
     {
         assertQuery("SELECT SUM(orderkey) FROM ORDERS");
         assertQuery("SELECT SUM(totalprice) FROM ORDERS");
-        assertQuery("SELECT MAX(comment) FROM ORDERS");
+        assertQuery("SELECT MAX(\"comment\") FROM ORDERS");
     }
 
     @Test

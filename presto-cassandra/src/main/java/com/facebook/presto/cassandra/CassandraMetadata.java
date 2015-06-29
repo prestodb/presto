@@ -282,7 +282,7 @@ public class CassandraMetadata
 
         // encode column ordering in the cassandra table comment field since there is no better place to store this
         String columnMetadata = extraColumnMetadataCodec.toJson(columnExtra.build());
-        queryBuilder.append("WITH comment='").append(CassandraSession.PRESTO_COMMENT_METADATA).append(" ").append(columnMetadata).append("'");
+        queryBuilder.append("WITH \"comment\"='").append(CassandraSession.PRESTO_COMMENT_METADATA).append(" ").append(columnMetadata).append("'");
 
         // We need create Cassandra table before commit because record need to be written to the table .
         cassandraSession.executeQuery(schemaName, queryBuilder.toString());

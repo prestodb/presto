@@ -915,7 +915,11 @@ class AstBuilder
     @Override
     public Node visitTableElement(@NotNull SqlBaseParser.TableElementContext context)
     {
-        return new TableElement(context.identifier().getText(), getType(context.type()));
+        Optional<String> comment = Optional.empty();
+        if (context.COMMENT() != null) {
+            comment = Optional.of(unquote(context.STRING().getText()));
+        }
+        return new TableElement(context.identifier().getText(), getType(context.type()), comment);
     }
 
     @Override

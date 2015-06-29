@@ -59,10 +59,10 @@ public class TestHiddenColumns
     public void testSimpleSelect()
             throws Exception
     {
-        assertEquals(runner.execute("SELECT * from REGION"), runner.execute("SELECT regionkey, name, comment from REGION"));
-        assertEquals(runner.execute("SELECT *, row_number from REGION"), runner.execute("SELECT regionkey, name, comment, row_number from REGION"));
-        assertEquals(runner.execute("SELECT row_number, * from REGION"), runner.execute("SELECT row_number, regionkey, name, comment from REGION"));
-        assertEquals(runner.execute("SELECT *, row_number, * from REGION"), runner.execute("SELECT regionkey, name, comment, row_number, regionkey, name, comment from REGION"));
+        assertEquals(runner.execute("SELECT * from REGION"), runner.execute("SELECT regionkey, name, \"comment\" from REGION"));
+        assertEquals(runner.execute("SELECT *, row_number from REGION"), runner.execute("SELECT regionkey, name, \"comment\", row_number from REGION"));
+        assertEquals(runner.execute("SELECT row_number, * from REGION"), runner.execute("SELECT row_number, regionkey, name, \"comment\" from REGION"));
+        assertEquals(runner.execute("SELECT *, row_number, * from REGION"), runner.execute("SELECT regionkey, name, \"comment\", row_number, regionkey, name, \"comment\" from REGION"));
         assertEquals(runner.execute("SELECT row_number, x.row_number from REGION x"), runner.execute("SELECT row_number, row_number from REGION"));
     }
 }

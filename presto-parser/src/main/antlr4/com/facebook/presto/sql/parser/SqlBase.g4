@@ -67,7 +67,7 @@ with
     ;
 
 tableElement
-    : identifier type
+    : identifier type (COMMENT STRING)?
     ;
 
 queryNoWith:
@@ -425,6 +425,7 @@ RECURSIVE: 'RECURSIVE';
 VALUES: 'VALUES';
 CREATE: 'CREATE';
 TABLE: 'TABLE';
+COMMENT: 'COMMENT';
 VIEW: 'VIEW';
 REPLACE: 'REPLACE';
 INSERT: 'INSERT';

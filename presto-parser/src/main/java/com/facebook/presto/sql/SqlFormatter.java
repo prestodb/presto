@@ -610,7 +610,8 @@ public final class SqlFormatter
                     .append(" (");
 
             Joiner.on(", ").appendTo(builder, transform(node.getElements(),
-                    element -> element.getName() + " " + element.getType()));
+                    element -> element.getName() + " " + element.getType()
+                             + (element.getComment().isPresent() ? " comment '" + element.getComment().get() + "'" : "")));
 
             builder.append(")");
             return null;

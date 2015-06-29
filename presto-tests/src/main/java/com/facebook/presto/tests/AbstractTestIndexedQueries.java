@@ -432,7 +432,7 @@ public abstract class AbstractTestIndexedQueries
                 "  FROM lineitem\n" +
                 "  WHERE partkey % 8 = 0) l\n" +
                 "JOIN (\n" +
-                "  SELECT orderkey AS a, SUM(LENGTH(comment)) % 2 AS b\n" +
+                "  SELECT orderkey AS a, SUM(LENGTH(\"comment\")) % 2 AS b\n" +
                 "  FROM orders\n" +
                 "  GROUP BY orderkey) o\n" +
                 "  ON l.a = o.a AND l.b = o.b");
@@ -450,7 +450,7 @@ public abstract class AbstractTestIndexedQueries
                 "  FROM lineitem\n" +
                 "  WHERE partkey % 8 = 0) l\n" +
                 "JOIN (\n" +
-                "  SELECT orderkey AS a, SUM(LENGTH(comment)) % 2 AS b\n" +
+                "  SELECT orderkey AS a, SUM(LENGTH(\"comment\")) % 2 AS b\n" +
                 "  FROM orders\n" +
                 "  GROUP BY orderkey) o\n" +
                 "  ON l.a = o.a AND l.b = o.b");
@@ -485,7 +485,7 @@ public abstract class AbstractTestIndexedQueries
                 "  FROM lineitem\n" +
                 "  WHERE partkey % 7 = 0) l\n" +
                 "JOIN (\n" +
-                "  SELECT t1.a AS a, t1.b AS b, t2.orderkey AS c, SUM(LENGTH(t2.comment)) % 2 AS d\n" +
+                "  SELECT t1.a AS a, t1.b AS b, t2.orderkey AS c, SUM(LENGTH(t2.\"comment\")) % 2 AS d\n" +
                 "  FROM (\n" +
                 "    SELECT orderkey AS a, custkey % 3 AS b\n" +
                 "    FROM orders\n" +

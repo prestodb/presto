@@ -22,7 +22,7 @@ public class SqlLikeBenchmark
 {
     public SqlLikeBenchmark(LocalQueryRunner localQueryRunner)
     {
-        super(localQueryRunner, "sql_like", 4, 5, "SELECT orderkey FROM lineitem WHERE comment LIKE '%ly%ly%'");
+        super(localQueryRunner, "sql_like", 4, 5, "SELECT orderkey FROM lineitem WHERE \"comment\" LIKE '%ly%ly%'");
     }
 
     public static void main(String[] args)

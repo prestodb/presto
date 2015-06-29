@@ -22,7 +22,7 @@ public class SqlRegexpLikeBenchmark
 {
     public SqlRegexpLikeBenchmark(LocalQueryRunner localQueryRunner)
     {
-        super(localQueryRunner, "sql_regexp_like", 4, 5, "SELECT count(*) FROM orders WHERE regexp_like(comment, '\\b[a-z]{5}ly\\b')");
+        super(localQueryRunner, "sql_regexp_like", 4, 5, "SELECT count(*) FROM orders WHERE regexp_like(\"comment\", '\\b[a-z]{5}ly\\b')");
     }
 
     public static void main(String[] args)

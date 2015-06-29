@@ -324,10 +324,10 @@ public class HiveMetadata
 
         for (int i = 0; i < names.size(); i++) {
             if (tableMetadata.getColumns().get(i).isPartitionKey()) {
-                partitionKeys.add(new FieldSchema(names.get(i), typeNames.get(i), null));
+                partitionKeys.add(new FieldSchema(names.get(i), typeNames.get(i), tableMetadata.getColumns().get(i).getComment()));
             }
             else {
-                columns.add(new FieldSchema(names.get(i), typeNames.get(i), null));
+                columns.add(new FieldSchema(names.get(i), typeNames.get(i), tableMetadata.getColumns().get(i).getComment()));
             }
         }
 

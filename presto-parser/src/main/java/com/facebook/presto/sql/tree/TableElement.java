@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.tree;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -23,11 +24,13 @@ public final class TableElement
 {
     private final String name;
     private final String type;
+    private final Optional<String> comment;
 
-    public TableElement(String name, String type)
+    public TableElement(String name, String type, Optional<String> comment)
     {
         this.name = checkNotNull(name, "name is null");
         this.type = checkNotNull(type, "type is null");
+        this.comment = comment;
     }
 
     public String getName()
@@ -38,6 +41,11 @@ public final class TableElement
     public String getType()
     {
         return type;
+    }
+
+    public Optional<String> getComment()
+    {
+        return comment;
     }
 
     @Override
@@ -57,13 +65,14 @@ public final class TableElement
         }
         TableElement o = (TableElement) obj;
         return Objects.equals(this.name, o.name) &&
-                Objects.equals(this.type, o.type);
+                Objects.equals(this.type, o.type) &&
+                Objects.equals(this.comment, o.comment);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type);
+        return Objects.hash(name, type, comment);
     }
 
     @Override
@@ -72,6 +81,7 @@ public final class TableElement
         return toStringHelper(this)
                 .add("name", name)
                 .add("type", type)
+                .add("comment", comment)
                 .toString();
     }
 }

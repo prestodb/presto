@@ -84,7 +84,7 @@ public class H2QueryRunner
                 "  orderpriority CHAR(15) NOT NULL,\n" +
                 "  clerk CHAR(15) NOT NULL,\n" +
                 "  shippriority BIGINT NOT NULL,\n" +
-                "  comment VARCHAR(79) NOT NULL\n" +
+                "  \"comment\" VARCHAR(79) NOT NULL\n" +
                 ")");
         handle.execute("CREATE INDEX custkey_index ON orders (custkey)");
         TpchTableHandle ordersHandle = tpchMetadata.getTableHandle(null, new SchemaTableName(TINY_SCHEMA_NAME, ORDERS.getTableName()));
@@ -106,7 +106,7 @@ public class H2QueryRunner
                 "  receiptdate DATE NOT NULL,\n" +
                 "  shipinstruct VARCHAR(25) NOT NULL,\n" +
                 "  shipmode VARCHAR(10) NOT NULL,\n" +
-                "  comment VARCHAR(44) NOT NULL,\n" +
+                "  \"comment\" VARCHAR(44) NOT NULL,\n" +
                 "  PRIMARY KEY (orderkey, linenumber)" +
                 ")");
         TpchTableHandle lineItemHandle = tpchMetadata.getTableHandle(null, new SchemaTableName(TINY_SCHEMA_NAME, LINE_ITEM.getTableName()));
