@@ -148,6 +148,7 @@ public class TestMapOperators
                 new MapType(BOOLEAN, VARCHAR),
                 null);
         assertInvalidCast("CAST(CAST('{\"true\":\"kittens\"}' AS JSON) AS MAP<BOOLEAN, VARBINARY>)");
+        assertInvalidCast("CAST(CAST('{\"[1, 2]\": 1}' AS JSON) AS MAP<ARRAY<BIGINT>, BIGINT>)");
     }
 
     @Test
