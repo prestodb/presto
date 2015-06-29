@@ -149,13 +149,19 @@ public class SharedBuffer
 
     public SharedBuffer(TaskId taskId, Executor executor, DataSize maxBufferSize)
     {
+        this(taskId, executor, maxBufferSize, deltaMemory -> { });
+    }
+
+    public SharedBuffer(TaskId taskId, Executor executor, DataSize maxBufferSize, SystemMemoryUsageListener systemMemoryUsageListener)
+    {
         checkNotNull(taskId, "taskId is null");
         checkNotNull(executor, "executor is null");
         state = new StateMachine<>(taskId + "-buffer", executor, OPEN, TERMINAL_BUFFER_STATES);
 
         checkNotNull(maxBufferSize, "maxBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
-        this.memoryManager = new SharedBufferMemoryManager(maxBufferSize.toBytes());
+        checkNotNull(systemMemoryUsageListener, "systemMemoryUsageListener is null");
+        this.memoryManager = new SharedBufferMemoryManager(maxBufferSize.toBytes(), systemMemoryUsageListener);
     }
 
     public void addStateChangeListener(StateChangeListener<BufferState> stateChangeListener)

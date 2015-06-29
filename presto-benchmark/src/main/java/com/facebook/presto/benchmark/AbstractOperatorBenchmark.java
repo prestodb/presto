@@ -104,7 +104,9 @@ public abstract class AbstractOperatorBenchmark
                 .build();
         ExecutorService executor = localQueryRunner.getExecutor();
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE), false);
-        TaskContext taskContext = new QueryContext(false, new DataSize(256, MEGABYTE), memoryPool, executor)
+        MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE), false);
+
+        TaskContext taskContext = new QueryContext(false, new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, executor)
                 .addTaskContext(new TaskStateMachine(new TaskId("query", "stage", "task"), executor),
                         session,
                         new DataSize(256, MEGABYTE),

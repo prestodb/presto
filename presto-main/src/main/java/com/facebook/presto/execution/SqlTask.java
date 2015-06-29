@@ -84,7 +84,7 @@ public class SqlTask
         checkNotNull(onDone, "onDone is null");
         checkNotNull(maxBufferSize, "maxBufferSize is null");
 
-        sharedBuffer = new SharedBuffer(taskId, taskNotificationExecutor, maxBufferSize);
+        sharedBuffer = new SharedBuffer(taskId, taskNotificationExecutor, maxBufferSize, new UpdateSystemMemory(queryContext));
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
@@ -126,6 +126,28 @@ public class SqlTask
                 }
             }
         });
+    }
+
+    private static final class UpdateSystemMemory
+            implements SystemMemoryUsageListener
+    {
+        private final QueryContext queryContext;
+
+        public UpdateSystemMemory(QueryContext queryContext)
+        {
+            this.queryContext = requireNonNull(queryContext, "queryContext is null");
+        }
+
+        @Override
+        public void updateSystemMemoryUsage(long deltaMemoryInBytes)
+        {
+            if (deltaMemoryInBytes > 0) {
+                queryContext.reserveSystemMemory(deltaMemoryInBytes);
+            }
+            else {
+                queryContext.freeSystemMemory(-deltaMemoryInBytes);
+            }
+        }
     }
 
     public SqlTaskIoStats getIoStats()

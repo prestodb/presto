@@ -283,7 +283,7 @@ public class TestSqlTask
                 taskId,
                 "test",
                 location,
-                new QueryContext(false, new DataSize(1, MEGABYTE), new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE), false), taskNotificationExecutor),
+                new QueryContext(false, new DataSize(1, MEGABYTE), new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE), false), new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE), false), taskNotificationExecutor),
                 sqlTaskExecutionFactory,
                 taskNotificationExecutor,
                 Functions.<SqlTask>identity(),
