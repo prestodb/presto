@@ -32,6 +32,7 @@ public final class LocalMemoryManager
 {
     public static final MemoryPoolId GENERAL_POOL = new MemoryPoolId("general");
     public static final MemoryPoolId RESERVED_POOL = new MemoryPoolId("reserved");
+    public static final MemoryPoolId SYSTEM_POOL = new MemoryPoolId("system");
 
     private final DataSize maxMemory;
     private final Map<MemoryPoolId, MemoryPool> pools;
@@ -50,6 +51,7 @@ public final class LocalMemoryManager
         builder.put(RESERVED_POOL, new MemoryPool(RESERVED_POOL, config.getMaxQueryMemoryPerNode(), config.isClusterMemoryManagerEnabled()));
         DataSize generalPoolSize = new DataSize(Math.max(0, maxMemory.toBytes() - config.getMaxQueryMemoryPerNode().toBytes()), BYTE);
         builder.put(GENERAL_POOL, new MemoryPool(GENERAL_POOL, generalPoolSize, config.isClusterMemoryManagerEnabled()));
+        builder.put(SYSTEM_POOL, new MemoryPool(SYSTEM_POOL, systemMemoryConfig.getReservedSystemMemory(), config.isClusterMemoryManagerEnabled()));
         this.pools = builder.build();
     }
 
