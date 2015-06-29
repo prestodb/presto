@@ -51,8 +51,9 @@ public class TestMemoryPools
         // reserve all the memory in the pool
         MemoryPool pool = new MemoryPool(new MemoryPoolId("test"), new DataSize(10, MEGABYTE), true);
         assertTrue(pool.tryReserve(TEN_MEGABYTES));
+        MemoryPool systemPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(10, MEGABYTE), true);
 
-        QueryContext queryContext = new QueryContext(true, new DataSize(10, MEGABYTE), pool, localQueryRunner.getExecutor());
+        QueryContext queryContext = new QueryContext(true, new DataSize(10, MEGABYTE), pool, systemPool, localQueryRunner.getExecutor());
         LocalQueryRunner.MaterializedOutputFactory outputFactory = new LocalQueryRunner.MaterializedOutputFactory();
         TaskContext taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), session, new DataSize(10, MEGABYTE), new DataSize(0, BYTE));
         Driver driver = Iterables.getOnlyElement(localQueryRunner.createDrivers("SELECT COUNT(*), clerk FROM orders GROUP BY clerk", outputFactory, taskContext));
