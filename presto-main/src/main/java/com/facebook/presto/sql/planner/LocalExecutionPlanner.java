@@ -47,7 +47,7 @@ import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.operator.ParallelHashBuilder;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
-import com.facebook.presto.operator.RowNumberOperator;
+import com.facebook.presto.operator.RowNumberProcessor;
 import com.facebook.presto.operator.SampleOperator.SampleOperatorFactory;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
@@ -440,6 +440,7 @@ public class LocalExecutionPlanner
 
             List<Symbol> partitionBySymbols = node.getPartitionBy();
             List<Integer> partitionChannels = getChannelsForSymbols(partitionBySymbols, source.getLayout());
+            List<Integer> prePartitionedChannels = ImmutableList.copyOf(getChannelsForSymbols(ImmutableList.copyOf(node.getPrePartitionedInputs()), source.getLayout()));
 
             List<Type> partitionTypes = partitionChannels.stream()
                     .map(channel -> source.getTypes().get(channel))
@@ -459,13 +460,14 @@ public class LocalExecutionPlanner
             outputMappings.put(node.getRowNumberSymbol(), channel);
 
             Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
-            OperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
+            OperatorFactory operatorFactory = new RowNumberProcessor.RowNumberOperatorFactory(
                     context.getNextOperatorId(),
                     source.getTypes(),
                     outputChannels.build(),
                     partitionChannels,
                     partitionTypes,
                     node.getMaxRowCountPerPartition(),
+                    prePartitionedChannels,
                     hashChannel,
                     10_000);
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);

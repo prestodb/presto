@@ -403,9 +403,29 @@ public class AddExchanges
                         child.getProperties());
             }
 
-            // TODO: streaming
+            Set<Symbol> preGroupedInputs = findPreGroupedInputs(node.getPartitionBy(), child.getProperties());
+            return withDerivedProperties(
+                    new RowNumberNode(
+                            node.getId(),
+                            child.getNode(),
+                            node.getPartitionBy(),
+                            preGroupedInputs,
+                            node.getRowNumberSymbol(),
+                            node.getMaxRowCountPerPartition(),
+                            node.getHashSymbol()),
+                    child.getProperties());
+        }
 
-            return rebaseAndDeriveProperties(node, child);
+        private Set<Symbol> findPreGroupedInputs(List<Symbol> partitionKeys, ActualProperties childProperties)
+        {
+            checkArgument(!partitionKeys.isEmpty(), "partitionKeys cannot be empty");
+
+            List<Optional<LocalProperty<Symbol>>> match = LocalProperties.match(childProperties.getLocalProperties(), grouped(partitionKeys));
+            Optional<LocalProperty<Symbol>> groupingRequirement = match.iterator().next();
+            Set<Symbol> unPartitionedInputs = groupingRequirement.map(LocalProperty::getColumns).orElse(ImmutableSet.of());
+            return partitionKeys.stream()
+                    .filter(symbol -> !unPartitionedInputs.contains(symbol))
+                    .collect(toImmutableSet());
         }
 
         @Override

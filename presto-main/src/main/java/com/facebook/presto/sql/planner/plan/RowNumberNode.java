@@ -17,12 +17,15 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.concat;
 
@@ -32,6 +35,7 @@ public final class RowNumberNode
 {
     private final PlanNode source;
     private final List<Symbol> partitionBy;
+    private final Set<Symbol> prePartitionedInputs;
     private final Optional<Integer> maxRowCountPerPartition;
     private final Symbol rowNumberSymbol;
     private final Optional<Symbol> hashSymbol;
@@ -41,6 +45,7 @@ public final class RowNumberNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("partitionBy") List<Symbol> partitionBy,
+            @JsonProperty("prePartitionedInputs") Set<Symbol> prePartitionedInputs,
             @JsonProperty("rowNumberSymbol") Symbol rowNumberSymbol,
             @JsonProperty("maxRowCountPerPartition") Optional<Integer> maxRowCountPerPartition,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
@@ -49,12 +54,15 @@ public final class RowNumberNode
 
         checkNotNull(source, "source is null");
         checkNotNull(partitionBy, "partitionBy is null");
+        checkNotNull(prePartitionedInputs, "prePartitionedInputs is null");
         checkNotNull(rowNumberSymbol, "rowNumberSymbol is null");
         checkNotNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
         checkNotNull(hashSymbol, "hashSymbol is null");
+        checkArgument(partitionBy.containsAll(prePartitionedInputs), "partitionBy must contain all of prePartitionedInputs");
 
         this.source = source;
         this.partitionBy = ImmutableList.copyOf(partitionBy);
+        this.prePartitionedInputs = ImmutableSet.copyOf(prePartitionedInputs);
         this.rowNumberSymbol = rowNumberSymbol;
         this.maxRowCountPerPartition = maxRowCountPerPartition;
         this.hashSymbol = hashSymbol;
@@ -82,6 +90,12 @@ public final class RowNumberNode
     public List<Symbol> getPartitionBy()
     {
         return partitionBy;
+    }
+
+    @JsonProperty
+    public Set<Symbol> getPrePartitionedInputs()
+    {
+        return prePartitionedInputs;
     }
 
     @JsonProperty

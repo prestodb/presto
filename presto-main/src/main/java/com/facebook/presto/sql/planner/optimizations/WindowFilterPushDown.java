@@ -83,6 +83,7 @@ public class WindowFilterPushDown
                     return new RowNumberNode(idAllocator.getNextId(),
                             rewrittenSource,
                             node.getPartitionBy(),
+                            node.getPrePartitionedInputs(),
                             getOnlyElement(node.getWindowFunctions().keySet()),
                             limit,
                             Optional.empty());

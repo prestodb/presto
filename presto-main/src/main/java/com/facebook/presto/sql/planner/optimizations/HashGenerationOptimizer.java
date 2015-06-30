@@ -152,9 +152,9 @@ public class HashGenerationOptimizer
             if (!node.getPartitionBy().isEmpty()) {
                 Symbol hashSymbol = symbolAllocator.newHashSymbol();
                 PlanNode hashProjectNode = getHashProjectNode(idAllocator, rewrittenSource, hashSymbol, node.getPartitionBy());
-                return new RowNumberNode(idAllocator.getNextId(), hashProjectNode, node.getPartitionBy(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition(), Optional.of(hashSymbol));
+                return new RowNumberNode(idAllocator.getNextId(), hashProjectNode, node.getPartitionBy(), node.getPrePartitionedInputs(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition(), Optional.of(hashSymbol));
             }
-            return new RowNumberNode(idAllocator.getNextId(), rewrittenSource, node.getPartitionBy(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition(), node.getHashSymbol());
+            return new RowNumberNode(idAllocator.getNextId(), rewrittenSource, node.getPartitionBy(), node.getPrePartitionedInputs(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition(), node.getHashSymbol());
         }
 
         @Override

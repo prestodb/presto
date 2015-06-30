@@ -2295,6 +2295,50 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testRowNumberFullyPreClustered()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderpriority, orderstatus, row_number() OVER (PARTITION BY orderpriority, orderstatus) rn\n" +
+                "FROM (SELECT * FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) ORDER BY orderstatus, orderpriority)");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
+                .row("3-MEDIUM", "F", 1)
+                .row("4-NOT SPECIFIED", "F", 1)
+                .row("5-LOW", "F", 1)
+                .row("5-LOW", "F", 2)
+                .row("1-URGENT", "O", 1)
+                .row("2-HIGH", "O", 1)
+                .row("2-HIGH", "O", 2)
+                .row("3-MEDIUM", "O", 1)
+                .row("5-LOW", "O", 1)
+                .row("5-LOW", "O", 2)
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testRowNumberPartiallyPreClustered()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderpriority, orderstatus, row_number() OVER (PARTITION BY orderpriority, orderstatus) rn\n" +
+                "FROM (SELECT * FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) ORDER BY orderstatus)");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
+                .row("3-MEDIUM", "F", 1)
+                .row("4-NOT SPECIFIED", "F", 1)
+                .row("5-LOW", "F", 1)
+                .row("5-LOW", "F", 2)
+                .row("1-URGENT", "O", 1)
+                .row("2-HIGH", "O", 1)
+                .row("2-HIGH", "O", 2)
+                .row("3-MEDIUM", "O", 1)
+                .row("5-LOW", "O", 1)
+                .row("5-LOW", "O", 2)
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void testTopNUnpartitionedWindow()
             throws Exception
     {
