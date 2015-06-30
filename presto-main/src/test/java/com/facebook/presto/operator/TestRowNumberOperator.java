@@ -101,7 +101,7 @@ public class TestRowNumberOperator
                 .row(2, 0.9)
                 .build();
 
-        RowNumberProcessor.RowNumberOperatorFactory operatorFactory = new RowNumberProcessor.RowNumberOperatorFactory(
+        RowNumberOperatorFactory operatorFactory = new RowNumberOperatorFactory(
                 0,
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
@@ -157,7 +157,7 @@ public class TestRowNumberOperator
                 .row(2, 0.9)
                 .build();
 
-        RowNumberProcessor.RowNumberOperatorFactory operatorFactory = new RowNumberProcessor.RowNumberOperatorFactory(
+        RowNumberOperatorFactory operatorFactory = new RowNumberOperatorFactory(
                 0,
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
@@ -225,7 +225,7 @@ public class TestRowNumberOperator
                 .row(2, 0.9)
                 .build();
 
-        RowNumberProcessor.RowNumberOperatorFactory operatorFactory = new RowNumberProcessor.RowNumberOperatorFactory(
+        RowNumberOperatorFactory operatorFactory = new RowNumberOperatorFactory(
                 0,
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
@@ -296,7 +296,7 @@ public class TestRowNumberOperator
                 .row(2, 0.9)
                 .build();
 
-        RowNumberProcessor.RowNumberOperatorFactory operatorFactory = new RowNumberProcessor.RowNumberOperatorFactory(
+        RowNumberOperatorFactory operatorFactory = new RowNumberOperatorFactory(
                 0,
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
@@ -358,7 +358,7 @@ public class TestRowNumberOperator
                 .row(0, 0.9)
                 .build();
 
-        RowNumberProcessor.RowNumberOperatorFactory operatorFactory = new RowNumberProcessor.RowNumberOperatorFactory(
+        RowNumberOperatorFactory operatorFactory = new RowNumberOperatorFactory(
                 0,
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
@@ -412,7 +412,7 @@ public class TestRowNumberOperator
                 .row(0, 0.9)
                 .build();
 
-        RowNumberProcessor.RowNumberOperatorFactory operatorFactory = new RowNumberProcessor.RowNumberOperatorFactory(
+        RowNumberOperatorFactory operatorFactory = new RowNumberOperatorFactory(
                 0,
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
@@ -463,7 +463,7 @@ public class TestRowNumberOperator
                 .row(0, 0.1)
                 .build();
 
-        RowNumberProcessor.RowNumberOperatorFactory operatorFactory = new RowNumberProcessor.RowNumberOperatorFactory(
+        RowNumberOperatorFactory operatorFactory = new RowNumberOperatorFactory(
                 0,
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
@@ -519,7 +519,7 @@ public class TestRowNumberOperator
                 .row(0, 0.1)
                 .build();
 
-        RowNumberProcessor.RowNumberOperatorFactory operatorFactory = new RowNumberProcessor.RowNumberOperatorFactory(
+        RowNumberOperatorFactory operatorFactory = new RowNumberOperatorFactory(
                 0,
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),

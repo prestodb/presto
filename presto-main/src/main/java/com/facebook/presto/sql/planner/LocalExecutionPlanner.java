@@ -47,7 +47,7 @@ import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.operator.ParallelHashBuilder;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
-import com.facebook.presto.operator.RowNumberProcessor;
+import com.facebook.presto.operator.RowNumberOperatorFactory;
 import com.facebook.presto.operator.SampleOperator.SampleOperatorFactory;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
@@ -460,7 +460,7 @@ public class LocalExecutionPlanner
             outputMappings.put(node.getRowNumberSymbol(), channel);
 
             Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
-            OperatorFactory operatorFactory = new RowNumberProcessor.RowNumberOperatorFactory(
+            OperatorFactory operatorFactory = new RowNumberOperatorFactory(
                     context.getNextOperatorId(),
                     source.getTypes(),
                     outputChannels.build(),
