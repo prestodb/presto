@@ -360,6 +360,7 @@ public final class SqlFormatter
                 builder.append(formatExpression(row));
                 first = false;
             }
+            builder.append('\n');
 
             return null;
         }
