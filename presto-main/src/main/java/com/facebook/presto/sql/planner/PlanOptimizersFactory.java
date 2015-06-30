@@ -91,7 +91,7 @@ public class PlanOptimizersFactory
         builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
 
         if (!forceSingleNode) {
-            builder.add(new AddExchanges(metadata, sqlParser, featuresConfig.isDistributedIndexJoinsEnabled(), featuresConfig.isDistributedJoinsEnabled()));
+            builder.add(new AddExchanges(metadata, sqlParser, featuresConfig.isDistributedIndexJoinsEnabled(), featuresConfig.isDistributedJoinsEnabled(), featuresConfig.isForceDistributedWriting()));
         }
 
         builder.add(new PickLayout(metadata));

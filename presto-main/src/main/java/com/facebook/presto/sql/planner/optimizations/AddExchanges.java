@@ -115,21 +115,24 @@ public class AddExchanges
     private final Metadata metadata;
     private final boolean distributedIndexJoins;
     private final boolean distributedJoins;
+    private final boolean forceDistributedWriting;
 
-    public AddExchanges(Metadata metadata, SqlParser parser, boolean distributedIndexJoins, boolean distributedJoins)
+    public AddExchanges(Metadata metadata, SqlParser parser, boolean distributedIndexJoins, boolean distributedJoins, boolean forceDistributedWriting)
     {
         this.metadata = metadata;
         this.parser = parser;
         this.distributedIndexJoins = distributedIndexJoins;
         this.distributedJoins = distributedJoins;
+        this.forceDistributedWriting = forceDistributedWriting;
     }
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         boolean distributedJoinEnabled = SystemSessionProperties.isDistributedJoinEnabled(session, distributedJoins);
+        boolean forceDistributedWriting = SystemSessionProperties.isForceDistributedWriting(session, this.forceDistributedWriting);
         boolean preferStreamingOperators = SystemSessionProperties.preferStreamingOperators(session, false);
-        PlanWithProperties result = plan.accept(new Rewriter(symbolAllocator, idAllocator, symbolAllocator, session, distributedIndexJoins, distributedJoinEnabled, preferStreamingOperators), PreferredProperties.any());
+        PlanWithProperties result = plan.accept(new Rewriter(symbolAllocator, idAllocator, symbolAllocator, session, distributedIndexJoins, distributedJoinEnabled, preferStreamingOperators, forceDistributedWriting), PreferredProperties.any());
         return result.getNode();
     }
 
@@ -143,8 +146,9 @@ public class AddExchanges
         private final boolean distributedIndexJoins;
         private final boolean distributedJoins;
         private final boolean preferStreamingOperators;
+        private final boolean forceDistributedWriting;
 
-        public Rewriter(SymbolAllocator allocator, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session, boolean distributedIndexJoins, boolean distributedJoins, boolean preferStreamingOperators)
+        public Rewriter(SymbolAllocator allocator, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session, boolean distributedIndexJoins, boolean distributedJoins, boolean preferStreamingOperators, boolean forceDistributedWriting)
         {
             this.allocator = allocator;
             this.idAllocator = idAllocator;
@@ -153,6 +157,7 @@ public class AddExchanges
             this.distributedIndexJoins = distributedIndexJoins;
             this.distributedJoins = distributedJoins;
             this.preferStreamingOperators = preferStreamingOperators;
+            this.forceDistributedWriting = forceDistributedWriting;
         }
 
         @Override
@@ -530,7 +535,7 @@ public class AddExchanges
         public PlanWithProperties visitTableWriter(TableWriterNode node, PreferredProperties context)
         {
             PlanWithProperties source = node.getSource().accept(this, context);
-            if (!source.getProperties().isDistributed()) {
+            if (!source.getProperties().isDistributed() && forceDistributedWriting) {
                 source = withDerivedProperties(
                         partitionedExchange(idAllocator.getNextId(), source.getNode(), Optional.empty(), Optional.empty()),
                         source.getProperties()

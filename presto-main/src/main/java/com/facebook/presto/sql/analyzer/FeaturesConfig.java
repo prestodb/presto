@@ -21,6 +21,7 @@ public class FeaturesConfig
     private boolean experimentalSyntaxEnabled;
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled;
+    private boolean forceDistributedWriting = true;
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration;
     private boolean optimizeSingleDistinct = true;
@@ -54,6 +55,18 @@ public class FeaturesConfig
     public FeaturesConfig setDistributedJoinsEnabled(boolean distributedJoinsEnabled)
     {
         this.distributedJoinsEnabled = distributedJoinsEnabled;
+        return this;
+    }
+
+    public boolean isForceDistributedWriting()
+    {
+        return forceDistributedWriting;
+    }
+
+    @Config("force-distributed-writing")
+    public FeaturesConfig setForceDistributedWriting(boolean forceDistributedWriting)
+    {
+        this.forceDistributedWriting = forceDistributedWriting;
         return this;
     }
 
