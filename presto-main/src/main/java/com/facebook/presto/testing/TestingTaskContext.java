@@ -43,9 +43,14 @@ public final class TestingTaskContext
 
     public static TaskContext createTaskContext(Executor executor, Session session, DataSize maxMemory)
     {
+        return createTaskContext(executor, session, maxMemory, new DataSize(1, MEGABYTE));
+    }
+
+    public static TaskContext createTaskContext(Executor executor, Session session, DataSize maxMemory, DataSize preallocated)
+    {
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE), false);
         QueryContext queryContext = new QueryContext(false, new DataSize(10, MEGABYTE), memoryPool, executor);
-        return createTaskContext(queryContext, executor, session, maxMemory, new DataSize(1, MEGABYTE));
+        return createTaskContext(queryContext, executor, session, maxMemory, preallocated);
     }
 
     public static TaskContext createTaskContext(QueryContext queryContext, Executor executor, Session session, DataSize maxMemory, DataSize preallocated)

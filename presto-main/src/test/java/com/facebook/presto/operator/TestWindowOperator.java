@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
-import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
+import com.facebook.presto.operator.WindowProcessor.WindowOperatorFactory;
 import com.facebook.presto.operator.window.FirstValueFunction.VarcharFirstValueFunction;
 import com.facebook.presto.operator.window.FrameInfo;
 import com.facebook.presto.operator.window.LagFunction.VarcharLagFunction;
@@ -222,7 +222,7 @@ public class TestWindowOperator
                 .row(4, 0.4)
                 .build();
 
-        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.BYTE))
+        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.BYTE), new DataSize(1, Unit.BYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();
 
