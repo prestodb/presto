@@ -85,17 +85,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.ExpressionUtils.flipComparison;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.IS_DISTINCT_FROM;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
@@ -333,28 +328,6 @@ class RelationPlanner
         }
 
         return new RelationPlan(root, outputDescriptor, outputSymbols, sampleWeight);
-    }
-
-    private static ComparisonExpression.Type flipComparison(ComparisonExpression.Type type)
-    {
-        switch (type) {
-            case EQUAL:
-                return EQUAL;
-            case NOT_EQUAL:
-                return NOT_EQUAL;
-            case LESS_THAN:
-                return GREATER_THAN;
-            case LESS_THAN_OR_EQUAL:
-                return GREATER_THAN_OR_EQUAL;
-            case GREATER_THAN:
-                return LESS_THAN;
-            case GREATER_THAN_OR_EQUAL:
-                return LESS_THAN_OR_EQUAL;
-            case IS_DISTINCT_FROM:
-                return IS_DISTINCT_FROM;
-            default:
-                throw new IllegalArgumentException("Unsupported comparison: " + type);
-        }
     }
 
     private RelationPlan planCrossJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)
