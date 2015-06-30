@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
-import com.facebook.presto.operator.WindowProcessor.WindowOperatorFactory;
 import com.facebook.presto.operator.window.FirstValueFunction.VarcharFirstValueFunction;
 import com.facebook.presto.operator.window.FrameInfo;
 import com.facebook.presto.operator.window.LagFunction.VarcharLagFunction;
