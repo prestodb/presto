@@ -17,7 +17,9 @@ import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.HiveRecordCursor;
 import com.facebook.presto.hive.HiveUtil;
+import com.facebook.presto.hive.parquet.predicate.ParquetPredicate;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -59,6 +61,9 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
+import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
+import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.buildParquetPredicate;
+import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.predicateMatches;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -112,7 +117,9 @@ public class ParquetHiveRecordCursor
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            boolean predicatePushdownEnabled,
+            TupleDomain<HiveColumnHandle> effectivePredicate)
     {
         requireNonNull(path, "path is null");
         checkArgument(length >= 0, "totalBytes is negative");
@@ -180,7 +187,16 @@ public class ParquetHiveRecordCursor
             }
         }
 
-        this.recordReader = createParquetRecordReader(configuration, path, start, length, columns, useParquetColumnNames);
+        this.recordReader = createParquetRecordReader(configuration,
+                path,
+                start,
+                length,
+                columns,
+                useParquetColumnNames,
+                typeManager,
+                predicatePushdownEnabled,
+                effectivePredicate
+        );
     }
 
     @Override
@@ -326,30 +342,47 @@ public class ParquetHiveRecordCursor
             long start,
             long length,
             List<HiveColumnHandle> columns,
-            boolean useParquetColumnNames)
+            boolean useParquetColumnNames,
+            TypeManager typeManager,
+            boolean predicatePushdownEnabled,
+            TupleDomain<HiveColumnHandle> effectivePredicate)
     {
         try {
             ParquetMetadata parquetMetadata = ParquetFileReader.readFooter(configuration, path);
             List<BlockMetaData> blocks = parquetMetadata.getBlocks();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
+            MessageType fileSchema = fileMetaData.getSchema();
 
             MessageType schema = fileMetaData.getSchema();
             PrestoReadSupport readSupport = new PrestoReadSupport(useParquetColumnNames, columns, schema);
             ReadContext readContext = readSupport.init(configuration, fileMetaData.getKeyValueMetaData(), schema);
 
+            List<parquet.schema.Type> fields = columns.stream()
+                    .filter(column -> !column.isPartitionKey())
+                    .map(column -> getParquetType(column, fileSchema, useParquetColumnNames))
+                    .filter(Objects::nonNull)
+                    .collect(toList());
+
+            MessageType requestedSchema = new MessageType(fileSchema.getName(), fields);
+
             List<BlockMetaData> splitGroup = new ArrayList<>();
-            long splitStart = start;
-            long splitLength = length;
             for (BlockMetaData block : blocks) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-                if (firstDataPage >= splitStart && firstDataPage < splitStart + splitLength) {
+                if (firstDataPage >= start && firstDataPage < start + length) {
                     splitGroup.add(block);
                 }
             }
 
+            if (predicatePushdownEnabled) {
+                ParquetPredicate parquetPredicate = buildParquetPredicate(columns, effectivePredicate, fileMetaData.getSchema(), typeManager);
+                splitGroup = splitGroup.stream()
+                        .filter(block -> predicateMatches(parquetPredicate, block, configuration, path, requestedSchema, effectivePredicate))
+                        .collect(toList());
+            }
+
             ParquetInputSplit split = new ParquetInputSplit(path,
-                    splitStart,
-                    splitLength,
+                    start,
+                    length,
                     null,
                     splitGroup,
                     readContext.getRequestedSchema().toString(),
@@ -396,7 +429,7 @@ public class ParquetHiveRecordCursor
             for (int i = 0; i < columns.size(); i++) {
                 HiveColumnHandle column = columns.get(i);
                 if (!column.isPartitionKey()) {
-                    parquet.schema.Type parquetType = getParquetType(column, messageType);
+                    parquet.schema.Type parquetType = getParquetType(column, messageType, useParquetColumnNames);
                     if (parquetType == null) {
                         continue;
                     }
@@ -420,7 +453,7 @@ public class ParquetHiveRecordCursor
         {
             List<parquet.schema.Type> fields = columns.stream()
                     .filter(column -> !column.isPartitionKey())
-                    .map(column -> getParquetType(column, messageType))
+                    .map(column -> getParquetType(column, messageType, useParquetColumnNames))
                     .filter(Objects::nonNull)
                     .collect(toList());
             MessageType requestedProjection = new MessageType(messageType.getName(), fields);
@@ -435,21 +468,6 @@ public class ParquetHiveRecordCursor
                 ReadContext readContext)
         {
             return new ParquetRecordConverter(converters);
-        }
-
-        private parquet.schema.Type getParquetType(HiveColumnHandle column, MessageType messageType)
-        {
-            if (useParquetColumnNames) {
-                if (messageType.containsField(column.getName())) {
-                    return messageType.getType(column.getName());
-                }
-                return null;
-            }
-
-            if (column.getHiveColumnIndex() < messageType.getFieldCount()) {
-                return messageType.getType(column.getHiveColumnIndex());
-            }
-            return null;
         }
     }
 

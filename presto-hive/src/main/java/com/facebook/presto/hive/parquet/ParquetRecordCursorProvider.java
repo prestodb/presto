@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
+import static com.facebook.presto.hive.HiveSessionProperties.isParquetPredicatePushdownEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
@@ -96,7 +97,10 @@ public class ParquetRecordCursorProvider
                 partitionKeys,
                 columns,
                 useParquetColumnNames,
-                typeManager));
+                typeManager,
+                isParquetPredicatePushdownEnabled(session),
+                effectivePredicate
+        ));
     }
 
     private static Predicate<HiveColumnHandle> isParquetSupportedType()
