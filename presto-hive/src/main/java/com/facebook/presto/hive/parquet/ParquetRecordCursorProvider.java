@@ -11,8 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.HivePartitionKey;
+import com.facebook.presto.hive.HiveRecordCursor;
+import com.facebook.presto.hive.HiveRecordCursorProvider;
+import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
@@ -89,6 +95,7 @@ public class ParquetRecordCursorProvider
                 schema,
                 partitionKeys,
                 columns,
+                effectivePredicate,
                 useParquetColumnNames,
                 typeManager));
     }
