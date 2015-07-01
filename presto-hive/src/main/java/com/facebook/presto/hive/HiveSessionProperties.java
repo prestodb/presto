@@ -33,6 +33,7 @@ public final class HiveSessionProperties
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
     private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
     private static final String PARQUET_PREDICATE_PUSHDOWN_ENABLED = "parquet_predicate_pushdown_enabled";
+    private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -66,6 +67,11 @@ public final class HiveSessionProperties
                         config.getOrcMaxBufferSize(),
                         false),
                 booleanSessionProperty(
+                        PARQUET_OPTIMIZED_READER_ENABLED,
+                        "Experimental: Parquet: Enable optimized reader",
+                        config.isParquetOptimizedReaderEnabled(),
+                        false),
+                booleanSessionProperty(
                         PARQUET_PREDICATE_PUSHDOWN_ENABLED,
                         "Experimental: Parquet: Enable predicate pushdown for Parquet",
                         config.isParquetPredicatePushdownEnabled(),
@@ -85,6 +91,11 @@ public final class HiveSessionProperties
     public static boolean isOptimizedReaderEnabled(ConnectorSession session)
     {
         return session.getProperty(OPTIMIZED_READER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isParquetOptimizedReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_OPTIMIZED_READER_ENABLED, Boolean.class);
     }
 
     public static DataSize getOrcMaxMergeDistance(ConnectorSession session)

@@ -95,6 +95,7 @@ public class HiveClientConfig
     private List<String> resourceConfigFiles;
 
     private boolean optimizedReaderEnabled = true;
+    private boolean parquetOptimizedReaderEnabled;
 
     private boolean parquetPredicatePushdownEnabled;
 
@@ -665,6 +666,20 @@ public class HiveClientConfig
     public HiveClientConfig setParquetPredicatePushdownEnabled(boolean parquetPredicatePushdownEnabled)
     {
         this.parquetPredicatePushdownEnabled = parquetPredicatePushdownEnabled;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isParquetOptimizedReaderEnabled()
+    {
+        return parquetOptimizedReaderEnabled;
+    }
+
+    @Deprecated
+    @Config("hive.parquet-optimized-reader.enabled")
+    public HiveClientConfig setParquetOptimizedReaderEnabled(boolean parquetOptimizedReaderEnabled)
+    {
+        this.parquetOptimizedReaderEnabled = parquetOptimizedReaderEnabled;
         return this;
     }
 
