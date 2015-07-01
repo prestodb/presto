@@ -144,6 +144,7 @@ public class TestEffectivePredicateExtractor
                                 greaterThan(AE, number(2)),
                                 equals(EE, FE))),
                 ImmutableList.of(A, B, C),
+                ImmutableSet.of(),
                 ImmutableMap.of(C, fakeFunction("test"), D, fakeFunction("test")),
                 ImmutableMap.of(C, fakeFunctionHandle("test"), D, fakeFunctionHandle("test")),
                 ImmutableMap.<Symbol, Symbol>of(),

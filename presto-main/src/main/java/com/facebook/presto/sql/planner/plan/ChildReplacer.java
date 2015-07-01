@@ -155,7 +155,7 @@ public class ChildReplacer
     @Override
     public PlanNode visitAggregation(AggregationNode node, List<PlanNode> newChildren)
     {
-        return new AggregationNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), node.getStep(), node.getSampleWeight(), node.getConfidence(), node.getHashSymbol());
+        return new AggregationNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getGroupBy(), node.getPreGroupedKeys(), node.getAggregations(), node.getFunctions(), node.getMasks(), node.getStep(), node.getSampleWeight(), node.getConfidence(), node.getHashSymbol());
     }
 
     @Override

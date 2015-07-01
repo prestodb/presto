@@ -449,6 +449,46 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testHashAggregationFullyPreClustered()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderpriority, orderstatus, COUNT(*)\n" +
+                "FROM (SELECT * FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) ORDER BY orderstatus, orderpriority)\n" +
+                "GROUP BY orderstatus, orderpriority");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
+                .row("3-MEDIUM", "F", 1)
+                .row("4-NOT SPECIFIED", "F", 1)
+                .row("5-LOW", "F", 2)
+                .row("1-URGENT", "O", 1)
+                .row("2-HIGH", "O", 2)
+                .row("3-MEDIUM", "O", 1)
+                .row("5-LOW", "O", 2)
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testHashAggregationPartiallyPreClustered()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderpriority, orderstatus, COUNT(*)\n" +
+                "FROM (SELECT * FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) ORDER BY orderstatus)\n" +
+                "GROUP BY orderstatus, orderpriority");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
+                .row("3-MEDIUM", "F", 1)
+                .row("4-NOT SPECIFIED", "F", 1)
+                .row("5-LOW", "F", 2)
+                .row("1-URGENT", "O", 1)
+                .row("2-HIGH", "O", 2)
+                .row("3-MEDIUM", "O", 1)
+                .row("5-LOW", "O", 2)
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void test15WayGroupBy()
             throws Exception
     {

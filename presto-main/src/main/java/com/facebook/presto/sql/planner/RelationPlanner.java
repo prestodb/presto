@@ -74,6 +74,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.UnmodifiableIterator;
 
@@ -737,6 +738,7 @@ class RelationPlanner
         return new AggregationNode(idAllocator.getNextId(),
                 node,
                 node.getOutputSymbols(),
+                ImmutableSet.of(),
                 ImmutableMap.<Symbol, FunctionCall>of(),
                 ImmutableMap.<Symbol, Signature>of(),
                 ImmutableMap.<Symbol, Symbol>of(),

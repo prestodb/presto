@@ -800,6 +800,7 @@ public class PredicatePushDown
                 output = new AggregationNode(node.getId(),
                         rewrittenSource,
                         node.getGroupBy(),
+                        node.getPreGroupedKeys(),
                         node.getAggregations(),
                         node.getFunctions(),
                         node.getMasks(),

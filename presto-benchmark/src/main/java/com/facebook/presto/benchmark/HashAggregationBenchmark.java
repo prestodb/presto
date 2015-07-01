@@ -45,6 +45,7 @@ public class HashAggregationBenchmark
         HashAggregationOperatorFactory aggregationOperator = new HashAggregationOperatorFactory(1,
                 types,
                 Ints.asList(0),
+                ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(DOUBLE_SUM.bind(ImmutableList.of(1), Optional.empty(), Optional.empty(), 1.0)),
                 Optional.empty(),

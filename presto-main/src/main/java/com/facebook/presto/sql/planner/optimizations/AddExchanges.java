@@ -206,7 +206,7 @@ public class AddExchanges
 
             if (!child.getProperties().isDistributed()) {
                 // If already unpartitioned, just drop the single aggregation back on
-                return rebaseAndDeriveProperties(node, child);
+                return rebaseAggregationAndDeriveProperties(node, child);
             }
 
             if (node.getGroupBy().isEmpty()) {
@@ -218,12 +218,12 @@ public class AddExchanges
                             gatheringExchange(idAllocator.getNextId(), child.getNode()),
                             child.getProperties());
 
-                    return rebaseAndDeriveProperties(node, child);
+                    return rebaseAggregationAndDeriveProperties(node, child);
                 }
             }
             else {
                 if (child.getProperties().isPartitionedOn(node.getGroupBy())) {
-                    return rebaseAndDeriveProperties(node, child);
+                    return rebaseAggregationAndDeriveProperties(node, child);
                 }
                 else {
                     if (decomposable) {
@@ -233,10 +233,28 @@ public class AddExchanges
                         child = withDerivedProperties(
                                 partitionedExchange(idAllocator.getNextId(), child.getNode(), Optional.of(node.getGroupBy()), node.getHashSymbol()),
                                 child.getProperties());
-                        return rebaseAndDeriveProperties(node, child);
+                        return rebaseAggregationAndDeriveProperties(node, child);
                     }
                 }
             }
+        }
+
+        private PlanWithProperties rebaseAggregationAndDeriveProperties(AggregationNode node, PlanWithProperties child)
+        {
+            // Update the node pre-grouping information based on the child's properties
+            Set<Symbol> preGroupedInputs = findPreGroupedInputs(node.getGroupBy(), child.getProperties());
+            return rebaseAndDeriveProperties(new AggregationNode(
+                    node.getId(),
+                    child.getNode(),
+                    node.getGroupBy(),
+                    preGroupedInputs,
+                    node.getAggregations(),
+                    node.getFunctions(),
+                    node.getMasks(),
+                    node.getStep(),
+                    node.getSampleWeight(),
+                    node.getConfidence(),
+                    node.getHashSymbol()), child);
         }
 
         @NotNull
@@ -269,6 +287,7 @@ public class AddExchanges
                             idAllocator.getNextId(),
                             newChild.getNode(),
                             node.getGroupBy(),
+                            findPreGroupedInputs(node.getGroupBy(), newChild.getProperties()),
                             intermediateCalls,
                             intermediateFunctions,
                             intermediateMask,
@@ -278,13 +297,14 @@ public class AddExchanges
                             node.getHashSymbol()),
                     newChild.getProperties());
 
-            PlanNode exchange = exchanger.apply(partial.getNode());
+            PlanWithProperties exchange = withDerivedProperties(exchanger.apply(partial.getNode()), partial.getProperties());
 
             return withDerivedProperties(
                     new AggregationNode(
                             node.getId(),
-                            exchange,
+                            exchange.getNode(),
                             node.getGroupBy(),
+                            findPreGroupedInputs(node.getGroupBy(), exchange.getProperties()),
                             finalCalls,
                             node.getFunctions(),
                             ImmutableMap.of(),
@@ -292,7 +312,7 @@ public class AddExchanges
                             Optional.empty(),
                             node.getConfidence(),
                             node.getHashSymbol()),
-                    deriveProperties(exchange, partial.getProperties()));
+                    exchange.getProperties());
         }
 
         @Override
@@ -418,7 +438,9 @@ public class AddExchanges
 
         private Set<Symbol> findPreGroupedInputs(List<Symbol> partitionKeys, ActualProperties childProperties)
         {
-            checkArgument(!partitionKeys.isEmpty(), "partitionKeys cannot be empty");
+            if (partitionKeys.isEmpty()) {
+                return ImmutableSet.of();
+            }
 
             List<Optional<LocalProperty<Symbol>>> match = LocalProperties.match(childProperties.getLocalProperties(), grouped(partitionKeys));
             Optional<LocalProperty<Symbol>> groupingRequirement = match.iterator().next();

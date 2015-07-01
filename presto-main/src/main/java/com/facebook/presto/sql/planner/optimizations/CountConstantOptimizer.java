@@ -80,6 +80,7 @@ public class CountConstantOptimizer
                     node.getId(),
                     source,
                     node.getGroupBy(),
+                    node.getPreGroupedKeys(),
                     aggregations,
                     functions,
                     node.getMasks(),

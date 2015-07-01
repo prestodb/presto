@@ -100,6 +100,7 @@ public class SetFlatteningOptimizer
                     node.getId(),
                     rewrittenNode,
                     node.getGroupBy(),
+                    node.getPreGroupedKeys(),
                     node.getAggregations(),
                     node.getFunctions(),
                     node.getMasks(),

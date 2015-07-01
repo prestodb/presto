@@ -20,12 +20,14 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -36,6 +38,7 @@ public class AggregationNode
 {
     private final PlanNode source;
     private final List<Symbol> groupByKeys;
+    private final Set<Symbol> preGroupedKeys;
     private final Map<Symbol, FunctionCall> aggregations;
     // Map from function symbol, to the mask symbol
     private final Map<Symbol, Symbol> masks;
@@ -56,6 +59,7 @@ public class AggregationNode
     public AggregationNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("groupBy") List<Symbol> groupByKeys,
+            @JsonProperty("preGroupedKeys") Set<Symbol> preGroupedKeys,
             @JsonProperty("aggregations") Map<Symbol, FunctionCall> aggregations,
             @JsonProperty("functions") Map<Symbol, Signature> functions,
             @JsonProperty("masks") Map<Symbol, Symbol> masks,
@@ -68,6 +72,8 @@ public class AggregationNode
 
         this.source = source;
         this.groupByKeys = ImmutableList.copyOf(checkNotNull(groupByKeys, "groupByKeys is null"));
+        this.preGroupedKeys = ImmutableSet.copyOf(checkNotNull(preGroupedKeys, "preGroupedKeys is null"));
+        checkArgument(groupByKeys.containsAll(preGroupedKeys), "preGroupedKeys must be contained in groupByKeys");
         this.aggregations = ImmutableMap.copyOf(checkNotNull(aggregations, "aggregations is null"));
         this.functions = ImmutableMap.copyOf(checkNotNull(functions, "functions is null"));
         this.masks = ImmutableMap.copyOf(checkNotNull(masks, "masks is null"));
@@ -128,6 +134,12 @@ public class AggregationNode
     public List<Symbol> getGroupBy()
     {
         return groupByKeys;
+    }
+
+    @JsonProperty("preGroupedKeys")
+    public Set<Symbol> getPreGroupedKeys()
+    {
+        return preGroupedKeys;
     }
 
     @JsonProperty("source")

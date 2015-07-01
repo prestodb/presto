@@ -66,6 +66,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -90,7 +91,7 @@ public class TestHashAggregationOperator
     @DataProvider(name = "hashEnabledValues")
     public static Object[][] hashEnabledValuesProvider()
     {
-        return new Object[][] { { true }, { false } };
+        return new Object[][] {{true}, {false}};
     }
 
     @AfterMethod
@@ -119,6 +120,7 @@ public class TestHashAggregationOperator
                 0,
                 ImmutableList.of(VARCHAR),
                 hashChannels,
+                ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0),
                         LONG_SUM.bind(ImmutableList.of(3), Optional.empty(), Optional.empty(), 1.0),
@@ -171,6 +173,7 @@ public class TestHashAggregationOperator
                 0,
                 ImmutableList.of(VARCHAR),
                 hashChannels,
+                ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0),
                         LONG_SUM.bind(ImmutableList.of(3), Optional.empty(), Optional.empty(), 1.0),
@@ -209,6 +212,7 @@ public class TestHashAggregationOperator
                 0,
                 ImmutableList.of(VARCHAR),
                 hashChannels,
+                ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0)),
                 Optional.<Integer>empty(),
@@ -244,6 +248,7 @@ public class TestHashAggregationOperator
                 0,
                 ImmutableList.of(VARCHAR),
                 hashChannels,
+                ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0)),
                 Optional.<Integer>empty(),
@@ -274,6 +279,7 @@ public class TestHashAggregationOperator
                 0,
                 ImmutableList.of(BIGINT),
                 hashChannels,
+                ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0),
                         LONG_AVERAGE.bind(ImmutableList.of(1), Optional.empty(), Optional.empty(), 1.0)),
@@ -304,6 +310,7 @@ public class TestHashAggregationOperator
                 0,
                 ImmutableList.of(BIGINT),
                 hashChannels,
+                ImmutableList.of(),
                 Step.PARTIAL,
                 ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0)),
                 Optional.<Integer>empty(),
@@ -362,5 +369,111 @@ public class TestHashAggregationOperator
 
         assertEquals(actual.getTypes(), expected.getTypes());
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    public void testFullyPreGrouped()
+            throws Exception
+    {
+        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.MEGABYTE))
+                .addPipelineContext(true, true)
+                .addDriverContext();
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, Ints.asList(0, 1), BIGINT, DOUBLE, BIGINT);
+        List<Page> input = rowPagesBuilder
+                .row(1, 0.3, 1)
+                .pageBreak()
+                .row(2, 0.2, 1)
+                .row(3, 0.1, 1)
+                .row(3, 0.1, 1)
+                .pageBreak()
+                .pageBreak()
+                .row(2, 0.4, 1)
+                .pageBreak()
+                .row(2, 0.4, 1)
+                .row(6, 0.6, 1)
+                .row(6, 0.6, 1)
+                .row(6, 0.6, 1)
+                .pageBreak()
+                .row(0, 0.9, 1)
+                .build();
+
+        HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
+                0,
+                ImmutableList.of(BIGINT, DOUBLE),
+                Ints.asList(0, 1),
+                ImmutableList.of(0, 1),
+                Step.SINGLE,
+                ImmutableList.of(LONG_SUM.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0)),
+                Optional.<Integer>empty(),
+                rowPagesBuilder.getHashChannel(),
+                100_000,
+                new DataSize(16, MEGABYTE), new DataSize(1, BYTE));
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
+                .row(1, 0.3, 1)
+                .row(2, 0.2, 1)
+                .row(3, 0.1, 2)
+                .row(2, 0.4, 2)
+                .row(6, 0.6, 3)
+                .row(0, 0.9, 1)
+                .build();
+
+        assertOperatorEqualsIgnoreOrder(operator, input, expected);
+    }
+
+    public void testPartiallyPreGrouped()
+            throws Exception
+    {
+        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.MEGABYTE))
+                .addPipelineContext(true, true)
+                .addDriverContext();
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, Ints.asList(0, 1), BIGINT, DOUBLE, BIGINT);
+        List<Page> input = rowPagesBuilder
+                .row(1, 0.1, 1)
+                .pageBreak()
+                .row(3, 0.1, 1)
+                .row(2, 0.1, 1)
+                .row(2, 0.2, 1)
+                .pageBreak()
+                .pageBreak()
+                .row(2, 0.1, 1)
+                .pageBreak()
+                .row(4, 0.2, 1)
+                .row(6, 0.3, 1)
+                .row(6, 0.4, 1)
+                .row(6, 0.3, 1)
+                .row(5, 0.1, 1)
+                .pageBreak()
+                .row(0, 0.1, 1)
+                .build();
+
+        HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
+                0,
+                ImmutableList.of(BIGINT, DOUBLE),
+                Ints.asList(0, 1),
+                ImmutableList.of(0),
+                Step.SINGLE,
+                ImmutableList.of(LONG_SUM.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0)),
+                Optional.<Integer>empty(),
+                rowPagesBuilder.getHashChannel(),
+                100_000,
+                new DataSize(16, MEGABYTE), new DataSize(1, BYTE));
+
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
+                .row(1, 0.1, 1)
+                .row(3, 0.1, 1)
+                .row(2, 0.1, 2)
+                .row(2, 0.2, 1)
+                .row(4, 0.2, 1)
+                .row(6, 0.3, 2)
+                .row(6, 0.4, 1)
+                .row(5, 0.1, 1)
+                .row(0, 0.1, 1)
+                .build();
+
+        assertOperatorEqualsIgnoreOrder(operator, input, expected);
     }
 }

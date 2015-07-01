@@ -1685,12 +1685,15 @@ public class LocalExecutionPlanner
                     .map(entry -> source.getTypes().get(entry))
                     .collect(toImmutableList());
 
+            List<Integer> preGroupedChannels = getChannelsForSymbols(ImmutableList.copyOf(node.getPreGroupedKeys()), source.getLayout());
+
             Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
 
             OperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                     context.getNextOperatorId(),
                     groupByTypes,
                     groupByChannels,
+                    preGroupedChannels,
                     node.getStep(),
                     accumulatorFactories,
                     defaultMaskChannel,

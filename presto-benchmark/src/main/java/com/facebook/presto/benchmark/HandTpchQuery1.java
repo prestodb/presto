@@ -96,6 +96,7 @@ public class HandTpchQuery1
                 2,
                 ImmutableList.of(tpchQuery1Operator.getTypes().get(0), tpchQuery1Operator.getTypes().get(1)),
                 Ints.asList(0, 1),
+                ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(
                         LONG_SUM.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),

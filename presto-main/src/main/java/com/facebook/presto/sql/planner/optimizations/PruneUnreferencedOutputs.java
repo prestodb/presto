@@ -284,6 +284,7 @@ public class PruneUnreferencedOutputs
             return new AggregationNode(node.getId(),
                     source,
                     node.getGroupBy(),
+                    node.getPreGroupedKeys(),
                     functionCalls.build(),
                     functions.build(),
                     masks.build(),
