@@ -96,6 +96,8 @@ public class HiveClientConfig
 
     private boolean optimizedReaderEnabled = true;
 
+    private boolean parquetPredicatePushdownEnabled;
+
     private boolean assumeCanonicalPartitionKeys;
 
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
@@ -649,6 +651,20 @@ public class HiveClientConfig
     public HiveClientConfig setOptimizedReaderEnabled(boolean optimizedReaderEnabled)
     {
         this.optimizedReaderEnabled = optimizedReaderEnabled;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isParquetPredicatePushdownEnabled()
+    {
+        return parquetPredicatePushdownEnabled;
+    }
+
+    @Deprecated
+    @Config("hive.parquet-predicate-pushdown.enabled")
+    public HiveClientConfig setParquetPredicatePushdownEnabled(boolean parquetPredicatePushdownEnabled)
+    {
+        this.parquetPredicatePushdownEnabled = parquetPredicatePushdownEnabled;
         return this;
     }
 
