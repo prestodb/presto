@@ -415,10 +415,16 @@ class StatementAnalyzer
             throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
         }
 
+//        if (node.getQuery().getWith().isPresent()) {
+//            analysis.cre
+//        }
+
         // analyze the query that creates the table
         TupleDescriptor descriptor = process(node.getQuery(), context);
 
         validateColumnNames(node, descriptor);
+
+        analyzeWith(node.getQuery(), context);
 
         return new TupleDescriptor(Field.newUnqualified("rows", BIGINT));
     }

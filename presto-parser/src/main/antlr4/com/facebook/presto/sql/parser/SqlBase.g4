@@ -60,6 +60,7 @@ statement
 
 query
     :  with? queryNoWith
+    |  with? NO DATA
     ;
 
 with

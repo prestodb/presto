@@ -48,6 +48,7 @@ public class Analysis
 {
     private Query query;
     private String updateType;
+    private boolean createTableWithoutData = false;
 
     private final IdentityHashMap<Table, Query> namedQueries = new IdentityHashMap<>();
 
