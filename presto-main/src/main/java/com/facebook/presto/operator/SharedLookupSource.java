@@ -44,12 +44,6 @@ public final class SharedLookupSource
     }
 
     @Override
-    public boolean isEmpty()
-    {
-        return lookupSource.isEmpty();
-    }
-
-    @Override
     public long getInMemorySizeInBytes()
     {
         return lookupSource.getInMemorySizeInBytes();

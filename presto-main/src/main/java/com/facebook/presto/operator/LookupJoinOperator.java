@@ -25,7 +25,6 @@ import java.io.Closeable;
 import java.util.List;
 
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.FULL_OUTER;
-import static com.facebook.presto.operator.LookupJoinOperators.JoinType.INNER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.LOOKUP_OUTER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
 import static com.facebook.presto.util.MoreFutures.tryGetUnchecked;
@@ -46,7 +45,6 @@ public class LookupJoinOperator
 
     private final boolean lookupOnOuterSide;
     private final boolean probeOnOuterSide;
-    private final JoinType joinType;
 
     private LookupSource lookupSource;
     private JoinProbe probe;
@@ -73,7 +71,6 @@ public class LookupJoinOperator
 
         this.lookupSourceFuture = lookupSourceSupplier.getLookupSource(operatorContext);
         this.joinProbeFactory = joinProbeFactory;
-        this.joinType = joinType;
 
         // Cannot use switch case here, because javac will synthesize an inner class and cause IllegalAccessError
         probeOnOuterSide = joinType == PROBE_OUTER || joinType == FULL_OUTER;
@@ -140,10 +137,7 @@ public class LookupJoinOperator
         }
 
         if (lookupSource == null) {
-            tryGetLookupSource();
-            if (finishing) {
-                return false;
-            }
+            lookupSource = tryGetUnchecked(lookupSourceFuture);
         }
         return lookupSource != null && probe == null;
     }
@@ -168,8 +162,8 @@ public class LookupJoinOperator
     {
         // If needsInput was never called, lookupSource has not been initialized so far.
         if (lookupSource == null) {
-            tryGetLookupSource();
-            if (lookupSource == null || finishing) {
+            lookupSource = tryGetUnchecked(lookupSourceFuture);
+            if (lookupSource == null) {
                 return null;
             }
         }
@@ -289,15 +283,6 @@ public class LookupJoinOperator
             if (pageBuilder.isFull()) {
                 return;
             }
-        }
-    }
-
-    private void tryGetLookupSource()
-    {
-        lookupSource = tryGetUnchecked(lookupSourceFuture);
-        // for inner joins, if lookup source does not have any positions, we can finish
-        if (lookupSource != null && joinType == INNER && lookupSource.isEmpty()) {
-            finishing = true;
         }
     }
 }

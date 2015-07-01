@@ -483,16 +483,6 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testJoinEmptyBuild()
-            throws Exception
-    {
-        assertQuery("SELECT COUNT(b.quantity) " +
-                "FROM orders a " +
-                "JOIN (SELECT * FROM lineitem WHERE returnflag = 'foo') b " +
-                "ON a.orderkey = b.orderkey");
-    }
-
-    @Test
     public void testArithmeticNegation()
             throws Exception
     {
