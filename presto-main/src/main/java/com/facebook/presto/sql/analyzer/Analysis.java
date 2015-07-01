@@ -108,6 +108,16 @@ public class Analysis
         this.updateType = updateType;
     }
 
+    public boolean getCreateTableWithoutData()
+    {
+        return createTableWithoutData;
+    }
+
+    public void setCreateTableWithoutData(Boolean createTableWithoutData)
+    {
+        this.createTableWithoutData = createTableWithoutData;
+    }
+
     public void addResolvedNames(Expression expression, Map<QualifiedName, Integer> mappings)
     {
         resolvedNames.put(expression, mappings);

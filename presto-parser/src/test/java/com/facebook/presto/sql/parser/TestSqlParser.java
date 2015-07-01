@@ -662,7 +662,7 @@ public class TestSqlParser
     {
         assertStatement("CREATE TABLE foo AS SELECT * FROM t",
                 new CreateTableAsSelect(QualifiedName.of("foo"),
-                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")))));
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), false));
     }
 
     @Test
