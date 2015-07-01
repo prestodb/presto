@@ -52,16 +52,6 @@ public class PartitionedLookupSource
     }
 
     @Override
-    public boolean isEmpty()
-    {
-        boolean empty = true;
-        for (LookupSource lookupSource : lookupSources) {
-            empty = empty && lookupSource.isEmpty();
-        }
-        return empty;
-    }
-
-    @Override
     public long getInMemorySizeInBytes()
     {
         return Arrays.stream(lookupSources).mapToLong(LookupSource::getInMemorySizeInBytes).sum();

@@ -93,12 +93,6 @@ public final class InMemoryJoinHash
     }
 
     @Override
-    public boolean isEmpty()
-    {
-        return addresses.isEmpty();
-    }
-
-    @Override
     public long getInMemorySizeInBytes()
     {
         return size;
