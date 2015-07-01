@@ -314,18 +314,18 @@ public final class SqlQueryExecution
                 if (stateMachine.isDone()) {
                     return;
                 }
-                if (stateMachine.getQueryState() == QueryState.STARTING) {
-                    // if any stage has at least one task, we are running
-                    if (!stage.getStageInfo().getTasks().isEmpty()) {
-                        stateMachine.transitionToRunning();
-                    }
-                }
-                else if (state == StageState.FAILED) {
+                if (state == StageState.FAILED) {
                     stateMachine.transitionToFailed(stage.getStageInfo().getFailureCause().toException());
                 }
                 else if (state == StageState.ABORTED) {
                     // this should never happen, since abort can only be triggered in query clean up after the query is finished
                     stateMachine.transitionToFailed(new PrestoException(INTERNAL_ERROR, "Query stage was aborted"));
+                }
+                else if (stateMachine.getQueryState() == QueryState.STARTING) {
+                    // if any stage has at least one task, we are running
+                    if (!stage.getStageInfo().getTasks().isEmpty()) {
+                        stateMachine.transitionToRunning();
+                    }
                 }
             });
         }
