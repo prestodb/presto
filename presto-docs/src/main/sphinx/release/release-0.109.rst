@@ -10,6 +10,9 @@ General Changes
 * Improve index join planning heuristics to favor streaming execution.
 * Improve validation of date/time literals.
 * Produce RPM package for Presto server.
+* Always redistribute data when writing tables to avoid skew. This can
+  be disabled by setting the session property ``redistribute_writes``
+  or the config property ``redistribute-writes`` to false.
 
 Remove "Big Query" Support
 --------------------------
