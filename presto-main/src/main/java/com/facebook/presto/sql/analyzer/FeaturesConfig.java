@@ -21,7 +21,7 @@ public class FeaturesConfig
     private boolean experimentalSyntaxEnabled;
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled;
-    private boolean forceDistributedWriting = true;
+    private boolean redistributeWrites = true;
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration;
     private boolean optimizeSingleDistinct = true;
@@ -58,15 +58,15 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isForceDistributedWriting()
+    public boolean isRedistributeWrites()
     {
-        return forceDistributedWriting;
+        return redistributeWrites;
     }
 
-    @Config("force-distributed-writing")
-    public FeaturesConfig setForceDistributedWriting(boolean forceDistributedWriting)
+    @Config("redistribute-writes")
+    public FeaturesConfig setRedistributeWrites(boolean redistributeWrites)
     {
-        this.forceDistributedWriting = forceDistributedWriting;
+        this.redistributeWrites = redistributeWrites;
         return this;
     }
 
