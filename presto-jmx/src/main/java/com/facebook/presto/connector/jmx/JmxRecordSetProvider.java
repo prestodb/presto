@@ -116,10 +116,7 @@ public class JmxRecordSetProvider
                         else if (javaType == Slice.class) {
                             if (value.getClass().isArray()) {
                                 // return a string representation of the array
-                                if (value.getClass().getComponentType() == String.class) {
-                                    row.add(Arrays.toString((Object[]) value));
-                                }
-                                else if (value.getClass().getComponentType() == boolean.class) {
+                                if (value.getClass().getComponentType() == boolean.class) {
                                     row.add(Arrays.toString((boolean[]) value));
                                 }
                                 else if (value.getClass().getComponentType() == byte.class) {
@@ -142,6 +139,9 @@ public class JmxRecordSetProvider
                                 }
                                 else if (value.getClass().getComponentType() == short.class) {
                                     row.add(Arrays.toString((short[]) value));
+                                }
+                                else {
+                                    row.add(Arrays.toString((Object[]) value));
                                 }
                             }
                             else {

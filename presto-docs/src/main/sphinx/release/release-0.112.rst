@@ -6,3 +6,4 @@ General Changes
 ---------------
 
 * Fix handling of ``LIMIT`` when used with a partitioned :func:`row_number`.
+* Fix non-string object arrays in JMX connector.
