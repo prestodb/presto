@@ -79,7 +79,7 @@
                                 <package>
                                     <name>presto</name>
                                     <version>${project.version}</version>
-				    <release>1</release>
+                                    <release>1</release>
 
                                     <group>Applications/Databases</group>
                                     <description>Presto Server RPM Package.</description>
