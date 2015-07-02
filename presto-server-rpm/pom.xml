@@ -77,7 +77,7 @@
 
                             <packages>
                                 <package>
-                                    <name>presto</name>
+                                    <name>presto-server-rpm</name>
                                     <version>${project.version}</version>
                                     <release>1</release>
 
