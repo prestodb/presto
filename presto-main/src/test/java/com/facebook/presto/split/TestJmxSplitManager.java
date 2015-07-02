@@ -15,6 +15,7 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.connector.jmx.JmxColumnHandle;
 import com.facebook.presto.connector.jmx.JmxConnectorId;
+import com.facebook.presto.connector.jmx.JmxRecordSetProvider;
 import com.facebook.presto.connector.jmx.JmxSplitManager;
 import com.facebook.presto.connector.jmx.JmxTableHandle;
 import com.facebook.presto.spi.ColumnHandle;
@@ -22,15 +23,21 @@ import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
@@ -41,6 +48,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestJmxSplitManager
 {
@@ -49,9 +57,11 @@ public class TestJmxSplitManager
     private final Node localNode = new TestingNode("host1");
     private final Set<Node> nodes = ImmutableSet.of(localNode, new TestingNode("host2"), new TestingNode("host3"));
 
-    private final JmxColumnHandle columnHandle = new JmxColumnHandle(CONNECTOR_ID, "node", VARCHAR, 0);
-    private final JmxTableHandle tableHandle = new JmxTableHandle(CONNECTOR_ID, "objectName", ImmutableList.of(columnHandle));
-    private final JmxSplitManager splitManager = new JmxSplitManager(new JmxConnectorId(CONNECTOR_ID), new TestingNodeManager());
+    private TestingNodeManager testNodeManager = new TestingNodeManager();
+    private final JmxColumnHandle firstColumn = new JmxColumnHandle(CONNECTOR_ID, "node", VARCHAR, 0);
+    private final JmxColumnHandle secondColumn = new JmxColumnHandle(CONNECTOR_ID, "InputArguments", VARCHAR, 1);
+    private final JmxTableHandle tableHandle = new JmxTableHandle(CONNECTOR_ID, "java.lang:type=Runtime", ImmutableList.of(firstColumn, secondColumn));
+    private final JmxSplitManager splitManager = new JmxSplitManager(new JmxConnectorId(CONNECTOR_ID), testNodeManager);
 
     @Test
     public void testPredicatePushdown()
@@ -59,7 +69,7 @@ public class TestJmxSplitManager
     {
         for (Node node : nodes) {
             String nodeIdentifier = node.getNodeIdentifier();
-            TupleDomain<ColumnHandle> nodeTupleDomain = TupleDomain.withFixedValues(ImmutableMap.of(columnHandle, Slices.utf8Slice(nodeIdentifier)));
+            TupleDomain<ColumnHandle> nodeTupleDomain = TupleDomain.withFixedValues(ImmutableMap.of(firstColumn, Slices.utf8Slice(nodeIdentifier)));
 
             ConnectorPartitionResult connectorPartitionResult = splitManager.getPartitions(tableHandle, nodeTupleDomain);
             ConnectorSplitSource splitSource = splitManager.getPartitionSplits(tableHandle, connectorPartitionResult.getPartitions());
@@ -88,6 +98,26 @@ public class TestJmxSplitManager
             expectedNodes.add(addresses.get(0).getHostText());
         }
         assertEquals(actualNodes, expectedNodes);
+    }
+
+    @Test
+    public void testRecordSetProvider()
+            throws InterruptedException
+    {
+        JmxRecordSetProvider recordSetProvider = new JmxRecordSetProvider(ManagementFactory.getPlatformMBeanServer(), testNodeManager);
+        ConnectorPartitionResult connectorPartitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
+        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(tableHandle, connectorPartitionResult.getPartitions());
+        List<ConnectorSplit> allSplits = getAllSplits(splitSource);
+        //get the recordset for the "InputArguments" column, this attribute has a String[] value
+        RecordSet recordSet = recordSetProvider.getRecordSet(allSplits.get(0), ImmutableList.of(secondColumn));
+        assertTrue(recordSet instanceof InMemoryRecordSet);
+        RecordCursor cursor = recordSet.cursor();
+        while (cursor.advanceNextPosition()) {
+            assertTrue(cursor.getCompletedBytes() > 0);
+            Slice value = cursor.getSlice(0);
+            assertTrue(cursor.getType(0) instanceof VarcharType);
+        }
+        cursor.close();
     }
 
     private static List<ConnectorSplit> getAllSplits(ConnectorSplitSource splitSource)
