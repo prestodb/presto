@@ -15,7 +15,7 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.benchmark.HandTpchQuery1.TpchQuery1Operator.TpchQuery1OperatorFactory;
 import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
+import com.facebook.presto.operator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
@@ -106,7 +106,7 @@ public class HandTpchQuery1
                         DOUBLE_AVERAGE.bind(ImmutableList.of(5), Optional.empty(), Optional.empty(), 1.0),
                         DOUBLE_AVERAGE.bind(ImmutableList.of(6), Optional.empty(), Optional.empty(), 1.0),
                         COUNT.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0)
-                        ),
+                ),
                 Optional.empty(),
                 Optional.empty(),
                 10_000,
