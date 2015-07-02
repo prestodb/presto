@@ -15,11 +15,15 @@ package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -33,19 +37,27 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 
 public class TestJmxSplitManager
 {
+    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
+
     private final Node localNode = new TestingNode("host1");
     private final Set<Node> nodes = ImmutableSet.of(localNode, new TestingNode("host2"), new TestingNode("host3"));
 
+    private final TestingNodeManager nodeManager = new TestingNodeManager();
     private final JmxColumnHandle columnHandle = new JmxColumnHandle("test", "node", VARCHAR);
     private final JmxTableHandle tableHandle = new JmxTableHandle("test", "objectName", ImmutableList.of(columnHandle));
     private final JmxSplitManager splitManager = new JmxSplitManager("test", new TestingNodeManager());
+    private final JmxMetadata metadata = new JmxMetadata("test", getPlatformMBeanServer());
+    private final JmxRecordSetProvider recordSetProvider = new JmxRecordSetProvider(getPlatformMBeanServer(), nodeManager);
 
     @Test
     public void testPredicatePushdown()
@@ -82,6 +94,31 @@ public class TestJmxSplitManager
             expectedNodes.add(addresses.get(0).getHostText());
         }
         assertEquals(actualNodes, expectedNodes);
+    }
+
+    @Test
+    public void testRecordSetProvider()
+            throws Exception
+    {
+        for (SchemaTableName schemaTableName : metadata.listTables(SESSION, "jmx")) {
+            JmxTableHandle tableHandle = metadata.getTableHandle(SESSION, schemaTableName);
+            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+
+            ConnectorPartitionResult connectorPartitionResult = splitManager.getPartitions(tableHandle, TupleDomain.all());
+            ConnectorSplitSource splitSource = splitManager.getPartitionSplits(tableHandle, connectorPartitionResult.getPartitions());
+            List<ConnectorSplit> allSplits = getAllSplits(splitSource);
+            assertEquals(allSplits.size(), nodes.size());
+            ConnectorSplit split = allSplits.get(0);
+
+            RecordSet recordSet = recordSetProvider.getRecordSet(split, columnHandles);
+            try (RecordCursor cursor = recordSet.cursor()) {
+                while (cursor.advanceNextPosition()) {
+                    for (int i = 0; i < recordSet.getColumnTypes().size(); i++) {
+                        cursor.isNull(i);
+                    }
+                }
+            }
+        }
     }
 
     private static List<ConnectorSplit> getAllSplits(ConnectorSplitSource splitSource)
