@@ -19,7 +19,6 @@ import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
@@ -493,7 +492,6 @@ public final class SqlQueryExecution
         private final LocationFactory locationFactory;
         private final ExecutorService executor;
         private final NodeTaskMap nodeTaskMap;
-        private final NodeManager nodeManager;
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
@@ -503,7 +501,6 @@ public final class SqlQueryExecution
                 LocationFactory locationFactory,
                 SplitManager splitManager,
                 NodeScheduler nodeScheduler,
-                NodeManager nodeManager,
                 List<PlanOptimizer> planOptimizers,
                 RemoteTaskFactory remoteTaskFactory,
                 @ForQueryExecution ExecutorService executor,
@@ -523,7 +520,6 @@ public final class SqlQueryExecution
             this.experimentalSyntaxEnabled = featuresConfig.isExperimentalSyntaxEnabled();
             this.executor = checkNotNull(executor, "executor is null");
             this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
-            this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
         }
 
         @Override
