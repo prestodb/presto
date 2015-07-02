@@ -1,0 +1,99 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.24. Release 0.86 &mdash; Presto 0.109 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.109',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.109 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.25. Release 0.85" href="release-0.85.html" />
+    <link rel="prev" title="10.23. Release 0.87" href="release-0.87.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.109 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.24. Release 0.86</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.87.html">10.23. Release 0.87</a>
+    </span>
+    <span class="right">
+        <a href="release-0.85.html">10.25. Release 0.85</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-86">
+<h1>10.24. Release 0.86</h1>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Add support for inequality <tt class="docutils literal"><span class="pre">INNER</span> <span class="pre">JOIN</span></tt> when each term of the condition refers to only one side of the join.</li>
+<li>Add <a class="reference internal" href="../functions/window.html#ntile" title="ntile"><tt class="xref py py-func docutils literal"><span class="pre">ntile()</span></tt></a> function.</li>
+<li>Add <a class="reference internal" href="../functions/map.html#map" title="map"><tt class="xref py py-func docutils literal"><span class="pre">map()</span></tt></a> function to create a map from arrays of keys and values.</li>
+<li>Add <a class="reference internal" href="../functions/aggregate.html#min_by" title="min_by"><tt class="xref py py-func docutils literal"><span class="pre">min_by()</span></tt></a> aggregation function.</li>
+<li>Add support for concatenating arrays with the <tt class="docutils literal"><span class="pre">||</span></tt> operator.</li>
+<li>Add support for <tt class="docutils literal"><span class="pre">=</span></tt> and <tt class="docutils literal"><span class="pre">!=</span></tt> to <tt class="docutils literal"><span class="pre">JSON</span></tt> type.</li>
+<li>Improve error message when <tt class="docutils literal"><span class="pre">DISTINCT</span></tt> is applied to types that are not comparable.</li>
+<li>Perform type validation for <tt class="docutils literal"><span class="pre">IN</span></tt> expression where the right-hand side is a subquery expression.</li>
+<li>Improve error message when <tt class="docutils literal"><span class="pre">ORDER</span> <span class="pre">BY</span> <span class="pre">...</span> <span class="pre">LIMIT</span></tt> query exceeds its maximum memory allocation.</li>
+<li>Improve error message when types that are not orderable are used in an <tt class="docutils literal"><span class="pre">ORDER</span> <span class="pre">BY</span></tt> clause.</li>
+<li>Improve error message when the types of the columns for subqueries of a <tt class="docutils literal"><span class="pre">UNION</span></tt> query don&#8217;t match.</li>
+<li>Fix a regression where queries could be expired too soon on a highly loaded cluster.</li>
+<li>Fix scheduling issue for queries involving tables from information_schema, which could result in
+inconsistent metadata.</li>
+<li>Fix an issue with <a class="reference internal" href="../functions/aggregate.html#min_by" title="min_by"><tt class="xref py py-func docutils literal"><span class="pre">min_by()</span></tt></a> and <a class="reference internal" href="../functions/aggregate.html#max_by" title="max_by"><tt class="xref py py-func docutils literal"><span class="pre">max_by()</span></tt></a> that could result in an error when used with
+a variable-length type (e.g., <tt class="docutils literal"><span class="pre">VARCHAR</span></tt>) in a <tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt> query.</li>
+<li>Fix rendering of array attributes in JMX connector.</li>
+<li>Input rows/bytes are now tracked properly for <tt class="docutils literal"><span class="pre">JOIN</span></tt> queries.</li>
+<li>Fix case-sensitivity issue when resolving names of constant table expressions.</li>
+<li>Fix unnesting arrays and maps that contain the <tt class="docutils literal"><span class="pre">ROW</span></tt> type.</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.87.html">10.23. Release 0.87</a>
+    </span>
+    <span class="right">
+        <a href="release-0.85.html">10.25. Release 0.85</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

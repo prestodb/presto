@@ -1,0 +1,110 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.12. Release 0.98 &mdash; Presto 0.109 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.109',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.109 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.13. Release 0.97" href="release-0.97.html" />
+    <link rel="prev" title="10.11. Release 0.99" href="release-0.99.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.109 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.12. Release 0.98</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.99.html">10.11. Release 0.99</a>
+    </span>
+    <span class="right">
+        <a href="release-0.97.html">10.13. Release 0.97</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-98">
+<h1>10.12. Release 0.98</h1>
+<div class="section" id="array-map-and-row-types">
+<h2>Array, Map, and Row Types</h2>
+<p>The memory representation of these types is now <tt class="docutils literal"><span class="pre">VariableWidthBlockEncoding</span></tt>
+instead of <tt class="docutils literal"><span class="pre">JSON</span></tt>.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This is a backwards incompatible change with the previous representation,
+so if you have written a connector or function, you will need to update
+your code before deploying this release.</p>
+</div>
+</div>
+<div class="section" id="hive-changes">
+<h2>Hive Changes</h2>
+<ul class="simple">
+<li>Fix handling of ORC files with corrupt checkpoints.</li>
+</ul>
+</div>
+<div class="section" id="spi-changes">
+<h2>SPI Changes</h2>
+<ul class="simple">
+<li>Rename <tt class="docutils literal"><span class="pre">Index</span></tt> to <tt class="docutils literal"><span class="pre">ConnectorIndex</span></tt>.</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This is a backwards incompatible change, so if you have written a connector
+that uses <tt class="docutils literal"><span class="pre">Index</span></tt>, you will need to update your code before deploying this release.</p>
+</div>
+</div>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Fix bug in <tt class="docutils literal"><span class="pre">UNNEST</span></tt> when output is unreferenced or partially referenced.</li>
+<li>Make <a class="reference internal" href="../functions/aggregate.html#max" title="max"><tt class="xref py py-func docutils literal"><span class="pre">max()</span></tt></a> and <a class="reference internal" href="../functions/aggregate.html#min" title="min"><tt class="xref py py-func docutils literal"><span class="pre">min()</span></tt></a> functions work on all orderable types.</li>
+<li>Optimize memory allocation in <a class="reference internal" href="../functions/aggregate.html#max_by" title="max_by"><tt class="xref py py-func docutils literal"><span class="pre">max_by()</span></tt></a> and other places that <tt class="docutils literal"><span class="pre">Block</span></tt> is used.</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.99.html">10.11. Release 0.99</a>
+    </span>
+    <span class="right">
+        <a href="release-0.97.html">10.13. Release 0.97</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
