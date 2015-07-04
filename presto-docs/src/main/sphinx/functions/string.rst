@@ -46,12 +46,6 @@ String Functions
 
     Converts ``string`` to lowercase.
 
-.. note::
-
-    This method does not perform perform locale-sensitive, context-sensitive,
-    or one-to-many mappings required for some languages.  Specifically, this
-    will return incorrect results for Lithuanian, Turkish and Azeri.
-
 .. function:: ltrim(string) -> varchar
 
     Removes leading whitespace from ``string``.
