@@ -24,3 +24,8 @@ CLI Changes
 * Skip printing query URL if terminal is too narrow.
 * Allow performing a partial query cancel using ``ctrl-P``.
 * Allow toggling debug mode during query by pressing ``D``.
+
+Hive Changes
+------------
+
+* Automatically configure the S3 region when running in EC2.
