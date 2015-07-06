@@ -24,6 +24,9 @@ import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
 import com.amazonaws.internal.StaticCredentialsProvider;
+import com.amazonaws.regions.Region;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.regions.ServiceAbbreviations;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
@@ -118,6 +121,7 @@ public class PrestoS3FileSystem
     public static final String S3_MULTIPART_MIN_FILE_SIZE = "presto.s3.multipart.min-file-size";
     public static final String S3_MULTIPART_MIN_PART_SIZE = "presto.s3.multipart.min-part-size";
     public static final String S3_USE_INSTANCE_CREDENTIALS = "presto.s3.use-instance-credentials";
+    public static final String S3_REGION = "presto.s3.region";
 
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
@@ -548,18 +552,30 @@ public class PrestoS3FileSystem
 
     private AmazonS3Client createAmazonS3Client(URI uri, Configuration hadoopConfig, ClientConfiguration clientConfig)
     {
+        AmazonS3Client client = null;
         // first try credentials from URI or static properties
         try {
-            return new AmazonS3Client(new StaticCredentialsProvider(getAwsCredentials(uri, hadoopConfig)), clientConfig, METRIC_COLLECTOR);
+            client = new AmazonS3Client(new StaticCredentialsProvider(getAwsCredentials(uri, hadoopConfig)), clientConfig, METRIC_COLLECTOR);
         }
         catch (IllegalArgumentException ignored) {
         }
 
         if (useInstanceCredentials) {
-            return new AmazonS3Client(new InstanceProfileCredentialsProvider(), clientConfig, METRIC_COLLECTOR);
+            client = new AmazonS3Client(new InstanceProfileCredentialsProvider(), clientConfig, METRIC_COLLECTOR);
         }
-
-        throw new RuntimeException("S3 credentials not configured");
+        if (client == null) {
+            throw new RuntimeException("S3 credentials not configured");
+        }
+        final String regionName = hadoopConfig.get(S3_REGION);
+        if (regionName != null) {
+            Region region = Region.getRegion(Regions.fromName(regionName));
+            if (region != null) {
+                client.setRegion(region);
+                client.setEndpoint(region.getServiceEndpoint(ServiceAbbreviations.S3));
+                LOG.info("setting s3 region to: " + region);
+            }
+        }
+        return client;
     }
 
     private static AWSCredentials getAwsCredentials(URI uri, Configuration conf)
