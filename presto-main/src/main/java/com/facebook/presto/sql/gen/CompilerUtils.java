@@ -26,6 +26,8 @@ import io.airlift.log.Logger;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.util.CheckClassAdapter;
+import org.objectweb.asm.util.Printer;
+import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceClassVisitor;
 
 import java.io.ByteArrayOutputStream;
@@ -33,6 +35,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.invoke.MethodHandle;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
@@ -97,7 +100,16 @@ public final class CompilerUtils
         Map<String, byte[]> byteCodes = new LinkedHashMap<>();
         for (ClassDefinition classDefinition : classDefinitions) {
             ClassWriter cw = new SmartClassWriter(classInfoLoader);
-            classDefinition.visit(cw);
+            try {
+                classDefinition.visit(cw);
+            }
+            catch (IndexOutOfBoundsException e) {
+                Printer printer = new Textifier();
+                StringWriter stringWriter = new StringWriter();
+                TraceClassVisitor tcv = new TraceClassVisitor(null, printer, new PrintWriter(stringWriter));
+                classDefinition.visit(tcv);
+                throw new IllegalArgumentException("An error occurred while processing classDefinition:" + System.lineSeparator() + stringWriter.toString(), e);
+            }
             byte[] byteCode = cw.toByteArray();
             if (RUN_ASM_VERIFIER) {
                 ClassReader reader = new ClassReader(byteCode);
