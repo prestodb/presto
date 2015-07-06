@@ -69,6 +69,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveType.HIVE_BOOLEAN;
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
@@ -311,7 +312,7 @@ public final class HiveUtil
             return Class.forName(name, true, JavaUtils.getClassLoader()).asSubclass(Deserializer.class);
         }
         catch (ClassNotFoundException e) {
-            throw new RuntimeException("deserializer does not exist: " + name);
+            throw new PrestoException(HIVE_SERDE_NOT_FOUND, "deserializer does not exist: " + name);
         }
         catch (ClassCastException e) {
             throw new RuntimeException("invalid deserializer class: " + name);
