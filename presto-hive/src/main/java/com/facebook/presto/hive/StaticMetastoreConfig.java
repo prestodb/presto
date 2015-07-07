@@ -13,26 +13,40 @@
  */
 package com.facebook.presto.hive;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 
 import javax.validation.constraints.NotNull;
 
 import java.net.URI;
+import java.util.List;
+
+import static com.google.common.collect.Iterables.transform;
 
 public class StaticMetastoreConfig
 {
-    private URI metastoreUri;
+    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
+    private List<URI> metastoreUris;
 
     @NotNull
-    public URI getMetastoreUri()
+    public List<URI> getMetastoreUris()
     {
-        return metastoreUri;
+        return metastoreUris;
     }
 
     @Config("hive.metastore.uri")
-    public StaticMetastoreConfig setMetastoreUri(URI metastoreUri)
+    @ConfigDescription("Hive metastore URIs (comma separated)")
+    public StaticMetastoreConfig setMetastoreUris(String uris)
     {
-        this.metastoreUri = metastoreUri;
+        if (uris == null) {
+            this.metastoreUris = null;
+            return this;
+        }
+
+        this.metastoreUris = ImmutableList.copyOf(transform(SPLITTER.split(uris), URI::create));
         return this;
     }
 }

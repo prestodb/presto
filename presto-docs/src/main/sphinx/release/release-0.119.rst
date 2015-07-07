@@ -29,6 +29,7 @@ Hive Changes
 ------------
 
 * Automatically configure the S3 region when running in EC2.
+* Allow configuring multiple Hive metastores for high availability.
 
 MySQL and PostgreSQL Changes
 ----------------------------
