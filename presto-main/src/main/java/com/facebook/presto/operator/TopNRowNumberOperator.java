@@ -205,7 +205,7 @@ public class TopNRowNumberOperator
     @Override
     public boolean isFinished()
     {
-        return finishing && isEmpty();
+        return finishing && isEmpty() && !isFlushing();
     }
 
     @Override
@@ -226,7 +226,7 @@ public class TopNRowNumberOperator
     @Override
     public Page getOutput()
     {
-        if (finishing && !isEmpty()) {
+        if (finishing && !isFinished()) {
             return getPage();
         }
         return null;
