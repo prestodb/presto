@@ -49,6 +49,24 @@ public class TestUrlFunctions
         assertFunction("url_extract_parameter('foo', 'k1')", VARCHAR, null);
     }
 
+    @Test
+    public void testUrlEncode()
+    {
+        assertFunction("url_encode('http://test')", VARCHAR, "http%3A%2F%2Ftest");
+        assertFunction("url_encode('http://テスト')", VARCHAR, "http%3A%2F%2F%E3%83%86%E3%82%B9%E3%83%88");
+        assertFunction("url_encode('test')", VARCHAR, "test");
+        assertFunction("url_encode(null)", VARCHAR, null);
+    }
+
+    @Test
+    public void testUrlDecode()
+    {
+        assertFunction("url_decode('http%3A%2F%2Ftest')", VARCHAR, "http://test");
+        assertFunction("url_decode('http%3A%2F%2F%E3%83%86%E3%82%B9%E3%83%88')", VARCHAR, "http://テスト");
+        assertFunction("url_decode('test')", VARCHAR, "test");
+        assertFunction("url_decode(null)", VARCHAR, null);
+    }
+
     private void validateUrlExtract(String url, String protocol, String host, Long port, String path, String query, String fragment)
     {
         assertFunction("url_extract_protocol('" + url + "')", VARCHAR, protocol);

@@ -22,8 +22,11 @@ import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.util.Iterator;
 
 import static com.google.common.base.Strings.nullToEmpty;
@@ -127,6 +130,42 @@ public final class UrlFunctions
 
         // no key matched
         return null;
+    }
+
+    @Nullable
+    @Description("encode url")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice urlEncode(@SqlType(StandardTypes.VARCHAR) Slice url)
+    {
+        if (url == null) {
+            return null;
+        }
+
+        try {
+            return slice(URLEncoder.encode(url.toString(UTF_8), UTF_8.name()));
+        }
+        catch (UnsupportedEncodingException e) {
+            return null;
+        }
+    }
+
+    @Nullable
+    @Description("decode url")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice urlDecode(@SqlType(StandardTypes.VARCHAR) Slice url)
+    {
+        if (url == null) {
+            return null;
+        }
+
+        try {
+            return slice(URLDecoder.decode(url.toString(UTF_8), UTF_8.name()));
+        }
+        catch (UnsupportedEncodingException e) {
+            return null;
+        }
     }
 
     private static Slice slice(@Nullable String s)
