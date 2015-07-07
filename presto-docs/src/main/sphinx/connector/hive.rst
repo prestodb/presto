@@ -54,7 +54,7 @@ HDFS Configuration
 
 Presto configures the HDFS client automatically for most setups and
 does not require any configuration files. In some rare cases, such
-as when using federated HDFS, it may be necessary to specify additional
+as when using federated HDFS or high availability Hive, it may be necessary to specify additional
 HDFS client options in order to access your HDFS cluster. To do so, add
 the ``hive.config.resources`` property to reference your HDFS config files:
 
@@ -72,9 +72,12 @@ Configuration Properties
 ================================================== ============================================================ ==========
 Property Name                                      Description                                                  Default
 ================================================== ============================================================ ==========
-``hive.metastore.uri``                             The URI of the Hive Metastore to connect to using
-                                                   the Thrift protocol. This property is required.
-                                                   Example: ``thrift://192.0.2.3:9083``
+``hive.metastore.uri``                             The URI(s) of the Hive Metastore to connect to using
+                                                   the Thrift protocol. If a comma-separated list of URIs is
+                                                   provided, the first URI is used by default, and the rest of
+                                                   the URIs are fallback Metastores. This property is required.
+                                                   Example: ``thrift://192.0.2.3:9083`` or
+                                                   ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
 
 ``hive.config.resources``                          An optional comma-separated list of HDFS
                                                    configuration files. These files must exist on the

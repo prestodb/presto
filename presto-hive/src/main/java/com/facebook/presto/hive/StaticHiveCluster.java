@@ -13,40 +13,64 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.net.HostAndPort;
 import org.apache.thrift.transport.TTransportException;
 
 import javax.inject.Inject;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.stream.Collectors.toList;
 
 public class StaticHiveCluster
         implements HiveCluster
 {
-    private final HostAndPort address;
+    private final List<HostAndPort> addresses;
     private final HiveMetastoreClientFactory clientFactory;
 
     @Inject
     public StaticHiveCluster(StaticMetastoreConfig config, HiveMetastoreClientFactory clientFactory)
     {
-        URI uri = checkMetastoreUri(config.getMetastoreUri());
-        this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
+        List<URI> metastoreUris = checkNotNull(config.getMetastoreUris(), "metastoreUri is null");
+        checkArgument(metastoreUris.size() > 0, "metastoreUri must specify at least one URI");
+        this.addresses = metastoreUris.stream()
+                .map(StaticHiveCluster::checkMetastoreUri)
+                .map((uri) -> HostAndPort.fromParts(uri.getHost(), uri.getPort()))
+                .collect(toList());
         this.clientFactory = checkNotNull(clientFactory, "clientFactory is null");
     }
 
+    /**
+     * As per Hive HA metastore behavior, return the first metastore in the list of available
+     * metastores (i.e. the default metastore) if a connection can be made, else try another
+     * of the metastores at random, until either a connection succeeds or there are no more
+     * fallback metastores.
+     */
     @Override
     public HiveMetastoreClient createMetastoreClient()
     {
-        try {
-            return clientFactory.create(address.getHostText(), address.getPort());
+        List<HostAndPort> metastores = new ArrayList<>(addresses);
+        Collections.shuffle(metastores.subList(1, metastores.size()));
+
+        TTransportException lastException = null;
+        for (HostAndPort address : metastores) {
+            try {
+                return clientFactory.create(address.getHostText(), address.getPort());
+            }
+            catch (TTransportException e) {
+                lastException = e;
+            }
         }
-        catch (TTransportException e) {
-            throw new RuntimeException("Failed connecting to Hive metastore: " + address, e);
-        }
+
+        throw new PrestoException(HIVE_METASTORE_ERROR, "Unable to connect to metastore: " + addresses, lastException);
     }
 
     private static URI checkMetastoreUri(URI uri)
