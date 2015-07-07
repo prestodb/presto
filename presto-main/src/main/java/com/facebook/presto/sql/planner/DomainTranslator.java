@@ -23,6 +23,7 @@ import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.Ranges;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
@@ -359,6 +360,12 @@ public final class DomainTranslator
             // TODO: figure out a way to generalize this for other types
             if (value.getType().equals(DOUBLE) && fieldType.equals(BIGINT)) {
                 return process(coerceDoubleToLongComparison(normalized), complement);
+            }
+
+            // no support for decimal type in tuple domain for now
+            // support for type aware comparators is needed.
+            if (value.getValue() instanceof DecimalType || fieldType instanceof DecimalType) {
+                return super.visitComparisonExpression(node, complement);
             }
 
             if (!TypeRegistry.canCoerce(value.getType(), fieldType)) {
