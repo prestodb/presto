@@ -17,6 +17,7 @@ General Changes
 ---------------
 
 * Add :func:`element_at` function.
+* Add :func:`url_encode` and :func:`url_decode` functions.
 * :func:`concat` now allows arbitrary number of arguments.
 * Fix JMX connector. In the previous release it always returned zero rows.
 

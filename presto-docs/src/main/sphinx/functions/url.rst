@@ -42,3 +42,11 @@ such as ``:`` or ``?``.
 .. function:: url_extract_query(url) -> varchar
 
     Returns the query string from ``url``.
+
+.. function:: url_encode(value) -> varchar
+
+    Escapes the given value so they it can be safely included in URL query parameters names and values.
+
+.. function:: url_decode(value) -> varchar
+
+    Unescapes the given url-encoded value.
