@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -92,6 +93,7 @@ public final class TypeRegistry
         addType(COLOR);
         addType(JSON);
         addParametricType(VarcharParametricType.VARCHAR);
+        addParametricType(DecimalParametricType.DECIMAL);
         addParametricType(ROW);
         addParametricType(ARRAY);
         addParametricType(MAP);
