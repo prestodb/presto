@@ -45,9 +45,6 @@ Hive clusters, simply add another properties file to ``etc/catalog``
 with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Presto
 will create a catalog named ``sales`` using the configured connector.
-If you are connecting to more than one Hive metastore, you can create
-any number of properties files configuring multiple instances of
-the Hive connector.
 
 HDFS Configuration
 ^^^^^^^^^^^^^^^^^^
@@ -72,9 +69,12 @@ Configuration Properties
 ================================================== ============================================================ ==========
 Property Name                                      Description                                                  Default
 ================================================== ============================================================ ==========
-``hive.metastore.uri``                             The URI of the Hive Metastore to connect to using
-                                                   the Thrift protocol. This property is required.
-                                                   Example: ``thrift://192.0.2.3:9083``
+``hive.metastore.uri``                             The URI(s) of the Hive metastore to connect to using the
+                                                   Thrift protocol. If multiple URIs are provided, the first
+                                                   URI is used by default and the rest of the URIs are
+                                                   fallback metastores. This property is required.
+                                                   Example: ``thrift://192.0.2.3:9083`` or
+                                                   ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
 
 ``hive.config.resources``                          An optional comma-separated list of HDFS
                                                    configuration files. These files must exist on the
