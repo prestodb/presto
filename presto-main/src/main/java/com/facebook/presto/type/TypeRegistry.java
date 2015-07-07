@@ -99,6 +99,7 @@ public final class TypeRegistry
         addType(COLOR);
         addType(JSON);
         addParametricType(VarcharParametricType.VARCHAR);
+        addParametricType(DecimalParametricType.DECIMAL);
         addParametricType(ROW);
         addParametricType(ARRAY);
         addParametricType(MAP);
