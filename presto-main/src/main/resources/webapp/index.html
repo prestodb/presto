@@ -140,6 +140,10 @@ var Query = React.createClass({
                 state += " (" + query.blockedReasons.join() + ")";
             }
         }
+        if (query.state == 'FINISHED' || query.state == 'FAILED') {
+            var fmtFunc = d3.time.format("%m-%d-%Y %H:%M:%S");
+            state += " (" + fmtFunc(new Date(query.endTime)) + ")";
+        }
         var splits;
         if (query.state == 'FINISHED' || query.state == 'FAILED') {
             splits = <div className="row">
