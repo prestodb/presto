@@ -56,7 +56,6 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slices;
@@ -255,10 +254,10 @@ public final class SqlToRowExpressionTranslator
                     .map(value -> process(value, context))
                     .collect(toImmutableList());
 
-            List<TypeSignature> argumentTypes = FluentIterable.from(arguments)
-                    .transform(RowExpression::getType)
-                    .transform(Type::getTypeSignature)
-                    .toList();
+            List<TypeSignature> argumentTypes = arguments.stream()
+                    .map(RowExpression::getType)
+                    .map(Type::getTypeSignature)
+                    .collect(toImmutableList());
             Signature signature = new Signature(node.getName().getSuffix(), types.get(node).getTypeSignature(), argumentTypes);
 
             return call(signature, types.get(node), arguments);
@@ -324,7 +323,7 @@ public final class SqlToRowExpressionTranslator
                             .map(value -> process(value, context))
                             .collect(toImmutableList());
 
-            List<Type> argumentTypes = FluentIterable.from(arguments).transform(RowExpression::getType).toList();
+            List<Type> argumentTypes = arguments.stream().map(RowExpression::getType).collect(toImmutableList());
             return call(coalesceSignature(types.get(node), argumentTypes), types.get(node), arguments);
         }
 
@@ -507,9 +506,9 @@ public final class SqlToRowExpressionTranslator
             List<RowExpression> arguments = node.getValues().stream()
                     .map(value -> process(value, context))
                     .collect(toImmutableList());
-            List<Type> argumentTypes = FluentIterable.from(arguments)
-                    .transform(RowExpression::getType)
-                    .toList();
+            List<Type> argumentTypes = arguments.stream()
+                    .map(RowExpression::getType)
+                    .collect(toImmutableList());
             return call(arrayConstructorSignature(types.get(node), argumentTypes), types.get(node), arguments);
         }
     }
