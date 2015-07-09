@@ -172,6 +172,7 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -1103,8 +1104,7 @@ public class LocalExecutionPlanner
                 Set<Integer> potentialProbeInputs = indexLookupToProbeInput.get(lookupSymbol);
                 checkState(!potentialProbeInputs.isEmpty(), "Must have at least one source from the probe input");
                 if (potentialProbeInputs.size() > 1) {
-                    overlappingFieldSetsBuilder.add(FluentIterable.from(potentialProbeInputs)
-                            .toSet());
+                    overlappingFieldSetsBuilder.add(potentialProbeInputs.stream().collect(toImmutableSet()));
                 }
                 remappedProbeKeyChannelsBuilder.add(Iterables.getFirst(potentialProbeInputs, null));
             }
@@ -1133,9 +1133,9 @@ public class LocalExecutionPlanner
          */
         private SetMultimap<Symbol, Integer> mapIndexSourceLookupSymbolToProbeKeyInput(IndexJoinNode node, Map<Symbol, Integer> probeKeyLayout)
         {
-            Set<Symbol> indexJoinSymbols = FluentIterable.from(node.getCriteria())
-                    .transform(IndexJoinNode.EquiJoinClause::getIndex)
-                    .toSet();
+            Set<Symbol> indexJoinSymbols = node.getCriteria().stream()
+                    .map(IndexJoinNode.EquiJoinClause::getIndex)
+                    .collect(toImmutableSet());
 
             // Trace the index join symbols to the index source lookup symbols
             // Map: Index join symbol => Index source lookup symbol
