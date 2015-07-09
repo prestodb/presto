@@ -26,6 +26,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.RowExpression;
+import com.facebook.presto.util.FastutilSetHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -41,6 +42,7 @@ import static com.facebook.presto.byteCode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.ifWasNullPopAndGoto;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.loadConstant;
+import static com.facebook.presto.util.FastutilSetHelper.toFastutilHashSet;
 
 public class InCodeGenerator
         implements ByteCodeGenerator
@@ -126,21 +128,20 @@ public class InCodeGenerator
                     .append(switchCaseBlocks);
         }
         else {
-            // TODO: replace Set with fastutils (or similar) primitive sets if types are primitive
-            // for huge IN lists, use a Set
-            Binding constant = generatorContext.getCallSiteBinder().bind(constantValues, Set.class);
+            // for huge IN lists, use a Fastutil primitive Set
+            Set<?> constantValuesSet = toFastutilHashSet(constantValues, javaType);
+            Binding constant = generatorContext.getCallSiteBinder().bind(constantValuesSet, constantValuesSet.getClass());
 
             switchBlock = new ByteCodeBlock()
                     .comment("inListSet.contains(<stackValue>)")
                     .append(new IfStatement()
                             .condition(new ByteCodeBlock()
-                                    .comment("value (+boxing if necessary)")
+                                    .comment("value")
                                     .dup(javaType)
-                                    .append(ByteCodeUtils.boxPrimitive(javaType))
                                     .comment("set")
                                     .append(loadConstant(constant))
                                     // TODO: use invokeVirtual on the set instead. This requires swapping the two elements in the stack
-                                    .invokeStatic(CompilerOperations.class, "in", boolean.class, Object.class, Set.class))
+                                    .invokeStatic(FastutilSetHelper.class, "in", boolean.class, javaType.isPrimitive() ? javaType : Object.class, constantValuesSet.getClass()))
                             .ifTrue(jump(match)));
         }
 
