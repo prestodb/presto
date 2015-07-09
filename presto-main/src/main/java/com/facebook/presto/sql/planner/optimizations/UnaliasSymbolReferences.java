@@ -47,7 +47,6 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -65,6 +64,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.stream.Collectors.toSet;
 
 /**
  * Re-maps symbol references that are just aliases of each other (e.g., due to projections like {@code $0 := $1})
@@ -405,9 +405,9 @@ public class UnaliasSymbolReferences
 
         private Set<Symbol> canonicalize(Set<Symbol> symbols)
         {
-            return FluentIterable.from(symbols)
-                    .transform(this::canonicalize)
-                    .toSet();
+            return symbols.stream()
+                    .map(this::canonicalize)
+                    .collect(toSet());
         }
 
         private List<JoinNode.EquiJoinClause> canonicalizeJoinCriteria(List<JoinNode.EquiJoinClause> criteria)

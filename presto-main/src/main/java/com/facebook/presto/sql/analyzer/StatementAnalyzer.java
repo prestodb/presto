@@ -56,7 +56,6 @@ import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
@@ -372,9 +371,10 @@ class StatementAnalyzer
         analysis.setInsertTarget(targetTableHandle.get());
 
         List<ColumnMetadata> columns = metadata.getTableMetadata(targetTableHandle.get()).getColumns();
-        Iterable<Type> tableTypes = FluentIterable.from(columns)
+        Iterable<Type> tableTypes = columns.stream()
                 .filter(column -> !column.isHidden())
-                .transform(ColumnMetadata::getType);
+                .map(ColumnMetadata::getType)
+                .collect(toList());
 
         Iterable<Type> queryTypes = transform(descriptor.getVisibleFields(), Field::getType);
 

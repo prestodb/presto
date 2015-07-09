@@ -180,6 +180,7 @@ import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.concat;
 import static java.util.Collections.singleton;
+import static java.util.stream.Collectors.toSet;
 
 public class LocalExecutionPlanner
 {
@@ -1103,8 +1104,7 @@ public class LocalExecutionPlanner
                 Set<Integer> potentialProbeInputs = indexLookupToProbeInput.get(lookupSymbol);
                 checkState(!potentialProbeInputs.isEmpty(), "Must have at least one source from the probe input");
                 if (potentialProbeInputs.size() > 1) {
-                    overlappingFieldSetsBuilder.add(FluentIterable.from(potentialProbeInputs)
-                            .toSet());
+                    overlappingFieldSetsBuilder.add(potentialProbeInputs.stream().collect(toSet()));
                 }
                 remappedProbeKeyChannelsBuilder.add(Iterables.getFirst(potentialProbeInputs, null));
             }
@@ -1133,9 +1133,9 @@ public class LocalExecutionPlanner
          */
         private SetMultimap<Symbol, Integer> mapIndexSourceLookupSymbolToProbeKeyInput(IndexJoinNode node, Map<Symbol, Integer> probeKeyLayout)
         {
-            Set<Symbol> indexJoinSymbols = FluentIterable.from(node.getCriteria())
-                    .transform(IndexJoinNode.EquiJoinClause::getIndex)
-                    .toSet();
+            Set<Symbol> indexJoinSymbols = node.getCriteria().stream()
+                    .map(IndexJoinNode.EquiJoinClause::getIndex)
+                    .collect(toSet());
 
             // Trace the index join symbols to the index source lookup symbols
             // Map: Index join symbol => Index source lookup symbol

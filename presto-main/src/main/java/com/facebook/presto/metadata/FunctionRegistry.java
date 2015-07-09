@@ -108,7 +108,6 @@ import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -207,8 +206,8 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.not;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.toList;
 
 @ThreadSafe
 public class FunctionRegistry
@@ -378,9 +377,9 @@ public class FunctionRegistry
 
     public List<ParametricFunction> list()
     {
-        return FluentIterable.from(functions.list())
-                .filter(not(ParametricFunction::isHidden))
-                .toList();
+        return functions.list().stream()
+                .filter(function -> !function.isHidden())
+                .collect(toList());
     }
 
     public boolean isAggregationFunction(QualifiedName name)
