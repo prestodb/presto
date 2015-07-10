@@ -30,7 +30,6 @@ public class TestHiveConnectorFactory
     public void testGetClient()
     {
         assertCreateConnector("thrift://localhost:1234");
-        assertCreateConnector("discovery::");
     }
 
     private static void assertCreateConnector(String metastoreUri)
