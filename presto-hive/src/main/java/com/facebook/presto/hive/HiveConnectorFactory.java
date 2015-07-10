@@ -35,7 +35,6 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.NodeModule;
 import org.weakref.jmx.guice.MBeanModule;
@@ -82,7 +81,6 @@ public class HiveConnectorFactory
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     new NodeModule(),
-                    new DiscoveryModule(),
                     new MBeanModule(),
                     new JsonModule(),
                     new HiveClientModule(connectorId, metastore, typeManager),
