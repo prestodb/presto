@@ -88,7 +88,6 @@ public class HiveClientModule
         binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NamenodeStats.class).as(generatedNameOf(NamenodeStats.class));
 
-        binder.bind(DiscoveryLocatedHiveCluster.class).in(Scopes.SINGLETON);
         binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
         discoveryBinder(binder).bindSelector("hive-metastore");
 
@@ -142,15 +141,10 @@ public class HiveClientModule
         URI uri = checkNotNull(config.getMetastoreUri(), "metastoreUri is null");
         String scheme = uri.getScheme();
         checkArgument(!isNullOrEmpty(scheme), "metastoreUri scheme is missing: %s", uri);
-        switch (scheme) {
-            case "discovery":
-                return injector.getInstance(DiscoveryLocatedHiveCluster.class);
-            case "thrift":
-                checkArgument(uri.getHost() != null, "metastoreUri host is missing: %s", uri);
-                checkArgument(uri.getPort() != -1, "metastoreUri port is missing: %s", uri);
-                HostAndPort address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
-                return new StaticHiveCluster(address, injector.getInstance(HiveMetastoreClientFactory.class));
-        }
-        throw new IllegalArgumentException("unsupported metastoreUri: " + uri);
+        checkArgument(scheme.equals("thrift"), "metastoreUri scheme must be thrift: %s", uri);
+        checkArgument(uri.getHost() != null, "metastoreUri host is missing: %s", uri);
+        checkArgument(uri.getPort() != -1, "metastoreUri port is missing: %s", uri);
+        HostAndPort address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
+        return new StaticHiveCluster(address, injector.getInstance(HiveMetastoreClientFactory.class));
     }
 }
