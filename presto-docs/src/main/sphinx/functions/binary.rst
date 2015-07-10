@@ -5,35 +5,35 @@ Binary Functions
 Binary Functions
 ----------------
 
-.. function:: length(binary) -> bigint
+.. function:: length(varbinary) -> bigint
     :noindex:
 
-    Returns the length of ``binary`` in bytes.
+    Returns the length of ``varbinary`` in bytes.
 
-.. function:: to_base64(binary) -> varchar
+.. function:: to_base64(varbinary) -> varchar
 
-    Encodes ``binary`` into a base64 string representation.
+    Encodes ``varbinary`` into a base64 string representation.
 
-.. function:: from_base64(string) -> varbinary
+.. function:: from_base64(varchar) -> varbinary
 
-    Decodes binary data from the base64 encoded ``string``.
+    Decodes binary data from the base64 encoded ``varchar``.
 
-.. function:: to_base64url(binary) -> varchar
+.. function:: to_base64url(varbinary) -> varchar
 
-    Encodes ``binary`` into a base64 string representation using the URL safe alphabet.
+    Encodes ``varbinary`` into a base64 string representation using the URL safe alphabet.
 
-.. function:: from_base64url(string) -> varbinary
+.. function:: from_base64url(varchar) -> varbinary
 
-    Decodes binary data from the base64 encoded ``string`` using the URL safe alphabet.
+    Decodes binary data from the base64 encoded ``varchar`` using the URL safe alphabet.
 
-.. function:: to_hex(binary) -> varchar
+.. function:: to_hex(varbinary) -> varchar
 
-    Encodes ``binary`` into a hex string representation.
+    Encodes ``varbinary`` into a hex string representation.
 
-.. function:: from_hex(string) -> varbinary
+.. function:: from_hex(varchar) -> varbinary
 
-    Decodes binary data from the hex encoded ``string``.
+    Decodes binary data from the hex encoded ``varchar``.
 
-.. function:: md5(binary) -> varbinary
+.. function:: md5(varbinary) -> varbinary
 
-    Computes the md5 hash of ``binary``.
+    Computes the md5 hash of ``varbinary``.
