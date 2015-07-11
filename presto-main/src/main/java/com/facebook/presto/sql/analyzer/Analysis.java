@@ -87,6 +87,9 @@ public class Analysis
     // for delete
     private Optional<Delete> delete = Optional.empty();
 
+    // for no-op queries (e.g. create table if not exists)
+    private Boolean skipExecution = false;
+
     public Query getQuery()
     {
         return query;
@@ -366,6 +369,16 @@ public class Analysis
     {
         Preconditions.checkState(sampleRatios.containsKey(relation), "Sample ratio missing for %s. Broken analysis?", relation);
         return sampleRatios.get(relation);
+    }
+
+    public void setSkipExecution(boolean skipExecution)
+    {
+        this.skipExecution = skipExecution;
+    }
+
+    public boolean isSkipExecution()
+    {
+        return skipExecution;
     }
 
     public static class JoinInPredicates

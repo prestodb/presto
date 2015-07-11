@@ -412,7 +412,10 @@ class StatementAnalyzer
 
         Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
         if (targetTableHandle.isPresent()) {
-            throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
+            if (!node.isNotExists()) {
+                throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
+            }
+            analysis.setSkipExecution(true);
         }
 
         // analyze the query that creates the table
