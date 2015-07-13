@@ -207,7 +207,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
-import static java.util.stream.Collectors.toList;
 
 @ThreadSafe
 public class FunctionRegistry
@@ -379,7 +378,7 @@ public class FunctionRegistry
     {
         return functions.list().stream()
                 .filter(function -> !function.isHidden())
-                .collect(toList());
+                .collect(toImmutableList());
     }
 
     public boolean isAggregationFunction(QualifiedName name)

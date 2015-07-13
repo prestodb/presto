@@ -105,6 +105,7 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.elementsEqual;
@@ -374,7 +375,7 @@ class StatementAnalyzer
         Iterable<Type> tableTypes = columns.stream()
                 .filter(column -> !column.isHidden())
                 .map(ColumnMetadata::getType)
-                .collect(toList());
+                .collect(toImmutableList());
 
         Iterable<Type> queryTypes = transform(descriptor.getVisibleFields(), Field::getType);
 

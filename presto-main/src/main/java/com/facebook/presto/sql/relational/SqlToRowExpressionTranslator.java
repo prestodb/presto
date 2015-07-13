@@ -98,7 +98,6 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static java.util.stream.Collectors.toList;
 
 public final class SqlToRowExpressionTranslator
 {
@@ -258,7 +257,7 @@ public final class SqlToRowExpressionTranslator
             List<TypeSignature> argumentTypes = arguments.stream()
                     .map(RowExpression::getType)
                     .map(Type::getTypeSignature)
-                    .collect(toList());
+                    .collect(toImmutableList());
             Signature signature = new Signature(node.getName().getSuffix(), types.get(node).getTypeSignature(), argumentTypes);
 
             return call(signature, types.get(node), arguments);
@@ -324,7 +323,7 @@ public final class SqlToRowExpressionTranslator
                             .map(value -> process(value, context))
                             .collect(toImmutableList());
 
-            List<Type> argumentTypes = arguments.stream().map(RowExpression::getType).collect(toList());
+            List<Type> argumentTypes = arguments.stream().map(RowExpression::getType).collect(toImmutableList());
             return call(coalesceSignature(types.get(node), argumentTypes), types.get(node), arguments);
         }
 
@@ -509,7 +508,7 @@ public final class SqlToRowExpressionTranslator
                     .collect(toImmutableList());
             List<Type> argumentTypes = arguments.stream()
                     .map(RowExpression::getType)
-                    .collect(toList());
+                    .collect(toImmutableList());
             return call(arrayConstructorSignature(types.get(node), argumentTypes), types.get(node), arguments);
         }
     }

@@ -63,8 +63,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.util.stream.Collectors.toSet;
 
 /**
  * Re-maps symbol references that are just aliases of each other (e.g., due to projections like {@code $0 := $1})
@@ -407,7 +407,7 @@ public class UnaliasSymbolReferences
         {
             return symbols.stream()
                     .map(this::canonicalize)
-                    .collect(toSet());
+                    .collect(toImmutableSet());
         }
 
         private List<JoinNode.EquiJoinClause> canonicalizeJoinCriteria(List<JoinNode.EquiJoinClause> criteria)

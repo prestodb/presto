@@ -53,8 +53,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.stream.Collectors.toSet;
 
 /**
  * Ensures that all dependencies (i.e., symbols in expressions) for a plan node are provided by its source nodes
@@ -342,7 +342,7 @@ public final class PlanSanityChecker
 
             Set<Symbol> lookupSymbols = node.getCriteria().stream()
                     .map(IndexJoinNode.EquiJoinClause::getIndex)
-                    .collect(toSet());
+                    .collect(toImmutableSet());
             Map<Symbol, Symbol> trace = IndexKeyTracer.trace(node.getIndexSource(), lookupSymbols);
             checkArgument(!trace.isEmpty() && lookupSymbols.containsAll(trace.keySet()),
                     "Index lookup symbols are not traceable to index source: %s",
