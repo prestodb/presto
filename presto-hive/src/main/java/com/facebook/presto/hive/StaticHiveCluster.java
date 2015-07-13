@@ -31,7 +31,7 @@ public class StaticHiveCluster
     private final HiveMetastoreClientFactory clientFactory;
 
     @Inject
-    public StaticHiveCluster(HiveClientConfig config, HiveMetastoreClientFactory clientFactory)
+    public StaticHiveCluster(StaticMetastoreConfig config, HiveMetastoreClientFactory clientFactory)
     {
         URI uri = checkMetastoreUri(config.getMetastoreUri());
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());

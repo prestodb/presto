@@ -24,7 +24,6 @@ import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.net.URI;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -44,7 +43,6 @@ public class TestHiveClientConfig
                 .setAllowDropTable(false)
                 .setAllowRenameTable(false)
                 .setAllowCorruptWritesForTesting(false)
-                .setMetastoreUri(null)
                 .setMetastoreCacheTtl(new Duration(1, TimeUnit.HOURS))
                 .setMetastoreRefreshInterval(new Duration(1, TimeUnit.SECONDS))
                 .setMaxMetastoreRefreshThreads(100)
@@ -96,7 +94,6 @@ public class TestHiveClientConfig
                 .put("hive.allow-drop-table", "true")
                 .put("hive.allow-rename-table", "true")
                 .put("hive.allow-corrupt-writes-for-testing", "true")
-                .put("hive.metastore.uri", "thrift://localhost:9083")
                 .put("hive.metastore-cache-ttl", "2h")
                 .put("hive.metastore-refresh-interval", "30m")
                 .put("hive.metastore-refresh-max-threads", "2500")
@@ -145,7 +142,6 @@ public class TestHiveClientConfig
                 .setAllowDropTable(true)
                 .setAllowRenameTable(true)
                 .setAllowCorruptWritesForTesting(true)
-                .setMetastoreUri(URI.create("thrift://localhost:9083"))
                 .setMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))
                 .setMetastoreRefreshInterval(new Duration(30, TimeUnit.MINUTES))
                 .setMaxMetastoreRefreshThreads(2500)
