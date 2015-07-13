@@ -340,11 +340,13 @@ public class TestArrayOperators
     public void testSubscript()
             throws Exception
     {
-        String outOfBounds = "Index out of bounds";
+        String outOfBounds = "Array subscript out of bounds";
+        String negativeIndex = "Array subscript is negative";
+        String indexIsZero = "SQL array indices start at 1";
         assertInvalidFunction("ARRAY [][1]", outOfBounds);
-        assertInvalidFunction("ARRAY [null][-1]", outOfBounds);
-        assertInvalidFunction("ARRAY [1, 2, 3][0]", outOfBounds);
-        assertInvalidFunction("ARRAY [1, 2, 3][-1]", outOfBounds);
+        assertInvalidFunction("ARRAY [null][-1]", negativeIndex);
+        assertInvalidFunction("ARRAY [1, 2, 3][0]", indexIsZero);
+        assertInvalidFunction("ARRAY [1, 2, 3][-1]", negativeIndex);
         assertInvalidFunction("ARRAY [1, 2, 3][4]", outOfBounds);
 
         try {
