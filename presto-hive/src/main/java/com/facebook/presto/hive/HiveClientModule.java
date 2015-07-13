@@ -26,9 +26,7 @@ import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.net.HostAndPort;
 import com.google.inject.Binder;
-import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -36,12 +34,8 @@ import com.google.inject.multibindings.Multibinder;
 
 import javax.inject.Singleton;
 
-import java.net.URI;
 import java.util.concurrent.ExecutorService;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -73,7 +67,6 @@ public class HiveClientModule
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
         binder.bind(DirectoryLister.class).to(HadoopDirectoryLister.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(HiveClientConfig.class);
-        configBinder(binder).bindConfig(HivePluginConfig.class);
 
         if (metastore != null) {
             binder.bind(HiveMetastore.class).toInstance(metastore);
@@ -88,6 +81,7 @@ public class HiveClientModule
         newExporter(binder).export(NamenodeStats.class).as(generatedNameOf(NamenodeStats.class));
 
         binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
+        binder.bind(HiveCluster.class).to(StaticHiveCluster.class).in(Scopes.SINGLETON);
 
         binder.bind(TypeManager.class).toInstance(typeManager);
 
@@ -130,19 +124,5 @@ public class HiveClientModule
         return newFixedThreadPool(
                 hiveClientConfig.getMaxMetastoreRefreshThreads(),
                 daemonThreadsNamed("hive-metastore-" + hiveClientId + "-%s"));
-    }
-
-    @Singleton
-    @Provides
-    public HiveCluster createHiveCluster(Injector injector, HivePluginConfig config)
-    {
-        URI uri = checkNotNull(config.getMetastoreUri(), "metastoreUri is null");
-        String scheme = uri.getScheme();
-        checkArgument(!isNullOrEmpty(scheme), "metastoreUri scheme is missing: %s", uri);
-        checkArgument(scheme.equals("thrift"), "metastoreUri scheme must be thrift: %s", uri);
-        checkArgument(uri.getHost() != null, "metastoreUri host is missing: %s", uri);
-        checkArgument(uri.getPort() != -1, "metastoreUri port is missing: %s", uri);
-        HostAndPort address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
-        return new StaticHiveCluster(address, injector.getInstance(HiveMetastoreClientFactory.class));
     }
 }
