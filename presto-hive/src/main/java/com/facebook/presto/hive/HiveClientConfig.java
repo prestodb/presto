@@ -30,7 +30,6 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.io.File;
-import java.net.URI;
 import java.util.List;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -61,7 +60,6 @@ public class HiveClientConfig
 
     private boolean allowCorruptWritesForTesting;
 
-    private URI metastoreUri;
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(1, TimeUnit.SECONDS);
     private int maxMetastoreRefreshThreads = 100;
@@ -249,19 +247,6 @@ public class HiveClientConfig
     public HiveClientConfig setAllowDropTable(boolean allowDropTable)
     {
         this.allowDropTable = allowDropTable;
-        return this;
-    }
-
-    @NotNull
-    public URI getMetastoreUri()
-    {
-        return metastoreUri;
-    }
-
-    @Config("hive.metastore.uri")
-    public HiveClientConfig setMetastoreUri(URI metastoreUri)
-    {
-        this.metastoreUri = metastoreUri;
         return this;
     }
 
