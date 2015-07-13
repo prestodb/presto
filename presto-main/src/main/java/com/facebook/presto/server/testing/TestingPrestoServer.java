@@ -109,6 +109,10 @@ public class TestingPrestoServer
                 .put("task.default-concurrency", "4")
                 .put("analyzer.experimental-syntax-enabled", "true");
 
+        if (!properties.containsKey("query.max-memory-per-node")) {
+            serverProperties.put("query.max-memory-per-node", "512MB");
+        }
+
         if (coordinator) {
             // TODO: enable failure detector
             serverProperties.put("failure-detector.enabled", "false");

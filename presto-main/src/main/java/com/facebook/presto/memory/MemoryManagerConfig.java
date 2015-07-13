@@ -22,9 +22,11 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 
 public class MemoryManagerConfig
 {
+    public static final String QUERY_MAX_MEMORY_PER_NODE_CONFIG = "query.max-memory-per-node";
+
     private DataSize maxQueryMemory = new DataSize(20, GIGABYTE);
     private DataSize maxQueryMemoryPerNode = new DataSize(1, GIGABYTE);
-    private boolean clusterMemoryManagerEnabled;
+    private boolean clusterMemoryManagerEnabled = true;
 
     @NotNull
     public DataSize getMaxQueryMemory()
@@ -45,7 +47,7 @@ public class MemoryManagerConfig
         return maxQueryMemoryPerNode;
     }
 
-    @Config("query.max-memory-per-node")
+    @Config(QUERY_MAX_MEMORY_PER_NODE_CONFIG)
     public MemoryManagerConfig setMaxQueryMemoryPerNode(DataSize maxQueryMemoryPerNode)
     {
         this.maxQueryMemoryPerNode = maxQueryMemoryPerNode;

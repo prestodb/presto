@@ -77,7 +77,6 @@ public class TestMemoryManager
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("experimental.cluster-memory-manager-enabled", "true")
                 .put("task.verbose-stats", "true")
                 .put("task.operator-pre-allocated-memory", "0B")
                 .build();
@@ -183,7 +182,6 @@ public class TestMemoryManager
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("experimental.cluster-memory-manager-enabled", "true")
                 .put("query.max-memory", "1kB")
                 .put("task.operator-pre-allocated-memory", "0B")
                 .build();
@@ -197,7 +195,6 @@ public class TestMemoryManager
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("experimental.cluster-memory-manager-enabled", "true")
                 .put("query.max-memory-per-node", "1kB")
                 .put("task.operator-pre-allocated-memory", "0B")
                 .build();
