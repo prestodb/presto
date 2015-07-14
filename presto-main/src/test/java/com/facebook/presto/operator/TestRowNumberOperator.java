@@ -80,7 +80,7 @@ public class TestRowNumberOperator
     }
 
     @Test
-    public void testRowNumberUnPartitioned()
+    public void testRowNumberUnpartitioned()
             throws Exception
     {
         DriverContext driverContext = getDriverContext();
@@ -272,7 +272,7 @@ public class TestRowNumberOperator
     }
 
     @Test
-    public void testRowNumberUnPartitionedLimit()
+    public void testRowNumberUnpartitionedLimit()
             throws Exception
     {
         DriverContext driverContext = getDriverContext();
