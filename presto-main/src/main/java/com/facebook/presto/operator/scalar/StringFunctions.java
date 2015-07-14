@@ -68,17 +68,6 @@ public final class StringFunctions
         }
     }
 
-    @Description("concatenates given strings")
-    @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice concat(@SqlType(StandardTypes.VARCHAR) Slice str1, @SqlType(StandardTypes.VARCHAR) Slice str2)
-    {
-        Slice concat = Slices.allocate(str1.length() + str2.length());
-        concat.setBytes(0, str1);
-        concat.setBytes(str1.length(), str2);
-        return concat;
-    }
-
     @Description("count of code points of the given string")
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
