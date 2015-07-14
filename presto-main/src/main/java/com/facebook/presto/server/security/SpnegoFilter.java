@@ -67,6 +67,7 @@ public class SpnegoFilter
     private static final String INCLUDE_REALM_HEADER = "X-Airlift-Realm-In-Challenge";
 
     private final GSSManager gssManager = GSSManager.getInstance();
+    private final String gssServiceName;
     private final String servicePrincipal;
     private final LoginContext loginContext;
     private final GSSCredential serverCredential;
@@ -77,7 +78,7 @@ public class SpnegoFilter
         System.setProperty("java.security.krb5.conf", config.getKerberosConfig().getAbsolutePath());
 
         try {
-            servicePrincipal = config.getServiceName() + "@" + InetAddress.getLocalHost().getCanonicalHostName().toLowerCase(Locale.US);
+            servicePrincipal = config.getServiceName() + "/" + InetAddress.getLocalHost().getCanonicalHostName().toLowerCase(Locale.US);
             loginContext = new LoginContext("", null, null, new Configuration()
             {
                 @Override
@@ -100,8 +101,10 @@ public class SpnegoFilter
             });
             loginContext.login();
 
+            // https://docs.oracle.com/javase/8/docs/api/org/ietf/jgss/GSSName.html#NT_HOSTBASED_SERVICE
+            gssServiceName = config.getServiceName() + "@" + InetAddress.getLocalHost().getCanonicalHostName().toLowerCase(Locale.US);
             serverCredential = doAs(loginContext.getSubject(), () -> gssManager.createCredential(
-                    gssManager.createName(servicePrincipal, GSSName.NT_HOSTBASED_SERVICE),
+                    gssManager.createName(gssServiceName, GSSName.NT_HOSTBASED_SERVICE),
                     INDEFINITE_LIFETIME,
                     new Oid[] {
                             new Oid("1.2.840.113554.1.2.2"), // kerberos 5
