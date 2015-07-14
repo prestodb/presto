@@ -149,6 +149,7 @@ import static com.facebook.presto.operator.scalar.ArraySubscriptOperator.ARRAY_S
 import static com.facebook.presto.operator.scalar.ArrayToArrayCast.ARRAY_TO_ARRAY_CAST;
 import static com.facebook.presto.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
+import static com.facebook.presto.operator.scalar.ConcatFunction.CONCAT;
 import static com.facebook.presto.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.Greatest.GREATEST;
 import static com.facebook.presto.operator.scalar.IdentityCast.IDENTITY_CAST;
@@ -339,6 +340,7 @@ public class FunctionRegistry
                 .functions(MAX_AGGREGATION, MIN_AGGREGATION)
                 .function(COUNT_COLUMN)
                 .functions(ROW_HASH_CODE, ROW_TO_JSON, ROW_EQUAL, ROW_NOT_EQUAL)
+                .function(CONCAT)
                 .function(TRY_CAST);
 
         if (experimentalSyntaxEnabled) {
