@@ -32,6 +32,8 @@ import java.sql.Types;
 import static com.facebook.presto.jdbc.TestDriver.closeQuietly;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -114,6 +116,19 @@ public class TestJdbcResultSet
             assertEquals(rs.getObject(5), Double.POSITIVE_INFINITY);
             assertEquals(rs.getObject(6), Double.NaN);
             assertEquals(rs.getArray(7).getArray(), new long[] {1L, 2L});
+        }
+    }
+
+    @Test
+    public void testStatsExtraction()
+            throws Exception
+    {
+        try (PrestoResultSet rs = (PrestoResultSet) statement.executeQuery("SELECT 123 x, 456 x")) {
+            assertNotNull(rs.getStats());
+            assertTrue(rs.next());
+            assertNotNull(rs.getStats());
+            assertFalse(rs.next());
+            assertNotNull(rs.getStats());
         }
     }
 
