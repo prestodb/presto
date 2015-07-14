@@ -32,9 +32,9 @@ String Functions
 
     Returns the Unicode code point ``n`` as a single character string.
 
-.. function:: concat(string1, string2) -> varchar
+.. function:: concat(string1, ..., stringN) -> varchar
 
-    Returns the concatenation of ``string1`` and ``string2``.
+    Returns the concatenation of ``string1``, ``string2``, ``...``, ``stringN``.
     This function provides the same functionality as the
     SQL-standard concatenation operator (``||``).
 
