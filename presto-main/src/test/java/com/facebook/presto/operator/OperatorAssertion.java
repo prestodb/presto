@@ -63,6 +63,10 @@ public final class OperatorAssertion
 
         boolean finishing = false;
 
+        while (operator.needsInput() && input.hasNext()) {
+            operator.addInput(input.next());
+        }
+
         for (int loops = 0; !operator.isFinished() && loops < 10_000; loops++) {
             if (operator.needsInput()) {
                 if (input.hasNext()) {
