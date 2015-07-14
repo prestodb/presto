@@ -68,6 +68,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -279,38 +280,34 @@ public class ExpressionInterpreter
         protected Object visitSimpleCaseExpression(SimpleCaseExpression node, Object context)
         {
             Object operand = process(node.getOperand(), context);
-            if (operand instanceof Expression) {
-                // TODO: optimize this case
+            if (operand == null) {
+                return node.getDefaultValue().map(defaultValue -> process(defaultValue, context)).orElse(null);
+            }
+            else if (operand instanceof Expression) {
                 return node;
             }
 
-            Expression resultClause = node.getDefaultValue().orElse(null);
-            if (operand != null) {
-                for (WhenClause whenClause : node.getWhenClauses()) {
-                    Object value = process(whenClause.getOperand(), context);
-                    if (value == null) {
-                        continue;
-                    }
+            List<WhenClause> whenClauses = new ArrayList<>();
+            Expression defaultClause = node.getDefaultValue().orElse(null);
+            for (WhenClause whenClause : node.getWhenClauses()) {
+                Object value = process(whenClause.getOperand(), context);
+                if (value != null) {
                     if (value instanceof Expression) {
-                        // TODO: optimize this case
-                        return node;
+                        whenClauses.add(whenClause);
                     }
-
-                    if ((Boolean) invokeOperator(OperatorType.EQUAL, types(node.getOperand(), whenClause.getOperand()), ImmutableList.of(operand, value))) {
-                        resultClause = whenClause.getResult();
+                    else if ((Boolean) invokeOperator(OperatorType.EQUAL, types(node.getOperand(), whenClause.getOperand()), ImmutableList.of(operand, value))) {
+                        defaultClause = whenClause.getResult();
                         break;
                     }
                 }
             }
-            if (resultClause == null) {
-                return null;
-            }
 
-            Object result = process(resultClause, context);
-            if (result instanceof Expression) {
-                return node;
+            if (whenClauses.isEmpty()) {
+                return defaultClause == null ? null : process(defaultClause, context);
             }
-            return result;
+            else {
+                return new SimpleCaseExpression(node.getOperand(), whenClauses, Optional.ofNullable(defaultClause));
+            }
         }
 
         @Override
