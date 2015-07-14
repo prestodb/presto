@@ -149,6 +149,11 @@ public class PrestoResultSet
         return queryId;
     }
 
+    public QueryStats getStats()
+    {
+        return QueryStats.create(client.getStats());
+    }
+
     @Override
     public boolean next()
             throws SQLException
