@@ -124,8 +124,8 @@ public class ArraySubscriptOperator
         if (index == 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
         }
-        if (index <= 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript out of bounds");
+        if (index < 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript is negative");
         }
         Block block = readStructuralBlock(array);
         if (index > block.getPositionCount()) {
