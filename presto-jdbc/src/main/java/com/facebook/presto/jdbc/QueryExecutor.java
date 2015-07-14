@@ -15,11 +15,16 @@ package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
+import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.Response;
+import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.http.client.jetty.JettyIoPool;
 import io.airlift.http.client.jetty.JettyIoPoolConfig;
@@ -36,20 +41,27 @@ import java.net.URI;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.json.JsonCodec.jsonCodec;
 
 class QueryExecutor
         implements Closeable
 {
     private final JsonCodec<QueryResults> queryInfoCodec;
+    private final JsonCodec<ServerInfo> serverInfoCodec;
     private final HttpClient httpClient;
+    private final FullJsonResponseHandler<ServerInfo> responseHandler;
 
-    private QueryExecutor(String userAgent, JsonCodec<QueryResults> queryResultsCodec, HostAndPort socksProxy)
+    private QueryExecutor(String userAgent, JsonCodec<QueryResults> queryResultsCodec, JsonCodec<ServerInfo> serverInfoCodec, HostAndPort socksProxy)
     {
         checkNotNull(userAgent, "userAgent is null");
         checkNotNull(queryResultsCodec, "queryResultsCodec is null");
 
+        this.serverInfoCodec = serverInfoCodec;
         this.queryInfoCodec = queryResultsCodec;
+        this.responseHandler = createFullJsonResponseHandler(serverInfoCodec);
         this.httpClient = new JettyHttpClient(
                 new HttpClientConfig()
                         .setConnectTimeout(new Duration(10, TimeUnit.SECONDS))
@@ -79,7 +91,7 @@ class QueryExecutor
 
     static QueryExecutor create(String userAgent)
     {
-        return new QueryExecutor(userAgent, jsonCodec(QueryResults.class), getSystemSocksProxy());
+        return new QueryExecutor(userAgent, jsonCodec(QueryResults.class), jsonCodec(ServerInfo.class), getSystemSocksProxy());
     }
 
     @Nullable
@@ -95,5 +107,26 @@ class QueryExecutor
             }
         }
         return null;
+    }
+
+    public ServerInfo getServerInfo(ClientSession session)
+    {
+        URI uri = uriBuilderFrom(session.getServer()).replacePath("/v1/info").build();
+        Request getServerInfo = prepareGet().setUri(uri).build();
+        return httpClient.execute(getServerInfo, new ResponseHandler<ServerInfo, RuntimeException>() {
+            @Override
+            public ServerInfo handleException(Request request, Exception exception)
+                    throws RuntimeException
+            {
+                return null;
+            }
+
+            @Override
+            public ServerInfo handle(Request request, Response response)
+                    throws RuntimeException
+            {
+                return responseHandler.handle(request, response).getValue();
+            }
+        });
     }
 }

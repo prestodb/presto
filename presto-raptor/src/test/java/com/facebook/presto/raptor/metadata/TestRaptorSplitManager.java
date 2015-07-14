@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder;
-import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorConnectorId;

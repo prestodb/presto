@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.client.ServerInfo;
 import com.google.common.base.Joiner;
 
 import java.sql.Connection;
@@ -25,12 +26,14 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class PrestoDatabaseMetaData
         implements DatabaseMetaData
 {
+    private static final String UNKNOWN_PRODUCT_VERSION = "UNKNOWN";
     private final PrestoConnection connection;
 
     PrestoDatabaseMetaData(PrestoConnection connection)
@@ -116,8 +119,13 @@ public class PrestoDatabaseMetaData
     public String getDatabaseProductVersion()
             throws SQLException
     {
-        // TODO: get version from server
-        return "UNKNOWN";
+        Optional<ServerInfo> serverInfo = connection.getServerInfo();
+        if (serverInfo.isPresent() && serverInfo.get().getNodeVersion() != null) {
+            return serverInfo.get().getNodeVersion().getVersion();
+        }
+        else {
+            return UNKNOWN_PRODUCT_VERSION;
+        }
     }
 
     @Override

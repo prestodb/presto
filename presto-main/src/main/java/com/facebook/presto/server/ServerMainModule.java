@@ -15,7 +15,9 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.informationSchema.InformationSchemaModule;
 import com.facebook.presto.connector.jmx.JmxConnectorFactory;
@@ -49,7 +51,6 @@ import com.facebook.presto.metadata.CatalogManagerConfig;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientConfig;
 import com.facebook.presto.operator.ExchangeClientFactory;
@@ -296,6 +297,11 @@ public class ServerMainModule
                     config.setIdleTimeout(new Duration(2, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
                 });
+
+        //server info resource
+        ServerInfo serverInfo = new ServerInfo(nodeVersion);
+        binder.bind(ServerInfo.class).toInstance(serverInfo);
+        jaxrsBinder(binder).bind(ServerInfoResource.class);
 
         // plugin manager
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);

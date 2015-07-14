@@ -23,7 +23,7 @@ import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.MemoryPoolId;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.metadata.NodeVersion;
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
