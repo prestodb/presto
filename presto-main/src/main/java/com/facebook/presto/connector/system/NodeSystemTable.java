@@ -53,9 +53,9 @@ public class NodeSystemTable
     }
 
     @Override
-    public boolean isDistributed()
+    public TableDistributionEnum getDistributionMode()
     {
-        return false;
+        return TableDistributionEnum.SINGLE_COORDINATOR;
     }
 
     @Override

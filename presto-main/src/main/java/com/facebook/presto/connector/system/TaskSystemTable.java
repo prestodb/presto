@@ -83,9 +83,9 @@ public class TaskSystemTable
     }
 
     @Override
-    public boolean isDistributed()
+    public TableDistributionEnum getDistributionMode()
     {
-        return true;
+        return TableDistributionEnum.ALL_NODES;
     }
 
     @Override
