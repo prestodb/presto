@@ -176,7 +176,7 @@ public class RowNumberOperator
     {
         if (isSinglePartition() && maxRowsPerPartition.isPresent()) {
             // Check if single partition is done
-            return partitionRowCount.get(0) < maxRowsPerPartition.get();
+            return partitionRowCount.get(0) < maxRowsPerPartition.get() && !finishing && inputPage == null;
         }
         return !finishing && inputPage == null;
     }
