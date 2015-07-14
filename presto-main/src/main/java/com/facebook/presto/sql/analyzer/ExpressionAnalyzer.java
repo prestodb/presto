@@ -222,7 +222,7 @@ public class ExpressionAnalyzer
         @Override
         public Type process(Node node, @Nullable AnalysisContext context)
         {
-            // don't double processs a node
+            // don't double process a node
             Type type = expressionTypes.get(node);
             if (type != null) {
                 return type;
