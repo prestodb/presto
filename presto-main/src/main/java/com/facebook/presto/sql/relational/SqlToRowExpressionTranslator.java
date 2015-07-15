@@ -16,6 +16,7 @@ package com.facebook.presto.sql.relational;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -30,6 +31,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -66,6 +68,7 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.ShortDecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -171,6 +174,15 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitDoubleLiteral(DoubleLiteral node, Void context)
         {
             return constant(node.getValue(), DOUBLE);
+        }
+
+        @Override
+        protected RowExpression visitDecimalLiteral(DecimalLiteral node, Void context)
+        {
+            Object value;
+            value = DecimalType.unscaledValueToObject(node.getUnscaledValue(), node.getPrecision());
+
+            return constant(value, createDecimalType(node.getPrecision(), node.getScale()));
         }
 
         @Override
@@ -320,8 +332,8 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitCoalesceExpression(CoalesceExpression node, Void context)
         {
             List<RowExpression> arguments = node.getOperands().stream()
-                            .map(value -> process(value, context))
-                            .collect(toImmutableList());
+                    .map(value -> process(value, context))
+                    .collect(toImmutableList());
 
             List<Type> argumentTypes = arguments.stream().map(RowExpression::getType).collect(toImmutableList());
             return call(coalesceSignature(types.get(node), argumentTypes), types.get(node), arguments);

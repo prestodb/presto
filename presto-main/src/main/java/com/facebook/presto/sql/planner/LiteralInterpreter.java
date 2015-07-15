@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -26,6 +27,7 @@ import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -186,6 +188,12 @@ public final class LiteralInterpreter
         }
 
         @Override
+        protected Object visitDecimalLiteral(DecimalLiteral node, ConnectorSession context)
+        {
+            return DecimalType.unscaledValueToObject(node.getUnscaledValue(), node.getPrecision());
+        }
+
+        @Override
         protected Slice visitStringLiteral(StringLiteral node, ConnectorSession session)
         {
             return node.getSlice();
@@ -240,7 +248,6 @@ public final class LiteralInterpreter
             else {
                 return node.getSign().multiplier() * parseDayTimeInterval(node.getValue(), node.getStartField(), node.getEndField());
             }
-
         }
 
         @Override
