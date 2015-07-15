@@ -56,14 +56,14 @@ public abstract class DecimalType
 
     protected DecimalType(int precision, int scale, Class<?> javaType, int fixedSize)
     {
-        super(new TypeSignature(StandardTypes.DECIMAL, emptyList(), buildPrecisionScaleList(precision, scale)), javaType, fixedSize);
+        super(new TypeSignature(StandardTypes.DECIMAL, buildPrecisionScaleList(precision, scale)), javaType, fixedSize);
         this.precision = precision;
         this.scale = scale;
     }
 
     protected DecimalType()
     {
-        super(new TypeSignature(StandardTypes.DECIMAL, emptyList(), emptyList()), long.class, 0);
+        super(new TypeSignature(StandardTypes.DECIMAL, emptyList()), long.class, 0);
         this.precision = UNSET;
         this.scale = UNSET;
     }
@@ -118,12 +118,12 @@ public abstract class DecimalType
         return precision <= MAX_SHORT_PRECISION;
     }
 
-    private static List<Object> buildPrecisionScaleList(int precision, int scale)
+    private static List<TypeSignatureParameter> buildPrecisionScaleList(int precision, int scale)
     {
-        List<Object> literalArguments = new ArrayList<>();
-        literalArguments.add((long) precision);
-        literalArguments.add((long) scale);
-        return unmodifiableList(literalArguments);
+        List<TypeSignatureParameter> typeParameters = new ArrayList<>();
+        typeParameters.add(TypeSignatureParameter.of(precision));
+        typeParameters.add(TypeSignatureParameter.of(scale));
+        return unmodifiableList(typeParameters);
     }
 
     public static String toString(String unscaledValueString, int precision, int scale)
