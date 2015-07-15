@@ -42,6 +42,11 @@ public class TestTypeCalculation
         assertEquals(calculateLiteralValue("42 + 55 * 6", ImmutableMap.of()), OptionalLong.of(42 + 55 * 6));
         assertEquals(calculateLiteralValue("(42 + 55) * 6", ImmutableMap.of()), OptionalLong.of((42 + 55) * 6));
 
+        assertEquals(calculateLiteralValue("min(10,2)", ImmutableMap.of()), OptionalLong.of(2));
+        assertEquals(calculateLiteralValue("min(10,2*10)", ImmutableMap.of()), OptionalLong.of(10));
+        assertEquals(calculateLiteralValue("max(10,2*10)", ImmutableMap.of()), OptionalLong.of(20));
+        assertEquals(calculateLiteralValue("max(10,2)", ImmutableMap.of()), OptionalLong.of(10));
+
         assertEquals(calculateLiteralValue("x + y", ImmutableMap.of("X", OptionalLong.of(42), "Y", OptionalLong.of(55))), OptionalLong.of(42 + 55));
         assertEquals(calculateLiteralValue("x + y", ImmutableMap.of("X", OptionalLong.of(42), "Y", OptionalLong.empty())), OptionalLong.empty());
     }
