@@ -62,7 +62,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.TimeZone;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -283,7 +282,7 @@ public class TestHiveFileFormats
         }
     }
 
-    private List<TestColumn> getTestColumnsSupportedByParquet()
+    private static List<TestColumn> getTestColumnsSupportedByParquet()
     {
         // Write of complex hive data to Parquet is broken
         // TODO: empty arrays or maps with null keys don't seem to work
@@ -293,10 +292,9 @@ public class TestHiveFileFormats
                         .contains(column.getName()))
                 .filter(column -> !hasType(
                         column.getObjectInspector(),
-                        PrimitiveCategory.BINARY,
                         PrimitiveCategory.DATE,
                         PrimitiveCategory.TIMESTAMP))
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 
     @Test
