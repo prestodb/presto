@@ -14,6 +14,8 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.TriStateBooleanState;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 
@@ -40,5 +42,11 @@ public final class BooleanAndAggregation
                 state.setByte(TRUE_VALUE);
             }
         }
+    }
+
+    @OutputFunction(StandardTypes.BOOLEAN)
+    public static void output(TriStateBooleanState state, BlockBuilder out)
+    {
+        TriStateBooleanState.write(BooleanType.BOOLEAN, state, out);
     }
 }

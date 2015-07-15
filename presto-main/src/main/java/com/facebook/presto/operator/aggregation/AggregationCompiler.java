@@ -32,7 +32,6 @@ import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -210,11 +209,7 @@ public class AggregationCompiler
                 .filter(method -> method.getParameterTypes()[0] == stateClass)
                 .collect(toImmutableList());
 
-        if (methods.isEmpty()) {
-            List<Method> noOutputFunction = new ArrayList<>();
-            noOutputFunction.add(null);
-            return noOutputFunction;
-        }
+        checkArgument(!methods.isEmpty(), "Aggregation has no output functions");
         return methods;
     }
 

@@ -23,6 +23,7 @@ import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer
 import com.facebook.presto.operator.aggregation.state.LongState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -50,6 +51,7 @@ public class CountColumn
     private static final Signature SIGNATURE = new Signature(NAME, ImmutableList.of(typeParameter("T")), StandardTypes.BIGINT, ImmutableList.of("T"), false, false);
     private static final MethodHandle INPUT_FUNCTION = methodHandle(CountColumn.class, "input", LongState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(CountColumn.class, "combine", LongState.class, LongState.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(CountColumn.class, "output", LongState.class, BlockBuilder.class);
 
     @Override
     public Signature getSignature()
@@ -89,7 +91,7 @@ public class CountColumn
                 null,
                 null,
                 COMBINE_FUNCTION,
-                null,
+                OUTPUT_FUNCTION,
                 LongState.class,
                 stateSerializer,
                 stateFactory,
@@ -113,5 +115,10 @@ public class CountColumn
     public static void combine(LongState state, LongState otherState)
     {
         state.setLong(state.getLong() + otherState.getLong());
+    }
+
+    public static void output(LongState state, BlockBuilder out)
+    {
+        BIGINT.writeLong(out, state.getLong());
     }
 }

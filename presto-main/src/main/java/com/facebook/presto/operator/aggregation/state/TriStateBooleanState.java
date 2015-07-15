@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
+
 @AccumulatorStateMetadata(stateSerializerClass = TriStateBooleanStateSerializer.class)
 public interface TriStateBooleanState
         extends AccumulatorState
@@ -24,4 +27,14 @@ public interface TriStateBooleanState
     byte getByte();
 
     void setByte(byte value);
+
+    static void write(Type type, TriStateBooleanState state, BlockBuilder out)
+    {
+        if (state.getByte() == NULL_VALUE) {
+            out.appendNull();
+        }
+        else {
+            type.writeBoolean(out, state.getByte() == TRUE_VALUE);
+        }
+    }
 }
