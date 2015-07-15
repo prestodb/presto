@@ -71,6 +71,7 @@ public class PlanOptimizersFactory
                 new SimplifyExpressions(metadata, sqlParser), // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 new ProjectionPushDown(),
                 new UnaliasSymbolReferences(), // Run again because predicate pushdown and projection pushdown might add more projections
+                new PruneUnreferencedOutputs(), // Make sure to run this before index join. Filtered projections may not have all the columns.
                 new IndexJoinOptimizer(metadata, indexManager), // Run this after projections and filters have been fully simplified and pushed down
                 new CountConstantOptimizer(),
                 new WindowFilterPushDown(), // This must run after PredicatePushDown so that it squashes any successive filter nodes

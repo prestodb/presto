@@ -21,5 +21,11 @@ public interface ConnectorIndexResolver
     // TODO: should we allow partial index resolutions? (e.g. only index on colA when asking for an index on colA and colB)
     ConnectorResolvedIndex resolveIndex(ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain);
 
+    // Filtered projection can be used if it can provide all the columns needed (outputColumns).
+    default ConnectorResolvedIndex resolveIndex(ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        return resolveIndex(tableHandle, indexableColumns, tupleDomain);
+    }
+
     ConnectorIndex getIndex(ConnectorIndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema);
 }

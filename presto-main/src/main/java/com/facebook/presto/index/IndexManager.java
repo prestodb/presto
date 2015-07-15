@@ -40,14 +40,14 @@ public class IndexManager
         checkState(resolvers.putIfAbsent(connectorId, resolver) == null, "IndexResolver for connector '%s' is already registered", connectorId);
     }
 
-    public Optional<ResolvedIndex> resolveIndex(TableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain)
+    public Optional<ResolvedIndex> resolveIndex(TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         ConnectorIndexResolver resolver = resolvers.get(tableHandle.getConnectorId());
         if (resolver == null) {
             return Optional.empty();
         }
 
-        ConnectorResolvedIndex resolved = resolver.resolveIndex(tableHandle.getConnectorHandle(), indexableColumns, tupleDomain);
+        ConnectorResolvedIndex resolved = resolver.resolveIndex(tableHandle.getConnectorHandle(), indexableColumns, outputColumns, tupleDomain);
 
         if (resolved == null) {
             return Optional.empty();
