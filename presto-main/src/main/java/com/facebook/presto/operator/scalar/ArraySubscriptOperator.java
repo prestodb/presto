@@ -119,7 +119,7 @@ public class ArraySubscriptOperator
         return elementType.getSlice(block, position);
     }
 
-    public static Block readBlockAndCheckIndex(Slice array, long index)
+    public static void checkArrayIndex(long index)
     {
         if (index == 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
@@ -127,6 +127,11 @@ public class ArraySubscriptOperator
         if (index < 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript is negative");
         }
+    }
+
+    public static Block readBlockAndCheckIndex(Slice array, long index)
+    {
+        checkArrayIndex(index);
         Block block = readStructuralBlock(array);
         if (index > block.getPositionCount()) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript out of bounds");

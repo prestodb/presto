@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorType;
+import com.facebook.presto.operator.scalar.ArraySubscriptOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
@@ -799,6 +800,9 @@ public class ExpressionInterpreter
             Object index = process(node.getIndex(), context);
             if (index == null) {
                 return null;
+            }
+            if (index instanceof Long) {
+                ArraySubscriptOperator.checkArrayIndex((Long) index);
             }
 
             if (hasUnresolvedValue(base, index)) {
