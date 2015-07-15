@@ -72,6 +72,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
@@ -799,6 +800,12 @@ public class ExpressionInterpreter
             Object index = process(node.getIndex(), context);
             if (index == null) {
                 return null;
+            }
+            else if (index instanceof Long) {
+                Long longIndex = (Long) index;
+                if (longIndex <= 0) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1, got index: " + longIndex);
+                }
             }
 
             if (hasUnresolvedValue(base, index)) {
