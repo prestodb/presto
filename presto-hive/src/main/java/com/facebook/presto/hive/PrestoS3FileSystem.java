@@ -121,7 +121,6 @@ public class PrestoS3FileSystem
     public static final String S3_MULTIPART_MIN_FILE_SIZE = "presto.s3.multipart.min-file-size";
     public static final String S3_MULTIPART_MIN_PART_SIZE = "presto.s3.multipart.min-part-size";
     public static final String S3_USE_INSTANCE_CREDENTIALS = "presto.s3.use-instance-credentials";
-    public static final String S3_REGION = "presto.s3.region";
 
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
@@ -566,15 +565,11 @@ public class PrestoS3FileSystem
         if (client == null) {
             throw new RuntimeException("S3 credentials not configured");
         }
-        final String regionName = hadoopConfig.get(S3_REGION);
-        if (regionName != null) {
-            Region region = Region.getRegion(Regions.fromName(regionName));
-            if (region != null) {
-                client.setRegion(region);
-                client.setEndpoint(region.getServiceEndpoint(ServiceAbbreviations.S3));
-                LOG.info("setting s3 region to: " + region);
-            }
-        }
+        // only for AWS cn-north-1. if not set in cn-north-1, s3 will fail
+        // in other regions, it also works
+        Region region = Regions.getCurrentRegion();
+        client.setRegion(region);
+        client.setEndpoint(region.getServiceEndpoint(ServiceAbbreviations.S3));
         return client;
     }
 
