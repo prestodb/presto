@@ -26,6 +26,7 @@ import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -183,6 +184,12 @@ public final class LiteralInterpreter
         protected Double visitDoubleLiteral(DoubleLiteral node, ConnectorSession session)
         {
             return node.getValue();
+        }
+
+        @Override
+        protected Long visitDecimalLiteral(DecimalLiteral node, ConnectorSession context)
+        {
+            return Long.parseLong(node.getIntegralPart() + node.getFractionalPart());
         }
 
         @Override
