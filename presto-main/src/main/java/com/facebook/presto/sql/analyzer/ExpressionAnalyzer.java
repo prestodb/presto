@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.DenyAllAccessControl;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -38,6 +39,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -99,6 +101,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static com.facebook.presto.spi.type.ShortDecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -568,6 +571,14 @@ public class ExpressionAnalyzer
         {
             expressionTypes.put(node, DOUBLE);
             return DOUBLE;
+        }
+
+        @Override
+        protected Type visitDecimalLiteral(DecimalLiteral node, AnalysisContext context)
+        {
+            DecimalType type = createDecimalType(node.getPrecision(), node.getScale());
+            expressionTypes.put(node, type);
+            return type;
         }
 
         @Override

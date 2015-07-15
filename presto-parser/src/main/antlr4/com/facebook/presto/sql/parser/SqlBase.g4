@@ -333,15 +333,16 @@ quotedIdentifier
     ;
 
 number
-    : DECIMAL_VALUE  #decimalLiteral
-    | INTEGER_VALUE  #integerLiteral
+    : (DECIMAL_VALUE | DOUBLE_VALUE)                                      #doubleLiteral
+    | DECIMAL sign=(PLUS | MINUS)? value=(INTEGER_VALUE | DECIMAL_VALUE)  #decimalLiteral
+    | INTEGER_VALUE                                                       #integerLiteral
     ;
 
 nonReserved
     : SHOW | TABLES | COLUMNS | COLUMN | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS | SESSION
     | ADD
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW | MAP
-    | DATE | TIME | TIMESTAMP | INTERVAL | ZONE
+    | DATE | TIME | TIMESTAMP | INTERVAL | ZONE | DECIMAL
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
     | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | TO
@@ -488,6 +489,7 @@ SET: 'SET';
 RESET: 'RESET';
 SESSION: 'SESSION';
 DATA: 'DATA';
+DECIMAL: 'DECIMAL';
 
 NORMALIZE: 'NORMALIZE';
 NFD : 'NFD';
@@ -524,9 +526,13 @@ INTEGER_VALUE
 DECIMAL_VALUE
     : DIGIT+ '.' DIGIT*
     | '.' DIGIT+
-    | DIGIT+ ('.' DIGIT*)? EXPONENT
+    ;
+
+DOUBLE_VALUE
+    : DIGIT+ ('.' DIGIT*)? EXPONENT
     | '.' DIGIT+ EXPONENT
     ;
+
 
 IDENTIFIER
     : (LETTER | '_') (LETTER | DIGIT | '_' | '@' | ':')*
