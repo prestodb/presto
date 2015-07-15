@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -27,6 +28,7 @@ import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -203,6 +205,12 @@ public final class LiteralInterpreter
         protected Double visitDoubleLiteral(DoubleLiteral node, ConnectorSession session)
         {
             return node.getValue();
+        }
+
+        @Override
+        protected Object visitDecimalLiteral(DecimalLiteral node, ConnectorSession context)
+        {
+            return DecimalType.unscaledValueToObject(node.getUnscaledValue(), node.getPrecision());
         }
 
         @Override

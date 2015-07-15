@@ -345,7 +345,7 @@ public final class Signature
                 }
                 else {
                     // Try to use common super type of current binding and candidate
-                    Optional<Type> commonSuperType = getCommonSuperType(boundParameters.get(parameter.getBase()), type);
+                    Optional<Type> commonSuperType = typeManager.getCommonSuperType(boundParameters.get(parameter.getBase()), type);
                     if (commonSuperType.isPresent() && typeParameters.get(parameter.getBase()).canBind(commonSuperType.get())) {
                         boundParameters.put(parameter.getBase(), commonSuperType.get());
                         return true;

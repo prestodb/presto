@@ -32,6 +32,7 @@ import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -1100,6 +1101,16 @@ class AstBuilder
 
     @Override
     public Node visitDecimalLiteral(SqlBaseParser.DecimalLiteralContext context)
+    {
+        String signString = "";
+        if (context.sign != null && context.sign.getType() == SqlBaseLexer.MINUS) {
+            signString = "-";
+        }
+        return new DecimalLiteral(getLocation(context), String.format("%s%s", signString, context.value.getText()));
+    }
+
+    @Override
+    public Node visitDoubleLiteral(SqlBaseParser.DoubleLiteralContext context)
     {
         return new DoubleLiteral(getLocation(context), context.getText());
     }

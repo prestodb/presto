@@ -63,7 +63,6 @@ public final class MapCardinalityFunction
     {
         checkArgument(parameterTypes.size() == 1, "Cardinality expects only one argument");
         return new ScalarFunctionImplementation(false, ImmutableList.of(false), METHOD_HANDLE, isDeterministic());
-
     }
 
     public static long mapCardinality(Block block)
