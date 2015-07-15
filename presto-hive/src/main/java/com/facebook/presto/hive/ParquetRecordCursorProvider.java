@@ -98,8 +98,7 @@ public class ParquetRecordCursorProvider
         return columnHandle -> {
             HiveType hiveType = columnHandle.getHiveType();
             return !hiveType.equals(HiveType.HIVE_TIMESTAMP) &&
-                    !hiveType.equals(HiveType.HIVE_DATE) &&
-                    !hiveType.equals(HiveType.HIVE_BINARY);
+                    !hiveType.equals(HiveType.HIVE_DATE);
         };
     }
 }
