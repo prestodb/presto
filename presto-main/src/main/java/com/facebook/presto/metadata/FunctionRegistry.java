@@ -627,6 +627,14 @@ public class FunctionRegistry
             return Optional.<Type>of(DOUBLE);
         }
 
+        if ((firstType.equals(DATE) || firstType.equals(TIMESTAMP)) && (secondType.equals(DATE) || secondType.equals(TIMESTAMP))) {
+            return Optional.<Type>of(TIMESTAMP);
+        }
+
+        if ((firstType.equals(DATE) || firstType.equals(TIMESTAMP_WITH_TIME_ZONE)) && (secondType.equals(DATE) || secondType.equals(TIMESTAMP_WITH_TIME_ZONE))) {
+            return Optional.<Type>of(TIMESTAMP_WITH_TIME_ZONE);
+        }
+
         if ((firstType.equals(TIME) || firstType.equals(TIME_WITH_TIME_ZONE)) && (secondType.equals(TIME) || secondType.equals(TIME_WITH_TIME_ZONE))) {
             return Optional.<Type>of(TIME_WITH_TIME_ZONE);
         }
