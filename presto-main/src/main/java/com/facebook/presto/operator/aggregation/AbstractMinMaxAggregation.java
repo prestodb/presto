@@ -29,7 +29,6 @@ import com.facebook.presto.operator.aggregation.state.NullableDoubleStateSeriali
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.operator.aggregation.state.NullableLongStateSerializer;
 import com.facebook.presto.operator.aggregation.state.SliceState;
-import com.facebook.presto.operator.aggregation.state.SliceStateSerializer;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
@@ -116,7 +115,7 @@ public abstract class AbstractMinMaxAggregation
         }
         else if (type.getJavaType() == Slice.class) {
             stateFactory = compiler.generateStateFactory(SliceState.class, classLoader);
-            stateSerializer = new SliceStateSerializer(type);
+            stateSerializer = compiler.generateStateSerializer(SliceState.class, classLoader);
             stateInterface = SliceState.class;
             inputFunction = SLICE_INPUT_FUNCTION;
         }

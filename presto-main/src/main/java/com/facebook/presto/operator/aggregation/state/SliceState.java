@@ -15,7 +15,6 @@ package com.facebook.presto.operator.aggregation.state;
 
 import io.airlift.slice.Slice;
 
-@AccumulatorStateMetadata(stateSerializerClass = SliceStateSerializer.class)
 public interface SliceState
         extends AccumulatorState
 {
