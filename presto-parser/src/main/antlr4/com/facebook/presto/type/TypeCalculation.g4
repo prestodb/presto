@@ -20,13 +20,18 @@ typeCalculation
     ;
 
 expression
-    : NULL                                                          #nullLiteral
-    | INTEGER_VALUE                                                 #numericLiteral
-    | IDENTIFIER                                                    #identifier
-    | '(' expression ')'                                            #parenthesizedExpression
-    | operator=(MINUS | PLUS) expression                            #arithmeticUnary
-    | left=expression operator=(ASTERISK | SLASH) right=expression  #arithmeticBinary
-    | left=expression operator=(PLUS | MINUS) right=expression      #arithmeticBinary
+    : NULL                                                              #nullLiteral
+    | INTEGER_VALUE                                                     #numericLiteral
+    | binaryFunctionName '(' left=expression ',' right=expression ')'   #binaryFunction
+    | IDENTIFIER                                                        #identifier
+    | '(' expression ')'                                                #parenthesizedExpression
+    | operator=(MINUS | PLUS) expression                                #arithmeticUnary
+    | left=expression operator=(ASTERISK | SLASH) right=expression      #arithmeticBinary
+    | left=expression operator=(PLUS | MINUS) right=expression          #arithmeticBinary
+    ;
+
+binaryFunctionName
+    : name=(MAX | MIN)
     ;
 
 PLUS: '+';
@@ -34,6 +39,8 @@ MINUS: '-';
 ASTERISK: '*';
 SLASH: '/';
 NULL: 'NULL';
+MIN: 'MIN';
+MAX: 'MAX';
 
 IDENTIFIER
     : (LETTER | '_') (LETTER | DIGIT | '_' )*

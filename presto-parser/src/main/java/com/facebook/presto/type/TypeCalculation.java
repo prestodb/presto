@@ -17,6 +17,7 @@ import com.facebook.presto.sql.parser.CaseInsensitiveStream;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.type.TypeCalculationParser.ArithmeticBinaryContext;
 import com.facebook.presto.type.TypeCalculationParser.ArithmeticUnaryContext;
+import com.facebook.presto.type.TypeCalculationParser.BinaryFunctionContext;
 import com.facebook.presto.type.TypeCalculationParser.IdentifierContext;
 import com.facebook.presto.type.TypeCalculationParser.NullLiteralContext;
 import com.facebook.presto.type.TypeCalculationParser.NumericLiteralContext;
@@ -37,6 +38,8 @@ import java.util.Map;
 import java.util.OptionalLong;
 
 import static com.facebook.presto.type.TypeCalculationParser.ASTERISK;
+import static com.facebook.presto.type.TypeCalculationParser.MAX;
+import static com.facebook.presto.type.TypeCalculationParser.MIN;
 import static com.facebook.presto.type.TypeCalculationParser.MINUS;
 import static com.facebook.presto.type.TypeCalculationParser.PLUS;
 import static com.facebook.presto.type.TypeCalculationParser.SLASH;
@@ -192,6 +195,24 @@ public final class TypeCalculation
                     return OptionalLong.of(-value.getAsLong());
                 default:
                     throw new IllegalStateException("Unsupported unary operator " + ctx.operator.getText());
+            }
+        }
+
+        @Override
+        public OptionalLong visitBinaryFunction(BinaryFunctionContext ctx)
+        {
+            OptionalLong left = visit(ctx.left);
+            OptionalLong right = visit(ctx.right);
+            if (!left.isPresent() || !right.isPresent()) {
+                return OptionalLong.empty();
+            }
+            switch(ctx.binaryFunctionName().name.getType()) {
+                case MIN:
+                    return OptionalLong.of(Math.min(left.getAsLong(), right.getAsLong()));
+                case MAX:
+                    return OptionalLong.of(Math.max(left.getAsLong(), right.getAsLong()));
+                default:
+                    throw new IllegalArgumentException("Unsupported binary function " + ctx.binaryFunctionName().getText());
             }
         }
 
