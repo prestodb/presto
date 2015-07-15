@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.utils.decoder.json;
 
-import com.facebook.presto.spi.DecodableColumnHandle;
+import com.facebook.presto.utils.decoder.DecodableColumnHandle;
 import com.facebook.presto.utils.decoder.DecoderTestColumnHandle;
 import com.facebook.presto.utils.decoder.FieldValueProvider;
 import com.facebook.presto.utils.decoder.FieldDecoder;

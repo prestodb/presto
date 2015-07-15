@@ -14,7 +14,7 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.DecodableColumnHandle;
+import com.facebook.presto.utils.decoder.DecodableColumnHandle;
 import com.facebook.presto.utils.decoder.FieldValueProvider;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;

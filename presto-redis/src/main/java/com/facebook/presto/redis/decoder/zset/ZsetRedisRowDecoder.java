@@ -15,7 +15,7 @@ package com.facebook.presto.redis.decoder.zset;
 
 import com.facebook.presto.utils.decoder.FieldDecoder;
 import com.facebook.presto.utils.decoder.FieldValueProvider;
-import com.facebook.presto.spi.DecodableColumnHandle;
+import com.facebook.presto.utils.decoder.DecodableColumnHandle;
 import com.facebook.presto.utils.decoder.RowDecoder;
 
 import java.util.List;

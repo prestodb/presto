@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.utils.decoder;
 
-import com.facebook.presto.spi.DecodableColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slice;
 

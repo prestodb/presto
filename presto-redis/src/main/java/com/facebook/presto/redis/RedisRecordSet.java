@@ -15,7 +15,7 @@ package com.facebook.presto.redis;
 
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.DecodableColumnHandle;
+import com.facebook.presto.utils.decoder.DecodableColumnHandle;
 import com.facebook.presto.utils.decoder.RowDecoder;
 import com.facebook.presto.utils.decoder.FieldDecoder;
 import com.facebook.presto.spi.type.Type;

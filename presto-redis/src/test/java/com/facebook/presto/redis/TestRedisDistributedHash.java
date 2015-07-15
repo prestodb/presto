@@ -54,37 +54,41 @@ public class TestRedisDistributedHash
     //
 
     @Override
-    public void testCreateSampledTableAsSelectLimit()
-            throws Exception
-    {
-    }
-
-    @Override
     public void testCreateTableAsSelect()
             throws Exception
     {
     }
 
     @Override
-    public void testCreateTableAsSelectGroupBy()
-            throws Exception
-    {
-    }
-
-    @Override
-    public void testCreateTableAsSelectJoin()
-            throws Exception
-    {
-    }
-
-    @Override
-    public void testCreateTableAsSelectLimit()
-            throws Exception
-    {
-    }
-
-    @Override
     public void testSymbolAliasing()
+            throws Exception
+    {
+    }
+
+    @Override
+    public void testCreateTableAsSelectSampled()
+            throws Exception
+    {
+    }
+
+    @Override
+    public void testCreateTableIfNotExists()
+            throws Exception
+    {
+    }
+
+    //
+    // Redis connector does not support table deletion.
+    //
+
+    @Override
+    public void testDelete()
+            throws Exception
+    {
+    }
+
+    @Override
+    public void testDeleteSemiJoin()
             throws Exception
     {
     }

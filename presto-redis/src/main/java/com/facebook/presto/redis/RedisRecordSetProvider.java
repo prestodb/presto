@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.redis;
 
-import com.facebook.presto.spi.DecodableColumnHandle;
+import com.facebook.presto.utils.decoder.DecodableColumnHandle;
 import com.facebook.presto.utils.decoder.DecoderRegistry;
 import com.facebook.presto.utils.decoder.FieldDecoder;
 import com.facebook.presto.utils.decoder.RowDecoder;

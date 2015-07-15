@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.utils.decoder.util;
 
-import com.facebook.presto.spi.DecodableColumnHandle;
+import com.facebook.presto.utils.decoder.DecodableColumnHandle;
 import com.facebook.presto.utils.decoder.FieldValueProvider;
 
 import java.nio.charset.StandardCharsets;

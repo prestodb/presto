@@ -11,8 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.utils.decoder;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
 
 // Connectors that have rows that can be decoded into

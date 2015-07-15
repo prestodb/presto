@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.utils.decoder;
 
-import com.facebook.presto.spi.DecodableColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

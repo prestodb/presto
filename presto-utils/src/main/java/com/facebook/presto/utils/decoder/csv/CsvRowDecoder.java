@@ -16,7 +16,7 @@ package com.facebook.presto.utils.decoder.csv;
 import au.com.bytecode.opencsv.CSVParser;
 import com.facebook.presto.utils.decoder.FieldDecoder;
 import com.facebook.presto.utils.decoder.RowDecoder;
-import com.facebook.presto.spi.DecodableColumnHandle;
+import com.facebook.presto.utils.decoder.DecodableColumnHandle;
 import com.facebook.presto.utils.decoder.FieldValueProvider;
 
 import javax.inject.Inject;

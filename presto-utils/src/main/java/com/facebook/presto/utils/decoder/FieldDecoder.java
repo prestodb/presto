@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.utils.decoder;
 
-import com.facebook.presto.spi.DecodableColumnHandle;
-
 import java.util.Set;
 
 /**
