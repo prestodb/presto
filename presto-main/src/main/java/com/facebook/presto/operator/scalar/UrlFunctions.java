@@ -17,6 +17,8 @@ import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.google.common.base.Splitter;
+import com.google.common.escape.Escaper;
+import com.google.common.net.UrlEscapers;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -26,7 +28,6 @@ import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
-import java.net.URLEncoder;
 import java.util.Iterator;
 
 import static com.google.common.base.Strings.nullToEmpty;
@@ -132,39 +133,25 @@ public final class UrlFunctions
         return null;
     }
 
-    @Nullable
-    @Description("encode url")
+    @Description("encode url, escape value that is included in URL query parameters names and values")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice urlEncode(@SqlType(StandardTypes.VARCHAR) Slice url)
+    public static Slice urlEncode(@SqlType(StandardTypes.VARCHAR) Slice value)
     {
-        if (url == null) {
-            return null;
-        }
-
-        try {
-            return slice(URLEncoder.encode(url.toString(UTF_8), UTF_8.name()));
-        }
-        catch (UnsupportedEncodingException e) {
-            return null;
-        }
+        Escaper escaper = UrlEscapers.urlFormParameterEscaper();
+        return slice(escaper.escape(value.toString(UTF_8)));
     }
 
-    @Nullable
     @Description("decode url")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice urlDecode(@SqlType(StandardTypes.VARCHAR) Slice url)
+    public static Slice urlDecode(@SqlType(StandardTypes.VARCHAR) Slice value)
     {
-        if (url == null) {
-            return null;
-        }
-
         try {
-            return slice(URLDecoder.decode(url.toString(UTF_8), UTF_8.name()));
+            return slice(URLDecoder.decode(value.toString(UTF_8), UTF_8.name()));
         }
         catch (UnsupportedEncodingException e) {
-            return null;
+            throw new AssertionError(e);
         }
     }
 
