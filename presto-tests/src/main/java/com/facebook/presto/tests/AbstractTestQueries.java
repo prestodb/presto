@@ -3067,7 +3067,7 @@ public abstract class AbstractTestQueries
 
         MaterializedResult result = computeActual("SHOW TABLES");
         Set<String> tableNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertEquals(tableNames, expectedTables);
+        assertTrue(tableNames.containsAll(expectedTables));
     }
 
     @Test
@@ -3078,11 +3078,11 @@ public abstract class AbstractTestQueries
 
         MaterializedResult result = computeActual("SHOW TABLES FROM " + getSession().getSchema());
         Set<String> tableNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertEquals(tableNames, expectedTables);
+        assertTrue(tableNames.containsAll(expectedTables));
 
         result = computeActual("SHOW TABLES FROM " + getSession().getCatalog() + "." + getSession().getSchema());
         tableNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertEquals(tableNames, expectedTables);
+        assertTrue(tableNames.containsAll(expectedTables));
 
         result = computeActual("SHOW TABLES FROM UNKNOWN");
         tableNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
