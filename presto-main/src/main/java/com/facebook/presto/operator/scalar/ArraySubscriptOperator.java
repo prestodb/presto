@@ -121,12 +121,15 @@ public class ArraySubscriptOperator
 
     public static Block readBlockAndCheckIndex(Slice array, long index)
     {
-        if (index <= 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Index out of bounds");
+        if (index == 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
+        }
+        if (index < 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript is negative");
         }
         Block block = readStructuralBlock(array);
         if (index > block.getPositionCount()) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Index out of bounds");
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript out of bounds");
         }
         return block;
     }

@@ -210,7 +210,7 @@ public class HiveRecordSink
             recordWriter.close(false);
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new PrestoException(HIVE_WRITER_ERROR, "Error committing write to Hive", e);
         }
 
         // the committer can list the directory
@@ -224,7 +224,7 @@ public class HiveRecordSink
             recordWriter.close(true);
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new PrestoException(HIVE_WRITER_ERROR, "Error rolling back write to Hive", e);
         }
     }
 

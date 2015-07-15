@@ -19,7 +19,7 @@ import javax.validation.constraints.NotNull;
 
 import java.net.URI;
 
-public class HivePluginConfig
+public class StaticMetastoreConfig
 {
     private URI metastoreUri;
 
@@ -30,7 +30,7 @@ public class HivePluginConfig
     }
 
     @Config("hive.metastore.uri")
-    public HivePluginConfig setMetastoreUri(URI metastoreUri)
+    public StaticMetastoreConfig setMetastoreUri(URI metastoreUri)
     {
         this.metastoreUri = metastoreUri;
         return this;

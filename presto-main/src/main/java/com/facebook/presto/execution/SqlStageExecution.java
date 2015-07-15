@@ -592,7 +592,7 @@ public final class SqlStageExecution
         return scheduleTask(id, node, null, ImmutableList.<Split>of());
     }
 
-    private RemoteTask scheduleTask(int id, Node node, PlanNodeId sourceId, Iterable<? extends Split> sourceSplits)
+    private RemoteTask scheduleTask(int id, Node node, PlanNodeId sourceId, Iterable<Split> sourceSplits)
     {
         // before scheduling a new task update all existing tasks with new exchanges and output buffers
         addNewExchangesAndBuffers();

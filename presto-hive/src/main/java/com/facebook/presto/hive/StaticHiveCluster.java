@@ -16,8 +16,13 @@ package com.facebook.presto.hive;
 import com.google.common.net.HostAndPort;
 import org.apache.thrift.transport.TTransportException;
 
+import javax.inject.Inject;
+
+import java.net.URI;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.isNullOrEmpty;
 
 public class StaticHiveCluster
         implements HiveCluster
@@ -25,14 +30,12 @@ public class StaticHiveCluster
     private final HostAndPort address;
     private final HiveMetastoreClientFactory clientFactory;
 
-    public StaticHiveCluster(HostAndPort address, HiveMetastoreClientFactory clientFactory)
+    @Inject
+    public StaticHiveCluster(StaticMetastoreConfig config, HiveMetastoreClientFactory clientFactory)
     {
-        checkNotNull(address, "address is null");
-        checkArgument(address.hasPort(), "address does not have a port");
-        checkNotNull(clientFactory, "clientFactory is null");
-
-        this.address = address;
-        this.clientFactory = clientFactory;
+        URI uri = checkMetastoreUri(config.getMetastoreUri());
+        this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
+        this.clientFactory = checkNotNull(clientFactory, "clientFactory is null");
     }
 
     @Override
@@ -44,5 +47,16 @@ public class StaticHiveCluster
         catch (TTransportException e) {
             throw new RuntimeException("Failed connecting to Hive metastore: " + address, e);
         }
+    }
+
+    private static URI checkMetastoreUri(URI uri)
+    {
+        checkNotNull(uri, "metastoreUri is null");
+        String scheme = uri.getScheme();
+        checkArgument(!isNullOrEmpty(scheme), "metastoreUri scheme is missing: %s", uri);
+        checkArgument(scheme.equals("thrift"), "metastoreUri scheme must be thrift: %s", uri);
+        checkArgument(uri.getHost() != null, "metastoreUri host is missing: %s", uri);
+        checkArgument(uri.getPort() != -1, "metastoreUri port is missing: %s", uri);
+        return uri;
     }
 }

@@ -138,6 +138,7 @@ public class TestArrayOperators
         assertFunction("CAST(CAST('[true, false]' AS JSON) AS ARRAY<BOOLEAN>)", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
         assertFunction("CAST(CAST('[[1], [null]]' AS JSON) AS ARRAY<ARRAY<BIGINT>>)", new ArrayType(new ArrayType(BIGINT)), asList(asList(1L), asList((Long) null)));
         assertFunction("CAST(CAST('null' AS JSON) AS ARRAY<BIGINT>)", new ArrayType(BIGINT), null);
+        assertFunction("CAST(CAST('[5, [1, 2, 3], \"e\", {\"a\": \"b\"}, null, \"null\", [null]]' AS JSON) AS ARRAY<JSON>)", new ArrayType(JSON), ImmutableList.of("5", "[1,2,3]", "\"e\"", "{\"a\":\"b\"}", "null", "\"null\"", "[null]"));
         assertInvalidCast("CAST(CAST('[1, null, 3]' AS JSON) AS ARRAY<TIMESTAMP>)");
         assertInvalidCast("CAST(CAST('[1, null, 3]' AS JSON) AS ARRAY<ARRAY<TIMESTAMP>>)");
         assertInvalidCast("CAST(CAST('[1, 2, 3]' AS JSON) AS ARRAY<BOOLEAN>)");
@@ -339,11 +340,13 @@ public class TestArrayOperators
     public void testSubscript()
             throws Exception
     {
-        String outOfBounds = "Index out of bounds";
+        String outOfBounds = "Array subscript out of bounds";
+        String negativeIndex = "Array subscript is negative";
+        String indexIsZero = "SQL array indices start at 1";
         assertInvalidFunction("ARRAY [][1]", outOfBounds);
-        assertInvalidFunction("ARRAY [null][-1]", outOfBounds);
-        assertInvalidFunction("ARRAY [1, 2, 3][0]", outOfBounds);
-        assertInvalidFunction("ARRAY [1, 2, 3][-1]", outOfBounds);
+        assertInvalidFunction("ARRAY [null][-1]", negativeIndex);
+        assertInvalidFunction("ARRAY [1, 2, 3][0]", indexIsZero);
+        assertInvalidFunction("ARRAY [1, 2, 3][-1]", negativeIndex);
         assertInvalidFunction("ARRAY [1, 2, 3][4]", outOfBounds);
 
         try {

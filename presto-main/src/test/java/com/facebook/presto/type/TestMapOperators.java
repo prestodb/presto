@@ -147,7 +147,20 @@ public class TestMapOperators
         assertFunction("CAST(CAST('null' AS JSON) AS MAP<BOOLEAN, VARCHAR>)",
                 new MapType(BOOLEAN, VARCHAR),
                 null);
+        assertFunction("CAST(CAST('{\"k1\": 5, \"k2\":[1, 2, 3], \"k3\":\"e\", \"k4\":{\"a\": \"b\"}, \"k5\":null, \"k6\":\"null\", \"k7\":[null]}' AS JSON) AS MAP<VARCHAR, JSON>)",
+                new MapType(VARCHAR, JSON),
+                ImmutableMap.builder()
+                        .put("k1", "5")
+                        .put("k2", "[1,2,3]")
+                        .put("k3", "\"e\"")
+                        .put("k4", "{\"a\":\"b\"}")
+                        .put("k5", "null")
+                        .put("k6", "\"null\"")
+                        .put("k7", "[null]")
+                        .build()
+        );
         assertInvalidCast("CAST(CAST('{\"true\":\"kittens\"}' AS JSON) AS MAP<BOOLEAN, VARBINARY>)");
+        assertInvalidCast("CAST(CAST('{\"[1, 2]\": 1}' AS JSON) AS MAP<ARRAY<BIGINT>, BIGINT>)");
     }
 
     @Test

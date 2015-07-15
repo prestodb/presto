@@ -62,6 +62,15 @@ public interface BlockBuilder
     }
 
     /**
+     * Return a writer to the current entry. The caller can operate on the returned caller to incrementally build the object. This is generally more efficient than
+     * building the object elsewhere and call writeObject afterwards because a large chunk of memory could potentially be unnecessarily copied in this process.
+     */
+    default BlockBuilder beginBlockEntry()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
      * Write a byte to the current entry;
      */
     BlockBuilder closeEntry();

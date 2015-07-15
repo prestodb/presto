@@ -60,6 +60,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SubqueryExpression;
@@ -84,17 +85,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.ExpressionUtils.flipComparison;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.IS_DISTINCT_FROM;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
@@ -334,28 +330,6 @@ class RelationPlanner
         return new RelationPlan(root, outputDescriptor, outputSymbols, sampleWeight);
     }
 
-    private static ComparisonExpression.Type flipComparison(ComparisonExpression.Type type)
-    {
-        switch (type) {
-            case EQUAL:
-                return EQUAL;
-            case NOT_EQUAL:
-                return NOT_EQUAL;
-            case LESS_THAN:
-                return GREATER_THAN;
-            case LESS_THAN_OR_EQUAL:
-                return GREATER_THAN_OR_EQUAL;
-            case GREATER_THAN:
-                return LESS_THAN;
-            case GREATER_THAN_OR_EQUAL:
-                return LESS_THAN_OR_EQUAL;
-            case IS_DISTINCT_FROM:
-                return IS_DISTINCT_FROM;
-            default:
-                throw new IllegalArgumentException("Unsupported comparison: " + type);
-        }
-    }
-
     private RelationPlan planCrossJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)
     {
         TupleDescriptor outputDescriptor = analysis.getOutputDescriptor(joinNode);
@@ -573,6 +547,43 @@ class RelationPlanner
         }
     }
 
+    private RelationPlan processAndCoerceIfNecessary(Relation node, Void context)
+    {
+        Type[] coerceToTypes = analysis.getRelationCoercion(node);
+
+        RelationPlan plan = node.accept(this, context);
+
+        if (coerceToTypes == null) {
+            return plan;
+        }
+
+        List<Symbol> oldSymbols = plan.getRoot().getOutputSymbols();
+        TupleDescriptor oldDescriptor = plan.getDescriptor().withOnlyVisibleFields();
+        checkArgument(coerceToTypes.length == oldSymbols.size());
+        ImmutableList.Builder<Symbol> newSymbols = new ImmutableList.Builder<>();
+        Field[] newFields = new Field[coerceToTypes.length];
+        ImmutableMap.Builder<Symbol, Expression> assignments = new ImmutableMap.Builder<>();
+        for (int i = 0; i < coerceToTypes.length; i++) {
+            Symbol inputSymbol = oldSymbols.get(i);
+            Type inputType = symbolAllocator.getTypes().get(inputSymbol);
+            Type outputType = coerceToTypes[i];
+            if (outputType != inputType) {
+                Cast cast = new Cast(new QualifiedNameReference(inputSymbol.toQualifiedName()), outputType.getTypeSignature().toString());
+                Symbol outputSymbol = symbolAllocator.newSymbol(cast, outputType);
+                assignments.put(outputSymbol, cast);
+                newSymbols.add(outputSymbol);
+            }
+            else {
+                assignments.put(inputSymbol, new QualifiedNameReference(inputSymbol.toQualifiedName()));
+                newSymbols.add(inputSymbol);
+            }
+            Field oldField = oldDescriptor.getFieldByIndex(i);
+            newFields[i] = new Field(oldField.getRelationAlias(), oldField.getName(), coerceToTypes[i], oldField.isHidden());
+        }
+        ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
+        return new RelationPlan(projectNode, new TupleDescriptor(newFields), newSymbols.build(), plan.getSampleWeight());
+    }
+
     @Override
     protected RelationPlan visitUnion(Union node, Void context)
     {
@@ -582,7 +593,7 @@ class RelationPlanner
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
         ImmutableListMultimap.Builder<Symbol, Symbol> symbolMapping = ImmutableListMultimap.builder();
         List<RelationPlan> subPlans = node.getRelations().stream()
-                .map(relation -> process(relation, context))
+                .map(relation -> processAndCoerceIfNecessary(relation, context))
                 .collect(toImmutableList());
 
         boolean hasSampleWeight = false;

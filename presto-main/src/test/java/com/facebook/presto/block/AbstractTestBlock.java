@@ -22,9 +22,11 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
+import java.lang.reflect.Array;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
@@ -41,7 +43,7 @@ import static org.testng.Assert.fail;
 @Test
 public abstract class AbstractTestBlock
 {
-    protected static void assertBlock(Block block, Slice[] expectedValues)
+    protected static <T> void assertBlock(Block block, T[] expectedValues)
     {
         assertBlockPositions(block, expectedValues);
         assertBlockPositions(copyBlock(block), expectedValues);
@@ -60,7 +62,7 @@ public abstract class AbstractTestBlock
         }
     }
 
-    private static void assertBlockPositions(Block block, Slice[] expectedValues)
+    private static <T> void assertBlockPositions(Block block, T[] expectedValues)
     {
         assertEquals(block.getPositionCount(), expectedValues.length);
         for (int position = 0; position < block.getPositionCount(); position++) {
@@ -68,7 +70,7 @@ public abstract class AbstractTestBlock
         }
     }
 
-    private static void assertBlockPosition(Block block, int position, Slice expectedValue)
+    private static <T> void assertBlockPosition(Block block, int position, T expectedValue)
     {
         assertPositionValue(block, position, expectedValue);
         assertPositionValue(block.getSingleValueBlock(position), 0, expectedValue);
@@ -80,7 +82,7 @@ public abstract class AbstractTestBlock
         assertPositionValue(block.copyRegion(position, block.getPositionCount() - position), 0, expectedValue);
     }
 
-    private static void assertPositionValue(Block block, int position, Slice expectedValue)
+    private static <T> void assertPositionValue(Block block, int position, T expectedValue)
     {
         if (expectedValue == null) {
             assertTrue(block.isNull(position));
@@ -89,56 +91,87 @@ public abstract class AbstractTestBlock
 
         assertFalse(block.isNull(position));
 
-        int length = block.getLength(position);
-        assertEquals(length, expectedValue.length());
+        if (expectedValue instanceof Slice) {
+            Slice expectedSliceValue = (Slice) expectedValue;
 
-        for (int offset = 0; offset <= length - SIZE_OF_BYTE; offset++) {
-            assertEquals(block.getByte(position, offset), expectedValue.getByte(offset));
+            int length = block.getLength(position);
+            assertEquals(length, expectedSliceValue.length());
+
+            for (int offset = 0; offset <= length - SIZE_OF_BYTE; offset++) {
+                assertEquals(block.getByte(position, offset), expectedSliceValue.getByte(offset));
+            }
+
+            for (int offset = 0; offset <= length - SIZE_OF_SHORT; offset++) {
+                assertEquals(block.getShort(position, offset), expectedSliceValue.getShort(offset));
+            }
+
+            for (int offset = 0; offset <= length - SIZE_OF_INT; offset++) {
+                assertEquals(block.getInt(position, offset), expectedSliceValue.getInt(offset));
+            }
+
+            for (int offset = 0; offset <= length - SIZE_OF_LONG; offset++) {
+                assertEquals(block.getLong(position, offset), expectedSliceValue.getLong(offset));
+            }
+
+            for (int offset = 0; offset <= length - SIZE_OF_FLOAT; offset++) {
+                assertEquals(floatToIntBits(block.getFloat(position, offset)), floatToIntBits(expectedSliceValue.getFloat(offset)));
+            }
+
+            for (int offset = 0; offset <= length - SIZE_OF_DOUBLE; offset++) {
+                assertEquals(doubleToLongBits(block.getDouble(position, offset)), doubleToLongBits(expectedSliceValue.getDouble(offset)));
+            }
+
+            Block expectedBlock = toSingeValuedBlock(expectedSliceValue);
+
+            for (int offset = 0; offset < length - 3; offset++) {
+                assertEquals(block.getSlice(position, offset, 3), expectedSliceValue.slice(offset, 3));
+                assertEquals(block.hash(position, offset, 3), expectedSliceValue.hashCode(offset, 3));
+                assertTrue(block.bytesEqual(position, offset, expectedSliceValue, offset, 3));
+                // if your tests fail here, please change your test to not use this value
+                assertFalse(block.bytesEqual(position, offset, Slices.utf8Slice("XXX"), 0, 3));
+
+                assertEquals(block.bytesCompare(position, offset, 3, expectedSliceValue, offset, 3), 0);
+                assertTrue(block.bytesCompare(position, offset, 3, expectedSliceValue, offset, 2) > 0);
+                Slice greaterSlice = createGreaterValue(expectedSliceValue, offset, 3);
+                assertTrue(block.bytesCompare(position, offset, 3, greaterSlice, 0, greaterSlice.length()) < 0);
+
+                assertTrue(block.equals(position, offset, expectedBlock, 0, offset, 3));
+                assertEquals(block.compareTo(position, offset, 3, expectedBlock, 0, offset, 3), 0);
+
+                BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1);
+                block.writeBytesTo(position, offset, 3, blockBuilder);
+                blockBuilder.closeEntry();
+                Block segment = blockBuilder.build();
+
+                assertTrue(block.equals(position, offset, segment, 0, 0, 3));
+            }
         }
-
-        for (int offset = 0; offset <= length - SIZE_OF_SHORT; offset++) {
-            assertEquals(block.getShort(position, offset), expectedValue.getShort(offset));
+        else if (expectedValue instanceof long[]) {
+            Block actual = block.getObject(position, Block.class);
+            long[] expected = (long[]) expectedValue;
+            assertEquals(actual.getPositionCount(), expected.length);
+            for (int i = 0; i < expected.length; i++) {
+                assertEquals(BIGINT.getLong(actual, i), expected[i]);
+            }
         }
-
-        for (int offset = 0; offset <= length - SIZE_OF_INT; offset++) {
-            assertEquals(block.getInt(position, offset), expectedValue.getInt(offset));
+        else if (expectedValue instanceof Slice[]) {
+            Block actual = block.getObject(position, Block.class);
+            Slice[] expected = (Slice[]) expectedValue;
+            assertEquals(actual.getPositionCount(), expected.length);
+            for (int i = 0; i < expected.length; i++) {
+                assertEquals(VARCHAR.getSlice(actual, i), expected[i]);
+            }
         }
-
-        for (int offset = 0; offset <= length - SIZE_OF_LONG; offset++) {
-            assertEquals(block.getLong(position, offset), expectedValue.getLong(offset));
+        else if (expectedValue instanceof long[][]) {
+            Block actual = block.getObject(position, Block.class);
+            long[][] expected = (long[][]) expectedValue;
+            assertEquals(actual.getPositionCount(), expected.length);
+            for (int i = 0; i < expected.length; i++) {
+                assertPositionValue(actual, i, expected[i]);
+            }
         }
-
-        for (int offset = 0; offset <= length - SIZE_OF_FLOAT; offset++) {
-            assertEquals(floatToIntBits(block.getFloat(position, offset)), floatToIntBits(expectedValue.getFloat(offset)));
-        }
-
-        for (int offset = 0; offset <= length - SIZE_OF_DOUBLE; offset++) {
-            assertEquals(doubleToLongBits(block.getDouble(position, offset)), doubleToLongBits(expectedValue.getDouble(offset)));
-        }
-
-        Block expectedBlock = toSingeValuedBlock(expectedValue);
-
-        for (int offset = 0; offset < length - 3; offset++) {
-            assertEquals(block.getSlice(position, offset, 3), expectedValue.slice(offset, 3));
-            assertEquals(block.hash(position, offset, 3), expectedValue.hashCode(offset, 3));
-            assertTrue(block.bytesEqual(position, offset, expectedValue, offset, 3));
-            // if your tests fail here, please change your test to not use this value
-            assertFalse(block.bytesEqual(position, offset, Slices.utf8Slice("XXX"), 0, 3));
-
-            assertEquals(block.bytesCompare(position, offset, 3, expectedValue, offset, 3), 0);
-            assertTrue(block.bytesCompare(position, offset, 3, expectedValue, offset, 2) > 0);
-            Slice greaterSlice = createGreaterValue(expectedValue, offset, 3);
-            assertTrue(block.bytesCompare(position, offset, 3, greaterSlice, 0, greaterSlice.length()) < 0);
-
-            assertTrue(block.equals(position, offset, expectedBlock, 0, offset, 3));
-            assertEquals(block.compareTo(position, offset, 3, expectedBlock, 0, offset, 3), 0);
-
-            BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1);
-            block.writeBytesTo(position, offset, 3, blockBuilder);
-            blockBuilder.closeEntry();
-            Block segment = blockBuilder.build();
-
-            assertTrue(block.equals(position, offset, segment, 0, 0, 3));
+        else {
+            throw new IllegalArgumentException();
         }
     }
 
@@ -174,13 +207,14 @@ public abstract class AbstractTestBlock
         return dynamicSliceOutput.slice();
     }
 
-    protected static Object[] alternatingNullValues(Object[] slices)
+    protected static Object[] alternatingNullValues(Object[] objects)
     {
-        Object[] slicesWithNulls = Arrays.copyOf(slices, slices.length * 2);
-        for (int i = 0; i < slices.length; i++) {
-            slicesWithNulls[i * 2] = slices[i];
-            slicesWithNulls[i * 2 + 1] = null;
+        Object[] objectsWithNulls = (Object[]) Array.newInstance(objects.getClass().getComponentType(), objects.length * 2 + 1);
+        for (int i = 0; i < objects.length; i++) {
+            objectsWithNulls[i * 2] = null;
+            objectsWithNulls[i * 2 + 1] = objects[i];
         }
-        return slicesWithNulls;
+        objectsWithNulls[objectsWithNulls.length - 1] = null;
+        return objectsWithNulls;
     }
 }

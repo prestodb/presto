@@ -23,12 +23,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestHivePluginConfig
+public class TestStaticMetastoreConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(HivePluginConfig.class)
+        assertRecordedDefaults(recordDefaults(StaticMetastoreConfig.class)
                 .setMetastoreUri(null));
     }
 
@@ -39,7 +39,7 @@ public class TestHivePluginConfig
                 .put("hive.metastore.uri", "thrift://localhost:9083")
                 .build();
 
-        HivePluginConfig expected = new HivePluginConfig()
+        StaticMetastoreConfig expected = new StaticMetastoreConfig()
                 .setMetastoreUri(URI.create("thrift://localhost:9083"));
 
         assertFullMapping(properties, expected);
