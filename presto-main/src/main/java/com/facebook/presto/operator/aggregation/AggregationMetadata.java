@@ -56,7 +56,6 @@ public class AggregationMetadata
     private final MethodHandle intermediateInputFunction;
     @Nullable
     private final MethodHandle combineFunction;
-    @Nullable
     private final MethodHandle outputFunction;
     private final AccumulatorStateSerializer<?> stateSerializer;
     private final AccumulatorStateFactory<?> stateFactory;
@@ -70,7 +69,7 @@ public class AggregationMetadata
             @Nullable List<ParameterMetadata> intermediateInputMetadata,
             @Nullable MethodHandle intermediateInputFunction,
             @Nullable MethodHandle combineFunction,
-            @Nullable MethodHandle outputFunction,
+            MethodHandle outputFunction,
             Class<?> stateInterface,
             AccumulatorStateSerializer<?> stateSerializer,
             AccumulatorStateFactory<?> stateFactory,
@@ -92,7 +91,7 @@ public class AggregationMetadata
         checkArgument(combineFunction != null || intermediateInputFunction != null, "Aggregation must have either a combine or a intermediate input method");
         this.intermediateInputFunction = intermediateInputFunction;
         this.combineFunction = combineFunction;
-        this.outputFunction = outputFunction;
+        this.outputFunction = checkNotNull(outputFunction, "outputFunction is null");
         this.stateSerializer = checkNotNull(stateSerializer, "stateSerializer is null");
         this.stateFactory = checkNotNull(stateFactory, "stateFactory is null");
         this.approximate = approximate;
@@ -150,7 +149,6 @@ public class AggregationMetadata
         return combineFunction;
     }
 
-    @Nullable
     public MethodHandle getOutputFunction()
     {
         return outputFunction;

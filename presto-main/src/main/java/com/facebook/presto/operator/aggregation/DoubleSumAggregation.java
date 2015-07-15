@@ -14,6 +14,8 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 
@@ -30,5 +32,11 @@ public final class DoubleSumAggregation
     {
         state.setNull(false);
         state.setDouble(state.getDouble() + value);
+    }
+
+    @OutputFunction(StandardTypes.DOUBLE)
+    public static void output(NullableDoubleState state, BlockBuilder out)
+    {
+        NullableDoubleState.write(DoubleType.DOUBLE, state, out);
     }
 }

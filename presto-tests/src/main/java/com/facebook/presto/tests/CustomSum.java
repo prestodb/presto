@@ -16,7 +16,10 @@ package com.facebook.presto.tests;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.InputFunction;
 import com.facebook.presto.operator.aggregation.IntermediateInputFunction;
+import com.facebook.presto.operator.aggregation.OutputFunction;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 
@@ -31,5 +34,11 @@ public final class CustomSum
     {
         state.setLong(state.getLong() + value);
         state.setNull(false);
+    }
+
+    @OutputFunction(StandardTypes.BIGINT)
+    public static void output(NullableLongState state, BlockBuilder out)
+    {
+        NullableLongState.write(BigintType.BIGINT, state, out);
     }
 }

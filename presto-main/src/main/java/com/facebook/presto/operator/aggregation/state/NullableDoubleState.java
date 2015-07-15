@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
+
 @AccumulatorStateMetadata(stateSerializerClass = NullableDoubleStateSerializer.class)
 public interface NullableDoubleState
         extends AccumulatorState
@@ -25,4 +28,14 @@ public interface NullableDoubleState
     boolean isNull();
 
     void setNull(boolean value);
+
+    static void write(Type type, NullableDoubleState state, BlockBuilder out)
+    {
+        if (state.isNull()) {
+            out.appendNull();
+        }
+        else {
+            type.writeDouble(out, state.getDouble());
+        }
+    }
 }

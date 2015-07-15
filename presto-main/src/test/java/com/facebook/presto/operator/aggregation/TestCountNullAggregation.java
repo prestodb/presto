@@ -83,6 +83,12 @@ public class TestCountNullAggregation
             state.setLong(state.getLong() + scratchState.getLong());
             state.setNull(state.isNull() && scratchState.isNull());
         }
+
+        @OutputFunction(StandardTypes.BIGINT)
+        public static void output(NullableLongState state, BlockBuilder out)
+        {
+            NullableLongState.write(BIGINT, state, out);
+        }
     }
 
     @Override
