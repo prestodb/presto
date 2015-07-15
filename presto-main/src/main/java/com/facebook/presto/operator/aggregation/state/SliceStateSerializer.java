@@ -16,12 +16,17 @@ package com.facebook.presto.operator.aggregation.state;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 
 public class SliceStateSerializer
         implements AccumulatorStateSerializer<SliceState>
 {
     private final Type type;
 
+    public SliceStateSerializer()
+    {
+        this(VARBINARY);
+    }
     public SliceStateSerializer(Type type)
     {
         this.type = type;
