@@ -843,6 +843,14 @@ public class TestExpressionInterpreter
         optimize("case when 0 / 0 = 0 then 1 end");
     }
 
+    @Test(expectedExceptions = PrestoException.class)
+    public void testSubscriptConstantNegativeIndex()
+            throws Exception
+    {
+        optimize("ARRAY[1,2,3][0]");
+        optimize("ARRAY[1,2,3][-1]");
+    }
+
     @Test(timeOut = 60000)
     public void testLikeInvalidUtf8()
     {
