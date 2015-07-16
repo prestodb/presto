@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import io.airlift.http.client.HttpClient;
 import io.airlift.units.DataSize;
@@ -21,13 +22,12 @@ import io.airlift.units.Duration;
 import javax.inject.Inject;
 
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ExchangeClientFactory
-        implements Supplier<ExchangeClient>
+        implements ExchangeClientSupplier
 {
     private final BlockEncodingSerde blockEncodingSerde;
     private final DataSize maxBufferedBytes;
@@ -75,7 +75,7 @@ public class ExchangeClientFactory
     }
 
     @Override
-    public ExchangeClient get()
+    public ExchangeClient get(SystemMemoryUsageListener systemMemoryUsageListener)
     {
         return new ExchangeClient(
                 blockEncodingSerde,
@@ -84,6 +84,7 @@ public class ExchangeClientFactory
                 concurrentRequestMultiplier,
                 minErrorDuration,
                 httpClient,
-                executor);
+                executor,
+                systemMemoryUsageListener);
     }
 }

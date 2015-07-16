@@ -50,6 +50,7 @@ public class TaskStats
     private final int completedDrivers;
 
     private final DataSize memoryReservation;
+    private final DataSize systemMemoryReservation;
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
@@ -84,6 +85,7 @@ public class TaskStats
                 0,
                 0,
                 new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -116,6 +118,7 @@ public class TaskStats
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("memoryReservation") DataSize memoryReservation,
+            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
@@ -158,6 +161,7 @@ public class TaskStats
         this.completedDrivers = completedDrivers;
 
         this.memoryReservation = checkNotNull(memoryReservation, "memoryReservation is null");
+        this.systemMemoryReservation = checkNotNull(systemMemoryReservation, "systemMemoryReservation is null");
 
         this.totalScheduledTime = checkNotNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = checkNotNull(totalCpuTime, "totalCpuTime is null");
@@ -248,6 +252,12 @@ public class TaskStats
     public DataSize getMemoryReservation()
     {
         return memoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getSystemMemoryReservation()
+    {
+        return systemMemoryReservation;
     }
 
     @JsonProperty
@@ -356,6 +366,7 @@ public class TaskStats
                 runningPartitionedDrivers,
                 completedDrivers,
                 memoryReservation,
+                systemMemoryReservation,
                 totalScheduledTime,
                 totalCpuTime,
                 totalUserTime,

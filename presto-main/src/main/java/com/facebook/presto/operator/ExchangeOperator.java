@@ -39,11 +39,11 @@ public class ExchangeOperator
     {
         private final int operatorId;
         private final PlanNodeId sourceId;
-        private final Supplier<ExchangeClient> exchangeClientSupplier;
+        private final ExchangeClientSupplier exchangeClientSupplier;
         private final List<Type> types;
         private boolean closed;
 
-        public ExchangeOperatorFactory(int operatorId, PlanNodeId sourceId, Supplier<ExchangeClient> exchangeClientSupplier, List<Type> types)
+        public ExchangeOperatorFactory(int operatorId, PlanNodeId sourceId, ExchangeClientSupplier exchangeClientSupplier, List<Type> types)
         {
             this.operatorId = operatorId;
             this.sourceId = sourceId;
@@ -73,7 +73,7 @@ public class ExchangeOperator
                     operatorContext,
                     types,
                     sourceId,
-                    exchangeClientSupplier.get());
+                    exchangeClientSupplier.get(new SystemMemoryUsageTracker(operatorContext)));
         }
 
         @Override

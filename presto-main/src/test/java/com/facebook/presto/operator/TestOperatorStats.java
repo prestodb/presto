@@ -54,8 +54,9 @@ public class TestOperatorStats
             new Duration(17, NANOSECONDS),
 
             new DataSize(18, BYTE),
+            new DataSize(19, BYTE),
             Optional.empty(),
-            "19");
+            "20");
 
     public static final OperatorStats MERGEABLE = new OperatorStats(
             41,
@@ -83,8 +84,9 @@ public class TestOperatorStats
             new Duration(17, NANOSECONDS),
 
             new DataSize(18, BYTE),
+            new DataSize(19, BYTE),
             Optional.empty(),
-            new LongMergeable(19));
+            new LongMergeable(20));
 
     @Test
     public void testJson()
@@ -124,7 +126,8 @@ public class TestOperatorStats
         Assert.assertEquals(actual.getFinishUser(), new Duration(17, NANOSECONDS));
 
         Assert.assertEquals(actual.getMemoryReservation(), new DataSize(18, BYTE));
-        Assert.assertEquals(actual.getInfo(), "19");
+        Assert.assertEquals(actual.getSystemMemoryReservation(), new DataSize(19, BYTE));
+        Assert.assertEquals(actual.getInfo(), "20");
     }
 
     @Test
@@ -156,6 +159,7 @@ public class TestOperatorStats
         Assert.assertEquals(actual.getFinishCpu(), new Duration(3 * 16, NANOSECONDS));
         Assert.assertEquals(actual.getFinishUser(), new Duration(3 * 17, NANOSECONDS));
         Assert.assertEquals(actual.getMemoryReservation(), new DataSize(3 * 18, BYTE));
+        Assert.assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 19, BYTE));
         Assert.assertEquals(actual.getInfo(), null);
     }
 
@@ -188,7 +192,8 @@ public class TestOperatorStats
         Assert.assertEquals(actual.getFinishCpu(), new Duration(3 * 16, NANOSECONDS));
         Assert.assertEquals(actual.getFinishUser(), new Duration(3 * 17, NANOSECONDS));
         Assert.assertEquals(actual.getMemoryReservation(), new DataSize(3 * 18, BYTE));
-        Assert.assertEquals(actual.getInfo(), new LongMergeable(19 * 3));
+        Assert.assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 19, BYTE));
+        Assert.assertEquals(actual.getInfo(), new LongMergeable(20 * 3));
     }
 
     private static class LongMergeable
