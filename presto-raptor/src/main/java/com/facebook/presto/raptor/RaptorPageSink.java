@@ -108,6 +108,12 @@ public class RaptorPageSink
     }
 
     @Override
+    public long getDeltaMemory()
+    {
+        return pageBuffer.getDeltaMemory().get();
+    }
+
+    @Override
     public void rollback()
     {
         storagePageSink.rollback();

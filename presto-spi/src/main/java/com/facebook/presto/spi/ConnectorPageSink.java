@@ -24,5 +24,11 @@ public interface ConnectorPageSink
 
     Collection<Slice> commit();
 
+    /**
+     * Get the memory that needs to be reserved from the system pool
+     * @return the system memory used so far in table write
+     */
+    long getDeltaMemory();
+
     void rollback();
 }

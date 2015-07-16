@@ -18,25 +18,29 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class PageBuffer
 {
     private final long maxMemoryBytes;
     private final List<Page> pages = new ArrayList<>();
     private final long maxRows;
+    private final AtomicLong deltaMemory;
 
     private long usedMemoryBytes;
     private long rowCount;
 
-    public PageBuffer(long maxMemoryBytes, long maxRows)
+    public PageBuffer(long maxMemoryBytes, long maxRows, AtomicLong deltaMemory)
     {
         checkArgument(maxMemoryBytes > 0, "maxMemoryBytes must be positive");
         checkArgument(maxRows > 0, "maxRows must be positive");
         this.maxRows = maxRows;
         this.maxMemoryBytes = maxMemoryBytes;
+        this.deltaMemory = requireNonNull(deltaMemory, "deltaMemory is null");
     }
 
     public void add(Page page)
@@ -45,11 +49,13 @@ public class PageBuffer
         pages.add(page);
         usedMemoryBytes += page.getSizeInBytes();
         rowCount += page.getPositionCount();
+        deltaMemory.getAndAdd(page.getSizeInBytes());
     }
 
     public void reset()
     {
         pages.clear();
+        deltaMemory.getAndAdd(-usedMemoryBytes);
         rowCount = 0;
         usedMemoryBytes = 0;
     }
@@ -72,5 +78,10 @@ public class PageBuffer
     public long getRowCount()
     {
         return rowCount;
+    }
+
+    public AtomicLong getDeltaMemory()
+    {
+        return deltaMemory;
     }
 }

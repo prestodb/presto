@@ -49,6 +49,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class ExchangeClient
