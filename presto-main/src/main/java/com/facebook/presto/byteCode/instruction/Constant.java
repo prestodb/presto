@@ -19,6 +19,7 @@ import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Primitives;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
 
@@ -611,7 +612,13 @@ public abstract class Constant
         @Override
         public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
         {
-            visitor.visitLdcInsn(Type.getType(value.getType()));
+            if (value.isPrimitive()) {
+                Class<?> wrapper = Primitives.wrap(value.getPrimitiveType());
+                getStaticInstruction(wrapper, "TYPE", Class.class).accept(visitor, generationContext);
+            }
+            else {
+                visitor.visitLdcInsn(Type.getType(value.getType()));
+            }
         }
 
         @Override
