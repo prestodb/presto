@@ -43,6 +43,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.ColorType.COLOR;
+import static com.facebook.presto.type.FunctionParametricType.FUNCTION;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
@@ -96,6 +97,7 @@ public final class TypeRegistry
         addParametricType(ROW);
         addParametricType(ARRAY);
         addParametricType(MAP);
+        addParametricType(FUNCTION);
 
         for (Type type : types) {
             addType(type);
