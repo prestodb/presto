@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
@@ -801,7 +802,7 @@ public class ExpressionInterpreter
             if (index == null) {
                 return null;
             }
-            if (index instanceof Long) {
+            if ((index instanceof Long) && isArray(expressionTypes.get(node.getBase()))) {
                 ArraySubscriptOperator.checkArrayIndex((Long) index);
             }
 
@@ -887,5 +888,10 @@ public class ExpressionInterpreter
     private static boolean isNullLiteral(Expression entry)
     {
         return entry instanceof Literal && !(entry instanceof NullLiteral);
+    }
+
+    private static boolean isArray(Type type)
+    {
+        return type.getTypeSignature().getBase().equals(StandardTypes.ARRAY);
     }
 }
