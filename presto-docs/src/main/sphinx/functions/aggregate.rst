@@ -77,6 +77,10 @@ Map Aggregate Functions
 
     Returns a map created from the input ``key`` / ``value`` pairs.
 
+.. function:: histogram(key) -> map<K,bigint>
+
+    Returns a histogram representing the distribution of the input ``key`` data.
+
 Approximate Aggregate Functions
 -------------------------------
 
