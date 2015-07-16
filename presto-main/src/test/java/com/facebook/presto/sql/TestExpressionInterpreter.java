@@ -844,15 +844,23 @@ public class TestExpressionInterpreter
     }
 
     @Test(expectedExceptions = PrestoException.class)
-    public void testSubscriptConstantNegativeIndex()
+    public void testArraySubscriptConstantNegativeIndex()
     {
         optimize("ARRAY [1, 2, 3][-1]");
     }
 
     @Test(expectedExceptions = PrestoException.class)
-    public void testSubscriptConstantZeroIndex()
+    public void testArraySubscriptConstantZeroIndex()
     {
         optimize("ARRAY [1, 2, 3][0]");
+    }
+
+    @Test
+    public void testMapSubscriptConstantIndexes()
+    {
+        optimize("MAP(ARRAY [1, 2], ARRAY [3, 4])[-1]");
+        optimize("MAP(ARRAY [1, 2], ARRAY [3, 4])[0]");
+        optimize("MAP(ARRAY [1, 2], ARRAY [3, 4])[5]");
     }
 
     @Test(timeOut = 60000)
