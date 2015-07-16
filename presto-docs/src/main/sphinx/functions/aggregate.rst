@@ -73,13 +73,13 @@ General Aggregate Functions
 Map Aggregate Functions
 -----------------------
 
+.. function:: histogram(x) -> map<K,bigint>
+
+    Returns a map containing the count of the number of times each input value occurs.
+
 .. function:: map_agg(key, value) -> map<K,V>
 
     Returns a map created from the input ``key`` / ``value`` pairs.
-
-.. function:: histogram(key) -> map<K,bigint>
-
-    Returns a histogram representing the distribution of the input ``key`` data.
 
 Approximate Aggregate Functions
 -------------------------------
