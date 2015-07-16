@@ -114,7 +114,7 @@ public class TupleDescriptor
 
     /**
      * Returns all unique relations in this tuple.
-     * For detecting detecting duplicate relations in a Join.
+     * For detecting duplicate relations in a Join.
      */
     public Set<QualifiedName> getRelationAliases()
     {
