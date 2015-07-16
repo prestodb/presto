@@ -66,6 +66,8 @@ public class QueryCompletionEvent
     private final ErrorCode errorCode;
     private final String failureType;
     private final String failureMessage;
+    private final String failureTask;
+    private final String failureHost;
 
     private final String outputStageJson;
     private final String failuresJson;
@@ -102,6 +104,8 @@ public class QueryCompletionEvent
             ErrorCode errorCode,
             String failureType,
             String failureMessage,
+            String failureTask,
+            String failureHost,
             String outputStageJson,
             String failuresJson,
             String inputsJson,
@@ -135,6 +139,8 @@ public class QueryCompletionEvent
         this.splits = splits;
         this.failureType = failureType;
         this.failureMessage = failureMessage;
+        this.failureTask = failureTask;
+        this.failureHost = failureHost;
         this.outputStageJson = outputStageJson;
         this.failuresJson = failuresJson;
         this.inputsJson = inputsJson;
@@ -378,6 +384,18 @@ public class QueryCompletionEvent
     public String getFailureMessage()
     {
         return failureMessage;
+    }
+
+    @EventField
+    public String getFailureTask()
+    {
+        return failureTask;
+    }
+
+    @EventField
+    public String getFailureHost()
+    {
+        return failureHost;
     }
 
     @EventField
