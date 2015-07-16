@@ -10,3 +10,4 @@ General Changes
 * Semi-joins are hash-partitioned if ``distributed_join`` is turned on.
 * Add support for partial cast from JSON. For example, ``json`` can be cast to ``array<json>``, ``map<varchar, json>``, etc.
 * Add implicit coercions for ``UNION``.
+* Expose query stats in Presto JDBC driver.
