@@ -67,6 +67,7 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestExchangeOperator
@@ -265,7 +266,9 @@ public class TestExchangeOperator
                 .addPipelineContext(true, true)
                 .addDriverContext();
 
-        return operatorFactory.createOperator(driverContext);
+        SourceOperator operator = operatorFactory.createOperator(driverContext);
+        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
+        return operator;
     }
 
     private List<Page> waitForPages(Operator operator, int expectedPageCount)
@@ -274,6 +277,23 @@ public class TestExchangeOperator
         // read expected pages or until 10 seconds has passed
         long endTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         List<Page> outputPages = new ArrayList<>();
+
+        boolean greaterThanZero = false;
+        while (System.nanoTime() < endTime) {
+            if (operator.isFinished()) {
+                break;
+            }
+
+            if (operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes() > 0) {
+                greaterThanZero = true;
+                break;
+            }
+            else {
+                Thread.sleep(10);
+            }
+        }
+        assertTrue(greaterThanZero);
+
         while (outputPages.size() < expectedPageCount && System.nanoTime() < endTime) {
             assertEquals(operator.needsInput(), false);
             if (operator.isFinished()) {
@@ -302,6 +322,8 @@ public class TestExchangeOperator
             assertPageEquals(operator.getTypes(), page, PAGE);
         }
 
+        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
+
         return outputPages;
     }
 
@@ -323,6 +345,7 @@ public class TestExchangeOperator
         assertEquals(operator.isFinished(), true);
         assertEquals(operator.needsInput(), false);
         assertNull(operator.getOutput());
+        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
     }
 
     private static class HttpClientHandler
