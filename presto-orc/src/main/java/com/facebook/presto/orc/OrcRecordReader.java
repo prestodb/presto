@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -84,7 +85,8 @@ public class OrcRecordReader
             int bufferSize,
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
-            MetadataReader metadataReader)
+            MetadataReader metadataReader,
+            AtomicLong deltaMemory)
             throws IOException
     {
         checkNotNull(includedColumns, "includedColumns is null");
@@ -153,6 +155,8 @@ public class OrcRecordReader
                 .mapToLong(StripeInformation::getNumberOfRows)
                 .sum();
 
+        checkNotNull(deltaMemory, "deltaMemory is null");
+
         stripeReader = new StripeReader(
                 orcDataSource,
                 compressionKind,
@@ -161,7 +165,8 @@ public class OrcRecordReader
                 this.presentColumns,
                 rowsInRowGroup,
                 predicate,
-                metadataReader);
+                metadataReader,
+                deltaMemory);
 
         streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build());
     }

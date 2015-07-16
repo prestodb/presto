@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.orc.Vector.MAX_VECTOR_LENGTH;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
@@ -89,13 +90,16 @@ public class OrcPageSource
     private int batchId;
     private boolean closed;
 
+    private AtomicLong deltaMemory;
+
     public OrcPageSource(
             ShardRewriter shardRewriter,
             OrcRecordReader recordReader,
             OrcDataSource orcDataSource,
             List<Long> columnIds,
             List<Type> columnTypes,
-            List<Integer> columnIndexes)
+            List<Integer> columnIndexes,
+            AtomicLong deltaMemory)
     {
         this.shardRewriter = checkNotNull(shardRewriter, "shardRewriter is null");
         this.recordReader = checkNotNull(recordReader, "recordReader is null");
@@ -119,6 +123,8 @@ public class OrcPageSource
                 constantBlocks[i] = buildNullBlock(columnTypes.get(i));
             }
         }
+
+        this.deltaMemory = checkNotNull(deltaMemory, "deltaMemory is null");
     }
 
     @Override
@@ -234,6 +240,12 @@ public class OrcPageSource
     public Collection<Slice> commit()
     {
         return shardRewriter.rewrite(rowsToDelete);
+    }
+
+    @Override
+    public long getDeltaMemory()
+    {
+        return deltaMemory.get();
     }
 
     private void closeWithSuppression(Throwable throwable)

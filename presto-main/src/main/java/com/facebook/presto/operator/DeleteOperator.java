@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.UpdatablePageSource;
@@ -78,17 +79,20 @@ public class DeleteOperator
 
     private final OperatorContext operatorContext;
     private final int rowIdChannel;
+    private final SystemMemoryUsageListener systemMemoryUsageListener;
 
     private State state = State.RUNNING;
     private long rowCount;
     private boolean committed;
     private boolean closed;
     private Supplier<Optional<UpdatablePageSource>> pageSource = Optional::empty;
+    private long bufferBytes;
 
     public DeleteOperator(OperatorContext operatorContext, int rowIdChannel)
     {
         this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
         this.rowIdChannel = rowIdChannel;
+        this.systemMemoryUsageListener = new SystemMemoryUpdater(this.operatorContext);
     }
 
     @Override
@@ -130,8 +134,11 @@ public class DeleteOperator
         checkState(state == State.RUNNING, "Operator is %s", state);
 
         Block rowIds = page.getBlock(rowIdChannel);
-        pageSource().deleteRows(rowIds);
+        UpdatablePageSource updatablePageSource = pageSource();
+        updatablePageSource.deleteRows(rowIds);
         rowCount += rowIds.getPositionCount();
+        systemMemoryUsageListener.updateSystemMemoryUsage(updatablePageSource.getDeltaMemory() - bufferBytes);
+        bufferBytes = updatablePageSource.getDeltaMemory();
     }
 
     @Override
@@ -142,8 +149,11 @@ public class DeleteOperator
         }
         state = State.FINISHED;
 
-        Collection<Slice> fragments = pageSource().commit();
+        UpdatablePageSource updatablePageSource = pageSource();
+        Collection<Slice> fragments = updatablePageSource.commit();
         committed = true;
+        systemMemoryUsageListener.updateSystemMemoryUsage(updatablePageSource.getDeltaMemory() - bufferBytes);
+        bufferBytes = updatablePageSource.getDeltaMemory();
 
         PageBuilder page = new PageBuilder(TYPES);
         BlockBuilder rowsBuilder = page.getBlockBuilder(0);
@@ -173,6 +183,8 @@ public class DeleteOperator
             if (!committed) {
                 pageSource.get().ifPresent(UpdatablePageSource::rollback);
             }
+            systemMemoryUsageListener.updateSystemMemoryUsage(-bufferBytes);
+            bufferBytes = 0;
         }
     }
 
