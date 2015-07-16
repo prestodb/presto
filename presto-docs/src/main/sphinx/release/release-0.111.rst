@@ -11,3 +11,4 @@ General Changes
 * Add support for partial cast from JSON. For example, ``json`` can be cast to ``array<json>``, ``map<varchar, json>``, etc.
 * Add implicit coercions for ``UNION``.
 * Expose query stats in Presto JDBC driver.
+* Add ``histogram`` function which returns a histogram representing the distribution of a series of input values.
