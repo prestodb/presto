@@ -38,23 +38,24 @@ public class TestDriverStats
             new Duration(5, NANOSECONDS),
 
             new DataSize(6, BYTE),
+            new DataSize(7, BYTE),
 
-            new Duration(7, NANOSECONDS),
             new Duration(8, NANOSECONDS),
             new Duration(9, NANOSECONDS),
             new Duration(10, NANOSECONDS),
+            new Duration(11, NANOSECONDS),
             false,
             ImmutableSet.of(),
 
-            new DataSize(11, BYTE),
-            12,
-            new Duration(13, NANOSECONDS),
-
-            new DataSize(13, BYTE),
-            14,
+            new DataSize(12, BYTE),
+            13,
+            new Duration(14, NANOSECONDS),
 
             new DataSize(15, BYTE),
             16,
+
+            new DataSize(17, BYTE),
+            18,
 
             ImmutableList.of(TestOperatorStats.EXPECTED));
 
@@ -78,21 +79,22 @@ public class TestDriverStats
         assertEquals(actual.getElapsedTime(), new Duration(5, NANOSECONDS));
 
         assertEquals(actual.getMemoryReservation(), new DataSize(6, BYTE));
+        assertEquals(actual.getSystemMemoryReservation(), new DataSize(7, BYTE));
 
-        assertEquals(actual.getTotalScheduledTime(), new Duration(7, NANOSECONDS));
-        assertEquals(actual.getTotalCpuTime(), new Duration(8, NANOSECONDS));
-        assertEquals(actual.getTotalUserTime(), new Duration(9, NANOSECONDS));
-        assertEquals(actual.getTotalBlockedTime(), new Duration(10, NANOSECONDS));
+        assertEquals(actual.getTotalScheduledTime(), new Duration(8, NANOSECONDS));
+        assertEquals(actual.getTotalCpuTime(), new Duration(9, NANOSECONDS));
+        assertEquals(actual.getTotalUserTime(), new Duration(10, NANOSECONDS));
+        assertEquals(actual.getTotalBlockedTime(), new Duration(11, NANOSECONDS));
 
-        assertEquals(actual.getRawInputDataSize(), new DataSize(11, BYTE));
-        assertEquals(actual.getRawInputPositions(), 12);
-        assertEquals(actual.getRawInputReadTime(), new Duration(13, NANOSECONDS));
+        assertEquals(actual.getRawInputDataSize(), new DataSize(12, BYTE));
+        assertEquals(actual.getRawInputPositions(), 13);
+        assertEquals(actual.getRawInputReadTime(), new Duration(14, NANOSECONDS));
 
-        assertEquals(actual.getProcessedInputDataSize(), new DataSize(13, BYTE));
-        assertEquals(actual.getProcessedInputPositions(), 14);
+        assertEquals(actual.getProcessedInputDataSize(), new DataSize(15, BYTE));
+        assertEquals(actual.getProcessedInputPositions(), 16);
 
-        assertEquals(actual.getOutputDataSize(), new DataSize(15, BYTE));
-        assertEquals(actual.getOutputPositions(), 16);
+        assertEquals(actual.getOutputDataSize(), new DataSize(17, BYTE));
+        assertEquals(actual.getOutputPositions(), 18);
 
         assertEquals(actual.getOperatorStats().size(), 1);
         assertExpectedOperatorStats(actual.getOperatorStats().get(0));

@@ -77,14 +77,7 @@ public class TestExchangeClient
         processor.setComplete(location);
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(
-                blockEncodingManager,
-                new DataSize(32, Unit.MEGABYTE),
-                maxResponseSize,
-                1,
-                new Duration(1, TimeUnit.MINUTES),
-                new TestingHttpClient(processor, executor),
-                executor);
+        ExchangeClient exchangeClient = new ExchangeClient(blockEncodingManager, new DataSize(32, Unit.MEGABYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, executor), executor, deltaMemoryInBytes -> { });
 
         exchangeClient.addLocation(location);
         exchangeClient.noMoreLocations();
@@ -114,14 +107,7 @@ public class TestExchangeClient
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(
-                blockEncodingManager,
-                new DataSize(32, Unit.MEGABYTE),
-                maxResponseSize,
-                1,
-                new Duration(1, TimeUnit.MINUTES),
-                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
-                executor);
+        ExchangeClient exchangeClient = new ExchangeClient(blockEncodingManager, new DataSize(32, Unit.MEGABYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))), executor, deltaMemoryInBytes -> { });
 
         URI location1 = URI.create("http://localhost:8081/foo");
         processor.addPage(location1, createPage(1));
@@ -185,14 +171,7 @@ public class TestExchangeClient
         processor.setComplete(location);
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(
-                blockEncodingManager,
-                new DataSize(1, Unit.BYTE),
-                maxResponseSize,
-                1,
-                new Duration(1, TimeUnit.MINUTES),
-                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
-                executor);
+        ExchangeClient exchangeClient = new ExchangeClient(blockEncodingManager, new DataSize(1, Unit.BYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))), executor, deltaMemoryInBytes -> { });
 
         exchangeClient.addLocation(location);
         exchangeClient.noMoreLocations();
@@ -265,13 +244,7 @@ public class TestExchangeClient
         processor.addPage(location, createPage(3));
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(
-                blockEncodingManager,
-                new DataSize(1, Unit.BYTE),
-                maxResponseSize, 1,
-                new Duration(1, TimeUnit.MINUTES),
-                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
-                executor);
+        ExchangeClient exchangeClient = new ExchangeClient(blockEncodingManager, new DataSize(1, Unit.BYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))), executor, deltaMemoryInBytes -> { });
         exchangeClient.addLocation(location);
         exchangeClient.noMoreLocations();
 

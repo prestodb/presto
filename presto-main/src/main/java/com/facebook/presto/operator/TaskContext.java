@@ -56,6 +56,7 @@ public class TaskContext
     private final DataSize operatorPreAllocatedMemory;
 
     private final AtomicLong memoryReservation = new AtomicLong();
+    private final AtomicLong systemMemoryReservation = new AtomicLong();
 
     private final long createNanos = System.nanoTime();
 
@@ -167,6 +168,14 @@ public class TaskContext
         return future;
     }
 
+    public synchronized ListenableFuture<?> reserveSystemMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        ListenableFuture<?> future = queryContext.reserveSystemMemory(bytes);
+        systemMemoryReservation.getAndAdd(bytes);
+        return future;
+    }
+
     public synchronized boolean tryReserveMemory(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
@@ -187,6 +196,14 @@ public class TaskContext
         checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
         memoryReservation.getAndAdd(-bytes);
         queryContext.freeMemory(bytes);
+    }
+
+    public synchronized void freeSystemMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(bytes <= systemMemoryReservation.get(), "tried to free more memory than is reserved");
+        systemMemoryReservation.getAndAdd(-bytes);
+        queryContext.freeSystemMemory(bytes);
     }
 
     public void moreMemoryAvailable()
@@ -345,6 +362,7 @@ public class TaskContext
                 runningPartitionedDrivers,
                 completedDrivers,
                 new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
+                new DataSize(systemMemoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),

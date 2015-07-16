@@ -78,6 +78,7 @@ public class OperatorContext
     private final AtomicLong finishUserNanos = new AtomicLong();
 
     private final AtomicLong memoryReservation = new AtomicLong();
+    private final AtomicLong systemMemoryReservation = new AtomicLong();
     private final long maxMemoryReservation;
 
     private final AtomicReference<Supplier<Object>> infoSupplier = new AtomicReference<>();
@@ -257,6 +258,13 @@ public class OperatorContext
         }
     }
 
+    public void reserveSystemMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        driverContext.reserveSystemMemory(bytes);
+        systemMemoryReservation.addAndGet(bytes);
+    }
+
     public boolean tryReserveMemory(long bytes)
     {
         if (!driverContext.tryReserveMemory(bytes)) {
@@ -277,6 +285,14 @@ public class OperatorContext
         checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
         driverContext.freeMemory(bytes);
         memoryReservation.getAndAdd(-bytes);
+    }
+
+    public void freeSystemMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(bytes <= systemMemoryReservation.get(), "tried to free more memory than is reserved");
+        driverContext.freeSystemMemory(bytes);
+        systemMemoryReservation.getAndAdd(-bytes);
     }
 
     public void moreMemoryAvailable()
@@ -373,6 +389,7 @@ public class OperatorContext
                 new Duration(finishUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
+                new DataSize(systemMemoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);
     }

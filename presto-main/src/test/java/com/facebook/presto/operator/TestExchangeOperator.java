@@ -51,7 +51,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.SequencePageBuilder.createSequencePage;
@@ -67,6 +66,7 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestExchangeOperator
@@ -91,7 +91,7 @@ public class TestExchangeOperator
 
     private ScheduledExecutorService executor;
     private HttpClient httpClient;
-    private Supplier<ExchangeClient> exchangeClientSupplier;
+    private ExchangeClientSupplier exchangeClientSupplier;
 
     @SuppressWarnings("resource")
     @BeforeClass
@@ -102,14 +102,15 @@ public class TestExchangeOperator
 
         httpClient = new TestingHttpClient(new HttpClientHandler(taskBuffers), executor);
 
-        exchangeClientSupplier = () -> new ExchangeClient(
+        exchangeClientSupplier = (systemMemoryUsageListener) -> new ExchangeClient(
                 blockEncodingSerde,
                 new DataSize(32, MEGABYTE),
                 new DataSize(10, MEGABYTE),
                 3,
                 new Duration(1, TimeUnit.MINUTES),
                 httpClient,
-                executor);
+                executor,
+                systemMemoryUsageListener);
     }
 
     @AfterClass
@@ -265,7 +266,9 @@ public class TestExchangeOperator
                 .addPipelineContext(true, true)
                 .addDriverContext();
 
-        return operatorFactory.createOperator(driverContext);
+        SourceOperator operator = operatorFactory.createOperator(driverContext);
+        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
+        return operator;
     }
 
     private List<Page> waitForPages(Operator operator, int expectedPageCount)
@@ -274,6 +277,23 @@ public class TestExchangeOperator
         // read expected pages or until 10 seconds has passed
         long endTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         List<Page> outputPages = new ArrayList<>();
+
+        boolean greaterThanZero = false;
+        while (System.nanoTime() < endTime) {
+            if (operator.isFinished()) {
+                break;
+            }
+
+            if (operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes() > 0) {
+                greaterThanZero = true;
+                break;
+            }
+            else {
+                Thread.sleep(10);
+            }
+        }
+        assertTrue(greaterThanZero);
+
         while (outputPages.size() < expectedPageCount && System.nanoTime() < endTime) {
             assertEquals(operator.needsInput(), false);
             if (operator.isFinished()) {
@@ -302,6 +322,8 @@ public class TestExchangeOperator
             assertPageEquals(operator.getTypes(), page, PAGE);
         }
 
+        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
+
         return outputPages;
     }
 
@@ -323,6 +345,7 @@ public class TestExchangeOperator
         assertEquals(operator.isFinished(), true);
         assertEquals(operator.needsInput(), false);
         assertNull(operator.getOutput());
+        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
     }
 
     private static class HttpClientHandler

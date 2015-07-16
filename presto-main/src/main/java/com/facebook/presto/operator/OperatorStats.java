@@ -57,6 +57,7 @@ public class OperatorStats
     private final Duration finishUser;
 
     private final DataSize memoryReservation;
+    private final DataSize systemMemoryReservation;
     private final Optional<BlockedReason> blockedReason;
 
     private final Object info;
@@ -88,6 +89,7 @@ public class OperatorStats
             @JsonProperty("finishUser") Duration finishUser,
 
             @JsonProperty("memoryReservation") DataSize memoryReservation,
+            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
             @JsonProperty("blockedReason") Optional<BlockedReason> blockedReason,
 
             @JsonProperty("info") Object info)
@@ -120,6 +122,7 @@ public class OperatorStats
         this.finishUser = checkNotNull(finishUser, "finishUser is null");
 
         this.memoryReservation = checkNotNull(memoryReservation, "memoryReservation is null");
+        this.systemMemoryReservation = checkNotNull(systemMemoryReservation, "systemMemoryReservation is null");
         this.blockedReason = blockedReason;
 
         this.info = info;
@@ -246,6 +249,12 @@ public class OperatorStats
     }
 
     @JsonProperty
+    public DataSize getSystemMemoryReservation()
+    {
+        return systemMemoryReservation;
+    }
+
+    @JsonProperty
     public Optional<BlockedReason> getBlockedReason()
     {
         return blockedReason;
@@ -287,6 +296,7 @@ public class OperatorStats
         long finishUser = this.finishUser.roundTo(NANOSECONDS);
 
         long memoryReservation = this.memoryReservation.toBytes();
+        long systemMemoryReservation = this.systemMemoryReservation.toBytes();
         Optional<BlockedReason> blockedReason = this.blockedReason;
 
         Mergeable<?> base = null;
@@ -318,6 +328,7 @@ public class OperatorStats
             blockedWall += operator.getBlockedWall().roundTo(NANOSECONDS);
 
             memoryReservation += operator.getMemoryReservation().toBytes();
+            systemMemoryReservation += operator.getSystemMemoryReservation().toBytes();
             if (operator.getBlockedReason().isPresent()) {
                 blockedReason = operator.getBlockedReason();
             }
@@ -354,6 +365,7 @@ public class OperatorStats
                 new Duration(finishUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 new DataSize(memoryReservation, BYTE).convertToMostSuccinctDataSize(),
+                new DataSize(systemMemoryReservation, BYTE).convertToMostSuccinctDataSize(),
                 blockedReason,
 
                 base);
