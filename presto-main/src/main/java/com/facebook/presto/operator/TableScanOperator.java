@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -100,6 +101,7 @@ public class TableScanOperator
     private final List<Type> types;
     private final List<ColumnHandle> columns;
     private final SettableFuture<?> blocked = SettableFuture.create();
+    private final SystemMemoryUsageListener systemMemoryUsageListener;
 
     private Split split;
     private ConnectorPageSource source;
@@ -108,6 +110,7 @@ public class TableScanOperator
 
     private long completedBytes;
     private long readTimeNanos;
+    private long bufferBytes;
 
     public TableScanOperator(
             OperatorContext operatorContext,
@@ -121,6 +124,23 @@ public class TableScanOperator
         this.types = checkNotNull(types, "types is null");
         this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceManager is null");
         this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
+        this.systemMemoryUsageListener = new SystemMemoryUpdater(this.operatorContext);
+    }
+
+    public TableScanOperator(
+            OperatorContext operatorContext,
+            PlanNodeId planNodeId,
+            ConnectorPageSource source,
+            List<Type> types,
+            Iterable<ColumnHandle> columns)
+    {
+        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.planNodeId = checkNotNull(planNodeId, "planNodeId is null");
+        this.types = checkNotNull(types, "types is null");
+        this.pageSourceProvider = null;
+        this.source = checkNotNull(source, "source is null");
+        this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
+        this.systemMemoryUsageListener = new SystemMemoryUpdater(this.operatorContext);
     }
 
     @Override
@@ -197,6 +217,9 @@ public class TableScanOperator
                 throw Throwables.propagate(e);
             }
         }
+
+        systemMemoryUsageListener.updateSystemMemoryUsage(-bufferBytes);
+        bufferBytes = 0;
     }
 
     @Override
@@ -237,6 +260,9 @@ public class TableScanOperator
         }
 
         Page page = source.getNextPage();
+        systemMemoryUsageListener.updateSystemMemoryUsage(source.getDeltaMemory() - bufferBytes);
+        bufferBytes = source.getDeltaMemory();
+
         if (page != null) {
             // assure the page is in memory before handing to another operator
             page.assureLoaded();

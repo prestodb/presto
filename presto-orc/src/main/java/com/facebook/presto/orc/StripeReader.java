@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.orc.checkpoint.Checkpoints.getDictionaryStreamCheckpoint;
 import static com.facebook.presto.orc.checkpoint.Checkpoints.getStreamCheckpoints;
@@ -73,6 +74,7 @@ public class StripeReader
     private final int rowsInRowGroup;
     private final OrcPredicate predicate;
     private final MetadataReader metadataReader;
+    private final AtomicLong deltaMemory;
 
     public StripeReader(OrcDataSource orcDataSource,
             CompressionKind compressionKind,
@@ -81,7 +83,8 @@ public class StripeReader
             Set<Integer> includedColumns,
             int rowsInRowGroup,
             OrcPredicate predicate,
-            MetadataReader metadataReader)
+            MetadataReader metadataReader,
+            AtomicLong deltaMemory)
     {
         this.orcDataSource = checkNotNull(orcDataSource, "orcDataSource is null");
         this.compressionKind = checkNotNull(compressionKind, "compressionKind is null");
@@ -91,6 +94,7 @@ public class StripeReader
         this.rowsInRowGroup = rowsInRowGroup;
         this.predicate = checkNotNull(predicate, "predicate is null");
         this.metadataReader = checkNotNull(metadataReader, "metadataReader is null");
+        this.deltaMemory = checkNotNull(deltaMemory, "deltaMemory is null");
     }
 
     public Stripe readStripe(StripeInformation stripe)
@@ -213,7 +217,7 @@ public class StripeReader
         String sourceName = orcDataSource.toString();
         ImmutableMap.Builder<StreamId, OrcInputStream> streamsBuilder = ImmutableMap.builder();
         for (Entry<StreamId, FixedLengthSliceInput> entry : streamsData.entrySet()) {
-            streamsBuilder.put(entry.getKey(), new OrcInputStream(sourceName, entry.getValue(), compressionKind, bufferSize));
+            streamsBuilder.put(entry.getKey(), new OrcInputStream(sourceName, entry.getValue(), compressionKind, bufferSize, deltaMemory));
         }
         return streamsBuilder.build();
     }
@@ -317,7 +321,7 @@ public class StripeReader
         // read the footer
         byte[] tailBuffer = new byte[tailLength];
         orcDataSource.readFully(offset, tailBuffer);
-        InputStream inputStream = new OrcInputStream(orcDataSource.toString(), Slices.wrappedBuffer(tailBuffer).getInput(), compressionKind, bufferSize);
+        InputStream inputStream = new OrcInputStream(orcDataSource.toString(), Slices.wrappedBuffer(tailBuffer).getInput(), compressionKind, bufferSize, deltaMemory);
         return metadataReader.readStripeFooter(types, inputStream);
     }
 

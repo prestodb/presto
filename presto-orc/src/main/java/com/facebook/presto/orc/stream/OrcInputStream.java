@@ -25,6 +25,7 @@ import org.iq80.snappy.Snappy;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
@@ -53,7 +54,9 @@ public final class OrcInputStream
 
     private byte[] buffer;
 
-    public OrcInputStream(String source, FixedLengthSliceInput sliceInput, CompressionKind compressionKind, int bufferSize)
+    private final AtomicLong deltaMemory;
+
+    public OrcInputStream(String source, FixedLengthSliceInput sliceInput, CompressionKind compressionKind, int bufferSize, AtomicLong deltaMemory)
     {
         this.source = checkNotNull(source, "source is null");
 
@@ -61,6 +64,7 @@ public final class OrcInputStream
 
         this.compressionKind = checkNotNull(compressionKind, "compressionKind is null");
         this.maxBufferSize = bufferSize;
+        this.deltaMemory = checkNotNull(deltaMemory, "deltaMemory is null");
 
         if (compressionKind == UNCOMPRESSED) {
             this.current = sliceInput;
@@ -78,6 +82,7 @@ public final class OrcInputStream
             throws IOException
     {
         current = null;
+        deltaMemory.getAndAdd(-buffer.length);
     }
 
     @Override
@@ -287,13 +292,16 @@ public final class OrcInputStream
 
     private void allocateOrGrowBuffer(int size, boolean copyExistingData)
     {
+        int oldBufferSize = 0;
         if (buffer == null || buffer.length < size) {
             if (copyExistingData && buffer != null) {
+                oldBufferSize = buffer.length;
                 buffer = Arrays.copyOfRange(buffer, 0, Math.min(size, maxBufferSize));
             }
             else {
                 buffer = new byte[Math.min(size, maxBufferSize)];
             }
         }
+        deltaMemory.getAndAdd(buffer.length - oldBufferSize);
     }
 }

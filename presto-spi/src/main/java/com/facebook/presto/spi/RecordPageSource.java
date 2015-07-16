@@ -135,4 +135,10 @@ public class RecordPageSource
 
         return page;
     }
+
+    @Override
+    public long getDeltaMemory()
+    {
+        return 0;
+    }
 }

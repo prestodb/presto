@@ -46,6 +46,7 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
@@ -99,13 +100,16 @@ public class OrcPageSource
     private int batchId;
     private boolean closed;
 
+    private AtomicLong deltaMemory;
+
     public OrcPageSource(
             OrcRecordReader recordReader,
             OrcDataSource orcDataSource,
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            AtomicLong deltaMemory)
     {
         this.recordReader = checkNotNull(recordReader, "recordReader is null");
         this.orcDataSource = checkNotNull(orcDataSource, "orcDataSource is null");
@@ -206,6 +210,8 @@ public class OrcPageSource
         }
         types = typesBuilder.build();
         columnNames = namesBuilder.build();
+
+        this.deltaMemory = checkNotNull(deltaMemory, "deltaMemory is null");
     }
 
     @Override
@@ -312,6 +318,12 @@ public class OrcPageSource
                 .add("columnNames", columnNames)
                 .add("types", types)
                 .toString();
+    }
+
+    @Override
+    public long getDeltaMemory()
+    {
+        return deltaMemory.get();
     }
 
     protected void closeWithSuppression(Throwable throwable)

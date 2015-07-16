@@ -49,6 +49,12 @@ public interface ConnectorPageSource
     Page getNextPage();
 
     /**
+     * Get the memory that needs to be reserved from the system pool
+     * @return the system memory used so far in table read
+     */
+    long getDeltaMemory();
+
+    /**
      * Immediately finishes this page source.  Presto will always call this method.
      */
     @Override

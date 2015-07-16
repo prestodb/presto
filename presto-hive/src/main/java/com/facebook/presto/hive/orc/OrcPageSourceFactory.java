@@ -47,6 +47,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
@@ -148,14 +149,17 @@ public class OrcPageSourceFactory
 
         OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build());
 
+        AtomicLong deltaMemory = new AtomicLong();
+
         try {
-            OrcReader reader = new OrcReader(orcDataSource, metadataReader);
+            OrcReader reader = new OrcReader(orcDataSource, metadataReader, deltaMemory);
             OrcRecordReader recordReader = reader.createRecordReader(
                     includedColumns.build(),
                     predicate,
                     start,
                     length,
-                    hiveStorageTimeZone);
+                    hiveStorageTimeZone,
+                    deltaMemory);
 
             return new OrcPageSource(
                     recordReader,
@@ -163,7 +167,8 @@ public class OrcPageSourceFactory
                     partitionKeys,
                     columns,
                     hiveStorageTimeZone,
-                    typeManager);
+                    typeManager,
+                    deltaMemory);
         }
         catch (Exception e) {
             try {
