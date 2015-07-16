@@ -42,7 +42,7 @@
         <air.check.fail-checkstyle>true</air.check.fail-checkstyle>
         <air.check.skip-checkstyle>false</air.check.skip-checkstyle>
 
-        <dep.antlr.version>4.3</dep.antlr.version>
+        <dep.antlr.version>4.5.1</dep.antlr.version>
         <dep.airlift.version>0.112</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.14</dep.slice.version>
@@ -492,12 +492,6 @@
             <dependency>
                 <groupId>org.antlr</groupId>
                 <artifactId>antlr4-runtime</artifactId>
-                <version>${dep.antlr.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.antlr</groupId>
-                <artifactId>antlr4-annotations</artifactId>
                 <version>${dep.antlr.version}</version>
             </dependency>
 
