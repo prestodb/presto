@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.kafka.decoder.dummy.DummyKafkaRowDecoder;
+import com.facebook.presto.utils.decoder.dummy.DummyRowDecoder;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -102,7 +102,7 @@ public class KafkaMetadata
 
     private static String getDataFormat(KafkaTopicFieldGroup fieldGroup)
     {
-        return (fieldGroup == null) ? DummyKafkaRowDecoder.NAME : fieldGroup.getDataFormat();
+        return (fieldGroup == null) ? DummyRowDecoder.NAME : fieldGroup.getDataFormat();
     }
 
     @Override

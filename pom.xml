@@ -61,7 +61,9 @@
 
     <modules>
         <module>presto-spi</module>
+        <module>presto-utils</module>
         <module>presto-kafka</module>
+        <module>presto-redis</module>
         <module>presto-cassandra</module>
         <module>presto-blackhole</module>
         <module>presto-orc</module>
@@ -97,6 +99,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-spi</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-utils</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
