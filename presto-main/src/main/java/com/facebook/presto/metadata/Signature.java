@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
@@ -48,6 +49,7 @@ public final class Signature
     private final List<TypeParameter> typeParameters;
     private final TypeSignature returnType;
     private final List<TypeSignature> argumentTypes;
+    private final List<LiteralMapping> literalMappings;
     private final boolean variableArity;
     private final boolean internal;
 
@@ -57,6 +59,7 @@ public final class Signature
             @JsonProperty("typeParameters") List<TypeParameter> typeParameters,
             @JsonProperty("returnType") TypeSignature returnType,
             @JsonProperty("argumentTypes") List<TypeSignature> argumentTypes,
+            @JsonProperty("literalMappings") List<LiteralMapping> literalMappings,
             @JsonProperty("variableArity") boolean variableArity,
             @JsonProperty("internal") boolean internal)
     {
@@ -67,18 +70,24 @@ public final class Signature
         this.typeParameters = ImmutableList.copyOf(typeParameters);
         this.returnType = checkNotNull(returnType, "returnType is null");
         this.argumentTypes = ImmutableList.copyOf(checkNotNull(argumentTypes, "argumentTypes is null"));
+        this.literalMappings = ImmutableList.copyOf(checkNotNull(literalMappings, "literalMappings is null"));
         this.variableArity = variableArity;
         this.internal = internal;
     }
 
+    public Signature(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes, List<LiteralMapping> literalMappings, boolean variableArity, boolean internal)
+    {
+        this(name, typeParameters, parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeSignature::parseTypeSignature), literalMappings, variableArity, internal);
+    }
+
     public Signature(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes, boolean variableArity, boolean internal)
     {
-        this(name, typeParameters, parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeSignature::parseTypeSignature), variableArity, internal);
+        this(name, typeParameters, returnType, argumentTypes, ImmutableList.<LiteralMapping>of(), variableArity, internal);
     }
 
     public Signature(String name, String returnType, List<String> argumentTypes)
     {
-        this(name, ImmutableList.<TypeParameter>of(), parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeSignature::parseTypeSignature), false, false);
+        this(name, ImmutableList.<TypeParameter>of(), parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeSignature::parseTypeSignature), ImmutableList.<LiteralMapping>of(), false, false);
     }
 
     public Signature(String name, String returnType, String... argumentTypes)
@@ -86,9 +95,14 @@ public final class Signature
         this(name, returnType, ImmutableList.copyOf(argumentTypes));
     }
 
+    public Signature(String name, TypeSignature returnType, List<TypeSignature> argumentTypes, List<LiteralMapping> literalMappings)
+    {
+        this(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, literalMappings, false, false);
+    }
+
     public Signature(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        this(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false, false);
+        this(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, ImmutableList.<LiteralMapping>of(), false, false);
     }
 
     public Signature(String name, TypeSignature returnType, TypeSignature... argumentTypes)
@@ -96,9 +110,14 @@ public final class Signature
         this(name, returnType, ImmutableList.copyOf(argumentTypes));
     }
 
+    public static Signature internalOperator(String name, TypeSignature returnType, List<TypeSignature> argumentTypes, List<LiteralMapping> literalMappings)
+    {
+        return internalFunction(mangleOperatorName(name), returnType, argumentTypes, literalMappings);
+    }
+
     public static Signature internalOperator(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        return internalFunction(mangleOperatorName(name), returnType, argumentTypes);
+        return internalFunction(mangleOperatorName(name), returnType, argumentTypes, ImmutableList.<LiteralMapping>of());
     }
 
     public static Signature internalOperator(String name, TypeSignature returnType, TypeSignature... argumentTypes)
@@ -123,7 +142,12 @@ public final class Signature
 
     public static Signature internalFunction(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        return new Signature(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false, true);
+        return new Signature(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, ImmutableList.<LiteralMapping>of(), false, true);
+    }
+
+    public static Signature internalFunction(String name, TypeSignature returnType, List<TypeSignature> argumentTypes, List<LiteralMapping> literalMappings)
+    {
+        return new Signature(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, literalMappings, false, true);
     }
 
     @JsonProperty
@@ -162,22 +186,36 @@ public final class Signature
         return typeParameters;
     }
 
+    @JsonProperty
+    public List<LiteralMapping> getLiteralMappings()
+    {
+        return literalMappings;
+    }
+
     public Signature resolveCalculatedTypes(List<TypeSignature> parameterTypes)
     {
-        if (!returnType.isCalculated()) {
+        if (!returnType.isCalculated() && !Iterables.any(argumentTypes, TypeSignature::isCalculated)) {
             return this;
         }
 
-        Map<String, OptionalLong> inputs = new HashMap<>();
+        Map<String, OptionalLong> inputs = bindLiteralParameters(parameterTypes);
+        TypeSignature calculatedReturnType = TypeUtils.resolveCalculatedType(returnType, inputs);
+        return new Signature(name, calculatedReturnType, parameterTypes, literalMappings);
+    }
+
+    public Map<String, OptionalLong> bindLiteralParameters(List<TypeSignature> parameterTypes)
+    {
+        Map<String, OptionalLong> boundParameters = new HashMap<>();
+
         for (int index = 0; index < argumentTypes.size(); index++) {
             TypeSignature argument = argumentTypes.get(index);
             if (argument.isCalculated()) {
                 TypeSignature actualParameter = parameterTypes.get(index);
-                inputs.putAll(TypeUtils.extractCalculationInputs(argument, actualParameter));
+                boundParameters.putAll(TypeUtils.extractCalculationInputs(argument, actualParameter));
             }
         }
-        TypeSignature calculatedReturnType = TypeUtils.resolveCalculatedType(returnType, inputs);
-        return new Signature(name, calculatedReturnType, parameterTypes);
+
+        return boundParameters;
     }
 
     @Override
@@ -188,7 +226,7 @@ public final class Signature
 
     Signature withAlias(String name)
     {
-        return new Signature(name, typeParameters, getReturnType(), getArgumentTypes(), variableArity, internal);
+        return new Signature(name, typeParameters, getReturnType(), getArgumentTypes(), literalMappings, variableArity, internal);
     }
 
     @Override

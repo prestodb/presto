@@ -72,6 +72,7 @@ import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_Z
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
@@ -177,7 +178,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitStringLiteral(StringLiteral node, Void context)
         {
-            return constant(node.getSlice(), VARCHAR);
+            return constant(node.getSlice(), createVarcharType(node.getValue().length()));
         }
 
         @Override
@@ -321,8 +322,8 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitCoalesceExpression(CoalesceExpression node, Void context)
         {
             List<RowExpression> arguments = node.getOperands().stream()
-                            .map(value -> process(value, context))
-                            .collect(toImmutableList());
+                    .map(value -> process(value, context))
+                    .collect(toImmutableList());
 
             List<Type> argumentTypes = FluentIterable.from(arguments).transform(RowExpression::getType).toList();
             return call(coalesceSignature(types.get(node), argumentTypes), types.get(node), arguments);

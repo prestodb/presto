@@ -22,12 +22,16 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Ordering;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -180,9 +184,36 @@ public final class FunctionInfo
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        return this;
+        if (signature.getLiteralMappings().isEmpty()) {
+            return this;
+        }
+
+        Map<String, OptionalLong> boundLiterals = signature.bindLiteralParameters(parameterTypes);
+        List<LiteralMapping> descendingIndexOrderedLiteralMappings = Ordering
+                .natural()
+                .onResultOf(LiteralMapping::getFunctionParameterIndex)
+                .reverse()
+                .immutableSortedCopy(signature.getLiteralMappings());
+
+        MethodHandle methodHandleWithLiteralsApplied = methodHandle;
+        // todo: apply partial application to group of consecutive literal mappings instead of one at a time (might be faster)
+        for (LiteralMapping literalMapping : descendingIndexOrderedLiteralMappings) {
+            String literalName = literalMapping.getLiteralName().toUpperCase(Locale.US);
+            checkState(boundLiterals.containsKey(literalName), "no literal named %s for method %s", literalName, signature.getName());
+
+            OptionalLong literal = boundLiterals.get(literalName);
+            checkState(literal.isPresent(), "literal named %s is not present for method %s", literalName, signature.getName());
+
+            methodHandleWithLiteralsApplied = MethodHandles.insertArguments(methodHandleWithLiteralsApplied, literalMapping.getFunctionParameterIndex(), literal.getAsLong());
+        }
+
+        Signature signatureWithNoLiteralMappings = new Signature(
+                signature.getName(), signature.getTypeParameters(), signature.getReturnType(),
+                signature.getArgumentTypes(), ImmutableList.<LiteralMapping>of(),
+                signature.isVariableArity(), signature.isInternal());
+        return new FunctionInfo(signatureWithNoLiteralMappings, description, hidden, methodHandleWithLiteralsApplied, deterministic, nullable, nullableArguments);
     }
 
     public FunctionInfo resolveCalculatedTypes(List<TypeSignature> parameterTypes)

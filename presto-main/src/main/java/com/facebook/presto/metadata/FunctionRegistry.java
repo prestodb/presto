@@ -241,7 +241,7 @@ public class FunctionRegistry
                     public FunctionInfo load(SpecializedFunctionKey key)
                             throws Exception
                     {
-                        return key.getFunction().specialize(key.getBoundTypeParameters(), key.getArity(), typeManager, FunctionRegistry.this);
+                        return key.getFunction().specialize(key.getBoundTypeParameters(), key.getParameterTypes(), typeManager, FunctionRegistry.this);
                     }
                 });
 
@@ -408,7 +408,7 @@ public class FunctionRegistry
             if (boundTypeParameters != null) {
                 checkArgument(match == null, "Ambiguous call to %s with parameters %s", name, parameterTypes);
                 try {
-                    match = specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, resolvedTypes.size()));
+                    match = specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, parameterTypes));
                 }
                 catch (UncheckedExecutionException e) {
                     throw Throwables.propagate(e.getCause());
@@ -426,7 +426,7 @@ public class FunctionRegistry
             if (boundTypeParameters != null) {
                 // TODO: This should also check for ambiguities
                 try {
-                    match = specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, resolvedTypes.size()));
+                    match = specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, parameterTypes));
                     return match.resolveCalculatedTypes(parameterTypes);
                 }
                 catch (UncheckedExecutionException e) {
@@ -438,9 +438,9 @@ public class FunctionRegistry
         List<String> expectedParameters = new ArrayList<>();
         for (ParametricFunction function : candidates) {
             expectedParameters.add(format("%s(%s) %s",
-                                    name,
-                                    Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
-                                    Joiner.on(", ").join(function.getSignature().getTypeParameters())));
+                    name,
+                    Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
+                    Joiner.on(", ").join(function.getSignature().getTypeParameters())));
         }
         String parameters = Joiner.on(", ").join(parameterTypes);
         String message = format("Function %s not registered", name);
@@ -491,7 +491,7 @@ public class FunctionRegistry
                     if (boundTypeParameters != null) {
                         checkArgument(match == null, "Ambiguous call to %s with parameters %s", name, parameterTypes);
                         try {
-                            match = specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, resolvedTypes.size()));
+                            match = specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, parameterTypes));
                         }
                         catch (UncheckedExecutionException e) {
                             throw Throwables.propagate(e.getCause());
@@ -518,7 +518,7 @@ public class FunctionRegistry
             Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeParameters(returnType, argumentTypes, false, typeManager);
             if (boundTypeParameters != null) {
                 try {
-                    return specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(operator, boundTypeParameters, signature.getArgumentTypes().size()));
+                    return specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(operator, boundTypeParameters, signature.getArgumentTypes()));
                 }
                 catch (UncheckedExecutionException e) {
                     throw Throwables.propagate(e.getCause());
@@ -765,12 +765,17 @@ public class FunctionRegistry
         return SUPPORTED_LITERAL_TYPES.contains(type.getJavaType());
     }
 
-    public static FunctionInfo operatorInfo(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes, MethodHandle method, boolean nullable, List<Boolean> nullableArguments)
+    public static FunctionInfo operatorInfo(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes, List<LiteralMapping> literalMappings, MethodHandle method, boolean nullable, List<Boolean> nullableArguments)
     {
         operatorType.validateSignature(returnType, argumentTypes);
 
-        Signature signature = Signature.internalOperator(operatorType.name(), returnType, argumentTypes);
+        Signature signature = Signature.internalOperator(operatorType.name(), returnType, argumentTypes, literalMappings);
         return new FunctionInfo(signature, operatorType.getOperator(), true, method, true, nullable, nullableArguments);
+    }
+
+    public static FunctionInfo operatorInfo(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes, MethodHandle method, boolean nullable, List<Boolean> nullableArguments)
+    {
+        return operatorInfo(operatorType, returnType, argumentTypes, ImmutableList.<LiteralMapping>of(), method, nullable, nullableArguments);
     }
 
     public static String mangleOperatorName(OperatorType operatorType)

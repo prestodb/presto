@@ -15,6 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.LiteralMapping;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TypeParameter;
@@ -31,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
@@ -77,7 +79,7 @@ public final class MapConstructor
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type keyType = types.get("K");
         Type valueType = types.get("V");
@@ -87,7 +89,7 @@ public final class MapConstructor
 
         Type mapType = typeManager.getParameterizedType(MAP, ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()), ImmutableList.of());
         ImmutableList<TypeSignature> argumentTypes = ImmutableList.of(parameterizedTypeName(StandardTypes.ARRAY, keyType.getTypeSignature()), parameterizedTypeName(StandardTypes.ARRAY, valueType.getTypeSignature()));
-        Signature signature = new Signature("map", ImmutableList.<TypeParameter>of(), mapType.getTypeSignature(), argumentTypes, false, false);
+        Signature signature = new Signature("map", ImmutableList.<TypeParameter>of(), mapType.getTypeSignature(), argumentTypes, ImmutableList.<LiteralMapping>of(), false, false);
 
         return new FunctionInfo(signature, DESCRIPTION, isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false, false));
     }

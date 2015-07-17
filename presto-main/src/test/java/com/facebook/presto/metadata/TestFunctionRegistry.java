@@ -15,13 +15,17 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.operator.scalar.CustomFunctions;
+import com.facebook.presto.operator.scalar.Literal;
 import com.facebook.presto.operator.scalar.ScalarFunction;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -132,6 +136,25 @@ public class TestFunctionRegistry
         assertFalse(names.contains("like"), "Expected function names " + names + " not to contain 'like'");
     }
 
+    @Test
+    public void testLiteralFunctionParameters()
+    {
+        List<ParametricFunction> functions = new FunctionListBuilder(new TypeRegistry())
+                .scalar(LiteralParameterFunction.class)
+                .getFunctions();
+
+        TypeRegistry typeManager = new TypeRegistry();
+        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), true);
+        registry.addFunctions(functions);
+
+        List<TypeSignature> arguments = ImmutableList.of(parseTypeSignature("varchar(10)"), parseTypeSignature(StandardTypes.BIGINT));
+        FunctionInfo function = registry.resolveFunction(QualifiedName.of("literal_parameter_function"), arguments, false);
+
+        assertEquals(function.getArgumentTypes(), arguments);
+        assertEquals(function.getReturnType().toString(), "varchar(10)");
+        assertEquals(function.getSignature().getLiteralMappings(), ImmutableList.of());
+    }
+
     public static final class ScalarSum
     {
         private ScalarSum() {}
@@ -141,6 +164,18 @@ public class TestFunctionRegistry
         public static long sum(@SqlType(StandardTypes.BIGINT) long a, @SqlType(StandardTypes.BIGINT) long b)
         {
             return a + b;
+        }
+    }
+
+    public static final class LiteralParameterFunction
+    {
+        private LiteralParameterFunction() {}
+
+        @ScalarFunction
+        @SqlType("varchar(x)")
+        public static Slice literalParameterFunction(ConnectorSession session, @Literal("x") long x, @SqlType("varchar(x)") Slice str, @SqlType(StandardTypes.BIGINT) long value)
+        {
+            return str;
         }
     }
 }

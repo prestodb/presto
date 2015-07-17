@@ -23,10 +23,12 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.typeParameter;
@@ -68,9 +70,9 @@ public class MapKeys
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        checkArgument(arity == 1, "map_keys expects only one argument");
+        checkArgument(parameterTypes.size() == 1, "map_keys expects only one argument");
         Type keyType = types.get("K");
         Type valueType = types.get("V");
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(keyType);

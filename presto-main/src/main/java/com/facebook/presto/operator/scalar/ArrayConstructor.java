@@ -26,6 +26,7 @@ import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.gen.ByteCodeUtils;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.CompilerUtils;
@@ -91,12 +92,12 @@ public final class ArrayConstructor
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         checkArgument(types.size() == 1, "Can only construct arrays from exactly matching types");
         ImmutableList.Builder<Class<?>> builder = ImmutableList.builder();
         Type type = types.get("E");
-        for (int i = 0; i < arity; i++) {
+        for (int i = 0; i < parameterTypes.size(); i++) {
             if (type.getJavaType().isPrimitive()) {
                 builder.add(Primitives.wrap(type.getJavaType()));
             }
@@ -115,7 +116,7 @@ public final class ArrayConstructor
             throw Throwables.propagate(e);
         }
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(stackTypes.size(), true));
-        return new FunctionInfo(arrayConstructorSignature(parameterizedTypeName("array", type.getTypeSignature()), Collections.nCopies(arity, type.getTypeSignature())), "Constructs an array of the given elements", true, methodHandle, true, false, nullableParameters);
+        return new FunctionInfo(arrayConstructorSignature(parameterizedTypeName("array", type.getTypeSignature()), Collections.nCopies(parameterTypes.size(), type.getTypeSignature())), "Constructs an array of the given elements", true, methodHandle, true, false, nullableParameters);
     }
 
     private static Class<?> generateArrayConstructor(List<Class<?>> stackTypes, Type elementType)
