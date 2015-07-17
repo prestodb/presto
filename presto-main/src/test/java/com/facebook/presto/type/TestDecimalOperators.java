@@ -18,7 +18,9 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.type.SqlDecimal;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import java.math.BigInteger;
+
+import static com.facebook.presto.spi.type.ShortDecimalType.createDecimalType;
 
 public class TestDecimalOperators
         extends AbstractTestFunctions
@@ -29,9 +31,13 @@ public class TestDecimalOperators
     {
         assertDecimalFunction("DECIMAL 37.7 + DECIMAL 17.1", decimal("054.8"));
         assertDecimalFunction("DECIMAL 1 + DECIMAL 2", decimal("03"));
+
         assertDecimalFunction("DECIMAL -1 + DECIMAL -2", decimal("-03"));
         assertDecimalFunction("DECIMAL 1234567890123456789 + DECIMAL 1234567890123456789", decimal("2469135780246913578"));
         assertDecimalFunction("DECIMAL .1234567890123456789 + DECIMAL .1234567890123456789", decimal(".2469135780246913578"));
+        assertDecimalFunction("DECIMAL 12345678901234567 + DECIMAL 12345678901234567", decimal("024691357802469134"));
+        assertDecimalFunction("DECIMAL .12345678901234567 + DECIMAL .12345678901234567", decimal("0.24691357802469134"));
+
     }
 
     private void assertDecimalFunction(String statement, SqlDecimal expectedResult)
@@ -43,16 +49,16 @@ public class TestDecimalOperators
 
     private SqlDecimal decimal(String decimalString)
     {
+        int dotPos = decimalString.indexOf('.');
         String decimalStringNoDot = decimalString.replace(".", "");
         int precision = decimalStringNoDot.length();
         if (decimalStringNoDot.startsWith("-")) {
             precision--;
         }
-        int dotPos = decimalString.indexOf('.');
         int scale = 0;
         if (dotPos != -1) {
             scale = decimalString.length() - dotPos - 1;
         }
-        return new SqlDecimal(Long.parseLong(decimalStringNoDot), precision, scale);
+        return new SqlDecimal(new BigInteger(decimalStringNoDot), precision, scale);
     }
 }

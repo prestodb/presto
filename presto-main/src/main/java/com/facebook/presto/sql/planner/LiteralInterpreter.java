@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -187,9 +188,9 @@ public final class LiteralInterpreter
         }
 
         @Override
-        protected Long visitDecimalLiteral(DecimalLiteral node, ConnectorSession context)
+        protected Object visitDecimalLiteral(DecimalLiteral node, ConnectorSession context)
         {
-            return Long.parseLong(node.getIntegralPart() + node.getFractionalPart());
+            return DecimalType.unscaledValueToObject(node.getUnscaledValue(), node.getPrecision());
         }
 
         @Override
@@ -247,7 +248,6 @@ public final class LiteralInterpreter
             else {
                 return node.getSign().multiplier() * parseDayTimeInterval(node.getValue(), node.getStartField(), node.getEndField());
             }
-
         }
 
         @Override

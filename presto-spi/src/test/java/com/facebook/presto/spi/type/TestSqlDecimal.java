@@ -17,17 +17,22 @@ package com.facebook.presto.spi.type;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.math.BigInteger;
+
 public class TestSqlDecimal
 {
     @Test
     public void testToString()
     {
-        Assert.assertEquals(new SqlDecimal(0, 1, 1).toString(), "0.0");
-        Assert.assertEquals(new SqlDecimal(0, 5, 2).toString(), "0.00");
-        Assert.assertEquals(new SqlDecimal(0, 5, 5).toString(), "0.00000");
-        Assert.assertEquals(new SqlDecimal(1, 1, 1).toString(), "0.1");
-        Assert.assertEquals(new SqlDecimal(1, 5, 0).toString(), "1");
-        Assert.assertEquals(new SqlDecimal(1, 5, 3).toString(), "0.001");
-        Assert.assertEquals(new SqlDecimal(1000, 5, 3).toString(), "1.000");
+        Assert.assertEquals(new SqlDecimal(new BigInteger("0"), 2, 1).toString(), "0.0");
+        Assert.assertEquals(new SqlDecimal(new BigInteger("0"), 3, 2).toString(), "0.00");
+        Assert.assertEquals(new SqlDecimal(new BigInteger("0"), 6, 5).toString(), "0.00000");
+        Assert.assertEquals(new SqlDecimal(new BigInteger("0"), 10, 5).toString(), "00000.00000");
+        Assert.assertEquals(new SqlDecimal(new BigInteger("1"), 2, 1).toString(), "0.1");
+        Assert.assertEquals(new SqlDecimal(new BigInteger("0"), 3, 3).toString(), ".000");
+        Assert.assertEquals(new SqlDecimal(new BigInteger("1"), 1, 0).toString(), "1");
+        Assert.assertEquals(new SqlDecimal(new BigInteger("1000"), 4, 3).toString(), "1.000");
+        Assert.assertEquals(new SqlDecimal(new BigInteger("12345678901234567890123456789012345678"), 38, 20)
+                .toString(), "123456789012345678.90123456789012345678");
     }
 }

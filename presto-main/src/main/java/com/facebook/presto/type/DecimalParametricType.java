@@ -14,7 +14,7 @@
 
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.ShortDecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import org.jetbrains.annotations.NotNull;
@@ -41,7 +41,7 @@ public class DecimalParametricType
         if (literals.size() == 0) {
             // we need support for that for support of unparametrized TypeSignatures which are
             // used for defining DECIMAL related functions. See e.g. DecimalOperators class.
-            return DecimalType.createUnparametrizedDecimal();
+            return ShortDecimalType.createUnparametrizedDecimal();
         }
 
         return createParametrizedDecimal(literals);
@@ -55,6 +55,6 @@ public class DecimalParametricType
                 literals.get(1) instanceof Long, "Expected both literal parameters for DECIMAL to be numbers");
         long precision = (long) literals.get(0);
         long scale = (long) literals.get(1);
-        return DecimalType.createDecimalType((int) precision, (int) scale);
+        return ShortDecimalType.createDecimalType((int) precision, (int) scale);
     }
 }

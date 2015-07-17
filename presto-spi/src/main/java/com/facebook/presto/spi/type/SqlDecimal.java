@@ -16,17 +16,16 @@ package com.facebook.presto.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Objects;
 
 public final class SqlDecimal
 {
-    private final long unscaledValue;
+    private final BigInteger unscaledValue;
     private final int precision;
     private final int scale;
 
-    public SqlDecimal(long unscaledValue, int precision, int scale)
+    public SqlDecimal(BigInteger unscaledValue, int precision, int scale)
     {
         this.unscaledValue = unscaledValue;
         this.precision = precision;
@@ -43,9 +42,7 @@ public final class SqlDecimal
             return false;
         }
         SqlDecimal that = (SqlDecimal) o;
-        return Objects.equals(unscaledValue, that.unscaledValue) &&
-                Objects.equals(precision, that.precision) &&
-                Objects.equals(scale, that.scale);
+        return Objects.equals(unscaledValue, that.unscaledValue);
     }
 
     public int getPrecision()
@@ -61,14 +58,26 @@ public final class SqlDecimal
     @Override
     public int hashCode()
     {
-        return Objects.hash(unscaledValue, precision, scale);
+        return Objects.hash(unscaledValue);
     }
 
     @JsonValue
     @Override
     public String toString()
     {
-        // TODO make conversion more direct without use of BigDecimal/BigInteger
-        return new BigDecimal(new BigInteger(String.valueOf(unscaledValue)), scale).toString();
+        String unscaledValueString = unscaledValue.toString();
+        StringBuilder unscaledValueWithLeadingZerosBuilder = new StringBuilder();
+        for (int i = 0; i < precision - unscaledValueString.length(); ++i) {
+            unscaledValueWithLeadingZerosBuilder.append('0');
+        }
+        unscaledValueWithLeadingZerosBuilder.append(unscaledValueString);
+        String unscaledValueWithLeadingZeros = unscaledValueWithLeadingZerosBuilder.toString();
+        StringBuilder resultBuilder = new StringBuilder();
+        resultBuilder.append(unscaledValueWithLeadingZeros, 0, precision - scale);
+        if (scale != 0) {
+            resultBuilder.append('.');
+            resultBuilder.append(unscaledValueWithLeadingZeros, precision - scale, precision);
+        }
+        return resultBuilder.toString();
     }
 }

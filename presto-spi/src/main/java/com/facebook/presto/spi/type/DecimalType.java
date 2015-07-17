@@ -14,85 +14,66 @@
 
 package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-
 import java.util.ArrayList;
 import java.util.List;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 
-public final class DecimalType
+public abstract class DecimalType
         extends AbstractFixedWidthType
 {
-    public static final int MAX_PRECISION = 19;
-    private static final int UNSET = -1;
+    protected static final int UNSET = -1;
+    public static final int MAX_PRECISION = 38;
+    public static final int MAX_SHORT_PRECISION = 18;
 
     public static DecimalType createDecimalType(int precision, int scale)
     {
-        return new DecimalType(precision, scale);
+        if (precision <= MAX_SHORT_PRECISION) {
+            return new ShortDecimalType(precision, scale);
+        }
+        else {
+            return new LongDecimalType(precision, scale);
+        }
     }
 
     public static DecimalType createDecimalType(int precision)
     {
-        return new DecimalType(precision, 0);
+        return createDecimalType(precision, 0);
     }
 
     public static DecimalType createUnparametrizedDecimal()
     {
-        return new DecimalType();
+        return new UnparametrizedDecimalType();
     }
 
-    private final int precision;
-    private final int scale;
+    protected final int precision;
+    protected final int scale;
 
-    private DecimalType()
+    protected DecimalType(int precision, int scale, Class<?> javaType, int fixedSize)
     {
-        super(new TypeSignature(StandardTypes.DECIMAL, emptyList(), emptyList()), long.class, SIZE_OF_LONG);
-        this.precision = UNSET;
-        this.scale = UNSET;
-    }
-
-    private DecimalType(int precision, int scale)
-    {
-        super(new TypeSignature(StandardTypes.DECIMAL, emptyList(), buildPrecisionScaleList(precision, scale)), long.class, SIZE_OF_LONG);
-
-        validatePrecisionScale(precision, scale);
-
+        super(new TypeSignature(StandardTypes.DECIMAL, emptyList(), buildPrecisionScaleList(precision, scale)), javaType, fixedSize);
         this.precision = precision;
         this.scale = scale;
     }
 
-    private void validatePrecisionScale(long precision, long scale)
+    protected DecimalType()
     {
-        if (precision < 0 || precision > MAX_PRECISION) {
-            throw new IllegalArgumentException("Invalid DECIMAL precision " + precision);
+        super(new TypeSignature(StandardTypes.DECIMAL, emptyList(), emptyList()), long.class, 0);
+        this.precision = UNSET;
+        this.scale = UNSET;
+    }
+
+    public static Object unscaledValueToObject(String unscaledValue, int precision)
+    {
+        Object value;
+        if (precision <= MAX_SHORT_PRECISION) {
+            value = Long.parseLong(unscaledValue);
         }
-
-        if (scale < 0 || scale > precision) {
-            throw new IllegalArgumentException("Invalid DECIMAL scale " + scale);
+        else {
+            value = LongDecimalType.unscaledValueToSlice(unscaledValue);
         }
-    }
-
-    private static List<Object> buildPrecisionScaleList(int precision, int scale)
-    {
-        List<Object> literalArguments = new ArrayList<>();
-        literalArguments.add((long) precision);
-        literalArguments.add((long) scale);
-        return unmodifiableList(literalArguments);
-    }
-
-    public int getPrecision()
-    {
-        return precision;
-    }
-
-    public int getScale()
-    {
-        return scale;
+        return value;
     }
 
     @Override
@@ -107,57 +88,32 @@ public final class DecimalType
         return true;
     }
 
-    @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    protected void validatePrecisionScale(int precision, int scale, int maxPrecision)
     {
-        if (block.isNull(position)) {
-            return null;
+        if (precision < 0 || precision > maxPrecision) {
+            throw new IllegalArgumentException("Invalid DECIMAL precision " + precision);
         }
-        return new SqlDecimal(block.getLong(position, 0), precision, scale);
-    }
 
-    @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        long leftValue = leftBlock.getLong(leftPosition, 0);
-        long rightValue = rightBlock.getLong(rightPosition, 0);
-        return leftValue == rightValue;
-    }
-
-    @Override
-    public int hash(Block block, int position)
-    {
-        return Long.hashCode(block.getLong(position, 0));
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        long leftValue = leftBlock.getLong(leftPosition, 0);
-        long rightValue = rightBlock.getLong(rightPosition, 0);
-        return Long.compare(leftValue, rightValue);
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            blockBuilder.writeLong(block.getLong(position, 0)).closeEntry();
+        if (scale < 0 || scale > precision) {
+            throw new IllegalArgumentException("Invalid DECIMAL scale " + scale);
         }
     }
 
-    @Override
-    public long getLong(Block block, int position)
+    public int getPrecision()
     {
-        return block.getLong(position, 0);
+        return precision;
     }
 
-    @Override
-    public void writeLong(BlockBuilder blockBuilder, long value)
+    public int getScale()
     {
-        blockBuilder.writeLong(value).closeEntry();
+        return scale;
+    }
+
+    private static List<Object> buildPrecisionScaleList(int precision, int scale)
+    {
+        List<Object> literalArguments = new ArrayList<>();
+        literalArguments.add((long) precision);
+        literalArguments.add((long) scale);
+        return unmodifiableList(literalArguments);
     }
 }

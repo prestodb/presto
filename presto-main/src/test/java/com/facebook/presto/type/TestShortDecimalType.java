@@ -18,34 +18,33 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.ShortDecimalType;
 import com.facebook.presto.spi.type.SqlDecimal;
 
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-
-public class TestDecimalType
+public class TestShortDecimalType
         extends AbstractTestType
 {
-    private static final DecimalType DECIMAL_TYPE = DecimalType.createDecimalType(4, 2);
+    private static final ShortDecimalType SHORT_DECIMAL_TYPE = (ShortDecimalType) DecimalType.createDecimalType(4, 2);
 
-    public TestDecimalType()
+    public TestShortDecimalType()
     {
-        super(DECIMAL_TYPE, SqlDecimal.class, createTestBlock());
+        super(SHORT_DECIMAL_TYPE, SqlDecimal.class, createTestBlock());
     }
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 15);
-        DECIMAL_TYPE.writeLong(blockBuilder, 1234);
-        DECIMAL_TYPE.writeLong(blockBuilder, 1234);
-        DECIMAL_TYPE.writeLong(blockBuilder, 1234);
-        DECIMAL_TYPE.writeLong(blockBuilder, 2321);
-        DECIMAL_TYPE.writeLong(blockBuilder, 2321);
-        DECIMAL_TYPE.writeLong(blockBuilder, 2321);
-        DECIMAL_TYPE.writeLong(blockBuilder, 2321);
-        DECIMAL_TYPE.writeLong(blockBuilder, 2321);
-        DECIMAL_TYPE.writeLong(blockBuilder, 3321);
-        DECIMAL_TYPE.writeLong(blockBuilder, 3321);
-        DECIMAL_TYPE.writeLong(blockBuilder, 4321);
+        BlockBuilder blockBuilder = SHORT_DECIMAL_TYPE.createBlockBuilder(new BlockBuilderStatus(), 15);
+        SHORT_DECIMAL_TYPE.writeLong(blockBuilder, -1234);
+        SHORT_DECIMAL_TYPE.writeLong(blockBuilder, -1234);
+        SHORT_DECIMAL_TYPE.writeLong(blockBuilder, -1234);
+        SHORT_DECIMAL_TYPE.writeLong(blockBuilder, 2321);
+        SHORT_DECIMAL_TYPE.writeLong(blockBuilder, 2321);
+        SHORT_DECIMAL_TYPE.writeLong(blockBuilder, 2321);
+        SHORT_DECIMAL_TYPE.writeLong(blockBuilder, 2321);
+        SHORT_DECIMAL_TYPE.writeLong(blockBuilder, 2321);
+        SHORT_DECIMAL_TYPE.writeLong(blockBuilder, 3321);
+        SHORT_DECIMAL_TYPE.writeLong(blockBuilder, 3321);
+        SHORT_DECIMAL_TYPE.writeLong(blockBuilder, 4321);
         return blockBuilder.build();
     }
 

@@ -46,6 +46,11 @@ public class DecimalLiteral
         return Iterables.get(splitValue(), 1, "");
     }
 
+    public String getUnscaledValue()
+    {
+        return getIntegralPart() + getFractionalPart();
+    }
+
     public int getPrecision()
     {
         int precision = getIntegralPart().length() + getFractionalPart().length();

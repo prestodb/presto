@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricOperator;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.ShortDecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.util.Reflection;
@@ -60,22 +61,22 @@ public final class DecimalOperators
         public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
         {
             checkArgument(arity == 2, "Expected arity to be 2");
-            DecimalType aType = (DecimalType) types.get("A");
-            DecimalType bType = (DecimalType) types.get("B");
+            ShortDecimalType aType = (ShortDecimalType) types.get("A");
+            ShortDecimalType bType = (ShortDecimalType) types.get("B");
 
             int aScale = aType.getScale();
             int bScale = bType.getScale();
             int aPrecision = aType.getPrecision();
             int bPrecision = bType.getPrecision();
             int resultPrecision = min(
-                    DecimalType.MAX_PRECISION,
+                    ShortDecimalType.MAX_PRECISION,
                     1 + max(aScale, bScale) + max(aPrecision - aScale, bPrecision - bScale));
             int resultScale = max(aScale, bScale);
 
             long aRescale = round(pow(10, resultScale - aScale));
             long bRescale = round(pow(10, resultScale - bScale));
 
-            DecimalType resultType = DecimalType.createDecimalType(resultPrecision, resultScale);
+            DecimalType resultType = ShortDecimalType.createDecimalType(resultPrecision, resultScale);
 
             MethodHandle methodHandle = MethodHandles.insertArguments(ADD_METHOD_HANDLE, 2, aRescale, bRescale);
 
