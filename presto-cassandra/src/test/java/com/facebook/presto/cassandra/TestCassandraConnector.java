@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.datastax.driver.core.utils.Bytes;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Connector;
@@ -55,6 +56,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -190,9 +192,7 @@ public class TestCassandraConnector
 
                     assertEquals(keyValue, String.format("key %d", rowId));
 
-                    // bytes are encoded as a hex string for some reason
-                    // this check keeps failing for some reason; disabling it for now
-                    assertEquals(cursor.getSlice(columnIndex.get("typebytes")).toStringUtf8(), String.format("0x%08X", rowId));
+                    assertEquals(Bytes.toHexString(cursor.getSlice(columnIndex.get("typebytes")).getBytes()), String.format("0x%08X", rowId));
 
                     // VARINT is returned as a string
                     assertEquals(cursor.getSlice(columnIndex.get("typeinteger")).toStringUtf8(), String.valueOf(rowId));
@@ -230,7 +230,7 @@ public class TestCassandraConnector
                 else if (DOUBLE.equals(type)) {
                     cursor.getDouble(columnIndex);
                 }
-                else if (VARCHAR.equals(type)) {
+                else if (VARCHAR.equals(type) || VARBINARY.equals(type)) {
                     try {
                         cursor.getSlice(columnIndex);
                     }
