@@ -1,0 +1,177 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.37. Release 0.75 &mdash; Presto 0.111 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.111',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.111 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.38. Release 0.74" href="release-0.74.html" />
+    <link rel="prev" title="10.36. Release 0.76" href="release-0.76.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.111 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.37. Release 0.75</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.76.html">10.36. Release 0.76</a>
+    </span>
+    <span class="right">
+        <a href="release-0.74.html">10.38. Release 0.74</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-75">
+<h1>10.37. Release 0.75</h1>
+<div class="section" id="hive-changes">
+<h2>Hive Changes</h2>
+<ul class="simple">
+<li>The Hive S3 file system has a new configuration option,
+<tt class="docutils literal"><span class="pre">hive.s3.max-connections</span></tt>, which sets the maximum number of
+connections to S3. The default has been increased from <tt class="docutils literal"><span class="pre">50</span></tt> to <tt class="docutils literal"><span class="pre">500</span></tt>.</li>
+<li>The Hive connector now supports renaming tables. By default, this feature
+is not enabled. To enable it, set <tt class="docutils literal"><span class="pre">hive.allow-rename-table=true</span></tt> in
+your Hive catalog properties file.</li>
+</ul>
+</div>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Optimize <a class="reference internal" href="../functions/aggregate.html#count" title="count"><tt class="xref py py-func docutils literal"><span class="pre">count()</span></tt></a> with a constant to execute as the much faster <tt class="docutils literal"><span class="pre">count(*)</span></tt></li>
+<li>Add support for binary types to the JDBC driver</li>
+<li>The legacy byte code compiler has been removed</li>
+<li>New aggregation framework (~10% faster)</li>
+<li>Added <a class="reference internal" href="../functions/aggregate.html#max_by" title="max_by"><tt class="xref py py-func docutils literal"><span class="pre">max_by()</span></tt></a> aggregation function</li>
+<li>The <tt class="docutils literal"><span class="pre">approx_avg()</span></tt> function has been removed. Use <a class="reference internal" href="../functions/aggregate.html#avg" title="avg"><tt class="xref py py-func docutils literal"><span class="pre">avg()</span></tt></a> instead.</li>
+<li>Fixed parsing of <tt class="docutils literal"><span class="pre">UNION</span></tt> queries that use both <tt class="docutils literal"><span class="pre">DISTINCT</span></tt> and <tt class="docutils literal"><span class="pre">ALL</span></tt></li>
+<li>Fixed cross join planning error for certain query shapes</li>
+<li>Added hex and base64 conversion functions for varbinary</li>
+<li>Fix the <tt class="docutils literal"><span class="pre">LIKE</span></tt> operator to correctly match against values that contain
+multiple lines. Previously, it would stop matching at the first newline.</li>
+<li>Add support for renaming tables using the <a class="reference internal" href="../sql/alter-table.html"><em>ALTER TABLE</em></a> statement.</li>
+<li>Add basic support for inserting data using the <a class="reference internal" href="../sql/insert.html"><em>INSERT</em></a> statement.
+This is currently only supported for the Raptor connector.</li>
+</ul>
+</div>
+<div class="section" id="json-function-changes">
+<h2>JSON Function Changes</h2>
+<p>The <a class="reference internal" href="../functions/json.html#json_extract" title="json_extract"><tt class="xref py py-func docutils literal"><span class="pre">json_extract()</span></tt></a> and <a class="reference internal" href="../functions/json.html#json_extract_scalar" title="json_extract_scalar"><tt class="xref py py-func docutils literal"><span class="pre">json_extract_scalar()</span></tt></a> functions now support
+the square bracket syntax:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">json_extract</span><span class="p">(</span><span class="n">json</span><span class="p">,</span> <span class="s1">&#39;$.store[book]&#39;</span><span class="p">);</span>
+<span class="k">SELECT</span> <span class="n">json_extract</span><span class="p">(</span><span class="n">json</span><span class="p">,</span> <span class="s1">&#39;$.store[&quot;book name&quot;]&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>As part of this change, the set of characters allowed in a non-bracketed
+path segment has been restricted to alphanumeric, underscores and colons.
+Additionally, colons cannot be used in a un-quoted bracketed path segment.
+Use the new bracket syntax with quotes to match elements that contain
+special characters.</p>
+</div>
+<div class="section" id="scheduler-changes">
+<h2>Scheduler Changes</h2>
+<p>The scheduler now assigns splits to a node based on the current load on the node across all queries.
+Previously, the scheduler load balanced splits across nodes on a per query level. Every node can have
+<tt class="docutils literal"><span class="pre">node-scheduler.max-splits-per-node</span></tt> splits scheduled on it. To avoid starvation of small queries,
+when the node already has the maximum allowable splits, every task can schedule at most
+<tt class="docutils literal"><span class="pre">node-scheduler.max-pending-splits-per-node-per-task</span></tt> splits on the node.</p>
+</div>
+<div class="section" id="row-number-optimizations">
+<h2>Row Number Optimizations</h2>
+<p>Queries that use the <a class="reference internal" href="../functions/window.html#row_number" title="row_number"><tt class="xref py py-func docutils literal"><span class="pre">row_number()</span></tt></a> function are substantially faster
+and can run on larger result sets for two types of queries.</p>
+<p>Performing a partitioned limit that choses <tt class="docutils literal"><span class="pre">N</span></tt> arbitrary rows per
+partition is a streaming operation. The following query selects
+five arbitrary rows from <tt class="docutils literal"><span class="pre">orders</span></tt> for each <tt class="docutils literal"><span class="pre">orderstatus</span></tt>:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="p">(</span>
+    <span class="k">SELECT</span> <span class="n">row_number</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">orderstatus</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rn</span><span class="p">,</span>
+        <span class="n">custkey</span><span class="p">,</span> <span class="n">orderdate</span><span class="p">,</span> <span class="n">orderstatus</span>
+    <span class="k">FROM</span> <span class="n">orders</span>
+<span class="p">)</span> <span class="k">WHERE</span> <span class="n">rn</span> <span class="o">&lt;=</span> <span class="mi">5</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>Performing a partitioned top-N that chooses the maximum or minimum
+<tt class="docutils literal"><span class="pre">N</span></tt> rows from each partition now uses significantly less memory.
+The following query selects the five oldest rows based on <tt class="docutils literal"><span class="pre">orderdate</span></tt>
+from <tt class="docutils literal"><span class="pre">orders</span></tt> for each <tt class="docutils literal"><span class="pre">orderstatus</span></tt>:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="p">(</span>
+    <span class="k">SELECT</span> <span class="n">row_number</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">orderstatus</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">orderdate</span><span class="p">)</span> <span class="k">AS</span> <span class="n">rn</span><span class="p">,</span>
+        <span class="n">custkey</span><span class="p">,</span> <span class="n">orderdate</span><span class="p">,</span> <span class="n">orderstatus</span>
+    <span class="k">FROM</span> <span class="n">orders</span>
+<span class="p">)</span> <span class="k">WHERE</span> <span class="n">rn</span> <span class="o">&lt;=</span> <span class="mi">5</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>Use the <a class="reference internal" href="../sql/explain.html"><em>EXPLAIN</em></a> statement to see if any of these optimizations
+have been applied to your query.</p>
+</div>
+<div class="section" id="spi-changes">
+<h2>SPI Changes</h2>
+<p>The core Presto engine no longer automatically adds a column for <tt class="docutils literal"><span class="pre">count(*)</span></tt>
+queries. Instead, the <tt class="docutils literal"><span class="pre">RecordCursorProvider</span></tt> will receive an empty list of
+column handles.</p>
+<p>The <tt class="docutils literal"><span class="pre">Type</span></tt> and <tt class="docutils literal"><span class="pre">Block</span></tt> APIs have gone through a major refactoring in this
+release. The main focus of the refactoring was to consolidate all type specific
+encoding logic in the type itself, which makes types much easier to implement.
+You should consider <tt class="docutils literal"><span class="pre">Type</span></tt> and <tt class="docutils literal"><span class="pre">Block</span></tt> to be a beta API as we expect
+further changes in the near future.</p>
+<p>To simplify the API, <tt class="docutils literal"><span class="pre">ConnectorOutputHandleResolver</span></tt> has been merged into
+<tt class="docutils literal"><span class="pre">ConnectorHandleResolver</span></tt>. Additionally, <tt class="docutils literal"><span class="pre">ConnectorHandleResolver</span></tt>,
+<tt class="docutils literal"><span class="pre">ConnectorRecordSinkProvider</span></tt> and <tt class="docutils literal"><span class="pre">ConnectorMetadata</span></tt> were modified to
+support inserts.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This is a backwards incompatible change with the previous connector and
+type SPI, so if you have written a connector or type, you will need to update
+your code before deploying this release. In particular, make sure your
+connector can handle an empty column handles list (this can be verified
+by running <tt class="docutils literal"><span class="pre">SELECT</span> <span class="pre">count(*)</span></tt> on a table from your connector).</p>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.76.html">10.36. Release 0.76</a>
+    </span>
+    <span class="right">
+        <a href="release-0.74.html">10.38. Release 0.74</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

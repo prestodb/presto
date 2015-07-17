@@ -1,0 +1,199 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>9.2. Example HTTP Connector &mdash; Presto 0.111 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.111',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.111 Documentation" href="../index.html" />
+    <link rel="up" title="9. Developer Guide" href="../develop.html" />
+    <link rel="next" title="9.3. Type System" href="types.html" />
+    <link rel="prev" title="9.1. SPI Overview" href="spi-overview.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.111 Documentation</span></a></h1>
+    <h2 class="heading"><span>9.2. Example HTTP Connector</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="spi-overview.html">9.1. SPI Overview</a>
+    </span>
+    <span class="right">
+        <a href="types.html">9.3. Type System</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="example-http-connector">
+<h1>9.2. Example HTTP Connector</h1>
+<p>The Example HTTP connector has a simple goal: it reads comma-separated
+data over HTTP. For example, if you have a large amount of data in a
+CSV format, you can point the example HTTP connector at this data and
+write a SQL query to process it.</p>
+<div class="section" id="code">
+<h2>Code</h2>
+<p>The Example HTTP connector can be found in the <tt class="docutils literal"><span class="pre">presto-example-http</span></tt>
+directory in the root of the Presto source tree.</p>
+</div>
+<div class="section" id="maven-project">
+<h2>Maven Project</h2>
+<p>The Example HTTP connector uses Maven to build via the <tt class="docutils literal"><span class="pre">pom.xml</span></tt>
+file in the root of the plugin directory.</p>
+<div class="section" id="project-dependencies">
+<h3>Project Dependencies</h3>
+<p>Plugins depend on the SPI from Presto:</p>
+<div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;dependency&gt;</span>
+    <span class="nt">&lt;groupId&gt;</span>com.facebook.presto<span class="nt">&lt;/groupId&gt;</span>
+    <span class="nt">&lt;artifactId&gt;</span>presto-spi<span class="nt">&lt;/artifactId&gt;</span>
+    <span class="nt">&lt;scope&gt;</span>provided<span class="nt">&lt;/scope&gt;</span>
+<span class="nt">&lt;/dependency&gt;</span>
+</pre></div>
+</div>
+<p>The plugin uses the Maven <tt class="docutils literal"><span class="pre">provided</span></tt> scope because Presto provides
+the classes from the SPI at runtime and thus the plugin should not
+include them in the plugin assembly.</p>
+<p>There are a few other dependencies that are provided by Presto such
+as <tt class="docutils literal"><span class="pre">javax.inject</span></tt> and Jackson. In particular, Jackson is used for
+serializing handles and thus plugins must use the verison provided
+by Presto.</p>
+<p>All other dependencies are based on what the plugin needs for its
+own implementation. Plugins are loaded in a separate class loader
+to provide isolation and to allow plugins to use a different version
+of a library that Presto uses internally.</p>
+</div>
+</div>
+<div class="section" id="plugin-implementation">
+<h2>Plugin Implementation</h2>
+<p>The plugin implementation in the Example HTTP connector looks very
+similar to other plugin implementations.  Most of the implementation is
+devoted to handling optional configuration and the only function of
+interest is the following:</p>
+<div class="highlight-java"><div class="highlight"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="n">List</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="n">getServices</span><span class="o">(</span><span class="n">Class</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="n">type</span><span class="o">)</span>
+<span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">type</span> <span class="o">==</span> <span class="n">ConnectorFactory</span><span class="o">.</span><span class="na">class</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">ImmutableList</span><span class="o">.</span><span class="na">of</span><span class="o">(</span><span class="n">type</span><span class="o">.</span><span class="na">cast</span><span class="o">(</span><span class="k">new</span> <span class="n">ExampleConnectorFactory</span><span class="o">(</span><span class="n">getOptionalConfig</span><span class="o">())));</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="n">ImmutableList</span><span class="o">.</span><span class="na">of</span><span class="o">();</span>
+<span class="o">}</span>
+</pre></div>
+</div>
+<p>Note that the <tt class="docutils literal"><span class="pre">ImmutableList</span></tt> class is a utility class from Guava.</p>
+<p>As with all plugins, this plugin overrides the <tt class="docutils literal"><span class="pre">getServices()</span></tt> method
+and returns an <tt class="docutils literal"><span class="pre">ExampleConnectorFactory</span></tt> in response to a request for a
+service of type <tt class="docutils literal"><span class="pre">ConnectorFactory</span></tt>.</p>
+</div>
+<div class="section" id="connectorfactory-implementation">
+<h2>ConnectorFactory Implementation</h2>
+<p>In Presto, the primary object that handles the connection between
+Presto and a particular type of data source is the <tt class="docutils literal"><span class="pre">Connector</span></tt> object,
+which are created using <tt class="docutils literal"><span class="pre">ConnectorFactory</span></tt>.</p>
+<p>This implementation is available in the class <tt class="docutils literal"><span class="pre">ExampleConnectorFactory</span></tt>.
+The first thing the connector factory implementation does is specify the
+name of this connector. This is the same string used to reference this
+connector in Presto configuration.</p>
+<div class="highlight-java"><div class="highlight"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="n">String</span> <span class="nf">getName</span><span class="o">()</span>
+<span class="o">{</span>
+    <span class="k">return</span> <span class="s">&quot;example-http&quot;</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></div>
+</div>
+<p>The real work in a connector factory happens in the <tt class="docutils literal"><span class="pre">create()</span></tt>
+method. In the <tt class="docutils literal"><span class="pre">ExampleConnectorFactory</span></tt> class, the <tt class="docutils literal"><span class="pre">create()</span></tt> method
+configures the connector and then asks Guice to create the object.
+This is the meat of the <tt class="docutils literal"><span class="pre">create()</span></tt> method without parameter validation
+and exception handling:</p>
+<div class="highlight-java"><div class="highlight"><pre><span class="c1">// A plugin is not required to use Guice; it is just very convenient</span>
+<span class="n">Bootstrap</span> <span class="n">app</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Bootstrap</span><span class="o">(</span>
+        <span class="k">new</span> <span class="nf">JsonModule</span><span class="o">(),</span>
+        <span class="k">new</span> <span class="nf">ExampleModule</span><span class="o">(</span><span class="n">connectorId</span><span class="o">));</span>
+
+<span class="n">Injector</span> <span class="n">injector</span> <span class="o">=</span> <span class="n">app</span>
+        <span class="o">.</span><span class="na">strictConfig</span><span class="o">()</span>
+        <span class="o">.</span><span class="na">doNotInitializeLogging</span><span class="o">()</span>
+        <span class="o">.</span><span class="na">setRequiredConfigurationProperties</span><span class="o">(</span><span class="n">requiredConfig</span><span class="o">)</span>
+        <span class="o">.</span><span class="na">setOptionalConfigurationProperties</span><span class="o">(</span><span class="n">optionalConfig</span><span class="o">)</span>
+        <span class="o">.</span><span class="na">initialize</span><span class="o">();</span>
+
+<span class="k">return</span> <span class="n">injector</span><span class="o">.</span><span class="na">getInstance</span><span class="o">(</span><span class="n">ExampleConnector</span><span class="o">.</span><span class="na">class</span><span class="o">);</span>
+</pre></div>
+</div>
+<div class="section" id="connector-exampleconnector">
+<h3>Connector: ExampleConnector</h3>
+<p>This class allows Presto to obtain references to the various services
+provided by the connector.</p>
+</div>
+<div class="section" id="metadata-examplemetadata">
+<h3>Metadata: ExampleMetadata</h3>
+<p>This class is responsible for reporting table names, table metadata,
+column names, column metadata and other information about the schemas
+that are provided by this connector. <tt class="docutils literal"><span class="pre">ConnectorMetadata</span></tt> is also called
+by Presto to ensure that a particular connector can understand and
+handle a given table name.</p>
+<p>The <tt class="docutils literal"><span class="pre">ExampleMetadata</span></tt> implementation delegates many of these calls to
+<tt class="docutils literal"><span class="pre">ExampleClient</span></tt>, a class that implements much of the core functionality
+of the connector.</p>
+</div>
+<div class="section" id="split-manager-examplesplitmanager">
+<h3>Split Manager: ExampleSplitManager</h3>
+<p>The split manager partitions the data for a table into the individual
+chunks that Presto will distribute to workers for processing.
+In the case of the Example HTTP connector, each table contains one or
+more URIs pointing at the actual data. One split is created per URI.</p>
+</div>
+<div class="section" id="record-set-provider-examplerecordsetprovider">
+<h3>Record Set Provider: ExampleRecordSetProvider</h3>
+<p>The record set provider creates a record set which in turn creates a
+record cursor that returns the actual data to Presto.
+<tt class="docutils literal"><span class="pre">ExampleRecordCursor</span></tt> reads data from a URI via HTTP. Each line
+corresponds to a single row. Lines are split on comma into individual
+field values which are then returned to Presto.</p>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="spi-overview.html">9.1. SPI Overview</a>
+    </span>
+    <span class="right">
+        <a href="types.html">9.3. Type System</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

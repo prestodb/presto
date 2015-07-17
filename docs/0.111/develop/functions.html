@@ -1,0 +1,185 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>9.4. Functions &mdash; Presto 0.111 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.111',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.111 Documentation" href="../index.html" />
+    <link rel="up" title="9. Developer Guide" href="../develop.html" />
+    <link rel="next" title="10. Release Notes" href="../release.html" />
+    <link rel="prev" title="9.3. Type System" href="types.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.111 Documentation</span></a></h1>
+    <h2 class="heading"><span>9.4. Functions</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="types.html">9.3. Type System</a>
+    </span>
+    <span class="right">
+        <a href="../release.html">10. Release Notes</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="functions">
+<h1>9.4. Functions</h1>
+<p>The function framework is used to implement SQL functions. Presto includes a
+number of built-in functions, and an internal <tt class="docutils literal"><span class="pre">Plugin</span></tt> (plugins that have a
+dependency on presto-main) can provide new functions by returning a
+<tt class="docutils literal"><span class="pre">FunctionFactory</span></tt> from <tt class="docutils literal"><span class="pre">getServices()</span></tt>.</p>
+<div class="highlight-java"><div class="highlight"><pre><span class="nd">@ScalarFunction</span><span class="o">(</span><span class="s">&quot;is_null&quot;</span><span class="o">)</span>
+<span class="nd">@Description</span><span class="o">(</span><span class="s">&quot;Returns TRUE if the argument is NULL&quot;</span><span class="o">)</span>
+<span class="nd">@SqlType</span><span class="o">(</span><span class="n">StandardTypes</span><span class="o">.</span><span class="na">Boolean</span><span class="o">)</span>
+<span class="kd">public</span> <span class="kd">static</span> <span class="kt">boolean</span> <span class="nf">isNull</span><span class="o">(</span><span class="nd">@Nullable</span> <span class="nd">@SqlType</span><span class="o">(</span><span class="n">StandardTypes</span><span class="o">.</span><span class="na">VARCHAR</span><span class="o">)</span> <span class="n">Slice</span> <span class="n">string</span><span class="o">)</span>
+<span class="o">{</span>
+    <span class="k">return</span> <span class="o">(</span><span class="n">string</span> <span class="o">==</span> <span class="kc">null</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></div>
+</div>
+<p>The above code implements a new function <tt class="docutils literal"><span class="pre">is_null</span></tt> which takes a single <tt class="docutils literal"><span class="pre">VARCHAR</span></tt>
+argument, and returns a <tt class="docutils literal"><span class="pre">BOOLEAN</span></tt> indicating if the argument was <tt class="docutils literal"><span class="pre">NULL</span></tt>.
+Note that the argument to the function is of type <tt class="docutils literal"><span class="pre">Slice</span></tt>. <tt class="docutils literal"><span class="pre">VARCHAR</span></tt> uses
+<tt class="docutils literal"><span class="pre">Slice</span></tt>, which is essentially a wrapper around <tt class="docutils literal"><span class="pre">byte[]</span></tt>, rather than <tt class="docutils literal"><span class="pre">String</span></tt>
+for its native container type.</p>
+<ul>
+<li><p class="first"><tt class="docutils literal"><span class="pre">&#64;SqlType</span></tt>:</p>
+<p>The <tt class="docutils literal"><span class="pre">&#64;SqlType</span></tt> annotation is used to declare the return type and the argument
+types. Note, that the return type and arguments of the Java code, must match
+the native container types of the corresponding annotations.</p>
+</li>
+<li><p class="first"><tt class="docutils literal"><span class="pre">&#64;Nullable</span></tt>:</p>
+<p>The <tt class="docutils literal"><span class="pre">&#64;Nullable</span></tt> annotation indicates that the argument may be <tt class="docutils literal"><span class="pre">NULL</span></tt>. Without
+this annotation the framework assumes that all functions return <tt class="docutils literal"><span class="pre">NULL</span></tt> if
+any of their arguments are <tt class="docutils literal"><span class="pre">NULL</span></tt>. When working with a <tt class="docutils literal"><span class="pre">Type</span></tt> that has a
+primitive native container type, such as <tt class="docutils literal"><span class="pre">BigintType</span></tt>, use the object wrapper for the
+native container type when using <tt class="docutils literal"><span class="pre">&#64;Nullable</span></tt>. The method must be annotated with
+<tt class="docutils literal"><span class="pre">&#64;Nullable</span></tt> if it can return <tt class="docutils literal"><span class="pre">NULL</span></tt> when the arguments are non-null.</p>
+</li>
+</ul>
+<div class="section" id="aggregation-functions">
+<h2>Aggregation Functions</h2>
+<p>Aggregation functions use a similar framework to scalar functions, but involve
+a bit more complexity.</p>
+<ul>
+<li><p class="first"><tt class="docutils literal"><span class="pre">AccumulatorState</span></tt>:</p>
+<p>All aggregation functions accumulate input rows into a state object; this
+object must implement <tt class="docutils literal"><span class="pre">AccumulatorState</span></tt>. For simple aggregations, just
+extend <tt class="docutils literal"><span class="pre">AccumulatorState</span></tt> into a new interface with the getters and setters
+you want, and the framework will generate all the implementations and
+serializers for you. If you need a more complex state object, you will need
+to implement <tt class="docutils literal"><span class="pre">AccumulatorStateFactory</span></tt> and <tt class="docutils literal"><span class="pre">AccumulatorStateSerializer</span></tt>
+and provide these via the <tt class="docutils literal"><span class="pre">AccumulatorStateMetadata</span></tt> annotation.</p>
+</li>
+</ul>
+<div class="highlight-java"><div class="highlight"><pre><span class="nd">@AggregationFunction</span><span class="o">(</span><span class="s">&quot;avg&quot;</span><span class="o">)</span>
+<span class="kd">public</span> <span class="kd">final</span> <span class="kd">class</span> <span class="nc">AverageAggregation</span>
+<span class="o">{</span>
+    <span class="nd">@InputFunction</span>
+    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">input</span><span class="o">(</span><span class="n">LongAndDoubleState</span> <span class="n">state</span><span class="o">,</span> <span class="nd">@SqlType</span><span class="o">(</span><span class="n">StandardTypes</span><span class="o">.</span><span class="na">DOUBLE</span><span class="o">)</span> <span class="kt">double</span> <span class="n">value</span><span class="o">)</span>
+    <span class="o">{</span>
+        <span class="n">state</span><span class="o">.</span><span class="na">setLong</span><span class="o">(</span><span class="n">state</span><span class="o">.</span><span class="na">getLong</span><span class="o">()</span> <span class="o">+</span> <span class="mi">1</span><span class="o">);</span>
+        <span class="n">state</span><span class="o">.</span><span class="na">setDouble</span><span class="o">(</span><span class="n">state</span><span class="o">.</span><span class="na">getDouble</span><span class="o">()</span> <span class="o">+</span> <span class="n">value</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nd">@CombineFunction</span>
+    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">combine</span><span class="o">(</span><span class="n">LongAndDoubleState</span> <span class="n">state</span><span class="o">,</span> <span class="n">LongAndDoubleState</span> <span class="n">otherState</span><span class="o">)</span>
+    <span class="o">{</span>
+        <span class="n">state</span><span class="o">.</span><span class="na">setLong</span><span class="o">(</span><span class="n">state</span><span class="o">.</span><span class="na">getLong</span><span class="o">()</span> <span class="o">+</span> <span class="n">otherState</span><span class="o">.</span><span class="na">getLong</span><span class="o">());</span>
+        <span class="n">state</span><span class="o">.</span><span class="na">setDouble</span><span class="o">(</span><span class="n">state</span><span class="o">.</span><span class="na">getDouble</span><span class="o">()</span> <span class="o">+</span> <span class="n">otherState</span><span class="o">.</span><span class="na">getDouble</span><span class="o">());</span>
+    <span class="o">}</span>
+
+    <span class="nd">@OutputFunction</span><span class="o">(</span><span class="n">StandardTypes</span><span class="o">.</span><span class="na">DOUBLE</span><span class="o">)</span>
+    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">output</span><span class="o">(</span><span class="n">LongAndDoubleState</span> <span class="n">state</span><span class="o">,</span> <span class="n">BlockBuilder</span> <span class="n">out</span><span class="o">)</span>
+    <span class="o">{</span>
+        <span class="kt">long</span> <span class="n">count</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="na">getLong</span><span class="o">();</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">count</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">out</span><span class="o">.</span><span class="na">appendNull</span><span class="o">();</span>
+        <span class="o">}</span>
+        <span class="k">else</span> <span class="o">{</span>
+            <span class="kt">double</span> <span class="n">value</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="na">getDouble</span><span class="o">();</span>
+            <span class="n">DOUBLE</span><span class="o">.</span><span class="na">writeDouble</span><span class="o">(</span><span class="n">out</span><span class="o">,</span> <span class="n">value</span> <span class="o">/</span> <span class="n">count</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></div>
+</div>
+<p>The above code implements the aggregation function <tt class="docutils literal"><span class="pre">avg</span></tt> which computes the
+average of a <tt class="docutils literal"><span class="pre">DOUBLE</span></tt> column.</p>
+<ul>
+<li><p class="first"><tt class="docutils literal"><span class="pre">&#64;InputFunction</span></tt>:</p>
+<p>The <tt class="docutils literal"><span class="pre">&#64;InputFunction</span></tt> annotation declares the function which accepts input
+rows and stores them in the <tt class="docutils literal"><span class="pre">AccumulatorState</span></tt>. Similar to scalar functions
+you must annotate the arguments with <tt class="docutils literal"><span class="pre">&#64;SqlType</span></tt>. In this example, the input
+function simply keeps track of the running count of rows (via <tt class="docutils literal"><span class="pre">setLong()</span></tt>)
+and the running sum (via <tt class="docutils literal"><span class="pre">setDouble()</span></tt>).</p>
+</li>
+<li><p class="first"><tt class="docutils literal"><span class="pre">&#64;CombineFunction</span></tt>:</p>
+<p>The <tt class="docutils literal"><span class="pre">&#64;CombineFunction</span></tt> annotation declares the function used to combine two
+state objects. This function is used to merge all the partial aggregation states.
+It takes two state objects, and merges the results into the first one (in the
+above example, just by adding them together).</p>
+</li>
+<li><p class="first"><tt class="docutils literal"><span class="pre">&#64;OutputFunction</span></tt>:</p>
+<p>The <tt class="docutils literal"><span class="pre">&#64;OutputFunction</span></tt> is the last function called when computing an
+aggregation. It takes the final state object (the result of merging all
+partial states) and writes the result to a <tt class="docutils literal"><span class="pre">BlockBuilder</span></tt>.</p>
+</li>
+<li><p class="first">Where does serialization happen, and what is <tt class="docutils literal"><span class="pre">&#64;GroupedAccumulatorState</span></tt>?</p>
+<p>The <tt class="docutils literal"><span class="pre">&#64;InputFunction</span></tt> is usually run on a different worker from the
+<tt class="docutils literal"><span class="pre">&#64;CombineFunction</span></tt>, so the state objects are serialized and transported
+between these workers by the aggregation framework. <tt class="docutils literal"><span class="pre">&#64;GroupedAccumulatorState</span></tt>
+is used when performing a <tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt> aggregation, and an implementation
+will be automatically generated for you, if you don&#8217;t specify a
+<tt class="docutils literal"><span class="pre">AccumulatorStateFactory</span></tt></p>
+</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="types.html">9.3. Type System</a>
+    </span>
+    <span class="right">
+        <a href="../release.html">10. Release Notes</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
