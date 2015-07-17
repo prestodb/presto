@@ -182,7 +182,8 @@ output expressions:
 Each expression may be composed of output columns or it may be an ordinal
 number selecting an output column by position (starting at one). The
 ``ORDER BY`` clause is evaluated as the last step of a query after any
-``GROUP BY`` or ``HAVING`` clause.
+``GROUP BY`` or ``HAVING`` clause. The default null ordering is ``NULLS LAST``,
+regardless of the ordering direction.
 
 LIMIT Clause
 ------------
