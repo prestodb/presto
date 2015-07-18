@@ -26,6 +26,12 @@
     </artifactSet>
 
     <!-- Plugins -->
+    <artifactSet to="plugin/jmx">
+        <artifact id="${project.groupId}:presto-jmx:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/cassandra">
         <artifact id="${project.groupId}:presto-cassandra:zip:${project.version}">
             <unpack />
