@@ -25,6 +25,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.Objects.requireNonNull;
 
 public class JmxTableHandle
         implements ConnectorTableHandle
@@ -39,9 +40,9 @@ public class JmxTableHandle
             @JsonProperty("objectName") String objectName,
             @JsonProperty("columns") List<JmxColumnHandle> columns)
     {
-        this.connectorId = connectorId;
-        this.objectName = objectName;
-        this.columns = columns;
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.objectName = requireNonNull(objectName, "objectName is null");
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
     }
 
     @JsonProperty
@@ -95,6 +96,8 @@ public class JmxTableHandle
 
     public ConnectorTableMetadata getTableMetadata()
     {
-        return new ConnectorTableMetadata(new SchemaTableName(JmxMetadata.SCHEMA_NAME, objectName), ImmutableList.copyOf(transform(columns, JmxColumnHandle::getColumnMetadata)));
+        return new ConnectorTableMetadata(
+                new SchemaTableName(JmxMetadata.SCHEMA_NAME, objectName),
+                ImmutableList.copyOf(transform(columns, JmxColumnHandle::getColumnMetadata)));
     }
 }

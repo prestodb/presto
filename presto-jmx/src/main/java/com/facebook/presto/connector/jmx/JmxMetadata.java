@@ -22,14 +22,11 @@ import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
-import javax.inject.Inject;
 import javax.management.JMException;
 import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanInfo;
@@ -38,15 +35,15 @@ import javax.management.ObjectName;
 
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
+import java.util.Optional;
 
 import static com.facebook.presto.connector.jmx.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static javax.management.ObjectName.WILDCARD;
 
 public class JmxMetadata
@@ -57,11 +54,10 @@ public class JmxMetadata
     private final String connectorId;
     private final MBeanServer mbeanServer;
 
-    @Inject
-    public JmxMetadata(JmxConnectorId jmxConnectorId, MBeanServer mbeanServer)
+    public JmxMetadata(String connectorId, MBeanServer mbeanServer)
     {
-        this.connectorId = checkNotNull(jmxConnectorId, "jmxConnectorId is null").toString();
-        this.mbeanServer = checkNotNull(mbeanServer, "mbeanServer is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
     }
 
     @Override
@@ -73,27 +69,32 @@ public class JmxMetadata
     @Override
     public JmxTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        checkNotNull(tableName, "tableName is null");
+        requireNonNull(tableName, "tableName is null");
         if (!tableName.getSchemaName().equals(SCHEMA_NAME)) {
             return null;
         }
 
         try {
-            ObjectName objectName = Iterables.find(mbeanServer.queryNames(WILDCARD, null), objectNameEqualsIgnoreCase(new ObjectName(tableName.getTableName())));
-            MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName);
+            String canonicalName = new ObjectName(tableName.getTableName()).getCanonicalName();
+            Optional<ObjectName> objectName = mbeanServer.queryNames(WILDCARD, null).stream()
+                    .filter(name -> canonicalName.equalsIgnoreCase(name.getCanonicalName()))
+                    .findFirst();
+            if (!objectName.isPresent()) {
+                return null;
+            }
+            MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName.get());
 
             ImmutableList.Builder<JmxColumnHandle> columns = ImmutableList.builder();
-            int ordinalPosition = 0;
-            columns.add(new JmxColumnHandle(connectorId, "node", VARCHAR, ordinalPosition++));
+            columns.add(new JmxColumnHandle(connectorId, "node", VARCHAR));
             for (MBeanAttributeInfo attribute : mbeanInfo.getAttributes()) {
                 if (!attribute.isReadable()) {
                     continue;
                 }
-                columns.add(new JmxColumnHandle(connectorId, attribute.getName(), getColumnType(attribute), ordinalPosition++));
+                columns.add(new JmxColumnHandle(connectorId, attribute.getName(), getColumnType(attribute)));
             }
             return new JmxTableHandle(connectorId, objectName.toString(), columns.build());
         }
-        catch (NoSuchElementException | JMException e) {
+        catch (JMException e) {
             return null;
         }
     }
@@ -142,7 +143,7 @@ public class JmxMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        checkNotNull(prefix, "prefix is null");
+        requireNonNull(prefix, "prefix is null");
         if (prefix.getSchemaName() != null && !prefix.getSchemaName().equals(SCHEMA_NAME)) {
             return ImmutableMap.of();
         }
@@ -164,14 +165,12 @@ public class JmxMetadata
         return columns.build();
     }
 
-    private Type getColumnType(MBeanAttributeInfo attribute)
+    private static Type getColumnType(MBeanAttributeInfo attribute)
     {
-        Type columnType;
         switch (attribute.getType()) {
             case "boolean":
             case "java.lang.Boolean":
-                columnType = BOOLEAN;
-                break;
+                return BOOLEAN;
             case "byte":
             case "java.lang.Byte":
             case "short":
@@ -180,33 +179,14 @@ public class JmxMetadata
             case "java.lang.Integer":
             case "long":
             case "java.lang.Long":
-                columnType = BIGINT;
-                break;
+                return BIGINT;
             case "java.lang.Number":
             case "float":
             case "java.lang.Float":
             case "double":
             case "java.lang.Double":
-                columnType = DOUBLE;
-                break;
-            default:
-                columnType = VARCHAR;
-                break;
+                return DOUBLE;
         }
-        return columnType;
-    }
-
-    private Predicate<ObjectName> objectNameEqualsIgnoreCase(ObjectName objectName)
-    {
-        final String canonicalObjectName = objectName.getCanonicalName();
-
-        return new Predicate<ObjectName>()
-        {
-            @Override
-            public boolean apply(ObjectName input)
-            {
-                return canonicalObjectName.equalsIgnoreCase(input.getCanonicalName());
-            }
-        };
+        return VARCHAR;
     }
 }

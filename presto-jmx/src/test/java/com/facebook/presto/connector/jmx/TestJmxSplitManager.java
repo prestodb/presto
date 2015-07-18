@@ -40,14 +40,12 @@ import static org.testng.Assert.assertEquals;
 
 public class TestJmxSplitManager
 {
-    private static final String CONNECTOR_ID = "test_connector";
-
     private final Node localNode = new TestingNode("host1");
     private final Set<Node> nodes = ImmutableSet.of(localNode, new TestingNode("host2"), new TestingNode("host3"));
 
-    private final JmxColumnHandle columnHandle = new JmxColumnHandle(CONNECTOR_ID, "node", VARCHAR, 0);
-    private final JmxTableHandle tableHandle = new JmxTableHandle(CONNECTOR_ID, "objectName", ImmutableList.of(columnHandle));
-    private final JmxSplitManager splitManager = new JmxSplitManager(new JmxConnectorId(CONNECTOR_ID), new TestingNodeManager());
+    private final JmxColumnHandle columnHandle = new JmxColumnHandle("test", "node", VARCHAR);
+    private final JmxTableHandle tableHandle = new JmxTableHandle("test", "objectName", ImmutableList.of(columnHandle));
+    private final JmxSplitManager splitManager = new JmxSplitManager("test", new TestingNodeManager());
 
     @Test
     public void testPredicatePushdown()
