@@ -18,7 +18,6 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.informationSchema.InformationSchemaModule;
-import com.facebook.presto.connector.jmx.JmxConnectorFactory;
 import com.facebook.presto.connector.system.SystemTablesModule;
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
@@ -241,9 +240,6 @@ public class ServerMainModule
         // connector
         binder.bind(ConnectorManager.class).in(Scopes.SINGLETON);
         MapBinder<String, ConnectorFactory> connectorFactoryBinder = newMapBinder(binder, String.class, ConnectorFactory.class);
-
-        // jmx connector
-        connectorFactoryBinder.addBinding("jmx").to(JmxConnectorFactory.class);
 
         // information schema
         binder.install(new InformationSchemaModule());

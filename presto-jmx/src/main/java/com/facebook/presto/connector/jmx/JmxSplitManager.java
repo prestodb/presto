@@ -30,13 +30,13 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.facebook.presto.connector.jmx.Types.checkType;
 import static com.facebook.presto.spi.TupleDomain.withFixedValues;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.util.stream.Collectors.toList;
 
 public class JmxSplitManager
         implements ConnectorSplitManager
@@ -76,7 +76,7 @@ public class JmxSplitManager
         //TODO is there a better way to get the node column?
         JmxColumnHandle nodeColumnHandle = tableHandle.getColumns().get(0);
 
-        ImmutableList<ConnectorSplit> splits = nodeManager.getActiveNodes()
+        List<ConnectorSplit> splits = nodeManager.getActiveNodes()
                 .stream()
                 .filter(node -> {
                             TupleDomain<ColumnHandle> exactNodeMatch = withFixedValues(ImmutableMap.of(nodeColumnHandle, utf8Slice(node.getNodeIdentifier())));
@@ -84,7 +84,7 @@ public class JmxSplitManager
                         }
                 )
                 .map(node -> new JmxSplit(tableHandle, ImmutableList.of(node.getHostAndPort())))
-                .collect(toImmutableList());
+                .collect(toList());
 
         return new FixedSplitSource(connectorId, splits);
     }
