@@ -21,12 +21,11 @@ import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
 
-import javax.inject.Inject;
 import javax.management.MBeanServer;
 
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class JmxConnectorFactory
         implements ConnectorFactory
@@ -34,11 +33,10 @@ public class JmxConnectorFactory
     private final MBeanServer mbeanServer;
     private final NodeManager nodeManager;
 
-    @Inject
     public JmxConnectorFactory(MBeanServer mbeanServer, NodeManager nodeManager)
     {
-        this.mbeanServer = checkNotNull(mbeanServer, "mbeanServer is null");
-        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+        this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
@@ -48,7 +46,7 @@ public class JmxConnectorFactory
     }
 
     @Override
-    public Connector create(final String connectorId, Map<String, String> properties)
+    public Connector create(String connectorId, Map<String, String> properties)
     {
         return new Connector()
         {
@@ -61,13 +59,13 @@ public class JmxConnectorFactory
             @Override
             public ConnectorMetadata getMetadata()
             {
-                return new JmxMetadata(new JmxConnectorId(connectorId), mbeanServer);
+                return new JmxMetadata(connectorId, mbeanServer);
             }
 
             @Override
             public ConnectorSplitManager getSplitManager()
             {
-                return new JmxSplitManager(new JmxConnectorId(connectorId), nodeManager);
+                return new JmxSplitManager(connectorId, nodeManager);
             }
 
             @Override

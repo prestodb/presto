@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class JmxSplit
         implements ConnectorSplit
@@ -34,8 +34,8 @@ public class JmxSplit
             @JsonProperty("tableHandle") JmxTableHandle tableHandle,
             @JsonProperty("addresses") List<HostAddress> addresses)
     {
-        this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
-        this.addresses = ImmutableList.copyOf(checkNotNull(addresses, "addresses is null"));
+        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+        this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
     }
 
     @JsonProperty

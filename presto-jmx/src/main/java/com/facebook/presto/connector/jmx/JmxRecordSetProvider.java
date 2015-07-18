@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
-import javax.inject.Inject;
 import javax.management.Attribute;
 import javax.management.JMException;
 import javax.management.MBeanServer;
@@ -39,7 +38,7 @@ import java.util.Set;
 
 import static com.facebook.presto.connector.jmx.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
 public class JmxRecordSetProvider
@@ -48,11 +47,10 @@ public class JmxRecordSetProvider
     private final MBeanServer mbeanServer;
     private final String nodeId;
 
-    @Inject
     public JmxRecordSetProvider(MBeanServer mbeanServer, NodeManager nodeManager)
     {
-        this.mbeanServer = checkNotNull(mbeanServer, "mbeanServer is null");
-        this.nodeId = checkNotNull(nodeManager, "nodeManager is null").getCurrentNode().getNodeIdentifier();
+        this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
+        this.nodeId = requireNonNull(nodeManager, "nodeManager is null").getCurrentNode().getNodeIdentifier();
     }
 
     @Override
@@ -60,7 +58,7 @@ public class JmxRecordSetProvider
     {
         JmxTableHandle tableHandle = checkType(split, JmxSplit.class, "split").getTableHandle();
 
-        checkNotNull(columns, "columns is null");
+        requireNonNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "must provide at least one column");
 
         ImmutableMap.Builder<String, Type> builder = ImmutableMap.builder();
@@ -119,7 +117,7 @@ public class JmxRecordSetProvider
                             if (value.getClass().isArray()) {
                                 // return a string representation of the array
                                 if (value.getClass().getComponentType() == String.class) {
-                                    row.add(Arrays.toString((String[]) value));
+                                    row.add(Arrays.toString((Object[]) value));
                                 }
                                 else if (value.getClass().getComponentType() == boolean.class) {
                                     row.add(Arrays.toString((boolean[]) value));

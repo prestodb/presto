@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class JmxColumnHandle
         implements ColumnHandle
@@ -29,19 +30,16 @@ public class JmxColumnHandle
     private final String connectorId;
     private final String columnName;
     private final Type columnType;
-    private final int ordinalPosition;
 
     @JsonCreator
     public JmxColumnHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("columnName") String columnName,
-            @JsonProperty("columnType") Type columnType,
-            @JsonProperty("ordinalPosition") int ordinalPosition)
+            @JsonProperty("columnType") Type columnType)
     {
-        this.connectorId = connectorId;
-        this.columnName = columnName;
-        this.columnType = columnType;
-        this.ordinalPosition = ordinalPosition;
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.columnName = requireNonNull(columnName, "columnName is null");
+        this.columnType = requireNonNull(columnType, "columnType is null");
     }
 
     @JsonProperty
@@ -60,12 +58,6 @@ public class JmxColumnHandle
     public Type getColumnType()
     {
         return columnType;
-    }
-
-    @JsonProperty
-    public int getOrdinalPosition()
-    {
-        return ordinalPosition;
     }
 
     @Override
