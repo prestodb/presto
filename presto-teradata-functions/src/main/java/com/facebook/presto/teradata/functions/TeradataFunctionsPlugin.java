@@ -19,8 +19,8 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
+
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -28,11 +28,6 @@ public class TeradataFunctionsPlugin
         implements Plugin
 {
     private TypeManager typeManager;
-
-    @Override
-    public void setOptionalConfig(Map<String, String> optionalConfig)
-    {
-    }
 
     @Inject
     public void setTypeManager(TypeManager typeManager)
