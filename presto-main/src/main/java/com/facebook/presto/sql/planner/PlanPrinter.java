@@ -381,11 +381,11 @@ public class PlanPrinter
             List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
             List<String> args = new ArrayList<>();
             if (!partitionBy.isEmpty()) {
-                args.add(format("partition by (%s) ", Joiner.on(", ").join(partitionBy)));
+                args.add(format("partition by (%s)", Joiner.on(", ").join(partitionBy)));
             }
 
             if (node.getMaxRowCountPerPartition().isPresent()) {
-                args.add(format("limit (%s) ", node.getMaxRowCountPerPartition().get()));
+                args.add(format("limit = %s", node.getMaxRowCountPerPartition().get()));
             }
 
             print(indent, "- RowNumber[%s] => [%s]", Joiner.on(", ").join(args), formatOutputs(node.getOutputSymbols()));
@@ -398,7 +398,7 @@ public class PlanPrinter
         public Void visitTableScan(TableScanNode node, Integer indent)
         {
             TableHandle table = node.getTable();
-            print(indent, "- TableScan[%s, original constraint=%s] => [%s]", table, node.getOriginalConstraint(), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- TableScan[%s, originalConstraint = %s] => [%s]", table, node.getOriginalConstraint(), formatOutputs(node.getOutputSymbols()));
 
             TupleDomain<ColumnHandle> predicate = node.getLayout()
                     .map(metadata::getLayout)
