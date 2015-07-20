@@ -2220,7 +2220,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testRowNumberUnpartitionedLimit()
+    public void testRowNumberUnpartitionedFilter()
             throws Exception
     {
         MaterializedResult actual = computeActual("" +
@@ -2235,7 +2235,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testRowNumberPartitionedLimit()
+    public void testRowNumberPartitionedFilter()
             throws Exception
     {
         MaterializedResult actual = computeActual("" +
@@ -2262,10 +2262,14 @@ public abstract class AbstractTestQueries
         assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
     }
 
-    @Test(timeOut = 60000)
-    public void testRowNumberWithLimit() throws Exception
+    @Test
+    public void testRowNumberUnpartitionedFilterLimit() throws Exception
     {
-        assertQuery("SELECT row_number() over() as rn FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey where orders.orderkey = 10000 limit 20");
+        assertQuery("" +
+                "SELECT row_number() OVER ()\n" +
+                "FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey\n" +
+                "WHERE orders.orderkey = 10000\n" +
+                "LIMIT 20\n");
     }
 
     @Test
