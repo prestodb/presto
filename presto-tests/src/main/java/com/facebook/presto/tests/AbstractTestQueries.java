@@ -2239,6 +2239,42 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         MaterializedResult actual = computeActual("" +
+                "SELECT row_number() OVER (PARTITION BY orderstatus) rn, orderstatus\n" +
+                "FROM orders\n" +
+                "LIMIT 10\n");
+        assertEquals(actual.getMaterializedRows().size(), 10);
+    }
+
+    @Test
+    public void testRowNumberPartitionedOrderByLimit()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT row_number() OVER (PARTITION BY orderstatus) rn, orderstatus\n" +
+                "FROM orders\n" +
+                "ORDER BY rn\n" +
+                "LIMIT 9\n");
+        assertEquals(actual.getMaterializedRows().size(), 9);
+        // There are 3 distinct orderstatus
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR)
+                .row(1, "O")
+                .row(2, "O")
+                .row(3, "O")
+                .row(1, "F")
+                .row(2, "F")
+                .row(3, "F")
+                .row(1, "P")
+                .row(2, "P")
+                .row(3, "P")
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testRowNumberPartitionedWhere()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
                 "SELECT orderkey, orderstatus FROM (\n" +
                 "   SELECT row_number() OVER (PARTITION BY orderstatus) rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
