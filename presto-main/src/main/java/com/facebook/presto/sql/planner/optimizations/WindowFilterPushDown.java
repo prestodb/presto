@@ -80,18 +80,12 @@ public class WindowFilterPushDown
                 PlanNode rewrittenSource = context.rewrite(node.getSource(), null);
                 Optional<Integer> limit = getLimit(node, context.get());
                 if (node.getOrderBy().isEmpty()) {
-                    PlanNode rowNumberNode =  new RowNumberNode(idAllocator.getNextId(),
+                    return new RowNumberNode(idAllocator.getNextId(),
                             rewrittenSource,
                             node.getPartitionBy(),
                             getOnlyElement(node.getWindowFunctions().keySet()),
                             limit,
                             Optional.empty());
-                    if (context.get() != null && context.get().getLimit().isPresent()) {
-                        return new LimitNode(idAllocator.getNextId(), rowNumberNode, context.get().getLimit().get());
-                    }
-                    else {
-                        return rowNumberNode;
-                    }
                 }
                 if (limit.isPresent()) {
                     return new TopNRowNumberNode(idAllocator.getNextId(),
@@ -151,7 +145,10 @@ public class WindowFilterPushDown
             PlanNode rewrittenSource = context.rewrite(node.getSource(), constraint);
 
             if (rewrittenSource != node.getSource()) {
-                return rewrittenSource;
+                if (rewrittenSource instanceof TopNRowNumberNode) {
+                    return rewrittenSource;
+                }
+                return new LimitNode(idAllocator.getNextId(), rewrittenSource, node.getCount());
             }
 
             return context.defaultRewrite(node);
