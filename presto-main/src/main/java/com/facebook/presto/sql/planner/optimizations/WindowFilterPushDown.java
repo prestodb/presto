@@ -86,8 +86,8 @@ public class WindowFilterPushDown
                             getOnlyElement(node.getWindowFunctions().keySet()),
                             limit,
                             Optional.empty());
-                    if (limit.isPresent()) {
-                        return new LimitNode(idAllocator.getNextId(), rowNumberNode, limit.get());
+                    if (context.get() != null && context.get().getLimit().isPresent()) {
+                        return new LimitNode(idAllocator.getNextId(), rowNumberNode, context.get().getLimit().get());
                     }
                     else {
                         return rowNumberNode;
