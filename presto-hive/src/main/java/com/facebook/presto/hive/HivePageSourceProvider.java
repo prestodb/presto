@@ -58,7 +58,7 @@ public class HivePageSourceProvider
             TypeManager typeManager)
     {
         checkNotNull(hiveClientConfig, "hiveClientConfig is null");
-        this.hiveStorageTimeZone = DateTimeZone.forTimeZone(hiveClientConfig.getTimeZone());
+        this.hiveStorageTimeZone = hiveClientConfig.getDateTimeZone();
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.cursorProviders = ImmutableSet.copyOf(checkNotNull(cursorProviders, "cursorProviders is null"));
         this.pageSourceFactories = ImmutableSet.copyOf(checkNotNull(pageSourceFactories, "pageSourceFactories is null"));

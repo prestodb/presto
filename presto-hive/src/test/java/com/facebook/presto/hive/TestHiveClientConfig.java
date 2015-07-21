@@ -135,7 +135,7 @@ public class TestHiveClientConfig
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
-                .setTimeZone(nonDefaultTimeZone().toTimeZone())
+                .setTimeZone(nonDefaultTimeZone().toTimeZone().getID())
                 .setMaxSplitSize(new DataSize(256, Unit.MEGABYTE))
                 .setMaxOutstandingSplits(10)
                 .setMaxSplitIteratorThreads(10)
