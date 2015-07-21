@@ -19,16 +19,20 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
@@ -99,20 +103,18 @@ public abstract class AbstractTestDistributedQueries
     {
         assertQueryTrue("CREATE TABLE test_create (a bigint, b double, c varchar)");
         assertTrue(queryRunner.tableExists(getSession(), "test_create"));
+        assertTableColumnNames("test_create", "a", "b", "c");
 
         assertQueryTrue("DROP TABLE test_create");
         assertFalse(queryRunner.tableExists(getSession(), "test_create"));
 
         assertQueryTrue("CREATE TABLE test_create_table_if_not_exists (a bigint, b varchar, c double)");
         assertTrue(queryRunner.tableExists(getSession(), "test_create_table_if_not_exists"));
-        MaterializedResult expected = computeActual(
-                "SELECT column_name FROM information_schema.columns WHERE table_name = 'test_create_table_if_not_exists'");
+        assertTableColumnNames("test_create_table_if_not_exists", "a", "b", "c");
 
         assertQueryTrue("CREATE TABLE IF NOT EXISTS test_create_table_if_not_exists (d bigint, e varchar)");
         assertTrue(queryRunner.tableExists(getSession(), "test_create_table_if_not_exists"));
-        MaterializedResult actual = computeActual(
-                "SELECT column_name FROM information_schema.columns WHERE table_name = 'test_create_table_if_not_exists'");
-        assertEquals(expected, actual);
+        assertTableColumnNames("test_create_table_if_not_exists", "a", "b", "c");
 
         assertQueryTrue("DROP TABLE test_create_table_if_not_exists");
         assertFalse(queryRunner.tableExists(getSession(), "test_create_table_if_not_exists"));
@@ -458,6 +460,16 @@ public abstract class AbstractTestDistributedQueries
         assertQueryTrue("CREATE TABLE test_symbol_aliasing AS SELECT 1 foo_1, 2 foo_2_4");
         assertQuery("SELECT foo_1, foo_2_4 FROM test_symbol_aliasing", "SELECT 1, 2");
         assertQueryTrue("DROP TABLE test_symbol_aliasing");
+    }
+
+    private void assertTableColumnNames(String tableName, String... columnNames)
+    {
+        MaterializedResult result = computeActual("DESCRIBE " + tableName);
+        List<String> expected = ImmutableList.copyOf(columnNames);
+        List<String> actual = result.getMaterializedRows().stream()
+            .map(row -> (String) row.getField(0))
+            .collect(toImmutableList());
+        assertEquals(actual, expected);
     }
 
     private static void assertContains(MaterializedResult actual, MaterializedResult expected)

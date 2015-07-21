@@ -337,14 +337,15 @@ public class HiveMetadata
         SerDeInfo serdeInfo = new SerDeInfo();
         serdeInfo.setName(tableName);
         serdeInfo.setSerializationLib(hiveStorageFormat.getSerDe());
+        serdeInfo.setParameters(ImmutableMap.of());
 
         StorageDescriptor sd = new StorageDescriptor();
         sd.setLocation(targetPath.toString());
-
         sd.setCols(columns.build());
         sd.setSerdeInfo(serdeInfo);
         sd.setInputFormat(hiveStorageFormat.getInputFormat());
         sd.setOutputFormat(hiveStorageFormat.getOutputFormat());
+        sd.setParameters(ImmutableMap.of());
 
         Table table = new Table();
         table.setDbName(schemaName);
