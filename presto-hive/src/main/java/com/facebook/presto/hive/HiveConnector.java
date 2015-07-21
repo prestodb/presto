@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.SessionProperty;
 import com.facebook.presto.spi.SystemTable;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
@@ -93,6 +94,12 @@ public class HiveConnector
     public Set<SystemTable> getSystemTables()
     {
         return systemTables;
+    }
+
+    @Override
+    public Set<SessionProperty> getAvailableSessionProperties()
+    {
+        return HiveSessionProperties.getAvailableProperties();
     }
 
     @Override

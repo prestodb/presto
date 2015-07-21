@@ -13,15 +13,22 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.shaded.com.google.common.collect.ImmutableSet;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SessionProperty;
 import io.airlift.units.DataSize;
+
+import java.util.HashSet;
+import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public final class HiveSessionProperties
 {
+    private static Set<SessionProperty> sessionProperties = new HashSet<>();
+
     public static final String STORAGE_FORMAT_PROPERTY = "storage_format";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String OPTIMIZED_READER_ENABLED = "optimized_reader_enabled";
@@ -29,8 +36,21 @@ public final class HiveSessionProperties
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
     private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
 
-    private HiveSessionProperties()
+    static {
+        //TODO provide better descriptions
+        sessionProperties.add(new SessionProperty(STORAGE_FORMAT_PROPERTY, "Sets the storage format to be used with CTAS."));
+        sessionProperties.add(new SessionProperty(FORCE_LOCAL_SCHEDULING, "Forces local scheduling."));
+        sessionProperties.add(new SessionProperty(OPTIMIZED_READER_ENABLED, "Enables optimized reader."));
+        sessionProperties.add(new SessionProperty(ORC_MAX_MERGE_DISTANCE, "Sets ORC file max merge distance."));
+        sessionProperties.add(new SessionProperty(ORC_MAX_BUFFER_SIZE, "Sets ORC file max buffer size."));
+        sessionProperties.add(new SessionProperty(ORC_STREAM_BUFFER_SIZE, "Sets ORC stream buffer size."));
+    }
+
+    private HiveSessionProperties() {}
+
+    public static Set<SessionProperty> getAvailableProperties()
     {
+        return ImmutableSet.copyOf(sessionProperties);
     }
 
     public static HiveStorageFormat getHiveStorageFormat(ConnectorSession session, HiveStorageFormat defaultValue)
