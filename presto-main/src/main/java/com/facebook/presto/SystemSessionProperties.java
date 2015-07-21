@@ -13,10 +13,17 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.spi.SessionProperty;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
+
+import java.util.HashSet;
+import java.util.Set;
 
 public final class SystemSessionProperties
 {
+    private static Set<SessionProperty> sessionProperties = new HashSet<>();
+
     private static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     private static final String DISTRIBUTED_JOIN = "distributed_join";
     private static final String HASH_PARTITION_COUNT = "hash_partition_count";
@@ -29,7 +36,26 @@ public final class SystemSessionProperties
     private static final String QUERY_MAX_MEMORY = "query_max_memory";
     private static final String REDISTRIBUTE_WRITES = "redistribute_writes";
 
+    static {
+        //TODO provide better descriptions
+        sessionProperties.add(new SessionProperty(OPTIMIZE_HASH_GENERATION, "Enables hash generation optimizer."));
+        sessionProperties.add(new SessionProperty(DISTRIBUTED_JOIN, "Enables distributed join."));
+        sessionProperties.add(new SessionProperty(HASH_PARTITION_COUNT, "Sets number of hash partitions."));
+        sessionProperties.add(new SessionProperty(PREFER_STREAMING_OPERATORS, "Prefer streaming operators."));
+        sessionProperties.add(new SessionProperty(TASK_WRITER_COUNT, "Sets number of table writer tasks."));
+        sessionProperties.add(new SessionProperty(TASK_DEFAULT_CONCURRENCY, "Sets default concurrency."));
+        sessionProperties.add(new SessionProperty(TASK_JOIN_CONCURRENCY, "Sets join concurrency."));
+        sessionProperties.add(new SessionProperty(TASK_HASH_BUILD_CONCURRENCY, "Sets hash build concurrency."));
+        sessionProperties.add(new SessionProperty(TASK_AGGREGATION_CONCURRENCY, "Sets aggregation concurrency."));
+        sessionProperties.add(new SessionProperty(REDISTRIBUTE_WRITES, "Enables the redistribution of write tasks."));
+    }
+
     private SystemSessionProperties() {}
+
+    public static Set<SessionProperty> getAvailableProperties()
+    {
+        return ImmutableSet.copyOf(sessionProperties);
+    }
 
     private static boolean isEnabled(String propertyName, Session session, boolean defaultValue)
     {

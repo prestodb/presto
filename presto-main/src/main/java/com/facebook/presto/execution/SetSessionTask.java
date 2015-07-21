@@ -14,15 +14,28 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SessionProperty;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SetSession;
+import com.google.inject.Inject;
+
+import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SESSION_PROPERTY;
+import static java.lang.String.format;
 
 public class SetSessionTask
         implements DataDefinitionTask<SetSession>
 {
+    @Inject
+    ConnectorManager connectorManager;
+
     @Override
     public String getName()
     {
@@ -32,11 +45,37 @@ public class SetSessionTask
     @Override
     public void execute(SetSession statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
     {
-        if (statement.getName().getParts().size() > 2) {
-            throw new SemanticException(INVALID_SESSION_PROPERTY, statement, "Invalid session property '%s'", statement.getName());
+        stateMachine.addSetSessionProperties(validateSessionProperty(statement), statement.getValue());
+    }
+
+    private String validateSessionProperty(SetSession statement)
+    {
+        QualifiedName qualifiedName = statement.getName();
+        if (qualifiedName.getParts().size() > 2) {
+            throw new SemanticException(INVALID_SESSION_PROPERTY, statement, "Invalid session property '%s'", qualifiedName);
         }
 
-        // todo verify session properties are valid
-        stateMachine.addSetSessionProperties(statement.getName().toString(), statement.getValue());
+        String sessionPropertyName = qualifiedName.toString();
+        Set<SessionProperty> availableProperties;
+
+        // if no catalog is specified validate against the system catalog, otherwise
+        // validate against "catalog.property" formatted session properties
+        // so a system session property 'x' can be specified as either
+        // 'x' or 'system.x'
+        if (!sessionPropertyName.contains(".")) {
+            availableProperties = SystemSessionProperties.getAvailableProperties();
+        }
+        else {
+            availableProperties = connectorManager.getAvailableSessionProperties();
+        }
+
+        boolean found = availableProperties.stream().
+                map(property -> property.getName()).
+                anyMatch(name -> name.equals(sessionPropertyName));
+
+        if (!found) {
+            throw new PrestoException(StandardErrorCode.INVALID_SESSION_PROPERTY, format("Invalid session property '%s'", qualifiedName));
+        }
+        return qualifiedName.toString();
     }
 }

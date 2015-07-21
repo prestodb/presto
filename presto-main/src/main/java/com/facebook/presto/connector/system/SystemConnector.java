@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.SessionProperty;
 import com.facebook.presto.spi.SystemTable;
 
 import javax.inject.Inject;
@@ -64,5 +66,11 @@ public class SystemConnector
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
+    }
+
+    @Override
+    public Set<SessionProperty> getAvailableSessionProperties()
+    {
+        return SystemSessionProperties.getAvailableProperties();
     }
 }

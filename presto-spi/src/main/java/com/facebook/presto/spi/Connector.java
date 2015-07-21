@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import java.util.Collections;
 import java.util.Set;
 
 import static java.util.Collections.emptySet;
@@ -24,6 +25,11 @@ public interface Connector
     ConnectorMetadata getMetadata();
 
     ConnectorSplitManager getSplitManager();
+
+    default Set<SessionProperty> getAvailableSessionProperties()
+    {
+        return Collections.emptySet();
+    }
 
     /**
      * @throws UnsupportedOperationException if this connector does not support reading tables page at a time

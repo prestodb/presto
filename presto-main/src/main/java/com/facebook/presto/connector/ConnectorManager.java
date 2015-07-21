@@ -31,6 +31,7 @@ import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.SessionProperty;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.split.PageSinkManager;
@@ -38,6 +39,7 @@ import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.RecordPageSinkProvider;
 import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 
 import javax.annotation.PreDestroy;
@@ -52,6 +54,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.stream.Collectors.toSet;
 
 public class ConnectorManager
 {
@@ -264,5 +267,20 @@ public class ConnectorManager
     {
         // for now connectorId == catalogName
         return catalogName;
+    }
+
+    public Set<SessionProperty> getAvailableSessionProperties()
+    {
+        ImmutableSet.Builder<SessionProperty> builder = new ImmutableSet.Builder<>();
+        for (Map.Entry<String, Connector> entry : connectors.entrySet()) {
+            String connectorId = entry.getKey();
+            Connector connector = entry.getValue();
+            Set<SessionProperty> catalogProperties = connector.getAvailableSessionProperties().
+                    stream().
+                    map(property -> new SessionProperty(connectorId + "." + property.getName(), property.getDescription())).
+                    collect(toSet());
+            builder.addAll(catalogProperties);
+        }
+        return builder.build();
     }
 }
