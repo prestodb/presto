@@ -108,7 +108,7 @@ public class HiveMetadata
         this(connectorId,
                 metastore,
                 hdfsEnvironment,
-                DateTimeZone.forTimeZone(hiveClientConfig.getTimeZone()),
+                hiveClientConfig.getDateTimeZone(),
                 hiveClientConfig.getAllowDropTable(),
                 hiveClientConfig.getAllowRenameTable(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),

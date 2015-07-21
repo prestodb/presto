@@ -126,7 +126,7 @@ public class HiveSplitManager
                 namenodeStats,
                 hdfsEnvironment,
                 directoryLister,
-                DateTimeZone.forTimeZone(hiveClientConfig.getTimeZone()),
+                hiveClientConfig.getDateTimeZone(),
                 new BoundedExecutor(executorService, hiveClientConfig.getMaxSplitIteratorThreads()),
                 hiveClientConfig.getMaxOutstandingSplits(),
                 hiveClientConfig.getMinPartitionBatchSize(),
