@@ -2246,6 +2246,17 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testRowNumberOrderByPartitionedLimit()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT row_number() OVER (PARTITION BY orderstatus order by orderkey) rn\n" +
+                "FROM orders\n" +
+                "LIMIT 10\n");
+        assertEquals(actual.getMaterializedRows().size(), 10);
+    }
+
+    @Test
     public void testRowNumberPartitionedOrderByLimit()
             throws Exception
     {
