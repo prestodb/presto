@@ -14,6 +14,7 @@ from different data sources.
     connector/jmx
     connector/kafka
     connector/kafka-tutorial
+    connector/mongodb
     connector/mysql
     connector/postgresql
     connector/redis
