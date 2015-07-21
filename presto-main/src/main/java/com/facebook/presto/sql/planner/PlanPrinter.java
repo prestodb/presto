@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Marker;
 import com.facebook.presto.spi.Range;
@@ -407,7 +408,11 @@ public class PlanPrinter
                     .orElse(TupleDomain.<ColumnHandle>all());
 
             if (node.getLayout().isPresent()) {
-                print(indent + 2, "LAYOUT: %s", node.getLayout().get().getConnectorHandle());
+                // TODO: find a better way to do this
+                ConnectorTableLayoutHandle layout = node.getLayout().get().getConnectorHandle();
+                if (!table.getConnectorHandle().toString().equals(layout.toString())) {
+                    print(indent + 2, "LAYOUT: %s", layout);
+                }
             }
 
             if (predicate.isNone()) {
