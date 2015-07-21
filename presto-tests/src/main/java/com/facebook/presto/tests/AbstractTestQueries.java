@@ -2243,6 +2243,12 @@ public abstract class AbstractTestQueries
                 "FROM orders\n" +
                 "LIMIT 10\n");
         assertEquals(actual.getMaterializedRows().size(), 10);
+
+        actual = computeActual("" +
+                "SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn\n" +
+                "FROM orders\n" +
+                "LIMIT 10\n");
+        assertEquals(actual.getMaterializedRows().size(), 10);
     }
 
     @Test
