@@ -126,4 +126,9 @@ public final class LongDecimalType
     {
         return unscaledValueToSlice(value.unscaledValue());
     }
+
+    public static String toString(Slice unscaledValue, int precision, int scale)
+    {
+        return DecimalType.toString(unscaledValueToBigInteger(unscaledValue).toString(), precision, scale);
+    }
 }

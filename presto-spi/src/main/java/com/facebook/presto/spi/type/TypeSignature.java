@@ -196,7 +196,10 @@ public class TypeSignature
 
     private static Object parseLiteral(String literal)
     {
-        checkArgument(literal != null && !literal.isEmpty(), "Bad literal: '%s'", literal);
+        checkArgument(literal != null, "Null literal", literal);
+
+        literal = literal.trim();
+        checkArgument(!literal.isEmpty(), "Bad literal: '%s'", literal);
 
         if (literal.startsWith("'") || literal.endsWith("'")) {
             checkArgument(literal.startsWith("'") && literal.endsWith("'"), "Bad literal: '%s'", literal);

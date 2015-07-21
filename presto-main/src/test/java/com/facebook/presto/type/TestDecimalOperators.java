@@ -14,16 +14,10 @@
 
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.type.SqlDecimal;
 import org.testng.annotations.Test;
 
-import java.math.BigInteger;
-
-import static com.facebook.presto.spi.type.ShortDecimalType.createDecimalType;
-
 public class TestDecimalOperators
-        extends AbstractTestFunctions
+        extends AbstractTestDecimalFunctions
 {
     @Test
     public void testAdd()
@@ -103,27 +97,5 @@ public class TestDecimalOperators
         assertInvalidFunction("DECIMAL -1 - DECIMAL 99999999999999999999999999999999999999", "DECIMAL result exceeds 38 digits");
         assertInvalidFunction("DECIMAL 99999999999999999999999999999999999999 - DECIMAL .1", "DECIMAL result exceeds 38 digits");
         assertInvalidFunction("DECIMAL -99999999999999999999999999999999999999 - DECIMAL 99999999999999999999999999999999999999", "DECIMAL result exceeds 38 digits");
-    }
-
-    private void assertDecimalFunction(String statement, SqlDecimal expectedResult)
-    {
-        assertFunction(statement,
-                createDecimalType(expectedResult.getPrecision(), expectedResult.getScale()),
-                expectedResult);
-    }
-
-    private SqlDecimal decimal(String decimalString)
-    {
-        int dotPos = decimalString.indexOf('.');
-        String decimalStringNoDot = decimalString.replace(".", "");
-        int precision = decimalStringNoDot.length();
-        if (decimalStringNoDot.startsWith("-")) {
-            precision--;
-        }
-        int scale = 0;
-        if (dotPos != -1) {
-            scale = decimalString.length() - dotPos - 1;
-        }
-        return new SqlDecimal(new BigInteger(decimalStringNoDot), precision, scale);
     }
 }

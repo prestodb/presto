@@ -85,4 +85,9 @@ public final class ShortDecimalType
     {
         blockBuilder.writeLong(value).closeEntry();
     }
+
+    public static String toString(long unscaledValue, int precision, int scale)
+    {
+        return DecimalType.toString(Long.toString(unscaledValue), precision, scale);
+    }
 }

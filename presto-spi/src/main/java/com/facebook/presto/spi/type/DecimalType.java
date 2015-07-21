@@ -116,4 +116,27 @@ public abstract class DecimalType
         literalArguments.add((long) scale);
         return unmodifiableList(literalArguments);
     }
+
+    public static String toString(String unscaledValueString, int precision, int scale)
+    {
+        int positiveUnscaledValueStringStart = unscaledValueString.startsWith("-") ? 1 : 0;
+        StringBuilder unscaledValueWithLeadingZerosBuilder = new StringBuilder();
+        for (int i = 0; i < precision - unscaledValueString.length() + positiveUnscaledValueStringStart; ++i) {
+            unscaledValueWithLeadingZerosBuilder.append('0');
+        }
+
+        unscaledValueWithLeadingZerosBuilder.append(unscaledValueString.substring(positiveUnscaledValueStringStart));
+        String unscaledValueWithLeadingZeros = unscaledValueWithLeadingZerosBuilder.toString();
+        StringBuilder resultBuilder = new StringBuilder();
+        if (positiveUnscaledValueStringStart > 0) {
+            resultBuilder.append("-");
+        }
+        resultBuilder.append(unscaledValueWithLeadingZeros, 0, precision - scale);
+        if (scale != 0) {
+            resultBuilder.append('.');
+            resultBuilder.append(unscaledValueWithLeadingZeros, precision - scale, precision);
+        }
+
+        return resultBuilder.toString();
+    }
 }

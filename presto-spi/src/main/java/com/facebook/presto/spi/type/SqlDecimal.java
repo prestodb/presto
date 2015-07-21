@@ -65,26 +65,6 @@ public final class SqlDecimal
     @Override
     public String toString()
     {
-        String unscaledPositiveValueString = unscaledValue.abs().toString();
-        StringBuilder unscaledPositiveValueWithLeadingZerosBuilder = new StringBuilder();
-        if (unscaledPositiveValueString.startsWith("-")) {
-            unscaledPositiveValueWithLeadingZerosBuilder.append("-");
-            unscaledPositiveValueString = unscaledPositiveValueString.substring(1);
-        }
-        for (int i = 0; i < precision - unscaledPositiveValueString.length(); ++i) {
-            unscaledPositiveValueWithLeadingZerosBuilder.append('0');
-        }
-        unscaledPositiveValueWithLeadingZerosBuilder.append(unscaledPositiveValueString);
-        String unscaledPositiveValueWithLeadingZeros = unscaledPositiveValueWithLeadingZerosBuilder.toString();
-        StringBuilder resultBuilder = new StringBuilder();
-        if (unscaledValue.signum() < 0) {
-            resultBuilder.append('-');
-        }
-        resultBuilder.append(unscaledPositiveValueWithLeadingZeros, 0, precision - scale);
-        if (scale != 0) {
-            resultBuilder.append('.');
-            resultBuilder.append(unscaledPositiveValueWithLeadingZeros, precision - scale, precision);
-        }
-        return resultBuilder.toString();
+        return DecimalType.toString(unscaledValue.toString(), precision, scale);
     }
 }
