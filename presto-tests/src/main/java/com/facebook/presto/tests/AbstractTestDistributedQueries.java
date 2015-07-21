@@ -102,12 +102,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertQueryTrue("DROP TABLE test_create");
         assertFalse(queryRunner.tableExists(getSession(), "test_create"));
-    }
 
-    @Test
-    public void testCreateTableIfNotExists()
-            throws Exception
-    {
         assertQueryTrue("CREATE TABLE test_create_table_if_not_exists (a bigint, b varchar, c double)");
         assertTrue(queryRunner.tableExists(getSession(), "test_create_table_if_not_exists"));
         MaterializedResult expected = computeActual(
