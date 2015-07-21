@@ -18,9 +18,10 @@ import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.TupleDomain.Function;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+
+import java.util.function.Function;
 
 import static com.facebook.presto.sql.gen.InvokeFunctionByteCodeExpression.invokeFunction;
 

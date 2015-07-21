@@ -117,14 +117,7 @@ public class RaptorSplitManager
     @SuppressWarnings("unchecked")
     private static TupleDomain<RaptorColumnHandle> toRaptorTupleDomain(TupleDomain<ColumnHandle> tupleDomain)
     {
-        return tupleDomain.transform(new TupleDomain.Function<ColumnHandle, RaptorColumnHandle>()
-        {
-            @Override
-            public RaptorColumnHandle apply(ColumnHandle handle)
-            {
-                return checkType(handle, RaptorColumnHandle.class, "columnHandle");
-            }
-        });
+        return tupleDomain.transform(handle -> checkType(handle, RaptorColumnHandle.class, "columnHandle"));
     }
 
     private static <T> T selectRandom(Iterable<T> elements)

@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * Defines a set of valid tuples according to the constraints on each of its constituent columns
@@ -456,11 +457,5 @@ public final class TupleDomain<T>
         {
             return domain;
         }
-    }
-
-    // Custom Function interface because SPI does not include Guava
-    public static interface Function<F, T>
-    {
-        T apply(F input);
     }
 }
