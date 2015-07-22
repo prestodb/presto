@@ -69,6 +69,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
+import com.facebook.presto.type.ColorOperators;
 import com.facebook.presto.type.DateOperators;
 import com.facebook.presto.type.DateTimeOperators;
 import com.facebook.presto.type.DoubleOperators;
@@ -270,6 +271,7 @@ public class FunctionRegistry
                 .scalar(DateTimeFunctions.class)
                 .scalar(JsonFunctions.class)
                 .scalar(ColorFunctions.class)
+                .scalar(ColorOperators.class)
                 .scalar(HyperLogLogFunctions.class)
                 .scalar(UnknownOperators.class)
                 .scalar(BooleanOperators.class)
