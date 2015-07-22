@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
@@ -31,12 +30,6 @@ public class NTileFunction
     public NTileFunction(List<Integer> argumentChannels)
     {
         this.valueChannel = argumentChannels.get(0);
-    }
-
-    @Override
-    public Type getType()
-    {
-        return BIGINT;
     }
 
     @Override

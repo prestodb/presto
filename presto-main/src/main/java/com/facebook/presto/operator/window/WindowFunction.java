@@ -14,12 +14,9 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 
 public interface WindowFunction
 {
-    Type getType();
-
     /**
      * Reset state for a new partition (including the first one).
      *

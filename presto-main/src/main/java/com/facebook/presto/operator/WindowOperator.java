@@ -207,8 +207,8 @@ public class WindowOperator
         this.types = Stream.concat(
                 outputChannels.stream()
                         .map(sourceTypes::get),
-                windowFunctions.stream()
-                        .map(WindowFunction::getType))
+                windowFunctionDefinitions.stream()
+                        .map(WindowFunctionDefinition::getType))
                 .collect(toImmutableList());
 
         this.pagesIndex = new PagesIndex(sourceTypes, expectedPositions);

@@ -14,84 +14,25 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
 
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.util.Failures.checkCondition;
 
 public class LagFunction
         extends ValueWindowFunction
 {
-    public static class BigintLagFunction
-            extends LagFunction
-    {
-        public BigintLagFunction(List<Integer> argumentChannels)
-        {
-            super(BIGINT, argumentChannels);
-        }
-    }
-
-    public static class BooleanLagFunction
-            extends LagFunction
-    {
-        public BooleanLagFunction(List<Integer> argumentChannels)
-        {
-            super(BOOLEAN, argumentChannels);
-        }
-    }
-
-    public static class DoubleLagFunction
-            extends LagFunction
-    {
-        public DoubleLagFunction(List<Integer> argumentChannels)
-        {
-            super(DOUBLE, argumentChannels);
-        }
-    }
-
-    public static class VarcharLagFunction
-            extends LagFunction
-    {
-        public VarcharLagFunction(List<Integer> argumentChannels)
-        {
-            super(VARCHAR, argumentChannels);
-        }
-    }
-
-    public static class TimestampLagFunction
-            extends LagFunction
-    {
-        public TimestampLagFunction(List<Integer> argumentChannels)
-        {
-            super(TIMESTAMP, argumentChannels);
-        }
-    }
-
-    private final Type type;
     private final int valueChannel;
     private final int offsetChannel;
     private final int defaultChannel;
 
-    protected LagFunction(Type type, List<Integer> argumentChannels)
+    public LagFunction(List<Integer> argumentChannels)
     {
-        this.type = type;
         this.valueChannel = argumentChannels.get(0);
         this.offsetChannel = (argumentChannels.size() > 1) ? argumentChannels.get(1) : -1;
         this.defaultChannel = (argumentChannels.size() > 2) ? argumentChannels.get(2) : -1;
-    }
-
-    @Override
-    public Type getType()
-    {
-        return type;
     }
 
     @Override

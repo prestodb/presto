@@ -19,7 +19,6 @@ import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
@@ -45,12 +44,6 @@ public class AggregateWindowFunction
         this.function = checkNotNull(function, "function is null");
         this.argumentChannels = Ints.toArray(argumentChannels);
         this.accumulatorFactory = function.bind(createArgs(function), Optional.empty(), Optional.empty(), 1.0);
-    }
-
-    @Override
-    public Type getType()
-    {
-        return function.getFinalType();
     }
 
     @Override
