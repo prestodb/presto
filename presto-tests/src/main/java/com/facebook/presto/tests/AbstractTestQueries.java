@@ -3673,6 +3673,16 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCrossJoinUnion()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT t.c " +
+                "FROM (SELECT 1) " +
+                "CROSS JOIN (SELECT 0 AS c UNION ALL SELECT 1) t");
+    }
+
+    @Test
     public void testJoinOnConstantExpression()
             throws Exception
     {

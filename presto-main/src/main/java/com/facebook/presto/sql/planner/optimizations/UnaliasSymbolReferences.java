@@ -22,22 +22,32 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.DeleteNode;
+import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
+import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -205,6 +215,84 @@ public class UnaliasSymbolReferences
         }
 
         @Override
+        public PlanNode visitExchange(ExchangeNode node, RewriteContext<Void> context)
+        {
+            List<PlanNode> sources = node.getSources().stream()
+                    .map(context::rewrite)
+                    .collect(toImmutableList());
+            Optional<List<Symbol>> partitionKeys = node.getPartitionKeys().map(this::canonicalizeAndDistinct);
+            ImmutableList<List<Symbol>> inputs = node.getInputs().stream().map(this::canonicalizeAndDistinct).collect(toImmutableList());
+            return new ExchangeNode(node.getId(), node.getType(), partitionKeys, canonicalize(node.getHashSymbol()), sources, canonicalizeAndDistinct(node.getOutputSymbols()), inputs);
+        }
+
+        @Override
+        public PlanNode visitRemoteSource(RemoteSourceNode node, RewriteContext<Void> context)
+        {
+            return new RemoteSourceNode(node.getId(), node.getSourceFragmentIds(), canonicalizeAndDistinct(node.getOutputSymbols()));
+        }
+
+        @Override
+        public PlanNode visitLimit(LimitNode node, RewriteContext<Void> context)
+        {
+            return context.defaultRewrite(node);
+        }
+
+        @Override
+        public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Void> context)
+        {
+            return new DistinctLimitNode(node.getId(), context.rewrite(node.getSource()), node.getLimit(), canonicalize(node.getHashSymbol()));
+        }
+
+        @Override
+        public PlanNode visitSample(SampleNode node, RewriteContext<Void> context)
+        {
+            return new SampleNode(node.getId(), context.rewrite(node.getSource()), node.getSampleRatio(), node.getSampleType(), node.isRescaled(), canonicalize(node.getSampleWeightSymbol()));
+        }
+
+        @Override
+        public PlanNode visitValues(ValuesNode node, RewriteContext<Void> context)
+        {
+            return context.defaultRewrite(node);
+        }
+
+        @Override
+        public PlanNode visitDelete(DeleteNode node, RewriteContext<Void> context)
+        {
+            return new DeleteNode(node.getId(), context.rewrite(node.getSource()), node.getTarget(), canonicalize(node.getRowId()), node.getOutputSymbols());
+        }
+
+        @Override
+        public PlanNode visitTableCommit(TableCommitNode node, RewriteContext<Void> context)
+        {
+            return context.defaultRewrite(node);
+        }
+
+        @Override
+        public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Void> context)
+        {
+            return new RowNumberNode(node.getId(), context.rewrite(node.getSource()), canonicalizeAndDistinct(node.getPartitionBy()), canonicalize(node.getRowNumberSymbol()), node.getMaxRowCountPerPartition(), canonicalize(node.getHashSymbol()));
+        }
+
+        @Override
+        public PlanNode visitTopNRowNumber(TopNRowNumberNode node, RewriteContext<Void> context)
+        {
+            Map<Symbol, SortOrder> orderings = new HashMap<>();
+            for (Symbol symbol : node.getOrderings().keySet()) {
+                orderings.put(canonicalize(symbol), node.getOrderings().get(symbol));
+            }
+            return new TopNRowNumberNode(
+                    node.getId(),
+                    context.rewrite(node.getSource()),
+                    canonicalizeAndDistinct(node.getPartitionBy()),
+                    canonicalizeAndDistinct(node.getOrderBy()),
+                    orderings,
+                    canonicalize(node.getRowNumberSymbol()),
+                    node.getMaxRowCountPerPartition(),
+                    node.isPartial(),
+                    canonicalize(node.getHashSymbol()));
+        }
+
+        @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
@@ -350,6 +438,12 @@ public class UnaliasSymbolReferences
                     .map(this::canonicalize)
                     .collect(toImmutableList());
             return new TableWriterNode(node.getId(), source, node.getTarget(), columns, node.getColumnNames(), node.getOutputSymbols(), canonicalize(node.getSampleWeightSymbol()));
+        }
+
+        @Override
+        protected PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
+        {
+            throw new UnsupportedOperationException("Unsupported plan node " + node.getClass().getSimpleName());
         }
 
         private void map(Symbol symbol, Symbol canonical)
