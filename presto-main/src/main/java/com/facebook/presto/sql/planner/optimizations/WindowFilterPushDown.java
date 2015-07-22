@@ -14,7 +14,13 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.Domain;
+import com.facebook.presto.spi.Range;
+import com.facebook.presto.spi.SortedRangeSet;
+import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.Marker.Bound;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DependencyExtractor;
@@ -28,14 +34,9 @@ import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
-import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Literal;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
@@ -43,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.DomainTranslator.fromPredicate;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
@@ -50,6 +52,13 @@ public class WindowFilterPushDown
         extends PlanOptimizer
 {
     private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", StandardTypes.BIGINT, ImmutableList.<String>of());
+
+    private final Metadata metadata;
+
+    public WindowFilterPushDown(Metadata metadata)
+    {
+        this.metadata = checkNotNull(metadata, "metadata is null");
+    }
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
@@ -60,17 +69,23 @@ public class WindowFilterPushDown
         checkNotNull(symbolAllocator, "symbolAllocator is null");
         checkNotNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(idAllocator), plan, null);
+        return PlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata, session, types), plan, null);
     }
 
     private static class Rewriter
             extends PlanRewriter<Constraint>
     {
         private final PlanNodeIdAllocator idAllocator;
+        private final Metadata metadata;
+        private final Session session;
+        private final Map<Symbol, Type> types;
 
-        private Rewriter(PlanNodeIdAllocator idAllocator)
+        private Rewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, Session session, Map<Symbol, Type> types)
         {
             this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
+            this.metadata = checkNotNull(metadata, "metadata is null");
+            this.session = checkNotNull(session, "session is null");
+            this.types = ImmutableMap.copyOf(checkNotNull(types, "types is null"));
         }
 
         @Override
@@ -78,7 +93,7 @@ public class WindowFilterPushDown
         {
             if (canOptimizeWindowFunction(node)) {
                 PlanNode rewrittenSource = context.rewrite(node.getSource(), null);
-                Optional<Integer> limit = getLimit(node, context.get());
+                Optional<Integer> limit = getLimit(node, context.get(), metadata, session, types);
                 if (node.getOrderBy().isEmpty()) {
                     return new RowNumberNode(idAllocator.getNextId(),
                             rewrittenSource,
@@ -102,7 +117,7 @@ public class WindowFilterPushDown
             return context.defaultRewrite(node);
         }
 
-        private static Optional<Integer> getLimit(WindowNode node, Constraint filter)
+        private static Optional<Integer> getLimit(WindowNode node, Constraint filter, Metadata metadata, Session session, Map<Symbol, Type> types)
         {
             if (filter == null || (!filter.getLimit().isPresent() && !filter.getFilterExpression().isPresent())) {
                 return Optional.empty();
@@ -110,10 +125,45 @@ public class WindowFilterPushDown
             if (filter.getLimit().isPresent()) {
                 return filter.getLimit();
             }
-            if (filterContainsWindowFunctions(node, filter.getFilterExpression().get()) &&
-                    filter.getFilterExpression().get() instanceof ComparisonExpression) {
+            if (filterContainsWindowFunctions(node, filter.getFilterExpression().get())) {
                 Symbol rowNumberSymbol = Iterables.getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
-                return WindowLimitExtractor.extract(filter.getFilterExpression().get(), rowNumberSymbol);
+                TupleDomain<Symbol> tupleDomain = fromPredicate(metadata, session, filter.getFilterExpression().get(), types).getTupleDomain();
+                Domain domain = tupleDomain.getDomains().get(rowNumberSymbol);
+                if (domain != null) {
+                    SortedRangeSet rowNumberRangeSet = domain.getRanges();
+                    return getRowNumberUpperBound(rowNumberRangeSet);
+                }
+            }
+            return Optional.empty();
+        }
+
+        private static Optional<Integer> getRowNumberUpperBound(SortedRangeSet rowNumberRangeSet)
+        {
+            if (rowNumberRangeSet.isAll() || rowNumberRangeSet.isNone() || rowNumberRangeSet.getRangeCount() <= 0) {
+                return Optional.empty();
+            }
+
+            // try to get the upper bound of rn
+            Optional<Long> upperBound = Optional.empty();
+            Range range = rowNumberRangeSet.getRanges().get(rowNumberRangeSet.getRangeCount() - 1);
+            if (range.isSingleValue()) {
+                upperBound = Optional.of((Long) range.getSingleValue());
+            }
+            else if (!range.getHigh().isUpperUnbounded()) {
+                switch (range.getHigh().getBound()) {
+                case EXACTLY:
+                    upperBound = Optional.of((Long) range.getHigh().getValue());
+                    break;
+                case BELOW:
+                    upperBound = Optional.of((Long) range.getHigh().getValue() - 1);
+                    break;
+                default:
+                    break;
+                }
+            }
+
+            if (upperBound.isPresent() && upperBound.get() <= Integer.MAX_VALUE) {
+                return Optional.of(upperBound.get().intValue());
             }
             return Optional.empty();
         }
@@ -156,12 +206,47 @@ public class WindowFilterPushDown
         {
             PlanNode rewrittenSource = context.rewrite(node.getSource(), new Constraint(Optional.empty(), Optional.of(node.getPredicate())));
             if (rewrittenSource != node.getSource()) {
-                if (rewrittenSource instanceof TopNRowNumberNode) {
+                if (rewrittenSource instanceof TopNRowNumberNode &&
+                        !shouldAddFilterNode((TopNRowNumberNode) rewrittenSource, node.getPredicate(), metadata, session, types)) {
                     return rewrittenSource;
                 }
                 return new FilterNode(idAllocator.getNextId(), rewrittenSource, node.getPredicate());
             }
             return context.defaultRewrite(node);
+        }
+
+        // check whether we should add a FilterNode on top of TopNRowNumberNode
+        private static boolean shouldAddFilterNode(TopNRowNumberNode node, Expression predicate, Metadata metadata, Session session, Map<Symbol, Type> types)
+        {
+            TupleDomain<Symbol> tupleDomain = fromPredicate(metadata, session, predicate, types).getTupleDomain();
+            Domain domain = tupleDomain.getDomains().get(node.getRowNumberSymbol());
+            if (domain == null) {
+                return false;
+            }
+
+            // check whether we can get an upper bound for rn
+            SortedRangeSet rowNumberRangeSet = domain.getRanges();
+            if (!getRowNumberUpperBound(rowNumberRangeSet).isPresent()) {
+                return false;
+            }
+
+            // if the filter expression contains domains other than rn
+            // or the final domain of rn contains multiple ranges
+            if (tupleDomain.getDomains().keySet().size() > 1 || rowNumberRangeSet.getRangeCount() > 1) {
+                return true;
+            }
+
+            // return false only when the range is like rn < 5
+            Range range = rowNumberRangeSet.getRanges().get(0);
+            if (range.isSingleValue()) {
+                return true;
+            }
+            else if (!range.getHigh().isUpperUnbounded() &&
+                    range.getHigh().getBound() == Bound.EXACTLY) {
+                return true;
+            }
+
+            return false;
         }
     }
 
@@ -189,91 +274,6 @@ public class WindowFilterPushDown
         public Optional<Expression> getFilterExpression()
         {
             return filterExpression;
-        }
-    }
-
-    private static final class WindowLimitExtractor
-    {
-        private WindowLimitExtractor() {}
-
-        public static Optional<Integer> extract(Expression expression, Symbol rowNumberSymbol)
-        {
-            Visitor visitor = new Visitor();
-            Long limit = visitor.process(expression, rowNumberSymbol);
-            if (limit == null || limit >= Integer.MAX_VALUE) {
-                return Optional.empty();
-            }
-
-            return Optional.of(limit.intValue());
-        }
-
-        private static class Visitor
-                extends DefaultExpressionTraversalVisitor<Long, Symbol>
-        {
-            @Override
-            protected Long visitComparisonExpression(ComparisonExpression node, Symbol rowNumberSymbol)
-            {
-                Optional<QualifiedNameReference> reference = extractReference(node);
-                Optional<Literal> literal = extractLiteral(node);
-                if (!reference.isPresent() || !literal.isPresent()) {
-                    return null;
-                }
-                if (!Symbol.fromQualifiedName(reference.get().getName()).equals(rowNumberSymbol)) {
-                    return null;
-                }
-
-                long literalValue = extractValue(literal.get());
-                if (node.getLeft() instanceof QualifiedNameReference && node.getRight() instanceof Literal) {
-                    if (node.getType() == ComparisonExpression.Type.LESS_THAN_OR_EQUAL) {
-                        return literalValue;
-                    }
-                    if (node.getType() == ComparisonExpression.Type.LESS_THAN) {
-                        return literalValue - 1;
-                    }
-                }
-                else if (node.getLeft() instanceof Literal && node.getRight() instanceof QualifiedNameReference) {
-                    if (node.getType() == ComparisonExpression.Type.GREATER_THAN_OR_EQUAL) {
-                        return literalValue;
-                    }
-                    if (node.getType() == ComparisonExpression.Type.GREATER_THAN) {
-                        return literalValue - 1;
-                    }
-                }
-                return null;
-            }
-        }
-
-        private static Optional<QualifiedNameReference> extractReference(ComparisonExpression expression)
-        {
-            if (expression.getLeft() instanceof QualifiedNameReference) {
-                return Optional.of((QualifiedNameReference) expression.getLeft());
-            }
-            if (expression.getRight() instanceof QualifiedNameReference) {
-                return Optional.of((QualifiedNameReference) expression.getRight());
-            }
-            return Optional.empty();
-        }
-
-        private static Optional<Literal> extractLiteral(ComparisonExpression expression)
-        {
-            if (expression.getLeft() instanceof Literal) {
-                return Optional.of((Literal) expression.getLeft());
-            }
-            if (expression.getRight() instanceof Literal) {
-                return Optional.of((Literal) expression.getRight());
-            }
-            return Optional.empty();
-        }
-
-        private static long extractValue(Literal literal)
-        {
-            if (literal instanceof DoubleLiteral) {
-                return (long) ((DoubleLiteral) literal).getValue();
-            }
-            if (literal instanceof LongLiteral) {
-                return ((LongLiteral) literal).getValue();
-            }
-            throw new IllegalArgumentException("Row number compared to non numeric literal");
         }
     }
 }
