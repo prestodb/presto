@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
@@ -50,19 +49,20 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -116,7 +116,7 @@ public class UnaliasSymbolReferences
                 masks.put(canonicalize(entry.getKey()), canonicalize(entry.getValue()));
             }
 
-            List<Symbol> groupByKeys = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getGroupBy())));
+            List<Symbol> groupByKeys = canonicalizeAndDistinct(node.getGroupBy());
             return new AggregationNode(
                     node.getId(),
                     source,
@@ -134,7 +134,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitMarkDistinct(MarkDistinctNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            List<Symbol> symbols = ImmutableList.copyOf(ImmutableSet.copyOf(canonicalize(node.getDistinctSymbols())));
+            List<Symbol> symbols = canonicalizeAndDistinct(node.getDistinctSymbols());
             return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols, node.getHashSymbol());
         }
 
@@ -144,9 +144,9 @@ public class UnaliasSymbolReferences
             PlanNode source = context.rewrite(node.getSource());
             ImmutableMap.Builder<Symbol, List<Symbol>> builder = ImmutableMap.builder();
             for (Map.Entry<Symbol, List<Symbol>> entry : node.getUnnestSymbols().entrySet()) {
-                builder.put(canonicalize(entry.getKey()), canonicalize(entry.getValue()));
+                builder.put(canonicalize(entry.getKey()), entry.getValue());
             }
-            return new UnnestNode(node.getId(), source, canonicalize(node.getReplicateSymbols()), builder.build(), canonicalize(node.getOrdinalitySymbol()));
+            return new UnnestNode(node.getId(), source, canonicalizeAndDistinct(node.getReplicateSymbols()), builder.build(), node.getOrdinalitySymbol());
         }
 
         @Override
@@ -176,8 +176,8 @@ public class UnaliasSymbolReferences
             return new WindowNode(
                     node.getId(),
                     source,
-                    canonicalize(node.getPartitionBy()),
-                    canonicalize(node.getOrderBy()),
+                    canonicalizeAndDistinct(node.getPartitionBy()),
+                    canonicalizeAndDistinct(node.getOrderBy()),
                     orderings.build(),
                     frame,
                     functionCalls.build(),
@@ -190,11 +190,6 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
         {
-            ImmutableMap.Builder<Symbol, ColumnHandle> builder = ImmutableMap.builder();
-            for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                builder.put(canonicalize(entry.getKey()), entry.getValue());
-            }
-
             Expression originalConstraint = null;
             if (node.getOriginalConstraint() != null) {
                 originalConstraint = canonicalize(node.getOriginalConstraint());
@@ -202,8 +197,8 @@ public class UnaliasSymbolReferences
             return new TableScanNode(
                     node.getId(),
                     node.getTable(),
-                    canonicalize(node.getOutputSymbols()),
-                    builder.build(),
+                    node.getOutputSymbols(),
+                    node.getAssignments(),
                     node.getLayout(),
                     node.getCurrentConstraint(),
                     originalConstraint);
@@ -322,11 +317,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitIndexSource(IndexSourceNode node, RewriteContext<Void> context)
         {
-            ImmutableMap.Builder<Symbol, ColumnHandle> builder = ImmutableMap.builder();
-            for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                builder.put(canonicalize(entry.getKey()), entry.getValue());
-            }
-            return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), canonicalize(node.getLookupSymbols()), canonicalize(node.getOutputSymbols()), builder.build(), node.getEffectiveTupleDomain());
+            return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), canonicalize(node.getLookupSymbols()), node.getOutputSymbols(), node.getAssignments(), node.getEffectiveTupleDomain());
         }
 
         @Override
@@ -354,7 +345,11 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            return new TableWriterNode(node.getId(), source, node.getTarget(), canonicalize(node.getColumns()), node.getColumnNames(), canonicalize(node.getOutputSymbols()), canonicalize(node.getSampleWeightSymbol()));
+            // Intentionally does not use canonicalizeAndDistinct as that would remove columns
+            ImmutableList<Symbol> columns = node.getColumns().stream()
+                    .map(this::canonicalize)
+                    .collect(toImmutableList());
+            return new TableWriterNode(node.getId(), source, node.getTarget(), columns, node.getColumnNames(), node.getOutputSymbols(), canonicalize(node.getSampleWeightSymbol()));
         }
 
         private void map(Symbol symbol, Symbol canonical)
@@ -393,9 +388,17 @@ public class UnaliasSymbolReferences
             }, value);
         }
 
-        private List<Symbol> canonicalize(List<Symbol> outputs)
+        private List<Symbol> canonicalizeAndDistinct(List<Symbol> outputs)
         {
-            return Lists.transform(outputs, this::canonicalize);
+            Set<Symbol> added = new HashSet<>();
+            ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
+            for (Symbol symbol : outputs) {
+                Symbol canonical = canonicalize(symbol);
+                if (added.add(canonical)) {
+                    builder.add(canonical);
+                }
+            }
+            return builder.build();
         }
 
         private Set<Symbol> canonicalize(Set<Symbol> symbols)
