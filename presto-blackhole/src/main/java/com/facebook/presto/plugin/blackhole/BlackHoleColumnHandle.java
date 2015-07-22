@@ -16,8 +16,7 @@ package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -27,20 +26,20 @@ public final class BlackHoleColumnHandle
         implements ColumnHandle
 {
     private final String name;
-    private final TypeSignature typeSignature;
+    private final Type columnType;
 
     public BlackHoleColumnHandle(ColumnMetadata columnMetadata)
     {
-        this(columnMetadata.getName(), columnMetadata.getType().getTypeSignature());
+        this(columnMetadata.getName(), columnMetadata.getType());
     }
 
     @JsonCreator
     public BlackHoleColumnHandle(
             @JsonProperty("name") String name,
-            @JsonProperty("typeSignature") TypeSignature typeSignature)
+            @JsonProperty("columnType") Type columnType)
     {
         this.name = name;
-        this.typeSignature = typeSignature;
+        this.columnType = columnType;
     }
 
     @JsonProperty
@@ -50,20 +49,20 @@ public final class BlackHoleColumnHandle
     }
 
     @JsonProperty
-    public TypeSignature getTypeSignature()
+    public Type getColumnType()
     {
-        return typeSignature;
+        return columnType;
     }
 
-    public ColumnMetadata toColumnMetadata(TypeManager typeManager)
+    public ColumnMetadata toColumnMetadata()
     {
-        return new ColumnMetadata(name, typeManager.getType(typeSignature), false);
+        return new ColumnMetadata(name, columnType, false);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, typeSignature);
+        return Objects.hash(name, columnType);
     }
 
     @Override
@@ -77,6 +76,6 @@ public final class BlackHoleColumnHandle
         }
         BlackHoleColumnHandle other = (BlackHoleColumnHandle) obj;
         return Objects.equals(this.name, other.name) &&
-                Objects.equals(this.typeSignature, other.typeSignature);
+                Objects.equals(this.columnType, other.columnType);
     }
 }
