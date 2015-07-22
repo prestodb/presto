@@ -65,18 +65,25 @@ public final class SqlDecimal
     @Override
     public String toString()
     {
-        String unscaledValueString = unscaledValue.toString();
-        StringBuilder unscaledValueWithLeadingZerosBuilder = new StringBuilder();
-        for (int i = 0; i < precision - unscaledValueString.length(); ++i) {
-            unscaledValueWithLeadingZerosBuilder.append('0');
+        String unscaledPositiveValueString = unscaledValue.abs().toString();
+        StringBuilder unscaledPositiveValueWithLeadingZerosBuilder = new StringBuilder();
+        if (unscaledPositiveValueString.startsWith("-")) {
+            unscaledPositiveValueWithLeadingZerosBuilder.append("-");
+            unscaledPositiveValueString = unscaledPositiveValueString.substring(1);
         }
-        unscaledValueWithLeadingZerosBuilder.append(unscaledValueString);
-        String unscaledValueWithLeadingZeros = unscaledValueWithLeadingZerosBuilder.toString();
+        for (int i = 0; i < precision - unscaledPositiveValueString.length(); ++i) {
+            unscaledPositiveValueWithLeadingZerosBuilder.append('0');
+        }
+        unscaledPositiveValueWithLeadingZerosBuilder.append(unscaledPositiveValueString);
+        String unscaledPositiveValueWithLeadingZeros = unscaledPositiveValueWithLeadingZerosBuilder.toString();
         StringBuilder resultBuilder = new StringBuilder();
-        resultBuilder.append(unscaledValueWithLeadingZeros, 0, precision - scale);
+        if (unscaledValue.signum() < 0) {
+            resultBuilder.append('-');
+        }
+        resultBuilder.append(unscaledPositiveValueWithLeadingZeros, 0, precision - scale);
         if (scale != 0) {
             resultBuilder.append('.');
-            resultBuilder.append(unscaledValueWithLeadingZeros, precision - scale, precision);
+            resultBuilder.append(unscaledPositiveValueWithLeadingZeros, precision - scale, precision);
         }
         return resultBuilder.toString();
     }

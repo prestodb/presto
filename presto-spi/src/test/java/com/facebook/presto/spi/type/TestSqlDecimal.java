@@ -34,5 +34,16 @@ public class TestSqlDecimal
         Assert.assertEquals(new SqlDecimal(new BigInteger("1000"), 4, 3).toString(), "1.000");
         Assert.assertEquals(new SqlDecimal(new BigInteger("12345678901234567890123456789012345678"), 38, 20)
                 .toString(), "123456789012345678.90123456789012345678");
+
+        Assert.assertEquals(new SqlDecimal(new BigInteger("-10"), 2, 1).toString(), "-1.0");
+        Assert.assertEquals(new SqlDecimal(new BigInteger("-100"), 3, 2).toString(), "-1.00");
+        Assert.assertEquals(new SqlDecimal(new BigInteger("-100000"), 6, 5).toString(), "-1.00000");
+        Assert.assertEquals(new SqlDecimal(new BigInteger("-100000"), 10, 5).toString(), "-00001.00000");
+        Assert.assertEquals(new SqlDecimal(new BigInteger("-1"), 2, 1).toString(), "-0.1");
+        Assert.assertEquals(new SqlDecimal(new BigInteger("-1"), 3, 3).toString(), "-.001");
+        Assert.assertEquals(new SqlDecimal(new BigInteger("-1"), 1, 0).toString(), "-1");
+        Assert.assertEquals(new SqlDecimal(new BigInteger("-1000"), 4, 3).toString(), "-1.000");
+        Assert.assertEquals(new SqlDecimal(new BigInteger("-12345678901234567890123456789012345678"), 38, 20)
+                .toString(), "-123456789012345678.90123456789012345678");
     }
 }
