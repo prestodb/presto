@@ -13,21 +13,27 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayout;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.connector.system.SystemColumnHandle.toSystemColumnHandles;
@@ -74,6 +80,27 @@ public class SystemTablesMetadata
             return null;
         }
         return new SystemTableHandle(tableName);
+    }
+
+    @Override
+    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    {
+        SystemTableHandle tableHandle = checkType(table, SystemTableHandle.class, "table");
+        ConnectorTableLayout layout = new ConnectorTableLayout(
+                new SystemTableLayoutHandle(tableHandle),
+                Optional.empty(),
+                TupleDomain.<ColumnHandle>all(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of());
+        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+    }
+
+    @Override
+    public ConnectorTableLayout getTableLayout(ConnectorTableLayoutHandle handle)
+    {
+        SystemTableLayoutHandle layout = checkType(handle, SystemTableLayoutHandle.class, "layout");
+        return new ConnectorTableLayout(layout, Optional.empty(), TupleDomain.<ColumnHandle>all(), Optional.empty(), Optional.empty(), ImmutableList.of());
     }
 
     @Override
