@@ -36,7 +36,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonParser.NumberType;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
@@ -62,24 +61,6 @@ public final class JsonFunctions
     private static final ObjectMapper SORTED_MAPPER = new ObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
 
     private JsonFunctions() {}
-
-    @ScalarOperator(OperatorType.CAST)
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice castJsonToVarchar(@SqlType(StandardTypes.JSON) Slice slice)
-    {
-        // TEMPORARY: added to ease migrating user away from cast between json and varchar
-        throw new PrestoException(NOT_SUPPORTED,
-                "`CAST (jsonValue as VARCHAR)` is removed. Use `JSON_FORMAT(jsonValue)`.");
-    }
-
-    @ScalarOperator(OperatorType.CAST)
-    @SqlType(StandardTypes.JSON)
-    public static Slice castVarcharToJson(@SqlType(StandardTypes.VARCHAR) Slice slice) throws IOException
-    {
-        // TEMPORARY: added to ease migrating user away from cast between json and varchar
-        throw new PrestoException(NOT_SUPPORTED,
-                "`CAST (varcharValue as JSON)` is removed. Use `JSON_PARSE(varcharValue)`.");
-    }
 
     @ScalarOperator(OperatorType.CAST)
     @SqlType(JsonPathType.NAME)
