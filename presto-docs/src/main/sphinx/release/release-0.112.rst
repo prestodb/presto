@@ -5,7 +5,8 @@ Release 0.112
 General Changes
 ---------------
 
-* Fix handling of ``LIMIT`` when used with a partitioned :func:`row_number`.
+* Fix incorrect handling of filters and limits in :func:`row_number` optimizer.
+  This caused certain query shapes to produce incorrect results.
 * Fix non-string object arrays in JMX connector.
 
 Hive Changes
