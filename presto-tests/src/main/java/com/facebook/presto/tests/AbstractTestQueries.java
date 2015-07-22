@@ -2204,7 +2204,7 @@ public abstract class AbstractTestQueries
                 "SELECT orderkey, orderstatus FROM (\n" +
                 "   SELECT row_number() OVER () rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE NOT rn <= 10\n");
+                ") WHERE NOT rn <= 10");
         MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
         assertEquals(actual.getMaterializedRows().size(), all.getMaterializedRows().size() - 10);
         assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
@@ -2213,7 +2213,7 @@ public abstract class AbstractTestQueries
                 "SELECT orderkey, orderstatus FROM (\n" +
                 "   SELECT row_number() OVER () rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE rn - 5 <= 10\n");
+                ") WHERE rn - 5 <= 10");
         all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
         assertEquals(actual.getMaterializedRows().size(), 15);
         assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
@@ -2226,13 +2226,13 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("" +
                 "SELECT row_number() OVER (PARTITION BY orderstatus) rn, orderstatus\n" +
                 "FROM orders\n" +
-                "LIMIT 10\n");
+                "LIMIT 10");
         assertEquals(actual.getMaterializedRows().size(), 10);
 
         actual = computeActual("" +
                 "SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn\n" +
                 "FROM orders\n" +
-                "LIMIT 10\n");
+                "LIMIT 10");
         assertEquals(actual.getMaterializedRows().size(), 10);
 
         actual = computeActual("" +
@@ -2335,7 +2335,7 @@ public abstract class AbstractTestQueries
                 "SELECT orderkey, orderstatus FROM (\n" +
                 "   SELECT row_number() OVER (PARTITION BY orderstatus) rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE rn <= 5\n");
+                ") WHERE rn <= 5");
         MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
 
         // there are 3 distinct orderstatus, so expect 15 rows.
@@ -2394,7 +2394,7 @@ public abstract class AbstractTestQueries
                 "SELECT row_number() OVER ()\n" +
                 "FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey\n" +
                 "WHERE orders.orderkey = 10000\n" +
-                "LIMIT 20\n");
+                "LIMIT 20");
     }
 
     @Test
@@ -2432,7 +2432,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (\n" +
                 "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE rn <= 5\n");
+                ") WHERE rn <= 5");
         String sql = "SELECT row_number() OVER (), orderkey, orderstatus FROM orders ORDER BY orderkey LIMIT 5";
         MaterializedResult expected = computeExpected(sql, actual.getTypes());
         assertEquals(actual, expected);
@@ -2446,7 +2446,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (\n" +
                 "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE rn <= 10000\n");
+                ") WHERE rn <= 10000");
         String sql = "SELECT row_number() OVER (), orderkey, orderstatus FROM orders ORDER BY orderkey LIMIT 10000";
         MaterializedResult expected = computeExpected(sql, actual.getTypes());
         assertEquals(actual, expected);
@@ -2460,7 +2460,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (\n" +
                 "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE rn <= 2\n");
+                ") WHERE rn <= 2");
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
                 .row(1, 1, "O")
                 .row(2, 2, "O")
@@ -2476,7 +2476,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (\n" +
                 "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey\n" +
                 "   FROM orders\n" +
-                ") WHERE rn <= 2\n");
+                ") WHERE rn <= 2");
         expected = resultBuilder(getSession(), BIGINT, BIGINT)
                 .row(1, 1)
                 .row(2, 2)
@@ -2491,7 +2491,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (\n" +
                 "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE rn <= 2\n");
+                ") WHERE rn <= 2");
         expected = resultBuilder(getSession(), BIGINT, VARCHAR)
                 .row(1, "O")
                 .row(2, "O")
@@ -2511,7 +2511,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (\n" +
                 "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE rn = 2\n");
+                ") WHERE rn = 2");
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
                 .row(2, 2, "O")
                 .build();
@@ -2526,7 +2526,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (\n" +
                 "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE rn = 1 OR rn IN (3, 4) OR rn BETWEEN 6 AND 7\n");
+                ") WHERE rn = 1 OR rn IN (3, 4) OR rn BETWEEN 6 AND 7");
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
                 .row(1, 1, "O")
                 .row(3, 3, "F")
@@ -2545,7 +2545,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (\n" +
                 "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE rn = 2\n");
+                ") WHERE rn = 2");
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
                 .row(2, 2, "O")
                 .row(2, 5, "F")
@@ -2558,7 +2558,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (\n" +
                 "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey\n" +
                 "   FROM orders\n" +
-                ") WHERE rn = 2\n");
+                ") WHERE rn = 2");
         expected = resultBuilder(getSession(), BIGINT, BIGINT)
                 .row(2, 2)
                 .row(2, 5)
@@ -2570,7 +2570,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (\n" +
                 "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE rn = 2\n");
+                ") WHERE rn = 2");
         expected = resultBuilder(getSession(), BIGINT, VARCHAR)
                 .row(2, "O")
                 .row(2, "F")
@@ -3390,7 +3390,7 @@ public abstract class AbstractTestQueries
                 " CAST(NULL AS VARCHAR),\n" +
                 " CAST(NULL AS BIGINT)\n" +
                 "FROM ORDERS\n" +
-                " ORDER BY 1\n");
+                " ORDER BY 1");
     }
 
     @Test
@@ -3539,7 +3539,7 @@ public abstract class AbstractTestQueries
                 "      SELECT shipdate ds, orderkey\n" +
                 "      FROM lineitem) a\n" +
                 "JOIN orders o\n" +
-                "ON (substr(cast(a.ds AS VARCHAR), 6, 2) = substr(cast(o.orderdate AS VARCHAR), 6, 2) AND a.orderkey = o.orderkey)\n");
+                "ON (substr(cast(a.ds AS VARCHAR), 6, 2) = substr(cast(o.orderdate AS VARCHAR), 6, 2) AND a.orderkey = o.orderkey)");
     }
 
     @Test
