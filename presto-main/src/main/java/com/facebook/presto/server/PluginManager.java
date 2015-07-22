@@ -146,6 +146,8 @@ public class PluginManager
             loadPlugin(plugin);
         }
 
+        metadata.verifyComparableOrderableContract();
+
         pluginsLoaded.set(true);
     }
 
