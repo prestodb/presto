@@ -34,6 +34,8 @@ import java.util.Set;
 
 public interface Metadata
 {
+    void verifyComparableOrderableContract();
+
     Type getType(TypeSignature signature);
 
     FunctionInfo resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, boolean approximate);

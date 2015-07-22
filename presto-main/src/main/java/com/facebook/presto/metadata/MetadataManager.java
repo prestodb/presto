@@ -44,9 +44,12 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.google.common.base.Joiner;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
@@ -54,7 +57,9 @@ import io.airlift.slice.Slice;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -68,12 +73,23 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
+import static com.facebook.presto.metadata.OperatorType.BETWEEN;
+import static com.facebook.presto.metadata.OperatorType.EQUAL;
+import static com.facebook.presto.metadata.OperatorType.GREATER_THAN;
+import static com.facebook.presto.metadata.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
+import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
+import static com.facebook.presto.metadata.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.QualifiedTableName.convertFromSchemaTableName;
+import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -124,6 +140,8 @@ public class MetadataManager
         this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.sessionPropertyManager = checkNotNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.tablePropertyManager = checkNotNull(tablePropertyManager, "tablePropertyManager is null");
+
+        verifyComparableOrderableContract();
     }
 
     public static MetadataManager createTestMetadataManager()
@@ -172,6 +190,52 @@ public class MetadataManager
         checkNotNull(catalogName, "catalogName is null");
         checkNotNull(metadata, "metadata is null");
         checkArgument(!connectorsById.containsKey(connectorId), "Connector '%s' is already registered", connectorId);
+    }
+
+    @Override
+    public final void verifyComparableOrderableContract()
+    {
+        Multimap<Type, OperatorType> missingOperators = HashMultimap.create();
+        for (Type type : typeManager.getTypes()) {
+            if (type.isComparable()) {
+                if (!operatorRegistered(HASH_CODE, BIGINT, type, 1)) {
+                    missingOperators.put(type, HASH_CODE);
+                }
+                if (!operatorRegistered(EQUAL, BOOLEAN, type, 2)) {
+                    missingOperators.put(type, EQUAL);
+                }
+                if (!operatorRegistered(NOT_EQUAL, BOOLEAN, type, 2)) {
+                    missingOperators.put(type, NOT_EQUAL);
+                }
+            }
+            if (type.isOrderable()) {
+                for (OperatorType operator : ImmutableList.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL)) {
+                    if (!operatorRegistered(operator, BOOLEAN, type, 2)) {
+                        missingOperators.put(type, operator);
+                    }
+                }
+                if (!operatorRegistered(BETWEEN, BOOLEAN, type, 3)) {
+                    missingOperators.put(type, BETWEEN);
+                }
+            }
+        }
+        // TODO: verify the parametric types too
+        if (!missingOperators.isEmpty()) {
+            List<String> messages = new ArrayList<>();
+            for (Type type : missingOperators.keySet()) {
+                messages.add(format("%s missing for %s", missingOperators.get(type), type));
+            }
+            throw new IllegalStateException(Joiner.on(", ").join(messages));
+        }
+    }
+
+    private boolean operatorRegistered(OperatorType operator, Type returnType, Type argumentType, int arity)
+    {
+        ImmutableList<TypeSignature> argumentsTypes = Collections.nCopies(arity, argumentType).stream()
+                .map(Type::getTypeSignature)
+                .collect(toImmutableList());
+        Signature signature = internalOperator(operator.name(), returnType.getTypeSignature(), argumentsTypes);
+        return functions.getExactFunction(signature) != null;
     }
 
     @Override
