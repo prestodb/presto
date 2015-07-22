@@ -11,43 +11,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.plugin.blackhole;
 
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.Objects;
 
-public final class BlackHoleTableLayoutHandle
-        implements ConnectorTableLayoutHandle
+import static java.util.Objects.requireNonNull;
+
+public final class BlackHoleSplit
+        implements ConnectorSplit
 {
-    private final int splitsCount;
-    private final int pagesPerSplit;
+    private final int pagesCount;
     private final int rowsPerPage;
 
     @JsonCreator
-    public BlackHoleTableLayoutHandle(
-            @JsonProperty("splitsCount") int splitsCount,
-            @JsonProperty("pagesPerSplit") int pagesPerSplit,
+    public BlackHoleSplit(
+            @JsonProperty("pagesCount") int pagesCount,
             @JsonProperty("rowsPerPage") int rowsPerPage)
     {
-        this.splitsCount = splitsCount;
-        this.pagesPerSplit = pagesPerSplit;
-        this.rowsPerPage = rowsPerPage;
+        this.rowsPerPage = requireNonNull(rowsPerPage, "rowsPerPage is null");
+        this.pagesCount = requireNonNull(pagesCount, "pagesCount is null");
     }
 
     @JsonProperty
-    public int getSplitsCount()
+    public int getPagesCount()
     {
-        return splitsCount;
-    }
-
-    @JsonProperty
-    public int getPagesPerSplit()
-    {
-        return pagesPerSplit;
+        return pagesCount;
     }
 
     @JsonProperty
@@ -57,9 +52,27 @@ public final class BlackHoleTableLayoutHandle
     }
 
     @Override
+    public boolean isRemotelyAccessible()
+    {
+        return true;
+    }
+
+    @Override
+    public List<HostAddress> getAddresses()
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
+    public Object getInfo()
+    {
+        return this;
+    }
+
+    @Override
     public int hashCode()
     {
-        return Objects.hash(getSplitsCount(), getPagesPerSplit(), getRowsPerPage());
+        return Objects.hash(getPagesCount(), getRowsPerPage());
     }
 
     @Override
@@ -71,9 +84,8 @@ public final class BlackHoleTableLayoutHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        BlackHoleTableLayoutHandle other = (BlackHoleTableLayoutHandle) obj;
-        return Objects.equals(this.getSplitsCount(), other.getSplitsCount()) &&
-                Objects.equals(this.getPagesPerSplit(), other.getPagesPerSplit()) &&
+        BlackHoleSplit other = (BlackHoleSplit) obj;
+        return Objects.equals(this.getPagesCount(), other.getPagesCount()) &&
                 Objects.equals(this.getRowsPerPage(), other.getRowsPerPage());
     }
 }

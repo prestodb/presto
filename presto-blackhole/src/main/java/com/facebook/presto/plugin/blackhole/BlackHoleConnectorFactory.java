@@ -16,22 +16,12 @@ package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
-import com.facebook.presto.spi.type.TypeManager;
 
 import java.util.Map;
-
-import static java.util.Objects.requireNonNull;
 
 public class BlackHoleConnectorFactory
         implements ConnectorFactory
 {
-    private final TypeManager typeManager;
-
-    public BlackHoleConnectorFactory(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
     @Override
     public String getName()
     {
@@ -42,7 +32,7 @@ public class BlackHoleConnectorFactory
     public Connector create(String connectorId, Map<String, String> requiredConfig)
     {
         return new BlackHoleConnector(
-                new BlackHoleMetadata(typeManager),
+                new BlackHoleMetadata(),
                 new BlackHoleHandleResolver(),
                 new BlackHoleSplitManager(),
                 new BlackHolePageSourceProvider(),

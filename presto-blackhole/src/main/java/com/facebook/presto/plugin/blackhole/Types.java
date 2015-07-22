@@ -14,7 +14,7 @@
 package com.facebook.presto.plugin.blackhole;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public final class Types
 {
@@ -22,9 +22,7 @@ public final class Types
 
     public static <A, B extends A> B checkType(A value, Class<B> target, String name)
     {
-        if (value == null) {
-            throw new NullPointerException(format("%s is null", name));
-        }
+        requireNonNull(value, "value is null");
         checkArgument(target.isInstance(value),
                 "%s must be of type %s, not %s",
                 name,
