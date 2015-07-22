@@ -110,6 +110,7 @@ public class HiveSplitManager
     private final boolean forceLocalScheduling;
     private final boolean recursiveDfsWalkerEnabled;
     private final boolean assumeCanonicalPartitionKeys;
+    private final int domainCompactionThreshold;
 
     @Inject
     public HiveSplitManager(
@@ -136,7 +137,8 @@ public class HiveSplitManager
                 hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.isForceLocalScheduling(),
                 hiveClientConfig.isAssumeCanonicalPartitionKeys(),
-                hiveClientConfig.getRecursiveDirWalkerEnabled());
+                hiveClientConfig.getRecursiveDirWalkerEnabled(),
+                hiveClientConfig.getDomainCompactionThreshold());
     }
 
     public HiveSplitManager(
@@ -155,7 +157,8 @@ public class HiveSplitManager
             int maxInitialSplits,
             boolean forceLocalScheduling,
             boolean assumeCanonicalPartitionKeys,
-            boolean recursiveDfsWalkerEnabled)
+            boolean recursiveDfsWalkerEnabled,
+            int domainCompactionThreshold)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
         this.metastore = checkNotNull(metastore, "metastore is null");
@@ -174,6 +177,8 @@ public class HiveSplitManager
         this.forceLocalScheduling = forceLocalScheduling;
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
+        this.domainCompactionThreshold = domainCompactionThreshold;
     }
 
     @Override
@@ -190,7 +195,7 @@ public class HiveSplitManager
         Table table = getTable(tableName);
         Optional<HiveBucketing.HiveBucket> bucket = getHiveBucket(table, effectivePredicate.extractFixedValues());
 
-        TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate);
+        TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate, domainCompactionThreshold);
 
         if (table.getPartitionKeys().isEmpty()) {
             return new ConnectorPartitionResult(ImmutableList.of(new HivePartition(tableName, compactEffectivePredicate, bucket)), effectivePredicate);
@@ -214,16 +219,16 @@ public class HiveSplitManager
         return new ConnectorPartitionResult(partitions.build(), remainingTupleDomain);
     }
 
-    private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate)
+    private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate, int threshold)
     {
         ImmutableMap.Builder<HiveColumnHandle, Domain> builder = ImmutableMap.builder();
         for (Map.Entry<ColumnHandle, Domain> entry : effectivePredicate.getDomains().entrySet()) {
             HiveColumnHandle hiveColumnHandle = checkType(entry.getKey(), HiveColumnHandle.class, "ConnectorColumnHandle");
 
             SortedRangeSet ranges = entry.getValue().getRanges();
-            if (!ranges.isNone()) {
+            if (ranges.getRangeCount() > threshold) {
                 // compact the range to a single span
-                ranges = SortedRangeSet.of(entry.getValue().getRanges().getSpan());
+                ranges = SortedRangeSet.of(ranges.getSpan());
             }
 
             builder.put(hiveColumnHandle, new Domain(ranges, entry.getValue().isNullAllowed()));

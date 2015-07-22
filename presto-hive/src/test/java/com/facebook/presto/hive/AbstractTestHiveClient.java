@@ -323,7 +323,8 @@ public abstract class AbstractTestHiveClient
                 hiveClientConfig.getMaxInitialSplits(),
                 false,
                 false,
-                false);
+                false,
+                hiveClientConfig.getDomainCompactionThreshold());
         recordSinkProvider = new HiveRecordSinkProvider(hdfsEnvironment);
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER, DEFAULT_HIVE_DATA_STREAM_FACTORIES, TYPE_MANAGER);
     }
