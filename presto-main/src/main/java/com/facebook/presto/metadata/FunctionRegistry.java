@@ -362,7 +362,8 @@ public class FunctionRegistry
                 .function(COUNT_COLUMN)
                 .functions(ROW_HASH_CODE, ROW_TO_JSON, ROW_EQUAL, ROW_NOT_EQUAL)
                 .function(TRY_CAST)
-                .function(DecimalOperators.ADD_OPERATOR);
+                .function(DecimalOperators.ADD_OPERATOR)
+                .function(DecimalOperators.SUBTRACT_OPERATOR);
 
         if (experimentalSyntaxEnabled) {
             builder.aggregate(ApproximateAverageAggregations.class)
