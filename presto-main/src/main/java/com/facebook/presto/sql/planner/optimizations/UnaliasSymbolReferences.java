@@ -89,18 +89,13 @@ public class UnaliasSymbolReferences
         checkNotNull(symbolAllocator, "symbolAllocator is null");
         checkNotNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(new HashMap<Symbol, Symbol>()), plan);
+        return PlanRewriter.rewriteWith(new Rewriter(), plan);
     }
 
     private static class Rewriter
             extends PlanRewriter<Void>
     {
-        private final Map<Symbol, Symbol> mapping;
-
-        public Rewriter(Map<Symbol, Symbol> mapping)
-        {
-            this.mapping = mapping;
-        }
+        private final Map<Symbol, Symbol> mapping = new HashMap<>();
 
         @Override
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
