@@ -151,25 +151,25 @@ public class TestMapOperators
     public void testJsonToMap()
             throws Exception
     {
-        assertFunction("CAST(CAST('{\"1\":2, \"3\": 4}' AS JSON) AS MAP<BIGINT, BIGINT>)",
+        assertFunction("CAST(JSON '{\"1\":2, \"3\": 4}' AS MAP<BIGINT, BIGINT>)",
                 new MapType(BIGINT, BIGINT),
                 ImmutableMap.of(1L, 2L, 3L, 4L));
-        assertFunction("CAST(CAST('{\"1\":2.0, \"3\": 4.0}' AS JSON) AS MAP<BIGINT, DOUBLE>)",
+        assertFunction("CAST(JSON '{\"1\":2.0, \"3\": 4.0}' AS MAP<BIGINT, DOUBLE>)",
                 new MapType(BIGINT, DOUBLE),
                 ImmutableMap.of(1L, 2.0, 3L, 4.0));
-        assertFunction("CAST(CAST('{\"1\":[2, 3], \"4\": [5]}' AS JSON) AS MAP<BIGINT, ARRAY<BIGINT>>)",
+        assertFunction("CAST(JSON '{\"1\":[2, 3], \"4\": [5]}' AS MAP<BIGINT, ARRAY<BIGINT>>)",
                 new MapType(BIGINT, new ArrayType(BIGINT)),
                 ImmutableMap.of(1L, ImmutableList.of(2L, 3L), 4L, ImmutableList.of(5L)));
-        assertFunction("CAST(CAST('{\"puppies\":\"kittens\"}' AS JSON) AS MAP<VARCHAR, VARCHAR>)",
+        assertFunction("CAST(JSON '{\"puppies\":\"kittens\"}' AS MAP<VARCHAR, VARCHAR>)",
                 new MapType(VARCHAR, VARCHAR),
                 ImmutableMap.of("puppies", "kittens"));
-        assertFunction("CAST(CAST('{\"true\":\"kittens\"}' AS JSON) AS MAP<BOOLEAN, VARCHAR>)",
+        assertFunction("CAST(JSON '{\"true\":\"kittens\"}' AS MAP<BOOLEAN, VARCHAR>)",
                 new MapType(BOOLEAN, VARCHAR),
                 ImmutableMap.of(true, "kittens"));
-        assertFunction("CAST(CAST('null' AS JSON) AS MAP<BOOLEAN, VARCHAR>)",
+        assertFunction("CAST(JSON 'null' AS MAP<BOOLEAN, VARCHAR>)",
                 new MapType(BOOLEAN, VARCHAR),
                 null);
-        assertFunction("CAST(CAST('{\"k1\": 5, \"k2\":[1, 2, 3], \"k3\":\"e\", \"k4\":{\"a\": \"b\"}, \"k5\":null, \"k6\":\"null\", \"k7\":[null]}' AS JSON) AS MAP<VARCHAR, JSON>)",
+        assertFunction("CAST(JSON '{\"k1\": 5, \"k2\":[1, 2, 3], \"k3\":\"e\", \"k4\":{\"a\": \"b\"}, \"k5\":null, \"k6\":\"null\", \"k7\":[null]}' AS MAP<VARCHAR, JSON>)",
                 new MapType(VARCHAR, JSON),
                 ImmutableMap.builder()
                         .put("k1", "5")
@@ -185,7 +185,7 @@ public class TestMapOperators
         // These two tests verifies that partial json cast preserves input order
         // The second test should never happen in real life because valid json in presto requires natural key ordering.
         // However, it is added to make sure that the order in the first test is not a coincidence.
-        assertFunction("CAST(CAST('{\"k1\": {\"1klmnopq\":1, \"2klmnopq\":2, \"3klmnopq\":3, \"4klmnopq\":4, \"5klmnopq\":5, \"6klmnopq\":6, \"7klmnopq\":7}}' AS JSON) AS MAP<VARCHAR, JSON>)",
+        assertFunction("CAST(JSON '{\"k1\": {\"1klmnopq\":1, \"2klmnopq\":2, \"3klmnopq\":3, \"4klmnopq\":4, \"5klmnopq\":5, \"6klmnopq\":6, \"7klmnopq\":7}}' AS MAP<VARCHAR, JSON>)",
                 new MapType(VARCHAR, JSON),
                 ImmutableMap.of("k1", "{\"1klmnopq\":1,\"2klmnopq\":2,\"3klmnopq\":3,\"4klmnopq\":4,\"5klmnopq\":5,\"6klmnopq\":6,\"7klmnopq\":7}")
         );
@@ -194,8 +194,8 @@ public class TestMapOperators
                 ImmutableMap.of("k1", "{\"7klmnopq\":7,\"6klmnopq\":6,\"5klmnopq\":5,\"4klmnopq\":4,\"3klmnopq\":3,\"2klmnopq\":2,\"1klmnopq\":1}")
         );
 
-        assertInvalidCast("CAST(CAST('{\"true\":\"kittens\"}' AS JSON) AS MAP<BOOLEAN, VARBINARY>)");
-        assertInvalidCast("CAST(CAST('{\"[1, 2]\": 1}' AS JSON) AS MAP<ARRAY<BIGINT>, BIGINT>)");
+        assertInvalidCast("CAST(JSON '{\"true\":\"kittens\"}' AS MAP<BOOLEAN, VARBINARY>)");
+        assertInvalidCast("CAST(JSON '{\"[1, 2]\": 1}' AS MAP<ARRAY<BIGINT>, BIGINT>)");
     }
 
     @Test

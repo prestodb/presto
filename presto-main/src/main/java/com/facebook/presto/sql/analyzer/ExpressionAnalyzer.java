@@ -109,6 +109,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
+import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.RowType.RowField;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
@@ -571,11 +572,13 @@ public class ExpressionAnalyzer
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
-            try {
-                functionRegistry.getCoercion(VARCHAR, type);
-            }
-            catch (IllegalArgumentException e) {
-                throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
+            if (!JSON.equals(type)) {
+                try {
+                    functionRegistry.getCoercion(VARCHAR, type);
+                }
+                catch (IllegalArgumentException e) {
+                    throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
+                }
             }
 
             expressionTypes.put(node, type);

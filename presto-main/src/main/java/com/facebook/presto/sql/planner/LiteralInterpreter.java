@@ -55,6 +55,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTime;
@@ -213,6 +214,16 @@ public final class LiteralInterpreter
             Type type = metadata.getType(parseTypeSignature(node.getType()));
             if (type == null) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
+            }
+
+            if (JSON.equals(type)) {
+                FunctionInfo operator = metadata.getFunctionRegistry().getExactFunction(new Signature("json_parse", JSON.getTypeSignature(), VARCHAR.getTypeSignature()));
+                try {
+                    return ExpressionInterpreter.invoke(session, operator.getMethodHandle(), ImmutableList.<Object>of(utf8Slice(node.getValue())));
+                }
+                catch (Throwable throwable) {
+                    throw Throwables.propagate(throwable);
+                }
             }
 
             FunctionInfo operator;

@@ -90,6 +90,7 @@ import static com.facebook.presto.sql.relational.Signatures.subscriptSignature;
 import static com.facebook.presto.sql.relational.Signatures.switchSignature;
 import static com.facebook.presto.sql.relational.Signatures.tryCastSignature;
 import static com.facebook.presto.sql.relational.Signatures.whenSignature;
+import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
@@ -185,6 +186,13 @@ public final class SqlToRowExpressionTranslator
             Type type = typeManager.getType(parseTypeSignature(node.getType()));
             if (type == null) {
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
+            }
+
+            if (JSON.equals(type)) {
+                return call(
+                        new Signature("json_parse", types.get(node).getTypeSignature(), VARCHAR.getTypeSignature()),
+                        types.get(node),
+                        constant(Slices.copiedBuffer(node.getValue(), StandardCharsets.UTF_8), VARCHAR));
             }
 
             return call(

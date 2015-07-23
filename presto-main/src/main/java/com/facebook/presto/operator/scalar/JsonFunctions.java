@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.OperatorType;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.JsonPathType;
 import com.facebook.presto.type.SqlType;
@@ -21,8 +22,12 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.primitives.Doubles;
+import io.airlift.json.ObjectMapperProvider;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import javax.annotation.Nullable;
 
@@ -30,6 +35,7 @@ import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonParser.NumberType;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
@@ -40,7 +46,9 @@ import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_FLOAT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_STRING;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_TRUE;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class JsonFunctions
@@ -51,6 +59,8 @@ public final class JsonFunctions
     private static final JsonFactory MAPPING_JSON_FACTORY = new MappingJsonFactory()
             .disable(CANONICALIZE_FIELD_NAMES);
 
+    private static final ObjectMapper SORTED_MAPPER = new ObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
+
     private JsonFunctions() {}
 
     @ScalarOperator(OperatorType.CAST)
@@ -60,11 +70,26 @@ public final class JsonFunctions
         return new JsonPath(pattern.toString(UTF_8));
     }
 
-    @ScalarOperator(OperatorType.CAST)
+    @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice castToVarchar(@SqlType(StandardTypes.JSON) Slice slice)
+    public static Slice jsonFormat(@SqlType(StandardTypes.JSON) Slice slice)
     {
         return slice;
+    }
+
+    @ScalarFunction
+    @SqlType(StandardTypes.JSON)
+    public static Slice jsonParse(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    {
+        try {
+            byte[] in = slice.getBytes();
+            SliceOutput dynamicSliceOutput = new DynamicSliceOutput(in.length);
+            SORTED_MAPPER.writeValue(dynamicSliceOutput, SORTED_MAPPER.readValue(in, Object.class));
+            return dynamicSliceOutput.slice();
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Cannot convert '%s' to JSON", slice.toStringUtf8()));
+        }
     }
 
     @Nullable
