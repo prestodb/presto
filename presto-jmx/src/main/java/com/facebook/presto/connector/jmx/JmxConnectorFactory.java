@@ -71,7 +71,7 @@ public class JmxConnectorFactory
             @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
-                return new JmxRecordSetProvider(mbeanServer, nodeManager);
+                return new JmxRecordSetProvider(mbeanServer, nodeManager.getCurrentNode().getNodeIdentifier());
             }
         };
     }

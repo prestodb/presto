@@ -52,12 +52,11 @@ public class TestJmxSplitManager
     private final Node localNode = new TestingNode("host1");
     private final Set<Node> nodes = ImmutableSet.of(localNode, new TestingNode("host2"), new TestingNode("host3"));
 
-    private final TestingNodeManager nodeManager = new TestingNodeManager();
     private final JmxColumnHandle columnHandle = new JmxColumnHandle("test", "node", VARCHAR);
     private final JmxTableHandle tableHandle = new JmxTableHandle("test", "objectName", ImmutableList.of(columnHandle));
     private final JmxSplitManager splitManager = new JmxSplitManager("test", new TestingNodeManager());
     private final JmxMetadata metadata = new JmxMetadata("test", getPlatformMBeanServer());
-    private final JmxRecordSetProvider recordSetProvider = new JmxRecordSetProvider(getPlatformMBeanServer(), nodeManager);
+    private final JmxRecordSetProvider recordSetProvider = new JmxRecordSetProvider(getPlatformMBeanServer(), localNode.getNodeIdentifier());
 
     @Test
     public void testPredicatePushdown()
