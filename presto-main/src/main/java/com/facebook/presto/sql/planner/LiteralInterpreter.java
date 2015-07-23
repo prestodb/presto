@@ -19,12 +19,15 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -122,13 +125,12 @@ public final class LiteralInterpreter
             }
         }
 
-        if (type.equals(VARCHAR)) {
+        if (type instanceof VarcharType) {
             if (object instanceof Slice) {
-                return new StringLiteral(((Slice) object).toString(UTF_8));
+                return new GenericLiteral(type.toString(), ((Slice) object).toString(UTF_8));
             }
-
-            if (object instanceof String) {
-                return new StringLiteral((String) object);
+            else if (object instanceof String) {
+                return new GenericLiteral(type.toString(), (String) object);
             }
         }
 
@@ -146,7 +148,7 @@ public final class LiteralInterpreter
         }
 
         Signature signature = FunctionRegistry.getMagicLiteralFunctionSignature(type);
-        Expression rawLiteral = toExpression(object, FunctionRegistry.type(type.getJavaType()));
+        Expression rawLiteral = toExpression(object, FunctionRegistry.literalType(type));
 
         return new FunctionCall(new QualifiedName(signature.getName()), ImmutableList.of(rawLiteral));
     }
@@ -183,6 +185,12 @@ public final class LiteralInterpreter
         protected Double visitDoubleLiteral(DoubleLiteral node, ConnectorSession session)
         {
             return node.getValue();
+        }
+
+        @Override
+        protected Object visitDecimalLiteral(DecimalLiteral node, ConnectorSession context)
+        {
+            return DecimalType.unscaledValueToObject(node.getUnscaledValue(), node.getPrecision());
         }
 
         @Override
@@ -240,7 +248,6 @@ public final class LiteralInterpreter
             else {
                 return node.getSign().multiplier() * parseDayTimeInterval(node.getValue(), node.getStartField(), node.getEndField());
             }
-
         }
 
         @Override

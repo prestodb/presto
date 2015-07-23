@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.type.TypeUtils;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
 import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
@@ -158,6 +160,24 @@ public final class Signature
     public List<TypeParameter> getTypeParameters()
     {
         return typeParameters;
+    }
+
+    public Signature resolveCalculatedTypes(List<TypeSignature> parameterTypes)
+    {
+        if (!returnType.isCalculated()) {
+            return this;
+        }
+
+        Map<String, OptionalLong> inputs = new HashMap<>();
+        for (int index = 0; index < argumentTypes.size(); index++) {
+            TypeSignature argument = argumentTypes.get(index);
+            if (argument.isCalculated()) {
+                TypeSignature actualParameter = parameterTypes.get(index);
+                inputs.putAll(TypeUtils.extractCalculationInputs(argument, actualParameter));
+            }
+        }
+        TypeSignature calculatedReturnType = TypeUtils.resolveCalculatedType(returnType, inputs);
+        return new Signature(name, calculatedReturnType, parameterTypes);
     }
 
     @Override
@@ -335,11 +355,12 @@ public final class Signature
         }
 
         // The parameter is not a type parameter, so it must be a concrete type
+        Type parameterType = typeManager.getType(parseTypeSignature(parameter.getBase()));
         if (allowCoercion) {
-            return canCoerce(type, typeManager.getType(parseTypeSignature(parameter.getBase())));
+            return canCoerce(type, parameterType);
         }
         else {
-            return type.equals(typeManager.getType(parseTypeSignature(parameter.getBase())));
+            return type.getTypeSignature().getBase().equals(parameterType.getTypeSignature().getBase());
         }
     }
 
