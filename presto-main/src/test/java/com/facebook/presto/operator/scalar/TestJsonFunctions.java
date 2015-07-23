@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.PrestoException;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.JsonType.JSON;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
-import static org.testng.Assert.fail;
 
 public class TestJsonFunctions
         extends AbstractTestFunctions
@@ -33,10 +33,10 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_LENGTH('[1]')", BIGINT, 1);
         assertFunction("JSON_ARRAY_LENGTH('[1, \"foo\", null]')", BIGINT, 3);
         assertFunction("JSON_ARRAY_LENGTH('[2, 4, {\"a\": [8, 9]}, [], [5], 4]')", BIGINT, 6);
-        assertFunction("JSON_ARRAY_LENGTH(CAST('[]' AS JSON))", BIGINT, 0);
-        assertFunction("JSON_ARRAY_LENGTH(CAST('[1]' AS JSON))", BIGINT, 1);
-        assertFunction("JSON_ARRAY_LENGTH(CAST('[1, \"foo\", null]' AS JSON))", BIGINT, 3);
-        assertFunction("JSON_ARRAY_LENGTH(CAST('[2, 4, {\"a\": [8, 9]}, [], [5], 4]' AS JSON))", BIGINT, 6);
+        assertFunction("JSON_ARRAY_LENGTH(JSON '[]')", BIGINT, 0);
+        assertFunction("JSON_ARRAY_LENGTH(JSON '[1]')", BIGINT, 1);
+        assertFunction("JSON_ARRAY_LENGTH(JSON '[1, \"foo\", null]')", BIGINT, 3);
+        assertFunction("JSON_ARRAY_LENGTH(JSON '[2, 4, {\"a\": [8, 9]}, [], [5], 4]')", BIGINT, 6);
         assertFunction("JSON_ARRAY_LENGTH(null)", BIGINT, null);
     }
 
@@ -52,15 +52,15 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_CONTAINS('[[true]]', true)", BOOLEAN, false);
         assertFunction("JSON_ARRAY_CONTAINS('[1, \"foo\", null, \"true\"]', true)", BOOLEAN, false);
         assertFunction("JSON_ARRAY_CONTAINS('[2, 4, {\"a\": [8, 9]}, [], [5], false]', false)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[]' AS JSON), true)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[true]' AS JSON), true)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[false]' AS JSON), false)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[true, false]' AS JSON), false)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[false, true]' AS JSON), true)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[1]' AS JSON), true)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[[true]]' AS JSON), true)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[1, \"foo\", null, \"true\"]' AS JSON), true)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[2, 4, {\"a\": [8, 9]}, [], [5], false]' AS JSON), false)", BOOLEAN, true);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[]', true)", BOOLEAN, false);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[true]', true)", BOOLEAN, true);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[false]', false)", BOOLEAN, true);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[true, false]', false)", BOOLEAN, true);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[false, true]', true)", BOOLEAN, true);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[1]', true)", BOOLEAN, false);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[[true]]', true)", BOOLEAN, false);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[1, \"foo\", null, \"true\"]', true)", BOOLEAN, false);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[2, 4, {\"a\": [8, 9]}, [], [5], false]', false)", BOOLEAN, true);
         assertFunction("JSON_ARRAY_CONTAINS(null, true)", BOOLEAN, null);
         assertFunction("JSON_ARRAY_CONTAINS(null, null)", BOOLEAN, null);
         assertFunction("JSON_ARRAY_CONTAINS('[]', null)", BOOLEAN, null);
@@ -77,14 +77,14 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_CONTAINS('[1, \"foo\", null, \"8\"]', 8)", BOOLEAN, false);
         assertFunction("JSON_ARRAY_CONTAINS('[2, 4, {\"a\": [8, 9]}, [], [5], 6]', 6)", BOOLEAN, true);
         assertFunction("JSON_ARRAY_CONTAINS('[92233720368547758071]', -9)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[]' AS JSON), 1)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[3]' AS JSON), 3)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[-4]' AS JSON), -4)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[1.0]' AS JSON), 1)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[[2]]' AS JSON), 2)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[1, \"foo\", null, \"8\"]' AS JSON), 8)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[2, 4, {\"a\": [8, 9]}, [], [5], 6]' AS JSON), 6)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[92233720368547758071]' AS JSON), -9)", BOOLEAN, false);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[]', 1)", BOOLEAN, false);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[3]', 3)", BOOLEAN, true);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[-4]', -4)", BOOLEAN, true);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[1.0]', 1)", BOOLEAN, false);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[[2]]', 2)", BOOLEAN, false);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[1, \"foo\", null, \"8\"]', 8)", BOOLEAN, false);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[2, 4, {\"a\": [8, 9]}, [], [5], 6]', 6)", BOOLEAN, true);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[92233720368547758071]', -9)", BOOLEAN, false);
         assertFunction("JSON_ARRAY_CONTAINS(null, 1)", BOOLEAN, null);
         assertFunction("JSON_ARRAY_CONTAINS(null, null)", BOOLEAN, null);
         assertFunction("JSON_ARRAY_CONTAINS('[3]', null)", BOOLEAN, null);
@@ -101,14 +101,14 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_CONTAINS('[1, \"foo\", null, \"8.2\"]', 8.2)", BOOLEAN, false);
         assertFunction("JSON_ARRAY_CONTAINS('[2, 4, {\"a\": [8, 9]}, [], [5], 6.1]', 6.1)", BOOLEAN, true);
         assertFunction("JSON_ARRAY_CONTAINS('[9.6E400]', 4.2)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[]' AS JSON), 1)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[1.5]' AS JSON), 1.5)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[-9.5]' AS JSON), -9.5)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[1]' AS JSON), 1.0)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[[2.5]]' AS JSON), 2.5)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[1, \"foo\", null, \"8.2\"]' AS JSON), 8.2)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[2, 4, {\"a\": [8, 9]}, [], [5], 6.1]' AS JSON), 6.1)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[9.6E400]' AS JSON), 4.2)", BOOLEAN, false);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[]', 1)", BOOLEAN, false);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[1.5]', 1.5)", BOOLEAN, true);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[-9.5]', -9.5)", BOOLEAN, true);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[1]', 1.0)", BOOLEAN, false);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[[2.5]]', 2.5)", BOOLEAN, false);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[1, \"foo\", null, \"8.2\"]', 8.2)", BOOLEAN, false);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[2, 4, {\"a\": [8, 9]}, [], [5], 6.1]', 6.1)", BOOLEAN, true);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[9.6E400]', 4.2)", BOOLEAN, false);
         assertFunction("JSON_ARRAY_CONTAINS(null, 1.5)", BOOLEAN, null);
         assertFunction("JSON_ARRAY_CONTAINS(null, null)", BOOLEAN, null);
         assertFunction("JSON_ARRAY_CONTAINS('[3.5]', null)", BOOLEAN, null);
@@ -124,13 +124,13 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_CONTAINS('[1, \"foo\", null]', 'foo')", BOOLEAN, true);
         assertFunction("JSON_ARRAY_CONTAINS('[1, 5]', '5')", BOOLEAN, false);
         assertFunction("JSON_ARRAY_CONTAINS('[2, 4, {\"a\": [8, 9]}, [], [5], \"6\"]', '6')", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[]' AS JSON), 'x')", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[\"foo\"]' AS JSON), 'foo')", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[\"foo\", null]' AS JSON), cast(null as varchar))", BOOLEAN, null);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[\"8\"]' AS JSON), '8')", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[1, \"foo\", null]' AS JSON), 'foo')", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[1, 5]' AS JSON), '5')", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(CAST('[2, 4, {\"a\": [8, 9]}, [], [5], \"6\"]' AS JSON), '6')", BOOLEAN, true);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[]', 'x')", BOOLEAN, false);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[\"foo\"]', 'foo')", BOOLEAN, true);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[\"foo\", null]', cast(null as varchar))", BOOLEAN, null);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[\"8\"]', '8')", BOOLEAN, true);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[1, \"foo\", null]', 'foo')", BOOLEAN, true);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[1, 5]', '5')", BOOLEAN, false);
+        assertFunction("JSON_ARRAY_CONTAINS(JSON '[2, 4, {\"a\": [8, 9]}, [], [5], \"6\"]', '6')", BOOLEAN, true);
         assertFunction("JSON_ARRAY_CONTAINS(null, 'x')", BOOLEAN, null);
         assertFunction("JSON_ARRAY_CONTAINS(null, '')", BOOLEAN, null);
         assertFunction("JSON_ARRAY_CONTAINS(null, null)", BOOLEAN, null);
@@ -151,15 +151,15 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_GET('[2, 7, 4, 6, 8, 1, 0]', -2)", JSON, utf8Slice(String.valueOf(1)));
         assertFunction("JSON_ARRAY_GET('[2, 7, 4, 6, 8, 1, 0]', -7)", JSON, utf8Slice(String.valueOf(2)));
         assertFunction("JSON_ARRAY_GET('[2, 7, 4, 6, 8, 1, 0]', -8)", JSON, null);
-        assertFunction("JSON_ARRAY_GET(CAST('[1]' AS JSON), 0)", JSON, utf8Slice(String.valueOf(1)));
-        assertFunction("JSON_ARRAY_GET(CAST('[2, 7, 4]' AS JSON), 1)", JSON, utf8Slice(String.valueOf(7)));
-        assertFunction("JSON_ARRAY_GET(CAST('[2, 7, 4, 6, 8, 1, 0]' AS JSON), 6)", JSON, utf8Slice(String.valueOf(0)));
-        assertFunction("JSON_ARRAY_GET(CAST('[]' AS JSON), 0)", JSON, null);
-        assertFunction("JSON_ARRAY_GET(CAST('[1, 3, 2]' AS JSON), 3)", JSON, null);
-        assertFunction("JSON_ARRAY_GET(CAST('[2, 7, 4, 6, 8, 1, 0]' AS JSON), -1)", JSON, utf8Slice(String.valueOf(0)));
-        assertFunction("JSON_ARRAY_GET(CAST('[2, 7, 4, 6, 8, 1, 0]' AS JSON), -2)", JSON, utf8Slice(String.valueOf(1)));
-        assertFunction("JSON_ARRAY_GET(CAST('[2, 7, 4, 6, 8, 1, 0]' AS JSON), -7)", JSON, utf8Slice(String.valueOf(2)));
-        assertFunction("JSON_ARRAY_GET(CAST('[2, 7, 4, 6, 8, 1, 0]' AS JSON), -8)", JSON, null);
+        assertFunction("JSON_ARRAY_GET(JSON '[1]', 0)", JSON, utf8Slice(String.valueOf(1)));
+        assertFunction("JSON_ARRAY_GET(JSON '[2, 7, 4]', 1)", JSON, utf8Slice(String.valueOf(7)));
+        assertFunction("JSON_ARRAY_GET(JSON '[2, 7, 4, 6, 8, 1, 0]', 6)", JSON, utf8Slice(String.valueOf(0)));
+        assertFunction("JSON_ARRAY_GET(JSON '[]', 0)", JSON, null);
+        assertFunction("JSON_ARRAY_GET(JSON '[1, 3, 2]', 3)", JSON, null);
+        assertFunction("JSON_ARRAY_GET(JSON '[2, 7, 4, 6, 8, 1, 0]', -1)", JSON, utf8Slice(String.valueOf(0)));
+        assertFunction("JSON_ARRAY_GET(JSON '[2, 7, 4, 6, 8, 1, 0]', -2)", JSON, utf8Slice(String.valueOf(1)));
+        assertFunction("JSON_ARRAY_GET(JSON '[2, 7, 4, 6, 8, 1, 0]', -7)", JSON, utf8Slice(String.valueOf(2)));
+        assertFunction("JSON_ARRAY_GET(JSON '[2, 7, 4, 6, 8, 1, 0]', -8)", JSON, null);
         assertFunction("JSON_ARRAY_GET('[]', null)", JSON, null);
         assertFunction("JSON_ARRAY_GET('[1]', null)", JSON, null);
         assertFunction("JSON_ARRAY_GET('', null)", JSON, null);
@@ -174,10 +174,10 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_GET('[\"jhfa\", null]', 1)", JSON, null);
         assertFunction("JSON_ARRAY_GET('[\"as\", \"fgs\", \"tehgf\"]', 1)", JSON, "fgs");
         assertFunction("JSON_ARRAY_GET('[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]', 4)", JSON, "jut");
-        assertFunction("JSON_ARRAY_GET(CAST('[\"jhfa\"]' AS JSON), 0)", JSON, "jhfa");
-        assertFunction("JSON_ARRAY_GET(CAST('[\"jhfa\", null]' AS JSON), 1)", JSON, null);
-        assertFunction("JSON_ARRAY_GET(CAST('[\"as\", \"fgs\", \"tehgf\"]' AS JSON), 1)", JSON, "fgs");
-        assertFunction("JSON_ARRAY_GET(CAST('[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]' AS JSON), 4)", JSON, "jut");
+        assertFunction("JSON_ARRAY_GET(JSON '[\"jhfa\"]', 0)", JSON, "jhfa");
+        assertFunction("JSON_ARRAY_GET(JSON '[\"jhfa\", null]', 1)", JSON, null);
+        assertFunction("JSON_ARRAY_GET(JSON '[\"as\", \"fgs\", \"tehgf\"]', 1)", JSON, "fgs");
+        assertFunction("JSON_ARRAY_GET(JSON '[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]', 4)", JSON, "jut");
         assertFunction("JSON_ARRAY_GET('[\"\"]', 0)", JSON, "");
         assertFunction("JSON_ARRAY_GET('[]', 0)", JSON, null);
         assertFunction("JSON_ARRAY_GET('[null]', 0)", JSON, null);
@@ -191,10 +191,10 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_GET('[3.14, null]', 1)", JSON, null);
         assertFunction("JSON_ARRAY_GET('[1.12, 3.54, 2.89]', 1)", JSON, utf8Slice(String.valueOf(3.54)));
         assertFunction("JSON_ARRAY_GET('[0.58, 9.7, 7.6, 11.2, 5.02]', 4)", JSON, utf8Slice(String.valueOf(5.02)));
-        assertFunction("JSON_ARRAY_GET(CAST('[3.14]' AS JSON), 0)", JSON, utf8Slice(String.valueOf(3.14)));
-        assertFunction("JSON_ARRAY_GET(CAST('[3.14, null]' AS JSON), 1)", JSON, null);
-        assertFunction("JSON_ARRAY_GET(CAST('[1.12, 3.54, 2.89]' AS JSON), 1)", JSON, utf8Slice(String.valueOf(3.54)));
-        assertFunction("JSON_ARRAY_GET(CAST('[0.58, 9.7, 7.6, 11.2, 5.02]' AS JSON), 4)", JSON, utf8Slice(String.valueOf(5.02)));
+        assertFunction("JSON_ARRAY_GET(JSON '[3.14]', 0)", JSON, utf8Slice(String.valueOf(3.14)));
+        assertFunction("JSON_ARRAY_GET(JSON '[3.14, null]', 1)", JSON, null);
+        assertFunction("JSON_ARRAY_GET(JSON '[1.12, 3.54, 2.89]', 1)", JSON, utf8Slice(String.valueOf(3.54)));
+        assertFunction("JSON_ARRAY_GET(JSON '[0.58, 9.7, 7.6, 11.2, 5.02]', 4)", JSON, utf8Slice(String.valueOf(5.02)));
         assertFunction("JSON_ARRAY_GET('[1.0]', -1)", JSON, utf8Slice(String.valueOf(1.0)));
         assertFunction("JSON_ARRAY_GET('[1.0]', null)", JSON, null);
     }
@@ -210,11 +210,11 @@ public class TestJsonFunctions
                 JSON,
                 utf8Slice(String.valueOf(false))
         );
-        assertFunction("JSON_ARRAY_GET(CAST('[true]' AS JSON), 0)", JSON, utf8Slice(String.valueOf(true)));
-        assertFunction("JSON_ARRAY_GET(CAST('[true, null]' AS JSON), 1)", JSON, null);
-        assertFunction("JSON_ARRAY_GET(CAST('[false, false, true]' AS JSON), 1)", JSON, utf8Slice(String.valueOf(false)));
+        assertFunction("JSON_ARRAY_GET(JSON '[true]', 0)", JSON, utf8Slice(String.valueOf(true)));
+        assertFunction("JSON_ARRAY_GET(JSON '[true, null]', 1)", JSON, null);
+        assertFunction("JSON_ARRAY_GET(JSON '[false, false, true]', 1)", JSON, utf8Slice(String.valueOf(false)));
         assertFunction(
-                "JSON_ARRAY_GET(CAST('[true, false, false, true, true, false]' AS JSON), 5)",
+                "JSON_ARRAY_GET(JSON '[true, false, false, true, true, false]', 5)",
                 JSON,
                 utf8Slice(String.valueOf(false))
         );
@@ -248,15 +248,16 @@ public class TestJsonFunctions
     }
 
     @Test
-    public void testInvalidJsonCast()
+    public void testInvalidJsonParse()
     {
-        try {
-            assertFunction("CAST('INVALID' AS JSON)", JSON, null);
-            fail();
-        }
-        catch (PrestoException e) {
-            // Expected
-        }
+        assertInvalidFunction("JSON 'INVALID'", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON_PARSE('INVALID')", INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
+    public void testJsonFormat()
+    {
+        assertFunction("JSON_FORMAT(JSON '[\"a\", \"b\"]')", VARCHAR, "[\"a\",\"b\"]");
     }
 
     @Test
@@ -270,13 +271,13 @@ public class TestJsonFunctions
         assertFunction(format("JSON_SIZE(null, '%s')", "$"), BIGINT, null);
         assertFunction(format("JSON_SIZE('%s', '%s')", "INVALID_JSON", "$"), BIGINT, null);
         assertFunction(format("JSON_SIZE('%s', null)", "[1,2,3]"), BIGINT, null);
-        assertFunction(format("JSON_SIZE(CAST('%s' AS JSON), '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$"), BIGINT, 1);
-        assertFunction(format("JSON_SIZE(CAST('%s' AS JSON), '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x"), BIGINT, 2);
-        assertFunction(format("JSON_SIZE(CAST('%s' AS JSON), '%s')", "{\"x\": {\"a\" : 1, \"b\" : [1,2,3], \"c\" : {\"w\":9}} }", "$.x"), BIGINT, 3);
-        assertFunction(format("JSON_SIZE(CAST('%s' AS JSON), '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x.a"), BIGINT, 0);
-        assertFunction(format("JSON_SIZE(CAST('%s' AS JSON), '%s')", "[1,2,3]", "$"), BIGINT, 3);
+        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$"), BIGINT, 1);
+        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x"), BIGINT, 2);
+        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : [1,2,3], \"c\" : {\"w\":9}} }", "$.x"), BIGINT, 3);
+        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x.a"), BIGINT, 0);
+        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "[1,2,3]", "$"), BIGINT, 3);
         assertFunction(format("JSON_SIZE(null, '%s')", "$"), BIGINT, null);
-        assertFunction(format("JSON_SIZE(CAST('%s' AS JSON), null)", "[1,2,3]"), BIGINT, null);
+        assertFunction(format("JSON_SIZE(JSON '%s', null)", "[1,2,3]"), BIGINT, null);
         assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", ""), "Invalid JSON path: ''");
         assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", "."), "Invalid JSON path: '.'");
         assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", "null"), "Invalid JSON path: 'null'");
@@ -286,23 +287,23 @@ public class TestJsonFunctions
     @Test
     public void testJsonEquality()
     {
-        assertFunction("CAST('[1,2,3]' AS JSON) = CAST('[1,2,3]' AS JSON)", BOOLEAN, true);
-        assertFunction("CAST('{\"a\":1, \"b\":2}' AS JSON) = CAST('{\"b\":2, \"a\":1}' AS JSON)", BOOLEAN, true);
-        assertFunction("CAST('{\"a\":1, \"b\":2}' AS JSON) = CAST(MAP(ARRAY['b','a'], ARRAY[2,1]) AS JSON)", BOOLEAN, true);
-        assertFunction("CAST('null' AS JSON) = CAST('null' AS JSON)", BOOLEAN, true);
-        assertFunction("CAST('true' AS JSON) = CAST('true' AS JSON)", BOOLEAN, true);
-        assertFunction("CAST('{\"x\":\"y\"}' AS JSON) = CAST('{\"x\":\"y\"}' AS JSON)", BOOLEAN, true);
-        assertFunction("CAST('[1,2,3]' AS JSON) = CAST('[2,3,1]' AS JSON)", BOOLEAN, false);
-        assertFunction("CAST('{\"p_1\": 1, \"p_2\":\"v_2\", \"p_3\":null, \"p_4\":true, \"p_5\": {\"p_1\":1}}' AS JSON) = " +
-                "CAST('{\"p_2\":\"v_2\", \"p_4\":true, \"p_1\": 1, \"p_3\":null, \"p_5\": {\"p_1\":1}}' AS JSON)", BOOLEAN, true);
+        assertFunction("JSON '[1,2,3]' = JSON '[1,2,3]'", BOOLEAN, true);
+        assertFunction("JSON '{\"a\":1, \"b\":2}' = JSON '{\"b\":2, \"a\":1}'", BOOLEAN, true);
+        assertFunction("JSON '{\"a\":1, \"b\":2}' = CAST(MAP(ARRAY['b','a'], ARRAY[2,1]) AS JSON)", BOOLEAN, true);
+        assertFunction("JSON 'null' = JSON 'null'", BOOLEAN, true);
+        assertFunction("JSON 'true' = JSON 'true'", BOOLEAN, true);
+        assertFunction("JSON '{\"x\":\"y\"}' = JSON '{\"x\":\"y\"}'", BOOLEAN, true);
+        assertFunction("JSON '[1,2,3]' = JSON '[2,3,1]'", BOOLEAN, false);
+        assertFunction("JSON '{\"p_1\": 1, \"p_2\":\"v_2\", \"p_3\":null, \"p_4\":true, \"p_5\": {\"p_1\":1}}' = " +
+                "JSON '{\"p_2\":\"v_2\", \"p_4\":true, \"p_1\": 1, \"p_3\":null, \"p_5\": {\"p_1\":1}}'", BOOLEAN, true);
 
-        assertFunction("CAST('[1,2,3]' AS JSON) != CAST('[1,2,3]' AS JSON)", BOOLEAN, false);
-        assertFunction("CAST('{\"a\":1, \"b\":2}' AS JSON) != CAST('{\"b\":2, \"a\":1}' AS JSON)", BOOLEAN, false);
-        assertFunction("CAST('null' AS JSON) != CAST('null' AS JSON)", BOOLEAN, false);
-        assertFunction("CAST('true' AS JSON) != CAST('true' AS JSON)", BOOLEAN, false);
-        assertFunction("CAST('{\"x\":\"y\"}' AS JSON) != CAST('{\"x\":\"y\"}' AS JSON)", BOOLEAN, false);
-        assertFunction("CAST('[1,2,3]' AS JSON) != CAST('[2,3,1]' AS JSON)", BOOLEAN, true);
-        assertFunction("CAST('{\"p_1\": 1, \"p_2\":\"v_2\", \"p_3\":null, \"p_4\":true, \"p_5\": {\"p_1\":1}}' AS JSON) != " +
-                "CAST('{\"p_2\":\"v_2\", \"p_4\":true, \"p_1\": 1, \"p_3\":null, \"p_5\": {\"p_1\":1}}' AS JSON)", BOOLEAN, false);
+        assertFunction("JSON '[1,2,3]' != JSON '[1,2,3]'", BOOLEAN, false);
+        assertFunction("JSON '{\"a\":1, \"b\":2}' != JSON '{\"b\":2, \"a\":1}'", BOOLEAN, false);
+        assertFunction("JSON 'null' != JSON 'null'", BOOLEAN, false);
+        assertFunction("JSON 'true' != JSON 'true'", BOOLEAN, false);
+        assertFunction("JSON '{\"x\":\"y\"}' != JSON '{\"x\":\"y\"}'", BOOLEAN, false);
+        assertFunction("JSON '[1,2,3]' != JSON '[2,3,1]'", BOOLEAN, true);
+        assertFunction("JSON '{\"p_1\": 1, \"p_2\":\"v_2\", \"p_3\":null, \"p_4\":true, \"p_5\": {\"p_1\":1}}' != " +
+                "JSON '{\"p_2\":\"v_2\", \"p_4\":true, \"p_1\": 1, \"p_3\":null, \"p_5\": {\"p_1\":1}}'", BOOLEAN, false);
     }
 }
