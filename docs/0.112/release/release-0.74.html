@@ -1,0 +1,102 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.39. Release 0.74 &mdash; Presto 0.112 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.112',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.112 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.40. Release 0.73" href="release-0.73.html" />
+    <link rel="prev" title="10.38. Release 0.75" href="release-0.75.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.112 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.39. Release 0.74</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.75.html">10.38. Release 0.75</a>
+    </span>
+    <span class="right">
+        <a href="release-0.73.html">10.40. Release 0.73</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-74">
+<h1>10.39. Release 0.74</h1>
+<div class="section" id="bytecode-compiler">
+<h2>Bytecode Compiler</h2>
+<p>This version includes new infrastructure for bytecode compilation, and lays the groundwork for future improvements.
+There should be no impact in performance or correctness with the new code, but we have added a flag to revert to the
+old implementation in case of issues. To do so, add <tt class="docutils literal"><span class="pre">compiler.new-bytecode-generator-enabled=false</span></tt> to
+<tt class="docutils literal"><span class="pre">etc/config.properties</span></tt> in the coordinator and workers.</p>
+</div>
+<div class="section" id="hive-storage-format">
+<h2>Hive Storage Format</h2>
+<p>The storage format to use when writing data to Hive can now be configured via the <tt class="docutils literal"><span class="pre">hive.storage-format</span></tt> option
+in your Hive catalog properties file. Valid options are <tt class="docutils literal"><span class="pre">RCBINARY</span></tt>, <tt class="docutils literal"><span class="pre">RCTEXT</span></tt>, <tt class="docutils literal"><span class="pre">SEQUENCEFILE</span></tt> and <tt class="docutils literal"><span class="pre">TEXTFILE</span></tt>.
+The default format if the property is not set is <tt class="docutils literal"><span class="pre">RCBINARY</span></tt>.</p>
+</div>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Show column comments in <tt class="docutils literal"><span class="pre">DESCRIBE</span></tt></li>
+<li>Add <a class="reference internal" href="../functions/conversion.html#try_cast" title="try_cast"><tt class="xref py py-func docutils literal"><span class="pre">try_cast()</span></tt></a> which works like <a class="reference internal" href="../functions/conversion.html#cast" title="cast"><tt class="xref py py-func docutils literal"><span class="pre">cast()</span></tt></a> but returns <tt class="docutils literal"><span class="pre">null</span></tt> if the cast fails</li>
+<li><tt class="docutils literal"><span class="pre">nullif</span></tt> now correctly returns a value with the type of the first argument</li>
+<li>Fix an issue with <a class="reference internal" href="../functions/datetime.html#timezone_hour" title="timezone_hour"><tt class="xref py py-func docutils literal"><span class="pre">timezone_hour()</span></tt></a> returning results in milliseconds instead of hours</li>
+<li>Show a proper error message when analyzing queries with non-equijoin clauses</li>
+<li>Improve &#8220;too many failures&#8221; error message when coordinator can&#8217;t talk to workers</li>
+<li>Minor optimization of <a class="reference internal" href="../functions/json.html#json_size" title="json_size"><tt class="xref py py-func docutils literal"><span class="pre">json_size()</span></tt></a> function</li>
+<li>Improve feature normalization algorithm for machine learning functions</li>
+<li>Add exponential back-off to the S3 FileSystem retry logic</li>
+<li>Improve CPU efficiency of semi-joins</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.75.html">10.38. Release 0.75</a>
+    </span>
+    <span class="right">
+        <a href="release-0.73.html">10.40. Release 0.73</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
