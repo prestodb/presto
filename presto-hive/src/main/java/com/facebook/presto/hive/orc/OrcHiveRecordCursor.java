@@ -20,6 +20,7 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.HiveUtil;
 import com.facebook.presto.hive.util.Types;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
@@ -67,7 +68,7 @@ import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.hive.util.SerDeUtils.getBlockSlice;
+import static com.facebook.presto.hive.util.SerDeUtils.getBlockObject;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -108,6 +109,7 @@ public class OrcHiveRecordCursor
     private final long[] longs;
     private final double[] doubles;
     private final Slice[] slices;
+    private final Object[] objects;
     private final boolean[] nulls;
 
     private final long totalBytes;
@@ -150,6 +152,7 @@ public class OrcHiveRecordCursor
         this.longs = new long[size];
         this.doubles = new double[size];
         this.slices = new Slice[size];
+        this.objects = new Object[size];
         this.nulls = new boolean[size];
 
         // ORC stores timestamps relative to 2015-01-01 00:00:00 but in the timezone of the writer
@@ -426,10 +429,7 @@ public class OrcHiveRecordCursor
         }
 
         HiveType type = hiveTypes[column];
-        if (isStructuralType(type)) {
-            slices[column] = getBlockSlice(object, fieldInspectors[column]);
-        }
-        else if (type.equals(HIVE_STRING)) {
+        if (type.equals(HIVE_STRING)) {
             Text text = Types.checkType(object, Text.class, "materialized string value");
             slices[column] = Slices.copyOf(Slices.wrappedBuffer(text.getBytes()), 0, text.getLength());
         }
@@ -440,6 +440,35 @@ public class OrcHiveRecordCursor
         else {
             throw new RuntimeException(String.format("%s is not a valid STRING type", type));
         }
+    }
+
+    @Override
+    public Object getObject(int fieldId)
+    {
+        checkState(!closed, "Cursor is closed");
+
+        validateType(fieldId, Block.class);
+        if (!loaded[fieldId]) {
+            parseObjectColumn(fieldId);
+        }
+        return objects[fieldId];
+    }
+
+    private void parseObjectColumn(int column)
+    {
+        // don't include column number in message because it causes boxing which is expensive here
+        checkArgument(!isPartitionColumn[column], "Column is a partition key");
+
+        loaded[column] = true;
+        nulls[column] = false;
+
+        Object object = getFieldValue(row, hiveColumnIndexes[column]);
+        if (object == null) {
+            nulls[column] = true;
+            return;
+        }
+
+        objects[column] = getBlockObject(types[column], object, fieldInspectors[column]);
     }
 
     @Override
@@ -464,8 +493,11 @@ public class OrcHiveRecordCursor
         else if (types[column].equals(DOUBLE)) {
             parseDoubleColumn(column);
         }
-        else if (types[column].equals(VARCHAR) || types[column].equals(VARBINARY) || isStructuralType(hiveTypes[column])) {
+        else if (types[column].equals(VARCHAR) || types[column].equals(VARBINARY)) {
             parseStringColumn(column);
+        }
+        else if (isStructuralType(hiveTypes[column])) {
+            parseObjectColumn(column);
         }
         else if (types[column].equals(TIMESTAMP)) {
             parseLongColumn(column);

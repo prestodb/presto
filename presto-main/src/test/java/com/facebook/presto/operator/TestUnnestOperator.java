@@ -30,6 +30,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -68,7 +69,7 @@ public class TestUnnestOperator
     public void testUnnest()
             throws Exception
     {
-        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        MetadataManager metadata = createTestMetadataManager();
         Type arrayType = metadata.getType(parseTypeSignature("array<bigint>"));
         Type mapType = metadata.getType(parseTypeSignature("map<bigint,bigint>"));
 
@@ -96,10 +97,47 @@ public class TestUnnestOperator
     }
 
     @Test
+    public void testUnnestWithArray()
+            throws Exception
+    {
+        MetadataManager metadata = createTestMetadataManager();
+        Type arrayType = metadata.getType(parseTypeSignature("array<array<bigint>>"));
+        Type mapType = metadata.getType(parseTypeSignature("map<array<bigint>,array<bigint>>"));
+
+        List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
+                .row(
+                        1,
+                        ArrayType.toStackRepresentation(ImmutableList.of(ImmutableList.of(2, 4), ImmutableList.of(3, 6)), new ArrayType(BIGINT)),
+                        MapType.toStackRepresentation(ImmutableMap.of(ImmutableList.of(4, 8), ImmutableList.of(5, 10)), new ArrayType(BIGINT), new ArrayType(BIGINT)))
+                .row(2, ArrayType.toStackRepresentation(ImmutableList.of(ImmutableList.of(99, 198)), new ArrayType(BIGINT)), null)
+                .row(3, null, null)
+                .pageBreak()
+                .row(
+                        6,
+                        ArrayType.toStackRepresentation(ImmutableList.of(ImmutableList.of(7, 14), ImmutableList.of(8, 16)), new ArrayType(BIGINT)),
+                        MapType.toStackRepresentation(ImmutableMap.of(ImmutableList.of(9, 18), ImmutableList.of(10, 20), ImmutableList.of(11, 22), ImmutableList.of(12, 24)), new ArrayType(BIGINT), new ArrayType(BIGINT)))
+                .build();
+
+        OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
+                0, ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false);
+        Operator operator = operatorFactory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, new ArrayType(BIGINT), new ArrayType(BIGINT), new ArrayType(BIGINT))
+                .row(1, ImmutableList.of(2L, 4L), ImmutableList.of(4L, 8L), ImmutableList.of(5L, 10L))
+                .row(1, ImmutableList.of(3L, 6L), null, null)
+                .row(2, ImmutableList.of(99L, 198L), null, null)
+                .row(6, ImmutableList.of(7L, 14L), ImmutableList.of(9L, 18L), ImmutableList.of(10L, 20L))
+                .row(6, ImmutableList.of(8L, 16L), ImmutableList.of(11L, 22L), ImmutableList.of(12L, 24L))
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
     public void testUnnestWithOrdinality()
             throws Exception
     {
-        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        MetadataManager metadata = createTestMetadataManager();
         Type arrayType = metadata.getType(parseTypeSignature("array<bigint>"));
         Type mapType = metadata.getType(parseTypeSignature("map<bigint,bigint>"));
 
@@ -130,7 +168,7 @@ public class TestUnnestOperator
     public void testUnnestNonNumericDoubles()
             throws Exception
     {
-        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        MetadataManager metadata = createTestMetadataManager();
         Type arrayType = metadata.getType(parseTypeSignature("array<double>"));
         Type mapType = metadata.getType(parseTypeSignature("map<bigint,double>"));
 

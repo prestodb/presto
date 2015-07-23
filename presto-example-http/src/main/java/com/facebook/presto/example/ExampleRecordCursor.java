@@ -141,6 +141,12 @@ public class ExampleRecordCursor
     }
 
     @Override
+    public Object getObject(int field)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public boolean isNull(int field)
     {
         checkArgument(field < columnHandles.size(), "Invalid field index");

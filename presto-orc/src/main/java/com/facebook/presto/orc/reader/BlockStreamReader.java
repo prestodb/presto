@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.orc.SliceVector;
+import com.facebook.presto.orc.SingleObjectVector;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.Vector;
 import com.facebook.presto.orc.block.BlockReader;
@@ -21,17 +21,21 @@ import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.orc.block.BlockReaders.createBlockReader;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -79,6 +83,13 @@ public class BlockStreamReader
     public void readBatch(Object vector)
             throws IOException
     {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void readBatch(Type type, Object vector)
+            throws IOException
+    {
         if (!rowGroupOpen) {
             openRowGroup();
         }
@@ -93,24 +104,26 @@ public class BlockStreamReader
             blockReader.skip(readOffset);
         }
 
-        SliceVector sliceVector = castOrcVector(vector, SliceVector.class);
         if (presentStream != null) {
             presentStream.getUnsetBits(nextBatchSize, isNullVector);
         }
 
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
+
         for (int i = 0; i < nextBatchSize; i++) {
             if (!isNullVector[i]) {
-                blockReader.readNextValueInto(null, false);
-
-                sliceVector.vector[i] = blockReader.toSlice();
+                blockReader.readNextValueInto(blockBuilder, false);
             }
             else {
-                sliceVector.vector[i] = null;
+                blockBuilder.appendNull();
             }
         }
 
         readOffset = 0;
         nextBatchSize = 0;
+
+        Block result = blockBuilder.build();
+        OrcReaderUtils.castOrcVector(vector, SingleObjectVector.class).object = result;
     }
 
     private void openRowGroup()

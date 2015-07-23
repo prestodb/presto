@@ -23,7 +23,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
@@ -32,7 +31,6 @@ import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.createBlock;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class ArrayContains
@@ -73,15 +71,20 @@ public final class ArrayContains
         Type type = types.get("T");
         TypeSignature valueType = type.getTypeSignature();
         TypeSignature arrayType = parameterizedTypeName(StandardTypes.ARRAY, valueType);
-        MethodHandle methodHandle = methodHandle(ArrayContains.class, "contains", Type.class, Slice.class, type.getJavaType());
+        MethodHandle methodHandle;
+        if (type.getJavaType().isPrimitive()) {
+            methodHandle = methodHandle(ArrayContains.class, "contains", Type.class, Block.class, type.getJavaType());
+        }
+        else {
+            methodHandle = methodHandle(ArrayContains.class, "contains", Type.class, Block.class, Object.class);
+        }
         Signature signature = new Signature(FUNCTION_NAME, RETURN_TYPE, arrayType, valueType);
 
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle.bindTo(type), isDeterministic(), true, ImmutableList.of(false, false));
     }
 
-    public static Boolean contains(Type type, Slice slice, Slice value)
+    public static Boolean contains(Type type, Block arrayBlock, Object value)
     {
-        Block arrayBlock = readStructuralBlock(slice);
         Block valueBlock = createBlock(type, value);
         boolean foundNull = false;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
@@ -98,9 +101,8 @@ public final class ArrayContains
         return false;
     }
 
-    public static Boolean contains(Type type, Slice slice, long value)
+    public static Boolean contains(Type type, Block arrayBlock, long value)
     {
-        Block arrayBlock = readStructuralBlock(slice);
         Block valueBlock = createBlock(type, value);
         boolean foundNull = false;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
@@ -117,9 +119,8 @@ public final class ArrayContains
         return false;
     }
 
-    public static Boolean contains(Type type, Slice slice, boolean value)
+    public static Boolean contains(Type type, Block arrayBlock, boolean value)
     {
-        Block arrayBlock = readStructuralBlock(slice);
         Block valueBlock = createBlock(type, value);
         boolean foundNull = false;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
@@ -136,9 +137,8 @@ public final class ArrayContains
         return false;
     }
 
-    public static Boolean contains(Type type, Slice slice, double value)
+    public static Boolean contains(Type type, Block arrayBlock, double value)
     {
-        Block arrayBlock = readStructuralBlock(slice);
         Block valueBlock = createBlock(type, value);
         boolean foundNull = false;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {

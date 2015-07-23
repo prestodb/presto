@@ -20,6 +20,8 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.ArrayType;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -29,8 +31,6 @@ import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 
 public class TestArrayAggregation
 {
@@ -126,22 +126,23 @@ public class TestArrayAggregation
     {
         InternalAggregationFunction varcharAgg = metadata.getExactFunction(new Signature("array_agg", "array<array<bigint>>", "array<bigint>")).getAggregationFunction();
 
-        BlockBuilder builder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 100);
+        Type arrayType = new ArrayType(BIGINT);
+        BlockBuilder builder = arrayType.createBlockBuilder(new BlockBuilderStatus(), 100);
 
         BlockBuilder variableWidthBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 100);
         BIGINT.writeLong(variableWidthBlockBuilder, 1);
-        VARBINARY.writeSlice(builder, buildStructuralSlice(variableWidthBlockBuilder));
+        arrayType.writeObject(builder, variableWidthBlockBuilder);
 
         variableWidthBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 100);
         BIGINT.writeLong(variableWidthBlockBuilder, 1);
         BIGINT.writeLong(variableWidthBlockBuilder, 2);
-        VARBINARY.writeSlice(builder, buildStructuralSlice(variableWidthBlockBuilder));
+        arrayType.writeObject(builder, variableWidthBlockBuilder);
 
         variableWidthBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 100);
         BIGINT.writeLong(variableWidthBlockBuilder, 1);
         BIGINT.writeLong(variableWidthBlockBuilder, 2);
         BIGINT.writeLong(variableWidthBlockBuilder, 3);
-        VARBINARY.writeSlice(builder, buildStructuralSlice(variableWidthBlockBuilder));
+        arrayType.writeObject(builder, variableWidthBlockBuilder);
 
         assertAggregation(
                 varcharAgg,

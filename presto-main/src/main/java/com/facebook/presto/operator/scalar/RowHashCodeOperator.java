@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricOperator;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -23,7 +24,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
@@ -39,7 +39,7 @@ public class RowHashCodeOperator
 {
     public static final RowHashCodeOperator ROW_HASH_CODE = new RowHashCodeOperator();
     private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BIGINT);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(RowHashCodeOperator.class, "hash", Type.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(RowHashCodeOperator.class, "hash", Type.class, Block.class);
 
     private RowHashCodeOperator()
     {
@@ -54,10 +54,10 @@ public class RowHashCodeOperator
         return operatorInfo(HASH_CODE, RETURN_TYPE, ImmutableList.of(typeSignature), METHOD_HANDLE.bindTo(type), false, ImmutableList.of(false));
     }
 
-    public static long hash(Type rowType, Slice slice)
+    public static long hash(Type rowType, Block block)
     {
-        BlockBuilder blockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1, slice.length());
-        blockBuilder.writeBytes(slice, 0, slice.length());
-        return rowType.hash(blockBuilder.closeEntry().build(), 0);
+        BlockBuilder blockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        blockBuilder.writeObject(block).closeEntry();
+        return rowType.hash(blockBuilder.build(), 0);
     }
 }

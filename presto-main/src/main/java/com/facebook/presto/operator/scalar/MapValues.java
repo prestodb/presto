@@ -20,19 +20,15 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -41,7 +37,7 @@ public class MapValues
 {
     public static final MapValues MAP_VALUES = new MapValues();
     private static final Signature SIGNATURE = new Signature("map_values", ImmutableList.of(typeParameter("K"), typeParameter("V")), "array<V>", ImmutableList.of("map<K,V>"), false, false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapValues.class, "getValues", Type.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapValues.class, "getValues", Type.class, Block.class);
 
     @Override
     public Signature getSignature()
@@ -80,13 +76,12 @@ public class MapValues
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false));
     }
 
-    public static Slice getValues(Type valueType, Slice map)
+    public static Block getValues(Type valueType, Block block)
     {
-        Block block = readStructuralBlock(map);
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+        BlockBuilder blockBuilder = valueType.createBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
         for (int i = 0; i < block.getPositionCount(); i += 2) {
             valueType.appendTo(block, i + 1, blockBuilder);
         }
-        return buildStructuralSlice(blockBuilder);
+        return blockBuilder.build();
     }
 }

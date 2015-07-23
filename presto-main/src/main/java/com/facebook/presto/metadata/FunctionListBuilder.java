@@ -34,7 +34,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
 import io.airlift.joni.Regex;
-import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
@@ -61,25 +60,10 @@ import static java.util.Locale.ENGLISH;
 
 public class FunctionListBuilder
 {
-    private static final Set<Class<?>> NULLABLE_ARGUMENT_TYPES = ImmutableSet.<Class<?>>of(Boolean.class, Long.class, Double.class, Slice.class);
-
-    private static final Set<Class<?>> SUPPORTED_TYPES = ImmutableSet.of(
-            long.class,
-            Long.class,
-            double.class,
-            Double.class,
-            Slice.class,
-            boolean.class,
-            Boolean.class,
-            Regex.class,
-            JsonPath.class);
-
-    private static final Set<Class<?>> SUPPORTED_RETURN_TYPES = ImmutableSet.of(
+    private static final Set<Class<?>> NON_NULLABLE_ARGUMENT_TYPES = ImmutableSet.<Class<?>>of(
             long.class,
             double.class,
-            Slice.class,
             boolean.class,
-            int.class,
             Regex.class,
             JsonPath.class);
 
@@ -260,7 +244,7 @@ public class FunctionListBuilder
                 checkArgument(nullable, "Method %s has parameter with type %s that is missing @Nullable", method, actualType);
             }
             if (nullable) {
-                checkArgument(NULLABLE_ARGUMENT_TYPES.contains(actualType), "Method %s has parameter type %s, but @Nullable is not supported on this type", method, actualType);
+                checkArgument(!NON_NULLABLE_ARGUMENT_TYPES.contains(actualType), "Method %s has parameter type %s, but @Nullable is not supported on this type", method, actualType);
             }
             checkArgument(Primitives.unwrap(actualType) == expectedType.getJavaType(),
                     "Expected method %s parameter %s type to be %s (%s)",
@@ -342,16 +326,11 @@ public class FunctionListBuilder
 
         checkArgument(Modifier.isStatic(method.getModifiers()), message + "must be static", method);
 
-        checkArgument(SUPPORTED_RETURN_TYPES.contains(Primitives.unwrap(method.getReturnType())), message + "return type not supported", method);
         if (method.getAnnotation(Nullable.class) != null) {
             checkArgument(!method.getReturnType().isPrimitive(), message + "annotated with @Nullable but has primitive return type", method);
         }
         else {
             checkArgument(!Primitives.isWrapperType(method.getReturnType()), "not annotated with @Nullable but has boxed primitive return type", method);
-        }
-
-        for (Class<?> type : getParameterTypes(method.getParameterTypes())) {
-            checkArgument(SUPPORTED_TYPES.contains(type), message + "parameter type [%s] not supported", method, type.getName());
         }
     }
 

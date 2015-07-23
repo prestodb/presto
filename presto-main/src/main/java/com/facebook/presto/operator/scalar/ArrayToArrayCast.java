@@ -32,10 +32,8 @@ import com.facebook.presto.sql.gen.ArrayMapByteCodeExpression;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.CompilerUtils;
 import com.facebook.presto.type.ArrayType;
-import com.facebook.presto.type.TypeUtils;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
@@ -48,7 +46,6 @@ import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantBoolean;
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.invokeStatic;
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.OperatorType.CAST;
 import static com.facebook.presto.metadata.Signature.internalOperator;
@@ -85,7 +82,7 @@ public class ArrayToArrayCast
         }
 
         Class<?> castOperatorClass = generateArrayCast(typeManager, functionInfo);
-        MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Slice.class);
+        MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Block.class);
 
         return operatorInfo(CAST, toArrayType.getTypeSignature(), ImmutableList.of(fromArrayType.getTypeSignature()), methodHandle, false, ImmutableList.of(false));
     }
@@ -102,12 +99,12 @@ public class ArrayToArrayCast
         definition.declareDefaultConstructor(a(PRIVATE));
 
         Parameter session = arg("session", ConnectorSession.class);
-        Parameter value = arg("value", Slice.class);
+        Parameter value = arg("value", Block.class);
 
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC, STATIC),
                 "castArray",
-                type(Slice.class),
+                type(Block.class),
                 session,
                 value);
 
@@ -117,14 +114,11 @@ public class ArrayToArrayCast
         Variable wasNull = scope.declareVariable(boolean.class, "wasNull");
         body.append(wasNull.set(constantBoolean(false)));
 
-        Variable array = scope.declareVariable(Block.class, "array");
-        body.append(array.set(invokeStatic(TypeUtils.class, "readStructuralBlock", Block.class, value)));
-
         // cast map elements
-        ArrayMapByteCodeExpression newArray = ArrayGeneratorUtils.map(scope, binder, typeManager, array, elementCast);
+        ArrayMapByteCodeExpression newArray = ArrayGeneratorUtils.map(scope, binder, typeManager, value, elementCast);
 
-        // convert block to slice
-        body.append(invokeStatic(TypeUtils.class, "buildStructuralSlice", Slice.class, newArray).ret());
+        // return the block
+        body.append(newArray.ret());
 
         return defineClass(definition, Object.class, binder.getBindings(), ArrayToArrayCast.class.getClassLoader());
     }

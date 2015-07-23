@@ -15,9 +15,13 @@ package com.facebook.presto.hive.rcfile;
 
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.rcfile.RcFilePageSource.RcFileColumnsBatch;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.LazyArrayBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.LazyFixedWidthBlock;
 import com.facebook.presto.spi.block.LazySliceArrayBlock;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 import io.airlift.slice.ByteArrays;
 import io.airlift.slice.Slice;
@@ -46,7 +50,8 @@ import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
-import static com.facebook.presto.hive.util.SerDeUtils.getBlockSlice;
+import static com.facebook.presto.hive.util.SerDeUtils.serializeObject;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -99,10 +104,14 @@ public class RcBinaryBlockLoader
         if (HIVE_STRING.equals(hiveType) || HIVE_BINARY.equals(hiveType)) {
             return new LazySliceBlockLoader(batch, fieldId);
         }
-        if (isStructuralType(hiveType)) {
-            return new LazyJsonSliceBlockLoader(batch, fieldId, fieldInspector);
-        }
         throw new UnsupportedOperationException("Unsupported column type: " + hiveType);
+    }
+
+    @Override
+    public LazyBlockLoader<LazyArrayBlock> structuralBlockLoader(RcFileColumnsBatch batch, int fieldId, HiveType hiveType, ObjectInspector fieldInspector, Type type)
+    {
+        checkArgument(isStructuralType(hiveType), "hiveType (" + hiveType + ") is not structuralType");
+        return new LazyStructuralBlockLoader(type, batch, fieldId, fieldInspector);
     }
 
     private static final class LazyBooleanBlockLoader
@@ -660,23 +669,25 @@ public class RcBinaryBlockLoader
         }
     }
 
-    private static final class LazyJsonSliceBlockLoader
-            implements LazyBlockLoader<LazySliceArrayBlock>
+    private static final class LazyStructuralBlockLoader
+            implements LazyBlockLoader<LazyArrayBlock>
     {
+        private final Type type;
         private final RcFileColumnsBatch batch;
         private final int fieldId;
         private final ObjectInspector fieldInspector;
         private boolean loaded;
 
-        private LazyJsonSliceBlockLoader(RcFileColumnsBatch batch, int fieldId, ObjectInspector fieldInspector)
+        private LazyStructuralBlockLoader(Type type, RcFileColumnsBatch batch, int fieldId, ObjectInspector fieldInspector)
         {
+            this.type = type;
             this.batch = batch;
             this.fieldId = fieldId;
             this.fieldInspector = fieldInspector;
         }
 
         @Override
-        public void load(LazySliceArrayBlock block)
+        public void load(LazyArrayBlock block)
         {
             if (loaded) {
                 return;
@@ -687,7 +698,7 @@ public class RcBinaryBlockLoader
                 int positionInBatch = batch.getPositionInBatch();
 
                 int batchSize = block.getPositionCount();
-                Slice[] vector = new Slice[batchSize];
+                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), batchSize);
 
                 for (int i = 0; i < batchSize; i++) {
                     BytesRefWritable writable = columnBatch.unCheckedGet(i + positionInBatch);
@@ -696,15 +707,15 @@ public class RcBinaryBlockLoader
                     if (length > 0) {
                         byte[] bytes = writable.getData();
                         int start = writable.getStart();
-                        LazyBinaryObject<? extends ObjectInspector> lazyObject = LazyBinaryFactory.createLazyBinaryObject(fieldInspector);
+                        LazyBinaryObject lazyObject = LazyBinaryFactory.createLazyBinaryObject(fieldInspector);
                         ByteArrayRef byteArrayRef = new ByteArrayRef();
                         byteArrayRef.setData(bytes);
                         lazyObject.init(byteArrayRef, start, length);
-                        vector[i] = getBlockSlice(lazyObject.getObject(), fieldInspector);
+                        serializeObject(type, blockBuilder, lazyObject.getObject(), fieldInspector);
                     }
                 }
 
-                block.setValues(vector);
+                block.copyFromBlock(blockBuilder.build());
 
                 loaded = true;
             }

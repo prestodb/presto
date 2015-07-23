@@ -37,8 +37,8 @@ public class TestBigintVarcharMapType
     public static Block createTestBlock(Type mapType)
     {
         BlockBuilder blockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 2);
-        mapType.writeSlice(blockBuilder, toStackRepresentation(ImmutableMap.of(1, "hi"), BIGINT, VARCHAR));
-        mapType.writeSlice(blockBuilder, toStackRepresentation(ImmutableMap.of(1, "2", 2, "hello"), BIGINT, VARCHAR));
+        mapType.writeObject(blockBuilder, toStackRepresentation(ImmutableMap.of(1, "hi"), BIGINT, VARCHAR));
+        mapType.writeObject(blockBuilder, toStackRepresentation(ImmutableMap.of(1, "2", 2, "hello"), BIGINT, VARCHAR));
         return blockBuilder.build();
     }
 

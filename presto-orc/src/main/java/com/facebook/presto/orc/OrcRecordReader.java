@@ -279,6 +279,12 @@ public class OrcRecordReader
         streamReaders[columnIndex].readBatch(vector);
     }
 
+    public void readVector(Type type, int columnIndex, Object vector)
+            throws IOException
+    {
+        streamReaders[columnIndex].readBatch(type, vector);
+    }
+
     private boolean advanceToNextRowGroup()
             throws IOException
     {

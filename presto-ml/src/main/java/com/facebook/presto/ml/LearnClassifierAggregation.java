@@ -17,9 +17,9 @@ import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.CombineFunction;
 import com.facebook.presto.operator.aggregation.InputFunction;
 import com.facebook.presto.operator.aggregation.OutputFunction;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.type.SqlType;
-import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
@@ -34,7 +34,7 @@ public final class LearnClassifierAggregation
     public static void input(
             LearnState state,
             @SqlType(BIGINT) long label,
-            @SqlType("map<bigint,double>") Slice features)
+            @SqlType("map<bigint,double>") Block features)
     {
         input(state, (double) label, features);
     }
@@ -43,7 +43,7 @@ public final class LearnClassifierAggregation
     public static void input(
             LearnState state,
             @SqlType(DOUBLE) double label,
-            @SqlType("map<bigint,double>") Slice features)
+            @SqlType("map<bigint,double>") Block features)
     {
         LearnLibSvmClassifierAggregation.input(state, label, features, Slices.utf8Slice(""));
     }

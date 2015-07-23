@@ -16,28 +16,25 @@ package com.facebook.presto.operator.aggregation.state;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.slice.Slice;
-
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
+import com.facebook.presto.type.ArrayType;
 
 public class ArrayAggregationStateSerializer
         implements AccumulatorStateSerializer<ArrayAggregationState>
 {
-    private final Type type;
+    private final Type elementType;
+    private final Type arrayType;
 
-    public ArrayAggregationStateSerializer(Type type)
+    public ArrayAggregationStateSerializer(Type elementType)
     {
-        this.type = type;
+        this.elementType = elementType;
+        this.arrayType = new ArrayType(elementType);
     }
 
     @Override
     public Type getSerializedType()
     {
-        return VARBINARY;
+        return arrayType;
     }
 
     @Override
@@ -47,20 +44,21 @@ public class ArrayAggregationStateSerializer
             out.appendNull();
         }
         else {
-            BlockBuilder stateBlockBuilder = state.getBlockBuilder();
-            VARBINARY.writeSlice(out, buildStructuralSlice(stateBlockBuilder));
+            Block stateBlock = state.getBlockBuilder().build();
+            arrayType.writeObject(out, stateBlock);
         }
     }
 
     @Override
     public void deserialize(Block block, int index, ArrayAggregationState state)
     {
-        Slice slice = VARBINARY.getSlice(block, index);
-        Block stateBlock = readStructuralBlock(slice);
-        BlockBuilder stateBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus()); // not using type.createBlockBuilder because fixedWidth ones can't be serialized
-        for (int i = 0; i < stateBlock.getPositionCount(); i++) {
-            type.appendTo(stateBlock, i, stateBlockBuilder);
+        Block stateBlock = (Block) arrayType.getObject(block, index);
+        int positionCount = stateBlock.getPositionCount();
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+        for (int i = 0; i < positionCount; i++) {
+            stateBlock.writePositionTo(i, blockBuilder);
+            blockBuilder.closeEntry();
         }
-        state.setBlockBuilder(stateBlockBuilder);
+        state.setBlockBuilder(blockBuilder);
     }
 }

@@ -125,13 +125,13 @@ public class TestHistogram
         PageBuilder builder = new PageBuilder(ImmutableList.of(arrayType));
 
         builder.declarePosition();
-        arrayType.writeSlice(builder.getBlockBuilder(0), toStackRepresentation(ImmutableList.of("a", "b", "c"), VARCHAR));
+        arrayType.writeObject(builder.getBlockBuilder(0), toStackRepresentation(ImmutableList.of("a", "b", "c"), VARCHAR));
 
         builder.declarePosition();
-        arrayType.writeSlice(builder.getBlockBuilder(0), toStackRepresentation(ImmutableList.of("d", "e", "f"), VARCHAR));
+        arrayType.writeObject(builder.getBlockBuilder(0), toStackRepresentation(ImmutableList.of("d", "e", "f"), VARCHAR));
 
         builder.declarePosition();
-        arrayType.writeSlice(builder.getBlockBuilder(0), toStackRepresentation(ImmutableList.of("c", "b", "a"), VARCHAR));
+        arrayType.writeObject(builder.getBlockBuilder(0), toStackRepresentation(ImmutableList.of("c", "b", "a"), VARCHAR));
 
         assertAggregation(
                 aggregationFunction,
@@ -151,13 +151,13 @@ public class TestHistogram
         PageBuilder builder = new PageBuilder(ImmutableList.of(innerMapType));
 
         builder.declarePosition();
-        innerMapType.writeSlice(builder.getBlockBuilder(0), MapType.toStackRepresentation(ImmutableMap.of("a", "b"), VARCHAR, VARCHAR));
+        innerMapType.writeObject(builder.getBlockBuilder(0), MapType.toStackRepresentation(ImmutableMap.of("a", "b"), VARCHAR, VARCHAR));
 
         builder.declarePosition();
-        innerMapType.writeSlice(builder.getBlockBuilder(0), MapType.toStackRepresentation(ImmutableMap.of("c", "d"), VARCHAR, VARCHAR));
+        innerMapType.writeObject(builder.getBlockBuilder(0), MapType.toStackRepresentation(ImmutableMap.of("c", "d"), VARCHAR, VARCHAR));
 
         builder.declarePosition();
-        innerMapType.writeSlice(builder.getBlockBuilder(0), MapType.toStackRepresentation(ImmutableMap.of("e", "f"), VARCHAR, VARCHAR));
+        innerMapType.writeObject(builder.getBlockBuilder(0), MapType.toStackRepresentation(ImmutableMap.of("e", "f"), VARCHAR, VARCHAR));
 
         assertAggregation(
                 aggregationFunction,
@@ -177,13 +177,13 @@ public class TestHistogram
         PageBuilder builder = new PageBuilder(ImmutableList.of(innerRowType));
 
         builder.declarePosition();
-        innerRowType.writeSlice(builder.getBlockBuilder(0), testRowBigintBigint(1L, 1.0));
+        innerRowType.writeObject(builder.getBlockBuilder(0), testRowBigintBigint(1L, 1.0));
 
         builder.declarePosition();
-        innerRowType.writeSlice(builder.getBlockBuilder(0), testRowBigintBigint(2L, 2.0));
+        innerRowType.writeObject(builder.getBlockBuilder(0), testRowBigintBigint(2L, 2.0));
 
         builder.declarePosition();
-        innerRowType.writeSlice(builder.getBlockBuilder(0), testRowBigintBigint(3L, 3.0));
+        innerRowType.writeObject(builder.getBlockBuilder(0), testRowBigintBigint(3L, 3.0));
 
         assertAggregation(
                 aggregationFunction,

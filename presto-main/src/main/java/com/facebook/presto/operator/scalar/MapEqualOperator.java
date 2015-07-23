@@ -23,7 +23,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.LinkedHashMap;
@@ -34,7 +33,6 @@ import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.castValue;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -44,6 +42,7 @@ public class MapEqualOperator
 {
     public static final MapEqualOperator MAP_EQUAL = new MapEqualOperator();
     private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BOOLEAN);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapEqualOperator.class, "equals", MethodHandle.class, MethodHandle.class, MethodHandle.class, Type.class, Type.class, Block.class, Block.class);
 
     private MapEqualOperator()
     {
@@ -63,16 +62,12 @@ public class MapEqualOperator
         MethodHandle keyHashcodeFunction = functionRegistry.resolveOperator(HASH_CODE, ImmutableList.of(keyType)).getMethodHandle();
         MethodHandle valueEqualsFunction = functionRegistry.resolveOperator(EQUAL, ImmutableList.of(valueType, valueType)).getMethodHandle();
 
-        MethodHandle methodHandle = methodHandle(MapEqualOperator.class, "equals", MethodHandle.class, MethodHandle.class, MethodHandle.class, Type.class, Type.class, Slice.class, Slice.class);
-        MethodHandle method = methodHandle.bindTo(keyEqualsFunction).bindTo(keyHashcodeFunction).bindTo(valueEqualsFunction).bindTo(keyType).bindTo(valueType);
-        return operatorInfo(EQUAL, RETURN_TYPE, ImmutableList.of(typeSignature, typeSignature), method, true, ImmutableList.of(false, false));
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(keyEqualsFunction).bindTo(keyHashcodeFunction).bindTo(valueEqualsFunction).bindTo(keyType).bindTo(valueType);
+        return operatorInfo(EQUAL, RETURN_TYPE, ImmutableList.of(typeSignature, typeSignature), methodHandle, true, ImmutableList.of(false, false));
     }
 
-    public static Boolean equals(MethodHandle keyEqualsFunction, MethodHandle keyHashcodeFunction, MethodHandle valueEqualsFunction, Type keyType, Type valueType, Slice left, Slice right)
+    public static Boolean equals(MethodHandle keyEqualsFunction, MethodHandle keyHashcodeFunction, MethodHandle valueEqualsFunction, Type keyType, Type valueType, Block leftMapBlock, Block rightMapBlock)
     {
-        Block leftMapBlock = readStructuralBlock(left);
-        Block rightMapBlock = readStructuralBlock(right);
-
         Map<KeyWrapper, Integer> wrappedLeftMap = new LinkedHashMap<>();
         for (int position = 0; position < leftMapBlock.getPositionCount(); position += 2) {
             wrappedLeftMap.put(new KeyWrapper(castValue(keyType, leftMapBlock, position), keyEqualsFunction, keyHashcodeFunction), position + 1);

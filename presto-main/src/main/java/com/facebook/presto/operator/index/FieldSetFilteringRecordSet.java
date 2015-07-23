@@ -189,7 +189,7 @@ public class FieldSetFilteringRecordSet
                     return (boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getSlice(field1.getField()), cursor.getSlice(field2.getField()));
                 }
                 else {
-                    throw new IllegalArgumentException("Unknown java type: " + javaType);
+                    return (boolean) field1.getEqualsMethodHandle().invoke(cursor.getObject(field1.getField()), cursor.getObject(field2.getField()));
                 }
             }
             catch (Throwable throwable) {
@@ -219,6 +219,13 @@ public class FieldSetFilteringRecordSet
         public Slice getSlice(int field)
         {
             return delegate.getSlice(field);
+        }
+
+        @Override
+        public Object getObject(int field)
+        {
+            // equals is super expensive for the currently supported types: Block
+            throw new UnsupportedOperationException();
         }
 
         @Override

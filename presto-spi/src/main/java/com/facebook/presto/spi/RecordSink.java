@@ -39,6 +39,8 @@ public interface RecordSink
 
     void appendString(byte[] value);
 
+    void appendObject(Object value);
+
     Collection<Slice> commit();
 
     void rollback();

@@ -32,7 +32,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
@@ -49,8 +48,8 @@ import org.apache.hadoop.mapred.Reporter;
 import java.io.IOException;
 import java.sql.Date;
 import java.sql.Timestamp;
-import java.util.Collection;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -186,10 +185,19 @@ public class HiveRecordSink
         if (type.equals(VarbinaryType.VARBINARY)) {
             append(value);
         }
-        else if (isMapType(type) || isArrayType(type)) {
+        else {
+            append(new String(value, UTF_8));
+        }
+    }
+
+    @Override
+    public void appendObject(Object value)
+    {
+        Type type = columnTypes.get(field);
+        if (isMapType(type) || isArrayType(type)) {
             // Hive expects a List<>/Map<> to write, so decode the value
-            BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, value.length);
-            type.writeSlice(blockBuilder, Slices.wrappedBuffer(value));
+            BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
+            type.writeObject(blockBuilder, value);
             Object complexValue = type.getObjectValue(connectorSession, blockBuilder.build(), 0);
             if (hasDateTimeTypes.get(field)) {
                 complexValue = translateDateTime(type, complexValue);
@@ -197,7 +205,7 @@ public class HiveRecordSink
             append(complexValue);
         }
         else {
-            append(new String(value, UTF_8));
+            throw new IllegalArgumentException();
         }
     }
 

@@ -16,12 +16,12 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricOperator;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
@@ -38,7 +38,7 @@ public class ArrayNotEqualOperator
 {
     public static final ArrayNotEqualOperator ARRAY_NOT_EQUAL = new ArrayNotEqualOperator();
     private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BOOLEAN);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayNotEqualOperator.class, "notEqual", MethodHandle.class, Type.class, Slice.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayNotEqualOperator.class, "notEqual", MethodHandle.class, Type.class, Block.class, Block.class);
 
     private ArrayNotEqualOperator()
     {
@@ -56,7 +56,7 @@ public class ArrayNotEqualOperator
         return operatorInfo(NOT_EQUAL, RETURN_TYPE, ImmutableList.of(typeSignature, typeSignature), method, false, ImmutableList.of(false, false));
     }
 
-    public static boolean notEqual(MethodHandle equalsFunction, Type type, Slice left, Slice right)
+    public static boolean notEqual(MethodHandle equalsFunction, Type type, Block left, Block right)
     {
         return !ArrayEqualOperator.equals(equalsFunction, type, left, right);
     }

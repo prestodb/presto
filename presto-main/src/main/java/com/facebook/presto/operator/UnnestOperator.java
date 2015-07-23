@@ -15,11 +15,11 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -178,15 +178,15 @@ public class UnnestOperator
         for (int i = 0; i < unnestTypes.size(); i++) {
             Type type = unnestTypes.get(i);
             int channel = unnestChannels.get(i);
-            Slice slice = null;
+            Block block = null;
             if (!currentPage.getBlock(channel).isNull(currentPosition)) {
-                slice = type.getSlice(currentPage.getBlock(channel), currentPosition);
+                block = (Block) type.getObject(currentPage.getBlock(channel), currentPosition);
             }
             if (type instanceof ArrayType) {
-                unnesters.add(new ArrayUnnester((ArrayType) type, slice));
+                unnesters.add(new ArrayUnnester((ArrayType) type, block));
             }
             else if (type instanceof MapType) {
-                unnesters.add(new MapUnnester((MapType) type, slice));
+                unnesters.add(new MapUnnester((MapType) type, block));
             }
             else {
                 throw new IllegalArgumentException("Cannot unnest type: " + type);

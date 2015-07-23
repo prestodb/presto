@@ -16,12 +16,12 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricOperator;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
@@ -37,7 +37,7 @@ public class RowNotEqualOperator
 {
     public static final RowNotEqualOperator ROW_NOT_EQUAL = new RowNotEqualOperator();
     private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BOOLEAN);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(RowNotEqualOperator.class, "notEqual", Type.class, Slice.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(RowNotEqualOperator.class, "notEqual", Type.class, Block.class, Block.class);
 
     private RowNotEqualOperator()
     {
@@ -52,7 +52,7 @@ public class RowNotEqualOperator
         return operatorInfo(NOT_EQUAL, RETURN_TYPE, ImmutableList.of(typeSignature, typeSignature), METHOD_HANDLE.bindTo(type), false, ImmutableList.of(false, false));
     }
 
-    public static boolean notEqual(Type rowType, Slice leftRow, Slice rightRow)
+    public static boolean notEqual(Type rowType, Block leftRow, Block rightRow)
     {
         return !RowEqualOperator.equals(rowType, leftRow, rightRow);
     }

@@ -21,7 +21,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -38,10 +37,8 @@ import java.util.Map;
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.type.TypeUtils.castValue;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -52,6 +49,12 @@ public final class ArrayRemoveFunction
     public static final ArrayRemoveFunction ARRAY_REMOVE_FUNCTION = new ArrayRemoveFunction();
     private static final String FUNCTION_NAME = "array_remove";
     private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(comparableTypeParameter("E")), "array<E>", ImmutableList.of("array<E>", "E"), false, false);
+
+    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(ArrayRemoveFunction.class, "remove", MethodHandle.class, Type.class, Block.class, boolean.class);
+    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(ArrayRemoveFunction.class, "remove", MethodHandle.class, Type.class, Block.class, long.class);
+    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(ArrayRemoveFunction.class, "remove", MethodHandle.class, Type.class, Block.class, double.class);
+    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(ArrayRemoveFunction.class, "remove", MethodHandle.class, Type.class, Block.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(ArrayRemoveFunction.class, "remove", MethodHandle.class, Type.class, Block.class, Object.class);
 
     @Override
     public Signature getSignature()
@@ -86,46 +89,60 @@ public final class ArrayRemoveFunction
         TypeSignature arrayType = parameterizedTypeName(StandardTypes.ARRAY, valueType);
 
         MethodHandle equalsFunction = functionRegistry.resolveOperator(EQUAL, ImmutableList.of(type, type)).getMethodHandle();
-        MethodHandle baseMethodHandle = methodHandle(ArrayRemoveFunction.class, "remove", MethodHandle.class, Type.class, Slice.class, type.getJavaType());
+        MethodHandle baseMethodHandle;
+        if (type.getJavaType() == long.class) {
+            baseMethodHandle = METHOD_HANDLE_LONG;
+        }
+        else if (type.getJavaType() == double.class) {
+            baseMethodHandle = METHOD_HANDLE_DOUBLE;
+        }
+        else if (type.getJavaType() == Slice.class) {
+            baseMethodHandle = METHOD_HANDLE_SLICE;
+        }
+        else if (type.getJavaType() == boolean.class) {
+            baseMethodHandle = METHOD_HANDLE_BOOLEAN;
+        }
+        else {
+            baseMethodHandle = METHOD_HANDLE_OBJECT;
+        }
+
         MethodHandle methodHandle = baseMethodHandle.bindTo(equalsFunction).bindTo(type);
         Signature signature = new Signature(FUNCTION_NAME, arrayType, arrayType, valueType);
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false, false));
     }
 
-    public static Slice remove(MethodHandle equalsFunction, Type type, Slice array, Slice value)
+    public static Block remove(MethodHandle equalsFunction, Type type, Block array, Slice value)
     {
         return remove(equalsFunction, type, array, (Object) value);
     }
 
-    public static Slice remove(MethodHandle equalsFunction, Type type, Slice array, long value)
+    public static Block remove(MethodHandle equalsFunction, Type type, Block array, long value)
     {
         return remove(equalsFunction, type, array, (Object) value);
     }
 
-    public static Slice remove(MethodHandle equalsFunction, Type type, Slice array, double value)
+    public static Block remove(MethodHandle equalsFunction, Type type, Block array, double value)
     {
         return remove(equalsFunction, type, array, (Object) value);
     }
 
-    public static Slice remove(MethodHandle equalsFunction, Type type, Slice array, boolean value)
+    public static Block remove(MethodHandle equalsFunction, Type type, Block array, boolean value)
     {
         return remove(equalsFunction, type, array, (Object) value);
     }
 
-    private static Slice remove(MethodHandle equalsFunction, Type type, Slice array, Object value)
+    public static Block remove(MethodHandle equalsFunction, Type type, Block array, Object value)
     {
-        Block elementsBlock = readStructuralBlock(array);
-
         int sizeAfterRemove = 0;
         List<Integer> positions = new ArrayList<>();
 
-        for (int i = 0; i < elementsBlock.getPositionCount(); i++) {
-            Object element = castValue(type, elementsBlock, i);
+        for (int i = 0; i < array.getPositionCount(); i++) {
+            Object element = castValue(type, array, i);
 
             try {
                 if (element == null || !(boolean) equalsFunction.invoke(element, value)) {
                     positions.add(i);
-                    sizeAfterRemove += elementsBlock.getLength(i);
+                    sizeAfterRemove += array.getLength(i);
                 }
             }
             catch (Throwable t) {
@@ -136,16 +153,16 @@ public final class ArrayRemoveFunction
             }
         }
 
-        if (elementsBlock.getPositionCount() == positions.size()) {
+        if (array.getPositionCount() == positions.size()) {
             return array;
         }
 
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), sizeAfterRemove);
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), sizeAfterRemove);
 
         for (int position : positions) {
-            type.appendTo(elementsBlock, position, blockBuilder);
+            type.appendTo(array, position, blockBuilder);
         }
 
-        return buildStructuralSlice(blockBuilder);
+        return blockBuilder.build();
     }
 }

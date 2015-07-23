@@ -17,6 +17,7 @@ import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.CombineFunction;
 import com.facebook.presto.operator.aggregation.InputFunction;
 import com.facebook.presto.operator.aggregation.OutputFunction;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
@@ -33,7 +34,7 @@ public final class LearnVarcharClassifierAggregation
     public static void input(
             LearnState state,
             @SqlType(VARCHAR) Slice label,
-            @SqlType("map<bigint,double>") Slice features)
+            @SqlType("map<bigint,double>") Block features)
     {
         LearnLibSvmVarcharClassifierAggregation.input(state, label, features, Slices.utf8Slice(""));
     }

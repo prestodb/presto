@@ -146,6 +146,12 @@ public class CassandraRecordSink
     }
 
     @Override
+    public void appendObject(Object value)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Collection<Slice> commit()
     {
         checkState(field == -1, "record not finished");

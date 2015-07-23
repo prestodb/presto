@@ -14,20 +14,17 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import com.facebook.presto.spi.block.ArrayBlockBuilder;
+import com.facebook.presto.spi.block.ArrayElementBlockWriter;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
-import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
+import static io.airlift.slice.Slices.utf8Slice;
 
 public class TestSimpleRowType
         extends AbstractTestType
@@ -41,21 +38,26 @@ public class TestSimpleRowType
 
     private static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = TYPE.createBlockBuilder(new BlockBuilderStatus(), 3);
-        List<Type> parameterTypes = ImmutableList.of(BIGINT, VARCHAR);
-        TYPE.writeSlice(blockBuilder, sliceOf(parameterTypes, 1, "cat"));
-        TYPE.writeSlice(blockBuilder, sliceOf(parameterTypes, 2, "cats"));
-        TYPE.writeSlice(blockBuilder, sliceOf(parameterTypes, 3, "dog"));
-        return blockBuilder.build();
-    }
+        ArrayBlockBuilder blockBuilder = (ArrayBlockBuilder) TYPE.createBlockBuilder(new BlockBuilderStatus(), 3);
 
-    private static Slice sliceOf(List<Type> parameterTypes, Object... values)
-    {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
-        for (int i = 0; i < values.length; i++) {
-            appendToBlockBuilder(parameterTypes.get(i), values[i], blockBuilder);
-        }
-        return buildStructuralSlice(blockBuilder);
+        ArrayElementBlockWriter arrayElementBlockWriter;
+
+        arrayElementBlockWriter = blockBuilder.beginBlockEntry();
+        BIGINT.writeLong(arrayElementBlockWriter, 1);
+        VARCHAR.writeSlice(arrayElementBlockWriter, utf8Slice("cat"));
+        blockBuilder.closeEntry();
+
+        arrayElementBlockWriter = blockBuilder.beginBlockEntry();
+        BIGINT.writeLong(arrayElementBlockWriter, 2);
+        VARCHAR.writeSlice(arrayElementBlockWriter, utf8Slice("cats"));
+        blockBuilder.closeEntry();
+
+        arrayElementBlockWriter = blockBuilder.beginBlockEntry();
+        BIGINT.writeLong(arrayElementBlockWriter, 3);
+        VARCHAR.writeSlice(arrayElementBlockWriter, utf8Slice("dog"));
+        blockBuilder.closeEntry();
+
+        return blockBuilder.build();
     }
 
     @Override

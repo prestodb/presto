@@ -16,18 +16,14 @@ package com.facebook.presto.type;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.ArrayType.toStackRepresentation;
-import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 
 public class TestBigintArrayType
         extends AbstractTestType
@@ -40,23 +36,23 @@ public class TestBigintArrayType
     public static Block createTestBlock(Type arrayType)
     {
         BlockBuilder blockBuilder = arrayType.createBlockBuilder(new BlockBuilderStatus(), 4);
-        arrayType.writeSlice(blockBuilder, toStackRepresentation(ImmutableList.of(1, 2), BIGINT));
-        arrayType.writeSlice(blockBuilder, toStackRepresentation(ImmutableList.of(1, 2, 3), BIGINT));
-        arrayType.writeSlice(blockBuilder, toStackRepresentation(ImmutableList.of(1, 2, 3), BIGINT));
-        arrayType.writeSlice(blockBuilder, toStackRepresentation(ImmutableList.of(100, 200, 300), BIGINT));
+        arrayType.writeObject(blockBuilder, toStackRepresentation(ImmutableList.of(1, 2), BIGINT));
+        arrayType.writeObject(blockBuilder, toStackRepresentation(ImmutableList.of(1, 2, 3), BIGINT));
+        arrayType.writeObject(blockBuilder, toStackRepresentation(ImmutableList.of(1, 2, 3), BIGINT));
+        arrayType.writeObject(blockBuilder, toStackRepresentation(ImmutableList.of(100, 200, 300), BIGINT));
         return blockBuilder.build();
     }
 
     @Override
     protected Object getGreaterValue(Object value)
     {
-        Block block = readStructuralBlock(((Slice) value));
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes() + 8);
+        Block block = (Block) value;
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
         for (int i = 0; i < block.getPositionCount(); i++) {
             BIGINT.appendTo(block, i, blockBuilder);
         }
         BIGINT.writeLong(blockBuilder, 1L);
 
-        return buildStructuralSlice(blockBuilder);
+        return blockBuilder.build();
     }
 }

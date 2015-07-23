@@ -61,8 +61,8 @@ import java.util.Properties;
 import java.util.TimeZone;
 
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
-import static com.facebook.presto.hive.HiveTestUtils.arraySliceOf;
-import static com.facebook.presto.hive.HiveTestUtils.rowSliceOf;
+import static com.facebook.presto.hive.HiveTestUtils.arrayBlockOf;
+import static com.facebook.presto.hive.HiveTestUtils.rowBlockOf;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Predicates.not;
@@ -294,13 +294,13 @@ public class TestHiveFileFormats
                     )
                 ),
                 null,
-                arraySliceOf(personType,
-                    rowSliceOf(ImmutableList.of(nameType, BIGINT, VARCHAR, new ArrayType(phoneType)),
-                        rowSliceOf(ImmutableList.of(VARCHAR, VARCHAR), "Bob", "Roberts"),
-                        0,
-                        "bob.roberts@example.com",
-                        arraySliceOf(phoneType, rowSliceOf(ImmutableList.of(VARCHAR, VARCHAR), "1234567890", null))
-                    )
+                arrayBlockOf(personType,
+                        rowBlockOf(ImmutableList.of(nameType, BIGINT, VARCHAR, new ArrayType(phoneType)),
+                                rowBlockOf(ImmutableList.of(VARCHAR, VARCHAR), "Bob", "Roberts"),
+                                0,
+                                "bob.roberts@example.com",
+                                arrayBlockOf(phoneType, rowBlockOf(ImmutableList.of(VARCHAR, VARCHAR), "1234567890", null))
+                        )
                 )
             )
         );

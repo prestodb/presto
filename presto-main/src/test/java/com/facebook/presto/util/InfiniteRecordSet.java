@@ -126,6 +126,14 @@ public class InfiniteRecordSet
         }
 
         @Override
+        public Object getObject(int field)
+        {
+            Object value = record.get(field);
+            checkNotNull(value, "value is null");
+            return value;
+        }
+
+        @Override
         public boolean isNull(int field)
         {
             return record.get(field) == null;

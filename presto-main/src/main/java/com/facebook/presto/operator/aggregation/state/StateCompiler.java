@@ -15,17 +15,18 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.Parameter;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.CallSiteBinder;
+import com.facebook.presto.util.array.BlockBigArray;
 import com.facebook.presto.util.array.BooleanBigArray;
 import com.facebook.presto.util.array.ByteBigArray;
 import com.facebook.presto.util.array.DoubleBigArray;
@@ -100,6 +101,9 @@ public class StateCompiler
         }
         if (type.equals(Slice.class)) {
             return SliceBigArray.class;
+        }
+        if (type.equals(com.facebook.presto.spi.block.Block.class)) {
+            return BlockBigArray.class;
         }
         // TODO: support more reference types
         throw new IllegalArgumentException("Unsupported type: " + type.getName());
@@ -530,7 +534,7 @@ public class StateCompiler
     {
         ImmutableList.Builder<StateField> builder = ImmutableList.builder();
         final Set<Class<?>> primitiveClasses = ImmutableSet.<Class<?>>of(byte.class, boolean.class, long.class, double.class);
-        Set<Class<?>> supportedClasses = ImmutableSet.<Class<?>>of(byte.class, boolean.class, long.class, double.class, Slice.class);
+        Set<Class<?>> supportedClasses = ImmutableSet.<Class<?>>of(byte.class, boolean.class, long.class, double.class, Slice.class, com.facebook.presto.spi.block.Block.class);
 
         for (Method method : clazz.getMethods()) {
             if (method.getName().equals("getEstimatedSize")) {

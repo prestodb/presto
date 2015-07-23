@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -37,18 +38,23 @@ public class TestFieldSetFilteringRecordSet
     @Test
     public void test()
     {
+        ArrayType arrayOfBigintType = new ArrayType(BIGINT);
         FieldSetFilteringRecordSet fieldSetFilteringRecordSet = new FieldSetFilteringRecordSet(
                 FUNCTION_REGISTRY,
                 new InMemoryRecordSet(
-                        ImmutableList.of(BIGINT, BIGINT, TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP_WITH_TIME_ZONE),
+                        ImmutableList.of(BIGINT, BIGINT, TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP_WITH_TIME_ZONE, arrayOfBigintType, arrayOfBigintType),
                         ImmutableList.of(
                                 ImmutableList.of(
                                         100L,
                                         100L,
                                         // test same time in different time zone to make sure equal check was done properly
                                         packDateTimeWithZone(100, getTimeZoneKeyForOffset(123)),
-                                        packDateTimeWithZone(100, getTimeZoneKeyForOffset(234))))),
-                ImmutableList.of(ImmutableSet.of(0, 1), ImmutableSet.of(2, 3)));
+                                        packDateTimeWithZone(100, getTimeZoneKeyForOffset(234)),
+                                        // test structural type
+                                        ArrayType.toStackRepresentation(ImmutableList.of(12, 34, 56), BIGINT),
+                                        ArrayType.toStackRepresentation(ImmutableList.of(12, 34, 56), BIGINT)
+                                ))),
+                ImmutableList.of(ImmutableSet.of(0, 1), ImmutableSet.of(2, 3), ImmutableSet.of(4, 5)));
         RecordCursor recordCursor = fieldSetFilteringRecordSet.cursor();
         assertTrue(recordCursor.advanceNextPosition());
     }

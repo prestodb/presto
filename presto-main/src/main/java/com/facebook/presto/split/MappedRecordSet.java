@@ -126,6 +126,12 @@ public class MappedRecordSet
         }
 
         @Override
+        public Object getObject(int field)
+        {
+            return delegate.getObject(toDelegateField(field));
+        }
+
+        @Override
         public boolean isNull(int field)
         {
             return delegate.isNull(toDelegateField(field));

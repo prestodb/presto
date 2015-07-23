@@ -159,6 +159,12 @@ public class JdbcRecordSink
     }
 
     @Override
+    public void appendObject(Object value)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Collection<Slice> commit()
     {
         // commit and close

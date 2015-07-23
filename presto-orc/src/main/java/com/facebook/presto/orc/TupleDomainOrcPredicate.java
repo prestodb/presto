@@ -20,6 +20,7 @@ import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
@@ -59,7 +60,7 @@ public class TupleDomainOrcPredicate<C>
             Domain domain;
             if (columnStatistics == null) {
                 // no stats for column
-                domain = Domain.all(Primitives.wrap(columnReference.getType().getJavaType()));
+                domain = Domain.all(fixNonComparableType(Primitives.wrap(columnReference.getType().getJavaType())));
             }
             else {
                 domain = getDomain(columnReference.getType(), numberOfRows, columnStatistics);
@@ -76,15 +77,15 @@ public class TupleDomainOrcPredicate<C>
     {
         Class<?> boxedJavaType = Primitives.wrap(type.getJavaType());
         if (rowCount == 0) {
-            return Domain.none(boxedJavaType);
+            return Domain.none(fixNonComparableType(boxedJavaType));
         }
 
         if (columnStatistics == null) {
-            return Domain.all(boxedJavaType);
+            return Domain.all(fixNonComparableType(boxedJavaType));
         }
 
         if (columnStatistics.hasNumberOfValues() && columnStatistics.getNumberOfValues() == 0) {
-            return Domain.onlyNull(boxedJavaType);
+            return Domain.onlyNull(fixNonComparableType(boxedJavaType));
         }
 
         boolean hasNullValue = columnStatistics.getNumberOfValues() != rowCount;
@@ -116,7 +117,30 @@ public class TupleDomainOrcPredicate<C>
         else if (boxedJavaType == Slice.class && columnStatistics.getStringStatistics() != null) {
             return createDomain(boxedJavaType, hasNullValue, columnStatistics.getStringStatistics());
         }
-        return Domain.create(SortedRangeSet.all(boxedJavaType), hasNullValue);
+        return Domain.create(SortedRangeSet.all(fixNonComparableType(boxedJavaType)), hasNullValue);
+    }
+
+    private static Class<?> fixNonComparableType(Class<?> clazz)
+    {
+        // !!! HACK ALERT !!!
+        // This is needed because SortedRangeSet.all/none requires that the argument type be self-comparable. See Marker#verifySelfComparable
+        // However, the SortedRangeSet works fine when the only value involved are lowerUnbound and upperUnbound.
+        // This hack shall be removed once TupleDomain is updated to support
+        // The same hack can also be found in DomainTranslator
+        if (clazz == Block.class) {
+            return BogusComparable.class;
+        }
+        return clazz;
+    }
+
+    private static class BogusComparable
+            implements Comparable<BogusComparable>
+    {
+        @Override
+        public int compareTo(BogusComparable o)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static <T extends Comparable<T>> Domain createDomain(Class<?> boxedJavaType, boolean hasNullValue, RangeStatistics<T> rangeStatistics)

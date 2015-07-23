@@ -32,9 +32,7 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
@@ -48,12 +46,13 @@ public abstract class AbstractArrayMinMaxFunction
     private final String description;
 
     private static final Map<Class<?>, MethodHandle> METHOD_HANDLES = ImmutableMap.<Class<?>, MethodHandle>builder()
-            .put(boolean.class, methodHandle(AbstractArrayMinMaxFunction.class, "booleanArrayMinMax", MethodHandle.class, Type.class, Slice.class))
-            .put(long.class, methodHandle(AbstractArrayMinMaxFunction.class, "longArrayMinMax", MethodHandle.class, Type.class, Slice.class))
-            .put(double.class, methodHandle(AbstractArrayMinMaxFunction.class, "doubleArrayMinMax", MethodHandle.class, Type.class, Slice.class))
-            .put(Slice.class, methodHandle(AbstractArrayMinMaxFunction.class, "sliceArrayMinMax", MethodHandle.class, Type.class, Slice.class))
-            .put(void.class, methodHandle(AbstractArrayMinMaxFunction.class, "arrayWithUnknownType", MethodHandle.class, Type.class, Slice.class))
+            .put(boolean.class, methodHandle(AbstractArrayMinMaxFunction.class, "booleanArrayMinMax", MethodHandle.class, Type.class, Block.class))
+            .put(long.class, methodHandle(AbstractArrayMinMaxFunction.class, "longArrayMinMax", MethodHandle.class, Type.class, Block.class))
+            .put(double.class, methodHandle(AbstractArrayMinMaxFunction.class, "doubleArrayMinMax", MethodHandle.class, Type.class, Block.class))
+            .put(Slice.class, methodHandle(AbstractArrayMinMaxFunction.class, "sliceArrayMinMax", MethodHandle.class, Type.class, Block.class))
+            .put(void.class, methodHandle(AbstractArrayMinMaxFunction.class, "arrayWithUnknownType", MethodHandle.class, Type.class, Block.class))
             .build();
+    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(AbstractArrayMinMaxFunction.class, "objectArrayMinMax", MethodHandle.class, Type.class, Block.class);
 
     protected AbstractArrayMinMaxFunction(OperatorType operatorType, String functionName, String description)
     {
@@ -97,7 +96,8 @@ public abstract class AbstractArrayMinMaxFunction
         MethodHandle compareMethodHandle = functionRegistry.resolveOperator(operatorType, ImmutableList.of(elementType, elementType)).getMethodHandle();
         MethodHandle methodHandle = METHOD_HANDLES.get(elementType.getJavaType());
         if (methodHandle == null) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, String.format("%s is not supported in array_min/max", elementType.getJavaType()));
+            methodHandle = METHOD_HANDLE_OBJECT;
+            compareMethodHandle = compareMethodHandle.asType(compareMethodHandle.type().changeParameterType(0, Object.class).changeParameterType(1, Object.class));
         }
         methodHandle = methodHandle.bindTo(compareMethodHandle).bindTo(elementType);
 
@@ -106,14 +106,13 @@ public abstract class AbstractArrayMinMaxFunction
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false));
     }
 
-    public static void arrayWithUnknownType(MethodHandle compareMethodHandle, Type elementType, Slice array)
+    public static void arrayWithUnknownType(MethodHandle compareMethodHandle, Type elementType, Block block)
     {
     }
 
-    public static Long longArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Slice array)
+    public static Long longArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Block block)
     {
         try {
-            Block block = readStructuralBlock(array);
             if (block.getPositionCount() == 0) {
                 return null;
             }
@@ -138,10 +137,9 @@ public abstract class AbstractArrayMinMaxFunction
         }
     }
 
-    public static Boolean booleanArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Slice array)
+    public static Boolean booleanArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Block block)
     {
         try {
-            Block block = readStructuralBlock(array);
             if (block.getPositionCount() == 0) {
                 return null;
             }
@@ -166,10 +164,9 @@ public abstract class AbstractArrayMinMaxFunction
         }
     }
 
-    public static Double doubleArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Slice array)
+    public static Double doubleArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Block block)
     {
         try {
-            Block block = readStructuralBlock(array);
             if (block.getPositionCount() == 0) {
                 return null;
             }
@@ -194,10 +191,9 @@ public abstract class AbstractArrayMinMaxFunction
         }
     }
 
-    public static Slice sliceArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Slice array)
+    public static Slice sliceArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Block block)
     {
         try {
-            Block block = readStructuralBlock(array);
             if (block.getPositionCount() == 0) {
                 return null;
             }
@@ -208,6 +204,33 @@ public abstract class AbstractArrayMinMaxFunction
                     return null;
                 }
                 Slice value = elementType.getSlice(block, i);
+                if ((boolean) compareMethodHandle.invokeExact(value, selectedValue)) {
+                    selectedValue = value;
+                }
+            }
+
+            return selectedValue;
+        }
+        catch (Throwable t) {
+            propagateIfInstanceOf(t, Error.class);
+            propagateIfInstanceOf(t, PrestoException.class);
+            throw new PrestoException(INTERNAL_ERROR, t);
+        }
+    }
+
+    public static Object objectArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Block block)
+    {
+        try {
+            if (block.getPositionCount() == 0) {
+                return null;
+            }
+
+            Object selectedValue = elementType.getObject(block, 0);
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                if (block.isNull(i)) {
+                    return null;
+                }
+                Object value = elementType.getObject(block, i);
                 if ((boolean) compareMethodHandle.invokeExact(value, selectedValue)) {
                     selectedValue = value;
                 }

@@ -14,19 +14,23 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -45,26 +49,29 @@ public class TestMapOperators
     public void testStackRepresentation()
             throws Exception
     {
-        Slice array = ArrayType.toStackRepresentation(ImmutableList.of(1L, 2L), BIGINT);
-        Slice slice = toStackRepresentation(ImmutableMap.of(1.0, array), DOUBLE, new ArrayType(BIGINT));
+        Block array = ArrayType.toStackRepresentation(ImmutableList.of(1L, 2L), BIGINT);
+        Block actualBlock = toStackRepresentation(ImmutableMap.of(1.0, array), DOUBLE, new ArrayType(BIGINT));
+        DynamicSliceOutput actualSliceOutput = new DynamicSliceOutput(100);
+        writeBlock(actualSliceOutput, actualBlock);
 
-        DynamicSliceOutput output = new DynamicSliceOutput(100);
-        output.appendInt(2) // size of map * 2
-                .appendInt(8) // length of double value 1.0
-                .appendInt(33) // length of array
-                .appendByte(0) // null flags
-                .appendInt(41) // length of data
-                .appendDouble(1.0) // value 1
+        Block expectedBlock = new InterleavedBlockBuilder(ImmutableList.<Type>of(DOUBLE, new ArrayType(BIGINT)), new BlockBuilderStatus(), 3)
+                .writeDouble(1.0)
+                .closeEntry()
+                .writeObject(
+                        BIGINT
+                        .createBlockBuilder(new BlockBuilderStatus(), 1)
+                        .writeLong(1L)
+                        .closeEntry()
+                        .writeLong(2L)
+                        .closeEntry()
+                        .build()
+                )
+                .closeEntry()
+                .build();
+        DynamicSliceOutput expectedSliceOutput = new DynamicSliceOutput(100);
+        writeBlock(expectedSliceOutput, expectedBlock);
 
-                .appendInt(2)
-                .appendInt(8)
-                .appendInt(8)
-                .appendByte(0)
-                .appendInt(16)
-                .appendLong(1)
-                .appendLong(2);
-
-        assertEquals(slice, output.slice());
+        assertEquals(actualSliceOutput.slice(), expectedSliceOutput.slice());
     }
 
     @Test
@@ -196,6 +203,7 @@ public class TestMapOperators
         assertFunction("MAP_KEYS(MAP(ARRAY[CAST('puppies' as varbinary)], ARRAY['kittens']))", new ArrayType(VARBINARY), ImmutableList.of(new SqlVarbinary("puppies".getBytes("utf-8"))));
         assertFunction("MAP_KEYS(MAP(ARRAY[1,2],  ARRAY[ARRAY[1, 2], ARRAY[3]]))", new ArrayType(BIGINT), ImmutableList.of(1L, 2L));
         assertFunction("MAP_KEYS(MAP(ARRAY[1,4], ARRAY[MAP(ARRAY[2], ARRAY[3]), MAP(ARRAY[5], ARRAY[6])]))",  new ArrayType(BIGINT), ImmutableList.of(1L, 4L));
+        assertFunction("MAP_KEYS(MAP(ARRAY [ARRAY [1], ARRAY [2, 3]],  ARRAY [ARRAY [3, 4], ARRAY [5]]))", new ArrayType(new ArrayType(BIGINT)), ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(2L, 3L)));
     }
 
     @Test

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.block.BlockSerdeUtil;
 import com.facebook.presto.operator.aggregation.ApproximateAverageAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateCountAggregation;
 import com.facebook.presto.operator.aggregation.ApproximateCountColumnAggregations;
@@ -78,6 +79,7 @@ import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -454,18 +456,29 @@ public class FunctionRegistry
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
             Type parameterType = typeManager.getType(parameterTypes.get(0));
             checkNotNull(parameterType, "Type %s not found", parameterTypes.get(0));
-            checkArgument(parameterType.getJavaType() == type.getJavaType(),
-                    "Expected type %s to use Java type %s, but Java type is %s",
+
+            MethodHandle methodHandle = null;
+            if (parameterType.getJavaType() == type.getJavaType()) {
+                methodHandle = MethodHandles.identity(parameterType.getJavaType());
+            }
+
+            if (parameterType.getJavaType() == Slice.class) {
+                if (type.getJavaType() == Block.class) {
+                    methodHandle = BlockSerdeUtil.READ_BLOCK.bindTo(blockEncodingSerde);
+                }
+            }
+
+            checkArgument(methodHandle != null,
+                    "Expected type %s to use (or can be converted into) Java type %s, but Java type is %s",
                     type,
                     parameterType.getJavaType(),
                     type.getJavaType());
 
-            MethodHandle identity = MethodHandles.identity(parameterType.getJavaType());
             return new FunctionInfo(
                     getMagicLiteralFunctionSignature(type),
                     null,
                     true,
-                    identity,
+                    methodHandle,
                     true,
                     false,
                     ImmutableList.of(false));
@@ -677,17 +690,24 @@ public class FunctionRegistry
         return Optional.empty();
     }
 
-    public static Type type(Class<?> clazz)
+    public static Type typeForMagicLiteral(Type type)
     {
+        Class<?> clazz = type.getJavaType();
         clazz = Primitives.unwrap(clazz);
+
         if (clazz == long.class) {
             return BIGINT;
         }
         if (clazz == double.class) {
             return DOUBLE;
         }
-        if (clazz == Slice.class) {
-            return VARCHAR;
+        if (!clazz.isPrimitive()) {
+            if (type.equals(VARCHAR)) {
+                return VARCHAR;
+            }
+            else {
+                return VARBINARY;
+            }
         }
         if (clazz == boolean.class) {
             return BOOLEAN;
@@ -697,13 +717,7 @@ public class FunctionRegistry
 
     public static Signature getMagicLiteralFunctionSignature(Type type)
     {
-        TypeSignature argumentType;
-        if (type.getJavaType() == Slice.class && !type.equals(VARCHAR)) {
-            argumentType = VARBINARY.getTypeSignature();
-        }
-        else {
-            argumentType = type(type.getJavaType()).getTypeSignature();
-        }
+        TypeSignature argumentType = typeForMagicLiteral(type).getTypeSignature();
 
         return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature(),
                 type.getTypeSignature(),

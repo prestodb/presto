@@ -449,14 +449,18 @@ public class AccumulatorCompiler
                     .invokeInterface(Type.class, "getBoolean", boolean.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else if (parameter == Slice.class) {
-            block.comment("%s.getBoolean(block, position)", sqlType.getTypeSignature())
+            block.comment("%s.getSlice(block, position)", sqlType.getTypeSignature())
                     .append(constantType(callSiteBinder, sqlType))
                     .append(getBlockByteCode)
                     .append(position)
                     .invokeInterface(Type.class, "getSlice", Slice.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else {
-            throw new IllegalArgumentException("Unsupported parameter type: " + parameter.getSimpleName());
+            block.comment("%s.getObject(block, position)", sqlType.getTypeSignature())
+                    .append(constantType(callSiteBinder, sqlType))
+                    .append(getBlockByteCode)
+                    .append(position)
+                    .invokeInterface(Type.class, "getObject", Object.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
     }
 

@@ -38,9 +38,8 @@ import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.String.format;
@@ -51,20 +50,22 @@ public final class ArrayJoin
     public static final ArrayJoin ARRAY_JOIN = new ArrayJoin();
     public static final ArrayJoinWithNullReplacement ARRAY_JOIN_WITH_NULL_REPLACEMENT = new ArrayJoinWithNullReplacement();
 
-    private static final TypeSignature VARCHAR_TYPE_SIGNATURE = parseTypeSignature(StandardTypes.VARCHAR);
+    private static final TypeSignature VARCHAR_TYPE_SIGNATURE = VARCHAR.getTypeSignature();
     private static final String FUNCTION_NAME = "array_join";
     private static final String DESCRIPTION = "Concatenates the elements of the given array using a delimiter and an optional string to replace nulls";
     private static final Signature SIGNATURE = new Signature(FUNCTION_NAME,  ImmutableList.of(typeParameter("T")), StandardTypes.VARCHAR, ImmutableList.of("array<T>", StandardTypes.VARCHAR), false, false);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayJoin.class, "arrayJoin", FunctionInfo.class, Type.class, ConnectorSession.class, Block.class, Slice.class);
 
     public static class ArrayJoinWithNullReplacement
             extends ParametricScalar
     {
-        private final Signature signature = new Signature(FUNCTION_NAME, ImmutableList.of(typeParameter("T")), StandardTypes.VARCHAR, ImmutableList.of("array<T>", StandardTypes.VARCHAR, StandardTypes.VARCHAR), false, false);
+        private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(typeParameter("T")), StandardTypes.VARCHAR, ImmutableList.of("array<T>", StandardTypes.VARCHAR, StandardTypes.VARCHAR), false, false);
+        private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayJoin.class, "arrayJoin", FunctionInfo.class, Type.class, ConnectorSession.class, Block.class, Slice.class, Slice.class);
 
         @Override
         public Signature getSignature()
         {
-            return signature;
+            return SIGNATURE;
         }
 
         @Override
@@ -91,8 +92,7 @@ public final class ArrayJoin
             Type type = types.get("T");
             TypeSignature arrayType = parameterizedTypeName(StandardTypes.ARRAY, type.getTypeSignature());
             Signature signature = new Signature(FUNCTION_NAME, VARCHAR_TYPE_SIGNATURE, arrayType, VARCHAR_TYPE_SIGNATURE, VARCHAR_TYPE_SIGNATURE);
-            MethodHandle methodHandle = methodHandle(ArrayJoin.class, "arrayJoin", FunctionInfo.class, Type.class, ConnectorSession.class, Slice.class, Slice.class, Slice.class);
-            return specializeArrayJoin(types, functionRegistry, ImmutableList.of(false, false, false), signature, methodHandle);
+            return specializeArrayJoin(types, functionRegistry, ImmutableList.of(false, false, false), signature, METHOD_HANDLE);
         }
     }
 
@@ -126,8 +126,7 @@ public final class ArrayJoin
         Type type = types.get("T");
         TypeSignature arrayType = parameterizedTypeName(StandardTypes.ARRAY, type.getTypeSignature());
         Signature signature = new Signature(FUNCTION_NAME, VARCHAR_TYPE_SIGNATURE, arrayType, VARCHAR_TYPE_SIGNATURE);
-        MethodHandle methodHandle = methodHandle(ArrayJoin.class, "arrayJoin", FunctionInfo.class, Type.class, ConnectorSession.class, Slice.class, Slice.class);
-        return specializeArrayJoin(types, functionRegistry, ImmutableList.of(false, false), signature, methodHandle);
+        return specializeArrayJoin(types, functionRegistry, ImmutableList.of(false, false), signature, METHOD_HANDLE);
     }
 
     private static FunctionInfo specializeArrayJoin(Map<String, Type> types, FunctionRegistry functionRegistry, List<Boolean> nullableArguments, Signature signature, MethodHandle methodHandle)
@@ -142,16 +141,16 @@ public final class ArrayJoin
         return new FunctionInfo(signature, DESCRIPTION, false, methodHandle.bindTo(castFunction).bindTo(type), true, false, nullableArguments);
     }
 
-    public static Slice arrayJoin(FunctionInfo castFunction, Type elementType, ConnectorSession session, Slice array, Slice delimiter)
+    public static Slice arrayJoin(FunctionInfo castFunction, Type elementType, ConnectorSession session, Block arrayBlock, Slice delimiter)
     {
-        return arrayJoin(castFunction, elementType, session, array, delimiter, null);
+        return arrayJoin(castFunction, elementType, session, arrayBlock, delimiter, null);
     }
 
-    public static Slice arrayJoin(FunctionInfo castFunction, Type elementType, ConnectorSession session, Slice array, Slice delimiter, Slice nullReplacement)
+    public static Slice arrayJoin(FunctionInfo castFunction, Type elementType, ConnectorSession session, Block arrayBlock, Slice delimiter, Slice nullReplacement)
     {
-        Block arrayBlock = readStructuralBlock(array);
         int numElements = arrayBlock.getPositionCount();
-        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(array.length());
+
+        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(arrayBlock.getSizeInBytes() + delimiter.length() * arrayBlock.getPositionCount());
         Class<?> javaType = elementType.getJavaType();
 
         Class<?>[] parameters = null;

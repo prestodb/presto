@@ -31,7 +31,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -202,14 +201,13 @@ public final class ModelUtils
     }
 
     //TODO: instead of having this function, we should add feature extractors that extend Model and extract features from Strings
-    public static FeatureVector toFeatures(Slice map)
+    public static FeatureVector toFeatures(Block map)
     {
         Map<Integer, Double> features = new HashMap<>();
 
-        if (map != Slices.EMPTY_SLICE) {
-            Block block = readStructuralBlock(map);
-            for (int position = 0; position < block.getPositionCount(); position += 2) {
-                features.put((int) BIGINT.getLong(block, position), DOUBLE.getDouble(block, position + 1));
+        if (map != null) {
+            for (int position = 0; position < map.getPositionCount(); position += 2) {
+                features.put((int) BIGINT.getLong(map, position), DOUBLE.getDouble(map, position + 1));
             }
         }
         return new FeatureVector(features);

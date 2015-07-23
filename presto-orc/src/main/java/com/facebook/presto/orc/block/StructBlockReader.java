@@ -17,27 +17,23 @@ import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.ArrayElementBlockWriter;
 import com.facebook.presto.spi.block.BlockBuilder;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.util.List;
 
 import static com.facebook.presto.orc.block.BlockReaders.createBlockReader;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class StructBlockReader
         implements BlockReader
 {
-    private final DynamicSliceOutput out = new DynamicSliceOutput(1024);
-
     private final StreamDescriptor streamDescriptor;
     private final boolean checkForNulls;
     private final BlockReader[] structFields;
@@ -62,8 +58,6 @@ public class StructBlockReader
     public boolean readNextValueInto(BlockBuilder builder, boolean skipNull)
             throws IOException
     {
-        out.reset();
-
         if (presentStream != null && !presentStream.nextBit()) {
             if (!skipNull) {
                 checkNotNull(builder, "parent builder is null").appendNull();
@@ -72,16 +66,12 @@ public class StructBlockReader
             return false;
         }
 
-        BlockBuilder currentBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), structFields.length);
-        for (BlockReader structField : structFields) {
-            structField.readNextValueInto(currentBuilder, false);
+        ArrayElementBlockWriter arrayElementBlockWriter = (ArrayElementBlockWriter) builder.beginBlockEntry();
+        for (int i = 0; i < structFields.length; i++) {
+            structFields[i].readNextValueInto(arrayElementBlockWriter, false);
         }
+        builder.closeEntry();
 
-        currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
-
-        if (builder != null) {
-            VARBINARY.writeSlice(builder, out.copySlice());
-        }
         return true;
     }
 
@@ -122,12 +112,6 @@ public class StructBlockReader
         for (BlockReader structField : structFields) {
             structField.openRowGroup(dataStreamSources);
         }
-    }
-
-    @Override
-    public Slice toSlice()
-    {
-        return out.copySlice();
     }
 
     @Override

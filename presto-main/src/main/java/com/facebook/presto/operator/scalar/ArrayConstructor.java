@@ -15,10 +15,10 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.Parameter;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
@@ -34,7 +34,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
-import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
@@ -139,7 +138,7 @@ public final class ArrayConstructor
             parameters.add(arg("arg" + i, stackType));
         }
 
-        MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "arrayConstructor", type(Slice.class), parameters.build());
+        MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "arrayConstructor", type(com.facebook.presto.spi.block.Block.class), parameters.build());
         Scope scope = method.getScope();
         Block body = method.getBody();
 
@@ -171,7 +170,7 @@ public final class ArrayConstructor
         body.comment("return toStackRepresentation(values, elementType);")
                 .getVariable(valuesVariable)
                 .getVariable(elementTypeVariable)
-                .invokeStatic(ArrayType.class, "toStackRepresentation", Slice.class, List.class, Type.class)
+                .invokeStatic(ArrayType.class, "toStackRepresentation", com.facebook.presto.spi.block.Block.class, List.class, Type.class)
                 .retObject();
 
         return defineClass(definition, Object.class, binder.getBindings(), new DynamicClassLoader(ArrayConstructor.class.getClassLoader()));

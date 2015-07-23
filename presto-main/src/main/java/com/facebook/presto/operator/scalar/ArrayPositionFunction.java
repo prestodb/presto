@@ -32,10 +32,8 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class ArrayPositionFunction
@@ -43,10 +41,11 @@ public final class ArrayPositionFunction
 {
     public static final ArrayPositionFunction ARRAY_POSITION = new ArrayPositionFunction();
     private static final Signature SIGNATURE = new Signature("array_position", ImmutableList.of(comparableTypeParameter("E")), "bigint", ImmutableList.of("array<E>", "E"), false, false);
-    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Slice.class, boolean.class);
-    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Slice.class, long.class);
-    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Slice.class, double.class);
-    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Slice.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Block.class, boolean.class);
+    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Block.class, long.class);
+    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Block.class, double.class);
+    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Block.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Block.class, Object.class);
 
     @Override
     public Signature getSignature()
@@ -91,7 +90,7 @@ public final class ArrayPositionFunction
             arrayPositionMethodHandle = METHOD_HANDLE_SLICE;
         }
         else {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Argument type to array_position unsupported");
+            arrayPositionMethodHandle = METHOD_HANDLE_OBJECT;
         }
         return new FunctionInfo(
                 new Signature("array_position", parseTypeSignature(StandardTypes.BIGINT), parameterizedTypeName("array", type.getTypeSignature()), type.getTypeSignature()),
@@ -103,13 +102,12 @@ public final class ArrayPositionFunction
                 ImmutableList.of(false, false));
     }
 
-    public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Slice array, boolean element)
+    public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Block array, boolean element)
     {
-        Block block = readStructuralBlock(array);
-        int size = block.getPositionCount();
+        int size = array.getPositionCount();
         for (int i = 0; i < size; i++) {
-            if (!block.isNull(i)) {
-                boolean arrayValue = type.getBoolean(block, i);
+            if (!array.isNull(i)) {
+                boolean arrayValue = type.getBoolean(array, i);
                 try {
                     if ((boolean) equalMethodHandle.invokeExact(arrayValue, element)) {
                         return i + 1; // result is 1-based (instead of 0)
@@ -125,13 +123,12 @@ public final class ArrayPositionFunction
         return 0;
     }
 
-    public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Slice array, long element)
+    public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Block array, long element)
     {
-        Block block = readStructuralBlock(array);
-        int size = block.getPositionCount();
+        int size = array.getPositionCount();
         for (int i = 0; i < size; i++) {
-            if (!block.isNull(i)) {
-                long arrayValue = type.getLong(block, i);
+            if (!array.isNull(i)) {
+                long arrayValue = type.getLong(array, i);
                 try {
                     if ((boolean) equalMethodHandle.invokeExact(arrayValue, element)) {
                         return i + 1; // result is 1-based (instead of 0)
@@ -147,13 +144,12 @@ public final class ArrayPositionFunction
         return 0;
     }
 
-    public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Slice array, double element)
+    public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Block array, double element)
     {
-        Block block = readStructuralBlock(array);
-        int size = block.getPositionCount();
+        int size = array.getPositionCount();
         for (int i = 0; i < size; i++) {
-            if (!block.isNull(i)) {
-                double arrayValue = type.getDouble(block, i);
+            if (!array.isNull(i)) {
+                double arrayValue = type.getDouble(array, i);
                 try {
                     if ((boolean) equalMethodHandle.invokeExact(arrayValue, element)) {
                         return i + 1; // result is 1-based (instead of 0)
@@ -169,15 +165,35 @@ public final class ArrayPositionFunction
         return 0;
     }
 
-    public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Slice array, Slice element)
+    public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Block array, Slice element)
     {
-        Block block = readStructuralBlock(array);
-        int size = block.getPositionCount();
+        int size = array.getPositionCount();
         for (int i = 0; i < size; i++) {
-            if (!block.isNull(i)) {
-                Slice arrayValue = type.getSlice(block, i);
+            if (!array.isNull(i)) {
+                Slice arrayValue = type.getSlice(array, i);
                 try {
                     if ((boolean) equalMethodHandle.invokeExact(arrayValue, element)) {
+                        return i + 1; // result is 1-based (instead of 0)
+                    }
+                }
+                catch (Throwable t) {
+                    Throwables.propagateIfInstanceOf(t, Error.class);
+                    Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                    throw new PrestoException(INTERNAL_ERROR, t);
+                }
+            }
+        }
+        return 0;
+    }
+
+    public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Block array, Object element)
+    {
+        int size = array.getPositionCount();
+        for (int i = 0; i < size; i++) {
+            if (!array.isNull(i)) {
+                Object arrayValue = type.getObject(array, i);
+                try {
+                    if ((boolean) equalMethodHandle.invoke(arrayValue, element)) {
                         return i + 1; // result is 1-based (instead of 0)
                     }
                 }

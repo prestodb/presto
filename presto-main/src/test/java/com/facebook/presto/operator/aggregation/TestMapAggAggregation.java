@@ -139,15 +139,15 @@ public class TestMapAggAggregation
 
         builder.declarePosition();
         DOUBLE.writeDouble(builder.getBlockBuilder(0), 1.0);
-        arrayType.writeSlice(builder.getBlockBuilder(1), toStackRepresentation(ImmutableList.of("a", "b"), VARCHAR));
+        arrayType.writeObject(builder.getBlockBuilder(1), toStackRepresentation(ImmutableList.of("a", "b"), VARCHAR));
 
         builder.declarePosition();
         DOUBLE.writeDouble(builder.getBlockBuilder(0), 2.0);
-        arrayType.writeSlice(builder.getBlockBuilder(1), toStackRepresentation(ImmutableList.of("c", "d"), VARCHAR));
+        arrayType.writeObject(builder.getBlockBuilder(1), toStackRepresentation(ImmutableList.of("c", "d"), VARCHAR));
 
         builder.declarePosition();
         DOUBLE.writeDouble(builder.getBlockBuilder(0), 3.0);
-        arrayType.writeSlice(builder.getBlockBuilder(1), toStackRepresentation(ImmutableList.of("e", "f"), VARCHAR));
+        arrayType.writeObject(builder.getBlockBuilder(1), toStackRepresentation(ImmutableList.of("e", "f"), VARCHAR));
 
         assertAggregation(
                 aggFunc,
@@ -173,15 +173,15 @@ public class TestMapAggAggregation
 
         builder.declarePosition();
         DOUBLE.writeDouble(builder.getBlockBuilder(0), 1.0);
-        innerMapType.writeSlice(builder.getBlockBuilder(1), MapType.toStackRepresentation(ImmutableMap.of("a", "b"), VARCHAR, VARCHAR));
+        innerMapType.writeObject(builder.getBlockBuilder(1), MapType.toStackRepresentation(ImmutableMap.of("a", "b"), VARCHAR, VARCHAR));
 
         builder.declarePosition();
         DOUBLE.writeDouble(builder.getBlockBuilder(0), 2.0);
-        innerMapType.writeSlice(builder.getBlockBuilder(1), MapType.toStackRepresentation(ImmutableMap.of("c", "d"), VARCHAR, VARCHAR));
+        innerMapType.writeObject(builder.getBlockBuilder(1), MapType.toStackRepresentation(ImmutableMap.of("c", "d"), VARCHAR, VARCHAR));
 
         builder.declarePosition();
         DOUBLE.writeDouble(builder.getBlockBuilder(0), 3.0);
-        innerMapType.writeSlice(builder.getBlockBuilder(1), MapType.toStackRepresentation(ImmutableMap.of("e", "f"), VARCHAR, VARCHAR));
+        innerMapType.writeObject(builder.getBlockBuilder(1), MapType.toStackRepresentation(ImmutableMap.of("e", "f"), VARCHAR, VARCHAR));
 
         assertAggregation(
                 aggFunc,
@@ -207,15 +207,15 @@ public class TestMapAggAggregation
 
         builder.declarePosition();
         DOUBLE.writeDouble(builder.getBlockBuilder(0), 1.0);
-        innerRowType.writeSlice(builder.getBlockBuilder(1), testRowBigintBigint(1L, 1.0));
+        innerRowType.writeObject(builder.getBlockBuilder(1), testRowBigintBigint(1L, 1.0));
 
         builder.declarePosition();
         DOUBLE.writeDouble(builder.getBlockBuilder(0), 2.0);
-        innerRowType.writeSlice(builder.getBlockBuilder(1), testRowBigintBigint(2L, 2.0));
+        innerRowType.writeObject(builder.getBlockBuilder(1), testRowBigintBigint(2L, 2.0));
 
         builder.declarePosition();
         DOUBLE.writeDouble(builder.getBlockBuilder(0), 3.0);
-        innerRowType.writeSlice(builder.getBlockBuilder(1), testRowBigintBigint(3L, 3.0));
+        innerRowType.writeObject(builder.getBlockBuilder(1), testRowBigintBigint(3L, 3.0));
 
         assertAggregation(
                 aggFunc,
@@ -223,6 +223,43 @@ public class TestMapAggAggregation
                 ImmutableMap.of(1.0, ImmutableList.of(1L, 1.0),
                         2.0, ImmutableList.of(2L, 2.0),
                         3.0, ImmutableList.of(3L, 3.0)),
+                builder.build());
+    }
+
+    @Test
+    public void testArrayDoubleMap()
+            throws Exception
+    {
+        ArrayType arrayType = new ArrayType(VARCHAR);
+        MapType mapType = new MapType(arrayType, DOUBLE);
+        InternalAggregationFunction aggFunc = metadata.getExactFunction(new Signature(
+                NAME,
+                mapType.getTypeSignature().toString(),
+                arrayType.getTypeSignature().toString(),
+                StandardTypes.DOUBLE
+        )).getAggregationFunction();
+
+        PageBuilder builder = new PageBuilder(ImmutableList.of(arrayType, DOUBLE));
+
+        builder.declarePosition();
+        arrayType.writeObject(builder.getBlockBuilder(0), toStackRepresentation(ImmutableList.of("a", "b"), VARCHAR));
+        DOUBLE.writeDouble(builder.getBlockBuilder(1), 1.0);
+
+        builder.declarePosition();
+        arrayType.writeObject(builder.getBlockBuilder(0), toStackRepresentation(ImmutableList.of("c", "d"), VARCHAR));
+        DOUBLE.writeDouble(builder.getBlockBuilder(1), 2.0);
+
+        builder.declarePosition();
+        arrayType.writeObject(builder.getBlockBuilder(0), toStackRepresentation(ImmutableList.of("e", "f"), VARCHAR));
+        DOUBLE.writeDouble(builder.getBlockBuilder(1), 3.0);
+
+        assertAggregation(
+                aggFunc,
+                1.0,
+                ImmutableMap.of(
+                        ImmutableList.of("a", "b"), 1.0,
+                        ImmutableList.of("c", "d"), 2.0,
+                        ImmutableList.of("e", "f"), 3.0),
                 builder.build());
     }
 }

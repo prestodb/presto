@@ -20,9 +20,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
-import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -30,7 +28,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -39,7 +36,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -179,11 +175,11 @@ public final class TypeUtils
         // TODO: This should be removed. Functions that rely on this functionality should
         // be doing the conversion themselves.
         else if (type.getTypeSignature().getBase().equals(StandardTypes.ARRAY) && element instanceof Iterable<?>) {
-            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), EXPECTED_ARRAY_SIZE);
+            BlockBuilder subBlockBuilder = ((ArrayType) type).getElementType().createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ARRAY_SIZE);
             for (Object subElement : (Iterable<?>) element) {
                 appendToBlockBuilder(type.getTypeParameters().get(0), subElement, subBlockBuilder);
             }
-            type.writeSlice(blockBuilder, buildStructuralSlice(subBlockBuilder));
+            type.writeObject(blockBuilder, subBlockBuilder);
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.ROW) && element instanceof Iterable<?>) {
             BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), EXPECTED_ARRAY_SIZE);
@@ -192,7 +188,7 @@ public final class TypeUtils
                 appendToBlockBuilder(type.getTypeParameters().get(field), subElement, subBlockBuilder);
                 field++;
             }
-            type.writeSlice(blockBuilder, buildStructuralSlice(subBlockBuilder));
+            type.writeObject(blockBuilder, subBlockBuilder);
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.MAP) && element instanceof Map<?, ?>) {
             BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), EXPECTED_ARRAY_SIZE);
@@ -200,7 +196,7 @@ public final class TypeUtils
                 appendToBlockBuilder(type.getTypeParameters().get(0), entry.getKey(), subBlockBuilder);
                 appendToBlockBuilder(type.getTypeParameters().get(1), entry.getValue(), subBlockBuilder);
             }
-            type.writeSlice(blockBuilder, buildStructuralSlice(subBlockBuilder));
+            type.writeObject(blockBuilder, subBlockBuilder);
         }
 
         else if (javaType == boolean.class) {
@@ -224,7 +220,7 @@ public final class TypeUtils
             }
         }
         else {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, String.format("Unexpected type %s", javaType.getName()));
+            type.writeObject(blockBuilder, element);
         }
     }
 
@@ -248,27 +244,8 @@ public final class TypeUtils
             return type.getSlice(block, position);
         }
         else {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, String.format("Unexpected type %s", javaType.getName()));
+            return type.getObject(block, position);
         }
-    }
-
-    public static Slice buildStructuralSlice(BlockBuilder builder)
-    {
-        return buildStructuralSlice(builder.build());
-    }
-
-    public static Slice buildStructuralSlice(Block block)
-    {
-        BlockEncoding encoding = block.getEncoding();
-        DynamicSliceOutput output = new DynamicSliceOutput(encoding.getEstimatedSize(block));
-        encoding.writeBlock(output, block);
-
-        return output.slice();
-    }
-
-    public static Block readStructuralBlock(Slice slice)
-    {
-        return new VariableWidthBlockEncoding().readBlock(slice.getInput());
     }
 
     public static void checkElementNotNull(boolean isNull, String errorMsg)
