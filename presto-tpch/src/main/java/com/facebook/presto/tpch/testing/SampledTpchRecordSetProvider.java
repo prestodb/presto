@@ -164,6 +164,12 @@ public class SampledTpchRecordSetProvider
         }
 
         @Override
+        public Object getObject(int field)
+        {
+            throw new RuntimeException("record cursor is empty");
+        }
+
+        @Override
         public boolean isNull(int field)
         {
             throw new RuntimeException("record cursor is empty");
@@ -257,6 +263,12 @@ public class SampledTpchRecordSetProvider
         public Slice getSlice(int field)
         {
             return delegate.getSlice(field);
+        }
+
+        @Override
+        public Object getObject(int field)
+        {
+            return delegate.getObject(field);
         }
 
         @Override

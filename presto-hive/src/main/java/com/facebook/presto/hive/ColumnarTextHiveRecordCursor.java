@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
@@ -50,7 +51,7 @@ import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
-import static com.facebook.presto.hive.util.SerDeUtils.getBlockSlice;
+import static com.facebook.presto.hive.util.SerDeUtils.getBlockObject;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -91,6 +92,7 @@ class ColumnarTextHiveRecordCursor<K>
     private final long[] longs;
     private final double[] doubles;
     private final Slice[] slices;
+    private final Object[] objects;
     private final boolean[] nulls;
 
     private final long totalBytes;
@@ -138,6 +140,7 @@ class ColumnarTextHiveRecordCursor<K>
         this.longs = new long[size];
         this.doubles = new double[size];
         this.slices = new Slice[size];
+        this.objects = new Object[size];
         this.nulls = new boolean[size];
 
         // initialize data columns
@@ -481,14 +484,6 @@ class ColumnarTextHiveRecordCursor<K>
         if (length == "\\N".length() && bytes[start] == '\\' && bytes[start + 1] == 'N') {
             wasNull = true;
         }
-        else if (isStructuralType(hiveTypes[column])) {
-            LazyObject<? extends ObjectInspector> lazyObject = LazyFactory.createLazyObject(fieldInspectors[column]);
-            ByteArrayRef byteArrayRef = new ByteArrayRef();
-            byteArrayRef.setData(bytes);
-            lazyObject.init(byteArrayRef, start, length);
-            slices[column] = getBlockSlice(lazyObject.getObject(), fieldInspectors[column]);
-            wasNull = false;
-        }
         else {
             slices[column] = Slices.wrappedBuffer(Arrays.copyOfRange(bytes, start, start + length));
 
@@ -502,6 +497,64 @@ class ColumnarTextHiveRecordCursor<K>
         nulls[column] = wasNull;
     }
 
+    @Override
+    public Object getObject(int fieldId)
+    {
+        checkState(!closed, "Cursor is closed");
+
+        validateType(fieldId, Block.class);
+        if (!loaded[fieldId]) {
+            parseObjectColumn(fieldId);
+        }
+        return objects[fieldId];
+    }
+
+    private void parseObjectColumn(int column)
+    {
+        // don't include column number in message because it causes boxing which is expensive here
+        checkArgument(!isPartitionColumn[column], "Column is a partition key");
+
+        loaded[column] = true;
+
+        if (hiveColumnIndexes[column] >= value.size()) {
+            // this partition may contain fewer fields than what's declared in the schema
+            // this happens when additional columns are added to the hive table after a partition has been created
+            nulls[column] = true;
+        }
+        else {
+            BytesRefWritable fieldData = value.unCheckedGet(hiveColumnIndexes[column]);
+
+            byte[] bytes;
+            try {
+                bytes = fieldData.getData();
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+
+            int start = fieldData.getStart();
+            int length = fieldData.getLength();
+
+            parseObjectColumn(column, bytes, start, length);
+        }
+    }
+
+    private void parseObjectColumn(int column, byte[] bytes, int start, int length)
+    {
+        boolean wasNull;
+        if (length == "\\N".length() && bytes[start] == '\\' && bytes[start + 1] == 'N') {
+            wasNull = true;
+        }
+        else {
+            LazyObject<? extends ObjectInspector> lazyObject = LazyFactory.createLazyObject(fieldInspectors[column]);
+            ByteArrayRef byteArrayRef = new ByteArrayRef();
+            byteArrayRef.setData(bytes);
+            lazyObject.init(byteArrayRef, start, length);
+            objects[column] = getBlockObject(types[column], lazyObject.getObject(), fieldInspectors[column]);
+            wasNull = false;
+        }
+        nulls[column] = wasNull;
+    }
     @Override
     public boolean isNull(int fieldId)
     {
@@ -525,8 +578,11 @@ class ColumnarTextHiveRecordCursor<K>
         else if (type.equals(DOUBLE)) {
             parseDoubleColumn(column);
         }
-        else if (VARCHAR.equals(type) || VARBINARY.equals(type) || isStructuralType(hiveTypes[column])) {
+        else if (VARCHAR.equals(type) || VARBINARY.equals(type)) {
             parseStringColumn(column);
+        }
+        else if (isStructuralType(hiveTypes[column])) {
+            parseObjectColumn(column);
         }
         else if (type.equals(DATE)) {
             parseLongColumn(column);

@@ -83,7 +83,7 @@ public class RecordPageSink
             recordSink.appendString(type.getSlice(block, position).getBytes());
         }
         else {
-            throw new AssertionError("unimplemented type: " + type);
+            recordSink.appendObject(type.getObject(block, position));
         }
     }
 }

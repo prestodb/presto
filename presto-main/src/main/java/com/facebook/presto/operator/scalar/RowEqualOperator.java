@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricOperator;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -23,7 +24,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
@@ -39,7 +39,7 @@ public class RowEqualOperator
 {
     public static final RowEqualOperator ROW_EQUAL = new RowEqualOperator();
     private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BOOLEAN);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(RowEqualOperator.class, "equals", Type.class, Slice.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(RowEqualOperator.class, "equals", Type.class, Block.class, Block.class);
 
     private RowEqualOperator()
     {
@@ -54,12 +54,13 @@ public class RowEqualOperator
         return operatorInfo(EQUAL, RETURN_TYPE, ImmutableList.of(typeSignature, typeSignature), METHOD_HANDLE.bindTo(type), false, ImmutableList.of(false, false));
     }
 
-    public static boolean equals(Type rowType, Slice leftRow, Slice rightRow)
+    public static boolean equals(Type rowType, Block leftRow, Block rightRow)
     {
-        BlockBuilder leftBlockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1, leftRow.length());
-        BlockBuilder rightBlockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1, rightRow.length());
-        leftBlockBuilder.writeBytes(leftRow, 0, leftRow.length());
-        rightBlockBuilder.writeBytes(rightRow, 0, rightRow.length());
-        return rowType.equalTo(leftBlockBuilder.closeEntry().build(), 0, rightBlockBuilder.closeEntry().build(), 0);
+        // TODO: Fix this. It feels very inefficient and unnecessary to wrap and unwrap with Block
+        BlockBuilder leftBlockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder rightBlockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        rowType.writeObject(leftBlockBuilder, leftRow);
+        rowType.writeObject(rightBlockBuilder, rightRow);
+        return rowType.equalTo(leftBlockBuilder.build(), 0, rightBlockBuilder.build(), 0);
     }
 }

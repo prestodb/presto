@@ -24,6 +24,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
@@ -34,13 +35,18 @@ import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.type.TypeUtils.castValue;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
-import static java.lang.invoke.MethodHandles.lookup;
+import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class MapSubscriptOperator
         extends ParametricOperator
 {
     public static final MapSubscriptOperator MAP_SUBSCRIPT = new MapSubscriptOperator();
+
+    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, boolean.class);
+    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, long.class);
+    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, double.class);
+    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapSubscriptOperator.class, "subscript", MethodHandle.class, Type.class, Type.class, Block.class, Object.class);
 
     protected MapSubscriptOperator()
     {
@@ -55,168 +61,118 @@ public class MapSubscriptOperator
 
         MethodHandle keyEqualsMethod = functionRegistry.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType)).getMethodHandle();
 
-        MethodHandle methodHandle = lookupMethod(keyType, valueType);
+        MethodHandle methodHandle;
+        if (keyType.getJavaType() == boolean.class) {
+            methodHandle = METHOD_HANDLE_BOOLEAN;
+        }
+        else if (keyType.getJavaType() == long.class) {
+            methodHandle = METHOD_HANDLE_LONG;
+        }
+        else if (keyType.getJavaType() == double.class) {
+            methodHandle = METHOD_HANDLE_DOUBLE;
+        }
+        else if (keyType.getJavaType() == Slice.class) {
+            methodHandle = METHOD_HANDLE_SLICE;
+        }
+        else {
+            methodHandle = METHOD_HANDLE_OBJECT;
+        }
         methodHandle = methodHandle.bindTo(keyEqualsMethod).bindTo(keyType).bindTo(valueType);
+
+        // this casting is necessary because otherwise presto byte code generator will generate illegal byte code
+        if (valueType.getJavaType() == void.class) {
+            methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(void.class));
+        }
+        else {
+            methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(Primitives.wrap(valueType.getJavaType())));
+        }
 
         Signature signature = new Signature(SUBSCRIPT.name(), valueType.getTypeSignature(), parameterizedTypeName("map", keyType.getTypeSignature(), valueType.getTypeSignature()), keyType.getTypeSignature());
         return new FunctionInfo(signature, "Map subscript", true, methodHandle, true, true, ImmutableList.of(false, false));
     }
 
-    private static MethodHandle lookupMethod(Type keyType, Type valueType)
+    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, boolean key)
     {
-        String methodName = keyType.getJavaType().getSimpleName();
-        methodName += valueType.getJavaType().getSimpleName();
-        methodName += "Subscript";
-        try {
-            return lookup().unreflect(MapSubscriptOperator.class.getMethod(methodName, MethodHandle.class, Type.class, Type.class, Slice.class, keyType.getJavaType()));
-        }
-        catch (IllegalAccessException | NoSuchMethodException e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    public static void longvoidSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, long key)
-    {
-    }
-
-    public static void SlicevoidSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, Slice key)
-    {
-    }
-
-    public static void booleanvoidSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, boolean key)
-    {
-    }
-
-    public static void doublevoidSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, double key)
-    {
-    }
-
-    public static Long SlicelongSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, Slice key)
-    {
-        return subscript(keyEqualsMethod, keyType, valueType, map, key);
-    }
-
-    public static Boolean SlicebooleanSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, Slice key)
-    {
-        return subscript(keyEqualsMethod, keyType, valueType, map, key);
-    }
-
-    public static Double SlicedoubleSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, Slice key)
-    {
-        return subscript(keyEqualsMethod, keyType, valueType, map, key);
-    }
-
-    public static Slice SliceSliceSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, Slice key)
-    {
-        return subscript(keyEqualsMethod, keyType, valueType, map, key);
-    }
-
-    public static Long doublelongSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, double key)
-    {
-        return subscript(keyEqualsMethod, keyType, valueType, map, key);
-    }
-
-    public static Boolean doublebooleanSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, double key)
-    {
-        return subscript(keyEqualsMethod, keyType, valueType, map, key);
-    }
-
-    public static Double doubledoubleSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, double key)
-    {
-        return subscript(keyEqualsMethod, keyType, valueType, map, key);
-    }
-
-    public static Slice doubleSliceSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, double key)
-    {
-        return subscript(keyEqualsMethod, keyType, valueType, map, key);
-    }
-
-    public static Long booleanlongSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, boolean key)
-    {
-        return subscript(keyEqualsMethod, keyType, valueType, map, key);
-    }
-
-    public static Boolean booleanbooleanSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, boolean key)
-    {
-        return subscript(keyEqualsMethod, keyType, valueType, map, key);
-    }
-
-    public static Double booleandoubleSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, boolean key)
-    {
-        return subscript(keyEqualsMethod, keyType, valueType, map, key);
-    }
-
-    public static Slice booleanSliceSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, boolean key)
-    {
-        return subscript(keyEqualsMethod, keyType, valueType, map, key);
-    }
-
-    public static Long longlongSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, long key)
-    {
-        return subscript(keyEqualsMethod, keyType, valueType, map, key);
-    }
-
-    public static Boolean longbooleanSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, long key)
-    {
-        return subscript(keyEqualsMethod, keyType, valueType, map, key);
-    }
-
-    public static Double longdoubleSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, long key)
-    {
-        return subscript(keyEqualsMethod, keyType, valueType, map, key);
-    }
-
-    public static Slice longSliceSubscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, long key)
-    {
-        return subscript(keyEqualsMethod, keyType, valueType, map, key);
-    }
-
-    @SuppressWarnings({"unchecked", "TypeParameterUnusedInFormals"})
-    private static <T> T subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Slice map, Object key)
-    {
-        Block block = readStructuralBlock(map);
-
-        int position = 0;
-
-        Class<?> keyTypeJavaType = keyType.getJavaType();
-
-        for (; position < block.getPositionCount(); position += 2) {
+        for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
-                boolean equals;
-                if (keyTypeJavaType == long.class) {
-                    equals = (boolean) keyEqualsMethod.invokeExact(keyType.getLong(block, position), (long) key);
-                }
-                else if (keyTypeJavaType == double.class) {
-                    equals = (boolean) keyEqualsMethod.invokeExact(keyType.getDouble(block, position), (double) key);
-                }
-                else if (keyTypeJavaType == boolean.class) {
-                    equals = (boolean) keyEqualsMethod.invokeExact(keyType.getBoolean(block, position), (boolean) key);
-                }
-                else if (keyTypeJavaType == Slice.class) {
-                    equals = (boolean) keyEqualsMethod.invokeExact(keyType.getSlice(block, position), (Slice) key);
-                }
-                else {
-                    throw new IllegalArgumentException("Unsupported type: " + keyTypeJavaType.getSimpleName());
-                }
-
-                if (equals) {
-                    break;
+                if ((boolean) keyEqualsMethod.invokeExact(keyType.getBoolean(map, position), key)) {
+                    return castValue(valueType, map, position + 1); // position + 1: value position
                 }
             }
             catch (Throwable t) {
-                    Throwables.propagateIfInstanceOf(t, Error.class);
-                    Throwables.propagateIfInstanceOf(t, PrestoException.class);
-                    throw new PrestoException(INTERNAL_ERROR, t);
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                throw new PrestoException(INTERNAL_ERROR, t);
+            }
+        }
+        return null;
+    }
+
+    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, long key)
+    {
+        for (int position = 0; position < map.getPositionCount(); position += 2) {
+            try {
+                if ((boolean) keyEqualsMethod.invokeExact(keyType.getLong(map, position), key)) {
+                    return castValue(valueType, map, position + 1); // position + 1: value position
                 }
             }
-
-        if (position == block.getPositionCount()) {
-            // key not found
-            return null;
+            catch (Throwable t) {
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                throw new PrestoException(INTERNAL_ERROR, t);
+            }
         }
+        return null;
+    }
 
-        position += 1; // value position
+    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, double key)
+    {
+        for (int position = 0; position < map.getPositionCount(); position += 2) {
+            try {
+                if ((boolean) keyEqualsMethod.invokeExact(keyType.getDouble(map, position), key)) {
+                    return castValue(valueType, map, position + 1); // position + 1: value position
+                }
+            }
+            catch (Throwable t) {
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                throw new PrestoException(INTERNAL_ERROR, t);
+            }
+        }
+        return null;
+    }
 
-        return (T) castValue(valueType, block, position);
+    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Slice key)
+    {
+        for (int position = 0; position < map.getPositionCount(); position += 2) {
+            try {
+                if ((boolean) keyEqualsMethod.invokeExact(keyType.getSlice(map, position), key)) {
+                    return castValue(valueType, map, position + 1); // position + 1: value position
+                }
+            }
+            catch (Throwable t) {
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                throw new PrestoException(INTERNAL_ERROR, t);
+            }
+        }
+        return null;
+    }
+
+    public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Object key)
+    {
+        for (int position = 0; position < map.getPositionCount(); position += 2) {
+            try {
+                if ((boolean) keyEqualsMethod.invokeExact(keyType.getObject(map, position), key)) {
+                    return castValue(valueType, map, position + 1); // position + 1: value position
+                }
+            }
+            catch (Throwable t) {
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                throw new PrestoException(INTERNAL_ERROR, t);
+            }
+        }
+        return null;
     }
 }

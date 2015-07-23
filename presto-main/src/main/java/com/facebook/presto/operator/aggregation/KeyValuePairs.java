@@ -16,13 +16,11 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.TypeUtils;
-import io.airlift.slice.Slice;
+import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.type.TypeUtils.expectedValueSize;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -51,7 +49,7 @@ public class KeyValuePairs
         valueBlockBuilder = this.valueType.createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ENTRIES, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
     }
 
-    public KeyValuePairs(Slice serialized, Type keyType, Type valueType)
+    public KeyValuePairs(Block serialized, Type keyType, Type valueType)
     {
         this(keyType, valueType);
         checkNotNull(serialized, "serialized is null");
@@ -68,24 +66,23 @@ public class KeyValuePairs
         return valueBlockBuilder.build();
     }
 
-    private void deserialize(Slice serialized)
+    private void deserialize(Block block)
     {
-        Block block = TypeUtils.readStructuralBlock(serialized);
         for (int i = 0; i < block.getPositionCount(); i += 2) {
             add(block, block, i, i + 1);
         }
     }
 
-    public Slice serialize()
+    public Block serialize()
     {
         Block values = valueBlockBuilder.build();
         Block keys = keyBlockBuilder.build();
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), keys.getSizeInBytes() + values.getSizeInBytes());
+        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), keys.getPositionCount() * 2);
         for (int i = 0; i < keys.getPositionCount(); i++) {
             keyType.appendTo(keys, i, blockBuilder);
             valueType.appendTo(values, i, blockBuilder);
         }
-        return buildStructuralSlice(blockBuilder);
+        return blockBuilder.build();
     }
 
     public long estimatedInMemorySize()

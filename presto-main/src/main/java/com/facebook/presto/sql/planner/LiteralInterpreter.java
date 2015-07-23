@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.block.BlockSerdeUtil;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
@@ -39,7 +41,10 @@ import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Primitives;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import java.util.List;
 
@@ -100,6 +105,8 @@ public final class LiteralInterpreter
             return new Cast(new NullLiteral(), type.getTypeSignature().toString());
         }
 
+        checkArgument(Primitives.wrap(type.getJavaType()).isInstance(object), "object.getClass (%s) and type.getJavaType (%s) do not agree", object.getClass(), type.getJavaType());
+
         if (type.equals(BIGINT)) {
             return new LongLiteral(object.toString());
         }
@@ -130,10 +137,19 @@ public final class LiteralInterpreter
             if (object instanceof String) {
                 return new StringLiteral((String) object);
             }
+
+            throw new IllegalArgumentException("object must be instance of Slice or String when type is VARCHAR");
         }
 
         if (type.equals(BOOLEAN)) {
             return new BooleanLiteral(object.toString());
+        }
+
+        if (object instanceof Block) {
+            SliceOutput output = new DynamicSliceOutput(((Block) object).getSizeInBytes());
+            BlockSerdeUtil.writeBlock(output, (Block) object);
+            object = output.slice();
+            // This if condition will evaluate to true: object instanceof Slice && !type.equals(VARCHAR)
         }
 
         if (object instanceof Slice && !type.equals(VARCHAR)) {
@@ -146,7 +162,7 @@ public final class LiteralInterpreter
         }
 
         Signature signature = FunctionRegistry.getMagicLiteralFunctionSignature(type);
-        Expression rawLiteral = toExpression(object, FunctionRegistry.type(type.getJavaType()));
+        Expression rawLiteral = toExpression(object, FunctionRegistry.typeForMagicLiteral(type));
 
         return new FunctionCall(new QualifiedName(signature.getName()), ImmutableList.of(rawLiteral));
     }

@@ -56,7 +56,7 @@ import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
-import static com.facebook.presto.hive.util.SerDeUtils.getBlockSlice;
+import static com.facebook.presto.hive.util.SerDeUtils.getBlockObject;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -98,6 +98,7 @@ class ColumnarBinaryHiveRecordCursor<K>
     private final long[] longs;
     private final double[] doubles;
     private final Slice[] slices;
+    private final Object[] objects;
     private final boolean[] nulls;
 
     private final long totalBytes;
@@ -111,7 +112,7 @@ class ColumnarBinaryHiveRecordCursor<K>
     private static final int SIZE_OF_LONG = 8;
 
     private static final Set<HiveType> VALID_HIVE_STRING_TYPES = ImmutableSet.of(HiveType.HIVE_BINARY, HiveType.HIVE_STRING);
-    private static final Set<Category> VALID_HIVE_STRING_CATEGORIES = ImmutableSet.of(Category.LIST, Category.MAP, Category.STRUCT);
+    private static final Set<Category> VALID_HIVE_STRUCTURAL_CATEGORIES = ImmutableSet.of(Category.LIST, Category.MAP, Category.STRUCT);
 
     public ColumnarBinaryHiveRecordCursor(RecordReader<K, BytesRefArrayWritable> recordReader,
             long totalBytes,
@@ -149,6 +150,7 @@ class ColumnarBinaryHiveRecordCursor<K>
         this.longs = new long[size];
         this.doubles = new double[size];
         this.slices = new Slice[size];
+        this.objects = new Object[size];
         this.nulls = new boolean[size];
 
         // initialize data columns
@@ -535,28 +537,82 @@ class ColumnarBinaryHiveRecordCursor<K>
 
     private void parseStringColumn(int column, byte[] bytes, int start, int length)
     {
-        checkState(VALID_HIVE_STRING_TYPES.contains(hiveTypes[column]) || VALID_HIVE_STRING_CATEGORIES.contains(hiveTypes[column].getCategory()), "%s is not a valid STRING type", hiveTypes[column]);
+        checkState(VALID_HIVE_STRING_TYPES.contains(hiveTypes[column]), "%s is not a valid STRING type", hiveTypes[column]);
         if (length == 0) {
             nulls[column] = true;
         }
         else {
             nulls[column] = false;
-            if (isStructuralType(hiveTypes[column])) {
-                LazyBinaryObject<? extends ObjectInspector> lazyObject = LazyBinaryFactory.createLazyBinaryObject(fieldInspectors[column]);
-                ByteArrayRef byteArrayRef = new ByteArrayRef();
-                byteArrayRef.setData(bytes);
-                lazyObject.init(byteArrayRef, start, length);
-                slices[column] = getBlockSlice(lazyObject.getObject(), fieldInspectors[column]);
+            // TODO: zero length BINARY is not supported. See https://issues.apache.org/jira/browse/HIVE-2483
+            if (hiveTypes[column].equals(HiveType.HIVE_STRING) && (length == 1) && bytes[start] == HIVE_EMPTY_STRING_BYTE) {
+                slices[column] = Slices.EMPTY_SLICE;
             }
             else {
-                // TODO: zero length BINARY is not supported. See https://issues.apache.org/jira/browse/HIVE-2483
-                if (hiveTypes[column].equals(HiveType.HIVE_STRING) && (length == 1) && bytes[start] == HIVE_EMPTY_STRING_BYTE) {
-                    slices[column] = Slices.EMPTY_SLICE;
-                }
-                else {
-                    slices[column] = Slices.wrappedBuffer(Arrays.copyOfRange(bytes, start, start + length));
-                }
+                slices[column] = Slices.wrappedBuffer(Arrays.copyOfRange(bytes, start, start + length));
             }
+        }
+    }
+
+    @Override
+    public Object getObject(int fieldId)
+    {
+        checkState(!closed, "Cursor is closed");
+
+        Type type = types[fieldId];
+        if (!isStructuralType(hiveTypes[fieldId])) {
+            // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
+            throw new IllegalArgumentException(format("Expected field to be structural, actual %s (field %s)", type, fieldId));
+        }
+
+        if (!loaded[fieldId]) {
+            parseObjectColumn(fieldId);
+        }
+        return objects[fieldId];
+    }
+
+    private void parseObjectColumn(int column)
+    {
+        // don't include column number in message because it causes boxing which is expensive here
+        checkArgument(!isPartitionColumn[column], "Column is a partition key");
+
+        loaded[column] = true;
+
+        if (hiveColumnIndexes[column] >= value.size()) {
+            // this partition may contain fewer fields than what's declared in the schema
+            // this happens when additional columns are added to the hive table after a partition has been created
+            nulls[column] = true;
+        }
+        else {
+            BytesRefWritable fieldData = value.unCheckedGet(hiveColumnIndexes[column]);
+
+            byte[] bytes;
+            try {
+                bytes = fieldData.getData();
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+
+            int start = fieldData.getStart();
+            int length = fieldData.getLength();
+
+            parseObjectColumn(column, bytes, start, length);
+        }
+    }
+
+    private void parseObjectColumn(int column, byte[] bytes, int start, int length)
+    {
+        checkState(VALID_HIVE_STRUCTURAL_CATEGORIES.contains(hiveTypes[column].getCategory()), "%s is not a valid STRUCTURAL type", hiveTypes[column]);
+        if (length == 0) {
+            nulls[column] = true;
+        }
+        else {
+            nulls[column] = false;
+            LazyBinaryObject<? extends ObjectInspector> lazyObject = LazyBinaryFactory.createLazyBinaryObject(fieldInspectors[column]);
+            ByteArrayRef byteArrayRef = new ByteArrayRef();
+            byteArrayRef.setData(bytes);
+            lazyObject.init(byteArrayRef, start, length);
+            objects[column] = getBlockObject(types[column], lazyObject.getObject(), fieldInspectors[column]);
         }
     }
 
@@ -583,8 +639,11 @@ class ColumnarBinaryHiveRecordCursor<K>
         else if (DOUBLE.equals(type)) {
             parseDoubleColumn(column);
         }
-        else if (VARCHAR.equals(type) || VARBINARY.equals(type) || isStructuralType(hiveTypes[column])) {
+        else if (VARCHAR.equals(type) || VARBINARY.equals(type)) {
             parseStringColumn(column);
+        }
+        else if (isStructuralType(hiveTypes[column])) {
+            parseObjectColumn(column);
         }
         else if (DATE.equals(type)) {
             parseLongColumn(column);

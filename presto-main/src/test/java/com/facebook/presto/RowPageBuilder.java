@@ -103,7 +103,7 @@ public class RowPageBuilder
             type.writeSlice(builder, slice, 0, slice.length());
         }
         else {
-            throw new IllegalArgumentException("bad value: " + value.getClass().getName());
+            type.writeObject(builder, value);
         }
     }
 }

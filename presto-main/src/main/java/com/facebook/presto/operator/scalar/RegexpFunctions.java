@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -40,7 +41,6 @@ import java.nio.charset.StandardCharsets;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static java.lang.String.format;
 
 public final class RegexpFunctions
@@ -196,7 +196,7 @@ public final class RegexpFunctions
     @Description("string(s) extracted using the given pattern")
     @ScalarFunction
     @SqlType("array<varchar>")
-    public static Slice regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern)
+    public static Block regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern)
     {
         return regexpExtractAll(source, pattern, 0);
     }
@@ -204,7 +204,7 @@ public final class RegexpFunctions
     @Description("group(s) extracted using the given pattern")
     @ScalarFunction
     @SqlType("array<varchar>")
-    public static Slice regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
+    public static Block regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
     {
         Matcher matcher = pattern.matcher(source.getBytes());
         validateGroup(groupIndex, matcher.getEagerRegion());
@@ -234,8 +234,7 @@ public final class RegexpFunctions
                 VARCHAR.writeSlice(blockBuilder, slice);
             }
         }
-
-        return buildStructuralSlice(blockBuilder);
+        return blockBuilder.build();
     }
 
     @Nullable
@@ -276,7 +275,7 @@ public final class RegexpFunctions
     @ScalarFunction
     @Description("returns array of strings split by pattern")
     @SqlType("array<varchar>")
-    public static Slice regexpSplit(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern)
+    public static Block regexpSplit(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern)
     {
         Matcher matcher = pattern.matcher(source.getBytes());
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 32);
@@ -300,7 +299,7 @@ public final class RegexpFunctions
         }
         VARCHAR.writeSlice(blockBuilder, source.slice(lastEnd, source.length() - lastEnd));
 
-        return buildStructuralSlice(blockBuilder);
+        return blockBuilder.build();
     }
 
     private static void validateGroup(long group, Region region)

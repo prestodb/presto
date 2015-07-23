@@ -17,16 +17,15 @@ import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeUtils;
 import com.facebook.presto.util.array.IntBigArray;
 import com.facebook.presto.util.array.LongBigArray;
-import io.airlift.slice.Slice;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.type.TypeUtils.expectedValueSize;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -65,11 +64,10 @@ public class TypedHistogram
         counts.ensureCapacity(hashSize);
     }
 
-    public TypedHistogram(Slice serialized, Type type, int expectedSize)
+    public TypedHistogram(Block block, Type type, int expectedSize)
     {
         this(type, expectedSize);
-        checkNotNull(serialized, "serialized is null");
-        Block block = TypeUtils.readStructuralBlock(serialized);
+        checkNotNull(block, "block is null");
         for (int i = 0; i < block.getPositionCount(); i += 2) {
             add(i, block, BIGINT.getLong(block, i + 1));
         }
@@ -92,15 +90,15 @@ public class TypedHistogram
         return counts;
     }
 
-    public Slice serialize()
+    public Block serialize()
     {
         Block valuesBlock = values.build();
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), valuesBlock.getSizeInBytes() + (int) counts.sizeOf());
+        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(type, BIGINT), new BlockBuilderStatus(), valuesBlock.getPositionCount() * 2);
         for (int i = 0; i < valuesBlock.getPositionCount(); i++) {
             type.appendTo(valuesBlock, i, blockBuilder);
             BIGINT.writeLong(blockBuilder, counts.get(i));
         }
-        return buildStructuralSlice(blockBuilder);
+        return blockBuilder.build();
     }
 
     public void addAll(TypedHistogram other)

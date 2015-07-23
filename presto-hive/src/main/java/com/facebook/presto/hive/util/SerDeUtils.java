@@ -13,18 +13,17 @@
  */
 package com.facebook.presto.hive.util;
 
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
-import com.google.common.annotations.VisibleForTesting;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.TimestampWritable;
@@ -54,30 +53,30 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class SerDeUtils
 {
     private SerDeUtils() {}
 
-    public static Slice getBlockSlice(Object object, ObjectInspector objectInspector)
+    public static Block getBlockObject(Type type, Object object, ObjectInspector objectInspector)
     {
-        return checkNotNull(serializeObject(null, object, objectInspector), "serialized result is null");
+        return checkNotNull(serializeObject(type, null, object, objectInspector), "serialized result is null");
     }
 
-    @VisibleForTesting
-    static Slice serializeObject(BlockBuilder builder, Object object, ObjectInspector inspector)
+    public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector)
     {
         switch (inspector.getCategory()) {
             case PRIMITIVE:
                 serializePrimitive(builder, object, (PrimitiveObjectInspector) inspector);
                 return null;
             case LIST:
-                return serializeList(builder, object, (ListObjectInspector) inspector);
+                return serializeList(type, builder, object, (ListObjectInspector) inspector);
             case MAP:
-                return serializeMap(builder, object, (MapObjectInspector) inspector);
+                return serializeMap(type, builder, object, (MapObjectInspector) inspector);
             case STRUCT:
-                return serializeStruct(builder, object, (StructObjectInspector) inspector);
+                return serializeStruct(type, builder, object, (StructObjectInspector) inspector);
         }
         throw new RuntimeException("Unknown object inspector category: " + inspector.getCategory());
     }
@@ -129,7 +128,7 @@ public final class SerDeUtils
         throw new RuntimeException("Unknown primitive type: " + inspector.getPrimitiveCategory());
     }
 
-    private static Slice serializeList(BlockBuilder builder, Object object, ListObjectInspector inspector)
+    private static Block serializeList(Type type, BlockBuilder builder, Object object, ListObjectInspector inspector)
     {
         List<?> list = inspector.getList(object);
         if (list == null) {
@@ -137,24 +136,33 @@ public final class SerDeUtils
             return null;
         }
 
+        List<Type> typeParameters = type.getTypeParameters();
+        checkArgument(typeParameters.size() == 1, "list must have exactly 1 type parameter");
+        Type elementType = typeParameters.get(0);
         ObjectInspector elementInspector = inspector.getListElementObjectInspector();
-        BlockBuilder currentBuilder = createBlockBuilder();
+        BlockBuilder currentBuilder;
+        if (builder != null) {
+            currentBuilder = builder.beginBlockEntry();
+        }
+        else {
+            currentBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), list.size());
+        }
 
         for (Object element : list) {
-            serializeObject(currentBuilder, element, elementInspector);
+            serializeObject(elementType, currentBuilder, element, elementInspector);
         }
-
-        SliceOutput out = new DynamicSliceOutput(1024);
-        currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
 
         if (builder != null) {
-            VARBINARY.writeSlice(builder, out.slice());
+            builder.closeEntry();
+            return null;
         }
-
-        return out.slice();
+        else {
+            Block resultBlock = currentBuilder.build();
+            return resultBlock;
+        }
     }
 
-    private static Slice serializeMap(BlockBuilder builder, Object object, MapObjectInspector inspector)
+    private static Block serializeMap(Type type, BlockBuilder builder, Object object, MapObjectInspector inspector)
     {
         Map<?, ?> map = inspector.getMap(object);
         if (map == null) {
@@ -162,54 +170,69 @@ public final class SerDeUtils
             return null;
         }
 
+        List<Type> typeParameters = type.getTypeParameters();
+        checkArgument(typeParameters.size() == 2, "map must have exactly 2 type parameter");
+        Type keyType = typeParameters.get(0);
+        Type valueType = typeParameters.get(1);
         ObjectInspector keyInspector = inspector.getMapKeyObjectInspector();
         ObjectInspector valueInspector = inspector.getMapValueObjectInspector();
-        BlockBuilder currentBuilder = createBlockBuilder();
+        BlockBuilder currentBuilder;
+        if (builder != null) {
+            currentBuilder = builder.beginBlockEntry();
+        }
+        else {
+            currentBuilder = new InterleavedBlockBuilder(typeParameters, new BlockBuilderStatus(), map.size());
+        }
 
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             // Hive skips map entries with null keys
             if (entry.getKey() != null) {
-                serializeObject(currentBuilder, entry.getKey(), keyInspector);
-                serializeObject(currentBuilder, entry.getValue(), valueInspector);
+                serializeObject(keyType, currentBuilder, entry.getKey(), keyInspector);
+                serializeObject(valueType, currentBuilder, entry.getValue(), valueInspector);
             }
         }
 
-        SliceOutput out = new DynamicSliceOutput(1024);
-        currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
-
         if (builder != null) {
-            VARBINARY.writeSlice(builder, out.slice());
+            builder.closeEntry();
+            return null;
         }
-
-        return out.slice();
+        else {
+            Block resultBlock = currentBuilder.build();
+            return resultBlock;
+        }
     }
 
-    private static Slice serializeStruct(BlockBuilder builder, Object object, StructObjectInspector inspector)
+    private static Block serializeStruct(Type type, BlockBuilder builder, Object object, StructObjectInspector inspector)
     {
         if (object == null) {
             checkNotNull(builder, "parent builder is null").appendNull();
             return null;
         }
 
-        BlockBuilder currentBuilder = createBlockBuilder();
-        for (StructField field : inspector.getAllStructFieldRefs()) {
-            serializeObject(currentBuilder, inspector.getStructFieldData(object, field), field.getFieldObjectInspector());
+        List<Type> typeParameters = type.getTypeParameters();
+        List<? extends StructField> allStructFieldRefs = inspector.getAllStructFieldRefs();
+        checkArgument(typeParameters.size() == allStructFieldRefs.size());
+        BlockBuilder currentBuilder;
+        if (builder != null) {
+            currentBuilder = builder.beginBlockEntry();
+        }
+        else {
+            currentBuilder = new InterleavedBlockBuilder(typeParameters, new BlockBuilderStatus(), typeParameters.size());
         }
 
-        SliceOutput out = new DynamicSliceOutput(1024);
-        currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
+        for (int i = 0; i < typeParameters.size(); i++) {
+            StructField field = allStructFieldRefs.get(i);
+            serializeObject(typeParameters.get(i), currentBuilder, inspector.getStructFieldData(object, field), field.getFieldObjectInspector());
+        }
 
         if (builder != null) {
-            VARBINARY.writeSlice(builder, out.slice());
+            builder.closeEntry();
+            return null;
         }
-
-        return out.slice();
-    }
-
-    private static BlockBuilder createBlockBuilder()
-    {
-        // default BlockBuilderStatus could cause OOM at unit tests
-        return VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 100);
+        else {
+            Block resultBlock = currentBuilder.build();
+            return resultBlock;
+        }
     }
 
     private static long formatDateAsLong(Object object, DateObjectInspector inspector)

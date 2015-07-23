@@ -23,7 +23,6 @@ import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
-import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -34,7 +33,6 @@ import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getF
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.type.TypeUtils.createBlock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -121,8 +119,7 @@ public class TestNumericHistogramAggregation
     private static Map<Double, Double> extractSingleValue(Block block)
             throws IOException
     {
-        Slice slice = block.getSlice(0, 0, block.getLength(0));
         MapType mapType = new MapType(DOUBLE, DOUBLE);
-        return (Map<Double, Double>) mapType.getObjectValue(null, createBlock(mapType, slice), 0);
+        return (Map<Double, Double>) mapType.getObjectValue(null, block, 0);
     }
 }

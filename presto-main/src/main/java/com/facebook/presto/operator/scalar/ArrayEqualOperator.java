@@ -23,7 +23,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
@@ -31,12 +30,11 @@ import java.util.Map;
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
 import static com.facebook.presto.type.TypeUtils.castValue;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
-import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class ArrayEqualOperator
@@ -44,7 +42,7 @@ public class ArrayEqualOperator
 {
     public static final ArrayEqualOperator ARRAY_EQUAL = new ArrayEqualOperator();
     private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BOOLEAN);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayEqualOperator.class, "equals", MethodHandle.class, Type.class, Slice.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayEqualOperator.class, "equals", MethodHandle.class, Type.class, Block.class, Block.class);
 
     private ArrayEqualOperator()
     {
@@ -62,10 +60,8 @@ public class ArrayEqualOperator
         return operatorInfo(EQUAL, RETURN_TYPE, ImmutableList.of(typeSignature, typeSignature), method, false, ImmutableList.of(false, false));
     }
 
-    public static boolean equals(MethodHandle equalsFunction, Type type, Slice left, Slice right)
+    public static boolean equals(MethodHandle equalsFunction, Type type, Block leftArray, Block rightArray)
     {
-        Block leftArray = readStructuralBlock(left);
-        Block rightArray = readStructuralBlock(right);
         if (leftArray.getPositionCount() != rightArray.getPositionCount()) {
             return false;
         }

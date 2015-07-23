@@ -22,19 +22,15 @@ import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
-import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -45,7 +41,7 @@ public final class ArrayDistinctFunction
     public static final ArrayDistinctFunction ARRAY_DISTINCT_FUNCTION = new ArrayDistinctFunction();
     private static final String FUNCTION_NAME = "array_distinct";
     private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(comparableTypeParameter("E")), "array<E>", ImmutableList.of("array<E>"), false, false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayDistinctFunction.class, "distinct", Type.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayDistinctFunction.class, "distinct", Type.class, Block.class);
 
     @Override
     public Signature getSignature()
@@ -83,22 +79,21 @@ public final class ArrayDistinctFunction
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false));
     }
 
-    public static Slice distinct(Type type, Slice array)
+    public static Block distinct(Type type, Block array)
     {
-        Block elementsBlock = readStructuralBlock(array);
-        if (elementsBlock.getPositionCount() == 0) {
+        if (array.getPositionCount() == 0) {
             return array;
         }
 
-        TypedSet typedSet = new SimpleTypedSet(type, elementsBlock.getPositionCount());
-        BlockBuilder distinctElementBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), elementsBlock.getPositionCount());
-        for (int i = 0; i < elementsBlock.getPositionCount(); i++) {
-            if (!typedSet.contains(elementsBlock, i)) {
-                typedSet.add(elementsBlock, i);
-                type.appendTo(elementsBlock, i, distinctElementBlockBuilder);
+        TypedSet typedSet = new SimpleTypedSet(type, array.getPositionCount());
+        BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), array.getPositionCount());
+        for (int i = 0; i < array.getPositionCount(); i++) {
+            if (!typedSet.contains(array, i)) {
+                typedSet.add(array, i);
+                type.appendTo(array, i, distinctElementBlockBuilder);
             }
         }
 
-        return buildStructuralSlice(distinctElementBlockBuilder);
+        return distinctElementBlockBuilder.build();
     }
 }

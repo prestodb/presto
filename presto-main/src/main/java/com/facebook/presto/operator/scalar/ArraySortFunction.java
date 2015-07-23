@@ -20,12 +20,10 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collections;
@@ -34,8 +32,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
-import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -47,7 +43,7 @@ public final class ArraySortFunction
     public static final ArraySortFunction ARRAY_SORT_FUNCTION = new ArraySortFunction();
     private static final String FUNCTION_NAME = "array_sort";
     private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(orderableTypeParameter("E")), "array<E>", ImmutableList.of("array<E>"), false, false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArraySortFunction.class, "sort", Type.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArraySortFunction.class, "sort", Type.class, Block.class);
 
     @Override
     public Signature getSignature()
@@ -85,10 +81,8 @@ public final class ArraySortFunction
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false));
     }
 
-    public static Slice sort(Type type, Slice encodedArray)
+    public static Block sort(Type type, Block block)
     {
-        Block block = readStructuralBlock(encodedArray);
-
         List<Integer> positions = Ints.asList(new int[block.getPositionCount()]);
         for (int i = 0; i < block.getPositionCount(); i++) {
             positions.set(i, i);
@@ -104,12 +98,12 @@ public final class ArraySortFunction
             }
         });
 
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
 
         for (int position : positions) {
             type.appendTo(block, position, blockBuilder);
         }
 
-        return buildStructuralSlice(blockBuilder);
+        return blockBuilder.build();
     }
 }

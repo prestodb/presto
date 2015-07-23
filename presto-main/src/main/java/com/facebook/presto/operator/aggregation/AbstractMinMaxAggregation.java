@@ -22,13 +22,15 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
+import com.facebook.presto.operator.aggregation.state.BlockState;
+import com.facebook.presto.operator.aggregation.state.BlockStateSerializer;
 import com.facebook.presto.operator.aggregation.state.NullableBooleanState;
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.operator.aggregation.state.SliceState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -56,11 +58,13 @@ public abstract class AbstractMinMaxAggregation
     private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregation.class, "input", MethodHandle.class, NullableDoubleState.class, double.class);
     private static final MethodHandle SLICE_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregation.class, "input", MethodHandle.class, SliceState.class, Slice.class);
     private static final MethodHandle BOOLEAN_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregation.class, "input", MethodHandle.class, NullableBooleanState.class, boolean.class);
+    private static final MethodHandle BLOCK_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregation.class, "input", MethodHandle.class, BlockState.class, Block.class);
 
     private static final MethodHandle LONG_OUTPUT_FUNCTION = methodHandle(NullableLongState.class, "write", Type.class, NullableLongState.class, BlockBuilder.class);
     private static final MethodHandle DOUBLE_OUTPUT_FUNCTION = methodHandle(NullableDoubleState.class, "write", Type.class, NullableDoubleState.class, BlockBuilder.class);
     private static final MethodHandle SLICE_OUTPUT_FUNCTION = methodHandle(SliceState.class, "write", Type.class, SliceState.class, BlockBuilder.class);
     private static final MethodHandle BOOLEAN_OUTPUT_FUNCTION = methodHandle(NullableBooleanState.class, "write", Type.class, NullableBooleanState.class, BlockBuilder.class);
+    private static final MethodHandle BLOCK_OUTPUT_FUNCTION = methodHandle(BlockState.class, "write", Type.class, BlockState.class, BlockBuilder.class);
 
     private final String name;
     private final OperatorType operatorType;
@@ -102,36 +106,43 @@ public abstract class AbstractMinMaxAggregation
         MethodHandle inputFunction;
         MethodHandle outputFunction;
         Class<? extends AccumulatorState> stateInterface;
+        AccumulatorStateSerializer<?> stateSerializer;
 
         if (type.getJavaType() == long.class) {
             stateInterface = NullableLongState.class;
+            stateSerializer = compiler.generateStateSerializer(stateInterface, classLoader);
             inputFunction = LONG_INPUT_FUNCTION;
             outputFunction = LONG_OUTPUT_FUNCTION;
         }
         else if (type.getJavaType() == double.class) {
             stateInterface = NullableDoubleState.class;
+            stateSerializer = compiler.generateStateSerializer(stateInterface, classLoader);
             inputFunction = DOUBLE_INPUT_FUNCTION;
             outputFunction = DOUBLE_OUTPUT_FUNCTION;
         }
         else if (type.getJavaType() == Slice.class) {
             stateInterface = SliceState.class;
+            stateSerializer = compiler.generateStateSerializer(stateInterface, classLoader);
             inputFunction = SLICE_INPUT_FUNCTION;
             outputFunction = SLICE_OUTPUT_FUNCTION;
         }
         else if (type.getJavaType() == boolean.class) {
             stateInterface = NullableBooleanState.class;
+            stateSerializer = compiler.generateStateSerializer(stateInterface, classLoader);
             inputFunction = BOOLEAN_INPUT_FUNCTION;
             outputFunction = BOOLEAN_OUTPUT_FUNCTION;
         }
         else {
-            throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "Argument type to max/min unsupported");
+            stateInterface = BlockState.class;
+            stateSerializer = new BlockStateSerializer(type);
+            inputFunction = BLOCK_INPUT_FUNCTION;
+            outputFunction = BLOCK_OUTPUT_FUNCTION;
         }
 
         inputFunction = inputFunction.bindTo(compareMethodHandle);
         outputFunction = outputFunction.bindTo(type);
 
         AccumulatorStateFactory<?> stateFactory = compiler.generateStateFactory(stateInterface, classLoader);
-        AccumulatorStateSerializer<?> stateSerializer = compiler.generateStateSerializer(stateInterface, classLoader);
 
         Type intermediateType = stateSerializer.getSerializedType();
         List<ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type);
@@ -226,6 +237,24 @@ public abstract class AbstractMinMaxAggregation
         try {
             if ((boolean) methodHandle.invokeExact(value, state.getBoolean())) {
                 state.setBoolean(value);
+            }
+        }
+        catch (Throwable t) {
+            Throwables.propagateIfInstanceOf(t, Error.class);
+            Throwables.propagateIfInstanceOf(t, PrestoException.class);
+            throw new PrestoException(INTERNAL_ERROR, t);
+        }
+    }
+
+    public static void input(MethodHandle methodHandle, BlockState state, Block value)
+    {
+        if (state.getBlock() == null) {
+            state.setBlock(value);
+            return;
+        }
+        try {
+            if ((boolean) methodHandle.invokeExact(value, state.getBlock())) {
+                state.setBlock(value);
             }
         }
         catch (Throwable t) {

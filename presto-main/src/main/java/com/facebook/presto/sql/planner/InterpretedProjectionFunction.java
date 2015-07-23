@@ -102,7 +102,7 @@ public class InterpretedProjectionFunction
             type.writeSlice(output, slice, 0, slice.length());
         }
         else {
-            throw new UnsupportedOperationException("not yet implemented: " + type);
+            type.writeObject(output, value);
         }
     }
 }

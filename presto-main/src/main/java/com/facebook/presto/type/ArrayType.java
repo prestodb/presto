@@ -14,11 +14,11 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.ArrayBlockBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
-import com.facebook.presto.spi.type.AbstractVariableWidthType;
+import com.facebook.presto.spi.type.AbstractType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -30,21 +30,19 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
-import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ArrayType
-        extends AbstractVariableWidthType
+        extends AbstractType
 {
     private final Type elementType;
     public static final String ARRAY_NULL_ELEMENT_MSG = "ARRAY comparison not supported for arrays with null elements";
 
     public ArrayType(Type elementType)
     {
-        super(parameterizedTypeName("array", elementType.getTypeSignature()), Slice.class);
+        super(parameterizedTypeName("array", elementType.getTypeSignature()), Block.class);
         this.elementType = checkNotNull(elementType, "elementType is null");
     }
 
@@ -56,13 +54,13 @@ public class ArrayType
     /**
      * Takes a list of stack types and converts them to the stack representation of an array
      */
-    public static Slice toStackRepresentation(List<?> values, Type elementType)
+    public static Block toStackRepresentation(List<?> values, Type elementType)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 0);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), values.size());
         for (Object element : values) {
             appendToBlockBuilder(elementType, element, blockBuilder);
         }
-        return buildStructuralSlice(blockBuilder);
+        return blockBuilder.build();
     }
 
     @Override
@@ -86,8 +84,7 @@ public class ArrayType
     @Override
     public int hash(Block block, int position)
     {
-        Slice value = getSlice(block, position);
-        Block array = readStructuralBlock(value);
+        Block array = getObject(block, position);
         List<Integer> hashArray = new ArrayList<>(array.getPositionCount());
         for (int i = 0; i < array.getPositionCount(); i++) {
             checkElementNotNull(array.isNull(i), ARRAY_NULL_ELEMENT_MSG);
@@ -99,10 +96,8 @@ public class ArrayType
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        Slice leftSlice = getSlice(leftBlock, leftPosition);
-        Slice rightSlice = getSlice(rightBlock, rightPosition);
-        Block leftArray = readStructuralBlock(leftSlice);
-        Block rightArray = readStructuralBlock(rightSlice);
+        Block leftArray = leftBlock.getObject(leftPosition, Block.class);
+        Block rightArray = rightBlock.getObject(rightPosition, Block.class);
 
         int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
         int index = 0;
@@ -130,8 +125,8 @@ public class ArrayType
             return null;
         }
 
-        Slice slice = block.getSlice(position, 0, block.getLength(position));
-        Block arrayBlock = readStructuralBlock(slice);
+        Block arrayBlock = block.getObject(position, Block.class);
+
         List<Object> values = Lists.newArrayListWithCapacity(arrayBlock.getPositionCount());
 
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
@@ -148,7 +143,7 @@ public class ArrayType
             blockBuilder.appendNull();
         }
         else {
-            block.writeBytesTo(position, 0, block.getLength(position), blockBuilder);
+            block.writePositionTo(position, blockBuilder);
             blockBuilder.closeEntry();
         }
     }
@@ -169,6 +164,30 @@ public class ArrayType
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
         blockBuilder.writeBytes(value, offset, length).closeEntry();
+    }
+
+    @Override
+    public Block getObject(Block block, int position)
+    {
+        return block.getObject(position, Block.class);
+    }
+
+    @Override
+    public void writeObject(BlockBuilder blockBuilder, Object value)
+    {
+        blockBuilder.writeObject(value).closeEntry();
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    {
+        return new ArrayBlockBuilder(elementType, blockBuilderStatus, expectedEntries, expectedBytesPerEntry);
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        return createBlockBuilder(blockBuilderStatus, expectedEntries, 100);
     }
 
     @Override

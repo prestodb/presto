@@ -16,12 +16,12 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateMetadata;
 import com.facebook.presto.operator.aggregation.state.NumericHistogramStateSerializer;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Ints;
-import io.airlift.slice.Slice;
 
 import javax.validation.constraints.NotNull;
 
@@ -88,8 +88,8 @@ public class NumericHistogramAggregation
             out.appendNull();
         }
         else {
-            Slice slice = MapType.toStackRepresentation(state.get().getBuckets(), DoubleType.DOUBLE, DoubleType.DOUBLE);
-            out.writeBytes(slice, 0, slice.length());
+            Block block = MapType.toStackRepresentation(state.get().getBuckets(), DoubleType.DOUBLE, DoubleType.DOUBLE);
+            out.writeObject(block);
             out.closeEntry();
         }
     }

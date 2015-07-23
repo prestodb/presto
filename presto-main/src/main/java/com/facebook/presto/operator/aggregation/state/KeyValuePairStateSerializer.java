@@ -17,16 +17,22 @@ import com.facebook.presto.operator.aggregation.KeyValuePairs;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
-
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import com.facebook.presto.type.MapType;
 
 public class KeyValuePairStateSerializer
         implements AccumulatorStateSerializer<KeyValuePairsState>
 {
+    private final MapType mapType;
+
+    public KeyValuePairStateSerializer(Type keyType, Type valueType)
+    {
+        this.mapType = new MapType(keyType, valueType);
+    }
+
     @Override
     public Type getSerializedType()
     {
-        return VARBINARY;
+        return mapType;
     }
 
     @Override
@@ -36,7 +42,7 @@ public class KeyValuePairStateSerializer
             out.appendNull();
         }
         else {
-            VARBINARY.writeSlice(out, state.get().serialize());
+            mapType.writeObject(out, state.get().serialize());
         }
     }
 
@@ -44,7 +50,7 @@ public class KeyValuePairStateSerializer
     public void deserialize(Block block, int index, KeyValuePairsState state)
     {
         if (!block.isNull(index)) {
-            state.set(new KeyValuePairs(VARBINARY.getSlice(block, index), state.getKeyType(), state.getValueType()));
+            state.set(new KeyValuePairs(mapType.getObject(block, index), mapType.getKeyType(), mapType.getValueType()));
         }
     }
 }

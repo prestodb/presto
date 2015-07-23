@@ -221,6 +221,12 @@ public class UnloadedIndexKeyRecordSet
         }
 
         @Override
+        public Object getObject(int field)
+        {
+            return types.get(field).getObject(blocks[field], position);
+        }
+
+        @Override
         public boolean isNull(int field)
         {
             return blocks[field].isNull(position);

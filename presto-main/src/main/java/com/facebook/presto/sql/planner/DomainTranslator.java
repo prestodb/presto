@@ -21,6 +21,7 @@ import com.facebook.presto.spi.Marker;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -434,7 +435,7 @@ public final class DomainTranslator
 
             Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) node.getValue()).getName());
             Type columnType = checkedTypeLookup(symbol);
-            Domain domain = complementIfNecessary(Domain.onlyNull(wrap(columnType.getJavaType())), complement);
+            Domain domain = complementIfNecessary(Domain.onlyNull(fixNonComparableType(wrap(columnType.getJavaType()))), complement);
             return new ExtractionResult(
                     TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)),
                     TRUE_LITERAL);
@@ -450,10 +451,33 @@ public final class DomainTranslator
             Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) node.getValue()).getName());
             Type columnType = checkedTypeLookup(symbol);
 
-            Domain domain = complementIfNecessary(Domain.notNull(wrap(columnType.getJavaType())), complement);
+            Domain domain = complementIfNecessary(Domain.notNull(fixNonComparableType(wrap(columnType.getJavaType()))), complement);
             return new ExtractionResult(
                     TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)),
                     TRUE_LITERAL);
+        }
+
+        private static Class<?> fixNonComparableType(Class<?> clazz)
+        {
+            // !!! HACK ALERT !!!
+            // This is needed because SortedRangeSet.all/none requires that the argument type be self-comparable. See Marker#verifySelfComparable
+            // However, the SortedRangeSet works fine when the only value involved are lowerUnbound and upperUnbound.
+            // This hack shall be removed once TupleDomain is updated to support
+            // The same hack can also be found in TupleDomainOrcPredicate
+            if (clazz == Block.class) {
+                return BogusComparable.class;
+            }
+            return clazz;
+        }
+
+        private static class BogusComparable
+                implements Comparable<BogusComparable>
+        {
+            @Override
+            public int compareTo(BogusComparable o)
+            {
+                throw new UnsupportedOperationException();
+            }
         }
 
         @Override

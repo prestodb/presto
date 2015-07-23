@@ -122,6 +122,12 @@ class MaterializedTupleRecordSet
         }
 
         @Override
+        public Object getObject(int field)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public boolean isNull(int field)
         {
             return outputTuple.getValues().get(field) == null;

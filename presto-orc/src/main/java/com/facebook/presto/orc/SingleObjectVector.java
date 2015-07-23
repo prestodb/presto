@@ -11,38 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.orc;
 
-import com.facebook.presto.spi.type.Type;
-import io.airlift.slice.Slice;
+import com.google.common.annotations.VisibleForTesting;
 
-import java.io.Closeable;
-
-public interface RecordCursor
-        extends Closeable
+public class SingleObjectVector
+        implements Vector
 {
-    long getTotalBytes();
+    public Object object;
 
-    long getCompletedBytes();
-
-    long getReadTimeNanos();
-
-    Type getType(int field);
-
-    boolean advanceNextPosition();
-
-    boolean getBoolean(int field);
-
-    long getLong(int field);
-
-    double getDouble(int field);
-
-    Slice getSlice(int field);
-
-    Object getObject(int field);
-
-    boolean isNull(int field);
+    public SingleObjectVector()
+    {
+        object = null;
+    }
 
     @Override
-    void close();
+    @VisibleForTesting
+    public ObjectVector toObjectVector(int size)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

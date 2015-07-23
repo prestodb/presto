@@ -19,9 +19,9 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricAggregation;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.aggregation.state.HistogramStateSerializer;
 import com.facebook.presto.operator.aggregation.state.HistogramState;
 import com.facebook.presto.operator.aggregation.state.HistogramStateFactory;
+import com.facebook.presto.operator.aggregation.state.HistogramStateSerializer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -30,7 +30,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -160,8 +159,8 @@ public class Histogram
             out.appendNull();
         }
         else {
-            Slice slice = typedHistogram.serialize();
-            type.writeSlice(out, slice);
+            Block block = typedHistogram.serialize();
+            type.writeObject(out, block);
         }
     }
 }

@@ -11,26 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.block;
+package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
 
-import java.io.IOException;
-import java.util.List;
-
-public interface BlockReader
+@AccumulatorStateMetadata(stateSerializerClass = BlockStateSerializer.class)
+public interface BlockState
+        extends AccumulatorState
 {
-    void openStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
-            throws IOException;
+    Block getBlock();
 
-    void openRowGroup(StreamSources dataStreamSources)
-            throws IOException;
+    void setBlock(Block value);
 
-    boolean readNextValueInto(BlockBuilder builder, boolean skipNull)
-            throws IOException;
-
-    void skip(int skipSize)
-            throws IOException;
+    static void write(Type type, BlockState state, BlockBuilder out)
+    {
+        if (state.getBlock() == null) {
+            out.appendNull();
+        }
+        else {
+            type.writeObject(out, state.getBlock());
+        }
+    }
 }

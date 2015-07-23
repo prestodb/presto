@@ -13,49 +13,45 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.operator.aggregation.TypedHistogram;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.MapType;
 
-import static com.facebook.presto.operator.aggregation.Histogram.EXPECTED_SIZE_FOR_HASHING;
-
-public class HistogramStateSerializer
-        implements AccumulatorStateSerializer<HistogramState>
+public class BlockStateSerializer
+        implements AccumulatorStateSerializer<BlockState>
 {
     private final Type type;
-    private final Type serializedType;
 
-    public HistogramStateSerializer(Type type)
+    public BlockStateSerializer(Type type)
     {
         this.type = type;
-        this.serializedType = new MapType(type, BigintType.BIGINT);
     }
 
     @Override
     public Type getSerializedType()
     {
-        return serializedType;
+        return type;
     }
 
     @Override
-    public void serialize(HistogramState state, BlockBuilder out)
+    public void serialize(BlockState state, BlockBuilder out)
     {
-        if (state.get() == null) {
+        if (state.getBlock() == null) {
             out.appendNull();
         }
         else {
-            serializedType.writeObject(out, state.get().serialize());
+            type.writeObject(out, state.getBlock());
         }
     }
 
     @Override
-    public void deserialize(Block block, int index, HistogramState state)
+    public void deserialize(Block block, int index, BlockState state)
     {
-        if (!block.isNull(index)) {
-            state.set(new TypedHistogram((Block) serializedType.getObject(block, index), type, EXPECTED_SIZE_FOR_HASHING));
+        if (block.isNull(index)) {
+            state.setBlock(null);
+        }
+        else {
+            state.setBlock((Block) type.getObject(block, index));
         }
     }
 }

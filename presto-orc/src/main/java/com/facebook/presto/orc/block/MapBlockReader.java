@@ -19,29 +19,24 @@ import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.google.common.primitives.Ints;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.util.List;
 
 import static com.facebook.presto.orc.block.BlockReaders.createBlockReader;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class MapBlockReader
         implements BlockReader
 {
-    private final DynamicSliceOutput out = new DynamicSliceOutput(1024);
-
     private final StreamDescriptor streamDescriptor;
     private final boolean checkForNulls;
 
@@ -66,8 +61,6 @@ public class MapBlockReader
     public boolean readNextValueInto(BlockBuilder builder, boolean skipNull)
             throws IOException
     {
-        out.reset();
-
         if (presentStream != null && !presentStream.nextBit()) {
             if (!skipNull) {
                 checkNotNull(builder, "parent builder is null").appendNull();
@@ -81,7 +74,7 @@ public class MapBlockReader
         }
 
         long length = lengthStream.next();
-        BlockBuilder currentBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), Ints.checkedCast(length));
+        BlockBuilder currentBuilder = builder.beginBlockEntry();
         for (int i = 0; i < length; i++) {
             if (keyReader.readNextValueInto(currentBuilder, true)) {
                 valueReader.readNextValueInto(currentBuilder, false);
@@ -90,12 +83,8 @@ public class MapBlockReader
                 valueReader.skip(1);
             }
         }
+        builder.closeEntry();
 
-        currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
-
-        if (builder != null) {
-            VARBINARY.writeSlice(builder, out.copySlice());
-        }
         return true;
     }
 
@@ -144,12 +133,6 @@ public class MapBlockReader
 
         keyReader.openRowGroup(dataStreamSources);
         valueReader.openRowGroup(dataStreamSources);
-    }
-
-    @Override
-    public Slice toSlice()
-    {
-        return out.copySlice();
     }
 
     @Override

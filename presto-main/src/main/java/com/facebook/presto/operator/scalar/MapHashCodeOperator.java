@@ -22,7 +22,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
@@ -32,7 +31,6 @@ import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class MapHashCodeOperator
@@ -40,6 +38,8 @@ public class MapHashCodeOperator
 {
     public static final MapHashCodeOperator MAP_HASH_CODE = new MapHashCodeOperator();
     private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BIGINT);
+
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapHashCodeOperator.class, "hash", MethodHandle.class, MethodHandle.class, Type.class, Type.class, Block.class);
 
     private MapHashCodeOperator()
     {
@@ -58,14 +58,12 @@ public class MapHashCodeOperator
         MethodHandle keyHashCodeFunction = functionRegistry.resolveOperator(HASH_CODE, ImmutableList.of(keyType)).getMethodHandle();
         MethodHandle valueHashCodeFunction = functionRegistry.resolveOperator(HASH_CODE, ImmutableList.of(valueType)).getMethodHandle();
 
-        MethodHandle methodHandle = methodHandle(MapHashCodeOperator.class, "hash", MethodHandle.class, MethodHandle.class, Type.class, Type.class, Slice.class);
-        MethodHandle method = methodHandle.bindTo(keyHashCodeFunction).bindTo(valueHashCodeFunction).bindTo(keyType).bindTo(valueType);
+        MethodHandle method = METHOD_HANDLE.bindTo(keyHashCodeFunction).bindTo(valueHashCodeFunction).bindTo(keyType).bindTo(valueType);
         return operatorInfo(HASH_CODE, RETURN_TYPE, ImmutableList.of(typeSignature), method, false, ImmutableList.of(false));
     }
 
-    public static long hash(MethodHandle keyHashCodeFunction, MethodHandle valueHashCodeFunction, Type keyType, Type valueType, Slice slice)
+    public static long hash(MethodHandle keyHashCodeFunction, MethodHandle valueHashCodeFunction, Type keyType, Type valueType, Block block)
     {
-        Block block = readStructuralBlock(slice);
         long result = 0;
         for (int position = 0; position < block.getPositionCount(); position += 2) {
             result += hashPosition(keyHashCodeFunction, keyType, block, position);
