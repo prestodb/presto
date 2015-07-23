@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.InMemoryRecordSet;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -47,10 +46,10 @@ public class JmxRecordSetProvider
     private final MBeanServer mbeanServer;
     private final String nodeId;
 
-    public JmxRecordSetProvider(MBeanServer mbeanServer, NodeManager nodeManager)
+    public JmxRecordSetProvider(MBeanServer mbeanServer, String nodeId)
     {
         this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
-        this.nodeId = requireNonNull(nodeManager, "nodeManager is null").getCurrentNode().getNodeIdentifier();
+        this.nodeId = requireNonNull(nodeId, "nodeId is null");
     }
 
     @Override
