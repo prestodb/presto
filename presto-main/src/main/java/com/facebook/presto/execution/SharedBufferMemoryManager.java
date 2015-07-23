@@ -16,20 +16,26 @@ package com.facebook.presto.execution;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 public class SharedBufferMemoryManager
 {
     private final long maxBufferedBytes;
     private final AtomicLong bufferedBytes = new AtomicLong();
 
-    public SharedBufferMemoryManager(long maxBufferedBytes)
+    private final SystemMemoryUsageListener systemMemoryUsageListener;
+
+    public SharedBufferMemoryManager(long maxBufferedBytes, SystemMemoryUsageListener systemMemoryUsageListener)
     {
         checkArgument(maxBufferedBytes > 0, "maxBufferedBytes must be > 0");
         this.maxBufferedBytes = maxBufferedBytes;
+        requireNonNull(systemMemoryUsageListener, "systemMemoryUsageListener is null");
+        this.systemMemoryUsageListener = systemMemoryUsageListener;
     }
 
     public void updateMemoryUsage(long bytesAdded)
     {
+        systemMemoryUsageListener.updateSystemMemoryUsage(bytesAdded);
         bufferedBytes.addAndGet(bytesAdded);
     }
 

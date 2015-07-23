@@ -408,7 +408,8 @@ public class TestSqlStageExecution
                 this.taskStateMachine = new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotNull(executor, "executor is null"));
 
                 MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE), false);
-                this.taskContext = new QueryContext(false, new DataSize(1, MEGABYTE), memoryPool, executor).addTaskContext(taskStateMachine, TEST_SESSION, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true, true);
+                MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE), false);
+                this.taskContext = new QueryContext(false, new DataSize(1, MEGABYTE), memoryPool, systemMemoryPool, executor).addTaskContext(taskStateMachine, TEST_SESSION, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true, true);
 
                 this.location = URI.create("fake://task/" + taskId);
 

@@ -123,7 +123,7 @@ public class SqlTaskManager
             public QueryContext load(QueryId key)
                     throws Exception
             {
-                return new QueryContext(clusterMemoryManagerEnabled, maxQueryMemoryPerNode, localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL), taskNotificationExecutor);
+                return new QueryContext(clusterMemoryManagerEnabled, maxQueryMemoryPerNode, localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL), localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL), taskNotificationExecutor);
             }
         });
 
