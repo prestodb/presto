@@ -247,7 +247,7 @@ public final class ByteCodeUtils
         else if (type == Void.class) {
             notNull.pushNull()
                     .checkCast(Void.class);
-            expectedCurrentStackType = void.class;
+            return notNull;
         }
         else {
             throw new UnsupportedOperationException("not yet implemented: " + type);
