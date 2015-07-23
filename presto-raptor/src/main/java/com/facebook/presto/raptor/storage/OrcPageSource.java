@@ -18,6 +18,7 @@ import com.facebook.presto.orc.DoubleVector;
 import com.facebook.presto.orc.LongVector;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
+import com.facebook.presto.orc.SingleObjectVector;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
@@ -25,6 +26,7 @@ import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.LazyArrayBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.LazyFixedWidthBlock;
 import com.facebook.presto.spi.block.LazySliceArrayBlock;
@@ -41,6 +43,8 @@ import java.util.List;
 
 import static com.facebook.presto.orc.Vector.MAX_VECTOR_LENGTH;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
+import static com.facebook.presto.raptor.util.Types.isArrayType;
+import static com.facebook.presto.raptor.util.Types.isMapType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -176,6 +180,9 @@ public class OrcPageSource
                 }
                 else if (VARCHAR.equals(type) || VARBINARY.equals(type)) {
                     blocks[fieldId] = new LazySliceArrayBlock(batchSize, new LazySliceBlockLoader(columnIndexes[fieldId], batchSize));
+                }
+                else if (isArrayType(type) || isMapType(type)) {
+                    blocks[fieldId] = new LazyArrayBlock(new LazyStructuralBlockLoader(columnIndexes[fieldId], type));
                 }
                 else {
                     throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type);
@@ -414,6 +421,35 @@ public class OrcPageSource
                 else {
                     block.setValues(vector.vector);
                 }
+            }
+            catch (IOException e) {
+                throw new PrestoException(RAPTOR_ERROR, e);
+            }
+        }
+    }
+
+    private final class LazyStructuralBlockLoader
+            implements LazyBlockLoader<LazyArrayBlock>
+    {
+        private final int expectedBatchId = batchId;
+        private final int columnIndex;
+        private final Type type;
+
+        public LazyStructuralBlockLoader(int columnIndex, Type type)
+        {
+            this.columnIndex = columnIndex;
+            this.type = type;
+        }
+
+        @Override
+        public void load(LazyArrayBlock block)
+        {
+            checkState(batchId == expectedBatchId);
+            try {
+                SingleObjectVector vector = new SingleObjectVector();
+                recordReader.readVector(type, columnIndex, vector);
+                Block resultBlock = (Block) vector.object;
+                block.copyFromBlock(resultBlock);
             }
             catch (IOException e) {
                 throw new PrestoException(RAPTOR_ERROR, e);

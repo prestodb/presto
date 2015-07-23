@@ -35,7 +35,10 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -82,6 +85,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.Math.min;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
+import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class OrcStorageManager
@@ -102,6 +106,7 @@ public class OrcStorageManager
     private final DataSize maxShardSize;
     private final DataSize maxBufferSize;
     private final StorageManagerStats stats;
+    private final TypeManager typeManager;
 
     @Inject
     public OrcStorageManager(
@@ -110,7 +115,8 @@ public class OrcStorageManager
             Optional<BackupStore> backupStore,
             JsonCodec<ShardDelta> shardDeltaCodec,
             StorageManagerConfig config,
-            ShardRecoveryManager recoveryManager)
+            ShardRecoveryManager recoveryManager,
+            TypeManager typeManager)
     {
         this(currentNodeId.toString(),
                 storageService,
@@ -120,6 +126,7 @@ public class OrcStorageManager
                 config.getOrcMaxReadSize(),
                 config.getOrcStreamBufferSize(),
                 recoveryManager,
+                typeManager,
                 config.getShardRecoveryTimeout(),
                 config.getMaxShardRows(),
                 config.getMaxShardSize(),
@@ -135,6 +142,7 @@ public class OrcStorageManager
             DataSize orcMaxReadSize,
             DataSize orcStreamBufferSize,
             ShardRecoveryManager recoveryManager,
+            TypeManager typeManager,
             Duration shardRecoveryTimeout,
             long maxShardRows,
             DataSize maxShardSize,
@@ -156,6 +164,7 @@ public class OrcStorageManager
         this.maxShardSize = checkNotNull(maxShardSize, "maxShardSize is null");
         this.maxBufferSize = checkNotNull(maxBufferSize, "maxBufferSize is null");
         this.stats = new StorageManagerStats();
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -351,27 +360,27 @@ public class OrcStorageManager
         }
     }
 
-    private static List<ColumnInfo> getColumnInfo(OrcReader reader)
+    private List<ColumnInfo> getColumnInfo(OrcReader reader)
     {
         // TODO: These should be stored as proper metadata.
         // XXX: Relying on ORC types will not work when more Presto types are supported.
 
         List<String> names = reader.getColumnNames();
-        List<OrcType> types = reader.getFooter().getTypes();
-        types = types.subList(1, types.size()); // skip struct
-        if (names.size() != types.size()) {
+        Type rowType = getType(reader.getFooter().getTypes(), 0);
+        if (names.size() != rowType.getTypeParameters().size()) {
             throw new PrestoException(RAPTOR_ERROR, "Column names and types do not match");
         }
 
         ImmutableList.Builder<ColumnInfo> list = ImmutableList.builder();
         for (int i = 0; i < names.size(); i++) {
-            list.add(new ColumnInfo(Long.parseLong(names.get(i)), getType(types.get(i))));
+            list.add(new ColumnInfo(Long.parseLong(names.get(i)), rowType.getTypeParameters().get(i)));
         }
         return list.build();
     }
 
-    private static Type getType(OrcType type)
+    private Type getType(List<OrcType> types, int index)
     {
+        OrcType type = types.get(index);
         switch (type.getOrcTypeKind()) {
             case BOOLEAN:
                 return BOOLEAN;
@@ -383,6 +392,19 @@ public class OrcStorageManager
                 return VARCHAR;
             case BINARY:
                 return VARBINARY;
+            case LIST:
+                TypeSignature elementType = getType(types, type.getFieldTypeIndex(0)).getTypeSignature();
+                return typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(elementType), ImmutableList.of());
+            case MAP:
+                TypeSignature keyType = getType(types, type.getFieldTypeIndex(0)).getTypeSignature();
+                TypeSignature valueType = getType(types, type.getFieldTypeIndex(1)).getTypeSignature();
+                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(keyType, valueType), ImmutableList.of());
+            case STRUCT:
+                ImmutableList.Builder<TypeSignature> fieldTypes = ImmutableList.builder();
+                for (int i = 0; i < type.getFieldCount(); i++) {
+                    fieldTypes.add(getType(types, type.getFieldTypeIndex(i)).getTypeSignature());
+                }
+                return typeManager.getParameterizedType(StandardTypes.ROW, fieldTypes.build(), ImmutableList.copyOf(type.getFieldNames()));
         }
         throw new PrestoException(RAPTOR_ERROR, "Unhandled ORC type: " + type);
     }

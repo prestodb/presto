@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.raptor.util;
 
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -29,5 +32,15 @@ public final class Types
                 target.getName(),
                 value.getClass().getName());
         return target.cast(value);
+    }
+
+    public static boolean isArrayType(Type type)
+    {
+        return type.getTypeSignature().getBase().equals(StandardTypes.ARRAY);
+    }
+
+    public static boolean isMapType(Type type)
+    {
+        return type.getTypeSignature().getBase().equals(StandardTypes.MAP);
     }
 }

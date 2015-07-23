@@ -14,23 +14,36 @@
 package com.facebook.presto.raptor.storage;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 import static org.apache.hadoop.hive.serde.serdeConstants.BIGINT_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.BINARY_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.BOOLEAN_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.DOUBLE_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.serdeConstants.LIST_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.serdeConstants.MAP_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
 
-public enum StorageType
+public final class StorageType
 {
-    BOOLEAN(BOOLEAN_TYPE_NAME),
-    LONG(BIGINT_TYPE_NAME),
-    DOUBLE(DOUBLE_TYPE_NAME),
-    STRING(STRING_TYPE_NAME),
-    BYTES(BINARY_TYPE_NAME);
+    public static final StorageType BOOLEAN = new StorageType(BOOLEAN_TYPE_NAME);
+    public static final StorageType LONG = new StorageType(BIGINT_TYPE_NAME);
+    public static final StorageType DOUBLE = new StorageType(DOUBLE_TYPE_NAME);
+    public static final StorageType STRING = new StorageType(STRING_TYPE_NAME);
+    public static final StorageType BYTES = new StorageType(BINARY_TYPE_NAME);
 
     private final String hiveTypeName;
 
-    StorageType(String hiveTypeName)
+    public static StorageType arrayOf(StorageType elementStorageType)
+    {
+        return new StorageType(format("%s<%s>", LIST_TYPE_NAME, elementStorageType.getHiveTypeName()));
+    }
+
+    public static StorageType mapOf(StorageType keyStorageType, StorageType valueStorageType)
+    {
+        return new StorageType(format("%s<%s,%s>", MAP_TYPE_NAME, keyStorageType.getHiveTypeName(), valueStorageType.getHiveTypeName()));
+    }
+
+    private StorageType(String hiveTypeName)
     {
         this.hiveTypeName = checkNotNull(hiveTypeName, "hiveTypeName is null");
     }

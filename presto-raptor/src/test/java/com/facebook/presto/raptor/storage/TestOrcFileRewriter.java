@@ -16,10 +16,14 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.orc.LongVector;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
+import com.facebook.presto.orc.SingleObjectVector;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.raptor.storage.OrcFileRewriter.OrcFileInfo;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -37,6 +41,10 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
+import static com.facebook.presto.tests.StructuralTestUtil.arrayBlocksEqual;
+import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
+import static com.facebook.presto.tests.StructuralTestUtil.mapBlocksEqual;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.FileUtils.deleteRecursively;
@@ -44,6 +52,7 @@ import static java.nio.file.Files.readAllBytes;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestOrcFileRewriter
@@ -68,17 +77,20 @@ public class TestOrcFileRewriter
     public void testRewrite()
             throws Exception
     {
-        List<Long> columnIds = ImmutableList.of(3L, 7L);
-        List<Type> columnTypes = ImmutableList.of(BIGINT, VARCHAR);
+        ArrayType arrayType = new ArrayType(BIGINT);
+        ArrayType arrayOfArrayType = new ArrayType(arrayType);
+        MapType mapType = new MapType(VARCHAR, BOOLEAN);
+        List<Long> columnIds = ImmutableList.of(3L, 7L, 9L, 10L, 11L);
+        List<Type> columnTypes = ImmutableList.of(BIGINT, VARCHAR, arrayType, mapType, arrayOfArrayType);
 
         File file = new File(temporary, randomUUID().toString());
         try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
             List<Page> pages = rowPagesBuilder(columnTypes)
-                    .row(123, "hello")
-                    .row(777, "sky")
-                    .row(456, "bye")
-                    .row(888, "world")
-                    .row(999, "done")
+                    .row(123, "hello", arrayBlockOf(BIGINT, 1, 2), mapBlockOf(VARCHAR, BOOLEAN, "k1", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)))
+                    .row(777, "sky", arrayBlockOf(BIGINT, 3, 4), mapBlockOf(VARCHAR, BOOLEAN, "k2", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 6)))
+                    .row(456, "bye", arrayBlockOf(BIGINT, 5, 6), mapBlockOf(VARCHAR, BOOLEAN, "k3", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7)))
+                    .row(888, "world", arrayBlockOf(BIGINT, 7, 8), mapBlockOf(VARCHAR, BOOLEAN, "k4", true), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 8), null))
+                    .row(999, "done", arrayBlockOf(BIGINT, 9, 10), mapBlockOf(VARCHAR, BOOLEAN, "k5", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 9, 10)))
                     .build();
             writer.appendPages(pages);
         }
@@ -111,6 +123,39 @@ public class TestOrcFileRewriter
             assertEquals(stringVector.vector[3], utf8Slice("world"));
             assertEquals(stringVector.vector[4], utf8Slice("done"));
 
+            SingleObjectVector arrayVector = new SingleObjectVector();
+            reader.readVector(arrayType, 2, arrayVector);
+            Block block = (Block) arrayVector.object;
+            assertEquals(block.getPositionCount(), 5);
+
+            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(block, 0), arrayBlockOf(BIGINT, 1, 2)));
+            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(block, 1), arrayBlockOf(BIGINT, 3, 4)));
+            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(block, 2), arrayBlockOf(BIGINT, 5, 6)));
+            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(block, 3), arrayBlockOf(BIGINT, 7, 8)));
+            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(block, 4), arrayBlockOf(BIGINT, 9, 10)));
+
+            SingleObjectVector mapVector = new SingleObjectVector();
+            reader.readVector(mapType, 3, mapVector);
+            block = (Block) mapVector.object;
+            assertEquals(block.getPositionCount(), 5);
+
+            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(block, 0), mapBlockOf(VARCHAR, BOOLEAN, "k1", true)));
+            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(block, 1), mapBlockOf(VARCHAR, BOOLEAN, "k2", false)));
+            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(block, 2), mapBlockOf(VARCHAR, BOOLEAN, "k3", true)));
+            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(block, 3), mapBlockOf(VARCHAR, BOOLEAN, "k4", true)));
+            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(block, 4), mapBlockOf(VARCHAR, BOOLEAN, "k5", true)));
+
+            SingleObjectVector arrayOfArrayVector = new SingleObjectVector();
+            reader.readVector(arrayOfArrayType, 4, arrayOfArrayVector);
+            block = (Block) arrayOfArrayVector.object;
+            assertEquals(block.getPositionCount(), 5);
+
+            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(block, 0), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5))));
+            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(block, 1), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 6))));
+            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(block, 2), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7))));
+            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(block, 3), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 8), null)));
+            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(block, 4), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 9, 10))));
+
             assertEquals(reader.nextBatch(), -1);
         }
 
@@ -122,7 +167,7 @@ public class TestOrcFileRewriter
         File newFile = new File(temporary, randomUUID().toString());
         OrcFileInfo info = OrcFileRewriter.rewrite(file, newFile, rowsToDelete);
         assertEquals(info.getRowCount(), 2);
-        assertEquals(info.getUncompressedSize(), 24);
+        assertEquals(info.getUncompressedSize(), 78);
 
         try (OrcDataSource dataSource = fileOrcDataSource(newFile)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
@@ -145,6 +190,30 @@ public class TestOrcFileRewriter
             reader.readVector(1, stringVector);
             assertEquals(stringVector.vector[0], utf8Slice("hello"));
             assertEquals(stringVector.vector[1], utf8Slice("bye"));
+
+            SingleObjectVector arrayVector = new SingleObjectVector();
+            reader.readVector(arrayType, 2, arrayVector);
+            Block block = (Block) arrayVector.object;
+            assertEquals(block.getPositionCount(), 2);
+
+            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(block, 0), arrayBlockOf(BIGINT, 1, 2)));
+            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(block, 1), arrayBlockOf(BIGINT, 5, 6)));
+
+            SingleObjectVector mapVector = new SingleObjectVector();
+            reader.readVector(mapType, 3, mapVector);
+            block = (Block) mapVector.object;
+            assertEquals(block.getPositionCount(), 2);
+
+            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(block, 0), mapBlockOf(VARCHAR, BOOLEAN, "k1", true)));
+            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(block, 1), mapBlockOf(VARCHAR, BOOLEAN, "k3", true)));
+
+            SingleObjectVector arrayOfArrayVector = new SingleObjectVector();
+            reader.readVector(arrayOfArrayType, 4, arrayOfArrayVector);
+            block = (Block) arrayOfArrayVector.object;
+            assertEquals(block.getPositionCount(), 2);
+
+            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(block, 0), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5))));
+            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(block, 1), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7))));
 
             assertEquals(reader.nextBatch(), -1);
         }
