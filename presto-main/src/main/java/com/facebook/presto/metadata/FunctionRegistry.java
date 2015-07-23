@@ -102,6 +102,7 @@ import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
+import com.facebook.presto.type.UnknownOperators;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
 import com.google.common.annotations.VisibleForTesting;
@@ -321,6 +322,7 @@ public class FunctionRegistry
                 .scalar(JsonFunctions.class)
                 .scalar(ColorFunctions.class)
                 .scalar(HyperLogLogFunctions.class)
+                .scalar(UnknownOperators.class)
                 .scalar(BooleanOperators.class)
                 .scalar(BigintOperators.class)
                 .scalar(DoubleOperators.class)
