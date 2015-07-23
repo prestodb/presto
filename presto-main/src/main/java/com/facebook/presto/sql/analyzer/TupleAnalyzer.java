@@ -486,6 +486,17 @@ public class TupleAnalyzer
 
                 addCoercionForJoinCriteria(node, leftExpression, rightExpression);
                 expressions.add(new ComparisonExpression(EQUAL, leftExpression, rightExpression));
+
+                List<Field> joinUsingFields = output.resolveFields(QualifiedName.of(column));
+                if (joinUsingFields.size() == 2) {
+                    Field baseField = joinUsingFields.get(0);
+                    Field equivalentField = joinUsingFields.get(1);
+                    if (node.getType() == Join.Type.RIGHT) {
+                        baseField = joinUsingFields.get(1);
+                        equivalentField = joinUsingFields.get(0);
+                    }
+                    analysis.addEquivalentJoinFields(baseField, equivalentField);
+                }
             }
 
             analysis.setJoinCriteria(node, ExpressionUtils.and(expressions));
@@ -892,7 +903,8 @@ public class TupleAnalyzer
                 // expand * and T.*
                 Optional<QualifiedName> starPrefix = ((AllColumns) item).getPrefix();
 
-                for (Field field : inputTupleDescriptor.resolveFieldsWithPrefix(starPrefix)) {
+                List<Field> fields = inputTupleDescriptor.resolveFieldsWithPrefix(starPrefix);
+                for (Field field : getUniqueFields(fields)) {
                     outputFields.add(Field.newUnqualified(field.getName(), field.getType()));
                 }
             }
@@ -934,7 +946,7 @@ public class TupleAnalyzer
                     }
                 }
 
-                for (Field field : fields) {
+                for (Field field : getUniqueFields(fields)) {
                     int fieldIndex = tupleDescriptor.indexOf(field);
                     outputExpressionBuilder.add(new FieldOrExpression(fieldIndex));
 
@@ -963,6 +975,23 @@ public class TupleAnalyzer
         analysis.setOutputExpressions(node, result);
 
         return result;
+    }
+
+    private List<Field> getUniqueFields(List<Field> fields)
+    {
+        List<Field> baseJoinFields = fields.stream()
+                .filter(field -> analysis.getEquivalentJoinFields(field) != null)
+                .collect(toImmutableList());
+        if (baseJoinFields.isEmpty()) {
+            return fields;
+        }
+        List<Field> equivalentJoinFields = baseJoinFields.stream()
+                .map(field -> analysis.getEquivalentJoinFields(field))
+                .collect(toImmutableList());
+        List<Field> outputFields = fields.stream()
+                .filter(field -> !equivalentJoinFields.contains(field))
+                .collect(toImmutableList());
+        return outputFields;
     }
 
     public void analyzeWhere(Node node, TupleDescriptor tupleDescriptor, AnalysisContext context, Expression predicate)
@@ -1053,7 +1082,7 @@ public class TupleAnalyzer
 
     private void verifyAggregations(QuerySpecification node, List<FieldOrExpression> groupByExpressions, TupleDescriptor tupleDescriptor, FieldOrExpression fieldOrExpression)
     {
-        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, metadata, tupleDescriptor);
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, metadata, tupleDescriptor, analysis.getEquivalentJoinFields());
 
         if (fieldOrExpression.isExpression()) {
             analyzer.analyze(fieldOrExpression.getExpression());

@@ -68,6 +68,7 @@ public class Analysis
     private final IdentityHashMap<Join, Expression> joins = new IdentityHashMap<>();
     private final SetMultimap<Node, InPredicate> inPredicates = HashMultimap.create();
     private final IdentityHashMap<Join, JoinInPredicates> joinInPredicates = new IdentityHashMap<>();
+    private final IdentityHashMap<Field, Field> equivalentJoinFields = new IdentityHashMap<>();
 
     private final IdentityHashMap<Table, TableHandle> tables = new IdentityHashMap<>();
 
@@ -240,6 +241,21 @@ public class Analysis
     public JoinInPredicates getJoinInPredicates(Join node)
     {
         return joinInPredicates.get(node);
+    }
+
+    public void addEquivalentJoinFields(Field left, Field right)
+    {
+        equivalentJoinFields.put(left, right);
+    }
+
+    public IdentityHashMap<Field, Field> getEquivalentJoinFields()
+    {
+        return equivalentJoinFields;
+    }
+
+    public Field getEquivalentJoinFields(Field field)
+    {
+        return equivalentJoinFields.get(field);
     }
 
     public void setWindowFunctions(QuerySpecification node, List<FunctionCall> functions)
