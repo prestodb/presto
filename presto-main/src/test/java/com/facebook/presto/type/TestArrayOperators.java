@@ -289,13 +289,13 @@ public class TestArrayOperators
         assertFunction("ARRAY_MIN(ARRAY [NULL, NULL, NULL])", UNKNOWN, null);
         assertFunction("ARRAY_MIN(ARRAY [NULL, 2, 3])", BIGINT, null);
         assertFunction("ARRAY_MIN(ARRAY [1.0, NULL, 3])", DOUBLE, null);
-        assertFunction("ARRAY_MIN(ARRAY ['1', '2', NULL])", VARCHAR, null);
+        assertFunction("ARRAY_MIN(ARRAY ['1', '2', NULL])", createVarcharType(1), null);
         assertFunction("ARRAY_MIN(ARRAY [3, 2, 1])", BIGINT, 1);
         assertFunction("ARRAY_MIN(ARRAY [1, 2, 3])", BIGINT, 1);
         assertFunction("ARRAY_MIN(ARRAY [1, 2.0, 3])", DOUBLE, 1.0);
         assertFunction("ARRAY_MIN(ARRAY [ARRAY[1, 2], ARRAY[3]])", new ArrayType(BIGINT), ImmutableList.of(1L, 2L));
         assertFunction("ARRAY_MIN(ARRAY [1.0, 2.5, 3.0])", DOUBLE, 1.0);
-        assertFunction("ARRAY_MIN(ARRAY ['puppies', 'kittens'])", VARCHAR, "kittens");
+        assertFunction("ARRAY_MIN(ARRAY ['puppies', 'kittens'])", createVarcharType(7), "kittens");
         assertFunction("ARRAY_MIN(ARRAY [TRUE, FALSE])", BOOLEAN, false);
         assertFunction("ARRAY_MIN(ARRAY [NULL, FALSE])", BOOLEAN, null);
     }
@@ -309,13 +309,13 @@ public class TestArrayOperators
         assertFunction("ARRAY_MAX(ARRAY [NULL, NULL, NULL])", UNKNOWN, null);
         assertFunction("ARRAY_MAX(ARRAY [NULL, 2, 3])", BIGINT, null);
         assertFunction("ARRAY_MAX(ARRAY [1.0, NULL, 3])", DOUBLE, null);
-        assertFunction("ARRAY_MAX(ARRAY ['1', '2', NULL])", VARCHAR, null);
+        assertFunction("ARRAY_MAX(ARRAY ['1', '2', NULL])", createVarcharType(1), null);
         assertFunction("ARRAY_MAX(ARRAY [3, 2, 1])", BIGINT, 3);
         assertFunction("ARRAY_MAX(ARRAY [1, 2, 3])", BIGINT, 3);
         assertFunction("ARRAY_MAX(ARRAY [1, 2.0, 3])", DOUBLE, 3.0);
         assertFunction("ARRAY_MAX(ARRAY [ARRAY[1, 2], ARRAY[3]])", new ArrayType(BIGINT), ImmutableList.of(3L));
         assertFunction("ARRAY_MAX(ARRAY [1.0, 2.5, 3.0])", DOUBLE, 3.0);
-        assertFunction("ARRAY_MAX(ARRAY ['puppies', 'kittens'])", VARCHAR, "puppies");
+        assertFunction("ARRAY_MAX(ARRAY ['puppies', 'kittens'])", createVarcharType(7), "puppies");
         assertFunction("ARRAY_MAX(ARRAY [TRUE, FALSE])", BOOLEAN, true);
         assertFunction("ARRAY_MAX(ARRAY [NULL, FALSE])", BOOLEAN, null);
     }
@@ -476,7 +476,7 @@ public class TestArrayOperators
         assertFunction("SLICE(ARRAY [1, 2, 3, 4, 5], 1, 4)", new ArrayType(BIGINT), ImmutableList.of(1L, 2L, 3L, 4L));
         assertFunction("SLICE(ARRAY [1, 2], 1, 4)", new ArrayType(BIGINT), ImmutableList.of(1L, 2L));
         assertFunction("SLICE(ARRAY [1, 2, 3, 4, 5], 3, 2)", new ArrayType(BIGINT), ImmutableList.of(3L, 4L));
-        assertFunction("SLICE(ARRAY ['1', '2', '3', '4'], 2, 1)", new ArrayType(VARCHAR), ImmutableList.of("2"));
+        assertFunction("SLICE(ARRAY ['1', '2', '3', '4'], 2, 1)", new ArrayType(createVarcharType(1)), ImmutableList.of("2"));
         assertFunction("SLICE(ARRAY [1, 2, 3, 4], 3, 3)", new ArrayType(BIGINT), ImmutableList.of(3L, 4L));
         assertFunction("SLICE(ARRAY [1, 2, 3, 4], -3, 3)", new ArrayType(BIGINT), ImmutableList.of(2L, 3L, 4L));
         assertFunction("SLICE(ARRAY [1, 2, 3, 4], -3, 5)", new ArrayType(BIGINT), ImmutableList.of(2L, 3L, 4L));
