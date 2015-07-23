@@ -207,9 +207,9 @@ valueExpression
 
 primaryExpression
     : NULL                                                                           #nullLiteral
-    | number                                                                         #numericLiteral
     | interval                                                                       #intervalLiteral
     | type STRING                                                                    #typeConstructor
+    | number                                                                         #numericLiteral
     | booleanValue                                                                   #booleanLiteral
     | STRING                                                                         #stringLiteral
     | '(' expression (',' expression)+ ')'                                           #rowConstructor
@@ -512,8 +512,7 @@ DECIMAL_VALUE
     ;
 
 DOUBLE_VALUE
-    :
-    | DIGIT+ ('.' DIGIT*)? EXPONENT
+    : DIGIT+ ('.' DIGIT*)? EXPONENT
     | '.' DIGIT+ EXPONENT
     ;
 
