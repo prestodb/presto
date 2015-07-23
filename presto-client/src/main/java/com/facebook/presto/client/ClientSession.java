@@ -38,12 +38,14 @@ public class ClientSession
     private final Locale locale;
     private final Map<String, String> properties;
     private final boolean debug;
+    private String delegationToken;
 
     public static ClientSession withCatalogAndSchema(ClientSession session, String catalog, String schema)
     {
         return new ClientSession(
                 session.getServer(),
                 session.getUser(),
+                session.getDelegationToken(),
                 session.getSource(),
                 catalog,
                 schema,
@@ -61,6 +63,7 @@ public class ClientSession
         return new ClientSession(
                 session.getServer(),
                 session.getUser(),
+                session.getDelegationToken(),
                 session.getSource(),
                 session.getCatalog(),
                 session.getSchema(),
@@ -75,6 +78,7 @@ public class ClientSession
         return new ClientSession(
                 session.getServer(),
                 session.getUser(),
+                session.getDelegationToken(),
                 session.getSource(),
                 session.getCatalog(),
                 session.getSchema(),
@@ -106,6 +110,13 @@ public class ClientSession
         }
     }
 
+    public ClientSession(URI server, String user, String delegationToken, String source,
+            String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, boolean debug)
+    {
+        this(server, user, source, catalog, schema, timeZoneId, locale, properties, debug);
+        this.delegationToken = delegationToken;
+    }
+
     public URI getServer()
     {
         return server;
@@ -114,6 +125,11 @@ public class ClientSession
     public String getUser()
     {
         return user;
+    }
+
+    public String getDelegationToken()
+    {
+        return delegationToken;
     }
 
     public String getSource()
@@ -157,6 +173,7 @@ public class ClientSession
         return toStringHelper(this)
                 .add("server", server)
                 .add("user", user)
+                .add("delegationToken", delegationToken)
                 .add("catalog", catalog)
                 .add("schema", schema)
                 .add("timeZone", timeZoneId)

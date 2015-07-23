@@ -115,6 +115,9 @@ public class StatementClient
         if (session.getUser() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_USER, session.getUser());
         }
+        if (session.getDelegationToken() != null) {
+            builder.setHeader(PrestoHeaders.PRESTO_DELEGATION_TOKEN, session.getDelegationToken());
+        }
         if (session.getSource() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_SOURCE, session.getSource());
         }
