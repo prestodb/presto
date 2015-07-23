@@ -177,7 +177,7 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
     d3.select('#sessionCatalog').text(query.session.catalog);
     d3.select('#sessionSchema').text(query.session.schema);
     d3.select('#elapsedTime').text(query.queryStats.elapsedTime);
-    if (query.state == 'FINISHED' || query.state == 'FAILED') {
+    if (query.queryStats.endTime) {
         var fmtFunc = d3.time.format("%x %X");
         d3.select('#endTime').text(fmtFunc(new Date(query.queryStats.endTime)));
     }
