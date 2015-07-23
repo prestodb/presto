@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
+import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -58,6 +59,22 @@ public class IsDistinctFromCodeGenerator
                 .comment("equals(%s, %s)", leftType, rightType)
                 .append(invoke(binding, operator.getSignature()));
 
+        ByteCodeNode neitherSideIsNull;
+        if (leftType instanceof UnknownType || rightType instanceof UnknownType) {
+            // the generated block should be unreachable. However, a boolean need to be pushed to balance the stack
+            neitherSideIsNull = new Block()
+                    .comment("unreachable code")
+                    .push(false);
+        }
+        else {
+            // This code assumes that argument and return type are not @Nullable.
+            // It is not the case for UnknownType, and introduces Verification Error.
+            // And it is hard to imagine that making it work with @Nullable will be useful in any other cases;
+            neitherSideIsNull = new Block()
+                    .append(equalsCall)
+                    .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class);
+        }
+
         Block block = new Block()
                 .comment("IS DISTINCT FROM")
                 .comment("left")
@@ -81,9 +98,7 @@ public class IsDistinctFromCodeGenerator
                                                 .pop(leftType.getJavaType())
                                                 .pop(rightType.getJavaType())
                                                 .push(true))
-                                        .ifFalse(new Block()
-                                                .append(equalsCall)
-                                                .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)))))
+                                        .ifFalse(neitherSideIsNull))))
                 .append(wasNull.set(constantFalse()));
 
         return block;
