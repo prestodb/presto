@@ -43,6 +43,10 @@ import static com.google.common.base.Preconditions.checkState;
 public final class TypeJsonUtils
 {
     private static final JsonFactory JSON_FACTORY = new JsonFactory().disable(CANONICALIZE_FIELD_NAMES);
+
+    // This object mapper is constructed without .configure(ORDER_MAP_ENTRIES_BY_KEYS, true) because
+    // `OBJECT_MAPPER.writeValueAsString(parser.readValueAsTree());` preserves input order.
+    // Be aware. Using it arbitrarily can produce invalid json (ordered by key is required in presto).
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper(JSON_FACTORY);
 
     private TypeJsonUtils() {}

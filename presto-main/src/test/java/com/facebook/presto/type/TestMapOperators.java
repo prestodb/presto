@@ -14,16 +14,19 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;
@@ -45,6 +48,18 @@ import static org.testng.Assert.assertEquals;
 public class TestMapOperators
         extends AbstractTestFunctions
 {
+    private TestMapOperators()
+    {
+        registerScalar(getClass());
+    }
+
+    @ScalarFunction
+    @SqlType(StandardTypes.JSON)
+    public static Slice uncheckedToJson(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    {
+        return slice;
+    }
+
     @Test
     public void testStackRepresentation()
             throws Exception
@@ -166,6 +181,19 @@ public class TestMapOperators
                         .put("k7", "[null]")
                         .build()
         );
+
+        // These two tests verifies that partial json cast preserves input order
+        // The second test should never happen in real life because valid json in presto requires natural key ordering.
+        // However, it is added to make sure that the order in the first test is not a coincidence.
+        assertFunction("CAST(CAST('{\"k1\": {\"1klmnopq\":1, \"2klmnopq\":2, \"3klmnopq\":3, \"4klmnopq\":4, \"5klmnopq\":5, \"6klmnopq\":6, \"7klmnopq\":7}}' AS JSON) AS MAP<VARCHAR, JSON>)",
+                new MapType(VARCHAR, JSON),
+                ImmutableMap.of("k1", "{\"1klmnopq\":1,\"2klmnopq\":2,\"3klmnopq\":3,\"4klmnopq\":4,\"5klmnopq\":5,\"6klmnopq\":6,\"7klmnopq\":7}")
+        );
+        assertFunction("CAST(unchecked_to_json('{\"k1\": {\"7klmnopq\":7, \"6klmnopq\":6, \"5klmnopq\":5, \"4klmnopq\":4, \"3klmnopq\":3, \"2klmnopq\":2, \"1klmnopq\":1}}') AS MAP<VARCHAR, JSON>)",
+                new MapType(VARCHAR, JSON),
+                ImmutableMap.of("k1", "{\"7klmnopq\":7,\"6klmnopq\":6,\"5klmnopq\":5,\"4klmnopq\":4,\"3klmnopq\":3,\"2klmnopq\":2,\"1klmnopq\":1}")
+        );
+
         assertInvalidCast("CAST(CAST('{\"true\":\"kittens\"}' AS JSON) AS MAP<BOOLEAN, VARBINARY>)");
         assertInvalidCast("CAST(CAST('{\"[1, 2]\": 1}' AS JSON) AS MAP<ARRAY<BIGINT>, BIGINT>)");
     }
