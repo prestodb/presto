@@ -31,8 +31,13 @@ import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
+import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 
 import java.io.Closeable;
 import java.io.File;
@@ -45,6 +50,10 @@ import java.util.Properties;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.storage.Row.extractRow;
+import static com.facebook.presto.raptor.storage.StorageType.arrayOf;
+import static com.facebook.presto.raptor.storage.StorageType.mapOf;
+import static com.facebook.presto.raptor.util.Types.isArrayType;
+import static com.facebook.presto.raptor.util.Types.isMapType;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Functions.toStringFunction;
@@ -56,12 +65,14 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
 import static org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.SNAPPY;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.LIST;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.MAP;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.PRIMITIVE;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardMapObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaByteArrayObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDoubleObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector;
+import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getPrimitiveTypeInfo;
 
 public class OrcFileWriter
         implements Closeable
@@ -196,24 +207,30 @@ public class OrcFileWriter
 
     private static List<ObjectInspector> getJavaObjectInspectors(List<StorageType> types)
     {
-        return types.stream().map(OrcFileWriter::getJavaObjectInspector).collect(toList());
+        return types.stream()
+                .map(StorageType::getHiveTypeName)
+                .map(TypeInfoUtils::getTypeInfoFromTypeString)
+                .map(OrcFileWriter::getJavaObjectInspector)
+                .collect(toList());
     }
 
-    private static ObjectInspector getJavaObjectInspector(StorageType type)
+    private static ObjectInspector getJavaObjectInspector(TypeInfo typeInfo)
     {
-        switch (type) {
-            case BOOLEAN:
-                return javaBooleanObjectInspector;
-            case LONG:
-                return javaLongObjectInspector;
-            case DOUBLE:
-                return javaDoubleObjectInspector;
-            case STRING:
-                return javaStringObjectInspector;
-            case BYTES:
-                return javaByteArrayObjectInspector;
+        Category category = typeInfo.getCategory();
+        if (category == PRIMITIVE) {
+            return getPrimitiveJavaObjectInspector(getPrimitiveTypeInfo(typeInfo.getTypeName()));
         }
-        throw new PrestoException(INTERNAL_ERROR, "Unhandled storage type: " + type);
+        if (category == LIST) {
+            ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
+            return getStandardListObjectInspector(getJavaObjectInspector(listTypeInfo.getListElementTypeInfo()));
+        }
+        if (category == MAP) {
+            MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
+            return getStandardMapObjectInspector(
+                    getJavaObjectInspector(mapTypeInfo.getMapKeyTypeInfo()),
+                    getJavaObjectInspector(mapTypeInfo.getMapValueTypeInfo()));
+        }
+        throw new PrestoException(INTERNAL_ERROR, "Unhandled storage type: " + category);
     }
 
     private static <T> boolean isUnique(Collection<T> items)
@@ -245,6 +262,12 @@ public class OrcFileWriter
             if (type.equals(VarbinaryType.VARBINARY)) {
                 return StorageType.BYTES;
             }
+        }
+        if (isArrayType(type)) {
+            return arrayOf(toStorageType(type.getTypeParameters().get(0)));
+        }
+        if (isMapType(type)) {
+            return mapOf(toStorageType(type.getTypeParameters().get(0)), toStorageType(type.getTypeParameters().get(1)));
         }
         throw new PrestoException(NOT_SUPPORTED, "No storage type for type: " + type);
     }

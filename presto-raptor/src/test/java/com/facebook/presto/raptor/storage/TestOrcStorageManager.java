@@ -35,6 +35,7 @@ import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -488,6 +489,7 @@ public class TestOrcStorageManager
                 ORC_MAX_READ_SIZE,
                 ORC_STREAM_BUFFER_SIZE,
                 recoveryManager,
+                new TypeRegistry(),
                 SHARD_RECOVERY_TIMEOUT,
                 maxShardRows,
                 maxFileSize,

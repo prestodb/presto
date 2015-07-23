@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createSampledSession;
@@ -26,5 +27,24 @@ public class TestRaptorDistributedQueries
             throws Exception
     {
         super(createRaptorQueryRunner(getTables()), createSampledSession());
+    }
+
+    @Test
+    public void testCreateArrayTable()
+            throws Exception
+    {
+        assertQuery("CREATE TABLE array_test AS SELECT ARRAY [1, 2, 3] AS c", "SELECT 1");
+        assertQuery("SELECT cardinality(c) FROM array_test", "SELECT 3");
+        assertQueryTrue("DROP TABLE array_test");
+    }
+
+    @Test
+    public void testMapTable()
+            throws Exception
+    {
+        assertQuery("CREATE TABLE map_test AS SELECT MAP(ARRAY [1, 2, 3], ARRAY ['hi', 'bye', NULL]) AS c", "SELECT 1");
+        assertQuery("SELECT c[1] FROM map_test", "SELECT 'hi'");
+        assertQuery("SELECT c[3] FROM map_test", "SELECT NULL");
+        assertQueryTrue("DROP TABLE map_test");
     }
 }
