@@ -49,7 +49,7 @@ public class QueryBuilder
         sql.append("SELECT ");
         Joiner.on(", ").appendTo(sql, transform(columns, column -> quote(column.getColumnName())));
         if (columns.isEmpty()) {
-            sql.append("null");
+            sql.append("1");
         }
 
         sql.append(" FROM ");
