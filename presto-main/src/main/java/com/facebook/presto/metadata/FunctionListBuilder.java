@@ -19,7 +19,9 @@ import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.JsonPath;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarOperator;
+import com.facebook.presto.operator.window.ParametricWindowFunction;
 import com.facebook.presto.operator.window.ReflectionWindowFunctionSupplier;
+import com.facebook.presto.operator.window.ValueWindowFunction;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.ConnectorSession;
@@ -48,6 +50,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
+import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
@@ -82,6 +85,13 @@ public class FunctionListBuilder
                 functionClass);
 
         functions.add(new FunctionInfo(windowFunctionSupplier.getSignature(), windowFunctionSupplier.getDescription(), windowFunctionSupplier));
+        return this;
+    }
+
+    public FunctionListBuilder window(String name, Class<? extends ValueWindowFunction> clazz, String typeVariable, String... argumentTypes)
+    {
+        Signature signature = new Signature(name, ImmutableList.of(typeParameter(typeVariable)), typeVariable, ImmutableList.copyOf(argumentTypes), false, false);
+        functions.add(new ParametricWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, clazz)));
         return this;
     }
 
