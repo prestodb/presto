@@ -13,17 +13,15 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
@@ -31,7 +29,6 @@ import static org.testng.Assert.assertTrue;
 
 public class TestJmxMetadata
 {
-    private static final ConnectorSession SESSION = new TestingConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
     private static final String RUNTIME_OBJECT = "java.lang:type=Runtime";
     private static final SchemaTableName RUNTIME_TABLE = new SchemaTableName("jmx", RUNTIME_OBJECT.toLowerCase(ENGLISH));
 
