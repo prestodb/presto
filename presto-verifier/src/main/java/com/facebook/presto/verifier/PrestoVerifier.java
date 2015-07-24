@@ -179,14 +179,16 @@ public class PrestoVerifier
                             input.getTest().getQuery(),
                             Optional.ofNullable(config.getTestUsernameOverride()).orElse(input.getTest().getUsername()),
                             Optional.ofNullable(config.getTestPasswordOverride()).orElse(
-                                    Optional.ofNullable(input.getTest().getPassword()).orElse(null)));
+                                    Optional.ofNullable(input.getTest().getPassword()).orElse(null)),
+                            input.getTest().getSessionProperties());
                     Query control = new Query(
                             Optional.ofNullable(config.getControlCatalogOverride()).orElse(input.getControl().getCatalog()),
                             Optional.ofNullable(config.getControlSchemaOverride()).orElse(input.getControl().getSchema()),
                             input.getControl().getQuery(),
                             Optional.ofNullable(config.getControlUsernameOverride()).orElse(input.getControl().getUsername()),
                             Optional.ofNullable(config.getControlPasswordOverride()).orElse(
-                                    Optional.ofNullable(input.getControl().getPassword()).orElse(null)));
+                                    Optional.ofNullable(input.getControl().getPassword()).orElse(null)),
+                            input.getControl().getSessionProperties());
                     return new QueryPair(input.getSuite(), input.getName(), test, control);
                 })
                 .collect(toImmutableList());

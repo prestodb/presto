@@ -35,6 +35,7 @@ public interface VerifierDao
             ", control_query\n" +
             ", control_username\n" +
             ", control_password\n" +
+            ", session_properties_json\n" +
             "FROM verifier_queries\n" +
             "WHERE suite = :suite\n" +
             "ORDER BY id\n" +

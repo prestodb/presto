@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier;
 
+import com.facebook.presto.jdbc.PrestoConnection;
 import com.facebook.presto.verifier.Validator.ChangedRow.Changed;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
@@ -72,6 +73,7 @@ public class Validator
     private final boolean verboseResultsComparison;
     private final QueryPair queryPair;
     private final boolean explainOnly;
+    private final Map<String, String> sessionProperties;
 
     private Boolean valid;
 
@@ -105,6 +107,8 @@ public class Validator
         this.verboseResultsComparison = config.isVerboseResultsComparison();
 
         this.queryPair = checkNotNull(queryPair, "queryPair is null");
+        // Test and Control always have the same session properties.
+        this.sessionProperties = queryPair.getTest().getSessionProperties();
     }
 
     public boolean isSkipped()
@@ -176,7 +180,7 @@ public class Validator
 
     private boolean validate()
     {
-        controlResult = executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlTimeout);
+        controlResult = executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlTimeout, sessionProperties);
 
         // query has too many rows. Consider blacklisting.
         if (controlResult.getState() == State.TOO_MANY_ROWS) {
@@ -189,7 +193,7 @@ public class Validator
             return true;
         }
 
-        testResult = executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testTimeout);
+        testResult = executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testTimeout, sessionProperties);
 
         if ((controlResult.getState() != State.SUCCESS) || (testResult.getState() != State.SUCCESS)) {
             return false;
@@ -205,7 +209,7 @@ public class Validator
 
         // check if the control query is deterministic
         for (int i = 0; i < 3; i++) {
-            QueryResult results = executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlTimeout);
+            QueryResult results = executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlTimeout, sessionProperties);
             if (results.getState() != State.SUCCESS) {
                 return false;
             }
@@ -235,10 +239,13 @@ public class Validator
         return testResult;
     }
 
-    private QueryResult executeQuery(String url, String username, String password, Query query, Duration timeout)
+    private QueryResult executeQuery(String url, String username, String password, Query query, Duration timeout, Map<String, String> sessionProperties)
     {
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
             trySetConnectionProperties(query, connection);
+            for (Map.Entry<String, String> entry : sessionProperties.entrySet()) {
+                connection.unwrap(PrestoConnection.class).setSessionProperty(entry.getKey(), entry.getValue());
+            }
             long start = System.nanoTime();
 
             try (Statement statement = connection.createStatement()) {
@@ -354,7 +361,6 @@ public class Validator
                     object = ((Array) object).getArray();
                 }
                 row.add(object);
-
             }
             rows.add(unmodifiableList(row));
             rowCount++;
