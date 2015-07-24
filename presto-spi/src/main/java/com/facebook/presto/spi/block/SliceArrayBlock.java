@@ -19,7 +19,10 @@ import io.airlift.slice.Slices;
 
 import java.util.Arrays;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
+
+import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositions;
 
 public class SliceArrayBlock
         extends AbstractVariableWidthBlock
@@ -69,6 +72,20 @@ public class SliceArrayBlock
     public BlockEncoding getEncoding()
     {
         return new SliceArrayBlockEncoding();
+    }
+
+    @Override
+    public Block copyPositions(List<Integer> positions)
+    {
+        checkValidPositions(positions, positionCount);
+
+        Slice[] newValues = new Slice[positions.size()];
+        for (int i = 0; i < positions.size(); i++) {
+            if (!isEntryNull(positions.get(i))) {
+                newValues[i] = Slices.copyOf(values[positions.get(i)]);
+            }
+        }
+        return new SliceArrayBlock(positions.size(), newValues);
     }
 
     @Override

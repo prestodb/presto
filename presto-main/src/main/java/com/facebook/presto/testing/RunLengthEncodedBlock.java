@@ -17,6 +17,8 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
 
+import java.util.List;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -67,6 +69,12 @@ public class RunLengthEncodedBlock
     public RunLengthBlockEncoding getEncoding()
     {
         return new RunLengthBlockEncoding(value.getEncoding());
+    }
+
+    @Override
+    public Block copyPositions(List<Integer> positions)
+    {
+        return new RunLengthEncodedBlock(value.copyRegion(0, 1), positions.size());
     }
 
     @Override

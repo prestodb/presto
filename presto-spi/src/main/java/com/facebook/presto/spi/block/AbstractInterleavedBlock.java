@@ -15,6 +15,8 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
 
+import java.util.List;
+
 public abstract class AbstractInterleavedBlock
         implements Block
 {
@@ -203,6 +205,12 @@ public abstract class AbstractInterleavedBlock
 
         // return the underlying block directly, as it is unnecessary to wrap around it if there's only one block
         return getBlock(blockIndex).getSingleValueBlock(positionInBlock);
+    }
+
+    @Override
+    public Block copyPositions(List<Integer> positions)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

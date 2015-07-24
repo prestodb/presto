@@ -13,9 +13,14 @@
  */
 package com.facebook.presto.spi.block;
 
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
+import java.util.List;
+
+import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositions;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
 public class VariableWidthBlock
@@ -84,6 +89,28 @@ public class VariableWidthBlock
             return Integer.MAX_VALUE;
         }
         return (int) size;
+    }
+
+    @Override
+    public Block copyPositions(List<Integer> positions)
+    {
+        checkValidPositions(positions, positionCount);
+
+        int finalLength = positions.stream().mapToInt(this::getLength).sum();
+        SliceOutput newSlice = new DynamicSliceOutput(finalLength);
+        SliceOutput newOffsets = new DynamicSliceOutput(positions.size() * SIZE_OF_INT);
+        SliceOutput newValueIsNull = new DynamicSliceOutput(positions.size());
+
+        newOffsets.appendInt(0);
+        for (int position : positions) {
+            boolean isNull = isEntryNull(position);
+            newValueIsNull.appendByte(isNull ? 1 : 0);
+            if (!isNull) {
+                newSlice.appendBytes(slice.getBytes(getPositionOffset(position), getLength(position)));
+            }
+            newOffsets.appendInt(newSlice.size());
+        }
+        return new VariableWidthBlock(positions.size(), newSlice.slice(), newOffsets.slice(), newValueIsNull.slice());
     }
 
     @Override

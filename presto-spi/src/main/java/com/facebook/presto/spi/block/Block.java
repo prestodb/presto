@@ -15,6 +15,8 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
 
+import java.util.List;
+
 public interface Block
 {
     /**
@@ -138,6 +140,14 @@ public interface Block
      * Get the encoding for this block.
      */
     BlockEncoding getEncoding();
+
+    /**
+     * Returns a block containing the specified positions.
+     * All specified positions must be valid for this block.
+     *
+     * The returned block must be a compact representation of the original block.
+     */
+    Block copyPositions(List<Integer> positions);
 
     /**
      * Returns a block starting at the specified position and extends for the
