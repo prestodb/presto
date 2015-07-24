@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.verifier;
 
+import com.google.common.collect.ImmutableMap;
+
+import java.util.Map;
+
 public class Query
 {
     private final String catalog;
@@ -20,14 +24,16 @@ public class Query
     private final String query;
     private final String username;
     private final String password;
+    private final Map<String, String> sessionProperties;
 
-    public Query(String catalog, String schema, String query, String username, String password)
+    public Query(String catalog, String schema, String query, String username, String password, Map<String, String> sessionProperties)
     {
         this.catalog = catalog;
         this.schema = schema;
         this.query = clean(query);
         this.username = username;
         this.password = password;
+        this.sessionProperties = ImmutableMap.copyOf(sessionProperties);
     }
 
     public String getCatalog()
@@ -53,6 +59,11 @@ public class Query
     public String getPassword()
     {
         return password;
+    }
+
+    public Map<String, String> getSessionProperties()
+    {
+        return sessionProperties;
     }
 
     private static String clean(String sql)
