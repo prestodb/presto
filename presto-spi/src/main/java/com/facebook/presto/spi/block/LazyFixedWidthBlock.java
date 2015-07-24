@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.spi.block;
 
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
 import java.util.Arrays;
+import java.util.List;
 
+import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositions;
 import static io.airlift.slice.Slices.wrappedBooleanArray;
 import static java.util.Objects.requireNonNull;
 
@@ -86,6 +90,22 @@ public class LazyFixedWidthBlock
     {
         // TODO: This should account for memory used by the loader.
         return getSizeInBytes();
+    }
+
+    @Override
+    public Block copyPositions(List<Integer> positions)
+    {
+        checkValidPositions(positions, positionCount);
+
+        assureLoaded();
+        SliceOutput newSlice = new DynamicSliceOutput(positions.size() * fixedSize);
+        SliceOutput newValueIsNull = new DynamicSliceOutput(positions.size());
+
+        for (int position : positions) {
+            newValueIsNull.appendByte(valueIsNull[position] ? 1 : 0);
+            newSlice.appendBytes(getRawSlice().getBytes(position * fixedSize, fixedSize));
+        }
+        return new FixedWidthBlock(fixedSize, positions.size(), newSlice.slice(), newValueIsNull.slice());
     }
 
     @Override

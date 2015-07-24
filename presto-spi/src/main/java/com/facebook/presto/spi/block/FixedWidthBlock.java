@@ -13,10 +13,15 @@
  */
 package com.facebook.presto.spi.block;
 
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
+import java.util.List;
 import java.util.Objects;
+
+import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositions;
 
 public class FixedWidthBlock
         extends AbstractFixedWidthBlock
@@ -78,6 +83,21 @@ public class FixedWidthBlock
             return Integer.MAX_VALUE;
         }
         return (int) size;
+    }
+
+    @Override
+    public Block copyPositions(List<Integer> positions)
+    {
+        checkValidPositions(positions, positionCount);
+
+        SliceOutput newSlice = new DynamicSliceOutput(positions.size() * fixedSize);
+        SliceOutput newValueIsNull = new DynamicSliceOutput(positions.size());
+
+        for (int position : positions) {
+            newValueIsNull.appendByte(valueIsNull.getByte(position));
+            newSlice.appendBytes(getRawSlice().getBytes(position * fixedSize, fixedSize));
+        }
+        return new FixedWidthBlock(fixedSize, positions.size(), newSlice.slice(), newValueIsNull.slice());
     }
 
     @Override
