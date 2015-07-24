@@ -30,6 +30,7 @@ import javax.management.ObjectName;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -38,7 +39,6 @@ import java.util.Set;
 import static com.facebook.presto.connector.jmx.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toMap;
 
 public class JmxRecordSetProvider
         implements ConnectorRecordSetProvider
@@ -166,8 +166,10 @@ public class JmxRecordSetProvider
 
         String[] columnNamesArray = uniqueColumnNames.toArray(new String[uniqueColumnNames.size()]);
 
-        return mbeanServer.getAttributes(objectName, columnNamesArray)
-                .asList().stream()
-                .collect(toMap(Attribute::getName, Attribute::getValue));
+        Map<String, Object> map = new HashMap<>();
+        for (Attribute attribute : mbeanServer.getAttributes(objectName, columnNamesArray).asList()) {
+            map.put(attribute.getName(), attribute.getValue());
+        }
+        return map;
     }
 }
