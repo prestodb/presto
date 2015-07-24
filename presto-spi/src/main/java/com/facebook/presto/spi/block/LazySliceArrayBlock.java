@@ -14,11 +14,14 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.SliceArrayBlock.deepCopyAndCompact;
 import static com.facebook.presto.spi.block.SliceArrayBlock.getSliceArraySizeInBytes;
 
@@ -54,6 +57,21 @@ public class LazySliceArrayBlock
     public BlockEncoding getEncoding()
     {
         return new LazySliceArrayBlockEncoding();
+    }
+
+    @Override
+    public Block copyPositions(List<Integer> positions)
+    {
+        checkValidPositions(positions, positionCount);
+        assureLoaded();
+
+        Slice[] newValues = new Slice[positions.size()];
+        for (int i = 0; i < positions.size(); i++) {
+            if (!isEntryNull(positions.get(i))) {
+                newValues[i] = Slices.copyOf(values[positions.get(i)]);
+            }
+        }
+        return new SliceArrayBlock(positions.size(), newValues);
     }
 
     @Override

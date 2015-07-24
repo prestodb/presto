@@ -17,12 +17,14 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockEncoding;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Array;
+import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -62,6 +64,23 @@ public abstract class AbstractTestBlock
         }
     }
 
+    protected static void assertBlockFilteredPositions(Slice[] expectedValues, Block block, List<Integer> positions)
+    {
+        Block filteredBlock = block.copyPositions(positions);
+        Slice[] filteredExpectedValues = filter(expectedValues, positions);
+        assertEquals(filteredBlock.getPositionCount(), positions.size());
+        assertBlock(filteredBlock, filteredExpectedValues);
+    }
+
+    private static Slice[] filter(Slice[] expectedValues, List<Integer> positions)
+    {
+        Slice[] prunedExpectedValues = new Slice[positions.size()];
+        for (int i = 0; i < prunedExpectedValues.length; i++) {
+            prunedExpectedValues[i] = expectedValues[positions.get(i)];
+        }
+        return prunedExpectedValues;
+    }
+
     private static <T> void assertBlockPositions(Block block, T[] expectedValues)
     {
         assertEquals(block.getPositionCount(), expectedValues.length);
@@ -80,6 +99,12 @@ public abstract class AbstractTestBlock
         assertPositionValue(block.copyRegion(position, 1), 0, expectedValue);
         assertPositionValue(block.copyRegion(0, position + 1), position, expectedValue);
         assertPositionValue(block.copyRegion(position, block.getPositionCount() - position), 0, expectedValue);
+        try {
+            assertPositionValue(block.copyPositions(Ints.asList(position)), 0, expectedValue);
+        }
+        catch (UnsupportedOperationException e) {
+            // ignore blocks that do not support this operation
+        }
     }
 
     private static <T> void assertPositionValue(Block block, int position, T expectedValue)

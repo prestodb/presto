@@ -18,6 +18,8 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockEncoding;
 import io.airlift.slice.Slice;
 
+import java.util.List;
+
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -187,6 +189,12 @@ public class GroupByIdBlock
     public BlockEncoding getEncoding()
     {
         return block.getEncoding();
+    }
+
+    @Override
+    public Block copyPositions(List<Integer> positions)
+    {
+        return block.copyPositions(positions);
     }
 
     @Override

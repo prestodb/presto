@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
@@ -30,7 +32,25 @@ public class TestFixedWidthBlock
         }
     }
 
+    @Test
+    public void testCopyPositions()
+            throws Exception
+    {
+        for (int fixedSize = 0; fixedSize < 20; fixedSize++) {
+            Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(17, fixedSize));
+            BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues, fixedSize);
+            assertBlockFilteredPositions(expectedValues, blockBuilder.build(), Ints.asList(0, 2, 4, 6, 7, 9, 10, 16));
+        }
+    }
+
     private static void assertFixedWithValues(Slice[] expectedValues, int fixedSize)
+    {
+        BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues, fixedSize);
+        assertBlock(blockBuilder, expectedValues);
+        assertBlock(blockBuilder.build(), expectedValues);
+    }
+
+    private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues, int fixedSize)
     {
         FixedWidthBlockBuilder blockBuilder = new FixedWidthBlockBuilder(fixedSize, expectedValues.length);
         for (Slice expectedValue : expectedValues) {
@@ -41,8 +61,7 @@ public class TestFixedWidthBlock
                 blockBuilder.writeBytes(expectedValue, 0, expectedValue.length()).closeEntry();
             }
         }
-        assertBlock(blockBuilder, expectedValues);
-        assertBlock(blockBuilder.build(), expectedValues);
+        return blockBuilder;
     }
 
     private static Slice[] createExpectedValues(int positionCount, int fixedSize)

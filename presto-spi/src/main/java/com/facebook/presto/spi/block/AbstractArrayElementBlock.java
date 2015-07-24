@@ -15,6 +15,8 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
 
+import java.util.List;
+
 public abstract class AbstractArrayElementBlock
         implements Block
 {
@@ -168,6 +170,12 @@ public abstract class AbstractArrayElementBlock
     public BlockEncoding getEncoding()
     {
         // ArrayElementBlockEncoding does not exist
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Block copyPositions(List<Integer> positions)
+    {
         throw new UnsupportedOperationException();
     }
 

@@ -16,6 +16,8 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.util.List;
+
 public abstract class AbstractArrayBlock
         implements Block
 {
@@ -36,6 +38,12 @@ public abstract class AbstractArrayBlock
     private int getOffset(int position)
     {
         return position == 0 ? 0 : getOffsets().getInt((position - 1) * 4) - getOffsetBase();
+    }
+
+    @Override
+    public Block copyPositions(List<Integer> positions)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

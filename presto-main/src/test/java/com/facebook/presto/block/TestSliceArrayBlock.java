@@ -14,6 +14,7 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.SliceArrayBlock;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
@@ -26,6 +27,15 @@ public class TestSliceArrayBlock
         Slice[] expectedValues = createExpectedValues(100);
         assertVariableWithValues(expectedValues);
         assertVariableWithValues((Slice[]) alternatingNullValues(expectedValues));
+    }
+
+    @Test
+    public void testCopyPositions()
+            throws Exception
+    {
+        Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(100));
+        SliceArrayBlock block = new SliceArrayBlock(expectedValues.length, expectedValues);
+        assertBlockFilteredPositions(expectedValues, block, Ints.asList(0, 2, 4, 6, 7, 9, 10, 16));
     }
 
     private static void assertVariableWithValues(Slice[] expectedValues)
