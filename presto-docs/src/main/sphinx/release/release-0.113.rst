@@ -16,6 +16,8 @@ for internal Presto data structures and temporary allocations.
 General Changes
 ---------------
 
+* Allow using any type with value window functions :func:`first_value`,
+  :func:`last_value`, :func:`nth_value`, :func:`lead` and :func:`lag`.
 * Add :func:`element_at` function.
 * Add :func:`url_encode` and :func:`url_decode` functions.
 * :func:`concat` now allows arbitrary number of arguments.
