@@ -26,6 +26,7 @@ public class TestMathFunctions
         extends AbstractTestFunctions
 {
     private static final double[] DOUBLE_VALUES = {123, -123, 123.45, -123.45};
+    private static final long[] LONG_VALUES = {0, 1, 10, 230};
     private static final long[] longLefts = {9, 10, 11, -9, -10, -11};
     private static final long[] longRights = {3, -3};
     private static final double[] doubleLefts = {9, 10, 11, -9, -10, -11, 9.1, 10.1, 11.1, -9.1, -10.1, -11.1};
@@ -330,6 +331,12 @@ public class TestMathFunctions
         // random is non-deterministic
         functionAssertions.tryEvaluateWithAll("rand()", DOUBLE, TEST_SESSION);
         functionAssertions.tryEvaluateWithAll("random()", DOUBLE, TEST_SESSION);
+
+        // seeded random
+        for (long l : LONG_VALUES) {
+            functionAssertions.tryEvaluateWithAll(String.format("rand(%d)", l), DOUBLE, TEST_SESSION);
+            functionAssertions.tryEvaluateWithAll(String.format("random(%d)", l), DOUBLE, TEST_SESSION);
+        }
     }
 
     @Test
