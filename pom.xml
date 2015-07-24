@@ -78,6 +78,7 @@
         <module>presto-base-jdbc</module>
         <module>presto-mysql</module>
         <module>presto-postgresql</module>
+        <module>presto-phoenix</module>
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
