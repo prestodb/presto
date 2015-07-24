@@ -17,3 +17,4 @@ General Changes
 ---------------
 
 * Add :func:`element_at` function.
+* Fix JMX connector. In the previous release it always returned zero rows.

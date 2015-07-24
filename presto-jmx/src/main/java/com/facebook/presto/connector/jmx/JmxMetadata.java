@@ -92,7 +92,7 @@ public class JmxMetadata
                 }
                 columns.add(new JmxColumnHandle(connectorId, attribute.getName(), getColumnType(attribute)));
             }
-            return new JmxTableHandle(connectorId, objectName.toString(), columns.build());
+            return new JmxTableHandle(connectorId, objectName.get().toString(), columns.build());
         }
         catch (JMException e) {
             return null;
