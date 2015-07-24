@@ -63,6 +63,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -221,8 +222,24 @@ public class UnaliasSymbolReferences
                     .map(context::rewrite)
                     .collect(toImmutableList());
             Optional<List<Symbol>> partitionKeys = node.getPartitionKeys().map(this::canonicalizeAndDistinct);
-            ImmutableList<List<Symbol>> inputs = node.getInputs().stream().map(this::canonicalizeAndDistinct).collect(toImmutableList());
-            return new ExchangeNode(node.getId(), node.getType(), partitionKeys, canonicalize(node.getHashSymbol()), sources, canonicalizeAndDistinct(node.getOutputSymbols()), inputs);
+
+            List<List<Symbol>> inputs = new ArrayList<>();
+            for (int i = 0; i < node.getInputs().size(); i++) {
+                inputs.add(new ArrayList<>());
+            }
+            Set<Symbol> addedOutputs = new HashSet<>();
+            ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
+            for (int symbolIndex = 0; symbolIndex < node.getOutputSymbols().size(); symbolIndex++) {
+                Symbol canonicalOutput = canonicalize(node.getOutputSymbols().get(symbolIndex));
+                if (addedOutputs.add(canonicalOutput)) {
+                    outputs.add(canonicalOutput);
+                    for (int i = 0; i < node.getInputs().size(); i++) {
+                        List<Symbol> input = node.getInputs().get(i);
+                        inputs.get(i).add(canonicalize(input.get(symbolIndex)));
+                    }
+                }
+            }
+            return new ExchangeNode(node.getId(), node.getType(), partitionKeys, canonicalize(node.getHashSymbol()), sources, outputs.build(), inputs);
         }
 
         @Override

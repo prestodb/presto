@@ -3681,6 +3681,10 @@ public abstract class AbstractTestQueries
                 "SELECT t.c " +
                 "FROM (SELECT 1) " +
                 "CROSS JOIN (SELECT 0 AS c UNION ALL SELECT 1) t");
+        assertQuery("" +
+                "SELECT a, b " +
+                "FROM (VALUES (1, 1)) " +
+                "CROSS JOIN (SELECT 0 AS a, 0 AS b UNION ALL SELECT 1, 1) t");
     }
 
     @Test
