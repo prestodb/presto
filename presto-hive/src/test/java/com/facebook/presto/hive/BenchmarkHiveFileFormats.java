@@ -20,10 +20,8 @@ import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.type.TypeRegistry;
@@ -77,8 +75,8 @@ import static com.facebook.presto.hive.HiveType.getType;
 import static com.facebook.presto.hive.HiveUtil.setReadColumns;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.Lists.transform;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static io.airlift.tpch.LineItemColumn.DISCOUNT;
@@ -90,7 +88,6 @@ import static io.airlift.tpch.LineItemColumn.SHIP_DATE;
 import static io.airlift.tpch.LineItemColumn.SHIP_INSTRUCTIONS;
 import static io.airlift.tpch.LineItemColumn.STATUS;
 import static io.airlift.tpch.LineItemColumn.TAX;
-import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
@@ -105,8 +102,6 @@ import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_T
 @SuppressWarnings("UseOfSystemOutOrSystemErr")
 public final class BenchmarkHiveFileFormats
 {
-    private static final ConnectorSession SESSION = new TestingConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
-
     private static final List<CompressionType> ENABLED_COMPRESSION = ImmutableList.<CompressionType>builder()
             .add(CompressionType.none)
             .add(CompressionType.snappy)
