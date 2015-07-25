@@ -116,7 +116,13 @@ class IndexInserter
             bindValue(statement, type, convert(column.getMax()), index + 1);
         }
 
-        statement.executeUpdate();
+        statement.addBatch();
+    }
+
+    public void execute()
+            throws SQLException
+    {
+        statement.executeBatch();
     }
 
     private static Object convert(Object value)
