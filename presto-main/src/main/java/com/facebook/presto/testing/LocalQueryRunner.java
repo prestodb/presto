@@ -206,6 +206,7 @@ public class LocalQueryRunner
         return typeRegistry;
     }
 
+    @Override
     public Metadata getMetadata()
     {
         return metadata;

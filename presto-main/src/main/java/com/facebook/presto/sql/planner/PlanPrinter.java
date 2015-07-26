@@ -122,9 +122,9 @@ public class PlanPrinter
         return new PlanPrinter(plan, types, metadata, session).toString();
     }
 
-    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, int indent)
+    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Session session, int indent)
     {
-        return new PlanPrinter(plan, types, metadata, null, indent).toString();
+        return new PlanPrinter(plan, types, metadata, session, indent).toString();
     }
 
     public static String getJsonPlanSource(PlanNode plan, Metadata metadata, Session session)
@@ -132,7 +132,7 @@ public class PlanPrinter
         return JsonPlanPrinter.getPlan(plan, metadata, session);
     }
 
-    public static String textDistributedPlan(SubPlan plan, Metadata metadata)
+    public static String textDistributedPlan(SubPlan plan, Metadata metadata, Session session)
     {
         StringBuilder builder = new StringBuilder();
         for (PlanFragment fragment : plan.getAllFragments()) {
@@ -157,7 +157,7 @@ public class PlanPrinter
                 }
             }
 
-            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, 1))
+            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, session, 1))
                     .append("\n");
         }
 
