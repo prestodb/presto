@@ -32,6 +32,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
@@ -44,6 +45,7 @@ import static com.facebook.presto.sql.relational.Signatures.NULL_IF;
 import static com.facebook.presto.sql.relational.Signatures.SWITCH;
 import static com.facebook.presto.sql.relational.Signatures.TRY_CAST;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
 
 public class ExpressionOptimizer
@@ -80,7 +82,7 @@ public class ExpressionOptimizer
         }
 
         @Override
-        public RowExpression visitCall(CallExpression call, final Void context)
+        public RowExpression visitCall(CallExpression call, Void context)
         {
             FunctionInfo function;
             Signature signature = call.getSignature();
@@ -95,6 +97,19 @@ public class ExpressionOptimizer
                 switch (signature.getName()) {
                     // TODO: optimize these special forms
                     case IF:
+                        checkState(call.getArguments().size() == 3, "IF function should have 3 arguments. Get " + call.getArguments().size());
+                        RowExpression optimizedOperand = call.getArguments().get(0).accept(this, context);
+                        if (optimizedOperand instanceof ConstantExpression) {
+                            ConstantExpression constantOperand = (ConstantExpression) optimizedOperand;
+                            checkState(constantOperand.getType().equals(BOOLEAN), "Operand of IF function should be BOOLEAN type. Get type " + constantOperand.getType().getDisplayName());
+                            if (Boolean.TRUE.equals(constantOperand.getValue())) {
+                                return call.getArguments().get(1).accept(this, context);
+                            }
+                            // FALSE and NULL
+                            else {
+                                return call.getArguments().get(2).accept(this, context);
+                            }
+                        }
                     case NULL_IF:
                     case SWITCH:
                     case "WHEN":
