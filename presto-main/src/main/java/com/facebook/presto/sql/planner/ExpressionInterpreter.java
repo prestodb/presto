@@ -253,29 +253,28 @@ public class ExpressionInterpreter
         @Override
         protected Object visitSearchedCaseExpression(SearchedCaseExpression node, Object context)
         {
-            Expression resultClause = node.getDefaultValue().orElse(null);
+            Expression defaultClause = node.getDefaultValue().orElse(null);
+            List<WhenClause> expressionWhenClauses = new ArrayList<>();
             for (WhenClause whenClause : node.getWhenClauses()) {
                 Object value = process(whenClause.getOperand(), context);
-                if (value instanceof Expression) {
-                    // TODO: optimize this case
-                    return node;
+                if (value != null) {
+                    if (value instanceof Expression) {
+                        // TODO: optimize this case
+                        expressionWhenClauses.add(whenClause);
+                    }
+                    else if (Boolean.TRUE.equals(value)) {
+                        defaultClause = whenClause.getResult();
+                        break;
+                    }
                 }
-
-                if (Boolean.TRUE.equals(value)) {
-                    resultClause = whenClause.getResult();
-                    break;
-                }
             }
 
-            if (resultClause == null) {
-                return null;
+            if (expressionWhenClauses.isEmpty()) {
+                return defaultClause == null ? null : process(defaultClause, context);
             }
-
-            Object result = process(resultClause, context);
-            if (result instanceof Expression) {
-                return node;
+            else {
+                return new SearchedCaseExpression(expressionWhenClauses, Optional.ofNullable(defaultClause));
             }
-            return result;
         }
 
         @Override

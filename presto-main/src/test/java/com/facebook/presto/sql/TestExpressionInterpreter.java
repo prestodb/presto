@@ -523,6 +523,20 @@ public class TestExpressionInterpreter
             throws Exception
     {
         assertOptimizedEquals("case " +
+                        "when null then 33 " +
+                        "end",
+                        "null");
+        assertOptimizedEquals("case " +
+                        "when false then 33 " +
+                        "else null " +
+                        "end",
+                        "null");
+        assertOptimizedEquals("case " +
+                        "when null then 33 " +
+                        "end",
+                        "null");
+
+        assertOptimizedEquals("case " +
                 "when true then 33 " +
                 "end",
                 "33");
@@ -571,6 +585,36 @@ public class TestExpressionInterpreter
                         "when unbound_long = 1234 then 33 " +
                         "else 1 " +
                         "end");
+
+        assertOptimizedEquals("case " +
+                        "when true then 1 " +
+                        "end",
+                        "1");
+
+        assertOptimizedEquals("case " +
+                        "when unbound_long = 1234 then 1 " +
+                        "when false then 2 " +
+                        "when true then 3 " +
+                        "else 4 " +
+                        "end",
+                        "case " +
+                        "when unbound_long = 1234 then 1 " +
+                        "else 3 " +
+                        "end");
+
+        assertOptimizedEquals("case " +
+                        "when true then unbound_long " +
+                        "else 1 " +
+                        "end",
+                        "unbound_long");
+    }
+
+    @Test(expectedExceptions = PrestoException.class)
+    public void testSearchCaseIfDivideByZero()
+            throws Exception
+    {
+        optimize("case when 0 / 0 = 0 then 2 end");
+        optimize("case when unbound_boolean then 1 when 0 / 0 = 0 then 2 end");
     }
 
     @Test
@@ -816,7 +860,6 @@ public class TestExpressionInterpreter
         assertOptimizedEqualsSelf("case unbound_long when 1 then 1 when 0 / 0 then 2 end");
         assertOptimizedEqualsSelf("case unbound_boolean when true then 1 else 0 / 0 end");
         assertOptimizedEqualsSelf("case unbound_boolean when true then 0 / 0 else 1 end");
-        assertOptimizedEqualsSelf("case when unbound_boolean then 1 when 0 / 0 = 0 then 2 end");
         assertOptimizedEqualsSelf("case when unbound_boolean then 1 else 0 / 0  end");
         assertOptimizedEqualsSelf("case when unbound_boolean then 0 / 0 else 1 end");
         assertOptimizedEqualsSelf("coalesce(unbound_boolean, 0 / 0 = 0)");
