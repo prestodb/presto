@@ -75,10 +75,10 @@ The following provides a good starting point for creating ``etc/jvm.config``:
 
     -server
     -Xmx16G
-    -XX:+UseConcMarkSweepGC
+    -XX:+UseG1GC
     -XX:+ExplicitGCInvokesConcurrent
-    -XX:+AggressiveOpts
     -XX:+HeapDumpOnOutOfMemoryError
+    -XX:+UseGCOverheadLimit
     -XX:OnOutOfMemoryError=kill -9 %p
 
 Because an ``OutOfMemoryError`` will typically leave the JVM in an
