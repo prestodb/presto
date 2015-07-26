@@ -3208,6 +3208,10 @@ public abstract class AbstractTestQueries
         MaterializedResult result = computeActual("EXPLAIN (TYPE DISTRIBUTED) " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getExplainPlan(query, DISTRIBUTED));
+
+        // This query should not throw exception
+        query = "SELECT * FROM orders";
+        computeActual("EXPLAIN (TYPE DISTRIBUTED) " + query);
     }
 
     @Test
