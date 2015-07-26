@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>41</version>
+        <version>42</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -41,6 +41,8 @@
 
         <air.check.fail-checkstyle>true</air.check.fail-checkstyle>
         <air.check.skip-checkstyle>false</air.check.skip-checkstyle>
+
+        <air.java.version>1.8.0-40</air.java.version>
 
         <dep.antlr.version>4.5.1</dep.antlr.version>
         <dep.airlift.version>0.112</dep.airlift.version>
