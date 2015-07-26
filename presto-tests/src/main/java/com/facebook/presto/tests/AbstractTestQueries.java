@@ -3159,7 +3159,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testDefaultExplainTextFormat()
     {
-        String query = "SELECT 123";
+        String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getExplainPlan(query, LOGICAL));
@@ -3168,7 +3168,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testDefaultExplainGraphvizFormat()
     {
-        String query = "SELECT 123";
+        String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (FORMAT GRAPHVIZ) " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getGraphvizExplainPlan(query, LOGICAL));
@@ -3177,7 +3177,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testLogicalExplain()
     {
-        String query = "SELECT 123";
+        String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL) " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getExplainPlan(query, LOGICAL));
@@ -3186,7 +3186,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testLogicalExplainTextFormat()
     {
-        String query = "SELECT 123";
+        String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL, FORMAT TEXT) " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getExplainPlan(query, LOGICAL));
@@ -3195,7 +3195,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testLogicalExplainGraphvizFormat()
     {
-        String query = "SELECT 123";
+        String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL, FORMAT GRAPHVIZ) " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getGraphvizExplainPlan(query, LOGICAL));
@@ -3204,7 +3204,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testDistributedExplain()
     {
-        String query = "SELECT 123";
+        String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE DISTRIBUTED) " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getExplainPlan(query, DISTRIBUTED));
@@ -3213,7 +3213,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testDistributedExplainTextFormat()
     {
-        String query = "SELECT 123";
+        String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE DISTRIBUTED, FORMAT TEXT) " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getExplainPlan(query, DISTRIBUTED));
@@ -3222,7 +3222,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testDistributedExplainGraphvizFormat()
     {
-        String query = "SELECT 123";
+        String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE DISTRIBUTED, FORMAT GRAPHVIZ) " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getGraphvizExplainPlan(query, DISTRIBUTED));
@@ -3231,7 +3231,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testExplainOfExplain()
     {
-        String query = "EXPLAIN SELECT 123";
+        String query = "EXPLAIN SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getExplainPlan(query, LOGICAL));

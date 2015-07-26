@@ -15,6 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.AllNodes;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
@@ -156,6 +157,12 @@ public class DistributedQueryRunner
     public Session getDefaultSession()
     {
         return prestoClient.getDefaultSession();
+    }
+
+    @Override
+    public Metadata getMetadata()
+    {
+        return coordinator.getMetadata();
     }
 
     public TestingPrestoServer getCoordinator()

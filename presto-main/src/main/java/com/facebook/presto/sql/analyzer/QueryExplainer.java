@@ -61,7 +61,7 @@ public class QueryExplainer
                 return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, session);
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(statement);
-                return PlanPrinter.textDistributedPlan(subPlan, metadata);
+                return PlanPrinter.textDistributedPlan(subPlan, metadata, session);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
