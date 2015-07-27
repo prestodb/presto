@@ -166,7 +166,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         MaterializedResult expectedTables = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR)
                 .row("orders")
                 .build();
-        assertEquals(actualTables, expectedTables);
+        assertContains(actualTables, expectedTables);
     }
 
     @Test
