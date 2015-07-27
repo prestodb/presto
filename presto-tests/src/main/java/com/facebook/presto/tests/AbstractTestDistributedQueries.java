@@ -32,6 +32,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
@@ -40,7 +41,6 @@ import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestApproximateQueries
@@ -437,7 +437,7 @@ public abstract class AbstractTestDistributedQueries
         MaterializedResult emptySample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (0)");
         MaterializedResult all = computeActual("SELECT orderkey FROM orders");
 
-        assertTrue(all.getMaterializedRows().containsAll(fullSample.getMaterializedRows()));
+        assertContains(all, fullSample);
         assertEquals(emptySample.getMaterializedRows().size(), 0);
     }
 
@@ -450,7 +450,7 @@ public abstract class AbstractTestDistributedQueries
         MaterializedResult all = computeExpected("SELECT * FROM orders", sample.getTypes());
 
         assertTrue(!sample.getMaterializedRows().isEmpty());
-        assertTrue(all.getMaterializedRows().containsAll(sample.getMaterializedRows()));
+        assertContains(all, sample);
     }
 
     @Test
@@ -470,14 +470,5 @@ public abstract class AbstractTestDistributedQueries
             .map(row -> (String) row.getField(0))
             .collect(toImmutableList());
         assertEquals(actual, expected);
-    }
-
-    private static void assertContains(MaterializedResult actual, MaterializedResult expected)
-    {
-        for (MaterializedRow row : expected.getMaterializedRows()) {
-            if (!actual.getMaterializedRows().contains(row)) {
-                fail(format("expected row missing: %s%nActual:%n      %s%nExpected:%n      %s", row, actual, expected));
-            }
-        }
     }
 }

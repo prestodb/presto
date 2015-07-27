@@ -90,6 +90,20 @@ public final class QueryAssertions
         }
     }
 
+    public static void assertContains(MaterializedResult actual, MaterializedResult expected)
+    {
+        for (MaterializedRow row : expected.getMaterializedRows()) {
+            if (!actual.getMaterializedRows().contains(row)) {
+                fail(format("expected row missing: %s\nActual %s rows:\n    %s\nExpected %s rows:\n    %s\n",
+                        row,
+                        actual.getMaterializedRows().size(),
+                        Joiner.on("\n    ").join(Iterables.limit(actual, 100)),
+                        expected.getMaterializedRows().size(),
+                        Joiner.on("\n    ").join(Iterables.limit(expected, 100))));
+            }
+        }
+    }
+
     public static void assertApproximateQuery(
             QueryRunner queryRunner,
             Session session,
