@@ -27,11 +27,10 @@ public interface MetadataDao
 {
     @SqlUpdate("CREATE TABLE IF NOT EXISTS tables (\n" +
             "  table_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
-            "  catalog_name VARCHAR(255) NOT NULL,\n" +
             "  schema_name VARCHAR(255) NOT NULL,\n" +
             "  table_name VARCHAR(255) NOT NULL,\n" +
             "  temporal_column_id BIGINT DEFAULT NULL,\n" +
-            "  UNIQUE (catalog_name, schema_name, table_name)\n" +
+            "  UNIQUE (schema_name, table_name)\n" +
             ")")
     void createTableTables();
 
@@ -50,11 +49,10 @@ public interface MetadataDao
     void createTableColumns();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS views (\n" +
-            "  catalog_name VARCHAR(255) NOT NULL,\n" +
             "  schema_name VARCHAR(255) NOT NULL,\n" +
             "  table_name VARCHAR(255) NOT NULL,\n" +
             "  data TEXT NOT NULL,\n" +
-            "  PRIMARY KEY (catalog_name, schema_name, table_name)\n" +
+            "  PRIMARY KEY (schema_name, table_name)\n" +
             ")")
     void createTableViews();
 
@@ -62,12 +60,10 @@ public interface MetadataDao
     List<Long> listTableIds();
 
     @SqlQuery("SELECT table_id FROM tables\n" +
-            "WHERE catalog_name = :catalogName\n" +
-            "  AND schema_name = :schemaName\n" +
+            "WHERE schema_name = :schemaName\n" +
             "  AND table_name = :tableName")
     @Mapper(TableMapper.class)
     Table getTableInformation(
-            @Bind("catalogName") String catalogName,
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
@@ -92,27 +88,22 @@ public interface MetadataDao
 
     @SqlQuery("SELECT schema_name, table_name\n" +
             "FROM tables\n" +
-            "WHERE catalog_name = :catalogName\n" +
-            "  AND (schema_name = :schemaName OR :schemaName IS NULL)")
+            "WHERE (schema_name = :schemaName OR :schemaName IS NULL)")
     @Mapper(SchemaTableNameMapper.class)
     List<SchemaTableName> listTables(
-            @Bind("catalogName") String catalogName,
             @Bind("schemaName") String schemaName);
 
-    @SqlQuery("SELECT DISTINCT schema_name FROM tables\n" +
-            "WHERE catalog_name = :catalogName\n")
-    List<String> listSchemaNames(@Bind("catalogName") String catalogName);
+    @SqlQuery("SELECT DISTINCT schema_name FROM tables")
+    List<String> listSchemaNames();
 
     @SqlQuery("SELECT t.schema_name, t.table_name,\n" +
             "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
-            "WHERE catalog_name = :catalogName\n" +
-            "  AND (schema_name = :schemaName OR :schemaName IS NULL)\n" +
+            "WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
             "  AND (table_name = :tableName OR :tableName IS NULL)\n" +
             "ORDER BY schema_name, table_name, ordinal_position")
     List<TableColumn> listTableColumns(
-            @Bind("catalogName") String catalogName,
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
@@ -133,32 +124,27 @@ public interface MetadataDao
             "ORDER BY c.sort_ordinal_position")
     List<TableColumn> listSortColumns(@Bind("tableId") long tableId);
 
-    @SqlQuery("SELECT catalog_name, schema_name, table_name, data\n" +
+    @SqlQuery("SELECT schema_name, table_name, data\n" +
             "FROM views\n" +
-            "WHERE (catalog_name = :catalogName OR :catalogName IS NULL)\n" +
-            "  AND (schema_name = :schemaName OR :schemaName IS NULL)")
+            "WHERE (schema_name = :schemaName OR :schemaName IS NULL)")
     @Mapper(SchemaTableNameMapper.class)
     List<SchemaTableName> listViews(
-            @Bind("catalogName") String catalogName,
             @Bind("schemaName") String schemaName);
 
     @SqlQuery("SELECT schema_name, table_name, data\n" +
             "FROM views\n" +
-            "WHERE catalog_name = :catalogName\n" +
-            "  AND (schema_name = :schemaName OR :schemaName IS NULL)\n" +
+            "WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
             "  AND (table_name = :tableName OR :tableName IS NULL)\n" +
             "ORDER BY schema_name, table_name\n")
     @Mapper(ViewResult.Mapper.class)
     List<ViewResult> getViews(
-            @Bind("catalogName") String catalogName,
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
-    @SqlUpdate("INSERT INTO tables (catalog_name, schema_name, table_name)\n" +
-            "VALUES (:catalogName, :schemaName, :tableName)")
+    @SqlUpdate("INSERT INTO tables (schema_name, table_name)\n" +
+            "VALUES (:schemaName, :tableName)")
     @GetGeneratedKeys
     long insertTable(
-            @Bind("catalogName") String catalogName,
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
@@ -188,10 +174,9 @@ public interface MetadataDao
             @Bind("columnId") long columnId,
             @Bind("target") String target);
 
-    @SqlUpdate("INSERT INTO views (catalog_name, schema_name, table_name, data)\n" +
-            "VALUES (:catalogName, :schemaName, :tableName, :data)")
+    @SqlUpdate("INSERT INTO views (schema_name, table_name, data)\n" +
+            "VALUES (:schemaName, :tableName, :data)")
     void insertView(
-            @Bind("catalogName") String catalogName,
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName,
             @Bind("data") String data);
@@ -203,11 +188,9 @@ public interface MetadataDao
     int dropColumns(@Bind("tableId") long tableId);
 
     @SqlUpdate("DELETE FROM views\n" +
-            "WHERE catalog_name = :catalogName\n" +
-            "  AND schema_name = :schemaName\n" +
+            "WHERE schema_name = :schemaName\n" +
             "  AND table_name = :tableName")
     int dropView(
-            @Bind("catalogName") String catalogName,
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 

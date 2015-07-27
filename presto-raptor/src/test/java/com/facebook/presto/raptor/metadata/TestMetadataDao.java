@@ -52,7 +52,7 @@ public class TestMetadataDao
             throws Exception
     {
         Long columnId = 1L;
-        long tableId = dao.insertTable("default", "default", "table1");
+        long tableId = dao.insertTable("default", "table1");
         dao.insertColumn(tableId, columnId, "col1", 1, "bigint");
         Long temporalColumnId = dao.getTemporalColumnId(tableId);
         assertNull(temporalColumnId);
@@ -62,7 +62,7 @@ public class TestMetadataDao
         assertNotNull(temporalColumnId);
         assertEquals(temporalColumnId, columnId);
 
-        long tableId2 = dao.insertTable("default", "default", "table2");
+        long tableId2 = dao.insertTable("default", "table2");
         Long columnId2 = dao.getTemporalColumnId(tableId2);
         assertNull(columnId2);
     }
