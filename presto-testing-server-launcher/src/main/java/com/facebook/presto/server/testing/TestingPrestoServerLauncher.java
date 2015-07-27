@@ -16,7 +16,9 @@ package com.facebook.presto.server.testing;
 import com.facebook.presto.server.testing.TestingPrestoServerLauncherOptions.Catalog;
 import com.facebook.presto.spi.Plugin;
 import io.airlift.command.Command;
+import io.airlift.command.Help;
 import io.airlift.command.HelpOption;
+import io.airlift.command.model.CommandMetadata;
 
 import javax.inject.Inject;
 
@@ -26,6 +28,8 @@ import static java.lang.Runtime.getRuntime;
 @Command(name = "testing_presto_server", description = "Testing Presto Server Launcher")
 public class TestingPrestoServerLauncher
 {
+    @Inject CommandMetadata commandMetadata;
+
     @Inject
     public HelpOption helpOption;
 
@@ -40,9 +44,7 @@ public class TestingPrestoServerLauncher
     private static void waitForInterruption()
     {
         try {
-            while (true) {
-                Thread.sleep(1000);
-            }
+            Thread.currentThread().join();
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -70,12 +72,28 @@ public class TestingPrestoServerLauncher
     public static void main(String[] args)
             throws Exception
     {
-        TestingPrestoServerLauncher launcher = singleCommand(TestingPrestoServerLauncher.class).parse(args);
-        if (launcher.helpOption.showHelpIfRequested()) {
-            return;
+        try {
+            TestingPrestoServerLauncher launcher = singleCommand(TestingPrestoServerLauncher.class).parse(args);
+            if (launcher.helpOption.showHelpIfRequested()) {
+                return;
+            }
+            try {
+                launcher.validateOptions();
+            }
+            catch (IllegalStateException e) {
+                System.out.println("ERROR: " + e.getMessage());
+                System.out.println();
+                Help.help(launcher.commandMetadata);
+                return;
+            }
+            launcher.run();
         }
-        launcher.validateOptions();
-        launcher.run();
+        catch (Exception e) {
+            e.printStackTrace(System.err);
+        }
+        finally {
+            System.exit(0);
+        }
     }
 
     private void validateOptions()

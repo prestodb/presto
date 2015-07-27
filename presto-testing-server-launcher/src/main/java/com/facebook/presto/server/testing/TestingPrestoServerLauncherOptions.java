@@ -20,7 +20,6 @@ import io.airlift.command.Option;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.copyOf;
@@ -62,7 +61,7 @@ class TestingPrestoServerLauncherOptions
     {
         return catalogOptions.stream().map(catalogOption -> {
             List<String> parts = copyOf(CATALOG_OPTION_SPLITTER.split(catalogOption));
-            checkArgument(parts.size() == 2, "bad format of catalog definition '%s'; should be catalog_name:connector_name", catalogOption);
+            checkState(parts.size() == 2, "bad format of catalog definition '%s'; should be catalog_name:connector_name", catalogOption);
             return new Catalog(parts.get(0), parts.get(1));
         }).collect(toList());
     }
