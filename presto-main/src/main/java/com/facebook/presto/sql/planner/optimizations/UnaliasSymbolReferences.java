@@ -221,7 +221,7 @@ public class UnaliasSymbolReferences
             List<PlanNode> sources = node.getSources().stream()
                     .map(context::rewrite)
                     .collect(toImmutableList());
-            Optional<List<Symbol>> partitionKeys = node.getPartitionKeys().map(this::canonicalizeAndDistinct);
+            Optional<List<Symbol>> partitionKeys = node.getPartitionKeys().map(this::canonicalize);
 
             List<List<Symbol>> inputs = new ArrayList<>();
             for (int i = 0; i < node.getInputs().size(); i++) {
@@ -510,6 +510,13 @@ public class UnaliasSymbolReferences
                 }
             }
             return builder.build();
+        }
+
+        private List<Symbol> canonicalize(List<Symbol> symbols)
+        {
+            return symbols.stream()
+                    .map(this::canonicalize)
+                    .collect(toImmutableList());
         }
 
         private Set<Symbol> canonicalize(Set<Symbol> symbols)

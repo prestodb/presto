@@ -34,6 +34,7 @@ import org.intellij.lang.annotations.Language;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -108,7 +109,7 @@ public class DistributedQueryRunner
             throws Exception
     {
         long start = System.nanoTime();
-        ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
+        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.<String, String>builder()
                 .put("query.client.timeout", "10m")
                 .put("exchange.http-client.read-timeout", "1h")
                 .put("compiler.interpreter-enabled", "false")
@@ -116,14 +117,15 @@ public class DistributedQueryRunner
                 .put("datasources", "system")
                 .put("distributed-index-joins-enabled", "true")
                 .put("optimizer.optimize-hash-generation", "true");
-        properties.putAll(extraProperties);
         if (coordinator) {
-            properties.put("node-scheduler.include-coordinator", "false");
-            properties.put("distributed-joins-enabled", "true");
-            properties.put("node-scheduler.multiple-tasks-per-node-enabled", "true");
+            propertiesBuilder.put("node-scheduler.include-coordinator", "false");
+            propertiesBuilder.put("distributed-joins-enabled", "true");
+            propertiesBuilder.put("node-scheduler.multiple-tasks-per-node-enabled", "true");
         }
+        HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
+        properties.putAll(extraProperties);
 
-        TestingPrestoServer server = new TestingPrestoServer(coordinator, properties.build(), ENVIRONMENT, discoveryUri, ImmutableList.<Module>of());
+        TestingPrestoServer server = new TestingPrestoServer(coordinator, properties, ENVIRONMENT, discoveryUri, ImmutableList.<Module>of());
 
         log.info("Created TestingPrestoServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
