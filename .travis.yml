@@ -3,6 +3,11 @@ language: java
 jdk:
   - oraclejdk8
 
+addons:
+  apt:
+    packages:
+      - oracle-java8-installer
+
 env:
   global:
     - MAVEN_OPTS="-Xmx256M"
