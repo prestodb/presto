@@ -24,6 +24,7 @@ import java.util.UUID;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.testing.FileUtils.deleteRecursively;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.readAllBytes;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -78,12 +79,12 @@ public class TestFileBackupStore
         // verify first file
         File restore1 = new File(temporary, "restore1");
         store.restoreShard(uuid1, restore1);
-        assertEquals(Files.toByteArray(file1), Files.toByteArray(restore1));
+        assertEquals(readAllBytes(file1.toPath()), readAllBytes(restore1.toPath()));
 
         // verify second file
         File restore2 = new File(temporary, "restore2");
         store.restoreShard(uuid2, restore2);
-        assertEquals(Files.toByteArray(file2), Files.toByteArray(restore2));
+        assertEquals(readAllBytes(file2.toPath()), readAllBytes(restore2.toPath()));
 
         // verify random UUID does not exist
         assertFalse(store.shardSize(randomUUID()).isPresent());
