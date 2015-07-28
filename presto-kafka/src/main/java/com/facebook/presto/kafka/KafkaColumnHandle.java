@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.primitives.Ints;
 
 import java.util.Objects;
 
@@ -197,7 +196,7 @@ public final class KafkaColumnHandle
     @Override
     public int compareTo(KafkaColumnHandle otherHandle)
     {
-        return Ints.compare(this.getOrdinalPosition(), otherHandle.getOrdinalPosition());
+        return Integer.compare(this.getOrdinalPosition(), otherHandle.getOrdinalPosition());
     }
 
     @Override
