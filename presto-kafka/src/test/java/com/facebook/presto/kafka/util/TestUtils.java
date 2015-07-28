@@ -20,7 +20,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.TestingPrestoClient;
 import com.google.common.base.Joiner;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
@@ -58,7 +57,7 @@ public final class TestUtils
     public static void installKafkaPlugin(EmbeddedKafka embeddedKafka, QueryRunner queryRunner, Map<SchemaTableName, KafkaTopicDescription> topicDescriptions)
     {
         KafkaPlugin kafkaPlugin = new KafkaPlugin();
-        kafkaPlugin.setTableDescriptionSupplier(Suppliers.ofInstance(topicDescriptions));
+        kafkaPlugin.setTableDescriptionSupplier(() -> topicDescriptions);
         queryRunner.installPlugin(kafkaPlugin);
 
         Map<String, String> kafkaConfig = ImmutableMap.of(
