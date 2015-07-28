@@ -172,6 +172,13 @@ public class TestDateTimeFunctions
     }
 
     @Test
+    public void testToUnixTimeSecond()
+    {
+        assertFunction("to_unixtime_second(" + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getMillis() / 1000);
+        assertFunction("to_unixtime_second(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getMillis() / 1000);
+    }
+
+    @Test
     public void testFromISO8601()
     {
         assertFunction("from_iso8601_timestamp('" + TIMESTAMP_ISO8601_STRING + "')", TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(TIMESTAMP_WITH_NUMERICAL_ZONE));
