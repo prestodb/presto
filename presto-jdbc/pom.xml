@@ -207,9 +207,9 @@
                                     </excludes>
                                 </filter>
                                 <filter>
-                                    <artifact>com.fasterxml.jackson.core:*</artifact>
+                                    <artifact>com.fasterxml.jackson.*:*</artifact>
                                     <excludes>
-                                        <exclude>META-INF/services/**</exclude>
+                                        <exclude>META-INF/**</exclude>
                                     </excludes>
                                 </filter>
                                 <filter>
