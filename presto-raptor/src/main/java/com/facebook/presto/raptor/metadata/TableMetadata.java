@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -59,15 +59,15 @@ public final class TableMetadata
             return false;
         }
         TableMetadata that = (TableMetadata) o;
-        return Objects.equal(tableId, that.tableId) &&
-                Objects.equal(columns, that.columns) &&
-                Objects.equal(sortColumnIds, that.sortColumnIds);
+        return Objects.equals(tableId, that.tableId) &&
+                Objects.equals(columns, that.columns) &&
+                Objects.equals(sortColumnIds, that.sortColumnIds);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(tableId, columns, sortColumnIds);
+        return Objects.hash(tableId, columns, sortColumnIds);
     }
 
     @Override

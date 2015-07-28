@@ -38,9 +38,9 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.io.Files.createTempDir;
-import static com.google.common.io.Files.toByteArray;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.FileUtils.deleteRecursively;
+import static java.nio.file.Files.readAllBytes;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -193,7 +193,7 @@ public class TestOrcFileRewriter
         assertEquals(info.getRowCount(), 2);
         assertEquals(info.getUncompressedSize(), 16);
 
-        assertEquals(toByteArray(newFile), toByteArray(file));
+        assertEquals(readAllBytes(newFile.toPath()), readAllBytes(file.toPath()));
     }
 
     @Test
