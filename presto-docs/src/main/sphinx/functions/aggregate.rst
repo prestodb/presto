@@ -54,6 +54,10 @@ General Aggregate Functions
 
     This is an alias for :func:`bool_and`.
 
+.. function:: geometric_mean(x) -> double
+
+    Returns the geometric mean of all input values.
+
 .. function:: max_by(x, y) -> [same as x]
 
     Returns the value of ``x`` associated with the maximum value of ``y`` over all input values.
