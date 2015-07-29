@@ -34,7 +34,7 @@ import static com.google.common.collect.Iterables.transform;
 public class CassandraRecordSetProvider
         implements ConnectorRecordSetProvider
 {
-    private static final Logger log = Logger.get(ConnectorRecordSetProvider.class);
+    private static final Logger log = Logger.get(CassandraRecordSetProvider.class);
 
     private final String connectorId;
     private final CassandraSession cassandraSession;
