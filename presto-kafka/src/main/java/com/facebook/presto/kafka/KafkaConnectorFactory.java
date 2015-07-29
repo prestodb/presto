@@ -19,9 +19,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
-import com.google.inject.Binder;
 import com.google.inject.Injector;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
@@ -62,7 +60,7 @@ public class KafkaConnectorFactory
     }
 
     @Override
-    public Connector create(final String connectorId, Map<String, String> config)
+    public Connector create(String connectorId, Map<String, String> config)
     {
         checkNotNull(connectorId, "connectorId is null");
         checkNotNull(config, "config is null");
@@ -71,21 +69,16 @@ public class KafkaConnectorFactory
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new KafkaConnectorModule(),
-                    new Module()
-                    {
-                        @Override
-                        public void configure(Binder binder)
-                        {
-                            binder.bind(KafkaConnectorId.class).toInstance(new KafkaConnectorId(connectorId));
-                            binder.bind(TypeManager.class).toInstance(typeManager);
-                            binder.bind(NodeManager.class).toInstance(nodeManager);
+                    binder -> {
+                        binder.bind(KafkaConnectorId.class).toInstance(new KafkaConnectorId(connectorId));
+                        binder.bind(TypeManager.class).toInstance(typeManager);
+                        binder.bind(NodeManager.class).toInstance(nodeManager);
 
-                            if (tableDescriptionSupplier.isPresent()) {
-                                binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KafkaTopicDescription>>>() {}).toInstance(tableDescriptionSupplier.get());
-                            }
-                            else {
-                                binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KafkaTopicDescription>>>() {}).to(KafkaTableDescriptionSupplier.class).in(Scopes.SINGLETON);
-                            }
+                        if (tableDescriptionSupplier.isPresent()) {
+                            binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KafkaTopicDescription>>>() {}).toInstance(tableDescriptionSupplier.get());
+                        }
+                        else {
+                            binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KafkaTopicDescription>>>() {}).to(KafkaTableDescriptionSupplier.class).in(Scopes.SINGLETON);
                         }
                     }
             );
