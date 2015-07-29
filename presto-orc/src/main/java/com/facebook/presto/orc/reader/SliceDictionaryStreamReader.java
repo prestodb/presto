@@ -45,10 +45,12 @@ import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public class SliceDictionaryStreamReader
         implements StreamReader
 {
+    private static final int CHUNK_BYTES = 8 * 1024 * 1024; // 8MiB
     private final StreamDescriptor streamDescriptor;
 
     private int readOffset;
@@ -66,6 +68,7 @@ public class SliceDictionaryStreamReader
     private int dictionarySize;
     @Nonnull
     private Slice[] dictionary = new Slice[0];
+    private boolean useSharedByteArrayForDictionary;
 
     @Nonnull
     private StreamSource<LongStream> dictionaryLengthStreamSource = missingStreamSource(LongStream.class);
@@ -160,15 +163,69 @@ public class SliceDictionaryStreamReader
             inDictionaryStream.getSetBits(nextBatchSize, inDictionary, isNullVector);
         }
 
-        for (int i = 0; i < nextBatchSize; i++) {
-            if (isNullVector[i]) {
-                sliceVector.vector[i] = null;
+        if (useSharedByteArrayForDictionary) {
+            // alternative 3 (as described below): make a copy upon read
+            int startIndex = 0;
+            while (startIndex < nextBatchSize) {
+                int totalLength = 0;
+                int endIndex = startIndex;
+                while (endIndex < nextBatchSize) {
+                    int newTotalLength;
+                    if (!isNullVector[endIndex]) {
+                        if (inDictionary[endIndex]) {
+                            newTotalLength = totalLength + dictionary[dataVector[endIndex]].length();
+                        }
+                        else {
+                            newTotalLength = totalLength + rowGroupDictionary[dataVector[endIndex]].length();
+                        }
+                    }
+                    else {
+                        newTotalLength = totalLength;
+                    }
+                    if (newTotalLength > CHUNK_BYTES && totalLength != 0) {
+                        // When totalLength = 0 and newTotalLength > CHUNK_BYTES, it means a single element is larger than CHUNK_BYTES.
+                        // Calling `break` here will result in infinite loop. Instead, a byte array of CHUNK_BYTES should be allocated.
+                        break;
+                    }
+                    totalLength = newTotalLength;
+                    endIndex++;
+                }
+                byte[] data = new byte[totalLength];
+                int bytesCopied = 0;
+                for (int i = startIndex; i < endIndex; i++) {
+                    if (isNullVector[i]) {
+                        sliceVector.vector[i] = null;
+                    }
+                    else {
+                        Slice slice;
+                        if (inDictionary[i]) {
+                            slice = dictionary[dataVector[i]];
+                        }
+                        else {
+                            slice = rowGroupDictionary[dataVector[i]];
+                        }
+                        slice.getBytes(0, data, bytesCopied, slice.length());
+                        sliceVector.vector[i] = Slices.wrappedBuffer(data, bytesCopied, slice.length());
+                        bytesCopied += slice.length();
+                    }
+                }
+                checkState(bytesCopied == totalLength);
+
+                startIndex = endIndex;
             }
-            else if (inDictionary[i]) {
-                sliceVector.vector[i] = dictionary[dataVector[i]];
-            }
-            else {
-                sliceVector.vector[i] = rowGroupDictionary[dataVector[i]];
+        }
+        else {
+            // alternative 1 or 2 (as described below): reference dictionary directly
+            for (int i = 0; i < nextBatchSize; i++) {
+                if (isNullVector[i]) {
+                    sliceVector.vector[i] = null;
+                }
+                else if (inDictionary[i]) {
+                    sliceVector.vector[i] = dictionary[dataVector[i]];
+                }
+                else {
+                    sliceVector.vector[i] = rowGroupDictionary[dataVector[i]];
+                }
             }
         }
 
@@ -195,7 +252,7 @@ public class SliceDictionaryStreamReader
             lengthStream.nextIntVector(dictionarySize, dictionaryLength);
 
             ByteArrayStream dictionaryDataStream = dictionaryDataStreamSource.openStream();
-            readDictionary(dictionaryDataStream, dictionarySize, dictionaryLength, dictionary);
+            readDictionary(dictionaryDataStream, dictionarySize, dictionaryLength, dictionary, useSharedByteArrayForDictionary);
         }
         dictionaryOpen = true;
 
@@ -214,7 +271,7 @@ public class SliceDictionaryStreamReader
             dictionaryLengthStream.nextIntVector(rowGroupDictionarySize, rowGroupDictionaryLength);
 
             ByteArrayStream dictionaryDataStream = rowGroupDictionaryDataStreamSource.openStream();
-            readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, rowGroupDictionary);
+            readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, rowGroupDictionary, useSharedByteArrayForDictionary);
         }
         dictionaryOpen = true;
 
@@ -225,29 +282,87 @@ public class SliceDictionaryStreamReader
         rowGroupOpen = true;
     }
 
-    private static void readDictionary(@Nullable ByteArrayStream dictionaryDataStream, int dictionarySize, int[] dictionaryLength, Slice[] dictionary)
+    private static void readDictionary(@Nullable ByteArrayStream dictionaryDataStream, int dictionarySize, int[] dictionaryLength, Slice[] dictionary, boolean useSharedByteArray)
             throws IOException
     {
-        // build dictionary slices
-        for (int i = 0; i < dictionarySize; i++) {
-            int length = dictionaryLength[i];
-            if (length == 0) {
-                dictionary[i] = Slices.EMPTY_SLICE;
+        if (useSharedByteArray) {
+            int startIndex = 0;
+            while (startIndex < dictionarySize) {
+                // sum lengths up to CHUNK_BYTES
+                int totalLength = 0;
+                int endIndex = startIndex;
+                while (endIndex < dictionarySize) {
+                    int newTotalLength = totalLength + dictionaryLength[endIndex];
+                    if (newTotalLength > CHUNK_BYTES && totalLength != 0) {
+                        // When totalLength = 0 and newTotalLength > CHUNK_BYTES, it means a single element is larger than CHUNK_BYTES.
+                        // Calling `break` here will result in infinite loop. Instead, a byte array of CHUNK_BYTES should be allocated.
+                        break;
+                    }
+                    totalLength = newTotalLength;
+                    endIndex++;
+                }
+
+                // read dictionary data
+                byte[] dictionaryData;
+                if (totalLength == 0) {
+                    dictionaryData = new byte[0];
+                }
+                else {
+                    if (dictionaryDataStream == null) {
+                        throw new OrcCorruptionException("Dictionary length is not zero but dictionary data stream is not present");
+                    }
+                    dictionaryData = dictionaryDataStream.next(totalLength);
+                }
+
+                // build dictionary slices
+                int bytesRead = 0;
+                for (int i = startIndex; i < endIndex; i++) {
+                    int length = dictionaryLength[i];
+                    dictionary[i] = Slices.wrappedBuffer(dictionaryData, bytesRead, length);
+                    bytesRead += length;
+                }
+                checkState(bytesRead == totalLength);
+
+                startIndex = endIndex;
             }
-            else {
-                dictionary[i] = Slices.wrappedBuffer(dictionaryDataStream.next(length));
+        }
+        else {
+            // build dictionary slices
+            for (int i = 0; i < dictionarySize; i++) {
+                int length = dictionaryLength[i];
+                if (length == 0) {
+                    dictionary[i] = Slices.EMPTY_SLICE;
+                }
+                else {
+                    if (dictionaryDataStream == null) {
+                        throw new OrcCorruptionException("Dictionary length is not zero but dictionary data stream is not present");
+                    }
+                    dictionary[i] = Slices.wrappedBuffer(dictionaryDataStream.next(length));
+                }
             }
         }
     }
 
     @Override
-    public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding, long numberOfRows)
             throws IOException
     {
         dictionaryDataStreamSource = dictionaryStreamSources.getStreamSource(streamDescriptor, DICTIONARY_DATA, ByteArrayStream.class);
         dictionaryLengthStreamSource = dictionaryStreamSources.getStreamSource(streamDescriptor, LENGTH, LongStream.class);
         dictionarySize = encoding.get(streamDescriptor.getStreamId()).getDictionarySize();
         dictionaryOpen = false;
+
+        // There are 2 alternatives for allocating memories for slices in the dictionary:
+        //   (1) Use an individual byte array for each slice. This can cause excessive object allocation, which causes gc issues.
+        //   (2) Use a single shared byte array (or a few 8MB chunks) for the whole dictionary. This can cause heap fragmentation and excessive memory retention.
+        //   (3) On top of (2), instead of referencing bytes in the shared array, make a copy in a separate byte array.
+        // Here, a heuristic is used.
+        //   * If numberOfRow / dictionarySize > 5, alternative 1 is used. Excessive object allocation is unlikely to happen because the number of slices in the dictionary is limited.
+        //   * Otherwise, alternative 3 is used. This allocates a lot more objects than 1 or 2, but potentially can have a lower pressure on GC. This does not suffer from
+        //     excessive memory retention as 2 would.
+        // A possibly better alternatives is a variant of alternative 2. Instead of having each data link to the shared buffer, data is copied. This variation reduces memory
+        // retention. But implementing it requires a lot more change to the code. It is not implemented.
+        useSharedByteArrayForDictionary = dictionarySize == 0 || numberOfRows / dictionarySize <= 5;
 
         presentStreamSource = missingStreamSource(BooleanStream.class);
         dataStreamSource = missingStreamSource(LongStream.class);
