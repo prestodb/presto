@@ -55,6 +55,8 @@ public class KafkaTableDescriptionSupplier
     {
         ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> builder = ImmutableMap.builder();
 
+        log.debug("Loading kafka table definitions from %s", kafkaConnectorConfig.getTableDescriptionDir().getAbsolutePath());
+
         try {
             for (File file : listFiles(kafkaConnectorConfig.getTableDescriptionDir())) {
                 if (file.isFile() && file.getName().endsWith(".json")) {
