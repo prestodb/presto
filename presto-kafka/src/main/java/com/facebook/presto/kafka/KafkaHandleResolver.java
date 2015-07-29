@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.google.inject.name.Named;
 
 import javax.inject.Inject;
 
@@ -33,10 +32,9 @@ public class KafkaHandleResolver
     private final String connectorId;
 
     @Inject
-    KafkaHandleResolver(@Named("connectorId") String connectorId,
-            KafkaConnectorConfig kafkaConnectorConfig)
+    public KafkaHandleResolver(KafkaConnectorId connectorId, KafkaConnectorConfig kafkaConnectorConfig)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
+        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
         checkNotNull(kafkaConnectorConfig, "kafkaConfig is null");
     }
 

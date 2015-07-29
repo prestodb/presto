@@ -42,7 +42,6 @@ import kafka.javaapi.TopicMetadataResponse;
 import kafka.javaapi.consumer.SimpleConsumer;
 
 import javax.inject.Inject;
-import javax.inject.Named;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -66,12 +65,13 @@ public class KafkaSplitManager
     private final KafkaSimpleConsumerManager consumerManager;
 
     @Inject
-    public KafkaSplitManager(@Named("connectorId") String connectorId,
+    public KafkaSplitManager(
+            KafkaConnectorId connectorId,
             KafkaConnectorConfig kafkaConnectorConfig,
             KafkaHandleResolver handleResolver,
             KafkaSimpleConsumerManager consumerManager)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
+        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
         this.kafkaConnectorConfig = checkNotNull(kafkaConnectorConfig, "kafkaConfig is null");
         this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
         this.consumerManager = checkNotNull(consumerManager, "consumerManager is null");
