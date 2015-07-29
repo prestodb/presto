@@ -166,8 +166,17 @@ public abstract class AbstractTestDistributedQueries
             throws Exception
     {
         assertQueryTrue("CREATE TABLE test_rename AS SELECT 123 x");
+
         assertQueryTrue("ALTER TABLE test_rename RENAME TO test_rename_new");
-        assertQueryTrue("DROP TABLE test_rename_new");
+        MaterializedResult materializedRows = computeActual("SELECT x FROM test_rename_new");
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123L);
+
+        // provide new table name in uppercase
+        assertQueryTrue("ALTER TABLE test_rename_new RENAME TO TEST_RENAME");
+        materializedRows = computeActual("SELECT x FROM test_rename");
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123L);
+
+        assertQueryTrue("DROP TABLE test_rename");
 
         assertFalse(queryRunner.tableExists(getSession(), "test_rename"));
         assertFalse(queryRunner.tableExists(getSession(), "test_rename_new"));
@@ -181,6 +190,10 @@ public abstract class AbstractTestDistributedQueries
 
         assertQueryTrue("ALTER TABLE test_rename_column RENAME COLUMN x TO y");
         MaterializedResult materializedRows = computeActual("SELECT y FROM test_rename_column");
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123L);
+
+        assertQueryTrue("ALTER TABLE test_rename_column RENAME COLUMN y TO Z");
+        materializedRows = computeActual("SELECT z FROM test_rename_column");
         assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123L);
 
         assertQueryTrue("DROP TABLE test_rename_column");

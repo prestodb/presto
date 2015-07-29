@@ -3395,6 +3395,14 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testSelectCaseInsensitive()
+            throws Exception
+    {
+        assertQuery("SELECT ORDERKEY FROM ORDERS");
+        assertQuery("SELECT OrDeRkEy FROM OrDeRs");
+    }
+
+    @Test
     public void testShowSession()
             throws Exception
     {

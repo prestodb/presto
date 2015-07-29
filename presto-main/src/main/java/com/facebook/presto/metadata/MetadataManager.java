@@ -79,6 +79,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class MetadataManager
         implements Metadata
@@ -420,7 +421,7 @@ public class MetadataManager
     public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
     {
         ConnectorMetadataEntry entry = lookupConnectorFor(tableHandle);
-        entry.getMetadata().renameColumn(session.toConnectorSession(entry.getCatalog()), tableHandle.getConnectorHandle(), source, target);
+        entry.getMetadata().renameColumn(session.toConnectorSession(entry.getCatalog()), tableHandle.getConnectorHandle(), source, target.toLowerCase(ENGLISH));
     }
 
     @Override
