@@ -133,7 +133,7 @@ public final class UrlFunctions
         return null;
     }
 
-    @Description("escape value a so that it can be safely included in URL query parameter names and values")
+    @Description("escape a string for use in URL query parameter names and values")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
     public static Slice urlEncode(@SqlType(StandardTypes.VARCHAR) Slice value)
@@ -142,7 +142,7 @@ public final class UrlFunctions
         return slice(escaper.escape(value.toString(UTF_8)));
     }
 
-    @Description("unescape a url-encoded value")
+    @Description("unescape a URL-encoded string")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
     public static Slice urlDecode(@SqlType(StandardTypes.VARCHAR) Slice value)
