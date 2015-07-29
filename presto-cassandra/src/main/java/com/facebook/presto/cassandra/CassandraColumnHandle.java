@@ -14,21 +14,18 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.base.MoreObjects.ToStringHelper;
-import com.google.common.base.Predicate;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Objects;
 
-import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -144,6 +141,14 @@ public class CassandraColumnHandle
         return cassandraType.getNativeType();
     }
 
+    public FullCassandraType getFullType()
+    {
+        if (cassandraType.getTypeArgumentSize() == 0) {
+            return cassandraType;
+        }
+        return new CassandraTypeWithTypeArguments(cassandraType, typeArguments);
+    }
+
     @Override
     public int hashCode()
     {
@@ -199,73 +204,5 @@ public class CassandraColumnHandle
                 .add("hidden", hidden);
 
         return helper.toString();
-    }
-
-    public static Function<ColumnHandle, CassandraColumnHandle> cassandraColumnHandle()
-    {
-        return new Function<ColumnHandle, CassandraColumnHandle>()
-        {
-            @Override
-            public CassandraColumnHandle apply(ColumnHandle columnHandle)
-            {
-                return checkType(columnHandle, CassandraColumnHandle.class, "columnHandle");
-            }
-        };
-    }
-
-    public static Function<ColumnHandle, ColumnMetadata> columnMetadataGetter()
-    {
-        return new Function<ColumnHandle, ColumnMetadata>()
-        {
-            @Override
-            public ColumnMetadata apply(ColumnHandle columnHandle)
-            {
-                checkNotNull(columnHandle, "columnHandle is null");
-                checkArgument(columnHandle instanceof CassandraColumnHandle,
-                        "columnHandle is not an instance of CassandraColumnHandle");
-                return ((CassandraColumnHandle) columnHandle).getColumnMetadata();
-            }
-        };
-    }
-
-    public static Function<CassandraColumnHandle, Type> nativeTypeGetter()
-    {
-        return new Function<CassandraColumnHandle, Type>()
-        {
-            @Override
-            public Type apply(CassandraColumnHandle input)
-            {
-                return input.getType();
-            }
-        };
-    }
-
-    public static Function<CassandraColumnHandle, FullCassandraType> cassandraFullTypeGetter()
-    {
-        return new Function<CassandraColumnHandle, FullCassandraType>()
-        {
-            @Override
-            public FullCassandraType apply(CassandraColumnHandle input)
-            {
-                if (input.getCassandraType().getTypeArgumentSize() == 0) {
-                    return input.getCassandraType();
-                }
-                else {
-                    return new CassandraTypeWithTypeArguments(input.getCassandraType(), input.getTypeArguments());
-                }
-            }
-        };
-    }
-
-    public static Predicate<CassandraColumnHandle> partitionKeyPredicate()
-    {
-        return new Predicate<CassandraColumnHandle>()
-        {
-            @Override
-            public boolean apply(CassandraColumnHandle columnHandle)
-            {
-                return columnHandle.isPartitionKey();
-            }
-        };
     }
 }

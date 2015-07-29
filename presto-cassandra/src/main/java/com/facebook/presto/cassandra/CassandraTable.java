@@ -15,12 +15,11 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import java.util.List;
 
-import static com.facebook.presto.cassandra.CassandraColumnHandle.partitionKeyPredicate;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.stream.Collectors.toList;
 
 public class CassandraTable
 {
@@ -45,7 +44,9 @@ public class CassandraTable
 
     public List<CassandraColumnHandle> getPartitionKeyColumns()
     {
-        return ImmutableList.copyOf(Iterables.filter(columns, partitionKeyPredicate()));
+        return columns.stream()
+                .filter(CassandraColumnHandle::isPartitionKey)
+                .collect(toList());
     }
 
     public String getTokenExpression()

@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
-import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 
 import javax.inject.Inject;
@@ -29,7 +28,7 @@ import java.util.List;
 import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.transform;
+import static java.util.stream.Collectors.toList;
 
 public class CassandraRecordSetProvider
         implements ConnectorRecordSetProvider
@@ -51,8 +50,9 @@ public class CassandraRecordSetProvider
     {
         CassandraSplit cassandraSplit = checkType(split, CassandraSplit.class, "split");
 
-        checkNotNull(columns, "columns is null");
-        List<CassandraColumnHandle> cassandraColumns = ImmutableList.copyOf(transform(columns, CassandraColumnHandle.cassandraColumnHandle()));
+        List<CassandraColumnHandle> cassandraColumns = columns.stream()
+                .map(column -> checkType(column, CassandraColumnHandle.class, "columnHandle"))
+                .collect(toList());
 
         String selectCql = CassandraCqlUtils.selectFrom(cassandraSplit.getCassandraTableHandle(), cassandraColumns).getQueryString();
         StringBuilder sb = new StringBuilder(selectCql);

@@ -30,12 +30,9 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -45,10 +42,12 @@ import io.airlift.log.Logger;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -60,6 +59,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static java.util.stream.Collectors.toList;
 
 public class CassandraSplitManager
         implements ConnectorSplitManager
@@ -102,10 +102,9 @@ public class CassandraSplitManager
         log.debug("%s.%s #partitions: %d", cassandraTableHandle.getSchemaName(), cassandraTableHandle.getTableName(), allPartitions.size());
 
         // do a final pass to filter based on fields that could not be used to build the prefix
-        List<ConnectorPartition> partitions = FluentIterable.from(allPartitions)
-                .filter(partitionMatches(tupleDomain))
-                .filter(ConnectorPartition.class)
-                .toList();
+        List<ConnectorPartition> partitions = allPartitions.stream()
+                .filter(partition -> tupleDomain.overlaps(partition.getTupleDomain()))
+                .collect(toList());
 
         // All partition key domains will be fully evaluated, so we don't need to include those
         TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.none();
@@ -123,7 +122,7 @@ public class CassandraSplitManager
         // push down indexed column fixed value predicates only for unpartitioned partition which uses token range query
         if (partitions.size() == 1 && ((CassandraPartition) partitions.get(0)).isUnpartitioned()) {
             Map<ColumnHandle, Domain> domains = tupleDomain.getDomains();
-            List<ColumnHandle> indexedColumns = Lists.newArrayList();
+            List<ColumnHandle> indexedColumns = new ArrayList<>();
             // compose partitionId by using indexed column
             StringBuilder sb = new StringBuilder();
             for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
@@ -141,7 +140,7 @@ public class CassandraSplitManager
             if (sb.length() > 0) {
                 CassandraPartition partition = (CassandraPartition) partitions.get(0);
                 TupleDomain<ColumnHandle> filterIndexedColumn = TupleDomain.withColumnDomains(Maps.filterKeys(remainingTupleDomain.getDomains(), not(in(indexedColumns))));
-                partitions = Lists.newArrayList();
+                partitions = new ArrayList<>();
                 partitions.add(new CassandraPartition(partition.getKey(), sb.toString(), filterIndexedColumn, true));
                 return new ConnectorPartitionResult(partitions, filterIndexedColumn);
             }
@@ -149,7 +148,7 @@ public class CassandraSplitManager
         return new ConnectorPartitionResult(partitions, remainingTupleDomain);
     }
 
-    private List<CassandraPartition> getCassandraPartitions(final CassandraTable table, TupleDomain<ColumnHandle> tupleDomain)
+    private List<CassandraPartition> getCassandraPartitions(CassandraTable table, TupleDomain<ColumnHandle> tupleDomain)
     {
         if (tupleDomain.isNone()) {
             return ImmutableList.of();
@@ -163,15 +162,8 @@ public class CassandraSplitManager
         }
 
         ImmutableList.Builder<ListenableFuture<List<CassandraPartition>>> getPartitionResults = ImmutableList.builder();
-        for (final List<Comparable<?>> partitionKeys : partitionKeysSet) {
-            getPartitionResults.add(executor.submit(new Callable<List<CassandraPartition>>()
-            {
-                @Override
-                public List<CassandraPartition> call()
-                {
-                    return schemaProvider.getPartitions(table, partitionKeys);
-                }
-            }));
+        for (List<Comparable<?>> partitionKeys : partitionKeysSet) {
+            getPartitionResults.add(executor.submit(() -> schemaProvider.getPartitions(table, partitionKeys)));
         }
 
         ImmutableList.Builder<CassandraPartition> partitions = ImmutableList.builder();
@@ -296,11 +288,11 @@ public class CassandraSplitManager
             singlePartitionKeyColumn = partitions.get(0).getTupleDomain().getNullableColumnDomains().size() == 1;
             if (singlePartitionKeyColumn) {
                 String partitionId = partitions.get(0).getPartitionId();
-                partitionKeyColumnName = partitionId.substring(0, partitionId.lastIndexOf("=") - 1);
+                partitionKeyColumnName = partitionId.substring(0, partitionId.lastIndexOf('=') - 1);
             }
         }
-        Map<Set<String>, Set<String>> hostsToPartitionKeys = Maps.newHashMap();
-        Map<Set<String>, List<HostAddress>> hostMap = Maps.newHashMap();
+        Map<Set<String>, Set<String>> hostsToPartitionKeys = new HashMap<>();
+        Map<Set<String>, List<HostAddress>> hostMap = new HashMap<>();
 
         for (ConnectorPartition partition : partitions) {
             CassandraPartition cassandraPartition = checkType(partition, CassandraPartition.class, "partition");
@@ -316,10 +308,10 @@ public class CassandraSplitManager
                 // partition key values
                 Set<String> values = hostsToPartitionKeys.get(hostAddresses);
                 if (values == null) {
-                    values = Sets.newHashSet();
+                    values = new HashSet<>();
                 }
                 String partitionId = cassandraPartition.getPartitionId();
-                values.add(partitionId.substring(partitionId.lastIndexOf("=") + 2));
+                values.add(partitionId.substring(partitionId.lastIndexOf('=') + 2));
                 hostsToPartitionKeys.put(hostAddresses, values);
                 hostMap.put(hostAddresses, addresses);
             }
@@ -363,17 +355,5 @@ public class CassandraSplitManager
         return toStringHelper(this)
                 .add("clientId", connectorId)
                 .toString();
-    }
-
-    public static Predicate<CassandraPartition> partitionMatches(final TupleDomain<ColumnHandle> tupleDomain)
-    {
-        return new Predicate<CassandraPartition>()
-        {
-            @Override
-            public boolean apply(CassandraPartition partition)
-            {
-                return tupleDomain.overlaps(partition.getTupleDomain());
-            }
-        };
     }
 }
