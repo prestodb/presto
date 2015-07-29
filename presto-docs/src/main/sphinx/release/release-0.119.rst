@@ -5,6 +5,7 @@ Release 0.119
 General Changes
 ---------------
 
+* Add :func:`geometric_mean` function.
 * Fix restoring interrupt status in ``StatementClient``.
 * Fix bug in ORC reader where ``VARCHAR`` or ``VARBINARY`` value may be
   incorrectly read as null.
