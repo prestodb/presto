@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.InitialDoubleValue;
 import com.facebook.presto.operator.aggregation.state.LongAndDoubleState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -32,35 +31,29 @@ public final class GeometricAverageAggregations
 
     private GeometricAverageAggregations() {}
 
-    public static interface LongAndDoubleGeomState extends LongAndDoubleState
+    @InputFunction
+    public static void input(LongAndDoubleState state, @SqlType(StandardTypes.BIGINT) long value)
     {
-        @InitialDoubleValue(value = 1.0d)
-        double getDouble();
+        state.setLong(state.getLong() + 1);
+        state.setDouble(state.getDouble() + Math.log(value));
     }
 
     @InputFunction
-    public static void input(LongAndDoubleGeomState state, @SqlType(StandardTypes.BIGINT) long value)
+    public static void input(LongAndDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
         state.setLong(state.getLong() + 1);
-        state.setDouble(state.getDouble() * value);
-    }
-
-    @InputFunction
-    public static void input(LongAndDoubleGeomState state, @SqlType(StandardTypes.DOUBLE) double value)
-    {
-        state.setLong(state.getLong() + 1);
-        state.setDouble(state.getDouble() * value);
+        state.setDouble(state.getDouble() + Math.log(value));
     }
 
     @CombineFunction
-    public static void combine(LongAndDoubleGeomState state, LongAndDoubleGeomState otherState)
+    public static void combine(LongAndDoubleState state, LongAndDoubleState otherState)
     {
         state.setLong(state.getLong() + otherState.getLong());
-        state.setDouble(state.getDouble() * otherState.getDouble());
+        state.setDouble(state.getDouble() + otherState.getDouble());
     }
 
     @OutputFunction(StandardTypes.DOUBLE)
-    public static void output(LongAndDoubleGeomState state, BlockBuilder out)
+    public static void output(LongAndDoubleState state, BlockBuilder out)
     {
         long count = state.getLong();
         if (count == 0) {
@@ -68,7 +61,8 @@ public final class GeometricAverageAggregations
         }
         else {
             double value = state.getDouble();
-            double gavg = Math.pow(value, 1.0d / count);
+            double lngavg = value / count;
+            double gavg = Math.exp(lngavg);
             DOUBLE.writeDouble(out, gavg);
         }
     }
