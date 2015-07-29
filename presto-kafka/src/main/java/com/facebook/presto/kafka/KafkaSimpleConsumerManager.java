@@ -25,7 +25,6 @@ import kafka.javaapi.consumer.SimpleConsumer;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
-import javax.inject.Named;
 
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -48,11 +47,12 @@ public class KafkaSimpleConsumerManager
     private final NodeManager nodeManager;
 
     @Inject
-    KafkaSimpleConsumerManager(@Named("connectorId") String connectorId,
+    public KafkaSimpleConsumerManager(
+            KafkaConnectorId connectorId,
             KafkaConnectorConfig kafkaConnectorConfig,
             NodeManager nodeManager)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
+        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
         this.kafkaConnectorConfig = checkNotNull(kafkaConnectorConfig, "kafkaConfig is null");
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
 

@@ -24,7 +24,6 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
-import com.google.inject.name.Names;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 
@@ -77,7 +76,7 @@ public class KafkaConnectorFactory
                         @Override
                         public void configure(Binder binder)
                         {
-                            binder.bindConstant().annotatedWith(Names.named("connectorId")).to(connectorId);
+                            binder.bind(KafkaConnectorId.class).toInstance(new KafkaConnectorId(connectorId));
                             binder.bind(TypeManager.class).toInstance(typeManager);
                             binder.bind(NodeManager.class).toInstance(nodeManager);
 

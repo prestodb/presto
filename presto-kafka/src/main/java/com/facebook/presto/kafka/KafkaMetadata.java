@@ -14,8 +14,8 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.presto.kafka.decoder.dummy.DummyKafkaRowDecoder;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -26,7 +26,6 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.inject.name.Named;
 
 import javax.inject.Inject;
 
@@ -53,13 +52,14 @@ public class KafkaMetadata
     private final Set<KafkaInternalFieldDescription> internalFieldDescriptions;
 
     @Inject
-    KafkaMetadata(@Named("connectorId") String connectorId,
+    public KafkaMetadata(
+            KafkaConnectorId connectorId,
             KafkaConnectorConfig kafkaConnectorConfig,
             KafkaHandleResolver handleResolver,
             Supplier<Map<SchemaTableName, KafkaTopicDescription>> kafkaTableDescriptionSupplier,
             Set<KafkaInternalFieldDescription> internalFieldDescriptions)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
+        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
         this.kafkaConnectorConfig = checkNotNull(kafkaConnectorConfig, "kafkaConfig is null");
         this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
 
