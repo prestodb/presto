@@ -121,7 +121,7 @@ public class PerfTest
         }
     }
 
-    private void executeQueries(List<String> queries, ParallelQueryRunner parallelQueryRunner, int parallelism)
+    private static void executeQueries(List<String> queries, ParallelQueryRunner parallelQueryRunner, int parallelism)
             throws Exception
     {
         Duration duration = parallelQueryRunner.executeCommands(parallelism, queries);
@@ -240,11 +240,10 @@ public class PerfTest
             HttpClientConfig clientConfig = new HttpClientConfig();
             clientConfig.setConnectTimeout(new Duration(10, TimeUnit.SECONDS));
             clientConfig.setIdleTimeout(new Duration(timeout, TimeUnit.SECONDS));
-            clientConfig.setKeepAliveInterval(new Duration(timeout, TimeUnit.SECONDS));
             httpClient = new JettyHttpClient(clientConfig);
         }
 
-        public ListenableFuture<?> execute(final BlockingQueue<String> queue, final CountDownLatch remainingQueries)
+        public ListenableFuture<?> execute(BlockingQueue<String> queue, CountDownLatch remainingQueries)
         {
             return executor.submit(() -> {
                 for (String query = queue.poll(); query != null; query = queue.poll()) {
