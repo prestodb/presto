@@ -28,6 +28,7 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.airlift.log.Logger;
 import kafka.api.PartitionOffsetRequestInfo;
@@ -46,6 +47,7 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -60,9 +62,9 @@ public class KafkaSplitManager
     private static final Logger log = Logger.get(KafkaSplitManager.class);
 
     private final String connectorId;
-    private final KafkaConnectorConfig kafkaConnectorConfig;
     private final KafkaHandleResolver handleResolver;
     private final KafkaSimpleConsumerManager consumerManager;
+    private final Set<HostAddress> nodes;
 
     @Inject
     public KafkaSplitManager(
@@ -72,9 +74,11 @@ public class KafkaSplitManager
             KafkaSimpleConsumerManager consumerManager)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
-        this.kafkaConnectorConfig = checkNotNull(kafkaConnectorConfig, "kafkaConfig is null");
         this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
         this.consumerManager = checkNotNull(consumerManager, "consumerManager is null");
+
+        checkNotNull(kafkaConnectorConfig, "kafkaConfig is null");
+        this.nodes = ImmutableSet.copyOf(kafkaConnectorConfig.getNodes());
     }
 
     @Override
@@ -82,7 +86,7 @@ public class KafkaSplitManager
     {
         KafkaTableHandle kafkaTableHandle = handleResolver.convertTableHandle(tableHandle);
 
-        List<HostAddress> nodes = new ArrayList<>(kafkaConnectorConfig.getNodes());
+        List<HostAddress> nodes = new ArrayList<>(this.nodes);
         Collections.shuffle(nodes);
 
         SimpleConsumer simpleConsumer = consumerManager.getConsumer(nodes.get(0));

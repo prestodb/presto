@@ -45,9 +45,8 @@ public class KafkaMetadata
         extends ReadOnlyConnectorMetadata
 {
     private final String connectorId;
-    private final KafkaConnectorConfig kafkaConnectorConfig;
     private final KafkaHandleResolver handleResolver;
-
+    private final boolean hideInternalColumns;
     private final Map<SchemaTableName, KafkaTopicDescription> tableDescriptions;
     private final Set<KafkaInternalFieldDescription> internalFieldDescriptions;
 
@@ -60,8 +59,10 @@ public class KafkaMetadata
             Set<KafkaInternalFieldDescription> internalFieldDescriptions)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
-        this.kafkaConnectorConfig = checkNotNull(kafkaConnectorConfig, "kafkaConfig is null");
         this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
+
+        checkNotNull(kafkaConnectorConfig, "kafkaConfig is null");
+        this.hideInternalColumns = kafkaConnectorConfig.isHideInternalColumns();
 
         checkNotNull(kafkaTableDescriptionSupplier, "kafkaTableDescriptionSupplier is null");
         this.tableDescriptions = kafkaTableDescriptionSupplier.get();
@@ -160,7 +161,7 @@ public class KafkaMetadata
         }
 
         for (KafkaInternalFieldDescription kafkaInternalFieldDescription : internalFieldDescriptions) {
-            columnHandles.put(kafkaInternalFieldDescription.getName(), kafkaInternalFieldDescription.getColumnHandle(connectorId, index++, kafkaConnectorConfig.isHideInternalColumns()));
+            columnHandles.put(kafkaInternalFieldDescription.getName(), kafkaInternalFieldDescription.getColumnHandle(connectorId, index++, hideInternalColumns));
         }
 
         return columnHandles.build();
@@ -225,7 +226,7 @@ public class KafkaMetadata
         }
 
         for (KafkaInternalFieldDescription fieldDescription : internalFieldDescriptions) {
-            builder.add(fieldDescription.getColumnMetadata(kafkaConnectorConfig.isHideInternalColumns()));
+            builder.add(fieldDescription.getColumnMetadata(hideInternalColumns));
         }
 
         return new ConnectorTableMetadata(schemaTableName, builder.build());
