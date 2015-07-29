@@ -107,6 +107,7 @@ public class TestingPrestoServer
                 .put("coordinator", String.valueOf(coordinator))
                 .put("presto.version", "testversion")
                 .put("task.default-concurrency", "4")
+                .put("task.max-worker-threads", "4")
                 .put("analyzer.experimental-syntax-enabled", "true");
 
         if (!properties.containsKey("query.max-memory-per-node")) {
