@@ -33,7 +33,6 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -45,8 +44,6 @@ import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.json.JsonCodec;
 
-import javax.annotation.Nullable;
-
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -57,12 +54,12 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 import static com.datastax.driver.core.querybuilder.Select.Where;
-import static com.facebook.presto.cassandra.ExtraColumnMetadata.hiddenPredicate;
-import static com.facebook.presto.cassandra.ExtraColumnMetadata.nameGetter;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.toList;
 
 public class CassandraSession
 {
@@ -220,8 +217,8 @@ public class CassandraSession
 
             // column ordering
             List<ExtraColumnMetadata> extras = extraColumnMetadataCodec.fromJson(columnOrderingString);
-            List<String> explicitColumnOrder = new ArrayList<>(ImmutableList.copyOf(transform(extras, nameGetter())));
-            hiddenColumns = ImmutableSet.copyOf(transform(filter(extras, hiddenPredicate()), nameGetter()));
+            List<String> explicitColumnOrder = new ArrayList<>(ImmutableList.copyOf(transform(extras, ExtraColumnMetadata::getName)));
+            hiddenColumns = ImmutableSet.copyOf(transform(filter(extras, ExtraColumnMetadata::isHidden), ExtraColumnMetadata::getName));
 
             // add columns not in the comment to the ordering
             Iterables.addAll(explicitColumnOrder, filter(columnNames, not(in(explicitColumnOrder))));
@@ -258,15 +255,9 @@ public class CassandraSession
             }
         }
 
-        List<CassandraColumnHandle> sortedColumnHandles = Ordering.natural().onResultOf(new Function<CassandraColumnHandle, Integer>()
-        {
-            @Nullable
-            @Override
-            public Integer apply(CassandraColumnHandle columnHandle)
-            {
-                return columnHandle.getOrdinalPosition();
-            }
-        }).sortedCopy(columnHandles.build());
+        List<CassandraColumnHandle> sortedColumnHandles = columnHandles.build().stream()
+                .sorted(comparing(CassandraColumnHandle::getOrdinalPosition))
+                .collect(toList());
 
         CassandraTableHandle tableHandle = new CassandraTableHandle(connectorId, tableMeta.getKeyspace().getName(), tableMeta.getName());
         return new CassandraTable(tableHandle, sortedColumnHandles);

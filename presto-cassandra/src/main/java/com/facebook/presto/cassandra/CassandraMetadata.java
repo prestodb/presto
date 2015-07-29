@@ -14,8 +14,8 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -40,7 +40,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.cassandra.CassandraColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
-import static com.facebook.presto.cassandra.CassandraColumnHandle.columnMetadataGetter;
 import static com.facebook.presto.cassandra.CassandraType.BIGINT;
 import static com.facebook.presto.cassandra.CassandraType.toCassandraType;
 import static com.facebook.presto.cassandra.util.Types.checkType;
@@ -50,10 +49,10 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.collect.Iterables.transform;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
+import static java.util.stream.Collectors.toList;
 
 public class CassandraMetadata
         implements ConnectorMetadata
@@ -116,7 +115,9 @@ public class CassandraMetadata
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
     {
         CassandraTableHandle tableHandle = schemaProvider.getTableHandle(tableName);
-        List<ColumnMetadata> columns = ImmutableList.copyOf(transform(getColumnHandles(session, tableHandle).values(), columnMetadataGetter()));
+        List<ColumnMetadata> columns = getColumnHandles(session, tableHandle).values().stream()
+                .map(column -> checkType(column, CassandraColumnHandle.class, "columnHandle").getColumnMetadata())
+                .collect(toList());
         return new ConnectorTableMetadata(tableName, columns);
     }
 

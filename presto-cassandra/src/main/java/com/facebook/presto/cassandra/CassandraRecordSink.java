@@ -16,13 +16,13 @@ package com.facebook.presto.cassandra;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -79,7 +79,7 @@ public class CassandraRecordSink
         queryBuilder.append(")");
 
         insertQuery = queryBuilder.toString();
-        values = Lists.newArrayList();
+        values = new ArrayList<>();
 
         columnTypes = handle.getColumnTypes();
     }
