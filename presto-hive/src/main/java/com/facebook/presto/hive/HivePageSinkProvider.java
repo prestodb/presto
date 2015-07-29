@@ -36,7 +36,9 @@ public class HivePageSinkProvider
     private final HiveMetastore metastore;
     private final PageIndexerFactory pageIndexerFactory;
     private final TypeManager typeManager;
-    private final int maxWriters = 100;
+    private final boolean respectTableFormat;
+    private final int maxOpenPartitions;
+    private final boolean immutablePartitions;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
 
     @Inject
@@ -45,12 +47,16 @@ public class HivePageSinkProvider
             HiveMetastore metastore,
             PageIndexerFactory pageIndexerFactory,
             TypeManager typeManager,
+            HiveClientConfig config,
             JsonCodec<PartitionUpdate> partitionUpdateCodec)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.respectTableFormat = config.isRespectTableFormat();
+        this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
+        this.immutablePartitions = config.isImmutablePartitions();
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
     }
 
@@ -82,7 +88,9 @@ public class HivePageSinkProvider
                 pageIndexerFactory,
                 typeManager,
                 hdfsEnvironment,
-                maxWriters,
+                respectTableFormat,
+                maxOpenPartitions,
+                immutablePartitions,
                 partitionUpdateCodec);
     }
 }

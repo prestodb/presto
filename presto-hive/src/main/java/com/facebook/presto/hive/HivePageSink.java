@@ -56,6 +56,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
@@ -102,13 +103,15 @@ public class HivePageSink
     private final HdfsEnvironment hdfsEnvironment;
     private final JobConf conf;
 
-    private final int maxWriters;
+    private final int maxOpenPartitions;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
 
     private final List<Object> dataRow;
     private final List<Object> partitionRow;
 
     private final Table table;
+    private final boolean immutablePartitions;
+    private final boolean respectTableFormat;
 
     private HiveRecordWriter[] writers = new HiveRecordWriter[0];
 
@@ -124,7 +127,9 @@ public class HivePageSink
             PageIndexerFactory pageIndexerFactory,
             TypeManager typeManager,
             HdfsEnvironment hdfsEnvironment,
-            int maxWriters,
+            boolean respectTableFormat,
+            int maxOpenPartitions,
+            boolean immutablePartitions,
             JsonCodec<PartitionUpdate> partitionUpdateCodec)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -143,7 +148,9 @@ public class HivePageSink
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
 
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.maxWriters = maxWriters;
+        this.respectTableFormat = respectTableFormat;
+        this.maxOpenPartitions = maxOpenPartitions;
+        this.immutablePartitions = immutablePartitions;
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
 
         // divide input columns into partition and data columns
@@ -243,7 +250,7 @@ public class HivePageSink
         Block[] partitionBlocks = getPartitionBlocks(page);
 
         int[] indexes = pageIndexer.indexPage(new Page(page.getPositionCount(), partitionBlocks));
-        if (pageIndexer.getMaxIndex() >= maxWriters) {
+        if (pageIndexer.getMaxIndex() >= maxOpenPartitions) {
             throw new PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS, "Too many open partitions");
         }
         if (pageIndexer.getMaxIndex() >= writers.length) {
@@ -317,7 +324,12 @@ public class HivePageSink
                         tableName,
                         table.getPartitionKeys());
                 target = table.getSd().getLocation();
-                outputFormat = table.getSd().getOutputFormat();
+                if (respectTableFormat) {
+                    outputFormat = table.getSd().getOutputFormat();
+                }
+                else {
+                    outputFormat = tableStorageFormat.getOutputFormat();
+                }
                 serDe = table.getSd().getSerdeInfo().getSerializationLib();
             }
             if (!partitionName.isEmpty()) {
@@ -353,6 +365,10 @@ public class HivePageSink
                     conf);
         }
         else {
+            if (immutablePartitions) {
+                throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Hive partitions are immutable");
+            }
+
             // Append to an existing partition
             HiveWriteUtils.checkPartitionIsWritable(partitionName, partition.get());
 
