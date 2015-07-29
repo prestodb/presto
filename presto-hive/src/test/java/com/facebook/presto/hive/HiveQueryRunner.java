@@ -63,8 +63,8 @@ public final class HiveQueryRunner
             queryRunner.installPlugin(new SampledTpchPlugin());
             queryRunner.createCatalog("tpch_sampled", "tpch_sampled");
 
-            File baseDir = queryRunner.getCoordinator().getBaseDataDir().toFile();
-            InMemoryHiveMetastore metastore = new InMemoryHiveMetastore();
+            File baseDir = new File(queryRunner.getCoordinator().getBaseDataDir().toFile(), "hive_data");
+            InMemoryHiveMetastore metastore = new InMemoryHiveMetastore(baseDir);
             metastore.createDatabase(new Database("tpch", null, new File(baseDir, "tpch").toURI().toString(), null));
             metastore.createDatabase(new Database("tpch_sampled", null, new File(baseDir, "tpch_sampled").toURI().toString(), null));
 

@@ -30,7 +30,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.testing.FileUtils.deleteRecursively;
 
 public class InMemoryHiveMetastore
         implements HiveMetastore
@@ -39,12 +41,23 @@ public class InMemoryHiveMetastore
     private final ConcurrentHashMap<SchemaTableName, Table> relations = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<SchemaTableName, Table> views = new ConcurrentHashMap<>();
 
+    private final File baseDirectory;
+
+    public InMemoryHiveMetastore(File baseDirectory)
+    {
+        this.baseDirectory = checkNotNull(baseDirectory, "baseDirectory is null");
+        checkArgument(!baseDirectory.exists(), "Base directory already exists");
+        checkArgument(baseDirectory.mkdirs(), "Could not create base directory");
+    }
+
     public void createDatabase(Database database)
     {
         checkNotNull(database, "database is null");
 
-        File file = new File(URI.create(database.getLocationUri()));
-        file.mkdirs();
+        File directory = new File(URI.create(database.getLocationUri()));
+        checkArgument(!directory.exists(), "Database directory already exists");
+        checkArgument(isParentDir(directory, baseDirectory), "Database directory must be inside of the metastore base directory");
+        checkArgument(directory.mkdirs(), "Could not create database directory");
 
         if (databases.putIfAbsent(database.getName(), database) != null) {
             throw new IllegalArgumentException("Database " + database.getName() + " already exists");
@@ -65,6 +78,10 @@ public class InMemoryHiveMetastore
         if (tableCopy.getSd() == null) {
             tableCopy.setSd(new StorageDescriptor());
         }
+        else if (tableCopy.getSd().getLocation() != null) {
+            File directory = new File(URI.create(tableCopy.getSd().getLocation()));
+            checkArgument(directory.exists(), "Table directory does not exist");
+        }
 
         if (relations.putIfAbsent(schemaTableName, tableCopy) != null) {
             throw new TableAlreadyExistsException(schemaTableName);
@@ -79,10 +96,19 @@ public class InMemoryHiveMetastore
     public void dropTable(String databaseName, String tableName)
     {
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
-        if (relations.remove(schemaTableName) == null) {
+        Table table = relations.remove(schemaTableName);
+        if (table == null) {
             throw new TableNotFoundException(schemaTableName);
         }
         views.remove(schemaTableName);
+
+        // remove data
+        String location = table.getSd().getLocation();
+        if (location != null) {
+            File directory = new File(URI.create(location));
+            checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
+            deleteRecursively(directory);
+        }
     }
 
     @Override
@@ -160,5 +186,15 @@ public class InMemoryHiveMetastore
     @Override
     public void flushCache()
     {
+    }
+
+    private static boolean isParentDir(File directory, File baseDirectory)
+    {
+        for (File parent = directory.getParentFile(); parent != null; parent = parent.getParentFile()) {
+            if (parent.equals(baseDirectory)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
