@@ -29,3 +29,4 @@ Hive Changes
   metadata entries when an object is dropped outside of Presto.
   In particular, this fixes the common case where a table is dropped using
   Hive but Presto thinks it still exists.
+* Fix metastore socket leak when SOCKS connect fails.
