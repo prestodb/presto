@@ -65,9 +65,9 @@ public final class HiveBenchmarkQueryRunner
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(nodeManager, 1), ImmutableMap.<String, String>of());
 
         // add hive
-        InMemoryHiveMetastore metastore = new InMemoryHiveMetastore();
-        File tpchDataDir = new File(tempDir, "tpch");
-        tpchDataDir.mkdir();
+        File hiveDir = new File(tempDir, "hive_data");
+        InMemoryHiveMetastore metastore = new InMemoryHiveMetastore(hiveDir);
+        File tpchDataDir = new File(hiveDir, "tpch");
         metastore.createDatabase(new Database("tpch", null, tpchDataDir.toURI().toString(), null));
 
         HiveConnectorFactory hiveConnectorFactory = new HiveConnectorFactory(
