@@ -18,6 +18,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 
@@ -27,6 +28,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -39,15 +41,21 @@ public class KafkaTableDescriptionSupplier
 {
     private static final Logger log = Logger.get(KafkaTableDescriptionSupplier.class);
 
-    private final KafkaConnectorConfig kafkaConnectorConfig;
     private final JsonCodec<KafkaTopicDescription> topicDescriptionCodec;
+    private final File tableDescriptionDir;
+    private final String defaultSchema;
+    private final Set<String> tableNames;
 
     @Inject
     KafkaTableDescriptionSupplier(KafkaConnectorConfig kafkaConnectorConfig,
             JsonCodec<KafkaTopicDescription> topicDescriptionCodec)
     {
-        this.kafkaConnectorConfig = checkNotNull(kafkaConnectorConfig, "kafkaConnectorConfig is null");
         this.topicDescriptionCodec = checkNotNull(topicDescriptionCodec, "topicDescriptionCodec is null");
+
+        checkNotNull(kafkaConnectorConfig, "kafkaConfig is null");
+        this.tableDescriptionDir = kafkaConnectorConfig.getTableDescriptionDir();
+        this.defaultSchema = kafkaConnectorConfig.getDefaultSchema();
+        this.tableNames = ImmutableSet.copyOf(kafkaConnectorConfig.getTableNames());
     }
 
     @Override
@@ -55,13 +63,13 @@ public class KafkaTableDescriptionSupplier
     {
         ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> builder = ImmutableMap.builder();
 
-        log.debug("Loading kafka table definitions from %s", kafkaConnectorConfig.getTableDescriptionDir().getAbsolutePath());
+        log.debug("Loading kafka table definitions from %s", tableDescriptionDir.getAbsolutePath());
 
         try {
-            for (File file : listFiles(kafkaConnectorConfig.getTableDescriptionDir())) {
+            for (File file : listFiles(tableDescriptionDir)) {
                 if (file.isFile() && file.getName().endsWith(".json")) {
                     KafkaTopicDescription table = topicDescriptionCodec.fromJson(readAllBytes(file.toPath()));
-                    String schemaName = firstNonNull(table.getSchemaName(), kafkaConnectorConfig.getDefaultSchema());
+                    String schemaName = firstNonNull(table.getSchemaName(), defaultSchema);
                     log.debug("Kafka table %s.%s: %s", schemaName, table.getTableName(), table);
                     builder.put(new SchemaTableName(schemaName, table.getTableName()), table);
                 }
@@ -72,13 +80,13 @@ public class KafkaTableDescriptionSupplier
             log.debug("Loaded Table definitions: %s", tableDefinitions.keySet());
 
             builder = ImmutableMap.builder();
-            for (String definedTable : kafkaConnectorConfig.getTableNames()) {
+            for (String definedTable : tableNames) {
                 SchemaTableName tableName;
                 try {
                     tableName = SchemaTableName.valueOf(definedTable);
                 }
                 catch (IllegalArgumentException iae) {
-                    tableName = new SchemaTableName(kafkaConnectorConfig.getDefaultSchema(), definedTable);
+                    tableName = new SchemaTableName(defaultSchema, definedTable);
                 }
 
                 if (tableDefinitions.containsKey(tableName)) {
