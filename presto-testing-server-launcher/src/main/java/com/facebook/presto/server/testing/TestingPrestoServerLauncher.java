@@ -23,7 +23,6 @@ import io.airlift.command.model.CommandMetadata;
 import javax.inject.Inject;
 
 import static io.airlift.command.SingleCommand.singleCommand;
-import static java.lang.Runtime.getRuntime;
 
 @Command(name = "testing_presto_server", description = "Testing Presto Server Launcher")
 public class TestingPrestoServerLauncher
@@ -35,11 +34,6 @@ public class TestingPrestoServerLauncher
 
     @Inject
     TestingPrestoServerLauncherOptions options = new TestingPrestoServerLauncherOptions();
-
-    private static void registerServerCloseShutdownHook(final TestingPrestoServer server)
-    {
-        getRuntime().addShutdownHook(new Thread(() -> server.close()));
-    }
 
     private static void waitForInterruption()
     {
@@ -55,45 +49,41 @@ public class TestingPrestoServerLauncher
             throws Exception
     {
         TestingPrestoServer server = new TestingPrestoServer();
-        registerServerCloseShutdownHook(server);
-        for (String pluginClass : options.getPluginClassNames()) {
-            Plugin plugin = (Plugin) Class.forName(pluginClass).newInstance();
-            server.installPlugin(plugin);
-        }
+        try {
+            for (String pluginClass : options.getPluginClassNames()) {
+                Plugin plugin = (Plugin) Class.forName(pluginClass).newInstance();
+                server.installPlugin(plugin);
+            }
 
-        for (Catalog catalog : options.getCatalogs()) {
-            server.createCatalog(catalog.getCatalogName(), catalog.getConnectorName());
-        }
+            for (Catalog catalog : options.getCatalogs()) {
+                server.createCatalog(catalog.getCatalogName(), catalog.getConnectorName());
+            }
 
-        System.out.println(server.getAddress());
-        waitForInterruption();
+            System.out.println(server.getAddress());
+            waitForInterruption();
+        }
+        finally {
+            server.close();
+        }
     }
 
     public static void main(String[] args)
             throws Exception
     {
+        TestingPrestoServerLauncher launcher = singleCommand(TestingPrestoServerLauncher.class).parse(args);
+        if (launcher.helpOption.showHelpIfRequested()) {
+            return;
+        }
         try {
-            TestingPrestoServerLauncher launcher = singleCommand(TestingPrestoServerLauncher.class).parse(args);
-            if (launcher.helpOption.showHelpIfRequested()) {
-                return;
-            }
-            try {
-                launcher.validateOptions();
-            }
-            catch (IllegalStateException e) {
-                System.out.println("ERROR: " + e.getMessage());
-                System.out.println();
-                Help.help(launcher.commandMetadata);
-                return;
-            }
-            launcher.run();
+            launcher.validateOptions();
         }
-        catch (Exception e) {
-            e.printStackTrace(System.err);
+        catch (IllegalStateException e) {
+            System.out.println("ERROR: " + e.getMessage());
+            System.out.println();
+            Help.help(launcher.commandMetadata);
+            return;
         }
-        finally {
-            System.exit(0);
-        }
+        launcher.run();
     }
 
     private void validateOptions()
