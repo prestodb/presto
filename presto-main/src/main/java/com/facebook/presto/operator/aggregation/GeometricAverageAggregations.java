@@ -60,10 +60,7 @@ public final class GeometricAverageAggregations
             out.appendNull();
         }
         else {
-            double value = state.getDouble();
-            double lngavg = value / count;
-            double gavg = Math.exp(lngavg);
-            DOUBLE.writeDouble(out, gavg);
+            DOUBLE.writeDouble(out, Math.exp(state.getDouble() / count));
         }
     }
 }
