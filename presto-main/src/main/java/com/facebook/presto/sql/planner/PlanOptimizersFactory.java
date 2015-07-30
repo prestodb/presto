@@ -34,6 +34,7 @@ import com.facebook.presto.sql.planner.optimizations.PruneRedundantProjections;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SimplifyExpressions;
+import com.facebook.presto.sql.planner.optimizations.JoinedAggregationsOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SingleDistinctOptimizer;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.sql.planner.optimizations.WindowFilterPushDown;
@@ -87,6 +88,11 @@ public class PlanOptimizersFactory
         if (featuresConfig.isOptimizeSingleDistinct()) {
             builder.add(new SingleDistinctOptimizer());
             builder.add(new PruneUnreferencedOutputs());
+        }
+
+        if (featuresConfig.isOptimizeJoinedAggregations()) {
+            builder.add(new JoinedAggregationsOptimizer());
+            builder.add(new UnaliasSymbolReferences());
         }
 
         builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
