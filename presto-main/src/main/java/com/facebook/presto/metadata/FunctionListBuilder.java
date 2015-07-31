@@ -30,7 +30,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.SqlType;
 import com.google.common.base.Throwables;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -248,7 +247,7 @@ public class FunctionListBuilder
         for (int i = 0; i < parameterTypes.length; i++) {
             Class<?> actualType = parameterTypes[i];
             Type expectedType = argumentTypes.get(i);
-            boolean nullable = !FluentIterable.from(Arrays.asList(annotations[i])).filter(Nullable.class).isEmpty();
+            boolean nullable = Arrays.asList(annotations[i]).stream().anyMatch(Nullable.class::isInstance);
             // Only allow boxing for functions that need to see nulls
             if (Primitives.isWrapperType(actualType)) {
                 checkArgument(nullable, "Method %s has parameter with type %s that is missing @Nullable", method, actualType);

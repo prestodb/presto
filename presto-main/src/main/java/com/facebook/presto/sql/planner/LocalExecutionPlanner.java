@@ -118,8 +118,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.google.common.base.Predicates;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -176,8 +174,6 @@ import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.in;
-import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.concat;
 import static java.util.Collections.singleton;
 
@@ -1182,24 +1178,24 @@ public class LocalExecutionPlanner
             // Identify just the join keys/channels needed for lookup by the index source (does not have to use all of them).
             Set<Symbol> indexSymbolsNeededBySource = IndexJoinOptimizer.IndexKeyTracer.trace(node.getIndexSource(), ImmutableSet.copyOf(indexSymbols)).keySet();
 
-            Set<Integer> lookupSourceInputChannels = FluentIterable.from(node.getCriteria())
-                    .filter(Predicates.compose(in(indexSymbolsNeededBySource), IndexJoinNode.EquiJoinClause::getIndex))
-                    .transform(IndexJoinNode.EquiJoinClause::getProbe)
-                    .transform(forMap(probeKeyLayout))
-                    .toSet();
+            Set<Integer> lookupSourceInputChannels = node.getCriteria().stream()
+                    .filter(equiJoinClause -> indexSymbolsNeededBySource.contains(equiJoinClause.getIndex()))
+                    .map(IndexJoinNode.EquiJoinClause::getProbe)
+                    .map(probeKeyLayout::get)
+                    .collect(toImmutableSet());
 
             Optional<DynamicTupleFilterFactory> dynamicTupleFilterFactory = Optional.empty();
             if (lookupSourceInputChannels.size() < probeKeyLayout.values().size()) {
-                int[] nonLookupInputChannels = Ints.toArray(FluentIterable.from(node.getCriteria())
-                        .filter(Predicates.compose(not(in(indexSymbolsNeededBySource)), IndexJoinNode.EquiJoinClause::getIndex))
-                        .transform(IndexJoinNode.EquiJoinClause::getProbe)
-                        .transform(forMap(probeKeyLayout))
-                        .toList());
-                int[] nonLookupOutputChannels = Ints.toArray(FluentIterable.from(node.getCriteria())
-                        .filter(Predicates.compose(not(in(indexSymbolsNeededBySource)), IndexJoinNode.EquiJoinClause::getIndex))
-                        .transform(IndexJoinNode.EquiJoinClause::getIndex)
-                        .transform(forMap(indexSource.getLayout()))
-                        .toList());
+                int[] nonLookupInputChannels = Ints.toArray(node.getCriteria().stream()
+                        .filter(equiJoinClause -> !indexSymbolsNeededBySource.contains(equiJoinClause.getIndex()))
+                        .map(IndexJoinNode.EquiJoinClause::getProbe)
+                        .map(probeKeyLayout::get)
+                        .collect(toImmutableList()));
+                int[] nonLookupOutputChannels = Ints.toArray(node.getCriteria().stream()
+                        .filter(equiJoinClause -> !indexSymbolsNeededBySource.contains(equiJoinClause.getIndex()))
+                        .map(IndexJoinNode.EquiJoinClause::getIndex)
+                        .map(indexSource.getLayout()::get)
+                        .collect(toImmutableList()));
 
                 int filterOperatorId = indexContext.getNextOperatorId();
                 dynamicTupleFilterFactory = Optional.of(new DynamicTupleFilterFactory(filterOperatorId, nonLookupInputChannels, nonLookupOutputChannels, indexSource.getTypes()));
