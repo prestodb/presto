@@ -29,6 +29,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -83,6 +84,18 @@ public class TestKafkaPlugin
         public List<Type> getTypes()
         {
             return ImmutableList.of();
+        }
+
+        @Override
+        public Optional<Type> getCommonSuperType(List<? extends Type> types)
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
+        {
+            return Optional.empty();
         }
     }
 

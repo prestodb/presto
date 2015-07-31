@@ -72,7 +72,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.ColorOperators;
@@ -118,7 +117,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
@@ -193,20 +191,11 @@ import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TimeType.TIME;
-import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.type.JsonPathType.JSON_PATH;
-import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
-import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.facebook.presto.util.Types.checkType;
@@ -671,7 +660,11 @@ public class FunctionRegistry
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
-                throw new OperatorNotFoundException(operatorType, argumentTypes);
+                throw new OperatorNotFoundException(
+                        operatorType,
+                        argumentTypes.stream()
+                                .map(Type::getTypeSignature)
+                                .collect(toImmutableList()));
             }
             else {
                 throw e;
@@ -681,7 +674,12 @@ public class FunctionRegistry
 
     public Signature getCoercion(Type fromType, Type toType)
     {
-        Signature signature = internalOperator(OperatorType.CAST.name(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()));
+        return getCoercion(fromType.getTypeSignature(), toType.getTypeSignature());
+    }
+
+    public Signature getCoercion(TypeSignature fromType, TypeSignature toType)
+    {
+        Signature signature = internalOperator(OperatorType.CAST.name(), toType, ImmutableList.of(fromType));
         try {
             getScalarFunctionImplementation(signature);
         }
@@ -692,133 +690,6 @@ public class FunctionRegistry
             throw e;
         }
         return signature;
-    }
-
-    public static boolean canCoerce(List<? extends Type> actualTypes, List<Type> expectedTypes)
-    {
-        if (actualTypes.size() != expectedTypes.size()) {
-            return false;
-        }
-        for (int i = 0; i < expectedTypes.size(); i++) {
-            Type expectedType = expectedTypes.get(i);
-            Type actualType = actualTypes.get(i);
-            if (!canCoerce(actualType, expectedType)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    public static boolean canCoerce(Type actualType, Type expectedType)
-    {
-        // are types the same
-        if (expectedType.equals(actualType)) {
-            return true;
-        }
-        // null can be cast to anything
-        if (actualType.equals(UNKNOWN)) {
-            return true;
-        }
-        // widen bigint to double
-        if (actualType.equals(BIGINT) && expectedType.equals(DOUBLE)) {
-            return true;
-        }
-        // widen date to timestamp
-        if (actualType.equals(DATE) && expectedType.equals(TIMESTAMP)) {
-            return true;
-        }
-        // widen date to timestamp with time zone
-        if (actualType.equals(DATE) && expectedType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-            return true;
-        }
-        // widen time to time with time zone
-        if (actualType.equals(TIME) && expectedType.equals(TIME_WITH_TIME_ZONE)) {
-            return true;
-        }
-        // widen timestamp to timestamp with time zone
-        if (actualType.equals(TIMESTAMP) && expectedType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-            return true;
-        }
-
-        if (actualType.equals(VARCHAR) && expectedType.equals(REGEXP)) {
-            return true;
-        }
-
-        if (actualType.equals(VARCHAR) && expectedType.equals(LIKE_PATTERN)) {
-            return true;
-        }
-
-        if (actualType.equals(VARCHAR) && expectedType.equals(JSON_PATH)) {
-            return true;
-        }
-
-        if (actualType instanceof ArrayType && expectedType instanceof ArrayType) {
-            Type actualElementType = ((ArrayType) actualType).getElementType();
-            Type expectedElementType = ((ArrayType) expectedType).getElementType();
-            return canCoerce(actualElementType, expectedElementType);
-        }
-
-        return false;
-    }
-
-    public static Optional<Type> getCommonSuperType(List<? extends Type> types)
-    {
-        checkArgument(!types.isEmpty(), "types is empty");
-        Type superType = UNKNOWN;
-        for (Type type : types) {
-            Optional<Type> commonSuperType = getCommonSuperType(superType, type);
-            if (!commonSuperType.isPresent()) {
-                return Optional.empty();
-            }
-            superType = commonSuperType.get();
-        }
-        return Optional.of(superType);
-    }
-
-    public static Optional<Type> getCommonSuperType(Type firstType, Type secondType)
-    {
-        if (firstType.equals(UNKNOWN)) {
-            return Optional.of(secondType);
-        }
-
-        if (secondType.equals(UNKNOWN)) {
-            return Optional.of(firstType);
-        }
-
-        if (firstType.equals(secondType)) {
-            return Optional.of(firstType);
-        }
-
-        if ((firstType.equals(BIGINT) || firstType.equals(DOUBLE)) && (secondType.equals(BIGINT) || secondType.equals(DOUBLE))) {
-            return Optional.<Type>of(DOUBLE);
-        }
-
-        if ((firstType.equals(DATE) || firstType.equals(TIMESTAMP)) && (secondType.equals(DATE) || secondType.equals(TIMESTAMP))) {
-            return Optional.<Type>of(TIMESTAMP);
-        }
-
-        if ((firstType.equals(DATE) || firstType.equals(TIMESTAMP_WITH_TIME_ZONE)) && (secondType.equals(DATE) || secondType.equals(TIMESTAMP_WITH_TIME_ZONE))) {
-            return Optional.<Type>of(TIMESTAMP_WITH_TIME_ZONE);
-        }
-
-        if ((firstType.equals(TIME) || firstType.equals(TIME_WITH_TIME_ZONE)) && (secondType.equals(TIME) || secondType.equals(TIME_WITH_TIME_ZONE))) {
-            return Optional.<Type>of(TIME_WITH_TIME_ZONE);
-        }
-
-        if ((firstType.equals(TIMESTAMP) || firstType.equals(TIMESTAMP_WITH_TIME_ZONE)) && (secondType.equals(TIMESTAMP) || secondType.equals(TIMESTAMP_WITH_TIME_ZONE))) {
-            return Optional.<Type>of(TIMESTAMP_WITH_TIME_ZONE);
-        }
-
-        if (firstType instanceof ArrayType && secondType instanceof ArrayType) {
-            Optional<Type> elementType = getCommonSuperType(((ArrayType) firstType).getElementType(), ((ArrayType) secondType).getElementType());
-            if (elementType.isPresent()) {
-                return Optional.of(new ArrayType(elementType.get()));
-            }
-        }
-
-        // TODO add row and map type
-
-        return Optional.empty();
     }
 
     public static Type typeForMagicLiteral(Type type)

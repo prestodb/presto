@@ -14,7 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
@@ -27,10 +27,10 @@ import static java.util.Objects.requireNonNull;
 public class OperatorNotFoundException extends PrestoException
 {
     private final OperatorType operatorType;
-    private final Type returnType;
-    private final List<Type> argumentTypes;
+    private final TypeSignature returnType;
+    private final List<TypeSignature> argumentTypes;
 
-    public OperatorNotFoundException(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public OperatorNotFoundException(OperatorType operatorType, List<? extends TypeSignature> argumentTypes)
     {
         super(OPERATOR_NOT_FOUND, format("Operator %s(%s) not registered", operatorType, Joiner.on(", ").join(argumentTypes)));
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
@@ -38,7 +38,7 @@ public class OperatorNotFoundException extends PrestoException
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
 
-    public OperatorNotFoundException(OperatorType operatorType, List<? extends Type> argumentTypes, Type returnType)
+    public OperatorNotFoundException(OperatorType operatorType, List<? extends TypeSignature> argumentTypes, TypeSignature returnType)
     {
         super(OPERATOR_NOT_FOUND, format("Operator %s(%s):%s not registered", operatorType, Joiner.on(", ").join(argumentTypes), returnType));
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
@@ -51,12 +51,12 @@ public class OperatorNotFoundException extends PrestoException
         return operatorType;
     }
 
-    public Type getReturnType()
+    public TypeSignature getReturnType()
     {
         return returnType;
     }
 
-    public List<Type> getArgumentTypes()
+    public List<TypeSignature> getArgumentTypes()
     {
         return argumentTypes;
     }

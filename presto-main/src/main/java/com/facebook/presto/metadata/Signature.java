@@ -33,10 +33,9 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
-import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.type.TypeRegistry.canCoerce;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -270,7 +269,7 @@ public final class Signature
 
         // Bind the variable arity argument first, to make sure it's bound to the common super type
         if (varArgs && types.size() >= argumentTypes.size()) {
-            Optional<Type> superType = getCommonSuperType(types.subList(argumentTypes.size() - 1, types.size()));
+            Optional<Type> superType = typeManager.getCommonSuperType(types.subList(argumentTypes.size() - 1, types.size()));
             if (!superType.isPresent()) {
                 return false;
             }
