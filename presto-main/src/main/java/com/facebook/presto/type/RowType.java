@@ -25,9 +25,7 @@ import com.facebook.presto.spi.type.AbstractType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
@@ -178,14 +176,7 @@ public class RowType
     @Override
     public boolean isComparable()
     {
-        return Iterables.all(fields, new Predicate<RowField>()
-        {
-            @Override
-            public boolean apply(RowField field)
-            {
-                return field.getType().isComparable();
-            }
-        });
+        return fields.stream().allMatch(field -> field.getType().isComparable());
     }
 
     @Override
