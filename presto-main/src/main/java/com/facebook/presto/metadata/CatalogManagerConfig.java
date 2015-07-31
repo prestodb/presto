@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.NotNull;
 
@@ -29,10 +30,11 @@ public class CatalogManagerConfig
         return catalogConfigurationDir;
     }
 
-    @Config("plugin.config-dir")
-    public CatalogManagerConfig setCatalogConfigurationDir(File pluginConfigurationDir)
+    @LegacyConfig("plugin.config-dir")
+    @Config("catalog.config-dir")
+    public CatalogManagerConfig setCatalogConfigurationDir(File dir)
     {
-        this.catalogConfigurationDir = pluginConfigurationDir;
+        this.catalogConfigurationDir = dir;
         return this;
     }
 }
