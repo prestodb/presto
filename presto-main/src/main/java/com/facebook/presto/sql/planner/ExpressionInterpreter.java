@@ -86,13 +86,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
+import static com.facebook.presto.type.TypeRegistry.canCoerce;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
@@ -693,7 +693,7 @@ public class ExpressionInterpreter
                 return new NullIfExpression(toExpression(first, firstType), toExpression(second, secondType));
             }
 
-            Type commonType = FunctionRegistry.getCommonSuperType(firstType, secondType).get();
+            Type commonType = metadata.getTypeManager().getCommonSuperType(firstType, secondType).get();
 
             Signature firstCast = metadata.getFunctionRegistry().getCoercion(firstType, commonType);
             Signature secondCast = metadata.getFunctionRegistry().getCoercion(secondType, commonType);
