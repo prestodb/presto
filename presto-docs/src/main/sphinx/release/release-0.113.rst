@@ -41,6 +41,8 @@ General Changes
 * Add :func:`url_encode` and :func:`url_decode` functions.
 * :func:`concat` now allows arbitrary number of arguments.
 * Fix JMX connector. In the previous release it always returned zero rows.
+* Fix handling of literal ``NULL`` in ``IS DISTINCT FROM``.
+* Fix an issue that caused some specific queries to fail in planning.
 
 Hive Changes
 ------------
@@ -51,3 +53,13 @@ Hive Changes
   In particular, this fixes the common case where a table is dropped using
   Hive but Presto thinks it still exists.
 * Fix metastore socket leak when SOCKS connect fails.
+
+SPI Changes
+-----------
+
+* Changed the internal representation of structural types.
+
+.. note::
+    This is a backwards incompatible change with the previous connector SPI.
+    If you have written a connector that uses structural types, you will need
+    to update your code to the new APIs.
