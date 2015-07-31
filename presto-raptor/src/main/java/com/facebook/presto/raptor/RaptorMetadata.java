@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -63,6 +64,8 @@ import static com.facebook.presto.raptor.RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN
 import static com.facebook.presto.raptor.RaptorColumnHandle.shardRowIdHandle;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorSessionProperties.getExternalBatchId;
+import static com.facebook.presto.raptor.RaptorTableProperties.getSortColumns;
+import static com.facebook.presto.raptor.RaptorTableProperties.getTemporalColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.metadata.MetadataDaoUtils.createMetadataTablesWithRetry;
 import static com.facebook.presto.raptor.util.Types.checkType;
@@ -289,12 +292,18 @@ public class RaptorMetadata
     {
         ImmutableList.Builder<RaptorColumnHandle> columnHandles = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
+
         long columnId = 1;
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             columnHandles.add(new RaptorColumnHandle(connectorId, column.getName(), columnId, column.getType()));
             columnTypes.add(column.getType());
             columnId++;
         }
+        Map<String, RaptorColumnHandle> columnHandleMap = Maps.uniqueIndex(columnHandles.build(), RaptorColumnHandle::getColumnName);
+
+        List<RaptorColumnHandle> sortColumnHandles = getSortColumnHandles(getSortColumns(tableMetadata.getProperties()), columnHandleMap);
+        Optional<RaptorColumnHandle> temporalColumnHandle = getTemporalColumnHandle(getTemporalColumn(tableMetadata.getProperties()), columnHandleMap);
+
         RaptorColumnHandle sampleWeightColumnHandle = null;
         if (tableMetadata.isSampled()) {
             sampleWeightColumnHandle = new RaptorColumnHandle(connectorId, SAMPLE_WEIGHT_COLUMN_NAME, columnId, BIGINT);
@@ -308,8 +317,38 @@ public class RaptorMetadata
                 columnHandles.build(),
                 columnTypes.build(),
                 sampleWeightColumnHandle,
-                ImmutableList.of(),
-                ImmutableList.of());
+                sortColumnHandles,
+                nCopies(sortColumnHandles.size(), ASC_NULLS_FIRST),
+                temporalColumnHandle);
+    }
+
+    private static Optional<RaptorColumnHandle> getTemporalColumnHandle(String temporalColumn, Map<String, RaptorColumnHandle> columnHandleMap)
+    {
+        if (temporalColumn == null) {
+            return Optional.empty();
+        }
+
+        RaptorColumnHandle handle = columnHandleMap.get(temporalColumn);
+        if (handle == null) {
+            throw new PrestoException(NOT_FOUND, format("Temporal column %s does not exist", temporalColumn));
+        }
+        return Optional.of(handle);
+    }
+
+    private static List<RaptorColumnHandle> getSortColumnHandles(List<String> sortColumns, Map<String, RaptorColumnHandle> columnHandleMap)
+    {
+        if (sortColumns == null) {
+            return ImmutableList.of();
+        }
+        ImmutableList.Builder<RaptorColumnHandle> sortColumnHandles = ImmutableList.builder();
+        for (String column : sortColumns) {
+            RaptorColumnHandle handle = columnHandleMap.get(column);
+            if (handle == null) {
+                throw new PrestoException(NOT_FOUND, format("Ordering column %s does not exist", column));
+            }
+            sortColumnHandles.add(handle);
+        }
+        return sortColumnHandles.build();
     }
 
     @Override
@@ -320,11 +359,20 @@ public class RaptorMetadata
         long newTableId = dbi.inTransaction((dbiHandle, status) -> {
             MetadataDao dao = dbiHandle.attach(MetadataDao.class);
             long tableId = dao.insertTable(table.getSchemaName(), table.getTableName());
+            List<RaptorColumnHandle> sortColumnHandles = table.getSortColumnHandles();
+
             for (int i = 0; i < table.getColumnTypes().size(); i++) {
                 RaptorColumnHandle column = table.getColumnHandles().get(i);
-                Type columnType = table.getColumnTypes().get(i);
-                dao.insertColumn(tableId, i + 1, column.getColumnName(), i, columnType.getTypeSignature().toString());
+
+                int columnId = i + 1;
+                Integer sortPosition = !sortColumnHandles.contains(column) ? null : sortColumnHandles.indexOf(column);
+                dao.insertColumn(tableId, columnId, column.getColumnName(), i, table.getColumnTypes().get(i).getTypeSignature().toString(), sortPosition);
+
+                if (table.getTemporalColumnHandle().isPresent() && table.getTemporalColumnHandle().get().equals(column)) {
+                    dao.updateTemporalColumnId(columnId, tableId);
+                }
             }
+
             return tableId;
         });
 

@@ -148,14 +148,15 @@ public interface MetadataDao
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
-    @SqlUpdate("INSERT INTO columns (table_id, column_id, column_name, ordinal_position, data_type)\n" +
-            "VALUES (:tableId, :columnId, :columnName, :ordinalPosition, :dataType)")
+    @SqlUpdate("INSERT INTO columns (table_id, column_id, column_name, ordinal_position, data_type, sort_ordinal_position)\n" +
+            "VALUES (:tableId, :columnId, :columnName, :ordinalPosition, :dataType, :sortOrdinalPosition)")
     void insertColumn(
             @Bind("tableId") long tableId,
             @Bind("columnId") long columnId,
             @Bind("columnName") String columnName,
             @Bind("ordinalPosition") int ordinalPosition,
-            @Bind("dataType") String dataType);
+            @Bind("dataType") String dataType,
+            @Bind("sortOrdinalPosition") Integer sortOrdinalPosition);
 
     @SqlUpdate("UPDATE tables SET\n" +
             "  schema_name = :newSchemaName\n" +
