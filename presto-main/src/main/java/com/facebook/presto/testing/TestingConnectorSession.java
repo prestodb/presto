@@ -102,9 +102,9 @@ public class TestingConnectorSession
         }
         Object value = propertyValues.get(name);
         if (value == null) {
-            value = metadata.getDefaultValue();
+            return type.cast(metadata.getDefaultValue());
         }
-        return type.cast(value);
+        return type.cast(metadata.decode(value));
     }
 
     @Override
