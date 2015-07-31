@@ -89,6 +89,7 @@ public class HiveMetadata
     private final String connectorId;
     private final boolean allowDropTable;
     private final boolean allowRenameTable;
+    private final boolean allowRenameColumn;
     private final boolean allowCorruptWritesForTesting;
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
@@ -111,6 +112,7 @@ public class HiveMetadata
                 hiveClientConfig.getDateTimeZone(),
                 hiveClientConfig.getAllowDropTable(),
                 hiveClientConfig.getAllowRenameTable(),
+                hiveClientConfig.getAllowRenameColumn(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
                 typeManager);
     }
@@ -122,6 +124,7 @@ public class HiveMetadata
             DateTimeZone timeZone,
             boolean allowDropTable,
             boolean allowRenameTable,
+            boolean allowRenameColumn,
             boolean allowCorruptWritesForTesting,
             TypeManager typeManager)
     {
@@ -129,6 +132,7 @@ public class HiveMetadata
 
         this.allowDropTable = allowDropTable;
         this.allowRenameTable = allowRenameTable;
+        this.allowRenameColumn = allowRenameColumn;
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
         this.metastore = checkNotNull(metastore, "metastore is null");
@@ -337,6 +341,36 @@ public class HiveMetadata
         table.setPartitionKeys(partitionKeys.build());
         table.setSd(sd);
 
+        metastore.createTable(table);
+    }
+
+    @Override
+    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
+    {
+        if (!allowRenameColumn) {
+            throw new PrestoException(PERMISSION_DENIED, "Renaming columns is disabled in this Hive catalog");
+        }
+
+        HiveTableHandle hiveTableHandle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
+        HiveColumnHandle sourceHandle = checkType(source, HiveColumnHandle.class, "columnHandle");
+        Optional<Table> tableMetadata = metastore.getTable(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName());
+        if (!tableMetadata.isPresent()) {
+            throw new TableNotFoundException(hiveTableHandle.getSchemaTableName());
+        }
+        Table table = tableMetadata.get();
+        StorageDescriptor sd = table.getSd();
+        ImmutableList.Builder<FieldSchema> columns = ImmutableList.builder();
+        for (FieldSchema fieldSchema : sd.getCols()) {
+            if (fieldSchema.getName().equals(sourceHandle.getName())) {
+                columns.add(new FieldSchema(target, fieldSchema.getType(), fieldSchema.getComment()));
+            }
+            else {
+                columns.add(fieldSchema);
+            }
+        }
+        sd.setCols(columns.build());
+        table.setSd(sd);
+        metastore.dropTable(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName());
         metastore.createTable(table);
     }
 
