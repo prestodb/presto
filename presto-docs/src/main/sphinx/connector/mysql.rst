@@ -44,9 +44,24 @@ in this database by running ``SHOW TABLES``::
 
     SHOW TABLES FROM mysql.web;
 
+You can see a list of the columns in the ``clicks`` table in the ``web`` database
+using either of the following::
+
+    DESCRIBE mysql.web.clicks;
+    SHOW COLUMNS FROM mysql.web.clicks;
+
 Finally, you can access the ``clicks`` table in the ``web`` database::
 
     SELECT * FROM mysql.web.clicks;
 
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``mysql`` in the above examples.
+
+MySQL Connector Limitations
+---------------------------
+
+The following SQL statements are not yet supported:
+
+* :doc:`/sql/insert`
+* :doc:`/sql/alter-table`
+* :doc:`/sql/create-table` (:doc:`/sql/create-table-as` is supported)
