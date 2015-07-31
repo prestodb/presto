@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.concurrent.MoreFutures;
@@ -31,6 +30,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -153,7 +153,7 @@ public class StateMachine<T>
             }
 
             // do not call predicate while holding the lock
-            if (!predicate.apply(currentState)) {
+            if (!predicate.test(currentState)) {
                 return false;
             }
 
