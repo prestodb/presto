@@ -66,7 +66,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.DateOperators;
@@ -128,8 +127,8 @@ import static com.facebook.presto.operator.scalar.ArrayConcatFunction.ARRAY_CONC
 import static com.facebook.presto.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.facebook.presto.operator.scalar.ArrayContains.ARRAY_CONTAINS;
 import static com.facebook.presto.operator.scalar.ArrayDistinctFunction.ARRAY_DISTINCT_FUNCTION;
-import static com.facebook.presto.operator.scalar.ArrayEqualOperator.ARRAY_EQUAL;
 import static com.facebook.presto.operator.scalar.ArrayElementAtFunction.ARRAY_ELEMENT_AT_FUNCTION;
+import static com.facebook.presto.operator.scalar.ArrayEqualOperator.ARRAY_EQUAL;
 import static com.facebook.presto.operator.scalar.ArrayGreaterThanOperator.ARRAY_GREATER_THAN;
 import static com.facebook.presto.operator.scalar.ArrayGreaterThanOrEqualOperator.ARRAY_GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.operator.scalar.ArrayHashCodeOperator.ARRAY_HASH_CODE;
@@ -173,12 +172,7 @@ import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TimeType.TIME;
-import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -349,7 +343,7 @@ public class FunctionRegistry
         // search for exact match
         FunctionInfo match = null;
         for (ParametricFunction function : candidates) {
-            Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, false, typeManager);
+            Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, false, this, typeManager);
             if (boundTypeParameters != null) {
                 checkArgument(match == null, "Ambiguous call to %s with parameters %s", name, parameterTypes);
                 try {
@@ -367,7 +361,7 @@ public class FunctionRegistry
 
         // search for coerced match
         for (ParametricFunction function : candidates) {
-            Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, true, typeManager);
+            Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, true, this, typeManager);
             if (boundTypeParameters != null) {
                 // TODO: This should also check for ambiguities
                 try {
@@ -442,7 +436,7 @@ public class FunctionRegistry
                     if (!function.getSignature().getName().equals(name.toString())) {
                         continue;
                     }
-                    Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, false, typeManager);
+                    Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, false, this, typeManager);
                     if (boundTypeParameters != null) {
                         checkArgument(match == null, "Ambiguous call to %s with parameters %s", name, parameterTypes);
                         try {
@@ -470,7 +464,7 @@ public class FunctionRegistry
         for (ParametricFunction operator : candidates) {
             Type returnType = typeManager.getType(signature.getReturnType());
             List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
-            Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeParameters(returnType, argumentTypes, false, typeManager);
+            Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeParameters(returnType, argumentTypes, false, this, typeManager);
             if (boundTypeParameters != null) {
                 try {
                     return specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(operator, boundTypeParameters, signature.getArgumentTypes().size()));
@@ -535,59 +529,59 @@ public class FunctionRegistry
         return true;
     }
 
-    public static boolean canCoerce(Type actualType, Type expectedType)
+    private static boolean canCastTypeBase(String fromTypeBase, String toTypeBase)
     {
-        // are types the same
-        if (expectedType.equals(actualType)) {
-            return true;
-        }
-        // null can be cast to anything
-        if (actualType.equals(UNKNOWN)) {
-            return true;
-        }
-        // widen bigint to double
-        if (actualType.equals(BIGINT) && expectedType.equals(DOUBLE)) {
-            return true;
-        }
-        // widen date to timestamp
-        if (actualType.equals(DATE) && expectedType.equals(TIMESTAMP)) {
-            return true;
-        }
-        // widen date to timestamp with time zone
-        if (actualType.equals(DATE) && expectedType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-            return true;
-        }
-        // widen time to time with time zone
-        if (actualType.equals(TIME) && expectedType.equals(TIME_WITH_TIME_ZONE)) {
-            return true;
-        }
-        // widen timestamp to timestamp with time zone
-        if (actualType.equals(TIMESTAMP) && expectedType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-            return true;
-        }
+        // canCastTypeBase and isCovariantParameterPosition defines all hand-coded rules for type coercion.
+        // Other methods should reference these two functions instead of hand-code new rules.
 
-        if (actualType.equals(VARCHAR) && expectedType.equals(REGEXP)) {
+        if (UNKNOWN.NAME.equals(fromTypeBase)) {
             return true;
         }
-
-        if (actualType.equals(VARCHAR) && expectedType.equals(LIKE_PATTERN)) {
+        if (toTypeBase.equals(fromTypeBase)) {
             return true;
         }
-
-        if (actualType.equals(VARCHAR) && expectedType.equals(JSON_PATH)) {
-            return true;
+        switch (fromTypeBase) {
+            case StandardTypes.BIGINT:
+                return StandardTypes.DOUBLE.equals(toTypeBase);
+            case StandardTypes.DATE:
+                return StandardTypes.TIMESTAMP.equals(toTypeBase) || StandardTypes.TIMESTAMP_WITH_TIME_ZONE.equals(toTypeBase);
+            case StandardTypes.TIME:
+                return StandardTypes.TIME_WITH_TIME_ZONE.equals(toTypeBase);
+            case StandardTypes.TIMESTAMP:
+                return StandardTypes.TIMESTAMP_WITH_TIME_ZONE.equals(toTypeBase);
+            case StandardTypes.VARCHAR:
+                return REGEXP.NAME.equals(toTypeBase) || LIKE_PATTERN.NAME.equals(toTypeBase) || JSON_PATH.NAME.equals(toTypeBase);
         }
-
-        if (actualType instanceof ArrayType && expectedType instanceof ArrayType) {
-            Type actualElementType = ((ArrayType) actualType).getElementType();
-            Type expectedElementType = ((ArrayType) expectedType).getElementType();
-            return canCoerce(actualElementType, expectedElementType);
-        }
-
         return false;
     }
 
-    public static Optional<Type> getCommonSuperType(List<? extends Type> types)
+    public static boolean isCovariantParameterPosition(String firstTypeBase, int position)
+    {
+        // canCastTypeBase and isCovariantParameterPosition defines all hand-coded rules for type coercion.
+        // Other methods should reference these two functions instead of hand-code new rules.
+
+        // if we ever introduce contravariant, this function should be changed to return an enumeration: INVARIANT, COVARIANT, CONTRAVARIANT
+        // TODO: add row and map type
+        return firstTypeBase.equals(StandardTypes.ARRAY);
+    }
+
+    public static boolean canCoerce(Type actualType, Type expectedType)
+    {
+        return canCoerce(actualType.getTypeSignature(), expectedType.getTypeSignature());
+    }
+
+    public static boolean canCoerce(TypeSignature actualTypeTypeSignature, TypeSignature expectedTypeTypeSignature)
+    {
+        Optional<TypeSignature> commonSuperTypeSignature = getCommonSuperTypeSignature(actualTypeTypeSignature, expectedTypeTypeSignature);
+        if (commonSuperTypeSignature.isPresent()) {
+            return commonSuperTypeSignature.get().equals(expectedTypeTypeSignature);
+        }
+        else {
+            return false;
+        }
+    }
+
+    public Optional<Type> getCommonSuperType(List<? extends Type> types)
     {
         checkArgument(!types.isEmpty(), "types is empty");
         Type superType = UNKNOWN;
@@ -601,42 +595,77 @@ public class FunctionRegistry
         return Optional.of(superType);
     }
 
-    public static Optional<Type> getCommonSuperType(Type firstType, Type secondType)
+    public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
     {
-        if (firstType.equals(UNKNOWN)) {
+        Optional<TypeSignature> commonSuperTypeSignature = getCommonSuperTypeSignature(firstType.getTypeSignature(), secondType.getTypeSignature());
+        return commonSuperTypeSignature.map(typeManager::getType);
+    }
+
+    public static Optional<String> getCommonSuperTypeBase(String firstTypeBase, String secondTypeBase)
+    {
+        if (canCastTypeBase(firstTypeBase, secondTypeBase)) {
+            return Optional.of(secondTypeBase);
+        }
+        if (canCastTypeBase(secondTypeBase, firstTypeBase)) {
+            return Optional.of(firstTypeBase);
+        }
+        return Optional.empty();
+    }
+
+    public static Optional<TypeSignature> getCommonSuperTypeSignature(List<? extends TypeSignature> typeSignatures)
+    {
+        checkArgument(!typeSignatures.isEmpty(), "typeSignatures is empty");
+        TypeSignature superTypeSignature = UNKNOWN.getTypeSignature();
+        for (TypeSignature typeSignature : typeSignatures) {
+            Optional<TypeSignature> commonSuperTypeSignature = getCommonSuperTypeSignature(superTypeSignature, typeSignature);
+            if (!commonSuperTypeSignature.isPresent()) {
+                return Optional.empty();
+            }
+            superTypeSignature = commonSuperTypeSignature.get();
+        }
+        return Optional.of(superTypeSignature);
+    }
+
+    public static Optional<TypeSignature> getCommonSuperTypeSignature(TypeSignature firstType, TypeSignature secondType)
+    {
+        // Special handling for UnknownType is necessary because we forbid cast between types with different number of type parameters.
+        // Without this, cast between map<bigint, bigint> and unknown will not be allowed.
+        if (UNKNOWN.NAME.equals(firstType.getBase())) {
             return Optional.of(secondType);
         }
-
-        if (secondType.equals(UNKNOWN)) {
+        if (UNKNOWN.NAME.equals(secondType.getBase())) {
             return Optional.of(firstType);
         }
 
-        if (firstType.equals(secondType)) {
-            return Optional.of(firstType);
+        List<TypeSignature> firstTypeTypeParameters = firstType.getParameters();
+        List<TypeSignature> secondTypeTypeParameters = secondType.getParameters();
+        if (firstTypeTypeParameters.size() != secondTypeTypeParameters.size()) {
+            return Optional.empty();
         }
 
-        if ((firstType.equals(BIGINT) || firstType.equals(DOUBLE)) && (secondType.equals(BIGINT) || secondType.equals(DOUBLE))) {
-            return Optional.<Type>of(DOUBLE);
+        Optional<String> commonSuperTypeBase = getCommonSuperTypeBase(firstType.getBase(), secondType.getBase());
+        if (!commonSuperTypeBase.isPresent()) {
+            return Optional.empty();
         }
 
-        if ((firstType.equals(TIME) || firstType.equals(TIME_WITH_TIME_ZONE)) && (secondType.equals(TIME) || secondType.equals(TIME_WITH_TIME_ZONE))) {
-            return Optional.<Type>of(TIME_WITH_TIME_ZONE);
-        }
-
-        if ((firstType.equals(TIMESTAMP) || firstType.equals(TIMESTAMP_WITH_TIME_ZONE)) && (secondType.equals(TIMESTAMP) || secondType.equals(TIMESTAMP_WITH_TIME_ZONE))) {
-            return Optional.<Type>of(TIMESTAMP_WITH_TIME_ZONE);
-        }
-
-        if (firstType instanceof ArrayType && secondType instanceof ArrayType) {
-            Optional<Type> elementType = getCommonSuperType(((ArrayType) firstType).getElementType(), ((ArrayType) secondType).getElementType());
-            if (elementType.isPresent()) {
-                return Optional.of(new ArrayType(elementType.get()));
+        ImmutableList.Builder<TypeSignature> typeParameters = ImmutableList.builder();
+        for (int i = 0; i < firstTypeTypeParameters.size(); i++) {
+            if (isCovariantParameterPosition(commonSuperTypeBase.get(), i)) {
+                Optional<TypeSignature> commonSuperType = getCommonSuperTypeSignature(firstTypeTypeParameters.get(i), secondTypeTypeParameters.get(i));
+                if (!commonSuperType.isPresent()) {
+                    return Optional.empty();
+                }
+                typeParameters.add(commonSuperType.get());
+            }
+            else {
+                if (!firstTypeTypeParameters.get(i).equals(secondTypeTypeParameters.get(i))) {
+                    return Optional.empty();
+                }
+                typeParameters.add(firstTypeTypeParameters.get(i));
             }
         }
 
-        // TODO add row and map type
-
-        return Optional.empty();
+        return Optional.of(new TypeSignature(commonSuperTypeBase.get(), typeParameters.build(), firstType.getLiteralParameters()));
     }
 
     public static Type typeForMagicLiteral(Type type)

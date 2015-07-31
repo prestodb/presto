@@ -33,7 +33,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
-import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -196,7 +195,7 @@ public final class Signature
     }
 
     @Nullable
-    public Map<String, Type> bindTypeParameters(Type returnType, List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
+    public Map<String, Type> bindTypeParameters(Type returnType, List<? extends Type> types, boolean allowCoercion, FunctionRegistry functionRegistry, TypeManager typeManager)
     {
         Map<String, Type> boundParameters = new HashMap<>();
         ImmutableMap.Builder<String, TypeParameter> builder = ImmutableMap.builder();
@@ -209,7 +208,7 @@ public final class Signature
             return null;
         }
 
-        if (!matchArguments(boundParameters, parameters, argumentTypes, types, allowCoercion, variableArity, typeManager)) {
+        if (!matchArguments(boundParameters, parameters, argumentTypes, types, allowCoercion, variableArity, functionRegistry, typeManager)) {
             return null;
         }
 
@@ -223,7 +222,7 @@ public final class Signature
     }
 
     @Nullable
-    public Map<String, Type> bindTypeParameters(List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
+    public Map<String, Type> bindTypeParameters(List<? extends Type> types, boolean allowCoercion, FunctionRegistry functionRegistry, TypeManager typeManager)
     {
         Map<String, Type> boundParameters = new HashMap<>();
         ImmutableMap.Builder<String, TypeParameter> builder = ImmutableMap.builder();
@@ -232,7 +231,7 @@ public final class Signature
         }
 
         ImmutableMap<String, TypeParameter> parameters = builder.build();
-        if (!matchArguments(boundParameters, parameters, argumentTypes, types, allowCoercion, variableArity, typeManager)) {
+        if (!matchArguments(boundParameters, parameters, argumentTypes, types, allowCoercion, variableArity, functionRegistry, typeManager)) {
             return null;
         }
 
@@ -248,6 +247,7 @@ public final class Signature
             List<? extends Type> types,
             boolean allowCoercion,
             boolean varArgs,
+            FunctionRegistry functionRegistry,
             TypeManager typeManager)
     {
         if (varArgs) {
@@ -263,7 +263,7 @@ public final class Signature
 
         // Bind the variable arity argument first, to make sure it's bound to the common super type
         if (varArgs && types.size() >= argumentTypes.size()) {
-            Optional<Type> superType = getCommonSuperType(types.subList(argumentTypes.size() - 1, types.size()));
+            Optional<Type> superType = functionRegistry.getCommonSuperType(types.subList(argumentTypes.size() - 1, types.size()));
             if (!superType.isPresent()) {
                 return false;
             }

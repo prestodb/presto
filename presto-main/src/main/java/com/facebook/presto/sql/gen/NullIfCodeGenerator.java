@@ -33,6 +33,13 @@ import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.consta
 public class NullIfCodeGenerator
         implements ByteCodeGenerator
 {
+    private final FunctionRegistry functionRegistry;
+
+    public NullIfCodeGenerator(FunctionRegistry functionRegistry)
+    {
+        this.functionRegistry = functionRegistry;
+    }
+
     @Override
     public ByteCodeNode generateExpression(Signature signature, ByteCodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
     {
@@ -54,7 +61,7 @@ public class NullIfCodeGenerator
 
         // this is a hack! We shouldn't be determining type coercions at this point, but there's no way
         // around it in the current expression AST
-        Type commonType = FunctionRegistry.getCommonSuperType(firstType, secondType).get();
+        Type commonType = functionRegistry.getCommonSuperType(firstType, secondType).get();
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
         FunctionInfo equalsFunction = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
