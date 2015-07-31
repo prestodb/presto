@@ -13,39 +13,48 @@
  */
 package com.facebook.presto.spi.classloader;
 
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.Block;
+import io.airlift.slice.Slice;
+
+import java.util.Collection;
 
 import static java.util.Objects.requireNonNull;
 
-public final class ClassLoaderSafeConnectorPageSinkProvider
-        implements ConnectorPageSinkProvider
+public class ClassLoaderSafeConnectorPageSink
+        implements ConnectorPageSink
 {
-    private final ConnectorPageSinkProvider delegate;
+    private final ConnectorPageSink delegate;
     private final ClassLoader classLoader;
 
-    public ClassLoaderSafeConnectorPageSinkProvider(ConnectorPageSinkProvider delegate, ClassLoader classLoader)
+    public ClassLoaderSafeConnectorPageSink(ConnectorPageSink delegate, ClassLoader classLoader)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
+    public void appendPage(Page page, Block sampleWeightBlock)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return new ClassLoaderSafeConnectorPageSink(delegate.createPageSink(session, outputTableHandle), classLoader);
+            delegate.appendPage(page, sampleWeightBlock);
         }
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
+    public Collection<Slice> commit()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return new ClassLoaderSafeConnectorPageSink(delegate.createPageSink(session, insertTableHandle), classLoader);
+            return delegate.commit();
+        }
+    }
+
+    @Override
+    public void rollback()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.rollback();
         }
     }
 }
