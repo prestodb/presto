@@ -37,9 +37,6 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -53,14 +50,16 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.expressionOrNullSymbols;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Predicates.in;
-import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.transform;
 
 /**
@@ -75,6 +74,17 @@ public class EffectivePredicateExtractor
     {
         return node.accept(new EffectivePredicateExtractor(symbolTypes), null);
     }
+
+    private static final Predicate<Map.Entry<Symbol, ? extends Expression>> SYMBOL_MATCHES_EXPRESSION =
+            entry -> entry.getValue().equals(new QualifiedNameReference(entry.getKey().toQualifiedName()));
+
+    private static final Function<Map.Entry<Symbol, ? extends Expression>, Expression> ENTRY_TO_EQUALITY =
+            entry -> {
+                QualifiedNameReference reference = new QualifiedNameReference(entry.getKey().toQualifiedName());
+                Expression expression = entry.getValue();
+                // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
+                return new ComparisonExpression(ComparisonExpression.Type.EQUAL, reference, expression);
+            };
 
     private final Map<Symbol, Type> symbolTypes;
 
@@ -110,21 +120,6 @@ public class EffectivePredicateExtractor
         return combineConjuncts(predicate, underlyingPredicate);
     }
 
-    private static Predicate<Map.Entry<Symbol, ? extends Expression>> symbolMatchesExpression()
-    {
-        return entry -> entry.getValue().equals(new QualifiedNameReference(entry.getKey().toQualifiedName()));
-    }
-
-    private static Function<Map.Entry<Symbol, ? extends Expression>, Expression> entryToEquality()
-    {
-        return entry -> {
-            QualifiedNameReference reference = new QualifiedNameReference(entry.getKey().toQualifiedName());
-            Expression expression = entry.getValue();
-            // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
-            return new ComparisonExpression(ComparisonExpression.Type.EQUAL, reference, expression);
-        };
-    }
-
     @Override
     public Expression visitExchange(ExchangeNode node, Void context)
     {
@@ -146,9 +141,10 @@ public class EffectivePredicateExtractor
 
         Expression underlyingPredicate = node.getSource().accept(this, context);
 
-        Iterable<Expression> projectionEqualities = FluentIterable.from(node.getAssignments().entrySet())
-                .filter(not(symbolMatchesExpression()))
-                .transform(entryToEquality());
+        List<Expression> projectionEqualities = node.getAssignments().entrySet().stream()
+                .filter(SYMBOL_MATCHES_EXPRESSION.negate())
+                .map(ENTRY_TO_EQUALITY)
+                .collect(toImmutableList());
 
         return pullExpressionThroughSymbols(combineConjuncts(
                         ImmutableList.<Expression>builder()
@@ -278,9 +274,10 @@ public class EffectivePredicateExtractor
         for (int i = 0; i < node.getSources().size(); i++) {
             Expression underlyingPredicate = node.getSources().get(i).accept(this, null);
 
-            Iterable<Expression> equalities = FluentIterable.from(mapping.apply(i))
-                    .filter(not(symbolMatchesExpression()))
-                    .transform(entryToEquality());
+            List<Expression> equalities = mapping.apply(i).stream()
+                    .filter(SYMBOL_MATCHES_EXPRESSION.negate())
+                    .map(ENTRY_TO_EQUALITY)
+                    .collect(toImmutableList());
 
             sourceOutputConjuncts.add(ImmutableSet.copyOf(extractConjuncts(pullExpressionThroughSymbols(combineConjuncts(
                             ImmutableList.<Expression>builder()

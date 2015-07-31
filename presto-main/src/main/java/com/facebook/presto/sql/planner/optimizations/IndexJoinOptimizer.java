@@ -263,9 +263,9 @@ public class IndexJoinOptimizer
 
             checkState(node.getOutputSymbols().containsAll(context.getLookupSymbols()));
 
-            Set<ColumnHandle> lookupColumns = FluentIterable.from(context.getLookupSymbols())
-                    .transform(Functions.forMap(node.getAssignments()))
-                    .toSet();
+            Set<ColumnHandle> lookupColumns = context.getLookupSymbols().stream()
+                    .map(node.getAssignments()::get)
+                    .collect(toImmutableSet());
 
             Set<ColumnHandle> outputColumns = node.getOutputSymbols().stream().map(node.getAssignments()::get).collect(toImmutableSet());
 
@@ -305,11 +305,11 @@ public class IndexJoinOptimizer
         public PlanNode visitProject(ProjectNode node, RewriteContext<Context> context)
         {
             // Rewrite the lookup symbols in terms of only the pre-projected symbols that have direct translations
-            Set<Symbol> newLookupSymbols = FluentIterable.from(context.get().getLookupSymbols())
-                    .transform(Functions.forMap(node.getAssignments()))
+            Set<Symbol> newLookupSymbols = context.get().getLookupSymbols().stream()
+                    .map(node.getAssignments()::get)
                     .filter(QualifiedNameReference.class::isInstance)
-                    .transform(IndexJoinOptimizer::referenceToSymbol)
-                    .toSet();
+                    .map(IndexJoinOptimizer::referenceToSymbol)
+                    .collect(toImmutableSet());
 
             if (newLookupSymbols.isEmpty()) {
                 return node;
@@ -338,9 +338,9 @@ public class IndexJoinOptimizer
         public PlanNode visitIndexJoin(IndexJoinNode node, RewriteContext<Context> context)
         {
             // Lookup symbols can only be passed through the probe side of an index join
-            Set<Symbol> probeLookupSymbols = FluentIterable.from(context.get().getLookupSymbols())
-                    .filter(in(node.getProbeSource().getOutputSymbols()))
-                    .toSet();
+            Set<Symbol> probeLookupSymbols = context.get().getLookupSymbols().stream()
+                    .filter(node.getProbeSource().getOutputSymbols()::contains)
+                    .collect(toImmutableSet());
 
             if (probeLookupSymbols.isEmpty()) {
                 return node;
@@ -360,9 +360,9 @@ public class IndexJoinOptimizer
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Context> context)
         {
             // Lookup symbols can only be passed through if they are part of the group by columns
-            Set<Symbol> groupByLookupSymbols = FluentIterable.from(context.get().getLookupSymbols())
-                    .filter(in(node.getGroupBy()))
-                    .toSet();
+            Set<Symbol> groupByLookupSymbols = context.get().getLookupSymbols().stream()
+                    .filter(node.getGroupBy()::contains)
+                    .collect(toImmutableSet());
 
             if (groupByLookupSymbols.isEmpty()) {
                 return node;
@@ -456,9 +456,9 @@ public class IndexJoinOptimizer
             @Override
             public Map<Symbol, Symbol> visitIndexJoin(IndexJoinNode node, Set<Symbol> lookupSymbols)
             {
-                Set<Symbol> probeLookupSymbols = FluentIterable.from(lookupSymbols)
-                        .filter(in(node.getProbeSource().getOutputSymbols()))
-                        .toSet();
+                Set<Symbol> probeLookupSymbols = lookupSymbols.stream()
+                        .filter(node.getProbeSource().getOutputSymbols()::contains)
+                        .collect(toImmutableSet());
                 checkState(!probeLookupSymbols.isEmpty(), "No lookup symbols were able to pass through the index join probe source");
                 return node.getProbeSource().accept(this, probeLookupSymbols);
             }
@@ -466,9 +466,9 @@ public class IndexJoinOptimizer
             @Override
             public Map<Symbol, Symbol> visitAggregation(AggregationNode node, Set<Symbol> lookupSymbols)
             {
-                Set<Symbol> groupByLookupSymbols = FluentIterable.from(lookupSymbols)
-                        .filter(in(node.getGroupBy()))
-                        .toSet();
+                Set<Symbol> groupByLookupSymbols = lookupSymbols.stream()
+                        .filter(node.getGroupBy()::contains)
+                        .collect(toImmutableSet());
                 checkState(!groupByLookupSymbols.isEmpty(), "No lookup symbols were able to pass through the aggregation group by");
                 return node.getSource().accept(this, groupByLookupSymbols);
             }

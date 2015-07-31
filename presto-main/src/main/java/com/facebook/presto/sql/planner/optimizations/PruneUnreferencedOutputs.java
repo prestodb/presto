@@ -48,7 +48,6 @@ import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -65,6 +64,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.Iterables.concat;
@@ -230,13 +231,13 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitIndexSource(IndexSourceNode node, RewriteContext<Set<Symbol>> context)
         {
-            List<Symbol> newOutputSymbols = FluentIterable.from(node.getOutputSymbols())
-                    .filter(in(context.get()))
-                    .toList();
+            List<Symbol> newOutputSymbols = node.getOutputSymbols().stream()
+                    .filter(context.get()::contains)
+                    .collect(toImmutableList());
 
-            Set<Symbol> newLookupSymbols = FluentIterable.from(node.getLookupSymbols())
-                    .filter(in(context.get()))
-                    .toSet();
+            Set<Symbol> newLookupSymbols = node.getLookupSymbols().stream()
+                    .filter(context.get()::contains)
+                    .collect(toImmutableSet());
 
             Set<Symbol> requiredAssignmentSymbols = context.get();
             if (!node.getEffectiveTupleDomain().isNone()) {
@@ -345,13 +346,13 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Set<Symbol>> context)
         {
-            Set<Symbol> requiredTableScanOutputs = FluentIterable.from(context.get())
-                    .filter(in(ImmutableSet.copyOf(node.getOutputSymbols())))
-                    .toSet();
+            Set<Symbol> requiredTableScanOutputs = context.get().stream()
+                    .filter(node.getOutputSymbols()::contains)
+                    .collect(toImmutableSet());
 
-            List<Symbol> newOutputSymbols = FluentIterable.from(node.getOutputSymbols())
-                    .filter(in(requiredTableScanOutputs))
-                    .toList();
+            List<Symbol> newOutputSymbols = node.getOutputSymbols().stream()
+                    .filter(requiredTableScanOutputs::contains)
+                    .collect(toImmutableList());
 
             Map<Symbol, ColumnHandle> newAssignments = Maps.filterKeys(node.getAssignments(), in(requiredTableScanOutputs));
 
@@ -400,9 +401,10 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitUnnest(UnnestNode node, RewriteContext<Set<Symbol>> context)
         {
-            List<Symbol> replicateSymbols = FluentIterable.from(node.getReplicateSymbols())
-                    .filter(in(context.get()))
-                    .toList();
+            List<Symbol> replicateSymbols = node.getReplicateSymbols().stream()
+                    .filter(context.get()::contains)
+                    .collect(toImmutableList());
+
             Optional<Symbol> ordinalitySymbol = node.getOrdinalitySymbol();
             if (ordinalitySymbol.isPresent() && !context.get().contains(ordinalitySymbol.get())) {
                 ordinalitySymbol = Optional.empty();
