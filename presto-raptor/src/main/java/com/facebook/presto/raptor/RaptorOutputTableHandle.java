@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.raptor.util.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.raptor.util.MetadataUtil.checkTableName;
@@ -39,6 +40,7 @@ public class RaptorOutputTableHandle
     private final RaptorColumnHandle sampleWeightColumnHandle;
     private final List<RaptorColumnHandle> sortColumnHandles;
     private final List<SortOrder> sortOrders;
+    private final Optional<RaptorColumnHandle> temporalColumnHandle;
 
     @JsonCreator
     public RaptorOutputTableHandle(
@@ -48,7 +50,8 @@ public class RaptorOutputTableHandle
             @JsonProperty("columnTypes") List<Type> columnTypes,
             @JsonProperty("sampleWeightColumnHandle") @Nullable RaptorColumnHandle sampleWeightColumnHandle,
             @JsonProperty("sortColumnHandles") List<RaptorColumnHandle> sortColumnHandles,
-            @JsonProperty("sortOrders") List<SortOrder> sortOrders)
+            @JsonProperty("sortOrders") List<SortOrder> sortOrders,
+            @JsonProperty("temporalColumnHandle") Optional<RaptorColumnHandle> temporalColumnHandle)
     {
         this.schemaName = checkSchemaName(schemaName);
         this.tableName = checkTableName(tableName);
@@ -57,6 +60,7 @@ public class RaptorOutputTableHandle
         this.sampleWeightColumnHandle = sampleWeightColumnHandle;
         this.sortOrders = checkNotNull(sortOrders, "sortOrders is null");
         this.sortColumnHandles = checkNotNull(sortColumnHandles, "sortColumnHandles is null");
+        this.temporalColumnHandle = checkNotNull(temporalColumnHandle, "temporalColumnHandle is null");
     }
 
     @JsonProperty
@@ -100,6 +104,12 @@ public class RaptorOutputTableHandle
     public List<SortOrder> getSortOrders()
     {
         return sortOrders;
+    }
+
+    @JsonProperty
+    public Optional<RaptorColumnHandle> getTemporalColumnHandle()
+    {
+        return temporalColumnHandle;
     }
 
     @Override
