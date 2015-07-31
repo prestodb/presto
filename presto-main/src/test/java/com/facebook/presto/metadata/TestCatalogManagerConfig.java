@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -29,7 +30,8 @@ public class TestCatalogManagerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(CatalogManagerConfig.class)
-                .setCatalogConfigurationDir(new File("etc/catalog")));
+                .setCatalogConfigurationDir(new File("etc/catalog"))
+                .setDisabledCatalogs((String) null));
     }
 
     @Test
@@ -37,10 +39,12 @@ public class TestCatalogManagerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("catalog.config-dir", "/foo")
+                .put("catalog.disabled-catalogs", "abc,xyz")
                 .build();
 
         CatalogManagerConfig expected = new CatalogManagerConfig()
-                .setCatalogConfigurationDir(new File("/foo"));
+                .setCatalogConfigurationDir(new File("/foo"))
+                .setDisabledCatalogs(ImmutableList.of("abc", "xyz"));
 
         assertFullMapping(properties, expected);
     }
