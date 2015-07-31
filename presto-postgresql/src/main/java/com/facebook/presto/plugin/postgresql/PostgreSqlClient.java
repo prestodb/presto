@@ -15,10 +15,14 @@ package com.facebook.presto.plugin.postgresql;
 
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
+import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
+import com.facebook.presto.plugin.jdbc.JdbcSplit;
 import com.google.common.base.Throwables;
+
 import io.airlift.slice.Slice;
+
 import org.postgresql.Driver;
 
 import javax.inject.Inject;
@@ -26,6 +30,7 @@ import javax.inject.Inject;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.List;
 
 public class PostgreSqlClient
         extends BaseJdbcClient
@@ -35,6 +40,17 @@ public class PostgreSqlClient
             throws SQLException
     {
         super(connectorId, config, "\"", new Driver());
+    }
+
+    @Override
+    public String buildSql(JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+    {
+        return new QueryBuilder(identifierQuote).buildSql(
+                split.getCatalogName(),
+                split.getSchemaName(),
+                split.getTableName(),
+                columnHandles,
+                split.getTupleDomain());
     }
 
     @Override

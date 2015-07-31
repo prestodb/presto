@@ -193,4 +193,10 @@ public class QueryBuilder
         }
         return value.toString();
     }
+
+    protected static String singleQuote(String name)
+    {
+        name = name.replace("'", "'" + "'");
+        return "'" + name + "'";
+    }
 }
