@@ -49,9 +49,24 @@ in this schema by running ``SHOW TABLES``::
 
     SHOW TABLES FROM postgresql.web;
 
+You can see a list of the columns in the ``clicks`` table in the ``web`` database
+using either of the following::
+
+    DESCRIBE postgresql.web.clicks;
+    SHOW COLUMNS FROM postgresql.web.clicks;
+
 Finally, you can access the ``clicks`` table in the ``web`` schema::
 
     SELECT * FROM postgresql.web.clicks;
 
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``postgresql`` in the above examples.
+
+PostgreSQL Connector Limitations
+--------------------------------
+
+The following SQL statements are not yet supported:
+
+* :doc:`/sql/insert`
+* :doc:`/sql/alter-table`
+* :doc:`/sql/create-table` (:doc:`/sql/create-table-as` is supported)
