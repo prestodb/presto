@@ -158,11 +158,34 @@ public class SliceDictionaryStreamReader
             inDictionaryStream.getSetBits(nextBatchSize, inDictionary, isNullVector);
         }
 
-        int[] ids = Arrays.copyOfRange(dataVector, 0, nextBatchSize);
-        boolean[] isNullVector = Arrays.copyOfRange(this.isNullVector, 0, nextBatchSize);
-
         SliceVector sliceVector = castOrcVector(vector, SliceVector.class);
-        sliceVector.setDictionary(dictionary, ids, isNullVector);
+
+        boolean rowGroupDictionaryReferenced = false;
+        for (int i = 0; i < nextBatchSize; i++) {
+            if (!isNullVector[i] && !inDictionary[i]) {
+                rowGroupDictionaryReferenced = true;
+                break;
+            }
+        }
+        if (rowGroupDictionaryReferenced) {
+            sliceVector.initialize(nextBatchSize);
+            for (int i = 0; i < nextBatchSize; i++) {
+                if (isNullVector[i]) {
+                    sliceVector.vector[i] = null;
+                }
+                else if (inDictionary[i]) {
+                    sliceVector.vector[i] = dictionary[dataVector[i]];
+                }
+                else {
+                    sliceVector.vector[i] = rowGroupDictionary[dataVector[i]];
+                }
+            }
+        }
+        else {
+            int[] ids = Arrays.copyOfRange(dataVector, 0, nextBatchSize);
+            boolean[] isNullVector = Arrays.copyOfRange(this.isNullVector, 0, nextBatchSize);
+            sliceVector.setDictionary(dictionary, ids, isNullVector);
+        }
 
         readOffset = 0;
         nextBatchSize = 0;
