@@ -16,7 +16,6 @@ package com.facebook.presto.spi.block;
 import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 
 public class LazySliceArrayBlockEncoding
         implements BlockEncoding
@@ -48,17 +47,8 @@ public class LazySliceArrayBlockEncoding
 
         // is dictionary block
         sliceOutput.writeBoolean(sliceArrayBlock.isDictionary());
-        Block transformed = transformToNonLazyBlock(sliceArrayBlock);
-        transformed.getEncoding().writeBlock(sliceOutput, transformed);
-    }
-
-    private static Block transformToNonLazyBlock(LazySliceArrayBlock lazyBlock)
-    {
-        SliceArrayBlock sliceArrayBlock = new SliceArrayBlock(lazyBlock.getValues().length, lazyBlock.getValues());
-        if (lazyBlock.isDictionary()) {
-            return new DictionaryBlock(lazyBlock.getPositionCount(), sliceArrayBlock, Slices.wrappedIntArray(lazyBlock.getIds()));
-        }
-        return sliceArrayBlock;
+        Block nonLazyBlock = sliceArrayBlock.createNonLazyBlock();
+        nonLazyBlock.getEncoding().writeBlock(sliceOutput, nonLazyBlock);
     }
 
     @Override

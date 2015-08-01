@@ -71,10 +71,10 @@ public class TestLazySliceArrayBlockEncoding
     }
 
     @Test
-    public void testDictionaryLazySliceArrayBlockEncoding()
+    public void testDictionaryLazySliceArrayBlockEncodingWithNullVector()
             throws Exception
     {
-        Slice[] expectedValues = createExpectedValuesWithNulls(7, Ints.asList(3));
+        Slice[] expectedValues = createExpectedValues(7);
         int[] ids = new int[] { 0, 2, 1, 0, 0, 0, 1, 1, 1, 0, 1, 2 };
         boolean[] isNull = new boolean[ids.length];
         isNull[3] = true;
@@ -87,6 +87,7 @@ public class TestLazySliceArrayBlockEncoding
 
         BlockEncoding blockEncoding = new LazySliceArrayBlockEncoding();
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
+
         blockEncoding.writeBlock(sliceOutput, lazySliceArrayBlock);
         Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
 
@@ -98,8 +99,15 @@ public class TestLazySliceArrayBlockEncoding
         SliceArrayBlock dictionarySliceArrayBlock = (SliceArrayBlock) dictionary;
 
         // check that we compacted the dictionary
-        assertEquals(dictionarySliceArrayBlock.getValues(), Arrays.copyOfRange(expectedValues, 0, 3));
+        Slice[] expectedSlices = Arrays.copyOfRange(expectedValues, 0, 3);
+
+        // add 1 for storing null
+        assertEquals(dictionarySliceArrayBlock.getValues(), Arrays.copyOf(expectedSlices, expectedSlices.length + 1));
+
+        // change the mapping for the null value
+        ids[3] = expectedSlices.length;
         assertEquals(dictionaryBlock.getIds(), Slices.wrappedIntArray(ids));
+        assertTrue(dictionaryBlock.isNull(3));
     }
 
     private static Slice[] createExpectedValues(int positionCount)
