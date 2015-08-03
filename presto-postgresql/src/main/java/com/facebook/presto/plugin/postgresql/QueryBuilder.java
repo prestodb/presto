@@ -72,10 +72,6 @@ public class QueryBuilder extends com.facebook.presto.plugin.jdbc.QueryBuilder
                 return singleQuote(value.toString());
             }
         }
-        if (!supportPredicateOnType(type)) {
-            throw new UnsupportedOperationException(
-                    "Can't handle type: (" + type.getDisplayName() + ") " + value.getClass().getName());
-        }
-        return value.toString();
+        return super.encode(type, value);
     }
 }
