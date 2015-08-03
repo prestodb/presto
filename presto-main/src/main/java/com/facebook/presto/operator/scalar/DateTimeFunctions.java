@@ -948,7 +948,7 @@ public final class DateTimeFunctions
                         builder.appendDayOfYear(3);
                         break;
                     case 'k': // %k Hour (0..23)
-                        builder.appendClockhourOfDay(1);
+                        builder.appendHourOfDay(1);
                         break;
                     case 'l': // %l Hour (1..12)
                         builder.appendClockhourOfHalfday(1);
