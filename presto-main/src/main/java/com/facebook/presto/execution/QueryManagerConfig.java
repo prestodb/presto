@@ -45,6 +45,8 @@ public class QueryManagerConfig
     private Duration remoteTaskMinErrorDuration = new Duration(2, TimeUnit.MINUTES);
     private int remoteTaskMaxCallbackThreads = 1000;
 
+    private String completedQueriesLogFile;
+
     public String getQueueConfigFile()
     {
         return queueConfigFile;
@@ -202,6 +204,18 @@ public class QueryManagerConfig
     public QueryManagerConfig setRemoteTaskMaxCallbackThreads(int remoteTaskMaxCallbackThreads)
     {
         this.remoteTaskMaxCallbackThreads = remoteTaskMaxCallbackThreads;
+        return this;
+    }
+
+    public String getCompletedQueriesLogFile()
+    {
+        return completedQueriesLogFile;
+    }
+
+    @Config("query.completed-queries-log-file")
+    public QueryManagerConfig setCompletedQueriesLogFile(String completedQueriesLogFile)
+    {
+        this.completedQueriesLogFile = completedQueriesLogFile;
         return this;
     }
 }
