@@ -84,7 +84,7 @@ public final class SerializableNativeValue
                 throws IOException
         {
             generator.writeStartObject();
-            generator.writeStringField("type", value.getType().getCanonicalName());
+            generator.writeStringField("type", value.getType().getName());
             generator.writeFieldName("value");
             if (value.getValue() == null) {
                 generator.writeNull();
