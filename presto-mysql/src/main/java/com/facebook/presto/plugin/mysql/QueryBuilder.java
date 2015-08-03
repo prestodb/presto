@@ -23,15 +23,13 @@ import com.facebook.presto.spi.type.VarcharType;
 
 import io.airlift.slice.Slice;
 
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Date;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 public class QueryBuilder extends com.facebook.presto.plugin.jdbc.QueryBuilder
 {
-    private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-    private final SimpleDateFormat timestampFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
     public QueryBuilder(String quote)
     {
         super(quote);
@@ -58,14 +56,13 @@ public class QueryBuilder extends com.facebook.presto.plugin.jdbc.QueryBuilder
     protected String encode(Type type, Object value)
     {
         if (type.equals(TimestampType.TIMESTAMP)) {
-            Date date = new Date((long) value);
-            return singleQuote(timestampFormat.format(date));
+            Instant ofEpochMilli = Instant.ofEpochMilli((long) value);
+            DateTimeFormatter ofPattern = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(ZoneId.systemDefault());
+            return singleQuote(ofPattern.format(ofEpochMilli));
         }
         else if (type.equals(DateType.DATE)) {
-            Calendar c = Calendar.getInstance();
-            c.setTimeInMillis(0);
-            c.add(Calendar.DATE, (int) ((long) value));
-            return singleQuote(dateFormat.format(c.getTime()));
+            LocalDate localDate = LocalDate.ofEpochDay((long) value);
+            return singleQuote(localDate.toString());
         }
         else if (type.equals(VarcharType.VARCHAR)) {
             if (value instanceof Slice) {
