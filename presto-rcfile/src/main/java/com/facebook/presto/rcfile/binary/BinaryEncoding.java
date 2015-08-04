@@ -14,14 +14,17 @@
 package com.facebook.presto.rcfile.binary;
 
 import com.facebook.presto.rcfile.ColumnData;
+import com.facebook.presto.rcfile.EncodeOutput;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.decodeVIntSize;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.readVInt;
+import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeVInt;
 import static java.lang.Math.toIntExact;
 
 public class BinaryEncoding
@@ -32,6 +35,31 @@ public class BinaryEncoding
     public BinaryEncoding(Type type)
     {
         this.type = type;
+    }
+
+    @Override
+    public void encodeColumn(Block block, SliceOutput output, EncodeOutput encodeOutput)
+    {
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (!block.isNull(position)) {
+                Slice slice = type.getSlice(block, position);
+                if (slice.length() == 0) {
+                    throw new IllegalArgumentException("RCBinary encoder does not support empty VARBINARY values (HIVE-2483). Use ORC or Parquet format instead.");
+                }
+                output.writeBytes(slice);
+            }
+            encodeOutput.closeEntry();
+        }
+    }
+
+    @Override
+    public void encodeValueInto(Block block, int position, SliceOutput output)
+    {
+        Slice slice = type.getSlice(block, position);
+        // Note binary nested in complex structures do no use the empty marker.
+        // Therefore, empty VARBINARY values are ok.
+        writeVInt(output, slice.length());
+        output.writeBytes(slice);
     }
 
     @Override

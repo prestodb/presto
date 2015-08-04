@@ -14,16 +14,22 @@
 package com.facebook.presto.rcfile.binary;
 
 import com.facebook.presto.rcfile.ColumnData;
+import com.facebook.presto.rcfile.EncodeOutput;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.decodeVIntSize;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.isNegativeVInt;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.readVInt;
+import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeVInt;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
+import static java.lang.Math.toIntExact;
 
 public class TimestampEncoding
         implements BinaryColumnEncoding
@@ -33,6 +39,23 @@ public class TimestampEncoding
     public TimestampEncoding(Type type)
     {
         this.type = type;
+    }
+
+    @Override
+    public void encodeColumn(Block block, SliceOutput output, EncodeOutput encodeOutput)
+    {
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (!block.isNull(position)) {
+                writeTimestamp(output, type.getLong(block, position));
+            }
+            encodeOutput.closeEntry();
+        }
+    }
+
+    @Override
+    public void encodeValueInto(Block block, int position, SliceOutput output)
+    {
+        writeTimestamp(output, type.getLong(block, position));
     }
 
     @Override
@@ -143,5 +166,59 @@ public class TimestampEncoding
             nanos *= Math.pow(10, 9 - nanosDigits);
         }
         return nanos;
+    }
+
+    private static void writeTimestamp(SliceOutput output, long millis)
+    {
+        long seconds = floorDiv(millis, 1000);
+        int nanos = toIntExact(floorMod(millis, 1000) * 1_000_000);
+        writeTimestamp(seconds, nanos, output);
+    }
+
+    private static void writeTimestamp(long seconds, int nanos, SliceOutput output)
+    {
+        // <seconds-low-32><nanos>[<seconds-high-32>]
+        //     seconds-low-32 is vint encoded
+        //     nanos is reversed
+        //     seconds-high-32 is vint encoded
+        //     seconds-low-32 and nanos have the top bit set when second-high is present
+
+        boolean hasSecondsHigh32 = seconds < 0 || seconds > Integer.MAX_VALUE;
+        int nanosReversed = reverseDecimal(nanos);
+
+        int secondsLow32 = (int) seconds;
+        if (nanosReversed == 0 && !hasSecondsHigh32) {
+            secondsLow32 &= 0X7FFF_FFFF;
+        }
+        else {
+            secondsLow32 |= 0x8000_0000;
+        }
+        output.writeInt(Integer.reverseBytes(secondsLow32));
+
+        if (hasSecondsHigh32 || nanosReversed != 0) {
+            // The sign of the reversed-nanoseconds field indicates that there is a second VInt present
+            int value = hasSecondsHigh32 ? ~nanosReversed : nanosReversed;
+            writeVInt(output, value);
+        }
+
+        if (hasSecondsHigh32) {
+            int secondsHigh32 = (int) (seconds >> 31);
+            writeVInt(output, secondsHigh32);
+        }
+    }
+
+    private static int reverseDecimal(int nanos)
+    {
+        int decimal = 0;
+        if (nanos != 0) {
+            int counter = 0;
+            while (counter < 9) {
+                decimal *= 10;
+                decimal += nanos % 10;
+                nanos /= 10;
+                counter++;
+            }
+        }
+        return decimal;
     }
 }

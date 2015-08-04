@@ -14,6 +14,7 @@
 package com.facebook.presto.rcfile.text;
 
 import com.facebook.presto.rcfile.ColumnData;
+import com.facebook.presto.rcfile.EncodeOutput;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -36,6 +37,34 @@ public class StringEncoding
         this.type = type;
         this.nullSequence = nullSequence;
         this.escapeByte = escapeChar;
+    }
+
+    @Override
+    public void encodeColumn(Block block, SliceOutput output, EncodeOutput encodeOutput)
+    {
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (block.isNull(position)) {
+                output.writeBytes(nullSequence);
+            }
+            else {
+                Slice slice = type.getSlice(block, position);
+                if (escapeByte != null && slice.indexOfByte(escapeByte) < 0) {
+                    throw new IllegalArgumentException("escape not implemented");
+                }
+                output.writeBytes(slice);
+            }
+            encodeOutput.closeEntry();
+        }
+    }
+
+    @Override
+    public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
+    {
+        Slice slice = type.getSlice(block, position);
+        if (escapeByte != null && slice.indexOfByte(escapeByte) < 0) {
+            throw new IllegalArgumentException("escape not implemented");
+        }
+        output.writeBytes(slice);
     }
 
     @Override

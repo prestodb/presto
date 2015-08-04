@@ -14,25 +14,58 @@
 package com.facebook.presto.rcfile.text;
 
 import com.facebook.presto.rcfile.RcFileCorruptionException;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 public class MapEncoding
         extends BlockEncoding
 {
-    private final TextColumnEncoding keyReader;
-    private final TextColumnEncoding valueReader;
+    private final TextColumnEncoding keyEncoding;
+    private final TextColumnEncoding valueEncoding;
 
     public MapEncoding(Type type, Slice nullSequence,
             byte[] separators,
             Byte escapeByte,
-            TextColumnEncoding keyReader,
-            TextColumnEncoding valueReader)
+            TextColumnEncoding keyEncoding,
+            TextColumnEncoding valueEncoding)
     {
         super(type, nullSequence, separators, escapeByte);
-        this.keyReader = keyReader;
-        this.valueReader = valueReader;
+        this.keyEncoding = keyEncoding;
+        this.valueEncoding = valueEncoding;
+    }
+
+    @Override
+    public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
+            throws RcFileCorruptionException
+    {
+        byte elementSeparator = getSeparator(depth);
+        byte keyValueSeparator = getSeparator(depth + 1);
+
+        Block map = block.getObject(position, Block.class);
+        boolean first = true;
+        for (int elementIndex = 0; elementIndex < map.getPositionCount(); elementIndex += 2) {
+            if (map.isNull(elementIndex)) {
+                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Map must never contain null keys");
+            }
+
+            if (!first) {
+                output.writeByte(elementSeparator);
+            }
+            first = false;
+            keyEncoding.encodeValueInto(depth + 2, map, elementIndex, output);
+            output.writeByte(keyValueSeparator);
+            if (map.isNull(elementIndex + 1)) {
+                output.writeBytes(nullSequence);
+            }
+            else {
+                valueEncoding.encodeValueInto(depth + 2, map, elementIndex + 1, output);
+            }
+        }
     }
 
     @Override
@@ -86,7 +119,7 @@ public class MapEncoding
         }
 
         // output the key
-        keyReader.decodeValueInto(depth + 2, builder, slice, offset, keyLength);
+        keyEncoding.decodeValueInto(depth + 2, builder, slice, offset, keyLength);
 
         // output value
         if (keyValueSeparatorPosition == -1) {
@@ -99,7 +132,7 @@ public class MapEncoding
                 builder.appendNull();
             }
             else {
-                valueReader.decodeValueInto(depth + 2, builder, slice, valueOffset, valueLength);
+                valueEncoding.decodeValueInto(depth + 2, builder, slice, valueOffset, valueLength);
             }
         }
     }

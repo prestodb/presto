@@ -15,5 +15,7 @@ package com.facebook.presto.rcfile;
 
 public interface RcFileCodecFactory
 {
+    RcFileCompressor createCompressor(String codecName);
+
     RcFileDecompressor createDecompressor(String codecName);
 }

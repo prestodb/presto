@@ -13,14 +13,7 @@
  */
 package com.facebook.presto.rcfile;
 
-import com.facebook.presto.spi.block.Block;
-import io.airlift.slice.SliceOutput;
-
-public interface ColumnEncoding
+public interface EncodeOutput
 {
-    void encodeColumn(Block block, SliceOutput output, EncodeOutput encodeOutput)
-            throws RcFileCorruptionException;
-
-    Block decodeColumn(ColumnData columnData)
-            throws RcFileCorruptionException;
+    void closeEntry();
 }

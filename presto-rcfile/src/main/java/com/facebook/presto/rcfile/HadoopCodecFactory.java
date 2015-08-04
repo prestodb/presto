@@ -30,7 +30,20 @@ public class HadoopCodecFactory
     }
 
     @Override
+    public RcFileCompressor createCompressor(String codecName)
+    {
+        CompressionCodec codec = createCompressionCodec(codecName);
+        return new HadoopCompressor(codec);
+    }
+
+    @Override
     public RcFileDecompressor createDecompressor(String codecName)
+    {
+        CompressionCodec codec = createCompressionCodec(codecName);
+        return new HadoopDecompressor(codec);
+    }
+
+    private CompressionCodec createCompressionCodec(String codecName)
     {
         try {
             Class<? extends CompressionCodec> codecClass = classLoader.loadClass(codecName).asSubclass(CompressionCodec.class);
@@ -43,7 +56,7 @@ public class HadoopCodecFactory
                 // forever loading XML with no useful information
                 ((Configurable) codec).setConf(new Configuration(false));
             }
-            return new HadoopDecompressor(codec);
+            return codec;
         }
         catch (ReflectiveOperationException e) {
             throw new IllegalArgumentException("Unknown codec: " + codecName, e);

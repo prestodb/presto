@@ -15,12 +15,17 @@ package com.facebook.presto.rcfile.text;
 
 import com.facebook.presto.rcfile.ColumnEncoding;
 import com.facebook.presto.rcfile.RcFileCorruptionException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 public interface TextColumnEncoding
         extends ColumnEncoding
 {
+    void encodeValueInto(int depth, Block block, int position, SliceOutput output)
+            throws RcFileCorruptionException;
+
     void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
             throws RcFileCorruptionException;
 }

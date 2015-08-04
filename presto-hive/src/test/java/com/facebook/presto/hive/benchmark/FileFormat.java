@@ -31,6 +31,12 @@ import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
+import com.facebook.presto.rcfile.AircompressorCodecFactory;
+import com.facebook.presto.rcfile.HadoopCodecFactory;
+import com.facebook.presto.rcfile.RcFileEncoding;
+import com.facebook.presto.rcfile.RcFileWriter;
+import com.facebook.presto.rcfile.binary.BinaryRcFileEncoding;
+import com.facebook.presto.rcfile.text.TextRcFileEncoding;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
@@ -42,12 +48,15 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.OutputStreamSliceOutput;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -82,7 +91,11 @@ public enum FileFormat
                 HiveCompressionCodec compressionCodec)
                 throws IOException
         {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.RCBINARY);
+            return new PrestoRcFileFormatWriter(
+                    targetFile,
+                    columnTypes,
+                    new BinaryRcFileEncoding(),
+                    compressionCodec);
         }
     },
 
@@ -103,7 +116,11 @@ public enum FileFormat
                 HiveCompressionCodec compressionCodec)
                 throws IOException
         {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.RCTEXT);
+            return new PrestoRcFileFormatWriter(
+                    targetFile,
+                    columnTypes,
+                    new TextRcFileEncoding(DateTimeZone.forID(session.getTimeZoneKey().getId())),
+                    compressionCodec);
         }
     },
 
@@ -432,5 +449,37 @@ public enum FileFormat
                 .map(HiveType::getHiveTypeName)
                 .collect(joining(":")));
         return schema;
+    }
+
+    private static class PrestoRcFileFormatWriter
+            implements FormatWriter
+    {
+        private final RcFileWriter writer;
+
+        public PrestoRcFileFormatWriter(File targetFile, List<Type> types, RcFileEncoding encoding, HiveCompressionCodec compressionCodec)
+                throws IOException
+        {
+            writer = new RcFileWriter(
+                    new OutputStreamSliceOutput(new FileOutputStream(targetFile)),
+                    types,
+                    encoding,
+                    compressionCodec.getCodec().map(Class::getName),
+                    new AircompressorCodecFactory(new HadoopCodecFactory(getClass().getClassLoader())),
+                    ImmutableMap.of());
+        }
+
+        @Override
+        public void writePage(Page page)
+                throws IOException
+        {
+            writer.write(page);
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            writer.close();
+        }
     }
 }

@@ -88,7 +88,7 @@ public class TextRcFileEncoding
     @Override
     public ColumnEncoding booleanEncoding(Type type)
     {
-        return new BooleanEncoding(type);
+        return new BooleanEncoding(type, nullSequence);
     }
 
     @Override

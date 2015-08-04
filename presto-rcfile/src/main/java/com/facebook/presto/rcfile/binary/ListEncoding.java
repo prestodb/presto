@@ -13,23 +13,53 @@
  */
 package com.facebook.presto.rcfile.binary;
 
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.decodeVIntSize;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.readVInt;
+import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeVInt;
 import static java.lang.Math.toIntExact;
 
 public class ListEncoding
         extends BlockEncoding
 {
-    private final BinaryColumnEncoding elementReader;
+    private final BinaryColumnEncoding elementEncoding;
 
-    public ListEncoding(Type type, BinaryColumnEncoding elementReader)
+    public ListEncoding(Type type, BinaryColumnEncoding elementEncoding)
     {
         super(type);
-        this.elementReader = elementReader;
+        this.elementEncoding = elementEncoding;
+    }
+
+    @Override
+    public void encodeValue(Block block, int position, SliceOutput output)
+    {
+        Block list = block.getObject(position, Block.class);
+        writeVInt(output, list.getPositionCount());
+
+        // write null bits
+        int nullByte = 0;
+        for (int elementIndex = 0; elementIndex < list.getPositionCount(); elementIndex++) {
+            if (elementIndex != 0 && elementIndex % 8 == 0) {
+                output.writeByte(nullByte);
+                nullByte = 0;
+            }
+            if (!list.isNull(elementIndex)) {
+                nullByte |= (1 << (elementIndex % 8));
+            }
+        }
+        output.writeByte(nullByte);
+
+        // write values
+        for (int elementIndex = 0; elementIndex < list.getPositionCount(); elementIndex++) {
+            if (!list.isNull(elementIndex)) {
+                elementEncoding.encodeValueInto(list, elementIndex, output);
+            }
+        }
     }
 
     @Override
@@ -48,10 +78,10 @@ public class ListEncoding
         BlockBuilder arrayBuilder = builder.beginBlockEntry();
         for (int i = 0; i < entries; i++) {
             if ((slice.getByte(nullByteCur) & (1 << (i % 8))) != 0) {
-                int valueOffset = elementReader.getValueOffset(slice, elementOffset);
-                int valueLength = elementReader.getValueLength(slice, elementOffset);
+                int valueOffset = elementEncoding.getValueOffset(slice, elementOffset);
+                int valueLength = elementEncoding.getValueLength(slice, elementOffset);
 
-                elementReader.decodeValueInto(arrayBuilder, slice, elementOffset + valueOffset, valueLength);
+                elementEncoding.decodeValueInto(arrayBuilder, slice, elementOffset + valueOffset, valueLength);
 
                 elementOffset = elementOffset + valueOffset + valueLength;
             }

@@ -14,20 +14,58 @@
 package com.facebook.presto.rcfile.text;
 
 import com.facebook.presto.rcfile.ColumnData;
+import com.facebook.presto.rcfile.EncodeOutput;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 
 public class BooleanEncoding
         implements TextColumnEncoding
 {
-    private final Type type;
+    private static final Slice TRUE = Slices.utf8Slice("TRUE");
+    private static final Slice FALSE = Slices.utf8Slice("FALSE");
 
-    public BooleanEncoding(Type type)
+    private final Type type;
+    private final Slice nullSequence;
+
+    public BooleanEncoding(Type type, Slice nullSequence)
     {
         this.type = type;
+        this.nullSequence = nullSequence;
+    }
+
+    @Override
+    public void encodeColumn(Block block, SliceOutput output, EncodeOutput encodeOutput)
+    {
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (block.isNull(position)) {
+                output.writeBytes(nullSequence);
+            }
+            else {
+                encodeValue(block, position, output);
+            }
+            encodeOutput.closeEntry();
+        }
+    }
+
+    @Override
+    public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
+    {
+        encodeValue(block, position, output);
+    }
+
+    private void encodeValue(Block block, int position, SliceOutput output)
+    {
+        if (type.getBoolean(block, position)) {
+            output.writeBytes(TRUE);
+        }
+        else {
+            output.writeBytes(FALSE);
+        }
     }
 
     @Override
