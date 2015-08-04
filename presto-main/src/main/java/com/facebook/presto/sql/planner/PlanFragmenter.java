@@ -299,10 +299,9 @@ public class PlanFragmenter
 
             if (partitionKeys.isPresent()) {
                 this.outputPartitioning = Optional.of(OutputPartitioning.HASH);
-            this.nullPartitionPolicy = Optional.of(NullPartitioning.HASH);
+                this.nullPartitionPolicy = Optional.of(NullPartitioning.HASH);
                 this.partitionBy = partitionKeys.map(ImmutableList::copyOf);
                 this.hash = hash;
-
             }
             else {
                 this.outputPartitioning = Optional.of(OutputPartitioning.ROUND_ROBIN);
