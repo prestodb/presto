@@ -44,7 +44,7 @@ import java.util.regex.Pattern;
  * <li>192.0.2.1:80
  * <li>[2001:db8::1]     - {@link #getHostText()} omits brackets
  * <li>[2001:db8::1]:80  - {@link #getHostText()} omits brackets
- * <li>2001:db8::1       - Use {@link #requireBracketsForIPv6()} to prohibit this
+ * <li>2001:db8::1
  * </ul>
  * <p/>
  * <p>Note that this is not an exhaustive list, because these methods are only
@@ -71,16 +71,10 @@ public class HostAddress
      */
     private final int port;
 
-    /**
-     * True if the parsed host has colons, but no surrounding brackets.
-     */
-    private final boolean hasBracketlessColons;
-
-    private HostAddress(String host, int port, boolean hasBracketlessColons)
+    private HostAddress(String host, int port)
     {
         this.host = host;
         this.port = port;
-        this.hasBracketlessColons = hasBracketlessColons;
     }
 
     /**
@@ -130,7 +124,6 @@ public class HostAddress
      * Build a HostAddress instance from separate host and port values.
      * <p/>
      * <p>Note: Non-bracketed IPv6 literals are allowed.
-     * Use {@link #requireBracketsForIPv6()} to prohibit these.
      *
      * @param host the host string to parse.  Must not contain a port number.
      * @param port a port number from [0..65535]
@@ -147,7 +140,7 @@ public class HostAddress
         if (parsedHost.hasPort()) {
             throw new IllegalArgumentException("host contains a port declaration: " + host);
         }
-        return new HostAddress(parsedHost.host, port, parsedHost.hasBracketlessColons);
+        return new HostAddress(parsedHost.host, port);
     }
 
     private static final Pattern BRACKET_PATTERN = Pattern.compile("^\\[(.*:.*)\\](?::(\\d*))?$");
@@ -170,7 +163,6 @@ public class HostAddress
         }
         String host;
         String portString = null;
-        boolean hasBracketlessColons = false;
 
         if (hostPortString.startsWith("[")) {
             // Parse a bracketed host, typically an IPv6 literal.
@@ -191,7 +183,6 @@ public class HostAddress
             else {
                 // 0 or 2+ colons.  Bare hostname or IPv6 literal.
                 host = hostPortString;
-                hasBracketlessColons = (colonPos >= 0);
             }
         }
 
@@ -213,7 +204,7 @@ public class HostAddress
             }
         }
 
-        return new HostAddress(host, port, hasBracketlessColons);
+        return new HostAddress(host, port);
     }
 
     public static HostAddress fromUri(URI httpUri)
@@ -247,30 +238,7 @@ public class HostAddress
         if (hasPort() || port == defaultPort) {
             return this;
         }
-        return new HostAddress(host, defaultPort, hasBracketlessColons);
-    }
-
-    /**
-     * Generate an error if the host might be a non-bracketed IPv6 literal.
-     * <p/>
-     * <p>URI formatting requires that IPv6 literals be surrounded by brackets,
-     * like "[2001:db8::1]".  Chain this call after {@link #fromString(String)}
-     * to increase the strictness of the parser, and disallow IPv6 literals
-     * that don't contain these brackets.
-     * <p/>
-     * <p>Note that this parser identifies IPv6 literals solely based on the
-     * presence of a colon.  To perform actual validation of IP addresses, see
-     * the {@link com.google.common.net.InetAddresses#forString(String)} method.
-     *
-     * @return {@code this}, to enable chaining of calls.
-     * @throws IllegalArgumentException if bracketless IPv6 is detected.
-     */
-    public HostAddress requireBracketsForIPv6()
-    {
-        if (hasBracketlessColons) {
-            throw new IllegalArgumentException("Possible bracketless IPv6 literal: " + host);
-        }
-        return this;
+        return new HostAddress(host, defaultPort);
     }
 
     public InetAddress toInetAddress()
@@ -282,7 +250,7 @@ public class HostAddress
     @Override
     public int hashCode()
     {
-        return Objects.hash(host, port, hasBracketlessColons);
+        return Objects.hash(host, port);
     }
 
     @Override
@@ -296,8 +264,7 @@ public class HostAddress
         }
         final HostAddress other = (HostAddress) obj;
         return Objects.equals(this.host, other.host) &&
-                Objects.equals(this.port, other.port) &&
-                Objects.equals(this.hasBracketlessColons, other.hasBracketlessColons);
+                Objects.equals(this.port, other.port);
     }
 
     /**
