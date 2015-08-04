@@ -20,16 +20,15 @@ import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
-import com.facebook.presto.spi.TupleDomain.Function;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
@@ -49,7 +48,8 @@ public class ArrayMapByteCodeExpression
     public ArrayMapByteCodeExpression(
             Scope scope,
             CallSiteBinder binder,
-            ByteCodeExpression array, Type fromType,
+            ByteCodeExpression array,
+            Type fromType,
             Type toType,
             Function<ByteCodeExpression, ByteCodeExpression> mapper)
     {
@@ -58,7 +58,7 @@ public class ArrayMapByteCodeExpression
         body = new com.facebook.presto.byteCode.Block();
 
         Variable blockBuilder = scope.declareVariable(BlockBuilder.class, "blockBuilder_" + NEXT_VARIABLE_ID.getAndIncrement());
-        body.append(blockBuilder.set(newInstance(VariableWidthBlockBuilder.class, newInstance(BlockBuilderStatus.class), array.invoke("getPositionCount", int.class))));
+        body.append(blockBuilder.set(constantType(binder, toType).invoke("createBlockBuilder", BlockBuilder.class, newInstance(BlockBuilderStatus.class), array.invoke("getPositionCount", int.class))));
 
         Variable element = scope.declareVariable(fromType.getJavaType(), "element_" + NEXT_VARIABLE_ID.getAndIncrement());
         Variable newElement = scope.declareVariable(toType.getJavaType(), "newElement_" + NEXT_VARIABLE_ID.getAndIncrement());

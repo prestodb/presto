@@ -20,6 +20,7 @@ import com.facebook.presto.raptor.util.CloseableIterator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -83,7 +84,7 @@ public class RaptorSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(ConnectorSession session, ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
         RaptorTableHandle handle = checkType(tableHandle, RaptorTableHandle.class, "table");
         ConnectorPartition partition = new RaptorPartition(handle.getTableId(), tupleDomain);
@@ -91,7 +92,7 @@ public class RaptorSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle tableHandle, List<ConnectorPartition> partitions)
+    public ConnectorSplitSource getPartitionSplits(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorPartition> partitions)
     {
         RaptorTableHandle raptorTableHandle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
 
@@ -117,14 +118,7 @@ public class RaptorSplitManager
     @SuppressWarnings("unchecked")
     private static TupleDomain<RaptorColumnHandle> toRaptorTupleDomain(TupleDomain<ColumnHandle> tupleDomain)
     {
-        return tupleDomain.transform(new TupleDomain.Function<ColumnHandle, RaptorColumnHandle>()
-        {
-            @Override
-            public RaptorColumnHandle apply(ColumnHandle handle)
-            {
-                return checkType(handle, RaptorColumnHandle.class, "columnHandle");
-            }
-        });
+        return tupleDomain.transform(handle -> checkType(handle, RaptorColumnHandle.class, "columnHandle"));
     }
 
     private static <T> T selectRandom(Iterable<T> elements)

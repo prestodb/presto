@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.ParametricOperator;
 import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -48,7 +49,7 @@ public class ArrayToJsonCast
 {
     public static final ArrayToJsonCast ARRAY_TO_JSON = new ArrayToJsonCast();
     private static final Supplier<ObjectMapper> OBJECT_MAPPER = Suppliers.memoize(() -> new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer())));
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayToJsonCast.class, "toJson", Type.class, ConnectorSession.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayToJsonCast.class, "toJson", Type.class, ConnectorSession.class, Block.class);
 
     private ArrayToJsonCast()
     {
@@ -67,7 +68,7 @@ public class ArrayToJsonCast
         return operatorInfo(OperatorType.CAST, parseTypeSignature(StandardTypes.JSON), ImmutableList.of(arrayType.getTypeSignature()), methodHandle, false, ImmutableList.of(false));
     }
 
-    public static Slice toJson(Type arrayType, ConnectorSession session, Slice array)
+    public static Slice toJson(Type arrayType, ConnectorSession session, Block array)
     {
         Object object = arrayType.getObjectValue(session, createBlock(arrayType, array), 0);
         try {

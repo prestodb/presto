@@ -183,8 +183,8 @@ class QueryPlanner
     {
         TupleDescriptor descriptor = analysis.getOutputDescriptor(node.getTable());
         TableHandle handle = analysis.getTableHandle(node.getTable());
-        ColumnHandle rowIdHandle = metadata.getUpdateRowIdColumnHandle(handle);
-        Type rowIdType = metadata.getColumnMetadata(handle, rowIdHandle).getType();
+        ColumnHandle rowIdHandle = metadata.getUpdateRowIdColumnHandle(session, handle);
+        Type rowIdType = metadata.getColumnMetadata(session, handle, rowIdHandle).getType();
 
         // add table columns
         ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();

@@ -13,21 +13,14 @@
  */
 package com.facebook.presto;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static java.util.Locale.ENGLISH;
 
 public final class SessionTestUtils
 {
-    public static final Session TEST_SESSION = Session.builder()
-            .setUser("user")
-            .setSource("source")
+    public static final Session TEST_SESSION = testSessionBuilder()
             .setCatalog("tpch")
             .setSchema(TINY_SCHEMA_NAME)
-            .setTimeZoneKey(UTC_KEY)
-            .setLocale(ENGLISH)
-            .setRemoteUserAddress("address")
-            .setUserAgent("agent")
             .build();
 
     private SessionTestUtils()

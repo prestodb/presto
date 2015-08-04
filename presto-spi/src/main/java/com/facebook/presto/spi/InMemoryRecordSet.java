@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -157,6 +158,15 @@ public class InMemoryRecordSet
         }
 
         @Override
+        public Object getObject(int field)
+        {
+            checkState(record != null, "no current record");
+            Object value = record.get(field);
+            checkNotNull(value, "value is null");
+            return value;
+        }
+
+        @Override
         public boolean isNull(int field)
         {
             checkState(record != null, "no current record");
@@ -264,7 +274,10 @@ public class InMemoryRecordSet
     {
         long completedBytes = 0;
         for (Object value : record) {
-            if (value instanceof Boolean) {
+            if (value == null) {
+                // do nothing
+            }
+            else if (value instanceof Boolean) {
                 completedBytes++;
             }
             else if (value instanceof Long) {
@@ -278,6 +291,12 @@ public class InMemoryRecordSet
             }
             else if (value instanceof byte[]) {
                 completedBytes += ((byte[]) value).length;
+            }
+            else if (value instanceof Block) {
+                completedBytes += ((Block) value).getSizeInBytes();
+            }
+            else {
+                throw new IllegalArgumentException("Unknown type: " + value.getClass());
             }
         }
         return completedBytes;

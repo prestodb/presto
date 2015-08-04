@@ -16,10 +16,10 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.ParameterizedType;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.byteCode.control.IfStatement;
@@ -40,14 +40,15 @@ import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Primitives;
+import io.airlift.slice.Slice;
 
 import java.util.List;
 import java.util.TreeSet;
 
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.OpCode.NOP;
+import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.loadConstant;
@@ -308,6 +309,10 @@ public class PageProcessorCompiler
                 Variable block = scope.getVariable("block_" + field);
 
                 Class<?> javaType = type.getJavaType();
+                if (!javaType.isPrimitive() && javaType != Slice.class) {
+                    javaType = Object.class;
+                }
+
                 IfStatement ifStatement = new IfStatement();
                 ifStatement.condition()
                         .setDescription(format("block_%d.get%s()", field, type))

@@ -14,12 +14,8 @@
 package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.type.TypeManager;
-import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-
-import static com.facebook.presto.spi.block.EncoderUtil.decodeNullBits;
-import static com.facebook.presto.spi.block.EncoderUtil.encodeNullsAsBits;
 
 public class LazySliceArrayBlockEncoding
         implements BlockEncoding
@@ -34,30 +30,25 @@ public class LazySliceArrayBlockEncoding
     }
 
     @Override
+    public Block readBlock(SliceInput sliceInput)
+    {
+        boolean isDictionary = sliceInput.readBoolean();
+        if (isDictionary) {
+            return new DictionaryBlockEncoding(new SliceArrayBlockEncoding()).readBlock(sliceInput);
+        }
+        return new SliceArrayBlockEncoding().readBlock(sliceInput);
+    }
+
+    @Override
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
         // The down casts here are safe because it is the block itself the provides this encoding implementation.
         LazySliceArrayBlock sliceArrayBlock = (LazySliceArrayBlock) block;
 
-        int positionCount = sliceArrayBlock.getPositionCount();
-        sliceOutput.appendInt(positionCount);
-
-        // offsets
-        for (int position = 0; position < positionCount; position++) {
-            int length = 0;
-            if (!sliceArrayBlock.isNull(position)) {
-                length = sliceArrayBlock.getLength(position);
-            }
-            sliceOutput.appendInt(length);
-        }
-
-        encodeNullsAsBits(sliceOutput, sliceArrayBlock);
-
-        for (Slice value : sliceArrayBlock.getValues()) {
-            if (value != null) {
-                sliceOutput.writeBytes(value);
-            }
-        }
+        // is dictionary block
+        sliceOutput.writeBoolean(sliceArrayBlock.isDictionary());
+        Block nonLazyBlock = sliceArrayBlock.createNonLazyBlock();
+        nonLazyBlock.getEncoding().writeBlock(sliceOutput, nonLazyBlock);
     }
 
     @Override
@@ -78,31 +69,6 @@ public class LazySliceArrayBlockEncoding
         size += totalLength;
 
         return size;
-    }
-
-    @Override
-    public Block readBlock(SliceInput sliceInput)
-    {
-        int positionCount = sliceInput.readInt();
-
-        // offsets
-        int[] offsets = new int[positionCount + 1];
-        int offset = 0;
-        for (int position = 0; position < positionCount; position++) {
-            offset += sliceInput.readInt();
-            offsets[position + 1] = offset;
-        }
-
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount);
-
-        Slice[] values = new Slice[positionCount];
-        for (int position = 0; position < positionCount; position++) {
-            if (!valueIsNull[position]) {
-                values[position] = sliceInput.readSlice(offsets[position + 1] - offsets[position]);
-            }
-        }
-
-        return new SliceArrayBlock(positionCount, values);
     }
 
     @Override

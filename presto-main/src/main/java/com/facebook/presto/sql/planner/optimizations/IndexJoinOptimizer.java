@@ -55,6 +55,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -266,7 +267,9 @@ public class IndexJoinOptimizer
                     .transform(Functions.forMap(node.getAssignments()))
                     .toSet();
 
-            Optional<ResolvedIndex> optionalResolvedIndex = indexManager.resolveIndex(node.getTable(), lookupColumns, simplifiedConstraint);
+            Set<ColumnHandle> outputColumns = node.getOutputSymbols().stream().map(node.getAssignments()::get).collect(toImmutableSet());
+
+            Optional<ResolvedIndex> optionalResolvedIndex = indexManager.resolveIndex(session, node.getTable(), lookupColumns, outputColumns, simplifiedConstraint);
             if (!optionalResolvedIndex.isPresent()) {
                 // No index available, so give up by returning something
                 return node;

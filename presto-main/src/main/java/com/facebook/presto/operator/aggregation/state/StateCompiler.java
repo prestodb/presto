@@ -15,17 +15,18 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.Parameter;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.CallSiteBinder;
+import com.facebook.presto.util.array.BlockBigArray;
 import com.facebook.presto.util.array.BooleanBigArray;
 import com.facebook.presto.util.array.ByteBigArray;
 import com.facebook.presto.util.array.DoubleBigArray;
@@ -43,6 +44,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -99,6 +101,9 @@ public class StateCompiler
         }
         if (type.equals(Slice.class)) {
             return SliceBigArray.class;
+        }
+        if (type.equals(com.facebook.presto.spi.block.Block.class)) {
+            return BlockBigArray.class;
         }
         // TODO: support more reference types
         throw new IllegalArgumentException("Unsupported type: " + type.getName());
@@ -529,7 +534,7 @@ public class StateCompiler
     {
         ImmutableList.Builder<StateField> builder = ImmutableList.builder();
         final Set<Class<?>> primitiveClasses = ImmutableSet.<Class<?>>of(byte.class, boolean.class, long.class, double.class);
-        Set<Class<?>> supportedClasses = ImmutableSet.<Class<?>>of(byte.class, boolean.class, long.class, double.class, Slice.class);
+        Set<Class<?>> supportedClasses = ImmutableSet.<Class<?>>of(byte.class, boolean.class, long.class, double.class, Slice.class, com.facebook.presto.spi.block.Block.class);
 
         for (Method method : clazz.getMethods()) {
             if (method.getName().equals("getEstimatedSize")) {
@@ -609,6 +614,10 @@ public class StateCompiler
         }
 
         for (Method method : clazz.getMethods()) {
+            if (Modifier.isStatic(method.getModifiers())) {
+                continue;
+            }
+
             if (method.getName().equals("getEstimatedSize")) {
                 checkArgument(method.getReturnType().equals(long.class), "getEstimatedSize must return long");
                 checkArgument(method.getParameterTypes().length == 0, "getEstimatedSize may not have parameters");

@@ -19,7 +19,13 @@ import java.util.Set;
 public interface ConnectorIndexResolver
 {
     // TODO: should we allow partial index resolutions? (e.g. only index on colA when asking for an index on colA and colB)
-    ConnectorResolvedIndex resolveIndex(ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain);
+    ConnectorResolvedIndex resolveIndex(ConnectorSession session, ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain);
 
-    ConnectorIndex getIndex(ConnectorIndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema);
+    // Filtered projection can be used if it can provide all the columns needed (outputColumns).
+    default ConnectorResolvedIndex resolveIndex(ConnectorSession session, ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        return resolveIndex(session, tableHandle, indexableColumns, tupleDomain);
+    }
+
+    ConnectorIndex getIndex(ConnectorSession session, ConnectorIndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema);
 }

@@ -40,12 +40,16 @@ public interface ConnectorMetadata
      *
      * For each layout, connectors must return an "unenforced constraint" representing the part of the constraint summary that isn't guaranteed by the layout.
      */
-    default List<ConnectorTableLayoutResult> getTableLayouts(ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    default List<ConnectorTableLayoutResult> getTableLayouts(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            Constraint<ColumnHandle> constraint,
+            Optional<Set<ColumnHandle>> desiredColumns)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
 
-    default ConnectorTableLayout getTableLayout(ConnectorTableLayoutHandle handle)
+    default ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
@@ -55,7 +59,7 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if table handle is no longer valid
      */
-    ConnectorTableMetadata getTableMetadata(ConnectorTableHandle table);
+    ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table);
 
     /**
      * List table names, possibly filtered by schema. An empty list is returned if none match.
@@ -67,7 +71,7 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if the table handle is no longer valid
      */
-    ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle);
+    ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle);
 
     /**
      * Returns true if this catalog supports creation of sampled tables
@@ -79,14 +83,14 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if table handle is no longer valid
      */
-    Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle);
+    Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle);
 
     /**
      * Gets the metadata for the specified table column.
      *
      * @throws RuntimeException if table or column handles are no longer valid
      */
-    ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle);
+    ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle);
 
     /**
      * Gets the metadata for all columns that match the specified table prefix.
@@ -103,17 +107,17 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
      */
-    void dropTable(ConnectorTableHandle tableHandle);
+    void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle);
 
     /**
      * Rename the specified table
      */
-    void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName);
+    void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName);
 
     /**
      * Rename the specified column
      */
-    default void renameColumn(ConnectorTableHandle tableHandle, ColumnHandle source, String target)
+    default void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming columns");
     }
@@ -126,12 +130,12 @@ public interface ConnectorMetadata
     /**
      * Commit a table creation with data after the data is written.
      */
-    void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments);
+    void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Rollback a table creation
      */
-    default void rollbackCreateTable(ConnectorOutputTableHandle tableHandle)
+    default void rollbackCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle)
     {
     }
 
@@ -143,12 +147,12 @@ public interface ConnectorMetadata
     /**
      * Commit insert query
      */
-    void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments);
+    void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments);
 
     /**
      * Rollback insert query
      */
-    default void rollbackInsert(ConnectorInsertTableHandle insertHandle)
+    default void rollbackInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle)
     {
     }
 
@@ -157,7 +161,7 @@ public interface ConnectorMetadata
      * These IDs will be passed to the {@code deleteRows()} method of the
      * {@link UpdatablePageSource} that created them.
      */
-    default ColumnHandle getUpdateRowIdColumnHandle(ConnectorTableHandle tableHandle)
+    default ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support updates or deletes");
     }
@@ -165,7 +169,7 @@ public interface ConnectorMetadata
     /**
      * Begin delete query
      */
-    default ConnectorTableHandle beginDelete(ConnectorTableHandle tableHandle)
+    default ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
     }
@@ -173,9 +177,9 @@ public interface ConnectorMetadata
     /**
      * Commit delete query
      *
-     * @param fragments all fragments returned by {@link UpdatablePageSource#commit()}
+     * @param fragments all fragments returned by {@link com.facebook.presto.spi.UpdatablePageSource#commit()}
      */
-    default void commitDelete(ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    default void commitDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
     }
@@ -183,7 +187,7 @@ public interface ConnectorMetadata
     /**
      * Rollback delete query
      */
-    default void rollbackDelete(ConnectorTableHandle tableHandle) {}
+    default void rollbackDelete(ConnectorSession session, ConnectorTableHandle tableHandle) {}
 
     /**
      * Create the specified view. The data for the view is opaque to the connector.

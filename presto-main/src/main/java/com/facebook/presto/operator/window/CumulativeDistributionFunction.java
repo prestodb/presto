@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
@@ -23,12 +22,6 @@ public class CumulativeDistributionFunction
 {
     private long totalCount;
     private long count;
-
-    @Override
-    public Type getType()
-    {
-        return DOUBLE;
-    }
 
     @Override
     public void reset()

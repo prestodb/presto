@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.rcfile;
 
-import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.hive.HivePartitionKey;
@@ -49,24 +48,11 @@ public class RcFilePageSourceFactory
         implements HivePageSourceFactory
 {
     private final TypeManager typeManager;
-    private final boolean enabled;
 
     @Inject
-    public RcFilePageSourceFactory(TypeManager typeManager, HiveClientConfig config)
-    {
-        //noinspection deprecation
-        this(typeManager, config.isOptimizedReaderEnabled());
-    }
-
     public RcFilePageSourceFactory(TypeManager typeManager)
     {
-        this(typeManager, true);
-    }
-
-    public RcFilePageSourceFactory(TypeManager typeManager, boolean enabled)
-    {
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
-        this.enabled = enabled;
     }
 
     @Override
@@ -83,7 +69,7 @@ public class RcFilePageSourceFactory
             DateTimeZone hiveStorageTimeZone)
     {
         // todo remove this when GC issues are resolved
-        if (true || !isOptimizedReaderEnabled(session, enabled)) {
+        if (true || !isOptimizedReaderEnabled(session)) {
             return Optional.empty();
         }
 

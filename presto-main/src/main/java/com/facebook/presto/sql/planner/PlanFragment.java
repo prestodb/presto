@@ -50,7 +50,14 @@ public class PlanFragment
     public enum OutputPartitioning
     {
         NONE,
-        HASH
+        HASH,
+        ROUND_ROBIN
+    }
+
+    public static enum NullPartitioning
+    {
+        HASH, // Nulls are treated no different from any other elements
+        REPLICATE, // Instead of being hashed to one partition, nulls are replicated to every partition
     }
 
     private final PlanFragmentId id;
@@ -63,7 +70,8 @@ public class PlanFragment
     private final PlanNode partitionedSourceNode;
     private final List<RemoteSourceNode> remoteSourceNodes;
     private final OutputPartitioning outputPartitioning;
-    private final List<Symbol> partitionBy;
+    private final Optional<List<Symbol>> partitionBy;
+    private final Optional<NullPartitioning> nullPartitionPolicy;
     private final Optional<Symbol> hash;
 
     @JsonCreator
@@ -75,7 +83,8 @@ public class PlanFragment
             @JsonProperty("distribution") PlanDistribution distribution,
             @JsonProperty("partitionedSource") PlanNodeId partitionedSource,
             @JsonProperty("outputPartitioning") OutputPartitioning outputPartitioning,
-            @JsonProperty("partitionBy") List<Symbol> partitionBy,
+            @JsonProperty("partitionBy") Optional<List<Symbol>> partitionBy,
+            @JsonProperty("nullPartitionPolicy") Optional<NullPartitioning> nullPartitionPolicy,
             @JsonProperty("hash") Optional<Symbol> hash)
     {
         this.id = checkNotNull(id, "id is null");
@@ -84,7 +93,8 @@ public class PlanFragment
         this.outputLayout = checkNotNull(outputLayout, "outputLayout is null");
         this.distribution = checkNotNull(distribution, "distribution is null");
         this.partitionedSource = partitionedSource;
-        this.partitionBy = ImmutableList.copyOf(checkNotNull(partitionBy, "partitionBy is null"));
+        this.partitionBy = checkNotNull(partitionBy, "partitionBy is null").map(ImmutableList::copyOf);
+        this.nullPartitionPolicy = checkNotNull(nullPartitionPolicy, "nullPartitioningPolicy is null");
         this.hash = hash;
 
         checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(outputLayout),
@@ -146,9 +156,14 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public List<Symbol> getPartitionBy()
+    public Optional<List<Symbol>> getPartitionBy()
     {
         return partitionBy;
+    }
+
+    public Optional<NullPartitioning> getNullPartitionPolicy()
+    {
+        return nullPartitionPolicy;
     }
 
     @JsonProperty

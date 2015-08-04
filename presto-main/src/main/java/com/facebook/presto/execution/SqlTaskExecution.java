@@ -32,7 +32,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
@@ -151,14 +150,16 @@ public class SqlTaskExecution
             List<DriverFactory> driverFactories;
             try {
                 OutputFactory outputOperatorFactory;
-                if (fragment.getOutputPartitioning() == OutputPartitioning.NONE) {
-                    outputOperatorFactory = new TaskOutputFactory(sharedBuffer);
-                }
-                else if (fragment.getOutputPartitioning() == OutputPartitioning.HASH) {
-                    outputOperatorFactory = new PartitionedOutputFactory(sharedBuffer);
-                }
-                else {
-                    throw new PrestoException(NOT_SUPPORTED, format("OutputPartitioning %s is not supported", fragment.getOutputPartitioning()));
+                switch (fragment.getOutputPartitioning()) {
+                    case NONE:
+                        outputOperatorFactory = new TaskOutputFactory(sharedBuffer);
+                        break;
+                    case HASH:
+                    case ROUND_ROBIN:
+                        outputOperatorFactory = new PartitionedOutputFactory(sharedBuffer);
+                        break;
+                    default:
+                        throw new PrestoException(NOT_SUPPORTED, format("OutputPartitioning %s is not supported", fragment.getOutputPartitioning()));
                 }
 
                 LocalExecutionPlan localExecutionPlan = planner.plan(

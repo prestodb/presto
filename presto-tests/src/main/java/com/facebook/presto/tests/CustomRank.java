@@ -15,8 +15,6 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.operator.window.RankingWindowFunction;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.Type;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
@@ -25,12 +23,6 @@ public class CustomRank
 {
     private long rank;
     private long count;
-
-    @Override
-    public Type getType()
-    {
-        return BigintType.BIGINT;
-    }
 
     @Override
     public void reset()

@@ -35,7 +35,6 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.NodeModule;
 import org.weakref.jmx.guice.MBeanModule;
@@ -82,7 +81,6 @@ public class HiveConnectorFactory
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     new NodeModule(),
-                    new DiscoveryModule(),
                     new MBeanModule(),
                     new JsonModule(),
                     new HiveClientModule(connectorId, metastore, typeManager),
@@ -110,6 +108,7 @@ public class HiveConnectorFactory
             ConnectorPageSourceProvider connectorPageSource = injector.getInstance(ConnectorPageSourceProvider.class);
             ConnectorRecordSinkProvider recordSinkProvider = injector.getInstance(ConnectorRecordSinkProvider.class);
             ConnectorHandleResolver handleResolver = injector.getInstance(ConnectorHandleResolver.class);
+            HiveSessionProperties hiveSessionProperties = injector.getInstance(HiveSessionProperties.class);
 
             return new HiveConnector(
                     lifeCycleManager,
@@ -118,7 +117,8 @@ public class HiveConnectorFactory
                     new ClassLoaderSafeConnectorPageSourceProvider(connectorPageSource, classLoader),
                     new ClassLoaderSafeConnectorRecordSinkProvider(recordSinkProvider, classLoader),
                     new ClassLoaderSafeConnectorHandleResolver(handleResolver, classLoader),
-                    ImmutableSet.of());
+                    ImmutableSet.of(),
+                    hiveSessionProperties.getSessionProperties());
         }
         catch (Exception e) {
             throw Throwables.propagate(e);

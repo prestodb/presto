@@ -58,10 +58,10 @@ public class QueryExplainer
         switch (planType) {
             case LOGICAL:
                 Plan plan = getLogicalPlan(statement);
-                return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata);
+                return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, session);
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(statement);
-                return PlanPrinter.textDistributedPlan(subPlan, metadata);
+                return PlanPrinter.textDistributedPlan(subPlan, metadata, session);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
@@ -82,7 +82,7 @@ public class QueryExplainer
     public String getJsonPlan(Statement statement)
     {
         Plan plan = getLogicalPlan(statement);
-        return PlanPrinter.getJsonPlanSource(plan.getRoot(), metadata);
+        return PlanPrinter.getJsonPlanSource(plan.getRoot(), metadata, null);
     }
 
     private Plan getLogicalPlan(Statement statement)

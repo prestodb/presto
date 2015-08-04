@@ -13,18 +13,24 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
+import java.lang.invoke.MethodHandle;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Only retains rows that have identical values for each respective fieldSet.
@@ -33,12 +39,25 @@ public class FieldSetFilteringRecordSet
         implements RecordSet
 {
     private final RecordSet delegate;
-    private final List<Set<Integer>> fieldSets;
+    private final List<Set<Field>> fieldSets;
 
-    public FieldSetFilteringRecordSet(RecordSet delegate, List<Set<Integer>> fieldSets)
+    public FieldSetFilteringRecordSet(FunctionRegistry functionRegistry, RecordSet delegate, List<Set<Integer>> fieldSets)
     {
-        this.delegate = checkNotNull(delegate, "delegate is null");
-        this.fieldSets = ImmutableList.copyOf(checkNotNull(fieldSets, "fieldSets is null"));
+        requireNonNull(functionRegistry, "functionRegistry is null");
+        this.delegate = requireNonNull(delegate, "delegate is null");
+
+        ImmutableList.Builder<Set<Field>> fieldSetsBuilder = ImmutableList.builder();
+        List<Type> columnTypes = delegate.getColumnTypes();
+        for (Set<Integer> fieldSet : checkNotNull(fieldSets, "fieldSets is null")) {
+            ImmutableSet.Builder<Field> fieldSetBuilder = ImmutableSet.builder();
+            for (int field : fieldSet) {
+                fieldSetBuilder.add(new Field(
+                        field,
+                        functionRegistry.resolveOperator(OperatorType.EQUAL, ImmutableList.of(columnTypes.get(field), columnTypes.get(field))).getMethodHandle()));
+            }
+            fieldSetsBuilder.add(fieldSetBuilder.build());
+        }
+        this.fieldSets = fieldSetsBuilder.build();
     }
 
     @Override
@@ -53,13 +72,35 @@ public class FieldSetFilteringRecordSet
         return new FieldSetFilteringRecordCursor(delegate.cursor(), fieldSets);
     }
 
+    private static class Field
+    {
+        private final int field;
+        private final MethodHandle equalsMethodHandle;
+
+        public Field(int field, MethodHandle equalsMethodHandle)
+        {
+            this.field = field;
+            this.equalsMethodHandle = requireNonNull(equalsMethodHandle, "equalsMethodHandle is null");
+        }
+
+        public int getField()
+        {
+            return field;
+        }
+
+        public MethodHandle getEqualsMethodHandle()
+        {
+            return equalsMethodHandle;
+        }
+    }
+
     private static class FieldSetFilteringRecordCursor
             implements RecordCursor
     {
         private final RecordCursor delegate;
-        private final List<Set<Integer>> fieldSets;
+        private final List<Set<Field>> fieldSets;
 
-        private FieldSetFilteringRecordCursor(RecordCursor delegate, List<Set<Integer>> fieldSets)
+        private FieldSetFilteringRecordCursor(RecordCursor delegate, List<Set<Field>> fieldSets)
         {
             this.delegate = delegate;
             this.fieldSets = fieldSets;
@@ -100,9 +141,9 @@ public class FieldSetFilteringRecordSet
             return false;
         }
 
-        private static boolean fieldSetsEqual(RecordCursor cursor, List<Set<Integer>> fieldSets)
+        private static boolean fieldSetsEqual(RecordCursor cursor, List<Set<Field>> fieldSets)
         {
-            for (Set<Integer> fieldSet : fieldSets) {
+            for (Set<Field> fieldSet : fieldSets) {
                 if (!fieldsEquals(cursor, fieldSet)) {
                     return false;
                 }
@@ -110,13 +151,13 @@ public class FieldSetFilteringRecordSet
             return true;
         }
 
-        private static boolean fieldsEquals(RecordCursor cursor, Set<Integer> fields)
+        private static boolean fieldsEquals(RecordCursor cursor, Set<Field> fields)
         {
             if (fields.size() < 2) {
                 return true; // Nothing to compare
             }
-            Iterator<Integer> fieldIterator = fields.iterator();
-            int firstField = fieldIterator.next();
+            Iterator<Field> fieldIterator = fields.iterator();
+            Field firstField = fieldIterator.next();
             while (fieldIterator.hasNext()) {
                 if (!fieldEquals(cursor, firstField, fieldIterator.next())) {
                     return false;
@@ -125,29 +166,34 @@ public class FieldSetFilteringRecordSet
             return true;
         }
 
-        private static boolean fieldEquals(RecordCursor cursor, int field1, int field2)
+        private static boolean fieldEquals(RecordCursor cursor, Field field1, Field field2)
         {
-            checkArgument(cursor.getType(field1).equals(cursor.getType(field2)), "Should only be comparing fields of the same type");
+            checkArgument(cursor.getType(field1.getField()).equals(cursor.getType(field2.getField())), "Should only be comparing fields of the same type");
 
-            if (cursor.isNull(field1) || cursor.isNull(field2)) {
+            if (cursor.isNull(field1.getField()) || cursor.isNull(field2.getField())) {
                 return false;
             }
 
-            Class<?> javaType = cursor.getType(field1).getJavaType();
-            if (javaType == long.class) {
-                return cursor.getLong(field1) == cursor.getLong(field2);
+            Class<?> javaType = cursor.getType(field1.getField()).getJavaType();
+            try {
+                if (javaType == long.class) {
+                    return (boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getLong(field1.getField()), cursor.getLong(field2.getField()));
+                }
+                else if (javaType == double.class) {
+                    return (boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getDouble(field1.getField()), cursor.getDouble(field2.getField()));
+                }
+                else if (javaType == boolean.class) {
+                    return (boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getBoolean(field1.getField()), cursor.getBoolean(field2.getField()));
+                }
+                else if (javaType == Slice.class) {
+                    return (boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getSlice(field1.getField()), cursor.getSlice(field2.getField()));
+                }
+                else {
+                    return (boolean) field1.getEqualsMethodHandle().invoke(cursor.getObject(field1.getField()), cursor.getObject(field2.getField()));
+                }
             }
-            else if (javaType == double.class) {
-                return cursor.getDouble(field1) == cursor.getDouble(field2);
-            }
-            else if (javaType == boolean.class) {
-                return cursor.getBoolean(field1) == cursor.getBoolean(field2);
-            }
-            else if (javaType == Slice.class) {
-                return cursor.getSlice(field1).equals(cursor.getSlice(field2));
-            }
-            else {
-                throw new IllegalArgumentException("Unknown java type: " + javaType);
+            catch (Throwable throwable) {
+                throw Throwables.propagate(throwable);
             }
         }
 
@@ -173,6 +219,13 @@ public class FieldSetFilteringRecordSet
         public Slice getSlice(int field)
         {
             return delegate.getSlice(field);
+        }
+
+        @Override
+        public Object getObject(int field)
+        {
+            // equals is super expensive for the currently supported types: Block
+            throw new UnsupportedOperationException();
         }
 
         @Override

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -24,29 +23,18 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestJsonHiveHandles
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
-
     private static final Map<String, Object> TABLE_HANDLE_AS_MAP = ImmutableMap.<String, Object>of(
             "clientId", "hive",
             "schemaName", "hive_schema",
-            "tableName", "hive_table",
-            "session", ImmutableMap.builder()
-                    .put("user", SESSION.getUser())
-                    .put("timeZoneKey", (int) SESSION.getTimeZoneKey().getKey())
-                    .put("locale", SESSION.getLocale().toString())
-                    .put("startTime", SESSION.getStartTime())
-                    .put("properties", ImmutableMap.of())
-                    .build());
+            "tableName", "hive_table");
 
     private static final Map<String, Object> COLUMN_HANDLE_AS_MAP = ImmutableMap.<String, Object>builder()
             .put("clientId", "hive")
@@ -64,7 +52,7 @@ public class TestJsonHiveHandles
     public void testTableHandleSerialize()
             throws Exception
     {
-        HiveTableHandle tableHandle = new HiveTableHandle("hive", "hive_schema", "hive_table", SESSION);
+        HiveTableHandle tableHandle = new HiveTableHandle("hive", "hive_schema", "hive_table");
 
         assertTrue(objectMapper.canSerialize(HiveTableHandle.class));
         String json = objectMapper.writeValueAsString(tableHandle);

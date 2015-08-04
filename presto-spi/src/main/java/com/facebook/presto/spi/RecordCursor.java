@@ -39,6 +39,8 @@ public interface RecordCursor
 
     Slice getSlice(int field);
 
+    Object getObject(int field);
+
     boolean isNull(int field);
 
     @Override

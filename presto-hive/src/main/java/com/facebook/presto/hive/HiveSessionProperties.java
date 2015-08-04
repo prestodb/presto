@@ -14,11 +14,17 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.session.SessionPropertyMetadata;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import javax.inject.Inject;
+
+import java.util.List;
+
+import static com.facebook.presto.spi.session.SessionPropertyMetadata.booleanSessionProperty;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.util.Locale.ENGLISH;
 
 public final class HiveSessionProperties
 {
@@ -29,97 +35,91 @@ public final class HiveSessionProperties
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
     private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
 
-    private HiveSessionProperties()
+    private final List<SessionPropertyMetadata<?>> sessionProperties;
+
+    @Inject
+    public HiveSessionProperties(HiveClientConfig config)
     {
+        sessionProperties = ImmutableList.of(
+                new SessionPropertyMetadata<>(
+                        STORAGE_FORMAT_PROPERTY,
+                        "Default storage format for new tables",
+                        VARCHAR,
+                        HiveStorageFormat.class,
+                        config.getHiveStorageFormat(),
+                        false,
+                        value -> HiveStorageFormat.valueOf(((String) value).toUpperCase(ENGLISH))),
+                booleanSessionProperty(
+                        FORCE_LOCAL_SCHEDULING,
+                        "Only schedule splits on workers colocated with data node",
+                        config.isForceLocalScheduling(),
+                        false),
+                booleanSessionProperty(
+                        OPTIMIZED_READER_ENABLED,
+                        "Enable optimized readers",
+                        config.isOptimizedReaderEnabled(),
+                        true),
+                dataSizeSessionProperty(
+                        ORC_MAX_MERGE_DISTANCE,
+                        "ORC: Maximum size of gap between to reads to merge into a single read",
+                        config.getOrcMaxMergeDistance(),
+                        false),
+                dataSizeSessionProperty(
+                        ORC_MAX_BUFFER_SIZE,
+                        "ORC: Maximum size of a single read",
+                        config.getOrcMaxBufferSize(),
+                        false),
+                dataSizeSessionProperty(
+                        ORC_STREAM_BUFFER_SIZE,
+                        "ORC: Size of buffer for streaming reads",
+                        config.getOrcMaxBufferSize(),
+                        false));
     }
 
-    public static HiveStorageFormat getHiveStorageFormat(ConnectorSession session, HiveStorageFormat defaultValue)
+    public List<SessionPropertyMetadata<?>> getSessionProperties()
     {
-        String storageFormatString = session.getProperties().get(STORAGE_FORMAT_PROPERTY);
-        if (storageFormatString == null) {
-            return defaultValue;
-        }
-
-        try {
-            return HiveStorageFormat.valueOf(storageFormatString.toUpperCase());
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, "Hive storage-format is invalid: " + storageFormatString);
-        }
+        return sessionProperties;
     }
 
-    public static boolean isOptimizedReaderEnabled(ConnectorSession session, boolean defaultValue)
+    public static HiveStorageFormat getHiveStorageFormat(ConnectorSession session)
     {
-        return isEnabled(OPTIMIZED_READER_ENABLED, session, defaultValue);
+        return session.getProperty(STORAGE_FORMAT_PROPERTY, HiveStorageFormat.class);
     }
 
-    public static DataSize getOrcMaxMergeDistance(ConnectorSession session, DataSize defaultValue)
+    public static boolean isForceLocalScheduling(ConnectorSession session)
     {
-        String maxMergeDistanceString = session.getProperties().get(ORC_MAX_MERGE_DISTANCE);
-        if (maxMergeDistanceString == null) {
-            return defaultValue;
-        }
-
-        try {
-            return DataSize.valueOf(maxMergeDistanceString);
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, ORC_MAX_MERGE_DISTANCE + " is invalid: " + maxMergeDistanceString);
-        }
+        return session.getProperty(FORCE_LOCAL_SCHEDULING, Boolean.class);
     }
 
-    public static DataSize getOrcMaxBufferSize(ConnectorSession session, DataSize defaultValue)
+    public static boolean isOptimizedReaderEnabled(ConnectorSession session)
     {
-        String maxBufferSizeString = session.getProperties().get(ORC_MAX_BUFFER_SIZE);
-        if (maxBufferSizeString == null) {
-            return defaultValue;
-        }
-
-        try {
-            return DataSize.valueOf(maxBufferSizeString);
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, ORC_MAX_BUFFER_SIZE + " is invalid: " + maxBufferSizeString);
-        }
+        return session.getProperty(OPTIMIZED_READER_ENABLED, Boolean.class);
     }
 
-    public static DataSize getOrcStreamBufferSize(ConnectorSession session, DataSize defaultValue)
+    public static DataSize getOrcMaxMergeDistance(ConnectorSession session)
     {
-        String streamBufferSizeString = session.getProperties().get(ORC_STREAM_BUFFER_SIZE);
-        if (streamBufferSizeString == null) {
-            return defaultValue;
-        }
-
-        try {
-            return DataSize.valueOf(streamBufferSizeString);
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, ORC_STREAM_BUFFER_SIZE + " is invalid: " + streamBufferSizeString);
-        }
+        return session.getProperty(ORC_MAX_MERGE_DISTANCE, DataSize.class);
     }
 
-    private static boolean isEnabled(String propertyName, ConnectorSession session, boolean defaultValue)
+    public static DataSize getOrcMaxBufferSize(ConnectorSession session)
     {
-        String enabled = session.getProperties().get(propertyName);
-        if (enabled == null) {
-            return defaultValue;
-        }
-
-        return Boolean.valueOf(enabled);
+        return session.getProperty(ORC_MAX_BUFFER_SIZE, DataSize.class);
     }
 
-    public static boolean getForceLocalScheduling(ConnectorSession session, boolean defaultValue)
+    public static DataSize getOrcStreamBufferSize(ConnectorSession session)
     {
-        String forceLocalScheduling = session.getProperties().get(FORCE_LOCAL_SCHEDULING);
-        if (forceLocalScheduling == null) {
-            return defaultValue;
-        }
+        return session.getProperty(ORC_STREAM_BUFFER_SIZE, DataSize.class);
+    }
 
-        try {
-            return Boolean.valueOf(forceLocalScheduling);
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(NOT_SUPPORTED, "Invalid Hive session property '" + FORCE_LOCAL_SCHEDULING + "=" + forceLocalScheduling + "'");
-        }
+    public static SessionPropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)
+    {
+        return new SessionPropertyMetadata<>(
+                name,
+                description,
+                VARCHAR,
+                DataSize.class,
+                defaultValue,
+                hidden,
+                value -> DataSize.valueOf((String) value));
     }
 }

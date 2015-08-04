@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.HashPagePartitionFunction;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.PagePartitionFunction;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -150,13 +149,19 @@ public class SharedBuffer
 
     public SharedBuffer(TaskId taskId, Executor executor, DataSize maxBufferSize)
     {
+        this(taskId, executor, maxBufferSize, deltaMemory -> { });
+    }
+
+    public SharedBuffer(TaskId taskId, Executor executor, DataSize maxBufferSize, SystemMemoryUsageListener systemMemoryUsageListener)
+    {
         checkNotNull(taskId, "taskId is null");
         checkNotNull(executor, "executor is null");
         state = new StateMachine<>(taskId + "-buffer", executor, OPEN, TERMINAL_BUFFER_STATES);
 
         checkNotNull(maxBufferSize, "maxBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
-        this.memoryManager = new SharedBufferMemoryManager(maxBufferSize.toBytes());
+        checkNotNull(systemMemoryUsageListener, "systemMemoryUsageListener is null");
+        this.memoryManager = new SharedBufferMemoryManager(maxBufferSize.toBytes(), systemMemoryUsageListener);
     }
 
     public void addStateChangeListener(StateChangeListener<BufferState> stateChangeListener)
@@ -216,10 +221,7 @@ public class SharedBuffer
                 checkState(state.get().canAddBuffers(), "Cannot add buffers to %s", SharedBuffer.class.getSimpleName());
                 PagePartitionFunction partitionFunction = entry.getValue();
 
-                int partition = 0;
-                if (partitionFunction instanceof HashPagePartitionFunction) {
-                    partition = ((HashPagePartitionFunction) partitionFunction).getPartition();
-                }
+                int partition = partitionFunction.getPartition();
 
                 PartitionBuffer partitionBuffer = createOrGetPartitionBuffer(partition);
                 NamedBuffer namedBuffer = new NamedBuffer(bufferId, partitionBuffer);

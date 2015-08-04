@@ -13,38 +13,42 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.operator.scalar.TestingRowConstructor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_FIRST;
 import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.util.Collections.unmodifiableSortedMap;
-import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestType
 {
-    public static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
-
     private final Class<?> objectValueType;
     private final Block testBlock;
     private final Type type;
@@ -90,7 +94,7 @@ public abstract class AbstractTestType
                 type.writeSlice(nullsBlockBuilder, slice, 0, slice.length());
             }
             else {
-                throw new RuntimeException("Unsupported Java type " + type.getJavaType());
+                type.writeObject(nullsBlockBuilder, type.getObject(testBlock, position));
             }
             nullsBlockBuilder.appendNull();
         }
@@ -205,6 +209,12 @@ public abstract class AbstractTestType
             }
             catch (IllegalStateException | UnsupportedOperationException expected) {
             }
+            try {
+                type.getObject(block, position);
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
         }
         else if (type.getJavaType() == long.class) {
             assertEquals(type.getLong(block, position), expectedStackValue);
@@ -216,6 +226,12 @@ public abstract class AbstractTestType
             }
             try {
                 type.getDouble(block, position);
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                type.getObject(block, position);
                 fail("Expected IllegalStateException or UnsupportedOperationException");
             }
             catch (IllegalStateException | UnsupportedOperationException expected) {
@@ -235,7 +251,12 @@ public abstract class AbstractTestType
             }
             catch (IllegalStateException | UnsupportedOperationException expected) {
             }
-
+            try {
+                type.getObject(block, position);
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
         }
         else if (type.getJavaType() == Slice.class) {
             assertEquals(type.getSlice(block, position), expectedStackValue);
@@ -253,6 +274,43 @@ public abstract class AbstractTestType
             }
             try {
                 type.getDouble(block, position);
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                type.getObject(block, position);
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+        }
+        else {
+            SliceOutput actualSliceOutput = new DynamicSliceOutput(100);
+            writeBlock(actualSliceOutput, (Block) type.getObject(block, position));
+            SliceOutput expectedSliceOutput = new DynamicSliceOutput(actualSliceOutput.size());
+            writeBlock(expectedSliceOutput, (Block) expectedStackValue);
+            assertEquals(actualSliceOutput.slice(), expectedSliceOutput.slice());
+            try {
+                type.getBoolean(block, position);
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                type.getLong(block, position);
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                type.getDouble(block, position);
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                type.getSlice(block, position);
                 fail("Expected IllegalStateException or UnsupportedOperationException");
             }
             catch (IllegalStateException | UnsupportedOperationException expected) {
@@ -400,7 +458,7 @@ public abstract class AbstractTestType
             type.writeSlice(blockBuilder, slice, 0, slice.length());
         }
         else {
-            throw new UnsupportedOperationException("not yet implemented: " + javaType);
+            type.writeObject(blockBuilder, value);
         }
         return blockBuilder.build();
     }
@@ -408,6 +466,11 @@ public abstract class AbstractTestType
     protected abstract Object getGreaterValue(Object value);
 
     protected Object getNonNullValue()
+    {
+        return getNonNullValueForType(type);
+    }
+
+    private static Object getNonNullValueForType(Type type)
     {
         if (type.getJavaType() == boolean.class) {
             return true;
@@ -421,7 +484,28 @@ public abstract class AbstractTestType
         if (type.getJavaType() == Slice.class) {
             return Slices.utf8Slice("_");
         }
-        throw new IllegalStateException("Unsupported Java type " + type.getJavaType());
+        if (type instanceof ArrayType) {
+            ArrayType arrayType = (ArrayType) type;
+            Type elementType = arrayType.getElementType();
+            Object elementNonNullValue = getNonNullValueForType(elementType);
+            return ArrayType.toStackRepresentation(ImmutableList.of(elementNonNullValue), elementType);
+        }
+        if (type instanceof MapType) {
+            MapType mapType = (MapType) type;
+            Type keyType = mapType.getKeyType();
+            Type valueType = mapType.getValueType();
+            Object keyNonNullValue = getNonNullValueForType(keyType);
+            Object valueNonNullValue = getNonNullValueForType(valueType);
+            Map map = ImmutableMap.of(keyNonNullValue, valueNonNullValue);
+            return MapType.toStackRepresentation(map, keyType, valueType);
+        }
+        if (type instanceof RowType) {
+            RowType rowType = (RowType) type;
+            List<Type> elementTypes = rowType.getTypeParameters();
+            Object[] elementNonNullValues = elementTypes.stream().map(AbstractTestType::getNonNullValueForType).toArray(Object[]::new);
+            return TestingRowConstructor.toStackRepresentation(elementTypes, elementNonNullValues);
+        }
+        throw new IllegalStateException("Unsupported Java type " + type.getJavaType() + " (for type " + type + ")");
     }
 
     private Block toBlock(Object value)
@@ -445,7 +529,7 @@ public abstract class AbstractTestType
             type.writeSlice(blockBuilder, slice, 0, slice.length());
         }
         else {
-            throw new UnsupportedOperationException("not yet implemented: " + javaType);
+            type.writeObject(blockBuilder, value);
         }
         return blockBuilder.build();
     }
@@ -470,7 +554,7 @@ public abstract class AbstractTestType
                 values.put(position, type.getSlice(block, position));
             }
             else {
-                throw new RuntimeException("Unsupported value type " + type.getJavaType());
+                values.put(position, type.getObject(block, position));
             }
         }
         return unmodifiableSortedMap(values);

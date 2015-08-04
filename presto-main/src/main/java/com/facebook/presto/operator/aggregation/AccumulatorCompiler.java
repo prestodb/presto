@@ -62,7 +62,6 @@ import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -152,10 +151,10 @@ public class AccumulatorCompiler
         }
 
         if (grouped) {
-            generateGroupedEvaluateFinal(definition, confidenceField, stateSerializerField, stateField, metadata.getOutputFunction(), metadata.isApproximate(), callSiteBinder);
+            generateGroupedEvaluateFinal(definition, confidenceField, stateField, metadata.getOutputFunction(), metadata.isApproximate(), callSiteBinder);
         }
         else {
-            generateEvaluateFinal(definition, confidenceField, stateSerializerField, stateField, metadata.getOutputFunction(), metadata.isApproximate(), callSiteBinder);
+            generateEvaluateFinal(definition, confidenceField, stateField, metadata.getOutputFunction(), metadata.isApproximate(), callSiteBinder);
         }
 
         return defineClass(definition, accumulatorInterface, callSiteBinder.getBindings(), classLoader);
@@ -450,14 +449,18 @@ public class AccumulatorCompiler
                     .invokeInterface(Type.class, "getBoolean", boolean.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else if (parameter == Slice.class) {
-            block.comment("%s.getBoolean(block, position)", sqlType.getTypeSignature())
+            block.comment("%s.getSlice(block, position)", sqlType.getTypeSignature())
                     .append(constantType(callSiteBinder, sqlType))
                     .append(getBlockByteCode)
                     .append(position)
                     .invokeInterface(Type.class, "getSlice", Slice.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
         else {
-            throw new IllegalArgumentException("Unsupported parameter type: " + parameter.getSimpleName());
+            block.comment("%s.getObject(block, position)", sqlType.getTypeSignature())
+                    .append(constantType(callSiteBinder, sqlType))
+                    .append(getBlockByteCode)
+                    .append(position)
+                    .invokeInterface(Type.class, "getObject", Object.class, com.facebook.presto.spi.block.Block.class, int.class);
         }
     }
 
@@ -648,9 +651,8 @@ public class AccumulatorCompiler
     private static void generateGroupedEvaluateFinal(
             ClassDefinition definition,
             FieldDefinition confidenceField,
-            FieldDefinition stateSerializerField,
             FieldDefinition stateField,
-            @Nullable MethodHandle outputFunction,
+            MethodHandle outputFunction,
             boolean approximate,
             CallSiteBinder callSiteBinder)
     {
@@ -665,30 +667,22 @@ public class AccumulatorCompiler
 
         body.append(state.invoke("setGroupId", void.class, groupId.cast(long.class)));
 
-        if (outputFunction != null) {
-            body.comment("output(state, out)");
-            body.append(state);
-            if (approximate) {
-                checkNotNull(confidenceField, "confidenceField is null");
-                body.append(thisVariable.getField(confidenceField));
-            }
-            body.append(out);
-            body.append(invoke(callSiteBinder.bind(outputFunction), "output"));
+        body.comment("output(state, out)");
+        body.append(state);
+        if (approximate) {
+            checkNotNull(confidenceField, "confidenceField is null");
+            body.append(thisVariable.getField(confidenceField));
         }
-        else {
-            checkArgument(!approximate, "Approximate aggregations must specify an output function");
-            ByteCodeExpression stateSerializer = thisVariable.getField(stateSerializerField);
-            body.append(stateSerializer.invoke("serialize", void.class, state.cast(Object.class), out));
-        }
+        body.append(out);
+        body.append(invoke(callSiteBinder.bind(outputFunction), "output"));
+
         body.ret();
     }
 
     private static void generateEvaluateFinal(
             ClassDefinition definition,
             FieldDefinition confidenceField,
-            FieldDefinition stateSerializerField,
             FieldDefinition stateField,
-            @Nullable
             MethodHandle outputFunction,
             boolean approximate,
             CallSiteBinder callSiteBinder)
@@ -705,21 +699,15 @@ public class AccumulatorCompiler
 
         ByteCodeExpression state = thisVariable.getField(stateField);
 
-        if (outputFunction != null) {
-            body.comment("output(state, out)");
-            body.append(state);
-            if (approximate) {
-                checkNotNull(confidenceField, "confidenceField is null");
-                body.append(thisVariable.getField(confidenceField));
-            }
-            body.append(out);
-            body.append(invoke(callSiteBinder.bind(outputFunction), "output"));
+        body.comment("output(state, out)");
+        body.append(state);
+        if (approximate) {
+            checkNotNull(confidenceField, "confidenceField is null");
+            body.append(thisVariable.getField(confidenceField));
         }
-        else {
-            checkArgument(!approximate, "Approximate aggregations must specify an output function");
-            ByteCodeExpression stateSerializer = thisVariable.getField(stateSerializerField);
-            body.append(stateSerializer.invoke("serialize", void.class, state.cast(Object.class), out));
-        }
+        body.append(out);
+        body.append(invoke(callSiteBinder.bind(outputFunction), "output"));
+
         body.ret();
     }
 

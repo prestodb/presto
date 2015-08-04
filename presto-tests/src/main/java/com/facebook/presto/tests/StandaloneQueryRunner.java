@@ -15,7 +15,9 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.AllNodes;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
@@ -59,6 +61,10 @@ public final class StandaloneQueryRunner
         refreshNodes();
 
         server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
+
+        SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
+        sessionPropertyManager.addSystemSessionProperties(AbstractTestQueries.TEST_SYSTEM_PROPERTIES);
+        sessionPropertyManager.addConnectorSessionProperties("catalog", AbstractTestQueries.TEST_CATALOG_PROPERTIES);
     }
 
     @Override
@@ -90,6 +96,12 @@ public final class StandaloneQueryRunner
     public Session getDefaultSession()
     {
         return prestoClient.getDefaultSession();
+    }
+
+    @Override
+    public Metadata getMetadata()
+    {
+        return server.getMetadata();
     }
 
     public TestingPrestoServer getServer()

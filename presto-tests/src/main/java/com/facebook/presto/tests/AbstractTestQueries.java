@@ -16,6 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.operator.scalar.TestingRowConstructor;
+import com.facebook.presto.spi.session.SessionPropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
@@ -25,9 +26,11 @@ import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.DateTimeZoneIndex;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
@@ -57,6 +60,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.tpch.TpchTable.ORDERS;
@@ -77,6 +81,39 @@ public abstract class AbstractTestQueries
             .scalar(CreateHll.class)
             .scalar(TestingRowConstructor.class)
             .getFunctions();
+
+    public static final List<SessionPropertyMetadata<?>> TEST_SYSTEM_PROPERTIES = ImmutableList.of(
+            SessionPropertyMetadata.stringSessionProperty(
+                    "test_string",
+                    "test string property",
+                    "test default",
+                    false),
+            SessionPropertyMetadata.longSessionProperty(
+                    "test_long",
+                    "test long property",
+                    42L,
+                    false));
+    public static final List<SessionPropertyMetadata<?>> TEST_CATALOG_PROPERTIES = ImmutableList.of(
+            SessionPropertyMetadata.stringSessionProperty(
+                    "connector_string",
+                    "connector string property",
+                    "connector default",
+                    false),
+            SessionPropertyMetadata.longSessionProperty(
+                    "connector_long",
+                    "connector long property",
+                    33L,
+                    false),
+            SessionPropertyMetadata.booleanSessionProperty(
+                    "connector_boolean",
+                    "connector boolean property",
+                    true,
+                    false),
+            SessionPropertyMetadata.doubleSessionProperty(
+                    "connector_double",
+                    "connector double property",
+                    99.0,
+                    false));
 
     protected AbstractTestQueries(QueryRunner queryRunner)
     {
@@ -179,6 +216,8 @@ public abstract class AbstractTestQueries
                         "FROM (SELECT custkey, ARRAY[10, 20, 30] AS my_array FROM orders ORDER BY orderkey LIMIT 1) a, " +
                         "UNNEST(my_array) WITH ORDINALITY t(e, f)",
                 "SELECT * FROM (SELECT custkey FROM orders ORDER BY orderkey LIMIT 1) CROSS JOIN (VALUES (10, 1), (20, 2), (30, 3))");
+
+        assertQuery("SELECT * FROM orders, UNNEST(ARRAY[1])", "SELECT orders.*, 1 FROM orders");
     }
 
     @Test
@@ -205,6 +244,7 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("VALUES 1, 2, 3, 4");
+        assertQuery("VALUES 1, 3, 2, 4 ORDER BY 1", "SELECT * FROM (VALUES 1, 3, 2, 4) ORDER BY 1");
         assertQuery("VALUES (1.1, 2, 'foo'), (sin(3.3), 2+2, 'bar')");
         assertQuery("VALUES (1.1, 2), (sin(3.3), 2+2) ORDER BY 1", "VALUES (sin(3.3), 2+2), (1.1, 2)");
         assertQuery("VALUES (1.1, 2), (sin(3.3), 2+2) LIMIT 1", "VALUES (1.1, 2)");
@@ -682,7 +722,7 @@ public abstract class AbstractTestQueries
         MaterializedResult all = computeExpected("SELECT orderkey FROM ORDERS", actual.getTypes());
 
         assertEquals(actual.getMaterializedRows().size(), 10);
-        assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
+        assertContains(all, actual);
     }
 
     @Test
@@ -693,7 +733,7 @@ public abstract class AbstractTestQueries
         MaterializedResult all = computeExpected("SELECT custkey, SUM(totalprice) FROM ORDERS GROUP BY custkey", actual.getTypes());
 
         assertEquals(actual.getMaterializedRows().size(), 10);
-        assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
+        assertContains(all, actual);
     }
 
     @Test
@@ -704,7 +744,7 @@ public abstract class AbstractTestQueries
         MaterializedResult all = computeExpected("SELECT orderkey FROM ORDERS", actual.getTypes());
 
         assertEquals(actual.getMaterializedRows().size(), 10);
-        assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
+        assertContains(all, actual);
     }
 
     @Test
@@ -2201,68 +2241,197 @@ public abstract class AbstractTestQueries
                 "SELECT orderkey, orderstatus FROM (\n" +
                 "   SELECT row_number() OVER () rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE NOT rn <= 10\n");
+                ") WHERE NOT rn <= 10");
         MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
         assertEquals(actual.getMaterializedRows().size(), all.getMaterializedRows().size() - 10);
-        assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
+        assertContains(all, actual);
 
         actual = computeActual("" +
                 "SELECT orderkey, orderstatus FROM (\n" +
                 "   SELECT row_number() OVER () rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE rn - 5 <= 10\n");
+                ") WHERE rn - 5 <= 10");
         all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
         assertEquals(actual.getMaterializedRows().size(), 15);
-        assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
+        assertContains(all, actual);
     }
 
     @Test
-    public void testRowNumberUnpartitionedLimit()
+    public void testRowNumberLimit()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT row_number() OVER (PARTITION BY orderstatus) rn, orderstatus\n" +
+                "FROM orders\n" +
+                "LIMIT 10");
+        assertEquals(actual.getMaterializedRows().size(), 10);
+
+        actual = computeActual("" +
+                "SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn\n" +
+                "FROM orders\n" +
+                "LIMIT 10");
+        assertEquals(actual.getMaterializedRows().size(), 10);
+
+        actual = computeActual("" +
+                "SELECT row_number() OVER () rn, orderstatus\n" +
+                "FROM orders\n" +
+                "LIMIT 10");
+        assertEquals(actual.getMaterializedRows().size(), 10);
+
+        actual = computeActual("" +
+                "SELECT row_number() OVER (ORDER BY orderkey) rn\n" +
+                "FROM orders\n" +
+                "LIMIT 10");
+        assertEquals(actual.getMaterializedRows().size(), 10);
+    }
+
+    @Test
+    public void testRowNumberMultipleFilters()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (" +
+                "   SELECT a, row_number() OVER (PARTITION BY a ORDER BY a) rn\n" +
+                "   FROM (VALUES (1), (1), (1), (2), (2), (3)) t (a)) t " +
+                "WHERE rn < 3 AND rn % 2 = 0 AND a = 2 LIMIT 2");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
+                .row(2, 2)
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testRowNumberFilterAndLimit()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (" +
+                "SELECT a, row_number() OVER (PARTITION BY a ORDER BY a) rn\n" +
+                "FROM (VALUES (1), (2), (1), (2)) t (a)) t WHERE rn < 2 LIMIT 2");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
+                .row(1, 1)
+                .row(2, 1)
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+
+        actual = computeActual("" +
+                "SELECT * FROM (" +
+                "SELECT a, row_number() OVER (PARTITION BY a) rn\n" +
+                "FROM (VALUES (1), (2), (1), (2), (1)) t (a)) t WHERE rn < 3 LIMIT 2");
+
+        expected = resultBuilder(getSession(), BIGINT, BIGINT)
+                .row(1, 1)
+                .row(1, 2)
+                .row(2, 1)
+                .row(2, 2)
+                .build();
+        assertEquals(actual.getMaterializedRows().size(), 2);
+        assertContains(expected, actual);
+    }
+
+    @Test
+    public void testRowNumberUnpartitionedFilter()
             throws Exception
     {
         MaterializedResult actual = computeActual("" +
                 "SELECT orderkey, orderstatus FROM (\n" +
                 "   SELECT row_number() OVER () rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE rn <= 5\n");
+                ") WHERE rn <= 5 AND orderstatus != 'Z'");
         MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
+        assertEquals(actual.getMaterializedRows().size(), 5);
+        assertContains(all, actual);
+
+        actual = computeActual("" +
+                "SELECT orderkey, orderstatus FROM (\n" +
+                "   SELECT row_number() OVER () rn, orderkey, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn < 5");
+        all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
+
+        assertEquals(actual.getMaterializedRows().size(), 4);
+        assertContains(all, actual);
+
+        actual = computeActual("" +
+                "SELECT orderkey, orderstatus FROM (\n" +
+                "   SELECT row_number() OVER () rn, orderkey, orderstatus\n" +
+                "   FROM orders\n" +
+                ") LIMIT 5");
+        all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
 
         assertEquals(actual.getMaterializedRows().size(), 5);
-        assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
+        assertContains(all, actual);
     }
 
     @Test
-    public void testRowNumberPartitionedLimit()
+    public void testRowNumberPartitionedFilter()
             throws Exception
     {
         MaterializedResult actual = computeActual("" +
                 "SELECT orderkey, orderstatus FROM (\n" +
                 "   SELECT row_number() OVER (PARTITION BY orderstatus) rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE rn <= 5\n");
+                ") WHERE rn <= 5");
         MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM ORDERS", actual.getTypes());
 
         // there are 3 distinct orderstatus, so expect 15 rows.
         assertEquals(actual.getMaterializedRows().size(), 15);
-        assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
+        assertContains(all, actual);
 
         // Test for unreferenced outputs
         actual = computeActual("" +
                 "SELECT orderkey FROM (\n" +
                 "   SELECT row_number() OVER (PARTITION BY orderstatus) rn, orderkey\n" +
                 "   FROM orders\n" +
-                ") WHERE rn <= 5\n");
+                ") WHERE rn <= 5");
         all = computeExpected("SELECT orderkey FROM ORDERS", actual.getTypes());
 
         // there are 3 distinct orderstatus, so expect 15 rows.
         assertEquals(actual.getMaterializedRows().size(), 15);
-        assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
+        assertContains(all, actual);
     }
 
-    @Test(timeOut = 60000)
-    public void testRowNumberWithLimit() throws Exception
+    @Test
+    public void testRowNumberJoin()
+            throws Exception
     {
-        assertQuery("SELECT row_number() over() as rn FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey where orders.orderkey = 10000 limit 20");
+        MaterializedResult actual = computeActual("SELECT a, rn\n" +
+                "FROM (\n" +
+                "    SELECT a, row_number() OVER (ORDER BY a) rn\n" +
+                "    FROM (VALUES (1), (2)) t (a)\n" +
+                ") a\n" +
+                "JOIN (VALUES (2)) b (b) ON a.a = b.b\n" +
+                "LIMIT 1");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
+                .row(2, 2)
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+
+        actual = computeActual("SELECT a, rn\n" +
+                "FROM (\n" +
+                "    SELECT a, row_number() OVER (PARTITION BY a ORDER BY a) rn\n" +
+                "    FROM (VALUES (1), (2), (1), (2)) t (a)\n" +
+                ") a\n" +
+                "JOIN (VALUES (2)) b (b) ON a.a = b.b\n" +
+                "LIMIT 2");
+
+        expected = resultBuilder(getSession(), BIGINT, BIGINT)
+                .row(2, 1)
+                .row(2, 2)
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testRowNumberUnpartitionedFilterLimit() throws Exception
+    {
+        assertQuery("" +
+                "SELECT row_number() OVER ()\n" +
+                "FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey\n" +
+                "WHERE orders.orderkey = 10000\n" +
+                "LIMIT 20");
     }
 
     @Test
@@ -2300,8 +2469,22 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (\n" +
                 "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE rn <= 5\n");
+                ") WHERE rn <= 5");
         String sql = "SELECT row_number() OVER (), orderkey, orderstatus FROM orders ORDER BY orderkey LIMIT 5";
+        MaterializedResult expected = computeExpected(sql, actual.getTypes());
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testTopNUnpartitionedLargeWindow()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn <= 10000");
+        String sql = "SELECT row_number() OVER (), orderkey, orderstatus FROM orders ORDER BY orderkey LIMIT 10000";
         MaterializedResult expected = computeExpected(sql, actual.getTypes());
         assertEquals(actual, expected);
     }
@@ -2314,7 +2497,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (\n" +
                 "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE rn <= 2\n");
+                ") WHERE rn <= 2");
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
                 .row(1, 1, "O")
                 .row(2, 2, "O")
@@ -2330,7 +2513,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (\n" +
                 "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey\n" +
                 "   FROM orders\n" +
-                ") WHERE rn <= 2\n");
+                ") WHERE rn <= 2");
         expected = resultBuilder(getSession(), BIGINT, BIGINT)
                 .row(1, 1)
                 .row(2, 2)
@@ -2345,13 +2528,89 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (\n" +
                 "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE rn <= 2\n");
+                ") WHERE rn <= 2");
         expected = resultBuilder(getSession(), BIGINT, VARCHAR)
                 .row(1, "O")
                 .row(2, "O")
                 .row(1, "F")
                 .row(2, "F")
                 .row(1, "P")
+                .row(2, "P")
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testTopNUnpartitionedWindowWithEqualityFilter()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn = 2");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
+                .row(2, 2, "O")
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testTopNUnpartitionedWindowWithCompositeFilter()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn = 1 OR rn IN (3, 4) OR rn BETWEEN 6 AND 7");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
+                .row(1, 1, "O")
+                .row(3, 3, "F")
+                .row(4, 4, "O")
+                .row(6, 6, "F")
+                .row(7, 7, "O")
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testTopNPartitionedWindowWithEqualityFilter()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn = 2");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
+                .row(2, 2, "O")
+                .row(2, 5, "F")
+                .row(2, 197, "P")
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+
+        // Test for unreferenced outputs
+        actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderkey\n" +
+                "   FROM orders\n" +
+                ") WHERE rn = 2");
+        expected = resultBuilder(getSession(), BIGINT, BIGINT)
+                .row(2, 2)
+                .row(2, 5)
+                .row(2, 197)
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+
+        actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "   SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn, orderstatus\n" +
+                "   FROM orders\n" +
+                ") WHERE rn = 2");
+        expected = resultBuilder(getSession(), BIGINT, VARCHAR)
+                .row(2, "O")
+                .row(2, "F")
                 .row(2, "P")
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -2937,7 +3196,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testDefaultExplainTextFormat()
     {
-        String query = "SELECT 123";
+        String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getExplainPlan(query, LOGICAL));
@@ -2946,7 +3205,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testDefaultExplainGraphvizFormat()
     {
-        String query = "SELECT 123";
+        String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (FORMAT GRAPHVIZ) " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getGraphvizExplainPlan(query, LOGICAL));
@@ -2955,7 +3214,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testLogicalExplain()
     {
-        String query = "SELECT 123";
+        String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL) " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getExplainPlan(query, LOGICAL));
@@ -2964,7 +3223,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testLogicalExplainTextFormat()
     {
-        String query = "SELECT 123";
+        String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL, FORMAT TEXT) " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getExplainPlan(query, LOGICAL));
@@ -2973,7 +3232,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testLogicalExplainGraphvizFormat()
     {
-        String query = "SELECT 123";
+        String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL, FORMAT GRAPHVIZ) " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getGraphvizExplainPlan(query, LOGICAL));
@@ -2982,7 +3241,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testDistributedExplain()
     {
-        String query = "SELECT 123";
+        String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE DISTRIBUTED) " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getExplainPlan(query, DISTRIBUTED));
@@ -2991,7 +3250,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testDistributedExplainTextFormat()
     {
-        String query = "SELECT 123";
+        String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE DISTRIBUTED, FORMAT TEXT) " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getExplainPlan(query, DISTRIBUTED));
@@ -3000,7 +3259,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testDistributedExplainGraphvizFormat()
     {
-        String query = "SELECT 123";
+        String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE DISTRIBUTED, FORMAT GRAPHVIZ) " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getGraphvizExplainPlan(query, DISTRIBUTED));
@@ -3009,7 +3268,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testExplainOfExplain()
     {
-        String query = "EXPLAIN SELECT 123";
+        String query = "EXPLAIN SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
         String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertEquals(actual, getExplainPlan(query, LOGICAL));
@@ -3050,7 +3309,7 @@ public abstract class AbstractTestQueries
 
         MaterializedResult result = computeActual("SHOW TABLES");
         Set<String> tableNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertEquals(tableNames, expectedTables);
+        assertTrue(tableNames.containsAll(expectedTables));
     }
 
     @Test
@@ -3061,11 +3320,11 @@ public abstract class AbstractTestQueries
 
         MaterializedResult result = computeActual("SHOW TABLES FROM " + getSession().getSchema());
         Set<String> tableNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertEquals(tableNames, expectedTables);
+        assertTrue(tableNames.containsAll(expectedTables));
 
         result = computeActual("SHOW TABLES FROM " + getSession().getCatalog() + "." + getSession().getSchema());
         tableNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertEquals(tableNames, expectedTables);
+        assertTrue(tableNames.containsAll(expectedTables));
 
         result = computeActual("SHOW TABLES FROM UNKNOWN");
         tableNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
@@ -3168,20 +3427,38 @@ public abstract class AbstractTestQueries
                 " CAST(NULL AS VARCHAR),\n" +
                 " CAST(NULL AS BIGINT)\n" +
                 "FROM ORDERS\n" +
-                " ORDER BY 1\n");
+                " ORDER BY 1");
+    }
+
+    @Test
+    public void testSelectCaseInsensitive()
+            throws Exception
+    {
+        assertQuery("SELECT ORDERKEY FROM ORDERS");
+        assertQuery("SELECT OrDeRkEy FROM OrDeRs");
     }
 
     @Test
     public void testShowSession()
             throws Exception
     {
-        assertQueryOrdered(
+        MaterializedResult result = computeActual(
                 getSession()
-                        .withCatalogProperty("connector", "cheese", "burger")
-                        .withSystemProperty("foo", "bar")
-                        .withSystemProperty("apple", "pie"),
-                "SHOW SESSION",
-                "SELECT * FROM VALUES ('apple', 'pie'), ('foo', 'bar'), ('connector.cheese', 'burger')");
+                        .withSystemProperty("test_string", "foo string")
+                        .withSystemProperty("test_long", "424242")
+                        .withCatalogProperty("connector", "connector_string", "bar string")
+                        .withCatalogProperty("connector", "connector_long", "11"),
+                "SHOW SESSION");
+
+        ImmutableMap<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
+            assertEquals(input.getFieldCount(), 5);
+            return (String) input.getField(0);
+        });
+
+        assertEquals(properties.get("test_string"), new MaterializedRow(1, "test_string", "foo string", "test default", "varchar", "test string property"));
+        assertEquals(properties.get("test_long"), new MaterializedRow(1, "test_long", "424242", "42", "bigint", "test long property"));
+        assertEquals(properties.get("connector.connector_string"), new MaterializedRow(1, "connector.connector_string", "bar string", "connector default", "varchar", "connector string property"));
+        assertEquals(properties.get("connector.connector_long"), new MaterializedRow(1, "connector.connector_long", "11", "33", "bigint", "connector long property"));
     }
 
     @Test
@@ -3233,6 +3510,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery("SELECT orderkey FROM orders UNION SELECT custkey FROM orders");
         assertQuery("SELECT 123 UNION DISTINCT SELECT 123 UNION ALL SELECT 123");
+        assertQuery("SELECT NULL UNION SELECT NULL");
 
         // mixed single-node vs fixed vs source-distributed
         assertQuery("SELECT orderkey FROM orders UNION ALL SELECT 123 UNION ALL (SELECT custkey FROM orders GROUP BY custkey)");
@@ -3317,7 +3595,7 @@ public abstract class AbstractTestQueries
                 "      SELECT shipdate ds, orderkey\n" +
                 "      FROM lineitem) a\n" +
                 "JOIN orders o\n" +
-                "ON (substr(cast(a.ds AS VARCHAR), 6, 2) = substr(cast(o.orderdate AS VARCHAR), 6, 2) AND a.orderkey = o.orderkey)\n");
+                "ON (substr(cast(a.ds AS VARCHAR), 6, 2) = substr(cast(o.orderdate AS VARCHAR), 6, 2) AND a.orderkey = o.orderkey)");
     }
 
     @Test
@@ -3339,6 +3617,20 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT * FROM orders UNION ALL SELECT * FROM orders");
+    }
+
+    @Test
+    public void testUnionRequiringCoercion()
+            throws Exception
+    {
+        assertQuery("VALUES 1 UNION ALL VALUES 1.0, 2", "SELECT * FROM (VALUES 1) UNION ALL SELECT * FROM (VALUES 1.0, 2)");
+        assertQuery("(VALUES 1) UNION ALL (VALUES 1.0, 2)", "SELECT * FROM (VALUES 1) UNION ALL SELECT * FROM (VALUES 1.0, 2)");
+        assertQuery("SELECT * FROM (VALUES 1) UNION ALL SELECT * FROM (VALUES 1.0, 2)");
+
+        assertQuery("SELECT * FROM (VALUES 1) UNION SELECT * FROM (VALUES 1.0, 2)", "VALUES 1.0, 2.0"); // H2 produces incorrect result for the original query: 1.0 1.0 2.0
+        assertQuery("SELECT * FROM (VALUES (2, 2)) UNION SELECT * FROM (VALUES (1, 1.0))");
+        assertQuery("SELECT * FROM (VALUES (NULL, NULL)) UNION SELECT * FROM (VALUES (1, 1.0))");
+        assertQuery("SELECT * FROM (VALUES (NULL, NULL)) UNION ALL SELECT * FROM (VALUES (NULL, 1.0))");
     }
 
     @Test
@@ -3382,7 +3674,7 @@ public abstract class AbstractTestQueries
         MaterializedResult all = computeExpected("SELECT * FROM ORDERS", actual.getTypes());
 
         assertEquals(actual.getMaterializedRows().size(), 10);
-        assertTrue(all.getMaterializedRows().containsAll(actual.getMaterializedRows()));
+        assertContains(all, actual);
     }
 
     @Test
@@ -3434,6 +3726,20 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 5) a, " +
                 "(SELECT * FROM orders ORDER BY orderkey LIMIT 5) b, " +
                 "(SELECT * FROM orders ORDER BY orderkey LIMIT 5) c ");
+    }
+
+    @Test
+    public void testCrossJoinUnion()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT t.c " +
+                "FROM (SELECT 1) " +
+                "CROSS JOIN (SELECT 0 AS c UNION ALL SELECT 1) t");
+        assertQuery("" +
+                "SELECT a, b " +
+                "FROM (VALUES (1, 1)) " +
+                "CROSS JOIN (SELECT 0 AS a, 0 AS b UNION ALL SELECT 1, 1) t");
     }
 
     @Test
@@ -3861,7 +4167,7 @@ public abstract class AbstractTestQueries
         MaterializedResult emptySample = computeActual("SELECT orderkey FROM orders TABLESAMPLE BERNOULLI (0)");
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", fullSample.getTypes());
 
-        assertTrue(all.getMaterializedRows().containsAll(fullSample.getMaterializedRows()));
+        assertContains(all, fullSample);
         assertEquals(emptySample.getMaterializedRows().size(), 0);
     }
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.block.BlockSerdeUtil;
 import com.facebook.presto.operator.aggregation.ApproximateAverageAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateCountAggregation;
 import com.facebook.presto.operator.aggregation.ApproximateCountColumnAggregations;
@@ -24,9 +25,9 @@ import com.facebook.presto.operator.aggregation.ApproximateSumAggregations;
 import com.facebook.presto.operator.aggregation.AverageAggregations;
 import com.facebook.presto.operator.aggregation.BooleanAndAggregation;
 import com.facebook.presto.operator.aggregation.BooleanOrAggregation;
+import com.facebook.presto.operator.aggregation.CorrelationAggregation;
 import com.facebook.presto.operator.aggregation.CountAggregation;
 import com.facebook.presto.operator.aggregation.CountIfAggregation;
-import com.facebook.presto.operator.aggregation.CorrelationAggregation;
 import com.facebook.presto.operator.aggregation.CovarianceAggregation;
 import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
 import com.facebook.presto.operator.aggregation.LongSumAggregation;
@@ -48,36 +49,17 @@ import com.facebook.presto.operator.scalar.UrlFunctions;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.operator.window.CumulativeDistributionFunction;
 import com.facebook.presto.operator.window.DenseRankFunction;
-import com.facebook.presto.operator.window.FirstValueFunction.BigintFirstValueFunction;
-import com.facebook.presto.operator.window.FirstValueFunction.BooleanFirstValueFunction;
-import com.facebook.presto.operator.window.FirstValueFunction.DoubleFirstValueFunction;
-import com.facebook.presto.operator.window.FirstValueFunction.VarcharFirstValueFunction;
-import com.facebook.presto.operator.window.FirstValueFunction.TimestampFirstValueFunction;
-import com.facebook.presto.operator.window.LagFunction.BigintLagFunction;
-import com.facebook.presto.operator.window.LagFunction.BooleanLagFunction;
-import com.facebook.presto.operator.window.LagFunction.DoubleLagFunction;
-import com.facebook.presto.operator.window.LagFunction.VarcharLagFunction;
-import com.facebook.presto.operator.window.LagFunction.TimestampLagFunction;
-import com.facebook.presto.operator.window.LastValueFunction.BigintLastValueFunction;
-import com.facebook.presto.operator.window.LastValueFunction.BooleanLastValueFunction;
-import com.facebook.presto.operator.window.LastValueFunction.DoubleLastValueFunction;
-import com.facebook.presto.operator.window.LastValueFunction.VarcharLastValueFunction;
-import com.facebook.presto.operator.window.LastValueFunction.TimestampLastValueFunction;
-import com.facebook.presto.operator.window.LeadFunction.BigintLeadFunction;
-import com.facebook.presto.operator.window.LeadFunction.BooleanLeadFunction;
-import com.facebook.presto.operator.window.LeadFunction.DoubleLeadFunction;
-import com.facebook.presto.operator.window.LeadFunction.VarcharLeadFunction;
-import com.facebook.presto.operator.window.LeadFunction.TimestampLeadFunction;
+import com.facebook.presto.operator.window.FirstValueFunction;
+import com.facebook.presto.operator.window.LagFunction;
+import com.facebook.presto.operator.window.LastValueFunction;
+import com.facebook.presto.operator.window.LeadFunction;
 import com.facebook.presto.operator.window.NTileFunction;
-import com.facebook.presto.operator.window.NthValueFunction.BigintNthValueFunction;
-import com.facebook.presto.operator.window.NthValueFunction.BooleanNthValueFunction;
-import com.facebook.presto.operator.window.NthValueFunction.DoubleNthValueFunction;
-import com.facebook.presto.operator.window.NthValueFunction.VarcharNthValueFunction;
-import com.facebook.presto.operator.window.NthValueFunction.TimestampNthValueFunction;
+import com.facebook.presto.operator.window.NthValueFunction;
 import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -100,6 +82,7 @@ import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
+import com.facebook.presto.type.UnknownOperators;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
 import com.google.common.annotations.VisibleForTesting;
@@ -108,7 +91,6 @@ import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -135,6 +117,7 @@ import java.util.Set;
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregation.ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ArrayAggregation.ARRAY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
+import static com.facebook.presto.operator.aggregation.Histogram.HISTOGRAM;
 import static com.facebook.presto.operator.aggregation.MapAggregation.MAP_AGG;
 import static com.facebook.presto.operator.aggregation.MaxAggregation.MAX_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
@@ -146,6 +129,7 @@ import static com.facebook.presto.operator.scalar.ArrayConstructor.ARRAY_CONSTRU
 import static com.facebook.presto.operator.scalar.ArrayContains.ARRAY_CONTAINS;
 import static com.facebook.presto.operator.scalar.ArrayDistinctFunction.ARRAY_DISTINCT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayEqualOperator.ARRAY_EQUAL;
+import static com.facebook.presto.operator.scalar.ArrayElementAtFunction.ARRAY_ELEMENT_AT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayGreaterThanOperator.ARRAY_GREATER_THAN;
 import static com.facebook.presto.operator.scalar.ArrayGreaterThanOrEqualOperator.ARRAY_GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.operator.scalar.ArrayHashCodeOperator.ARRAY_HASH_CODE;
@@ -154,14 +138,18 @@ import static com.facebook.presto.operator.scalar.ArrayJoin.ARRAY_JOIN;
 import static com.facebook.presto.operator.scalar.ArrayJoin.ARRAY_JOIN_WITH_NULL_REPLACEMENT;
 import static com.facebook.presto.operator.scalar.ArrayLessThanOperator.ARRAY_LESS_THAN;
 import static com.facebook.presto.operator.scalar.ArrayLessThanOrEqualOperator.ARRAY_LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.operator.scalar.ArrayMaxFunction.ARRAY_MAX;
+import static com.facebook.presto.operator.scalar.ArrayMinFunction.ARRAY_MIN;
 import static com.facebook.presto.operator.scalar.ArrayNotEqualOperator.ARRAY_NOT_EQUAL;
 import static com.facebook.presto.operator.scalar.ArrayPositionFunction.ARRAY_POSITION;
-import static com.facebook.presto.operator.scalar.ArraySortFunction.ARRAY_SORT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayRemoveFunction.ARRAY_REMOVE_FUNCTION;
+import static com.facebook.presto.operator.scalar.ArraySliceFunction.ARRAY_SLICE_FUNCTION;
+import static com.facebook.presto.operator.scalar.ArraySortFunction.ARRAY_SORT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
 import static com.facebook.presto.operator.scalar.ArrayToArrayCast.ARRAY_TO_ARRAY_CAST;
 import static com.facebook.presto.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
+import static com.facebook.presto.operator.scalar.ConcatFunction.CONCAT;
 import static com.facebook.presto.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.Greatest.GREATEST;
 import static com.facebook.presto.operator.scalar.IdentityCast.IDENTITY_CAST;
@@ -204,7 +192,6 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.not;
 import static java.lang.String.format;
 
 @ThreadSafe
@@ -245,51 +232,15 @@ public class FunctionRegistry
                 .window("percent_rank", DOUBLE, ImmutableList.<Type>of(), PercentRankFunction.class)
                 .window("cume_dist", DOUBLE, ImmutableList.<Type>of(), CumulativeDistributionFunction.class)
                 .window("ntile", BIGINT, ImmutableList.<Type>of(BIGINT), NTileFunction.class)
-                .window("first_value", BIGINT, ImmutableList.<Type>of(BIGINT), BigintFirstValueFunction.class)
-                .window("first_value", DOUBLE, ImmutableList.<Type>of(DOUBLE), DoubleFirstValueFunction.class)
-                .window("first_value", BOOLEAN, ImmutableList.<Type>of(BOOLEAN), BooleanFirstValueFunction.class)
-                .window("first_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharFirstValueFunction.class)
-                .window("first_value", TIMESTAMP, ImmutableList.<Type>of(TIMESTAMP), TimestampFirstValueFunction.class)
-                .window("last_value", BIGINT, ImmutableList.<Type>of(BIGINT), BigintLastValueFunction.class)
-                .window("last_value", DOUBLE, ImmutableList.<Type>of(DOUBLE), DoubleLastValueFunction.class)
-                .window("last_value", BOOLEAN, ImmutableList.<Type>of(BOOLEAN), BooleanLastValueFunction.class)
-                .window("last_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharLastValueFunction.class)
-                .window("last_value", TIMESTAMP, ImmutableList.<Type>of(TIMESTAMP), TimestampLastValueFunction.class)
-                .window("nth_value", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT), BigintNthValueFunction.class)
-                .window("nth_value", DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT), DoubleNthValueFunction.class)
-                .window("nth_value", BOOLEAN, ImmutableList.<Type>of(BOOLEAN, BIGINT), BooleanNthValueFunction.class)
-                .window("nth_value", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT), VarcharNthValueFunction.class)
-                .window("nth_value", TIMESTAMP, ImmutableList.<Type>of(TIMESTAMP, BIGINT), TimestampNthValueFunction.class)
-                .window("lag", BIGINT, ImmutableList.<Type>of(BIGINT), BigintLagFunction.class)
-                .window("lag", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT), BigintLagFunction.class)
-                .window("lag", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT, BIGINT), BigintLagFunction.class)
-                .window("lag", DOUBLE, ImmutableList.<Type>of(DOUBLE), DoubleLagFunction.class)
-                .window("lag", DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT), DoubleLagFunction.class)
-                .window("lag", DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT, DOUBLE), DoubleLagFunction.class)
-                .window("lag", BOOLEAN, ImmutableList.<Type>of(BOOLEAN), BooleanLagFunction.class)
-                .window("lag", BOOLEAN, ImmutableList.<Type>of(BOOLEAN, BIGINT), BooleanLagFunction.class)
-                .window("lag", BOOLEAN, ImmutableList.<Type>of(BOOLEAN, BIGINT, BOOLEAN), BooleanLagFunction.class)
-                .window("lag", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharLagFunction.class)
-                .window("lag", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT), VarcharLagFunction.class)
-                .window("lag", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT, VARCHAR), VarcharLagFunction.class)
-                .window("lag", TIMESTAMP, ImmutableList.<Type>of(TIMESTAMP), TimestampLagFunction.class)
-                .window("lag", TIMESTAMP, ImmutableList.<Type>of(TIMESTAMP, BIGINT), TimestampLagFunction.class)
-                .window("lag", TIMESTAMP, ImmutableList.<Type>of(TIMESTAMP, BIGINT, VARCHAR), TimestampLagFunction.class)
-                .window("lead", BIGINT, ImmutableList.<Type>of(BIGINT), BigintLeadFunction.class)
-                .window("lead", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT), BigintLeadFunction.class)
-                .window("lead", BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT, BIGINT), BigintLeadFunction.class)
-                .window("lead", DOUBLE, ImmutableList.<Type>of(DOUBLE), DoubleLeadFunction.class)
-                .window("lead", DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT), DoubleLeadFunction.class)
-                .window("lead", DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT, DOUBLE), DoubleLeadFunction.class)
-                .window("lead", BOOLEAN, ImmutableList.<Type>of(BOOLEAN), BooleanLeadFunction.class)
-                .window("lead", BOOLEAN, ImmutableList.<Type>of(BOOLEAN, BIGINT), BooleanLeadFunction.class)
-                .window("lead", BOOLEAN, ImmutableList.<Type>of(BOOLEAN, BIGINT, BOOLEAN), BooleanLeadFunction.class)
-                .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR), VarcharLeadFunction.class)
-                .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT), VarcharLeadFunction.class)
-                .window("lead", VARCHAR, ImmutableList.<Type>of(VARCHAR, BIGINT, VARCHAR), VarcharLeadFunction.class)
-                .window("lead", TIMESTAMP, ImmutableList.<Type>of(TIMESTAMP), TimestampLeadFunction.class)
-                .window("lead", TIMESTAMP, ImmutableList.<Type>of(TIMESTAMP, BIGINT), TimestampLeadFunction.class)
-                .window("lead", TIMESTAMP, ImmutableList.<Type>of(TIMESTAMP, BIGINT, VARCHAR), TimestampLeadFunction.class)
+                .window("first_value", FirstValueFunction.class, "T", "T")
+                .window("last_value", LastValueFunction.class, "T", "T")
+                .window("nth_value", NthValueFunction.class, "T", "T", "bigint")
+                .window("lag", LagFunction.class, "T", "T")
+                .window("lag", LagFunction.class, "T", "T", "bigint")
+                .window("lag", LagFunction.class, "T", "T", "bigint", "T")
+                .window("lead", LeadFunction.class, "T", "T")
+                .window("lead", LeadFunction.class, "T", "T", "bigint")
+                .window("lead", LeadFunction.class, "T", "T", "bigint", "T")
                 .aggregate(CountAggregation.class)
                 .aggregate(VarianceAggregation.class)
                 .aggregate(ApproximateLongPercentileAggregations.class)
@@ -316,6 +267,7 @@ public class FunctionRegistry
                 .scalar(JsonFunctions.class)
                 .scalar(ColorFunctions.class)
                 .scalar(HyperLogLogFunctions.class)
+                .scalar(UnknownOperators.class)
                 .scalar(BooleanOperators.class)
                 .scalar(BigintOperators.class)
                 .scalar(DoubleOperators.class)
@@ -336,11 +288,13 @@ public class FunctionRegistry
                 .scalar(JsonOperators.class)
                 .function(IDENTITY_CAST)
                 .functions(ARRAY_CONTAINS, ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
+                .functions(ARRAY_MIN, ARRAY_MAX)
                 .functions(ARRAY_TO_ARRAY_CAST, ARRAY_HASH_CODE, ARRAY_EQUAL, ARRAY_NOT_EQUAL, ARRAY_LESS_THAN, ARRAY_LESS_THAN_OR_EQUAL, ARRAY_GREATER_THAN, ARRAY_GREATER_THAN_OR_EQUAL)
                 .functions(ARRAY_CONCAT_FUNCTION, ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
                 .functions(MAP_EQUAL, MAP_NOT_EQUAL, MAP_HASH_CODE)
-                .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_CARDINALITY, ARRAY_POSITION, ARRAY_SORT_FUNCTION, ARRAY_INTERSECT_FUNCTION, ARRAY_TO_JSON, JSON_TO_ARRAY, ARRAY_DISTINCT_FUNCTION, ARRAY_REMOVE_FUNCTION)
+                .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_ELEMENT_AT_FUNCTION, ARRAY_CARDINALITY, ARRAY_POSITION, ARRAY_SORT_FUNCTION, ARRAY_INTERSECT_FUNCTION, ARRAY_TO_JSON, JSON_TO_ARRAY, ARRAY_DISTINCT_FUNCTION, ARRAY_REMOVE_FUNCTION, ARRAY_SLICE_FUNCTION)
                 .functions(MAP_CONSTRUCTOR, MAP_CARDINALITY, MAP_SUBSCRIPT, MAP_TO_JSON, JSON_TO_MAP, MAP_KEYS, MAP_VALUES, MAP_AGG)
+                .function(HISTOGRAM)
                 .function(ARBITRARY_AGGREGATION)
                 .function(ARRAY_AGGREGATION)
                 .function(LEAST)
@@ -350,6 +304,7 @@ public class FunctionRegistry
                 .functions(MAX_AGGREGATION, MIN_AGGREGATION)
                 .function(COUNT_COLUMN)
                 .functions(ROW_HASH_CODE, ROW_TO_JSON, ROW_EQUAL, ROW_NOT_EQUAL)
+                .function(CONCAT)
                 .function(TRY_CAST);
 
         if (experimentalSyntaxEnabled) {
@@ -374,9 +329,9 @@ public class FunctionRegistry
 
     public List<ParametricFunction> list()
     {
-        return FluentIterable.from(functions.list())
-                .filter(not(ParametricFunction::isHidden))
-                .toList();
+        return functions.list().stream()
+                .filter(function -> !function.isHidden())
+                .collect(toImmutableList());
     }
 
     public boolean isAggregationFunction(QualifiedName name)
@@ -450,18 +405,29 @@ public class FunctionRegistry
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
             Type parameterType = typeManager.getType(parameterTypes.get(0));
             checkNotNull(parameterType, "Type %s not found", parameterTypes.get(0));
-            checkArgument(parameterType.getJavaType() == type.getJavaType(),
-                    "Expected type %s to use Java type %s, but Java type is %s",
+
+            MethodHandle methodHandle = null;
+            if (parameterType.getJavaType() == type.getJavaType()) {
+                methodHandle = MethodHandles.identity(parameterType.getJavaType());
+            }
+
+            if (parameterType.getJavaType() == Slice.class) {
+                if (type.getJavaType() == Block.class) {
+                    methodHandle = BlockSerdeUtil.READ_BLOCK.bindTo(blockEncodingSerde);
+                }
+            }
+
+            checkArgument(methodHandle != null,
+                    "Expected type %s to use (or can be converted into) Java type %s, but Java type is %s",
                     type,
                     parameterType.getJavaType(),
                     type.getJavaType());
 
-            MethodHandle identity = MethodHandles.identity(parameterType.getJavaType());
             return new FunctionInfo(
                     getMagicLiteralFunctionSignature(type),
                     null,
                     true,
-                    identity,
+                    methodHandle,
                     true,
                     false,
                     ImmutableList.of(false));
@@ -673,17 +639,24 @@ public class FunctionRegistry
         return Optional.empty();
     }
 
-    public static Type type(Class<?> clazz)
+    public static Type typeForMagicLiteral(Type type)
     {
+        Class<?> clazz = type.getJavaType();
         clazz = Primitives.unwrap(clazz);
+
         if (clazz == long.class) {
             return BIGINT;
         }
         if (clazz == double.class) {
             return DOUBLE;
         }
-        if (clazz == Slice.class) {
-            return VARCHAR;
+        if (!clazz.isPrimitive()) {
+            if (type.equals(VARCHAR)) {
+                return VARCHAR;
+            }
+            else {
+                return VARBINARY;
+            }
         }
         if (clazz == boolean.class) {
             return BOOLEAN;
@@ -693,13 +666,7 @@ public class FunctionRegistry
 
     public static Signature getMagicLiteralFunctionSignature(Type type)
     {
-        TypeSignature argumentType;
-        if (type.getJavaType() == Slice.class && !type.equals(VARCHAR)) {
-            argumentType = VARBINARY.getTypeSignature();
-        }
-        else {
-            argumentType = type(type.getJavaType()).getTypeSignature();
-        }
+        TypeSignature argumentType = typeForMagicLiteral(type).getTypeSignature();
 
         return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature(),
                 type.getTypeSignature(),

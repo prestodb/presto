@@ -34,6 +34,7 @@ public class ExchangeNode
     {
         GATHER,
         REPARTITION,
+        REPARTITION_WITH_NULL_REPLICATION,
         REPLICATE
     }
 
@@ -41,7 +42,7 @@ public class ExchangeNode
     private final List<Symbol> outputs;
 
     private final List<PlanNode> sources;
-    private final List<Symbol> partitionKeys;
+    private final Optional<List<Symbol>> partitionKeys;
     private final Optional<Symbol> hashSymbol;
 
     // for each source, the list of inputs corresponding to each output
@@ -51,7 +52,7 @@ public class ExchangeNode
     public ExchangeNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("type") Type type,
-            @JsonProperty("partitionKeys") List<Symbol> partitionKeys,
+            @JsonProperty("partitionKeys") Optional<List<Symbol>> partitionKeys,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
             @JsonProperty("sources") List<PlanNode> sources,
             @JsonProperty("outputs") List<Symbol> outputs,
@@ -65,7 +66,7 @@ public class ExchangeNode
         checkNotNull(hashSymbol, "hashSymbol is null");
         checkNotNull(outputs, "outputs is null");
         checkNotNull(inputs, "inputs is null");
-        checkArgument(outputs.containsAll(partitionKeys), "outputs must contain all partitionKeys");
+        partitionKeys.ifPresent(list -> checkArgument(outputs.containsAll(list), "outputs must contain all partitionKeys"));
         checkArgument(!hashSymbol.isPresent() || outputs.contains(hashSymbol.get()), "outputs must contain hashSymbol");
         checkArgument(inputs.stream().allMatch(inputSymbols -> inputSymbols.size() == outputs.size()), "Input symbols do not match output symbols");
         checkArgument(inputs.size() == sources.size(), "Must have same number of input lists as sources");
@@ -75,13 +76,25 @@ public class ExchangeNode
 
         this.type = type;
         this.sources = sources;
-        this.partitionKeys = ImmutableList.copyOf(partitionKeys);
+        this.partitionKeys = partitionKeys.map(ImmutableList::copyOf);
         this.hashSymbol = hashSymbol;
         this.outputs = ImmutableList.copyOf(outputs);
         this.inputs = ImmutableList.copyOf(inputs);
     }
 
-    public static ExchangeNode partitionedExchange(PlanNodeId id, PlanNode child, List<Symbol> partitionKeys, Optional<Symbol> hashSymbol)
+    public static ExchangeNode partitionedExchangeNullReplicate(PlanNodeId id, PlanNode child, Symbol partitionKey, Optional<Symbol> hashSymbol)
+    {
+        return new ExchangeNode(
+                id,
+                ExchangeNode.Type.REPARTITION_WITH_NULL_REPLICATION,
+                Optional.of(ImmutableList.of(partitionKey)),
+                hashSymbol,
+                ImmutableList.of(child),
+                child.getOutputSymbols(),
+                ImmutableList.of(child.getOutputSymbols()));
+    }
+
+    public static ExchangeNode partitionedExchange(PlanNodeId id, PlanNode child, Optional<List<Symbol>> partitionKeys, Optional<Symbol> hashSymbol)
     {
         return new ExchangeNode(
                 id,
@@ -98,7 +111,7 @@ public class ExchangeNode
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.GATHER,
-                ImmutableList.of(),
+                Optional.empty(),
                 Optional.<Symbol>empty(),
                 ImmutableList.of(child),
                 child.getOutputSymbols(),
@@ -125,7 +138,7 @@ public class ExchangeNode
     }
 
     @JsonProperty
-    public List<Symbol> getPartitionKeys()
+    public Optional<List<Symbol>> getPartitionKeys()
     {
         return partitionKeys;
     }

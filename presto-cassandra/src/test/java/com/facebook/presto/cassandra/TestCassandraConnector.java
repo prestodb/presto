@@ -20,7 +20,6 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -52,9 +51,9 @@ import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -67,7 +66,6 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestCassandraConnector
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
     protected static final String INVALID_DATABASE = "totally_invalid_database";
     private static final Date DATE = new Date();
     protected String database;
@@ -161,19 +159,19 @@ public class TestCassandraConnector
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(table);
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
-        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
+        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(SESSION, tableHandle, partitionResult.getPartitions()));
 
         long rowNumber = 0;
         for (ConnectorSplit split : splits) {
             CassandraSplit cassandraSplit = (CassandraSplit) split;
 
             long completedBytes = 0;
-            try (RecordCursor cursor = recordSetProvider.getRecordSet(cassandraSplit, columnHandles).cursor()) {
+            try (RecordCursor cursor = recordSetProvider.getRecordSet(SESSION, cassandraSplit, columnHandles).cursor()) {
                 while (cursor.advanceNextPosition()) {
                     try {
                         assertReadFields(cursor, tableMetadata.getColumns());

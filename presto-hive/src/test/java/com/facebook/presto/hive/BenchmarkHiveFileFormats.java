@@ -20,7 +20,6 @@ import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.TupleDomain;
@@ -72,11 +71,11 @@ import java.io.PrintStream;
 import java.util.List;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveType.getType;
 import static com.facebook.presto.hive.HiveUtil.setReadColumns;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Lists.transform;
 import static com.google.common.io.ByteStreams.nullOutputStream;
@@ -89,7 +88,6 @@ import static io.airlift.tpch.LineItemColumn.SHIP_DATE;
 import static io.airlift.tpch.LineItemColumn.SHIP_INSTRUCTIONS;
 import static io.airlift.tpch.LineItemColumn.STATUS;
 import static io.airlift.tpch.LineItemColumn.TAX;
-import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
@@ -104,8 +102,6 @@ import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_T
 @SuppressWarnings("UseOfSystemOutOrSystemErr")
 public final class BenchmarkHiveFileFormats
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
-
     private static final List<CompressionType> ENABLED_COMPRESSION = ImmutableList.<CompressionType>builder()
             .add(CompressionType.none)
             .add(CompressionType.snappy)
@@ -598,7 +594,7 @@ public final class BenchmarkHiveFileFormats
             HiveRecordCursor recordCursor = hiveRecordCursorProvider.createHiveRecordCursor(
                     split.getClientId(),
                     new Configuration(),
-                    split.getSession(),
+                    SESSION,
                     new Path(split.getPath()),
                     split.getStart(),
                     split.getLength(),
@@ -631,7 +627,7 @@ public final class BenchmarkHiveFileFormats
 
             ConnectorPageSource pageSource = pageSourceFactory.createPageSource(
                     new Configuration(),
-                    split.getSession(),
+                    SESSION,
                     new Path(split.getPath()),
                     split.getStart(),
                     split.getLength(),
@@ -668,7 +664,7 @@ public final class BenchmarkHiveFileFormats
             HiveRecordCursor recordCursor = hiveRecordCursorProvider.createHiveRecordCursor(
                     split.getClientId(),
                     new Configuration(),
-                    split.getSession(),
+                    SESSION,
                     new Path(split.getPath()),
                     split.getStart(),
                     split.getLength(),
@@ -703,7 +699,7 @@ public final class BenchmarkHiveFileFormats
 
             ConnectorPageSource pageSource = pageSourceFactory.createPageSource(
                     new Configuration(),
-                    split.getSession(),
+                    SESSION,
                     new Path(split.getPath()),
                     split.getStart(),
                     split.getLength(),
@@ -745,7 +741,7 @@ public final class BenchmarkHiveFileFormats
             HiveRecordCursor recordCursor = hiveRecordCursorProvider.createHiveRecordCursor(
                     split.getClientId(),
                     new Configuration(),
-                    split.getSession(),
+                    SESSION,
                     new Path(split.getPath()),
                     split.getStart(),
                     split.getLength(),
@@ -780,7 +776,7 @@ public final class BenchmarkHiveFileFormats
 
             ConnectorPageSource pageSource = pageSourceFactory.createPageSource(
                     new Configuration(),
-                    split.getSession(),
+                    SESSION,
                     new Path(split.getPath()),
                     split.getStart(),
                     split.getLength(),
@@ -822,7 +818,7 @@ public final class BenchmarkHiveFileFormats
             HiveRecordCursor recordCursor = hiveRecordCursorProvider.createHiveRecordCursor(
                     split.getClientId(),
                     new Configuration(),
-                    split.getSession(),
+                    SESSION,
                     new Path(split.getPath()),
                     split.getStart(),
                     split.getLength(),
@@ -857,7 +853,7 @@ public final class BenchmarkHiveFileFormats
 
             ConnectorPageSource pageSource = pageSourceFactory.createPageSource(
                     new Configuration(),
-                    split.getSession(),
+                    SESSION,
                     new Path(split.getPath()),
                     split.getStart(),
                     split.getLength(),
@@ -899,7 +895,7 @@ public final class BenchmarkHiveFileFormats
             HiveRecordCursor recordCursor = hiveRecordCursorProvider.createHiveRecordCursor(
                     split.getClientId(),
                     new Configuration(),
-                    split.getSession(),
+                    SESSION,
                     new Path(split.getPath()),
                     split.getStart(),
                     split.getLength(),
@@ -943,7 +939,7 @@ public final class BenchmarkHiveFileFormats
 
             ConnectorPageSource pageSource = pageSourceFactory.createPageSource(
                     new Configuration(),
-                    split.getSession(),
+                    SESSION,
                     new Path(split.getPath()),
                     split.getStart(),
                     split.getLength(),
@@ -997,7 +993,7 @@ public final class BenchmarkHiveFileFormats
             HiveRecordCursor recordCursor = hiveRecordCursorProvider.createHiveRecordCursor(
                     split.getClientId(),
                     new Configuration(),
-                    split.getSession(),
+                    SESSION,
                     new Path(split.getPath()),
                     split.getStart(),
                     split.getLength(),
@@ -1050,7 +1046,7 @@ public final class BenchmarkHiveFileFormats
 
             ConnectorPageSource pageSource = pageSourceFactory.createPageSource(
                     new Configuration(),
-                    split.getSession(),
+                    SESSION,
                     new Path(split.getPath()),
                     split.getStart(),
                     split.getLength(),
@@ -1118,7 +1114,7 @@ public final class BenchmarkHiveFileFormats
             HiveRecordCursor recordCursor = hiveRecordCursorProvider.createHiveRecordCursor(
                     split.getClientId(),
                     new Configuration(),
-                    split.getSession(),
+                    SESSION,
                     new Path(split.getPath()),
                     split.getStart(),
                     split.getLength(),
@@ -1198,7 +1194,7 @@ public final class BenchmarkHiveFileFormats
 
             ConnectorPageSource pageSource = pageSourceFactory.createPageSource(
                     new Configuration(),
-                    split.getSession(),
+                    SESSION,
                     new Path(split.getPath()),
                     split.getStart(),
                     split.getLength(),
@@ -1302,7 +1298,7 @@ public final class BenchmarkHiveFileFormats
             HiveRecordCursor recordCursor = hiveRecordCursorProvider.createHiveRecordCursor(
                     split.getClientId(),
                     new Configuration(),
-                    split.getSession(),
+                    SESSION,
                     new Path(split.getPath()),
                     split.getStart(),
                     split.getLength(),
@@ -1337,7 +1333,7 @@ public final class BenchmarkHiveFileFormats
 
             ConnectorPageSource pageSource = pageSourceFactory.createPageSource(
                     new Configuration(),
-                    split.getSession(),
+                    SESSION,
                     new Path(split.getPath()),
                     split.getStart(),
                     split.getLength(),
@@ -1379,7 +1375,7 @@ public final class BenchmarkHiveFileFormats
             HiveRecordCursor recordCursor = hiveRecordCursorProvider.createHiveRecordCursor(
                     split.getClientId(),
                     new Configuration(),
-                    split.getSession(),
+                    SESSION,
                     new Path(split.getPath()),
                     split.getStart(),
                     split.getLength(),
@@ -1463,7 +1459,7 @@ public final class BenchmarkHiveFileFormats
 
             ConnectorPageSource pageSource = pageSourceFactory.createPageSource(
                     new Configuration(),
-                    split.getSession(),
+                    SESSION,
                     new Path(split.getPath()),
                     split.getStart(),
                     split.getLength(),
@@ -1679,7 +1675,6 @@ public final class BenchmarkHiveFileFormats
                 ImmutableList.<HivePartitionKey>of(),
                 ImmutableList.<HostAddress>of(),
                 false,
-                SESSION,
                 TupleDomain.<HiveColumnHandle>all());
     }
 

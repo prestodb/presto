@@ -43,6 +43,7 @@ import com.facebook.presto.byteCode.instruction.VariableInstruction.IncrementVar
 import com.facebook.presto.byteCode.instruction.VariableInstruction.LoadVariableInstruction;
 import com.facebook.presto.byteCode.instruction.VariableInstruction.StoreVariableInstruction;
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -538,18 +539,7 @@ public class DumpByteCodeVisitor
 
     private String indent(int level)
     {
-        StringBuilder builder = new StringBuilder();
-
-//        if (lineNumber >= 0) {
-//            builder.append(String.format("%4s", lineNumber + ": "));
-//        } else {
-//            builder.append("    ");
-//        }
-
-        for (int i = 0; i < level; i++) {
-            builder.append("    ");
-        }
-        return builder.toString();
+        return Strings.repeat("    ", level);
     }
 
     private void visitNestedNode(String description, ByteCodeNode node, ByteCodeNode parent)

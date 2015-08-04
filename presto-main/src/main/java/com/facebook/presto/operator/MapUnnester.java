@@ -18,11 +18,9 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.MapType;
-import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class MapUnnester
@@ -36,21 +34,15 @@ public class MapUnnester
     private int position;
     private final int positionCount;
 
-    public MapUnnester(MapType mapType, @Nullable Slice slice)
+    public MapUnnester(MapType mapType, @Nullable Block mapBlock)
     {
         this.channelCount = 2;
         checkNotNull(mapType, "mapType is null");
         this.keyType = mapType.getKeyType();
         this.valueType = mapType.getValueType();
 
-        if (slice == null) {
-            block = null;
-            positionCount = 0;
-        }
-        else {
-            block = readStructuralBlock(slice);
-            positionCount = block.getPositionCount();
-        }
+        this.block = mapBlock;
+        this.positionCount = mapBlock == null ? 0 : mapBlock.getPositionCount();
     }
 
     protected void appendTo(PageBuilder pageBuilder, int outputChannelOffset)

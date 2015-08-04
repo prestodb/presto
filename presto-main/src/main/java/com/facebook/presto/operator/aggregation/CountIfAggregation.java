@@ -14,8 +14,11 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.LongState;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
+
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 @AggregationFunction("count_if")
 public final class CountIfAggregation
@@ -34,5 +37,11 @@ public final class CountIfAggregation
     public static void combine(LongState state, LongState otherState)
     {
         state.setLong(state.getLong() + otherState.getLong());
+    }
+
+    @OutputFunction(StandardTypes.BIGINT)
+    public static void output(LongState state, BlockBuilder out)
+    {
+        BIGINT.writeLong(out, state.getLong());
     }
 }

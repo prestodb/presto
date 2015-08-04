@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -49,9 +50,15 @@ public class TableWriterOperator
         private final WriterTarget target;
         private final List<Integer> inputChannels;
         private final Optional<Integer> sampleWeightChannel;
+        private final Session session;
         private boolean closed;
 
-        public TableWriterOperatorFactory(int operatorId, PageSinkManager pageSinkManager, WriterTarget writerTarget, List<Integer> inputChannels, Optional<Integer> sampleWeightChannel)
+        public TableWriterOperatorFactory(int operatorId,
+                PageSinkManager pageSinkManager,
+                WriterTarget writerTarget,
+                List<Integer> inputChannels,
+                Optional<Integer> sampleWeightChannel,
+                Session session)
         {
             this.operatorId = operatorId;
             this.inputChannels = checkNotNull(inputChannels, "inputChannels is null");
@@ -59,6 +66,7 @@ public class TableWriterOperator
             checkArgument(writerTarget instanceof CreateHandle || writerTarget instanceof InsertHandle, "writerTarget must be CreateHandle or InsertHandle");
             this.target = checkNotNull(writerTarget, "writerTarget is null");
             this.sampleWeightChannel = checkNotNull(sampleWeightChannel, "sampleWeightChannel is null");
+            this.session = session;
         }
 
         @Override
@@ -78,10 +86,10 @@ public class TableWriterOperator
         private ConnectorPageSink createPageSink()
         {
             if (target instanceof CreateHandle) {
-                return pageSinkManager.createPageSink(((CreateHandle) target).getHandle());
+                return pageSinkManager.createPageSink(session, ((CreateHandle) target).getHandle());
             }
             if (target instanceof InsertHandle) {
-                return pageSinkManager.createPageSink(((InsertHandle) target).getHandle());
+                return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle());
             }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }

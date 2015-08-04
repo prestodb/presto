@@ -53,6 +53,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.TypeRegistry;
@@ -96,6 +97,7 @@ import static com.facebook.presto.hive.HiveStorageFormat.SEQUENCEFILE;
 import static com.facebook.presto.hive.HiveStorageFormat.TEXTFILE;
 import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_DATA_STREAM_FACTORIES;
 import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_RECORD_CURSOR_PROVIDER;
+import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
@@ -135,8 +137,6 @@ import static org.testng.Assert.fail;
 @Test(groups = "hive")
 public abstract class AbstractTestHiveClient
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("presto_test", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
-
     protected static final String INVALID_DATABASE = "totally_invalid_database_name";
     protected static final String INVALID_TABLE = "totally_invalid_table_name";
     protected static final String INVALID_COLUMN = "totally_invalid_column_name";
@@ -224,7 +224,7 @@ public abstract class AbstractTestHiveClient
         temporaryRenameTableNew = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
         temporaryCreateView = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
 
-        invalidTableHandle = new HiveTableHandle("hive", database, INVALID_TABLE, SESSION);
+        invalidTableHandle = new HiveTableHandle("hive", database, INVALID_TABLE);
 
         dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);
         fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", 1, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);
@@ -305,7 +305,6 @@ public abstract class AbstractTestHiveClient
                 true,
                 true,
                 true,
-                hiveClientConfig.getHiveStorageFormat(),
                 new TypeRegistry());
         splitManager = new HiveSplitManager(
                 connectorId,
@@ -323,7 +322,7 @@ public abstract class AbstractTestHiveClient
                 hiveClientConfig.getMaxInitialSplits(),
                 false,
                 false,
-                false);
+                hiveClientConfig.getDomainCompactionThreshold());
         recordSinkProvider = new HiveRecordSinkProvider(hdfsEnvironment);
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER, DEFAULT_HIVE_DATA_STREAM_FACTORIES, TYPE_MANAGER);
     }
@@ -385,7 +384,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(tablePartitionFormat);
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
         assertExpectedPartitions(partitionResult.getPartitions(), partitions);
     }
 
@@ -394,7 +393,8 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(tablePartitionFormat);
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withColumnDomains(ImmutableMap.of(intColumn, Domain.singleValue(5L))));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION,
+                tableHandle, TupleDomain.withColumnDomains(ImmutableMap.of(intColumn, Domain.singleValue(5L))));
         assertExpectedPartitions(partitionResult.getPartitions(), partitions);
     }
 
@@ -402,7 +402,7 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionsException()
             throws Exception
     {
-        splitManager.getPartitions(invalidTableHandle, TupleDomain.<ColumnHandle>all());
+        splitManager.getPartitions(SESSION, invalidTableHandle, TupleDomain.<ColumnHandle>all());
     }
 
     @Test
@@ -410,7 +410,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(tablePartitionFormat);
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
         assertExpectedPartitions(partitionResult.getPartitions(), partitions);
     }
 
@@ -440,7 +440,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(tableUnpartitioned);
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
         assertEquals(partitionResult.getPartitions().size(), 1);
         assertEquals(partitionResult.getPartitions(), unpartitionedPartitions);
     }
@@ -449,7 +449,7 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionNamesException()
             throws Exception
     {
-        splitManager.getPartitions(invalidTableHandle, TupleDomain.<ColumnHandle>all());
+        splitManager.getPartitions(SESSION, invalidTableHandle, TupleDomain.<ColumnHandle>all());
     }
 
     @SuppressWarnings({"ValueOfIncrementOrDecrementUsed", "UnusedAssignment"})
@@ -457,21 +457,20 @@ public abstract class AbstractTestHiveClient
     public void testGetTableSchemaPartitionFormat()
             throws Exception
     {
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(getTableHandle(tablePartitionFormat));
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, getTableHandle(tablePartitionFormat));
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
 
-        int i = 0;
-        assertPrimitiveField(map, i++, "t_string", VARCHAR, false);
-        assertPrimitiveField(map, i++, "t_tinyint", BIGINT, false);
-        assertPrimitiveField(map, i++, "t_smallint", BIGINT, false);
-        assertPrimitiveField(map, i++, "t_int", BIGINT, false);
-        assertPrimitiveField(map, i++, "t_bigint", BIGINT, false);
-        assertPrimitiveField(map, i++, "t_float", DOUBLE, false);
-        assertPrimitiveField(map, i++, "t_double", DOUBLE, false);
-        assertPrimitiveField(map, i++, "t_boolean", BOOLEAN, false);
-        assertPrimitiveField(map, i++, "ds", VARCHAR, true);
-        assertPrimitiveField(map, i++, "file_format", VARCHAR, true);
-        assertPrimitiveField(map, i++, "dummy", BIGINT, true);
+        assertPrimitiveField(map, "t_string", VARCHAR, false);
+        assertPrimitiveField(map, "t_tinyint", BIGINT, false);
+        assertPrimitiveField(map, "t_smallint", BIGINT, false);
+        assertPrimitiveField(map, "t_int", BIGINT, false);
+        assertPrimitiveField(map, "t_bigint", BIGINT, false);
+        assertPrimitiveField(map, "t_float", DOUBLE, false);
+        assertPrimitiveField(map, "t_double", DOUBLE, false);
+        assertPrimitiveField(map, "t_boolean", BOOLEAN, false);
+        assertPrimitiveField(map, "ds", VARCHAR, true);
+        assertPrimitiveField(map, "file_format", VARCHAR, true);
+        assertPrimitiveField(map, "dummy", BIGINT, true);
     }
 
     @Test
@@ -479,11 +478,11 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(tableUnpartitioned);
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
 
-        assertPrimitiveField(map, 0, "t_string", VARCHAR, false);
-        assertPrimitiveField(map, 1, "t_tinyint", BIGINT, false);
+        assertPrimitiveField(map, "t_string", VARCHAR, false);
+        assertPrimitiveField(map, "t_tinyint", BIGINT, false);
     }
 
     @Test
@@ -491,10 +490,10 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(tableOffline);
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
 
-        assertPrimitiveField(map, 0, "t_string", VARCHAR, false);
+        assertPrimitiveField(map, "t_string", VARCHAR, false);
     }
 
     @Test
@@ -502,10 +501,10 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(tableOfflinePartition);
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
         Map<String, ColumnMetadata> map = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
 
-        assertPrimitiveField(map, 0, "t_string", VARCHAR, false);
+        assertPrimitiveField(map, "t_string", VARCHAR, false);
     }
 
     @Test
@@ -520,8 +519,8 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(tablePartitionFormat);
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
-        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
+        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(SESSION, tableHandle, partitionResult.getPartitions());
 
         assertEquals(getSplitCount(splitSource), partitions.size());
     }
@@ -531,8 +530,8 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(tableUnpartitioned);
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
-        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
+        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(SESSION, tableHandle, partitionResult.getPartitions());
 
         assertEquals(getSplitCount(splitSource), 1);
     }
@@ -541,14 +540,14 @@ public abstract class AbstractTestHiveClient
     public void testGetPartitionSplitsBatchInvalidTable()
             throws Exception
     {
-        splitManager.getPartitionSplits(invalidTableHandle, ImmutableList.of(invalidPartition));
+        splitManager.getPartitionSplits(SESSION, invalidTableHandle, ImmutableList.of(invalidPartition));
     }
 
     @Test
     public void testGetPartitionSplitsEmpty()
             throws Exception
     {
-        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(invalidTableHandle, ImmutableList.<ConnectorPartition>of());
+        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(SESSION, invalidTableHandle, ImmutableList.<ConnectorPartition>of());
         // fetch full list
         getSplitCount(splitSource);
     }
@@ -559,7 +558,7 @@ public abstract class AbstractTestHiveClient
     {
         ConnectorTableHandle tableHandle = getTableHandle(tableOffline);
         try {
-            splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
+            splitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
             fail("expected TableOfflineException");
         }
         catch (TableOfflineException e) {
@@ -574,16 +573,16 @@ public abstract class AbstractTestHiveClient
         ConnectorTableHandle tableHandle = getTableHandle(tableOfflinePartition);
         assertNotNull(tableHandle);
 
-        ColumnHandle dsColumn = metadata.getColumnHandles(tableHandle).get("ds");
+        ColumnHandle dsColumn = metadata.getColumnHandles(SESSION, tableHandle).get("ds");
         assertNotNull(dsColumn);
 
         Domain domain = Domain.singleValue(utf8Slice("2012-12-30"));
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(dsColumn, domain));
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, tupleDomain);
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, tupleDomain);
         for (ConnectorPartition partition : partitionResult.getPartitions()) {
             if (domain.equals(partition.getTupleDomain().getDomains().get(dsColumn))) {
                 try {
-                    getSplitCount(splitManager.getPartitionSplits(tableHandle, ImmutableList.of(partition)));
+                    getSplitCount(splitManager.getPartitionSplits(SESSION, tableHandle, ImmutableList.of(partition)));
                     fail("Expected PartitionOfflineException");
                 }
                 catch (PartitionOfflineException e) {
@@ -592,7 +591,7 @@ public abstract class AbstractTestHiveClient
                 }
             }
             else {
-                getSplitCount(splitManager.getPartitionSplits(tableHandle, ImmutableList.of(partition)));
+                getSplitCount(splitManager.getPartitionSplits(SESSION, tableHandle, ImmutableList.of(partition)));
             }
         }
     }
@@ -602,7 +601,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(tableBucketedStringInt);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         assertTableIsBucketed(tableHandle);
@@ -618,11 +617,11 @@ public abstract class AbstractTestHiveClient
                 .put(columnHandles.get(columnIndex.get("t_smallint")), new SerializableNativeValue(Long.class, testSmallint))
                 .build();
 
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withNullableFixedValues(bindings));
-        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.withNullableFixedValues(bindings));
+        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(SESSION, tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 1);
 
-        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(splits.get(0), columnHandles)) {
+        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, splits.get(0), columnHandles)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, getTypes(columnHandles));
 
             boolean rowFound = false;
@@ -643,7 +642,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(tableBucketedBigintBoolean);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         assertTableIsBucketed(tableHandle);
@@ -658,11 +657,11 @@ public abstract class AbstractTestHiveClient
                 .put(columnHandles.get(columnIndex.get("t_boolean")), new SerializableNativeValue(Boolean.class, testBoolean))
                 .build();
 
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withNullableFixedValues(bindings));
-        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.withNullableFixedValues(bindings));
+        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(SESSION, tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 1);
 
-        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(splits.get(0), columnHandles)) {
+        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, splits.get(0), columnHandles)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, getTypes(columnHandles));
 
             boolean rowFound = false;
@@ -683,7 +682,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(tableBucketedDoubleFloat);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         assertTableIsBucketed(tableHandle);
@@ -694,13 +693,13 @@ public abstract class AbstractTestHiveClient
                 .build();
 
         // floats and doubles are not supported, so we should see all splits
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.withNullableFixedValues(bindings));
-        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.withNullableFixedValues(bindings));
+        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(SESSION, tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 32);
 
         int count = 0;
         for (ConnectorSplit split : splits) {
-            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(split, columnHandles)) {
+            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, split, columnHandles)) {
                 MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, getTypes(columnHandles));
                 count += result.getRowCount();
             }
@@ -712,8 +711,8 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         // the bucketed test tables should have exactly 32 splits
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
-        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
+        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(SESSION, tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 32);
 
         // verify all paths are unique
@@ -728,12 +727,12 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(tablePartitionFormat);
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
-        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
+        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(SESSION, tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), this.partitions.size());
         for (ConnectorSplit split : splits) {
             HiveSplit hiveSplit = (HiveSplit) split;
@@ -746,7 +745,7 @@ public abstract class AbstractTestHiveClient
 
             long rowNumber = 0;
             long completedBytes = 0;
-            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(hiveSplit, columnHandles)) {
+            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, hiveSplit, columnHandles)) {
                 MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, getTypes(columnHandles));
 
                 assertPageSourceType(pageSource, fileType);
@@ -813,11 +812,11 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(tablePartitionFormat);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
-        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
+        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(SESSION, tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), this.partitions.size());
         for (ConnectorSplit split : splits) {
             HiveSplit hiveSplit = (HiveSplit) split;
@@ -829,7 +828,7 @@ public abstract class AbstractTestHiveClient
             long dummyPartition = Long.parseLong(partitionKeys.get(2).getValue());
 
             long rowNumber = 0;
-            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(hiveSplit, columnHandles)) {
+            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, hiveSplit, columnHandles)) {
                 assertPageSourceType(pageSource, fileType);
                 MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, getTypes(columnHandles));
                 for (MaterializedRow row : result) {
@@ -850,11 +849,11 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(tableUnpartitioned);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
-        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
+        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(SESSION, tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 1);
 
         for (ConnectorSplit split : splits) {
@@ -863,7 +862,7 @@ public abstract class AbstractTestHiveClient
             assertEquals(hiveSplit.getPartitionKeys(), ImmutableList.of());
 
             long rowNumber = 0;
-            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(split, columnHandles)) {
+            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, split, columnHandles)) {
                 assertPageSourceType(pageSource, TEXTFILE);
                 MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, getTypes(columnHandles));
 
@@ -893,9 +892,9 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle table = getTableHandle(tableUnpartitioned);
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(table, TupleDomain.<ColumnHandle>all());
-        ConnectorSplit split = Iterables.getFirst(getAllSplits(splitManager.getPartitionSplits(table, partitionResult.getPartitions())), null);
-        pageSourceProvider.createPageSource(split, ImmutableList.of(invalidColumnHandle));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, table, TupleDomain.<ColumnHandle>all());
+        ConnectorSplit split = Iterables.getFirst(getAllSplits(splitManager.getPartitionSplits(SESSION, table, partitionResult.getPartitions())), null);
+        pageSourceProvider.createPageSource(SESSION, split, ImmutableList.of(invalidColumnHandle));
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = ".*The column 't_data' in table '.*\\.presto_test_partition_schema_change' is declared as type 'bigint', but partition 'ds=2012-12-29' declared column 't_data' as type 'string'.")
@@ -903,8 +902,8 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle table = getTableHandle(tablePartitionSchemaChange);
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(table, TupleDomain.<ColumnHandle>all());
-        getAllSplits(splitManager.getPartitionSplits(table, partitionResult.getPartitions()));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, table, TupleDomain.<ColumnHandle>all());
+        getAllSplits(splitManager.getPartitionSplits(SESSION, table, partitionResult.getPartitions()));
     }
 
     @Test
@@ -912,17 +911,17 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle table = getTableHandle(tablePartitionSchemaChangeNonCanonical);
-        ColumnHandle column = metadata.getColumnHandles(table).get("t_boolean");
+        ColumnHandle column = metadata.getColumnHandles(SESSION, table).get("t_boolean");
         assertNotNull(column);
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(table, TupleDomain.withFixedValues(ImmutableMap.of(column, false)));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, table, TupleDomain.withFixedValues(ImmutableMap.of(column, false)));
         assertEquals(partitionResult.getPartitions().size(), 1);
         assertEquals(partitionResult.getPartitions().get(0).getPartitionId(), "t_boolean=0");
 
-        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(table, partitionResult.getPartitions());
+        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(SESSION, table, partitionResult.getPartitions());
         ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
         ImmutableList<ColumnHandle> columnHandles = ImmutableList.of(column);
-        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(split, columnHandles)) {
+        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, split, columnHandles)) {
             // TODO coercion of non-canonical values should be supported
             fail("expected exception");
         }
@@ -961,9 +960,9 @@ public abstract class AbstractTestHiveClient
         }
 
         ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(database, "presto_test_types_rctext"));
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
         HiveSplit hiveSplit = getHiveSplit(tableHandle);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
 
         ConnectorPageSourceProvider pageSourceProvider = new HivePageSourceProvider(
                 new HiveClientConfig().setTimeZone(timeZone.getID()),
@@ -972,7 +971,7 @@ public abstract class AbstractTestHiveClient
                 ImmutableSet.<HivePageSourceFactory>of(),
                 TYPE_MANAGER);
 
-        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(hiveSplit, columnHandles);
+        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, hiveSplit, columnHandles);
         assertGetRecords(RCTEXT, tableMetadata, hiveSplit, pageSource, columnHandles);
     }
 
@@ -992,9 +991,9 @@ public abstract class AbstractTestHiveClient
         }
 
         ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(database, "presto_test_types_rcbinary"));
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
         HiveSplit hiveSplit = getHiveSplit(tableHandle);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
 
         ConnectorPageSourceProvider pageSourceProvider = new HivePageSourceProvider(
                 new HiveClientConfig().setTimeZone(timeZone.getID()),
@@ -1003,7 +1002,7 @@ public abstract class AbstractTestHiveClient
                 ImmutableSet.<HivePageSourceFactory>of(),
                 TYPE_MANAGER);
 
-        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(hiveSplit, columnHandles);
+        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, hiveSplit, columnHandles);
         assertGetRecords(RCBINARY, tableMetadata, hiveSplit, pageSource, columnHandles);
     }
 
@@ -1023,9 +1022,9 @@ public abstract class AbstractTestHiveClient
         }
 
         ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(database, "presto_test_types_orc"));
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
         HiveSplit hiveSplit = getHiveSplit(tableHandle);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
 
         ConnectorPageSourceProvider pageSourceProvider = new HivePageSourceProvider(
                 new HiveClientConfig().setTimeZone(timeZone.getID()),
@@ -1034,7 +1033,7 @@ public abstract class AbstractTestHiveClient
                 ImmutableSet.<HivePageSourceFactory>of(),
                 TYPE_MANAGER);
 
-        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(hiveSplit, columnHandles);
+        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, hiveSplit, columnHandles);
         assertGetRecords(ORC, tableMetadata, hiveSplit, pageSource, columnHandles);
     }
 
@@ -1061,9 +1060,9 @@ public abstract class AbstractTestHiveClient
         }
 
         ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(database, "presto_test_types_dwrf"));
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
         HiveSplit hiveSplit = getHiveSplit(tableHandle);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
 
         ReaderWriterProfiler.setProfilerOptions(new Configuration());
 
@@ -1074,7 +1073,7 @@ public abstract class AbstractTestHiveClient
                 ImmutableSet.<HivePageSourceFactory>of(),
                 TYPE_MANAGER);
 
-        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(hiveSplit, columnHandles);
+        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, hiveSplit, columnHandles);
         assertGetRecords(DWRF, tableMetadata, hiveSplit, pageSource, columnHandles);
     }
 
@@ -1104,7 +1103,7 @@ public abstract class AbstractTestHiveClient
         try {
             createDummyTable(temporaryRenameTableOld);
 
-            metadata.renameTable(getTableHandle(temporaryRenameTableOld), temporaryRenameTableNew);
+            metadata.renameTable(SESSION, getTableHandle(temporaryRenameTableOld), temporaryRenameTableNew);
 
             assertNull(metadata.getTableHandle(SESSION, temporaryRenameTableOld));
             assertNotNull(metadata.getTableHandle(SESSION, temporaryRenameTableNew));
@@ -1121,7 +1120,7 @@ public abstract class AbstractTestHiveClient
     {
         for (HiveStorageFormat storageFormat : createTableFormats) {
             try {
-                doCreateTable(storageFormat);
+                doCreateTable(temporaryCreateTable, storageFormat);
             }
             finally {
                 dropTable(temporaryCreateTable);
@@ -1134,7 +1133,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         try {
-            doCreateSampledTable();
+            doCreateSampledTable(temporaryCreateSampledTable);
         }
         finally {
             dropTable(temporaryCreateSampledTable);
@@ -1147,7 +1146,7 @@ public abstract class AbstractTestHiveClient
     {
         for (HiveStorageFormat storageFormat : createTableFormats) {
             try {
-                doCreateEmptyTable(storageFormat);
+                doCreateEmptyTable(temporaryCreateEmptyTable, storageFormat);
             }
             finally {
                 dropTable(temporaryCreateEmptyTable);
@@ -1193,7 +1192,7 @@ public abstract class AbstractTestHiveClient
         List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", VARCHAR, false));
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, SESSION.getUser());
         ConnectorOutputTableHandle handle = metadata.beginCreateTable(SESSION, tableMetadata);
-        metadata.commitCreateTable(handle, ImmutableList.of());
+        metadata.commitCreateTable(SESSION, handle, ImmutableList.of());
     }
 
     private void verifyViewCreation()
@@ -1244,7 +1243,7 @@ public abstract class AbstractTestHiveClient
         assertTrue(metadata.listViews(SESSION, viewName.getSchemaName()).contains(viewName));
     }
 
-    private void doCreateSampledTable()
+    protected void doCreateSampledTable(SchemaTableName tableName)
             throws Exception
     {
         // begin creating the table
@@ -1252,11 +1251,11 @@ public abstract class AbstractTestHiveClient
                 .add(new ColumnMetadata("sales", BIGINT, false))
                 .build();
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateSampledTable, columns, SESSION.getUser(), true);
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, SESSION.getUser(), true);
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, tableMetadata);
 
         // write the records
-        RecordSink sink = recordSinkProvider.getRecordSink(outputHandle);
+        RecordSink sink = recordSinkProvider.getRecordSink(SESSION, outputHandle);
 
         sink.beginRecord(8);
         sink.appendLong(2);
@@ -1273,32 +1272,32 @@ public abstract class AbstractTestHiveClient
         Collection<Slice> fragments = sink.commit();
 
         // commit the table
-        metadata.commitCreateTable(outputHandle, fragments);
+        metadata.commitCreateTable(SESSION, outputHandle, fragments);
 
         // load the new table
-        ConnectorTableHandle tableHandle = getTableHandle(temporaryCreateSampledTable);
+        ConnectorTableHandle tableHandle = getTableHandle(tableName);
         List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>builder()
-                .addAll(metadata.getColumnHandles(tableHandle).values())
-                .add(metadata.getSampleWeightColumnHandle(tableHandle))
+                .addAll(metadata.getColumnHandles(SESSION, tableHandle).values())
+                .add(metadata.getSampleWeightColumnHandle(SESSION, tableHandle))
                 .build();
         assertEquals(columnHandles.size(), 2);
 
         // verify the metadata
-        tableMetadata = metadata.getTableMetadata(getTableHandle(temporaryCreateSampledTable));
+        tableMetadata = metadata.getTableMetadata(SESSION, getTableHandle(tableName));
         assertEquals(tableMetadata.getOwner(), SESSION.getUser());
 
         Map<String, ColumnMetadata> columnMap = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
         assertEquals(columnMap.size(), 1);
 
-        assertPrimitiveField(columnMap, 0, "sales", BIGINT, false);
+        assertPrimitiveField(columnMap, "sales", BIGINT, false);
 
         // verify the data
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
         assertEquals(partitionResult.getPartitions().size(), 1);
-        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
+        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(SESSION, tableHandle, partitionResult.getPartitions());
         ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
-        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(split, columnHandles)) {
+        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, split, columnHandles)) {
             assertPageSourceType(pageSource, RCBINARY);
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, getTypes(columnHandles));
             assertEquals(result.getRowCount(), 3);
@@ -1319,7 +1318,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private void doCreateTable(HiveStorageFormat storageFormat)
+    protected void doCreateTable(SchemaTableName tableName, HiveStorageFormat storageFormat)
             throws Exception
     {
         // begin creating the table
@@ -1331,14 +1330,14 @@ public abstract class AbstractTestHiveClient
                 .add(new ColumnMetadata("t_boolean", BOOLEAN, false))
                 .build();
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateTable, columns, SESSION.getUser());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, SESSION.getUser());
 
         ConnectorSession session = createSession(storageFormat);
 
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata);
 
         // write the records
-        RecordSink sink = recordSinkProvider.getRecordSink(outputHandle);
+        RecordSink sink = recordSinkProvider.getRecordSink(session, outputHandle);
 
         sink.beginRecord(1);
         sink.appendLong(1);
@@ -1367,31 +1366,31 @@ public abstract class AbstractTestHiveClient
         Collection<Slice> fragments = sink.commit();
 
         // commit the table
-        metadata.commitCreateTable(outputHandle, fragments);
+        metadata.commitCreateTable(session, outputHandle, fragments);
 
         // load the new table
-        ConnectorTableHandle tableHandle = getTableHandle(temporaryCreateTable);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        ConnectorTableHandle tableHandle = getTableHandle(tableName);
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
 
         // verify the metadata
-        tableMetadata = metadata.getTableMetadata(getTableHandle(temporaryCreateTable));
+        tableMetadata = metadata.getTableMetadata(session, getTableHandle(tableName));
         assertEquals(tableMetadata.getOwner(), session.getUser());
 
         Map<String, ColumnMetadata> columnMap = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
 
-        assertPrimitiveField(columnMap, 0, "id", BIGINT, false);
-        assertPrimitiveField(columnMap, 1, "t_string", VARCHAR, false);
-        assertPrimitiveField(columnMap, 2, "t_bigint", BIGINT, false);
-        assertPrimitiveField(columnMap, 3, "t_double", DOUBLE, false);
-        assertPrimitiveField(columnMap, 4, "t_boolean", BOOLEAN, false);
+        assertPrimitiveField(columnMap, "id", BIGINT, false);
+        assertPrimitiveField(columnMap, "t_string", VARCHAR, false);
+        assertPrimitiveField(columnMap, "t_bigint", BIGINT, false);
+        assertPrimitiveField(columnMap, "t_double", DOUBLE, false);
+        assertPrimitiveField(columnMap, "t_boolean", BOOLEAN, false);
 
         // verify the data
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(session, tableHandle, TupleDomain.<ColumnHandle>all());
         assertEquals(partitionResult.getPartitions().size(), 1);
-        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
+        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(session, tableHandle, partitionResult.getPartitions());
         ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
-        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(split, columnHandles)) {
+        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, split, columnHandles)) {
             assertPageSourceType(pageSource, storageFormat);
             MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
             assertEquals(result.getRowCount(), 3);
@@ -1421,7 +1420,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private void doCreateEmptyTable(HiveStorageFormat storageFormat)
+    protected void doCreateEmptyTable(SchemaTableName tableName, HiveStorageFormat storageFormat)
             throws Exception
     {
         // create the table
@@ -1435,32 +1434,32 @@ public abstract class AbstractTestHiveClient
                 .add(new ColumnMetadata("t_array_string", arrayStringType, false))
                 .build();
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateEmptyTable, columns, SESSION.getUser());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, SESSION.getUser());
 
         ConnectorSession session = createSession(storageFormat);
 
         metadata.createTable(session, tableMetadata);
 
         // load the new table
-        ConnectorTableHandle tableHandle = getTableHandle(temporaryCreateEmptyTable);
+        ConnectorTableHandle tableHandle = getTableHandle(tableName);
 
         // verify the metadata
-        tableMetadata = metadata.getTableMetadata(getTableHandle(temporaryCreateEmptyTable));
+        tableMetadata = metadata.getTableMetadata(session, getTableHandle(tableName));
         assertEquals(tableMetadata.getOwner(), session.getUser());
 
         Map<String, ColumnMetadata> columnMap = uniqueIndex(tableMetadata.getColumns(), ColumnMetadata::getName);
 
-        assertPrimitiveField(columnMap, 0, "id", BIGINT, false);
-        assertPrimitiveField(columnMap, 1, "t_string", VARCHAR, false);
-        assertPrimitiveField(columnMap, 2, "t_bigint", BIGINT, false);
-        assertPrimitiveField(columnMap, 3, "t_double", DOUBLE, false);
-        assertPrimitiveField(columnMap, 4, "t_boolean", BOOLEAN, false);
-        assertPrimitiveField(columnMap, 5, "t_array_string", arrayStringType, false);
+        assertPrimitiveField(columnMap, "id", BIGINT, false);
+        assertPrimitiveField(columnMap, "t_string", VARCHAR, false);
+        assertPrimitiveField(columnMap, "t_bigint", BIGINT, false);
+        assertPrimitiveField(columnMap, "t_double", DOUBLE, false);
+        assertPrimitiveField(columnMap, "t_boolean", BOOLEAN, false);
+        assertPrimitiveField(columnMap, "t_array_string", arrayStringType, false);
 
         // verify the table is empty
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(session, tableHandle, TupleDomain.<ColumnHandle>all());
         assertEquals(partitionResult.getPartitions().size(), 1);
-        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions());
+        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(session, tableHandle, partitionResult.getPartitions());
         assertEquals(getAllSplits(splitSource).size(), 0);
     }
 
@@ -1476,20 +1475,20 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(database, tableName));
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(tableHandle);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
         HiveSplit hiveSplit = getHiveSplit(tableHandle);
 
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(tableHandle).values());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
 
-        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(hiveSplit, columnHandles);
+        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, hiveSplit, columnHandles);
         assertGetRecords(hiveStorageFormat, tableMetadata, hiveSplit, pageSource, columnHandles);
     }
 
     protected HiveSplit getHiveSplit(ConnectorTableHandle tableHandle)
             throws InterruptedException
     {
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, TupleDomain.<ColumnHandle>all());
-        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(tableHandle, partitionResult.getPartitions()));
+        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
+        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(SESSION, tableHandle, partitionResult.getPartitions()));
         assertEquals(splits.size(), 1);
         return checkType(getOnlyElement(splits), HiveSplit.class, "split");
     }
@@ -1682,12 +1681,12 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private void dropTable(SchemaTableName table)
+    protected void dropTable(SchemaTableName table)
     {
         try {
             ConnectorTableHandle handle = metadata.getTableHandle(SESSION, table);
             if (handle != null) {
-                metadata.dropTable(handle);
+                metadata.dropTable(SESSION, handle);
             }
         }
         catch (RuntimeException e) {
@@ -1805,7 +1804,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private static void assertPrimitiveField(Map<String, ColumnMetadata> map, int position, String name, Type type, boolean partitionKey)
+    private static void assertPrimitiveField(Map<String, ColumnMetadata> map, String name, Type type, boolean partitionKey)
     {
         assertTrue(map.containsKey(name));
         ColumnMetadata column = map.get(name);
@@ -1836,17 +1835,18 @@ public abstract class AbstractTestHiveClient
         return index.build();
     }
 
-    private static ConnectorSession createSession(HiveStorageFormat storageFormat)
+    protected static ConnectorSession createSession(HiveStorageFormat storageFormat)
     {
-        return new ConnectorSession(
+        return new TestingConnectorSession(
                 SESSION.getUser(),
                 SESSION.getTimeZoneKey(),
                 SESSION.getLocale(),
                 SESSION.getStartTime(),
-                ImmutableMap.of(STORAGE_FORMAT_PROPERTY, storageFormat.name().toLowerCase()));
+                new HiveSessionProperties(new HiveClientConfig()).getSessionProperties(),
+                ImmutableMap.of(STORAGE_FORMAT_PROPERTY, storageFormat.name()));
     }
 
-    private static String randomName()
+    protected static String randomName()
     {
         return UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
     }

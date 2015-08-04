@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.TupleDomain;
@@ -39,18 +40,35 @@ public class ClassLoaderSafeConnectorIndexResolver
     }
 
     @Override
-    public ConnectorResolvedIndex resolveIndex(ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorResolvedIndex resolveIndex(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            Set<ColumnHandle> indexableColumns,
+            Set<ColumnHandle> outputColumns,
+            TupleDomain<ColumnHandle> tupleDomain)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.resolveIndex(tableHandle, indexableColumns, tupleDomain);
+            return delegate.resolveIndex(session, tableHandle, indexableColumns, outputColumns, tupleDomain);
         }
     }
 
     @Override
-    public ConnectorIndex getIndex(ConnectorIndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
+    public ConnectorResolvedIndex resolveIndex(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            Set<ColumnHandle> indexableColumns,
+            TupleDomain<ColumnHandle> tupleDomain)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getIndex(indexHandle, lookupSchema, outputSchema);
+            return delegate.resolveIndex(session, tableHandle, indexableColumns, tupleDomain);
+        }
+    }
+
+    @Override
+    public ConnectorIndex getIndex(ConnectorSession session, ConnectorIndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getIndex(session, indexHandle, lookupSchema, outputSchema);
         }
     }
 }

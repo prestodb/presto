@@ -14,6 +14,7 @@
 package com.facebook.presto.tpch.testing;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
@@ -45,7 +46,7 @@ public class SampledTpchRecordSetProvider
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
         int sampleWeightField = -1;
         for (int i = 0; i < columns.size(); i++) {
@@ -62,17 +63,17 @@ public class SampledTpchRecordSetProvider
             if (delegatedColumns.isEmpty()) {
                 // Pick a random column, so that we can figure out how many rows there are
                 TpchSplit tpchSplit = (TpchSplit) split;
-                ColumnHandle column = Iterables.getFirst(metadata.getColumnHandles(tpchSplit.getTableHandle()).values(), null);
+                ColumnHandle column = Iterables.getFirst(metadata.getColumnHandles(session, tpchSplit.getTableHandle()).values(), null);
                 checkNotNull(column, "Could not find any columns");
-                recordSet = new EmptyRecordSet(super.getRecordSet(split, ImmutableList.of(column)));
+                recordSet = new EmptyRecordSet(super.getRecordSet(session, split, ImmutableList.of(column)));
             }
             else {
-                recordSet = super.getRecordSet(split, delegatedColumns);
+                recordSet = super.getRecordSet(session, split, delegatedColumns);
             }
             return new SampledTpchRecordSet(recordSet, sampleWeightField, sampleWeight);
         }
         else {
-            return super.getRecordSet(split, columns);
+            return super.getRecordSet(session, split, columns);
         }
     }
 
@@ -159,6 +160,12 @@ public class SampledTpchRecordSetProvider
 
         @Override
         public Slice getSlice(int field)
+        {
+            throw new RuntimeException("record cursor is empty");
+        }
+
+        @Override
+        public Object getObject(int field)
         {
             throw new RuntimeException("record cursor is empty");
         }
@@ -257,6 +264,12 @@ public class SampledTpchRecordSetProvider
         public Slice getSlice(int field)
         {
             return delegate.getSlice(field);
+        }
+
+        @Override
+        public Object getObject(int field)
+        {
+            return delegate.getObject(field);
         }
 
         @Override

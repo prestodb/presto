@@ -24,7 +24,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
@@ -37,7 +36,6 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
 import static com.facebook.presto.type.TypeUtils.castValue;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class ArrayLessThanOperator
@@ -45,7 +43,7 @@ public class ArrayLessThanOperator
 {
     public static final ArrayLessThanOperator ARRAY_LESS_THAN = new ArrayLessThanOperator();
     private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BOOLEAN);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayLessThanOperator.class, "lessThan", MethodHandle.class, Type.class, Slice.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayLessThanOperator.class, "lessThan", MethodHandle.class, Type.class, Block.class, Block.class);
 
     private ArrayLessThanOperator()
     {
@@ -63,11 +61,8 @@ public class ArrayLessThanOperator
         return operatorInfo(LESS_THAN, RETURN_TYPE, ImmutableList.of(typeSignature, typeSignature), method, false, ImmutableList.of(false, false));
     }
 
-    public static boolean lessThan(MethodHandle lessThanFunction, Type type, Slice left, Slice right)
+    public static boolean lessThan(MethodHandle lessThanFunction, Type type, Block leftArray, Block rightArray)
     {
-        Block leftArray = readStructuralBlock(left);
-        Block rightArray = readStructuralBlock(right);
-
         int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
         int index = 0;
         while (index < len) {

@@ -16,10 +16,14 @@ package com.facebook.presto.cli;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
+import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
+import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.http.client.jetty.JettyIoPool;
+import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 
@@ -38,11 +42,24 @@ public class QueryRunner
     private final AtomicReference<ClientSession> session;
     private final HttpClient httpClient;
 
-    public QueryRunner(ClientSession session, JsonCodec<QueryResults> queryResultsCodec, Optional<HostAndPort> socksProxy)
+    public QueryRunner(
+            ClientSession session,
+            JsonCodec<QueryResults> queryResultsCodec,
+            Optional<HostAndPort> socksProxy,
+            Optional<String> keystorePath,
+            Optional<String> keystorePassword,
+            Optional<String> kerberosPrincipal,
+            Optional<String> kerberosRemoteServiceName,
+            boolean authenticationEnabled,
+            KerberosConfig kerberosConfig)
     {
         this.session = new AtomicReference<>(checkNotNull(session, "session is null"));
         this.queryResultsCodec = checkNotNull(queryResultsCodec, "queryResultsCodec is null");
-        this.httpClient = new JettyHttpClient(getHttpClientConfig(socksProxy));
+        this.httpClient = new JettyHttpClient(
+                getHttpClientConfig(socksProxy, keystorePath, keystorePassword, kerberosPrincipal, kerberosRemoteServiceName, authenticationEnabled),
+                kerberosConfig,
+                com.google.common.base.Optional.<JettyIoPool>absent(),
+                ImmutableList.<HttpRequestFilter>of());
     }
 
     public ClientSession getSession()
@@ -76,18 +93,46 @@ public class QueryRunner
         httpClient.close();
     }
 
-    public static QueryRunner create(ClientSession session, Optional<HostAndPort> socksProxy)
+    public static QueryRunner create(
+            ClientSession session,
+            Optional<HostAndPort> socksProxy,
+            Optional<String> keystorePath,
+            Optional<String> keystorePassword,
+            Optional<String> kerberosPrincipal,
+            Optional<String> kerberosRemoteServiceName,
+            boolean authenticationEnabled,
+            KerberosConfig kerberosConfig)
     {
-        return new QueryRunner(session, jsonCodec(QueryResults.class), socksProxy);
+        return new QueryRunner(
+                session,
+                jsonCodec(QueryResults.class),
+                socksProxy,
+                keystorePath,
+                keystorePassword,
+                kerberosPrincipal,
+                kerberosRemoteServiceName,
+                authenticationEnabled,
+                kerberosConfig);
     }
 
-    private static HttpClientConfig getHttpClientConfig(Optional<HostAndPort> socksProxy)
+    private static HttpClientConfig getHttpClientConfig(
+            Optional<HostAndPort> socksProxy,
+            Optional<String> keystorePath,
+            Optional<String> keystorePassword,
+            Optional<String> kerberosPrincipal,
+            Optional<String> kerberosRemoteServiceName,
+            boolean authenticationEnabled)
     {
         HttpClientConfig httpClientConfig = new HttpClientConfig().setConnectTimeout(new Duration(10, TimeUnit.SECONDS));
 
-        if (socksProxy.isPresent()) {
-            httpClientConfig.setSocksProxy(socksProxy.get());
-        }
+        socksProxy.ifPresent(httpClientConfig::setSocksProxy);
+
+        httpClientConfig.setAuthenticationEnabled(authenticationEnabled);
+
+        keystorePath.ifPresent(httpClientConfig::setKeyStorePath);
+        keystorePassword.ifPresent(httpClientConfig::setKeyStorePassword);
+        kerberosPrincipal.ifPresent(httpClientConfig::setKerberosPrincipal);
+        kerberosRemoteServiceName.ifPresent(httpClientConfig::setKerberosRemoteServiceName);
 
         return httpClientConfig;
     }

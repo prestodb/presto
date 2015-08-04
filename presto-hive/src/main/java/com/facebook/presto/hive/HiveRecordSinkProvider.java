@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordSink;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
@@ -38,18 +39,18 @@ public class HiveRecordSinkProvider
     }
 
     @Override
-    public RecordSink getRecordSink(ConnectorOutputTableHandle tableHandle)
+    public RecordSink getRecordSink(ConnectorSession session, ConnectorOutputTableHandle tableHandle)
     {
         HiveOutputTableHandle handle = checkType(tableHandle, HiveOutputTableHandle.class, "tableHandle");
 
         Path target = new Path(handle.getTemporaryPath(), randomUUID().toString());
         JobConf conf = new JobConf(hdfsEnvironment.getConfiguration(target));
 
-        return new HiveRecordSink(handle, target, conf);
+        return new HiveRecordSink(session, handle, target, conf);
     }
 
     @Override
-    public RecordSink getRecordSink(ConnectorInsertTableHandle tableHandle)
+    public RecordSink getRecordSink(ConnectorSession session, ConnectorInsertTableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
     }

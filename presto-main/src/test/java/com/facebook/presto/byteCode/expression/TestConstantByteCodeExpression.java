@@ -64,5 +64,15 @@ public class TestConstantByteCodeExpression
         assertByteCodeExpression(constantString("foo"), "foo", "\"foo\"");
 
         assertByteCodeExpression(constantClass(List.class), List.class, "List.class");
+
+        assertByteCodeExpression(constantClass(boolean.class), boolean.class, "boolean.class");
+        assertByteCodeExpression(constantClass(byte.class), byte.class, "byte.class");
+        assertByteCodeExpression(constantClass(char.class), char.class, "char.class");
+        assertByteCodeExpression(constantClass(double.class), double.class, "double.class");
+        assertByteCodeExpression(constantClass(float.class), float.class, "float.class");
+        assertByteCodeExpression(constantClass(int.class), int.class, "int.class");
+        assertByteCodeExpression(constantClass(long.class), long.class, "long.class");
+        assertByteCodeExpression(constantClass(short.class), short.class, "short.class");
+        assertByteCodeExpression(constantClass(void.class), void.class, "void.class");
     }
 }

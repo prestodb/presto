@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.108-SNAPSHOT</version>
+        <version>0.114-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-parser</artifactId>
@@ -49,11 +49,6 @@
         <dependency>
             <groupId>org.antlr</groupId>
             <artifactId>antlr4-runtime</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.antlr</groupId>
-            <artifactId>antlr4-annotations</artifactId>
         </dependency>
 
         <!-- for testing -->

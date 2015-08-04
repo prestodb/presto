@@ -28,7 +28,6 @@ import com.facebook.presto.operator.aggregation.state.ArrayAggregationStateSeria
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.ArrayType;
@@ -43,8 +42,6 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
@@ -55,7 +52,7 @@ public class ArrayAggregation
     private static final String NAME = "array_agg";
     private static final MethodHandle INPUT_FUNCTION = methodHandle(ArrayAggregation.class, "input", Type.class, ArrayAggregationState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(ArrayAggregation.class, "combine", Type.class, ArrayAggregationState.class, ArrayAggregationState.class);
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ArrayAggregation.class, "output", ArrayAggregationState.class, BlockBuilder.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ArrayAggregation.class, "output", Type.class, ArrayAggregationState.class, BlockBuilder.class);
     private static final Signature SIGNATURE = new Signature(NAME, ImmutableList.of(typeParameter("T")), "array<T>", ImmutableList.of("T"), false, false);
 
     @Override
@@ -87,15 +84,17 @@ public class ArrayAggregation
 
         AccumulatorStateSerializer<?> stateSerializer = new ArrayAggregationStateSerializer(type);
         AccumulatorStateFactory<?> stateFactory = new ArrayAggregationStateFactory();
-        MethodHandle inputFunction = INPUT_FUNCTION.bindTo(type);
-        MethodHandle combineFunction = COMBINE_FUNCTION.bindTo(type);
-        MethodHandle outputFunction = OUTPUT_FUNCTION;
-        Class<? extends AccumulatorState> stateInterface = ArrayAggregationState.class;
 
         List<Type> inputTypes = ImmutableList.of(type);
         Type outputType = new ArrayType(type);
         Type intermediateType = stateSerializer.getSerializedType();
         List<ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type);
+
+        MethodHandle inputFunction = INPUT_FUNCTION.bindTo(type);
+        MethodHandle combineFunction = COMBINE_FUNCTION.bindTo(type);
+        MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(outputType);
+        Class<? extends AccumulatorState> stateInterface = ArrayAggregationState.class;
+
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(NAME, type, inputTypes),
                 inputParameterMetadata,
@@ -123,7 +122,7 @@ public class ArrayAggregation
     {
         BlockBuilder blockBuilder = state.getBlockBuilder();
         if (blockBuilder == null) {
-            blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus()); // not using type.createBlockBuilder because fixedWidth ones can't be serialized
+            blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 100);
             state.setBlockBuilder(blockBuilder);
         }
         long startSize = blockBuilder.getRetainedSizeInBytes();
@@ -150,14 +149,14 @@ public class ArrayAggregation
         state.addMemoryUsage(stateBlockBuilder.getRetainedSizeInBytes() - startSize);
     }
 
-    public static void output(ArrayAggregationState state, BlockBuilder out)
+    public static void output(Type outputType, ArrayAggregationState state, BlockBuilder out)
     {
         BlockBuilder stateBlockBuilder = state.getBlockBuilder();
         if (stateBlockBuilder == null || stateBlockBuilder.getPositionCount() == 0) {
             out.appendNull();
         }
         else {
-            VARBINARY.writeSlice(out, buildStructuralSlice(stateBlockBuilder));
+            outputType.writeObject(out, stateBlockBuilder.build());
         }
     }
 }

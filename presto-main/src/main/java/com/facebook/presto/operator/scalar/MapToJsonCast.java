@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.ParametricOperator;
 import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -54,7 +55,7 @@ public class MapToJsonCast
 {
     public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
     private static final Supplier<ObjectMapper> OBJECT_MAPPER = Suppliers.memoize(() -> new ObjectMapperProvider().get().registerModule(new SimpleModule().addSerializer(Slice.class, new SliceSerializer()).addSerializer(Map.class, new MapSerializer())));
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", Type.class, Type.class, ConnectorSession.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", Type.class, Type.class, ConnectorSession.class, Block.class);
 
     private MapToJsonCast()
     {
@@ -75,10 +76,10 @@ public class MapToJsonCast
         return operatorInfo(OperatorType.CAST, parseTypeSignature(StandardTypes.JSON), ImmutableList.of(mapType.getTypeSignature()), methodHandle, false, ImmutableList.of(false));
     }
 
-    public static Slice toJson(Type keyType, Type valueType, ConnectorSession session, Slice slice)
+    public static Slice toJson(Type keyType, Type valueType, ConnectorSession session, Block block)
     {
         MapType mapType = new MapType(keyType, valueType);
-        Object object = mapType.getObjectValue(session, createBlock(mapType, slice), 0);
+        Object object = mapType.getObjectValue(session, createBlock(mapType, block), 0);
         try {
             return Slices.utf8Slice(OBJECT_MAPPER.get().writeValueAsString(object));
         }

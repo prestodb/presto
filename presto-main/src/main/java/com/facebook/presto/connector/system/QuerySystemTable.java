@@ -89,7 +89,7 @@ public class QuerySystemTable
                     queryInfo.getQueryId().toString(),
                     queryInfo.getState().toString(),
                     queryInfo.getSession().getUser(),
-                    queryInfo.getSession().getSource(),
+                    queryInfo.getSession().getSource().orElse(null),
                     queryInfo.getQuery(),
 
                     toMillis(queryStats.getQueuedTime()),

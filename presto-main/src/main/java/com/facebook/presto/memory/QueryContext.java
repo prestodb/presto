@@ -40,6 +40,7 @@ public class QueryContext
     private final boolean enforceLimit;
     private final Executor executor;
     private final List<TaskContext> taskContexts = new CopyOnWriteArrayList<>();
+    private final MemoryPool systemMemoryPool;
 
     @GuardedBy("this")
     private long reserved;
@@ -47,11 +48,15 @@ public class QueryContext
     @GuardedBy("this")
     private MemoryPool memoryPool;
 
-    public QueryContext(boolean enforceLimit, DataSize maxMemory, MemoryPool memoryPool, Executor executor)
+    @GuardedBy("this")
+    private long systemReserved;
+
+    public QueryContext(boolean enforceLimit, DataSize maxMemory, MemoryPool memoryPool, MemoryPool systemMemoryPool, Executor executor)
     {
         this.enforceLimit = enforceLimit;
         this.maxMemory = requireNonNull(maxMemory, "maxMemory is null").toBytes();
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
+        this.systemMemoryPool = requireNonNull(systemMemoryPool, "systemMemoryPool is null");
         this.executor = requireNonNull(executor, "executor is null");
     }
 
@@ -64,6 +69,15 @@ public class QueryContext
         }
         ListenableFuture<?> future = memoryPool.reserve(bytes);
         reserved += bytes;
+        return future;
+    }
+
+    public synchronized ListenableFuture<?> reserveSystemMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+
+        ListenableFuture<?> future = systemMemoryPool.reserve(bytes);
+        systemReserved += bytes;
         return future;
     }
 
@@ -86,6 +100,14 @@ public class QueryContext
         checkArgument(reserved - bytes >= 0, "tried to free more memory than is reserved");
         reserved -= bytes;
         memoryPool.free(bytes);
+    }
+
+    public synchronized void freeSystemMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(systemReserved - bytes >= 0, "tried to free more system memory than is reserved");
+        systemReserved -= bytes;
+        systemMemoryPool.free(bytes);
     }
 
     public synchronized void setMemoryPool(MemoryPool pool)

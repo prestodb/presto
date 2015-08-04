@@ -13,18 +13,14 @@
  */
 package com.facebook.presto.operator.index;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Locale;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
@@ -32,6 +28,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 
 public class TestTupleFilterProcessor
@@ -54,10 +51,8 @@ public class TestTupleFilterProcessor
                 .row("a", 0L, false, 0.2, 0.2)
                 .build());
 
-        ConnectorSession session = new ConnectorSession("user", TimeZoneKey.UTC_KEY, Locale.ENGLISH, 0, ImmutableMap.<String, String>of());
-
         PageBuilder pageBuilder = new PageBuilder(outputTypes);
-        int end = tupleFilterProcessor.process(session, inputPage, 0, inputPage.getPositionCount(), pageBuilder);
+        int end = tupleFilterProcessor.process(SESSION, inputPage, 0, inputPage.getPositionCount(), pageBuilder);
         Page actualPage = pageBuilder.build();
 
         Page expectedPage = Iterables.getOnlyElement(rowPagesBuilder(outputTypes)
@@ -88,10 +83,8 @@ public class TestTupleFilterProcessor
                 .row("a", 1L, false, 0.1, 3.0)
                 .build());
 
-        ConnectorSession session = new ConnectorSession("user", TimeZoneKey.UTC_KEY, Locale.ENGLISH, 0, ImmutableMap.<String, String>of());
-
         PageBuilder pageBuilder = new PageBuilder(outputTypes);
-        int end = tupleFilterProcessor.process(session, inputPage, 1, 4, pageBuilder);
+        int end = tupleFilterProcessor.process(SESSION, inputPage, 1, 4, pageBuilder);
         Page actualPage = pageBuilder.build();
 
         Page expectedPage = Iterables.getOnlyElement(rowPagesBuilder(outputTypes)

@@ -47,7 +47,16 @@ public final class Marker
     {
         Objects.requireNonNull(type, "type is null");
         Objects.requireNonNull(bound, "bound is null");
-        if (!verifySelfComparable(type)) {
+        if (value != null && !verifySelfComparable(type)) {
+            // Condition "value != null" enables LOWER UNBOUNDED and UPPER UNBOUNDED values for non-comparable types.
+
+            // !!!HACK ALERT!!!
+            // It is planned that we will support non-comparable type in TupleDomain. Until that day comes, the
+            // `value != null` part of this if condition is a HACK so that Block can be used as a native container
+            // type. Consider this a hack and don't rely on it because plans CAN change.
+
+            // Notes: assuming type and value match, one would quickly conclude that type implements some sort of
+            // Comparable. This conclusion is WRONG. For example, type=Object.class and value=null.
             throw new IllegalArgumentException("type must be comparable to itself: " + type);
         }
         if (value == null && bound == Bound.EXACTLY) {

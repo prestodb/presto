@@ -22,22 +22,10 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 public class NullableBooleanStateSerializer
         implements AccumulatorStateSerializer<NullableBooleanState>
 {
-    private final Type type;
-
-    public NullableBooleanStateSerializer()
-    {
-        this(BOOLEAN);
-    }
-
-    public NullableBooleanStateSerializer(Type type)
-    {
-        this.type = type;
-    }
-
     @Override
     public Type getSerializedType()
     {
-        return type;
+        return BOOLEAN;
     }
 
     @Override
@@ -47,7 +35,7 @@ public class NullableBooleanStateSerializer
             out.appendNull();
         }
         else {
-            type.writeBoolean(out, state.getBoolean());
+            BOOLEAN.writeBoolean(out, state.getBoolean());
         }
     }
 
@@ -56,7 +44,7 @@ public class NullableBooleanStateSerializer
     {
         state.setNull(block.isNull(index));
         if (!state.isNull()) {
-            state.setBoolean(type.getBoolean(block, index));
+            state.setBoolean(BOOLEAN.getBoolean(block, index));
         }
     }
 }

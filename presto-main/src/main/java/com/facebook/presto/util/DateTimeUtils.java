@@ -45,6 +45,7 @@ import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackDateTimeZone;
+import static java.lang.String.format;
 
 public final class DateTimeUtils
 {
@@ -148,11 +149,17 @@ public final class DateTimeUtils
     public static boolean timestampHasTimeZone(String value)
     {
         try {
-            TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseMillis(value);
-            return true;
+            try {
+                TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseMillis(value);
+                return true;
+            }
+            catch (Exception e) {
+                TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.parseMillis(value);
+                return false;
+            }
         }
         catch (Exception e) {
-            return false;
+            throw new IllegalArgumentException(format("Invalid timestamp '%s'", value));
         }
     }
 

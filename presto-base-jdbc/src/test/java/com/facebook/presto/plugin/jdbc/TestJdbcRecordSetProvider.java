@@ -33,6 +33,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static org.testng.Assert.assertEquals;
@@ -76,7 +77,7 @@ public class TestJdbcRecordSetProvider
             throws Exception
     {
         JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
-        RecordSet recordSet = recordSetProvider.getRecordSet(split, ImmutableList.of(textColumn, valueColumn));
+        RecordSet recordSet = recordSetProvider.getRecordSet(SESSION, split, ImmutableList.of(textColumn, valueColumn));
         assertNotNull(recordSet, "recordSet is null");
 
         RecordCursor cursor = recordSet.cursor();
@@ -184,7 +185,7 @@ public class TestJdbcRecordSetProvider
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(1000)));
 
         JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
-        RecordSet recordSet = recordSetProvider.getRecordSet(split, columns);
+        RecordSet recordSet = recordSetProvider.getRecordSet(SESSION, split, columns);
 
         return recordSet.cursor();
     }

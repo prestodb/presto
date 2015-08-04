@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.index;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.metadata.ResolvedIndex;
 import com.facebook.presto.metadata.TableHandle;
@@ -20,6 +21,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 
 import java.util.List;
@@ -40,14 +42,20 @@ public class IndexManager
         checkState(resolvers.putIfAbsent(connectorId, resolver) == null, "IndexResolver for connector '%s' is already registered", connectorId);
     }
 
-    public Optional<ResolvedIndex> resolveIndex(TableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain)
+    public Optional<ResolvedIndex> resolveIndex(
+            Session session,
+            TableHandle tableHandle,
+            Set<ColumnHandle> indexableColumns,
+            Set<ColumnHandle> outputColumns,
+            TupleDomain<ColumnHandle> tupleDomain)
     {
         ConnectorIndexResolver resolver = resolvers.get(tableHandle.getConnectorId());
         if (resolver == null) {
             return Optional.empty();
         }
 
-        ConnectorResolvedIndex resolved = resolver.resolveIndex(tableHandle.getConnectorHandle(), indexableColumns, tupleDomain);
+        ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getConnectorId());
+        ConnectorResolvedIndex resolved = resolver.resolveIndex(connectorSession, tableHandle.getConnectorHandle(), indexableColumns, outputColumns, tupleDomain);
 
         if (resolved == null) {
             return Optional.empty();
@@ -56,10 +64,12 @@ public class IndexManager
         return Optional.of(new ResolvedIndex(tableHandle.getConnectorId(), resolved));
     }
 
-    public ConnectorIndex getIndex(IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
+    public ConnectorIndex getIndex(Session session, IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
     {
+        // assumes connectorId and catalog are the same
+        ConnectorSession connectorSession = session.toConnectorSession(indexHandle.getConnectorId());
         return getResolver(indexHandle)
-                .getIndex(indexHandle.getConnectorHandle(), lookupSchema, outputSchema);
+                .getIndex(connectorSession, indexHandle.getConnectorHandle(), lookupSchema, outputSchema);
     }
 
     private ConnectorIndexResolver getResolver(IndexHandle handle)

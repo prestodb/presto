@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.block.ArrayBlockEncoding;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.block.DictionaryBlockEncoding;
+import com.facebook.presto.spi.block.InterleavedBlockEncoding;
 import com.facebook.presto.spi.block.FixedWidthBlockEncoding;
 import com.facebook.presto.spi.block.LazySliceArrayBlockEncoding;
 import com.facebook.presto.spi.block.SliceArrayBlockEncoding;
@@ -58,6 +61,9 @@ public final class BlockEncodingManager
         addBlockEncodingFactory(FixedWidthBlockEncoding.FACTORY);
         addBlockEncodingFactory(SliceArrayBlockEncoding.FACTORY);
         addBlockEncodingFactory(LazySliceArrayBlockEncoding.FACTORY);
+        addBlockEncodingFactory(DictionaryBlockEncoding.FACTORY);
+        addBlockEncodingFactory(ArrayBlockEncoding.FACTORY);
+        addBlockEncodingFactory(InterleavedBlockEncoding.FACTORY);
 
         for (BlockEncodingFactory<?> factory : checkNotNull(blockEncodingFactories, "blockEncodingFactories is null")) {
             addBlockEncodingFactory(factory);

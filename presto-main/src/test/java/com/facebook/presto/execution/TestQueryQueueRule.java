@@ -14,15 +14,13 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.util.Locale;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.SystemSessionProperties.BIG_QUERY;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryQueueRule
@@ -30,18 +28,17 @@ public class TestQueryQueueRule
     @Test
     public void testBasic()
     {
-        Session session = new Session("bob", "the-internet", "", "", TimeZoneKey.UTC_KEY, Locale.ENGLISH, null, null, 0, ImmutableMap.of(), ImmutableMap.of());
         QueryQueueDefinition definition = new QueryQueueDefinition("user.${USER}", 1, 1);
         QueryQueueRule rule = new QueryQueueRule(Pattern.compile(".+"), null, ImmutableMap.of(), ImmutableList.of(definition));
-        assertEquals(rule.match(session), ImmutableList.of(definition));
+        assertEquals(rule.match(TEST_SESSION), ImmutableList.of(definition));
     }
 
     @Test
     public void testBigQuery()
     {
-        Session session = new Session("bob", "the-internet", "", "", TimeZoneKey.UTC_KEY, Locale.ENGLISH, null, null, 0, ImmutableMap.of(BIG_QUERY, "true"), ImmutableMap.of());
+        Session session = TEST_SESSION.withSystemProperty("big_query", "true");
         QueryQueueDefinition definition = new QueryQueueDefinition("big", 1, 1);
-        QueryQueueRule rule = new QueryQueueRule(null, null, ImmutableMap.of(BIG_QUERY, Pattern.compile("true", Pattern.CASE_INSENSITIVE)), ImmutableList.of(definition));
+        QueryQueueRule rule = new QueryQueueRule(null, null, ImmutableMap.of("big_query", Pattern.compile("true", Pattern.CASE_INSENSITIVE)), ImmutableList.of(definition));
         assertEquals(rule.match(session), ImmutableList.of(definition));
     }
 }

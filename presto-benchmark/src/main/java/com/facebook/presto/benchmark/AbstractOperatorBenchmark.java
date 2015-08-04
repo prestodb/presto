@@ -34,12 +34,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -93,18 +92,14 @@ public abstract class AbstractOperatorBenchmark
     @Override
     protected Map<String, Long> runOnce()
     {
-        Session session = Session.builder()
-                .setUser("user")
-                .setSource("source")
-                .setCatalog("catalog")
-                .setSchema("schema")
-                .setTimeZoneKey(UTC_KEY)
-                .setLocale(ENGLISH)
+        Session session = testSessionBuilder()
                 .setSystemProperties(ImmutableMap.of("optimizer.optimize-hash-generation", "true"))
                 .build();
         ExecutorService executor = localQueryRunner.getExecutor();
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE), false);
-        TaskContext taskContext = new QueryContext(false, new DataSize(256, MEGABYTE), memoryPool, executor)
+        MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE), false);
+
+        TaskContext taskContext = new QueryContext(false, new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, executor)
                 .addTaskContext(new TaskStateMachine(new TaskId("query", "stage", "task"), executor),
                         session,
                         new DataSize(256, MEGABYTE),

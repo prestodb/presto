@@ -14,6 +14,7 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.spi.Plugin;
 import org.intellij.lang.annotations.Language;
@@ -31,6 +32,8 @@ public interface QueryRunner
     int getNodeCount();
 
     Session getDefaultSession();
+
+    Metadata getMetadata();
 
     MaterializedResult execute(@Language("SQL") String sql);
 

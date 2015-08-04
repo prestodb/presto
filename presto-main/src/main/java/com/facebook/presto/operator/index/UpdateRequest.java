@@ -15,10 +15,11 @@ package com.facebook.presto.operator.index;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import io.airlift.concurrent.MoreFutures;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -27,7 +28,7 @@ import static com.google.common.base.Preconditions.checkState;
 class UpdateRequest
 {
     private final Block[] blocks;
-    private final AtomicReference<IndexSnapshot> indexSnapshotReference = new AtomicReference<>();
+    private final CompletableFuture<IndexSnapshot> indexSnapshotFuture = new CompletableFuture<>();
     private final Page page;
 
     public UpdateRequest(Block... blocks)
@@ -50,18 +51,22 @@ class UpdateRequest
     public void finished(IndexSnapshot indexSnapshot)
     {
         checkNotNull(indexSnapshot, "indexSnapshot is null");
-        checkState(indexSnapshotReference.compareAndSet(null, indexSnapshot), "Already finished!");
+        checkState(indexSnapshotFuture.complete(indexSnapshot), "Already finished!");
+    }
+
+    public void failed(Throwable throwable)
+    {
+        indexSnapshotFuture.completeExceptionally(throwable);
     }
 
     public boolean isFinished()
     {
-        return indexSnapshotReference.get() != null;
+        return indexSnapshotFuture.isDone();
     }
 
     public IndexSnapshot getFinishedIndexSnapshot()
     {
-        IndexSnapshot indexSnapshot = indexSnapshotReference.get();
-        checkState(indexSnapshot != null, "Update request is not finished");
-        return indexSnapshot;
+        checkState(indexSnapshotFuture.isDone(), "Update request is not finished");
+        return MoreFutures.getFutureValue(indexSnapshotFuture);
     }
 }

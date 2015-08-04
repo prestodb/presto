@@ -27,7 +27,6 @@ import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.TupleDomain;
@@ -72,6 +71,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -80,7 +80,6 @@ import static io.airlift.testing.FileUtils.deleteRecursively;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -95,7 +94,6 @@ public class TestOrcStorageManager
     private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(UTC);
     private static final DateTime EPOCH = new DateTime(0, UTC_CHRONOLOGY);
-    private static final ConnectorSession SESSION = new ConnectorSession("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), null);
     private static final String CURRENT_NODE = "node";
     private static final DataSize ORC_MAX_MERGE_DISTANCE = new DataSize(1, MEGABYTE);
     private static final DataSize ORC_MAX_READ_SIZE = new DataSize(1, MEGABYTE);
@@ -152,7 +150,7 @@ public class TestOrcStorageManager
         UUID uuid = UUID.fromString("701e1a79-74f7-4f56-b438-b41e8e7d019d");
 
         assertEquals(
-                new File(temporary, "data/storage/701/e1a/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
+                new File(temporary, "data/storage/70/1e/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
                 storageService.getStorageFile(uuid));
 
         assertEquals(
@@ -160,7 +158,7 @@ public class TestOrcStorageManager
                 storageService.getStagingFile(uuid));
 
         assertEquals(
-                new File(temporary, "backup/701/e1a/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
+                new File(temporary, "backup/70/1e/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
                 fileBackupStore.getBackupFile(uuid));
     }
 

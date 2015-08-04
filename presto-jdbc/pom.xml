@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.108-SNAPSHOT</version>
+        <version>0.114-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-jdbc</artifactId>
@@ -207,9 +207,9 @@
                                     </excludes>
                                 </filter>
                                 <filter>
-                                    <artifact>com.fasterxml.jackson.core:*</artifact>
+                                    <artifact>com.fasterxml.jackson.*:*</artifact>
                                     <excludes>
-                                        <exclude>META-INF/services/**</exclude>
+                                        <exclude>META-INF/**</exclude>
                                     </excludes>
                                 </filter>
                                 <filter>

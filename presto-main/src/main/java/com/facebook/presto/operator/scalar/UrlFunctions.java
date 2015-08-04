@@ -17,13 +17,17 @@ import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.google.common.base.Splitter;
+import com.google.common.escape.Escaper;
+import com.google.common.net.UrlEscapers;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLDecoder;
 import java.util.Iterator;
 
 import static com.google.common.base.Strings.nullToEmpty;
@@ -127,6 +131,28 @@ public final class UrlFunctions
 
         // no key matched
         return null;
+    }
+
+    @Description("escape a string for use in URL query parameter names and values")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice urlEncode(@SqlType(StandardTypes.VARCHAR) Slice value)
+    {
+        Escaper escaper = UrlEscapers.urlFormParameterEscaper();
+        return slice(escaper.escape(value.toString(UTF_8)));
+    }
+
+    @Description("unescape a URL-encoded string")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice urlDecode(@SqlType(StandardTypes.VARCHAR) Slice value)
+    {
+        try {
+            return slice(URLDecoder.decode(value.toString(UTF_8), UTF_8.name()));
+        }
+        catch (UnsupportedEncodingException e) {
+            throw new AssertionError(e);
+        }
     }
 
     private static Slice slice(@Nullable String s)

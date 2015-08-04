@@ -22,6 +22,7 @@ import com.facebook.presto.orc.LongVector;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
+import com.facebook.presto.orc.SingleObjectVector;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -29,6 +30,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.LazyArrayBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.LazyFixedWidthBlock;
 import com.facebook.presto.spi.block.LazySliceArrayBlock;
@@ -259,8 +261,11 @@ public class OrcPageSource
                 else if (DOUBLE.equals(type)) {
                     blocks[fieldId] = new LazyFixedWidthBlock(DOUBLE.getFixedSize(), batchSize, new LazyDoubleBlockLoader(hiveColumnIndexes[fieldId], batchSize));
                 }
-                else if (VARCHAR.equals(type) || VARBINARY.equals(type) || isStructuralType[fieldId]) {
+                else if (VARCHAR.equals(type) || VARBINARY.equals(type)) {
                     blocks[fieldId] = new LazySliceArrayBlock(batchSize, new LazySliceBlockLoader(hiveColumnIndexes[fieldId], batchSize));
+                }
+                else if (isStructuralType[fieldId]) {
+                    blocks[fieldId] = new LazyArrayBlock(new LazyStructuralBlockLoader(hiveColumnIndexes[fieldId], types.get(fieldId)));
                 }
                 else {
                     throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type);
@@ -464,9 +469,44 @@ public class OrcPageSource
         {
             checkState(batchId == expectedBatchId);
             try {
-                SliceVector vector = new SliceVector(batchSize);
+                SliceVector vector = new SliceVector();
                 recordReader.readVector(hiveColumnIndex, vector);
-                block.setValues(vector.vector);
+                if (vector.dictionary) {
+                    block.setValues(vector.vector, vector.ids, vector.isNull);
+                }
+                else {
+                    block.setValues(vector.vector);
+                }
+            }
+            catch (IOException e) {
+                throw propagateException(e);
+            }
+        }
+    }
+
+    private final class LazyStructuralBlockLoader
+            implements LazyBlockLoader<LazyArrayBlock>
+    {
+        private final int expectedBatchId = batchId;
+
+        private final int hiveColumnIndex;
+        private final Type type;
+
+        public LazyStructuralBlockLoader(int hiveColumnIndex, Type type)
+        {
+            this.hiveColumnIndex = hiveColumnIndex;
+            this.type = type;
+        }
+
+        @Override
+        public void load(LazyArrayBlock block)
+        {
+            checkState(batchId == expectedBatchId);
+            try {
+                SingleObjectVector vector = new SingleObjectVector();
+                recordReader.readVector(type, hiveColumnIndex, vector);
+                Block resultBlock = (Block) vector.object;
+                block.copyFromBlock(resultBlock);
             }
             catch (IOException e) {
                 throw propagateException(e);

@@ -24,10 +24,9 @@ import io.airlift.tpch.TpchTable;
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
 
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createOrReplaceKeyspace;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static java.util.Locale.ENGLISH;
 
 public final class CassandraQueryRunner
 {
@@ -87,13 +86,9 @@ public final class CassandraQueryRunner
 
     public static Session createCassandraSession(String schema)
     {
-        return Session.builder()
-                .setUser("user")
-                .setSource("test")
+        return testSessionBuilder()
                 .setCatalog("cassandra")
                 .setSchema(schema)
-                .setTimeZoneKey(UTC_KEY)
-                .setLocale(ENGLISH)
                 .build();
     }
 }

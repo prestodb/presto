@@ -21,6 +21,20 @@ The ``||`` operator is used to concatenate an array with an array or an element 
 Array Functions
 ---------------
 
+.. function:: array_min(x) -> x
+
+    Returns the minimum value of input array.
+
+.. function:: array_max(x) -> x
+
+    Returns the maximum value of input array.
+
+.. function:: element_at(array<E>, index) -> E
+
+    Returns element of ``array`` at given ``index``.
+    If ``index`` >= 0, this function provides the same functionality as the SQL-standard subscript operator (``[]``).
+    If ``index`` < 0, ``element_at`` accesses elements from the last to the first.
+
 .. function:: array_distinct(x) -> array
 
     Remove duplicate values from the array ``x``.
@@ -58,3 +72,7 @@ Array Functions
 .. function:: array_remove(x, element) -> array
 
     Remove all elements that equal ``element`` from array ``x``.
+
+.. function:: slice(x, start, length) -> array
+
+    Subsets array ``x`` starting from index ``start`` (or starting from the end if ``start`` is negative) with a length of ``length``.

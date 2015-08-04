@@ -31,7 +31,7 @@ statement
     | USE schema=identifier                                            #use
     | USE catalog=identifier '.' schema=identifier                     #use
     | CREATE TABLE qualifiedName AS query                              #createTableAsSelect
-    | CREATE TABLE qualifiedName
+    | CREATE TABLE (IF NOT EXISTS)? qualifiedName
         '(' tableElement (',' tableElement)* ')'                       #createTable
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
     | INSERT INTO qualifiedName query                                  #insertInto
@@ -50,7 +50,7 @@ statement
     | DESC qualifiedName                                               #showColumns
     | SHOW FUNCTIONS                                                   #showFunctions
     | SHOW SESSION                                                     #showSession
-    | SET SESSION qualifiedName EQ STRING                              #setSession
+    | SET SESSION qualifiedName EQ expression                          #setSession
     | RESET SESSION qualifiedName                                      #resetSession
     | SHOW PARTITIONS (FROM | IN) qualifiedName
         (WHERE booleanExpression)?
@@ -336,6 +336,7 @@ nonReserved
     | VIEW | REPLACE
     | IF | NULLIF | COALESCE
     | normalForm
+    | POSITION
     ;
 
 normalForm

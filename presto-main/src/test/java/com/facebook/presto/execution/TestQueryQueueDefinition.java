@@ -14,11 +14,8 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.TimeZoneKey;
-import com.google.common.collect.ImmutableMap;
+import com.facebook.presto.testing.TestingSession;
 import org.testng.annotations.Test;
-
-import java.util.Locale;
 
 import static org.testng.Assert.assertEquals;
 
@@ -27,7 +24,11 @@ public class TestQueryQueueDefinition
     @Test
     public void testNameExpansion()
     {
-        Session session = new Session("bob", "the-internet", "", "", TimeZoneKey.UTC_KEY, Locale.ENGLISH, null, null, 0, ImmutableMap.of(), ImmutableMap.of());
+        Session session = TestingSession.testSessionBuilder()
+                .setUser("bob")
+                .setSource("the-internet")
+                .build();
+
         QueryQueueDefinition definition = new QueryQueueDefinition("user.${USER}", 1, 1);
         assertEquals(definition.getExpandedTemplate(session), "user.bob");
         definition = new QueryQueueDefinition("source.${SOURCE}", 1, 1);

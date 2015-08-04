@@ -23,12 +23,14 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.LazyArrayBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.LazyFixedWidthBlock;
 import com.facebook.presto.spi.block.LazySliceArrayBlock;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.VariableWidthType;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -297,12 +299,21 @@ public class RcFilePageSource
                     LazyBlockLoader<LazyFixedWidthBlock> loader = blockLoader.fixedWidthBlockLoader(rcFileColumnsBatch, fieldId, hiveTypes.get(fieldId));
                     blocks[fieldId] = new LazyFixedWidthBlock(((FixedWidthType) type).getFixedSize(), currentPageSize, loader);
                 }
-                else {
+                else if (type instanceof VariableWidthType) {
                     LazyBlockLoader<LazySliceArrayBlock> loader = blockLoader.variableWidthBlockLoader(rcFileColumnsBatch,
                             fieldId,
                             hiveTypes.get(fieldId),
                             fieldInspectors[fieldId]);
                     blocks[fieldId] = new LazySliceArrayBlock(currentPageSize, loader);
+                }
+                else {
+                    LazyBlockLoader<LazyArrayBlock> loader = blockLoader.structuralBlockLoader(
+                            rcFileColumnsBatch,
+                            fieldId,
+                            hiveTypes.get(fieldId),
+                            fieldInspectors[fieldId],
+                            type);
+                    blocks[fieldId] = new LazyArrayBlock(loader);
                 }
             }
 

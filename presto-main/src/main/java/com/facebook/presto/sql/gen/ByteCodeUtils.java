@@ -29,6 +29,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
+import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -246,7 +247,7 @@ public final class ByteCodeUtils
         else if (type == Void.class) {
             notNull.pushNull()
                     .checkCast(Void.class);
-            expectedCurrentStackType = void.class;
+            return notNull;
         }
         else {
             throw new UnsupportedOperationException("not yet implemented: " + type);
@@ -282,7 +283,12 @@ public final class ByteCodeUtils
                     .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
                     .pop();
         }
-        String methodName = "write" + Primitives.wrap(type.getJavaType()).getSimpleName();
+
+        Class<?> valueJavaType = type.getJavaType();
+        if (!valueJavaType.isPrimitive() && valueJavaType != Slice.class) {
+            valueJavaType = Object.class;
+        }
+        String methodName = "write" + Primitives.wrap(valueJavaType).getSimpleName();
 
         // the stack contains [output, value]
 
@@ -291,7 +297,7 @@ public final class ByteCodeUtils
         // use temp variables to re-shuffle the stack to the right shape before Type.writeXXX is called
         // Unfortunately, because of the assumptions made by try_cast, we can't get around it yet.
         // TODO: clean up once try_cast is fixed
-        Variable tempValue = scope.createTempVariable(type.getJavaType());
+        Variable tempValue = scope.createTempVariable(valueJavaType);
         Variable tempOutput = scope.createTempVariable(BlockBuilder.class);
         return new Block()
                 .comment("if (wasNull)")
@@ -299,16 +305,16 @@ public final class ByteCodeUtils
                         .condition(wasNullVariable)
                         .ifTrue(new Block()
                                 .comment("output.appendNull();")
-                                .pop(type.getJavaType())
+                                .pop(valueJavaType)
                                 .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
                                 .pop())
                         .ifFalse(new Block()
-                                .comment("%s.%s(output, %s)", type.getTypeSignature(), methodName, type.getJavaType().getSimpleName())
+                                .comment("%s.%s(output, %s)", type.getTypeSignature(), methodName, valueJavaType.getSimpleName())
                                 .putVariable(tempValue)
                                 .putVariable(tempOutput)
                                 .append(loadConstant(callSiteBinder.bind(type, Type.class)))
                                 .getVariable(tempOutput)
                                 .getVariable(tempValue)
-                                .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, type.getJavaType())));
+                                .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, valueJavaType)));
     }
 }

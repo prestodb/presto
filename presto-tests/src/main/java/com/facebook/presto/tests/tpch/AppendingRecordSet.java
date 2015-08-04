@@ -165,6 +165,12 @@ class AppendingRecordSet
         }
 
         @Override
+        public Object getObject(int field)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public boolean isNull(int field)
         {
             checkPositionIndex(field, delegateFieldCount + appendedTypes.size());

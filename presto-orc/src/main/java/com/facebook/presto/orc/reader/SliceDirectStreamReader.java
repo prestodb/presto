@@ -110,7 +110,6 @@ public class SliceDirectStreamReader
             }
         }
 
-        SliceVector sliceVector = castOrcVector(vector, SliceVector.class);
         if (presentStream == null) {
             if (lengthStream == null) {
                 throw new OrcCorruptionException("Value is not null but length stream is not present");
@@ -141,6 +140,9 @@ public class SliceDirectStreamReader
             }
             data = dataStream.next(totalLength);
         }
+
+        SliceVector sliceVector = castOrcVector(vector, SliceVector.class);
+        sliceVector.initialize(nextBatchSize);
 
         int offset = 0;
         for (int i = 0; i < nextBatchSize; i++) {

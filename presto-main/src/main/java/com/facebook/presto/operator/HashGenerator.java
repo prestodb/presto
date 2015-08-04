@@ -14,34 +14,15 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
-
-import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 
 public interface HashGenerator
+    extends PartitionGenerator
 {
-    static HashGenerator createHashGenerator(Optional<Integer> hashChannel, List<Integer> partitioningChannels, List<Type> types)
-    {
-        if (hashChannel.isPresent()) {
-            return new PrecomputedHashGenerator(hashChannel.get());
-        }
-        ImmutableList.Builder<Type> hashTypes = ImmutableList.builder();
-        int[] hashChannels = new int[partitioningChannels.size()];
-        for (int i = 0; i < partitioningChannels.size(); i++) {
-            int channel = partitioningChannels.get(i);
-            hashTypes.add(types.get(channel));
-            hashChannels[i] = channel;
-        }
-        return new InterpretedHashGenerator(hashTypes.build(), hashChannels);
-    }
-
     int hashPosition(int position, Page page);
 
-    default int getPartitionHashBucket(int partitionCount, int position, Page page)
+    default int getPartitionBucket(int partitionCount, int position, Page page)
     {
         int rawHash = hashPosition(position, page);
 

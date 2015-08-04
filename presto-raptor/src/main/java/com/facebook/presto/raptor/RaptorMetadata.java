@@ -62,6 +62,7 @@ import java.util.function.Predicate;
 import static com.facebook.presto.raptor.RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.raptor.RaptorColumnHandle.shardRowIdHandle;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
+import static com.facebook.presto.raptor.RaptorSessionProperties.getExternalBatchId;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.metadata.MetadataDaoUtils.createMetadataTablesWithRetry;
 import static com.facebook.presto.raptor.util.Types.checkType;
@@ -110,7 +111,7 @@ public class RaptorMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return dao.listSchemaNames(connectorId);
+        return dao.listSchemaNames();
     }
 
     @Override
@@ -122,7 +123,7 @@ public class RaptorMetadata
     private ConnectorTableHandle getTableHandle(SchemaTableName tableName)
     {
         checkNotNull(tableName, "tableName is null");
-        Table table = dao.getTableInformation(connectorId, tableName.getSchemaName(), tableName.getTableName());
+        Table table = dao.getTableInformation(tableName.getSchemaName(), tableName.getTableName());
         if (table == null) {
             return null;
         }
@@ -152,7 +153,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         RaptorTableHandle handle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
         SchemaTableName tableName = new SchemaTableName(handle.getSchemaName(), handle.getTableName());
@@ -169,11 +170,11 @@ public class RaptorMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, @Nullable String schemaNameOrNull)
     {
-        return dao.listTables(connectorId, schemaNameOrNull);
+        return dao.listTables(schemaNameOrNull);
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         RaptorTableHandle raptorTableHandle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
         ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
@@ -187,7 +188,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getSampleWeightColumnHandle();
     }
@@ -199,7 +200,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
         RaptorColumnHandle column = checkType(columnHandle, RaptorColumnHandle.class, "columnHandle");
@@ -222,7 +223,7 @@ public class RaptorMetadata
         checkNotNull(prefix, "prefix is null");
 
         ImmutableListMultimap.Builder<SchemaTableName, ColumnMetadata> columns = ImmutableListMultimap.builder();
-        for (TableColumn tableColumn : dao.listTableColumns(connectorId, prefix.getSchemaName(), prefix.getTableName())) {
+        for (TableColumn tableColumn : dao.listTableColumns(prefix.getSchemaName(), prefix.getTableName())) {
             if (tableColumn.getColumnName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
                 continue;
             }
@@ -235,11 +236,11 @@ public class RaptorMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        commitCreateTable(beginCreateTable(session, tableMetadata), ImmutableList.of());
+        commitCreateTable(session, beginCreateTable(session, tableMetadata), ImmutableList.of());
     }
 
     @Override
-    public void dropTable(ConnectorTableHandle tableHandle)
+    public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         RaptorTableHandle raptorHandle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
         long tableId = raptorHandle.getTableId();
@@ -265,7 +266,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         RaptorTableHandle table = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
         dbi.inTransaction((handle, status) -> {
@@ -276,7 +277,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public void renameColumn(ConnectorTableHandle tableHandle, ColumnHandle source, String target)
+    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
         RaptorTableHandle table = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
         RaptorColumnHandle sourceColumn = checkType(source, RaptorColumnHandle.class, "columnHandle");
@@ -312,13 +313,13 @@ public class RaptorMetadata
     }
 
     @Override
-    public void commitCreateTable(ConnectorOutputTableHandle outputTableHandle, Collection<Slice> fragments)
+    public void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, Collection<Slice> fragments)
     {
         RaptorOutputTableHandle table = checkType(outputTableHandle, RaptorOutputTableHandle.class, "outputTableHandle");
 
         long newTableId = dbi.inTransaction((dbiHandle, status) -> {
             MetadataDao dao = dbiHandle.attach(MetadataDao.class);
-            long tableId = dao.insertTable(connectorId, table.getSchemaName(), table.getTableName());
+            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName());
             for (int i = 0; i < table.getColumnTypes().size(); i++) {
                 RaptorColumnHandle column = table.getColumnHandles().get(i);
                 Type columnType = table.getColumnTypes().get(i);
@@ -346,7 +347,7 @@ public class RaptorMetadata
             columnTypes.add(column.getDataType());
         }
 
-        String externalBatchId = session.getProperties().get("external_batch_id");
+        String externalBatchId = getExternalBatchId(session);
         List<RaptorColumnHandle> sortColumnHandles = getSortColumnHandles(tableId);
         return new RaptorInsertTableHandle(connectorId,
                 tableId,
@@ -368,7 +369,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         RaptorInsertTableHandle handle = checkType(insertHandle, RaptorInsertTableHandle.class, "insertHandle");
         long tableId = handle.getTableId();
@@ -379,23 +380,23 @@ public class RaptorMetadata
     }
 
     @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return shardRowIdHandle(connectorId);
     }
 
     @Override
-    public ConnectorTableHandle beginDelete(ConnectorTableHandle tableHandle)
+    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return tableHandle;
     }
 
     @Override
-    public void commitDelete(ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    public void commitDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
         long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
 
-        List<ColumnInfo> columns = getColumnHandles(tableHandle).values().stream()
+        List<ColumnInfo> columns = getColumnHandles(session, tableHandle).values().stream()
                 .map(handle -> checkType(handle, RaptorColumnHandle.class, "columnHandle"))
                 .map(ColumnInfo::fromHandle).collect(toList());
 
@@ -421,15 +422,15 @@ public class RaptorMetadata
         if (replace) {
             dbi.inTransaction((handle, status) -> {
                 MetadataDao dao = handle.attach(MetadataDao.class);
-                dao.dropView(connectorId, schemaName, tableName);
-                dao.insertView(connectorId, schemaName, tableName, viewData);
+                dao.dropView(schemaName, tableName);
+                dao.insertView(schemaName, tableName, viewData);
                 return null;
             });
             return;
         }
 
         try {
-            dao.insertView(connectorId, schemaName, tableName, viewData);
+            dao.insertView(schemaName, tableName, viewData);
         }
         catch (UnableToExecuteStatementException e) {
             if (viewExists(session, viewName)) {
@@ -445,20 +446,20 @@ public class RaptorMetadata
         if (!viewExists(session, viewName)) {
             throw new ViewNotFoundException(viewName);
         }
-        dao.dropView(connectorId, viewName.getSchemaName(), viewName.getTableName());
+        dao.dropView(viewName.getSchemaName(), viewName.getTableName());
     }
 
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
     {
-        return dao.listViews(connectorId, schemaNameOrNull);
+        return dao.listViews(schemaNameOrNull);
     }
 
     @Override
     public Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
         ImmutableMap.Builder<SchemaTableName, String> map = ImmutableMap.builder();
-        for (ViewResult view : dao.getViews(connectorId, prefix.getSchemaName(), prefix.getTableName())) {
+        for (ViewResult view : dao.getViews(prefix.getSchemaName(), prefix.getTableName())) {
             map.put(view.getName(), view.getData());
         }
         return map.build();

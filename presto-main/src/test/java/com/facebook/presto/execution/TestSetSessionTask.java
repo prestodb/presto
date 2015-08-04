@@ -14,8 +14,12 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SetSession;
+import com.facebook.presto.sql.tree.StringLiteral;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -25,12 +29,29 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.session.SessionPropertyMetadata.stringSessionProperty;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
 public class TestSetSessionTask
 {
+    private final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+
+    public TestSetSessionTask()
+    {
+        metadata.getSessionPropertyManager().addSystemSessionProperty(stringSessionProperty(
+                "foo",
+                "test property",
+                null,
+                false));
+        metadata.getSessionPropertyManager().addConnectorSessionProperties("foo", ImmutableList.of(stringSessionProperty(
+                "bar",
+                "test property",
+                null,
+                false)));
+    }
+
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stage-executor-%s"));
 
     @AfterClass(alwaysRun = true)
@@ -41,13 +62,22 @@ public class TestSetSessionTask
     }
 
     @Test
-    public void test()
+    public void testSetSession()
+            throws Exception
+    {
+        testSetSession(new StringLiteral("baz"), "baz");
+        testSetSession(new FunctionCall(new QualifiedName("concat"), ImmutableList.of(
+                new StringLiteral("ban"),
+                new StringLiteral("ana"))), "banana");
+    }
+
+    private void testSetSession(Expression expression, String expectedValue)
             throws Exception
     {
         QueryStateMachine stateMachine = new QueryStateMachine(new QueryId("query"), "set foo.bar = 'baz'", TEST_SESSION, URI.create("fake://uri"), executor);
-        new SetSessionTask().execute(new SetSession(QualifiedName.of("foo", "bar"), "baz"), TEST_SESSION, MetadataManager.createTestMetadataManager(), stateMachine);
+        new SetSessionTask().execute(new SetSession(QualifiedName.of("foo", "bar"), expression), TEST_SESSION, metadata, stateMachine);
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();
-        assertEquals(sessionProperties, ImmutableMap.of("foo.bar", "baz"));
+        assertEquals(sessionProperties, ImmutableMap.of("foo.bar", expectedValue));
     }
 }

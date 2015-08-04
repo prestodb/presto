@@ -56,12 +56,6 @@ public class HashGenerationOptimizer
 {
     public static final int INITIAL_HASH_VALUE = 0;
     private static final String HASH_CODE = FunctionRegistry.mangleOperatorName("HASH_CODE");
-    private final boolean optimizeHashGeneration;
-
-    public HashGenerationOptimizer(boolean optimizeHashGeneration)
-    {
-        this.optimizeHashGeneration = optimizeHashGeneration;
-    }
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
@@ -71,7 +65,7 @@ public class HashGenerationOptimizer
         checkNotNull(types, "types is null");
         checkNotNull(symbolAllocator, "symbolAllocator is null");
         checkNotNull(idAllocator, "idAllocator is null");
-        if (SystemSessionProperties.isOptimizeHashGenerationEnabled(session, optimizeHashGeneration)) {
+        if (SystemSessionProperties.isOptimizeHashGenerationEnabled(session)) {
             return PlanRewriter.rewriteWith(new Rewriter(idAllocator, symbolAllocator), plan, null);
         }
         return plan;

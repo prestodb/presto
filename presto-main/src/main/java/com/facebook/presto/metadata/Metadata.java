@@ -61,10 +61,10 @@ public interface Metadata
     Optional<TableHandle> getTableHandle(Session session, QualifiedTableName tableName);
 
     @NotNull
-    List<TableLayoutResult> getLayouts(TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
+    List<TableLayoutResult> getLayouts(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
 
     @NotNull
-    TableLayout getLayout(TableLayoutHandle handle);
+    TableLayout getLayout(Session session, TableLayoutHandle handle);
 
     /**
      * Return the metadata for the specified table handle.
@@ -72,7 +72,7 @@ public interface Metadata
      * @throws RuntimeException if table handle is no longer valid
      */
     @NotNull
-    TableMetadata getTableMetadata(TableHandle tableHandle);
+    TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
 
     /**
      * Get the names that match the specified table prefix (never null).
@@ -86,7 +86,7 @@ public interface Metadata
      * @throws RuntimeException if the table handle is no longer valid
      */
     @NotNull
-    Optional<ColumnHandle> getSampleWeightColumnHandle(TableHandle tableHandle);
+    Optional<ColumnHandle> getSampleWeightColumnHandle(Session session, TableHandle tableHandle);
 
     /**
      * Returns true iff this catalog supports creation of sampled tables
@@ -100,7 +100,7 @@ public interface Metadata
      * @throws RuntimeException if table handle is no longer valid
      */
     @NotNull
-    Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle);
+    Map<String, ColumnHandle> getColumnHandles(Session session, TableHandle tableHandle);
 
     /**
      * Gets the metadata for the specified table column.
@@ -108,7 +108,7 @@ public interface Metadata
      * @throws RuntimeException if table or column handles are no longer valid
      */
     @NotNull
-    ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle);
+    ColumnMetadata getColumnMetadata(Session session, TableHandle tableHandle, ColumnHandle columnHandle);
 
     /**
      * Gets the metadata for all columns that match the specified table prefix.
@@ -125,19 +125,19 @@ public interface Metadata
     /**
      * Rename the specified table.
      */
-    void renameTable(TableHandle tableHandle, QualifiedTableName newTableName);
+    void renameTable(Session session, TableHandle tableHandle, QualifiedTableName newTableName);
 
     /**
      * Rename the specified column.
      */
-    void renameColumn(TableHandle tableHandle, ColumnHandle source, String target);
+    void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target);
 
     /**
      * Drops the specified table
      *
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
      */
-    void dropTable(TableHandle tableHandle);
+    void dropTable(Session session, TableHandle tableHandle);
 
     /**
      * Begin the atomic creation of a table with data.
@@ -147,12 +147,12 @@ public interface Metadata
     /**
      * Commit a table creation with data after the data is written.
      */
-    void commitCreateTable(OutputTableHandle tableHandle, Collection<Slice> fragments);
+    void commitCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Rollback a table creation
      */
-    void rollbackCreateTable(OutputTableHandle tableHandle);
+    void rollbackCreateTable(Session session, OutputTableHandle tableHandle);
 
     /**
      * Begin insert query
@@ -162,17 +162,17 @@ public interface Metadata
     /**
      * Commit insert query
      */
-    void commitInsert(InsertTableHandle tableHandle, Collection<Slice> fragments);
+    void commitInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Rollback insert query
      */
-    void rollbackInsert(InsertTableHandle tableHandle);
+    void rollbackInsert(Session session, InsertTableHandle tableHandle);
 
     /**
      * Get the row ID column handle used with UpdatablePageSource.
      */
-    ColumnHandle getUpdateRowIdColumnHandle(TableHandle tableHandle);
+    ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle);
 
     /**
      * Begin delete query
@@ -182,12 +182,12 @@ public interface Metadata
     /**
      * Commit delete query
      */
-    void commitDelete(TableHandle tableHandle, Collection<Slice> fragments);
+    void commitDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Rollback delete query
      */
-    void rollbackDelete(TableHandle tableHandle);
+    void rollbackDelete(Session session, TableHandle tableHandle);
 
     /**
      * Gets all the loaded catalogs
@@ -230,4 +230,6 @@ public interface Metadata
     TypeManager getTypeManager();
 
     BlockEncodingSerde getBlockEncodingSerde();
+
+    SessionPropertyManager getSessionPropertyManager();
 }

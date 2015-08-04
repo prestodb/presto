@@ -52,6 +52,7 @@ public class TestHiveClientConfig
                 .setMaxPartitionBatchSize(100)
                 .setMaxInitialSplits(200)
                 .setMaxInitialSplitSize(new DataSize(32, Unit.MEGABYTE))
+                .setDomainCompactionThreshold(100)
                 .setForceLocalScheduling(false)
                 .setRecursiveDirWalkerEnabled(false)
                 .setDfsTimeout(new Duration(10, TimeUnit.SECONDS))
@@ -109,6 +110,7 @@ public class TestHiveClientConfig
                 .put("hive.config.resources", "/foo.xml,/bar.xml")
                 .put("hive.max-initial-splits", "10")
                 .put("hive.max-initial-split-size", "16MB")
+                .put("hive.domain-compaction-threshold", "42")
                 .put("hive.recursive-directories", "true")
                 .put("hive.storage-format", "SEQUENCEFILE")
                 .put("hive.force-local-scheduling", "true")
@@ -135,7 +137,7 @@ public class TestHiveClientConfig
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
-                .setTimeZone(nonDefaultTimeZone().toTimeZone())
+                .setTimeZone(nonDefaultTimeZone().toTimeZone().getID())
                 .setMaxSplitSize(new DataSize(256, Unit.MEGABYTE))
                 .setMaxOutstandingSplits(10)
                 .setMaxSplitIteratorThreads(10)
@@ -151,6 +153,7 @@ public class TestHiveClientConfig
                 .setMaxPartitionBatchSize(1000)
                 .setMaxInitialSplits(10)
                 .setMaxInitialSplitSize(new DataSize(16, Unit.MEGABYTE))
+                .setDomainCompactionThreshold(42)
                 .setForceLocalScheduling(true)
                 .setRecursiveDirWalkerEnabled(true)
                 .setDfsTimeout(new Duration(33, TimeUnit.SECONDS))

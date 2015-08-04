@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 public class SystemHandleResolver
         implements ConnectorHandleResolver
@@ -40,9 +41,21 @@ public class SystemHandleResolver
     }
 
     @Override
+    public boolean canHandle(ConnectorTableLayoutHandle handle)
+    {
+        return handle instanceof SystemTableLayoutHandle;
+    }
+
+    @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return SystemTableHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
+    {
+        return SystemTableLayoutHandle.class;
     }
 
     @Override

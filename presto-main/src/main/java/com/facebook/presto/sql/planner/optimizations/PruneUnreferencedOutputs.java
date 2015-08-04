@@ -110,7 +110,7 @@ public class PruneUnreferencedOutputs
         {
             Set<Symbol> expectedOutputSymbols = Sets.newHashSet(context.get());
             node.getHashSymbol().ifPresent(expectedOutputSymbols::add);
-            expectedOutputSymbols.addAll(node.getPartitionKeys());
+            node.getPartitionKeys().ifPresent(expectedOutputSymbols::addAll);
 
             List<List<Symbol>> inputsBySource = new ArrayList<>(node.getInputs().size());
             for (int i = 0; i < node.getInputs().size(); i++) {

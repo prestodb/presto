@@ -75,7 +75,6 @@ public class BackgroundHiveSplitLoader
     private final int maxPartitionBatchSize;
     private final DataSize maxInitialSplitSize;
     private final boolean recursiveDirWalkerEnabled;
-    private final boolean forceLocalScheduling;
     private final Executor executor;
     private final ConnectorSession session;
     private final AtomicInteger outstandingTasks = new AtomicInteger();
@@ -100,7 +99,6 @@ public class BackgroundHiveSplitLoader
             int maxPartitionBatchSize,
             DataSize maxInitialSplitSize,
             int maxInitialSplits,
-            boolean forceLocalScheduling,
             boolean recursiveDirWalkerEnabled)
     {
         this.connectorId = connectorId;
@@ -115,7 +113,6 @@ public class BackgroundHiveSplitLoader
         this.maxInitialSplitSize = maxInitialSplitSize;
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
-        this.forceLocalScheduling = forceLocalScheduling;
         this.executor = executor;
         this.partitions = new ConcurrentLazyQueue<>(partitions);
     }
@@ -347,7 +344,7 @@ public class BackgroundHiveSplitLoader
     {
         ImmutableList.Builder<HiveSplit> builder = ImmutableList.builder();
 
-        boolean forceLocalScheduling = HiveSessionProperties.getForceLocalScheduling(session, this.forceLocalScheduling);
+        boolean forceLocalScheduling = HiveSessionProperties.isForceLocalScheduling(session);
 
         if (splittable) {
             for (BlockLocation blockLocation : blockLocations) {
@@ -381,7 +378,6 @@ public class BackgroundHiveSplitLoader
                             partitionKeys,
                             addresses,
                             forceLocalScheduling,
-                            session,
                             effectivePredicate));
 
                     chunkOffset += chunkLength;
@@ -408,7 +404,6 @@ public class BackgroundHiveSplitLoader
                     partitionKeys,
                     addresses,
                     forceLocalScheduling,
-                    session,
                     effectivePredicate));
         }
         return builder.build();

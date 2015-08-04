@@ -32,9 +32,9 @@ String Functions
 
     Returns the Unicode code point ``n`` as a single character string.
 
-.. function:: concat(string1, string2) -> varchar
+.. function:: concat(string1, ..., stringN) -> varchar
 
-    Returns the concatenation of ``string1`` and ``string2``.
+    Returns the concatenation of ``string1``, ``string2``, ``...``, ``stringN``.
     This function provides the same functionality as the
     SQL-standard concatenation operator (``||``).
 
@@ -45,12 +45,6 @@ String Functions
 .. function:: lower(string) -> varchar
 
     Converts ``string`` to lowercase.
-
-.. note::
-
-    This method does not perform perform locale-sensitive, context-sensitive,
-    or one-to-many mappings required for some languages.  Specifically, this
-    will return incorrect results for Lithuanian, Turkish and Azeri.
 
 .. function:: ltrim(string) -> varchar
 
@@ -118,23 +112,31 @@ String Functions
 
     Converts ``string`` to uppercase.
 
+Unicode Functions
+-----------------
+
 .. function:: normalize(string) -> varchar
 
     Transforms ``string`` with NFC normalization form.
 
 .. function:: normalize(string, form) -> varchar
 
-    Transforms ``string`` with the specified normalization form. ``form`` must be
-    one of the following:
+    Transforms ``string`` with the specified normalization form.
+    ``form`` must be be one of the following keywords:
 
-========= ===========
-Form      Description
-========= ===========
-``NFD``   Canonical Decomposition
-``NFC``   Canonical Decomposition, followed by Canonical Composition
-``NFKD``  Compatibility Decomposition
-``NFKC``  Compatibility Decomposition, followed by Canonical Composition
-========= ===========
+    ======== ===========
+    Form     Description
+    ======== ===========
+    ``NFD``  Canonical Decomposition
+    ``NFC``  Canonical Decomposition, followed by Canonical Composition
+    ``NFKD`` Compatibility Decomposition
+    ``NFKC`` Compatibility Decomposition, followed by Canonical Composition
+    ======== ===========
+
+    .. note::
+
+        This SQL-standard function has special syntax and requires
+        specifying ``form`` as a keyword, not as a string.
 
 .. function:: to_utf8(string) -> varbinary
 

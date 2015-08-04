@@ -36,6 +36,9 @@ public class ResetSessionTask
             throw new SemanticException(INVALID_SESSION_PROPERTY, statement, "Invalid session property '%s'", statement.getName());
         }
 
+        // validate the property name
+        metadata.getSessionPropertyManager().getSessionPropertyMetadata(statement.getName().toString());
+
         stateMachine.addResetSessionProperties(statement.getName().toString());
     }
 }

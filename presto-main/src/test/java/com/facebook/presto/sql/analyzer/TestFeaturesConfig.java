@@ -32,6 +32,7 @@ public class TestFeaturesConfig
                 .setExperimentalSyntaxEnabled(false)
                 .setDistributedIndexJoinsEnabled(false)
                 .setDistributedJoinsEnabled(false)
+                .setRedistributeWrites(true)
                 .setOptimizeMetadataQueries(false)
                 .setOptimizeHashGeneration(false)
                 .setOptimizeSingleDistinct(true));
@@ -44,6 +45,7 @@ public class TestFeaturesConfig
                 .put("analyzer.experimental-syntax-enabled", "true")
                 .put("distributed-index-joins-enabled", "true")
                 .put("distributed-joins-enabled", "true")
+                .put("redistribute-writes", "false")
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-hash-generation", "true")
                 .put("optimizer.optimize-single-distinct", "false")
@@ -52,6 +54,7 @@ public class TestFeaturesConfig
                 .put("experimental-syntax-enabled", "true")
                 .put("distributed-index-joins-enabled", "true")
                 .put("distributed-joins-enabled", "true")
+                .put("redistribute-writes", "false")
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-hash-generation", "true")
                 .put("optimizer.optimize-single-distinct", "false")
@@ -61,6 +64,7 @@ public class TestFeaturesConfig
                 .setExperimentalSyntaxEnabled(true)
                 .setDistributedIndexJoinsEnabled(true)
                 .setDistributedJoinsEnabled(true)
+                .setRedistributeWrites(false)
                 .setOptimizeMetadataQueries(true)
                 .setOptimizeHashGeneration(true)
                 .setOptimizeSingleDistinct(false);

@@ -17,6 +17,7 @@ import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -29,9 +30,7 @@ import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Function;
 import com.google.common.base.Predicates;
-import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -46,7 +45,6 @@ import io.airlift.units.DataSize;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.joda.time.DateTimeZone;
@@ -61,22 +59,23 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
+import static com.facebook.presto.hive.HiveUtil.createPartitionName;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.HiveUtil.schemaTableName;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
 import static com.facebook.presto.hive.util.Types.checkType;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.concat;
@@ -107,9 +106,9 @@ public class HiveSplitManager
     private final DataSize maxSplitSize;
     private final DataSize maxInitialSplitSize;
     private final int maxInitialSplits;
-    private final boolean forceLocalScheduling;
     private final boolean recursiveDfsWalkerEnabled;
     private final boolean assumeCanonicalPartitionKeys;
+    private final int domainCompactionThreshold;
 
     @Inject
     public HiveSplitManager(
@@ -126,7 +125,7 @@ public class HiveSplitManager
                 namenodeStats,
                 hdfsEnvironment,
                 directoryLister,
-                DateTimeZone.forTimeZone(hiveClientConfig.getTimeZone()),
+                hiveClientConfig.getDateTimeZone(),
                 new BoundedExecutor(executorService, hiveClientConfig.getMaxSplitIteratorThreads()),
                 hiveClientConfig.getMaxOutstandingSplits(),
                 hiveClientConfig.getMinPartitionBatchSize(),
@@ -134,9 +133,9 @@ public class HiveSplitManager
                 hiveClientConfig.getMaxSplitSize(),
                 hiveClientConfig.getMaxInitialSplitSize(),
                 hiveClientConfig.getMaxInitialSplits(),
-                hiveClientConfig.isForceLocalScheduling(),
                 hiveClientConfig.isAssumeCanonicalPartitionKeys(),
-                hiveClientConfig.getRecursiveDirWalkerEnabled());
+                hiveClientConfig.getRecursiveDirWalkerEnabled(),
+                hiveClientConfig.getDomainCompactionThreshold());
     }
 
     public HiveSplitManager(
@@ -153,9 +152,9 @@ public class HiveSplitManager
             DataSize maxSplitSize,
             DataSize maxInitialSplitSize,
             int maxInitialSplits,
-            boolean forceLocalScheduling,
             boolean assumeCanonicalPartitionKeys,
-            boolean recursiveDfsWalkerEnabled)
+            boolean recursiveDfsWalkerEnabled,
+            int domainCompactionThreshold)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
         this.metastore = checkNotNull(metastore, "metastore is null");
@@ -171,13 +170,14 @@ public class HiveSplitManager
         this.maxSplitSize = checkNotNull(maxSplitSize, "maxSplitSize is null");
         this.maxInitialSplitSize = checkNotNull(maxInitialSplitSize, "maxInitialSplitSize is null");
         this.maxInitialSplits = maxInitialSplits;
-        this.forceLocalScheduling = forceLocalScheduling;
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
+        this.domainCompactionThreshold = domainCompactionThreshold;
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> effectivePredicate)
+    public ConnectorPartitionResult getPartitions(ConnectorSession session, ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> effectivePredicate)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkNotNull(effectivePredicate, "effectivePredicate is null");
@@ -190,7 +190,7 @@ public class HiveSplitManager
         Table table = getTable(tableName);
         Optional<HiveBucketing.HiveBucket> bucket = getHiveBucket(table, effectivePredicate.extractFixedValues());
 
-        TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate);
+        TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate, domainCompactionThreshold);
 
         if (table.getPartitionKeys().isEmpty()) {
             return new ConnectorPartitionResult(ImmutableList.of(new HivePartition(tableName, compactEffectivePredicate, bucket)), effectivePredicate);
@@ -214,16 +214,16 @@ public class HiveSplitManager
         return new ConnectorPartitionResult(partitions.build(), remainingTupleDomain);
     }
 
-    private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate)
+    private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate, int threshold)
     {
         ImmutableMap.Builder<HiveColumnHandle, Domain> builder = ImmutableMap.builder();
         for (Map.Entry<ColumnHandle, Domain> entry : effectivePredicate.getDomains().entrySet()) {
             HiveColumnHandle hiveColumnHandle = checkType(entry.getKey(), HiveColumnHandle.class, "ConnectorColumnHandle");
 
             SortedRangeSet ranges = entry.getValue().getRanges();
-            if (!ranges.isNone()) {
+            if (ranges.getRangeCount() > threshold) {
                 // compact the range to a single span
-                ranges = SortedRangeSet.of(entry.getValue().getRanges().getSpan());
+                ranges = SortedRangeSet.of(ranges.getSpan());
             }
 
             builder.put(hiveColumnHandle, new Domain(ranges, entry.getValue().isNullAllowed()));
@@ -252,24 +252,23 @@ public class HiveSplitManager
 
     private Table getTable(SchemaTableName tableName)
     {
-        try {
-            Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-
-            String protectMode = table.getParameters().get(ProtectMode.PARAMETER_NAME);
-            if (protectMode != null && getProtectModeFromString(protectMode).offline) {
-                throw new TableOfflineException(tableName);
-            }
-
-            String prestoOffline = table.getParameters().get(PRESTO_OFFLINE);
-            if (!isNullOrEmpty(prestoOffline)) {
-                throw new TableOfflineException(tableName, format("Table '%s' is offline for Presto: %s", tableName, prestoOffline));
-            }
-
-            return table;
-        }
-        catch (NoSuchObjectException e) {
+        Optional<Table> target = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+        if (!target.isPresent()) {
             throw new TableNotFoundException(tableName);
         }
+        Table table = target.get();
+
+        String protectMode = table.getParameters().get(ProtectMode.PARAMETER_NAME);
+        if (protectMode != null && getProtectModeFromString(protectMode).offline) {
+            throw new TableOfflineException(tableName);
+        }
+
+        String prestoOffline = table.getParameters().get(PRESTO_OFFLINE);
+        if (!isNullOrEmpty(prestoOffline)) {
+            throw new TableOfflineException(tableName, format("Table '%s' is offline for Presto: %s", tableName, prestoOffline));
+        }
+
+        return table;
     }
 
     private List<String> getFilteredPartitionNames(SchemaTableName tableName, List<HiveColumnHandle> partitionKeys, TupleDomain<ColumnHandle> effectivePredicate)
@@ -303,13 +302,9 @@ public class HiveSplitManager
             }
         }
 
-        try {
-            // fetch the partition names
-            return metastore.getPartitionNamesByParts(tableName.getSchemaName(), tableName.getTableName(), filter);
-        }
-        catch (NoSuchObjectException e) {
-            throw new TableNotFoundException(tableName);
-        }
+        // fetch the partition names
+        return metastore.getPartitionNamesByParts(tableName.getSchemaName(), tableName.getTableName(), filter)
+                .orElseThrow(() -> new TableNotFoundException(tableName));
     }
 
     private static List<String> extractPartitionKeyValues(String partitionName)
@@ -341,9 +336,9 @@ public class HiveSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle tableHandle, List<ConnectorPartition> connectorPartitions)
+    public ConnectorSplitSource getPartitionSplits(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorPartition> connectorPartitions)
     {
-        HiveTableHandle hiveTableHandle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
+        checkType(tableHandle, HiveTableHandle.class, "tableHandle");
 
         checkNotNull(connectorPartitions, "connectorPartitions is null");
         List<HivePartition> partitions = Lists.transform(connectorPartitions, partition -> checkType(partition, HivePartition.class, "partition"));
@@ -358,23 +353,19 @@ public class HiveSplitManager
         // sort partitions
         partitions = Ordering.natural().onResultOf(ConnectorPartition::getPartitionId).reverse().sortedCopy(partitions);
 
-        Table table;
-        Iterable<HivePartitionMetadata> hivePartitions;
-        try {
-            table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            hivePartitions = getPartitionMetadata(table, tableName, partitions);
-        }
-        catch (NoSuchObjectException e) {
+        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+        if (!table.isPresent()) {
             throw new TableNotFoundException(tableName);
         }
+        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(table.get(), tableName, partitions);
 
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 connectorId,
-                table,
+                table.get(),
                 hivePartitions,
                 bucket,
                 maxSplitSize,
-                hiveTableHandle.getSession(),
+                session,
                 hdfsEnvironment,
                 namenodeStats,
                 directoryLister,
@@ -382,7 +373,6 @@ public class HiveSplitManager
                 maxPartitionBatchSize,
                 maxInitialSplitSize,
                 maxInitialSplits,
-                forceLocalScheduling,
                 recursiveDfsWalkerEnabled);
 
         HiveSplitSource splitSource = new HiveSplitSource(connectorId, maxOutstandingSplits, hiveSplitLoader);
@@ -391,102 +381,82 @@ public class HiveSplitManager
         return splitSource;
     }
 
-    private Iterable<HivePartitionMetadata> getPartitionMetadata(Table table, SchemaTableName tableName, List<HivePartition> partitions)
-            throws NoSuchObjectException
+    private Iterable<HivePartitionMetadata> getPartitionMetadata(Table table, SchemaTableName tableName, List<HivePartition> hivePartitions)
     {
-        if (partitions.isEmpty()) {
+        if (hivePartitions.isEmpty()) {
             return ImmutableList.of();
         }
 
-        if (partitions.size() == 1) {
-            HivePartition firstPartition = getOnlyElement(partitions);
+        if (hivePartitions.size() == 1) {
+            HivePartition firstPartition = getOnlyElement(hivePartitions);
             if (firstPartition.getPartitionId().equals(UNPARTITIONED_ID)) {
                 return ImmutableList.of(new HivePartitionMetadata(firstPartition, UNPARTITIONED_PARTITION));
             }
         }
 
-        Iterable<List<HivePartition>> partitionNameBatches = partitionExponentially(partitions, minPartitionBatchSize, maxPartitionBatchSize);
-        Iterable<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, new Function<List<HivePartition>, List<HivePartitionMetadata>>()
-        {
-            @Override
-            public List<HivePartitionMetadata> apply(List<HivePartition> partitionBatch)
-            {
-                Exception exception = null;
-                for (int attempt = 0; attempt < 10; attempt++) {
-                    try {
-                        Map<String, Partition> partitions = metastore.getPartitionsByNames(
-                                tableName.getSchemaName(),
-                                tableName.getTableName(),
-                                Lists.transform(partitionBatch, ConnectorPartition::getPartitionId));
-                        checkState(partitionBatch.size() == partitions.size(), "expected %s partitions but found %s", partitionBatch.size(), partitions.size());
+        Iterable<List<HivePartition>> partitionNameBatches = partitionExponentially(hivePartitions, minPartitionBatchSize, maxPartitionBatchSize);
+        Iterable<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, partitionBatch -> {
+            Optional<Map<String, Partition>> batch = metastore.getPartitionsByNames(
+                    tableName.getSchemaName(),
+                    tableName.getTableName(),
+                    Lists.transform(partitionBatch, ConnectorPartition::getPartitionId));
+            if (!batch.isPresent()) {
+                throw new PrestoException(HIVE_METASTORE_ERROR, "Partition metadata not available");
+            }
+            Map<String, Partition> partitions = batch.get();
+            if (partitionBatch.size() != partitions.size()) {
+                throw new PrestoException(INTERNAL_ERROR, format("Expected %s partitions but found %s", partitionBatch.size(), partitions.size()));
+            }
 
-                        ImmutableList.Builder<HivePartitionMetadata> results = ImmutableList.builder();
-                        for (HivePartition hivePartition : partitionBatch) {
-                            Partition partition = partitions.get(hivePartition.getPartitionId());
-                            checkState(partition != null, "Partition %s was not loaded", hivePartition.getPartitionId());
+            ImmutableList.Builder<HivePartitionMetadata> results = ImmutableList.builder();
+            for (HivePartition hivePartition : partitionBatch) {
+                Partition partition = partitions.get(hivePartition.getPartitionId());
+                if (partition == null) {
+                    throw new PrestoException(INTERNAL_ERROR, "Partition not loaded: " + hivePartition);
+                }
 
-                            // verify all partition is online
-                            String protectMode = partition.getParameters().get(ProtectMode.PARAMETER_NAME);
-                            String partName = HiveUtil.createPartitionName(partition, table);
-                            if (protectMode != null && getProtectModeFromString(protectMode).offline) {
-                                throw new PartitionOfflineException(tableName, partName);
-                            }
-                            String prestoOffline = partition.getParameters().get(PRESTO_OFFLINE);
-                            if (!isNullOrEmpty(prestoOffline)) {
-                                throw new PartitionOfflineException(tableName, partName, format("Partition '%s' is offline for Presto: %s", partName, prestoOffline));
-                            }
+                // verify all partition is online
+                String protectMode = partition.getParameters().get(ProtectMode.PARAMETER_NAME);
+                String partName = createPartitionName(partition, table);
+                if (protectMode != null && getProtectModeFromString(protectMode).offline) {
+                    throw new PartitionOfflineException(tableName, partName);
+                }
+                String prestoOffline = partition.getParameters().get(PRESTO_OFFLINE);
+                if (!isNullOrEmpty(prestoOffline)) {
+                    throw new PartitionOfflineException(tableName, partName, format("Partition '%s' is offline for Presto: %s", partName, prestoOffline));
+                }
 
-                            // Verify that the partition schema matches the table schema.
-                            // Either adding or dropping columns from the end of the table
-                            // without modifying existing partitions is allowed, but every
-                            // column that exists in both the table and partition must have
-                            // the same type.
-                            List<FieldSchema> tableColumns = table.getSd().getCols();
-                            List<FieldSchema> partitionColumns = partition.getSd().getCols();
-                            if ((tableColumns == null) || (partitionColumns == null)) {
-                                throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partName));
-                            }
-                            for (int i = 0; i < min(partitionColumns.size(), tableColumns.size()); i++) {
-                                String tableType = tableColumns.get(i).getType();
-                                String partitionType = partitionColumns.get(i).getType();
-                                if (!tableType.equals(partitionType)) {
-                                    throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
-                                                    "There is a mismatch between the table and partition schemas. " +
-                                                    "The column '%s' in table '%s' is declared as type '%s', " +
-                                                    "but partition '%s' declared column '%s' as type '%s'.",
-                                            tableColumns.get(i).getName(),
-                                            tableName,
-                                            tableType,
-                                            partName,
-                                            partitionColumns.get(i).getName(),
-                                            partitionType));
-                                }
-                            }
-
-                            results.add(new HivePartitionMetadata(hivePartition, partition));
-                        }
-
-                        return results.build();
-                    }
-                    catch (PrestoException | NoSuchObjectException | NullPointerException | IllegalStateException | IllegalArgumentException e) {
-                        throw Throwables.propagate(e);
-                    }
-                    catch (RuntimeException e) {
-                        exception = e;
-                        log.debug("getPartitions attempt %s failed, will retry. Exception: %s", attempt, e.getMessage());
-                    }
-
-                    try {
-                        TimeUnit.SECONDS.sleep(1);
-                    }
-                    catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        throw Throwables.propagate(e);
+                // Verify that the partition schema matches the table schema.
+                // Either adding or dropping columns from the end of the table
+                // without modifying existing partitions is allowed, but every
+                // column that exists in both the table and partition must have
+                // the same type.
+                List<FieldSchema> tableColumns = table.getSd().getCols();
+                List<FieldSchema> partitionColumns = partition.getSd().getCols();
+                if ((tableColumns == null) || (partitionColumns == null)) {
+                    throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partName));
+                }
+                for (int i = 0; i < min(partitionColumns.size(), tableColumns.size()); i++) {
+                    String tableType = tableColumns.get(i).getType();
+                    String partitionType = partitionColumns.get(i).getType();
+                    if (!tableType.equals(partitionType)) {
+                        throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
+                                        "There is a mismatch between the table and partition schemas. " +
+                                        "The column '%s' in table '%s' is declared as type '%s', " +
+                                        "but partition '%s' declared column '%s' as type '%s'.",
+                                tableColumns.get(i).getName(),
+                                tableName,
+                                tableType,
+                                partName,
+                                partitionColumns.get(i).getName(),
+                                partitionType));
                     }
                 }
-                assert exception != null; // impossible
-                throw Throwables.propagate(exception);
+
+                results.add(new HivePartitionMetadata(hivePartition, partition));
             }
+
+            return results.build();
         });
         return concat(partitionBatches);
     }

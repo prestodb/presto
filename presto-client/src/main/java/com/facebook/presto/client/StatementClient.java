@@ -166,6 +166,11 @@ public class StatementClient
         return currentResults.get().getError() != null;
     }
 
+    public StatementStats getStats()
+    {
+        return currentResults.get().getStats();
+    }
+
     public QueryResults current()
     {
         checkState(isValid(), "current position is not valid (cursor past end)");

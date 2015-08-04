@@ -22,12 +22,14 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.RowType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -60,9 +62,9 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.TimeZone;
 
+import static com.facebook.presto.hive.HiveTestUtils.arrayBlockOf;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
-import static com.facebook.presto.hive.HiveTestUtils.arraySliceOf;
-import static com.facebook.presto.hive.HiveTestUtils.rowSliceOf;
+import static com.facebook.presto.hive.HiveTestUtils.rowBlockOf;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Predicates.not;
@@ -74,15 +76,21 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveFileFormats
         extends AbstractTestHiveFileFormats
 {
     private static final TimeZoneKey TIME_ZONE_KEY = TimeZoneKey.getTimeZoneKey(DateTimeZone.getDefault().getID());
-    private static final ConnectorSession SESSION = new ConnectorSession("user", TIME_ZONE_KEY, ENGLISH, System.currentTimeMillis(), null);
+    private static final ConnectorSession SESSION = new TestingConnectorSession(
+            "user",
+            TIME_ZONE_KEY,
+            ENGLISH,
+            System.currentTimeMillis(),
+            new HiveSessionProperties(new HiveClientConfig()).getSessionProperties(),
+            ImmutableMap.of());
     private static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
 
     @BeforeClass(alwaysRun = true)
@@ -294,13 +302,13 @@ public class TestHiveFileFormats
                     )
                 ),
                 null,
-                arraySliceOf(personType,
-                    rowSliceOf(ImmutableList.of(nameType, BIGINT, VARCHAR, new ArrayType(phoneType)),
-                        rowSliceOf(ImmutableList.of(VARCHAR, VARCHAR), "Bob", "Roberts"),
-                        0,
-                        "bob.roberts@example.com",
-                        arraySliceOf(phoneType, rowSliceOf(ImmutableList.of(VARCHAR, VARCHAR), "1234567890", null))
-                    )
+                arrayBlockOf(personType,
+                        rowBlockOf(ImmutableList.of(nameType, BIGINT, VARCHAR, new ArrayType(phoneType)),
+                                rowBlockOf(ImmutableList.of(VARCHAR, VARCHAR), "Bob", "Roberts"),
+                                0,
+                                "bob.roberts@example.com",
+                                arrayBlockOf(phoneType, rowBlockOf(ImmutableList.of(VARCHAR, VARCHAR), "1234567890", null))
+                        )
                 )
             )
         );

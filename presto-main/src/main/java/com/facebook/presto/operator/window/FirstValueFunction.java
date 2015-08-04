@@ -14,78 +14,19 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 public class FirstValueFunction
         extends ValueWindowFunction
 {
-    public static class BigintFirstValueFunction
-            extends FirstValueFunction
-    {
-        public BigintFirstValueFunction(List<Integer> argumentChannels)
-        {
-            super(BIGINT, argumentChannels);
-        }
-    }
-
-    public static class BooleanFirstValueFunction
-            extends FirstValueFunction
-    {
-        public BooleanFirstValueFunction(List<Integer> argumentChannels)
-        {
-            super(BOOLEAN, argumentChannels);
-        }
-    }
-
-    public static class DoubleFirstValueFunction
-            extends FirstValueFunction
-    {
-        public DoubleFirstValueFunction(List<Integer> argumentChannels)
-        {
-            super(DOUBLE, argumentChannels);
-        }
-    }
-
-    public static class VarcharFirstValueFunction
-            extends FirstValueFunction
-    {
-        public VarcharFirstValueFunction(List<Integer> argumentChannels)
-        {
-            super(VARCHAR, argumentChannels);
-        }
-    }
-
-    public static class TimestampFirstValueFunction
-            extends FirstValueFunction
-    {
-        public TimestampFirstValueFunction(List<Integer> argumentChannels)
-        {
-            super(TIMESTAMP, argumentChannels);
-        }
-    }
-
-    private final Type type;
     private final int argumentChannel;
 
-    protected FirstValueFunction(Type type, List<Integer> argumentChannels)
+    public FirstValueFunction(List<Integer> argumentChannels)
     {
-        this.type = type;
         this.argumentChannel = getOnlyElement(argumentChannels);
-    }
-
-    @Override
-    public Type getType()
-    {
-        return type;
     }
 
     @Override

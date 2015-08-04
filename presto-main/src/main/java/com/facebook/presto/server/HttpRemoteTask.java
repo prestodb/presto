@@ -386,7 +386,7 @@ public class HttpRemoteTask
         updateErrorTracker.acquireRequestPermit();
 
         List<TaskSource> sources = getSources();
-        TaskUpdateRequest updateRequest = new TaskUpdateRequest(session,
+        TaskUpdateRequest updateRequest = new TaskUpdateRequest(session.toSessionRepresentation(),
                 planFragment,
                 sources,
                 outputBuffers.get());

@@ -16,6 +16,7 @@ package com.facebook.presto.sql;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
@@ -34,6 +35,13 @@ import java.util.List;
 
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.IS_DISTINCT_FROM;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
@@ -161,6 +169,28 @@ public final class ExpressionUtils
                 .stream()
                 .filter((conjunct) -> !DeterminismEvaluator.isDeterministic(conjunct))
                 .collect(toImmutableList()));
+    }
+
+    public static ComparisonExpression.Type flipComparison(ComparisonExpression.Type type)
+    {
+        switch (type) {
+            case EQUAL:
+                return EQUAL;
+            case NOT_EQUAL:
+                return NOT_EQUAL;
+            case LESS_THAN:
+                return GREATER_THAN;
+            case LESS_THAN_OR_EQUAL:
+                return GREATER_THAN_OR_EQUAL;
+            case GREATER_THAN:
+                return LESS_THAN;
+            case GREATER_THAN_OR_EQUAL:
+                return LESS_THAN_OR_EQUAL;
+            case IS_DISTINCT_FROM:
+                return IS_DISTINCT_FROM;
+            default:
+                throw new IllegalArgumentException("Unsupported comparison: " + type);
+        }
     }
 
     public static Function<Expression, Expression> expressionOrNullSymbols(final Predicate<Symbol>... nullSymbolScopes)

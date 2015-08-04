@@ -20,9 +20,8 @@ import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 
 import static com.facebook.presto.Session.SessionBuilder;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static java.util.Locale.ENGLISH;
 
 public final class BenchmarkQueryRunner
 {
@@ -41,14 +40,9 @@ public final class BenchmarkQueryRunner
     }
     public static LocalQueryRunner createLocalQueryRunner(boolean hashingEnabled)
     {
-        SessionBuilder sessionBuilder = Session
-                .builder()
-                .setUser("user")
-                .setSource("test")
+        SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("tpch")
-                .setSchema(TINY_SCHEMA_NAME)
-                .setTimeZoneKey(UTC_KEY)
-                .setLocale(ENGLISH);
+                .setSchema(TINY_SCHEMA_NAME);
 
         if (hashingEnabled) {
             sessionBuilder.setSystemProperties(ImmutableMap.of("optimizer.optimize_hash_generation", "true"));

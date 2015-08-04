@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -130,21 +129,11 @@ public class InformationSchemaMetadata
             return null;
         }
 
-        Session session = Session.builder()
-                .setUser(connectorSession.getUser())
-                .setSource("information_schema")
-                .setCatalog("") // default catalog is not be used
-                .setSchema("") // default schema is not be used
-                .setTimeZoneKey(connectorSession.getTimeZoneKey())
-                .setLocale(connectorSession.getLocale())
-                .setStartTime(connectorSession.getStartTime())
-                .build();
-
-        return new InformationSchemaTableHandle(session, catalogName, tableName.getSchemaName(), tableName.getTableName());
+        return new InformationSchemaTableHandle(catalogName, tableName.getSchemaName(), tableName.getTableName());
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
         return TABLES.get(informationSchemaTableHandle.getSchemaTableName());
@@ -161,13 +150,13 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return null;
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
         ConnectorTableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
@@ -180,7 +169,7 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
 

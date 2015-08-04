@@ -133,7 +133,7 @@ public class TestSqlStageExecution
         StageExecutionPlan tableScanPlan = createTableScanPlan("test", 20, TestingSplit::createEmptySplit);
         SqlStageExecution sqlStageExecution = createSqlStageExecution(nodeScheduler, 2, tableScanPlan);
         Future<?> future = sqlStageExecution.start();
-        future.get(1, TimeUnit.SECONDS);
+        future.get(10, TimeUnit.SECONDS);
     }
 
     @Test
@@ -144,7 +144,7 @@ public class TestSqlStageExecution
         StageExecutionPlan tableScanPlan = createTableScanPlan("test", 15, splitFactory);
         SqlStageExecution sqlStageExecution1 = createSqlStageExecution(nodeScheduler, 2, tableScanPlan);
         Future<?> future1 = sqlStageExecution1.start();
-        future1.get(1, TimeUnit.SECONDS);
+        future1.get(10, TimeUnit.SECONDS);
         for (RemoteTask remoteTask : sqlStageExecution1.getAllTasks()) {
             assertEquals(remoteTask.getPartitionedSplitCount(), 5);
         }
@@ -157,7 +157,7 @@ public class TestSqlStageExecution
         StageExecutionPlan tableScanPlan2 = createTableScanPlan("test", 5, splitFactory);
         SqlStageExecution sqlStageExecution2 = createSqlStageExecution(nodeScheduler, 5, tableScanPlan2);
         Future<?> future2 = sqlStageExecution2.start();
-        future2.get(1, TimeUnit.SECONDS);
+        future2.get(10, TimeUnit.SECONDS);
         List<RemoteTask> tasks2 = sqlStageExecution2.getTasks(additionalNode);
 
         RemoteTask task = Iterables.getFirst(tasks2, null);
@@ -176,7 +176,7 @@ public class TestSqlStageExecution
 
         // The stage scheduler will block and this will cause a timeout exception
         try {
-            future1.get(2, TimeUnit.SECONDS);
+            future1.get(10, TimeUnit.SECONDS);
         }
         catch (TimeoutException e) {
             // expected
@@ -313,7 +313,8 @@ public class TestSqlStageExecution
                 PlanDistribution.SOURCE,
                 new PlanNodeId(planId),
                 OutputPartitioning.NONE,
-                ImmutableList.<Symbol>of(),
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         return new StageExecutionPlan(joinPlan,
@@ -343,7 +344,8 @@ public class TestSqlStageExecution
                 PlanDistribution.SOURCE,
                 tableScanNodeId,
                 OutputPartitioning.NONE,
-                ImmutableList.<Symbol>of(),
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
@@ -406,7 +408,8 @@ public class TestSqlStageExecution
                 this.taskStateMachine = new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotNull(executor, "executor is null"));
 
                 MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE), false);
-                this.taskContext = new QueryContext(false, new DataSize(1, MEGABYTE), memoryPool, executor).addTaskContext(taskStateMachine, TEST_SESSION, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true, true);
+                MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE), false);
+                this.taskContext = new QueryContext(false, new DataSize(1, MEGABYTE), memoryPool, systemMemoryPool, executor).addTaskContext(taskStateMachine, TEST_SESSION, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), true, true);
 
                 this.location = URI.create("fake://task/" + taskId);
 

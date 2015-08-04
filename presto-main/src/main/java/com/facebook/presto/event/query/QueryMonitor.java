@@ -19,6 +19,7 @@ import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.metadata.NodeVersion;
 import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.operator.TaskStats;
@@ -65,13 +66,13 @@ public class QueryMonitor
                 new QueryCreatedEvent(
                         queryInfo.getQueryId(),
                         queryInfo.getSession().getUser(),
-                        queryInfo.getSession().getSource(),
+                        queryInfo.getSession().getSource().orElse(null),
                         serverVersion,
                         environment,
                         queryInfo.getSession().getCatalog(),
                         queryInfo.getSession().getSchema(),
-                        queryInfo.getSession().getRemoteUserAddress(),
-                        queryInfo.getSession().getUserAgent(),
+                        queryInfo.getSession().getRemoteUserAddress().orElse(null),
+                        queryInfo.getSession().getUserAgent().orElse(null),
                         queryInfo.getSelf(),
                         queryInfo.getQuery(),
                         queryInfo.getQueryStats().getCreateTime()
@@ -96,21 +97,32 @@ public class QueryMonitor
                 }
             }
 
+            TaskInfo task = null;
+            StageInfo stageInfo = queryInfo.getOutputStage();
+            if (stageInfo != null) {
+                task = stageInfo.getTasks().stream()
+                        .filter(taskInfo -> taskInfo.getState() == TaskState.FAILED)
+                        .findFirst().orElse(null);
+            }
+            String failureHost = task == null ? null : task.getSelf().getHost();
+            String failureTask = task == null ? null : task.getTaskId().toString();
+
             eventClient.post(
                     new QueryCompletionEvent(
                             queryInfo.getQueryId(),
                             queryInfo.getSession().getUser(),
-                            queryInfo.getSession().getSource(),
+                            queryInfo.getSession().getSource().orElse(null),
                             serverVersion,
                             environment,
                             queryInfo.getSession().getCatalog(),
                             queryInfo.getSession().getSchema(),
-                            queryInfo.getSession().getRemoteUserAddress(),
-                            queryInfo.getSession().getUserAgent(),
+                            queryInfo.getSession().getRemoteUserAddress().orElse(null),
+                            queryInfo.getSession().getUserAgent().orElse(null),
                             queryInfo.getState(),
                             queryInfo.getSelf(),
                             queryInfo.getFieldNames(),
                             queryInfo.getQuery(),
+                            queryStats.getPeakMemoryReservation().toBytes(),
                             queryStats.getCreateTime(),
                             queryStats.getExecutionStartTime(),
                             queryStats.getEndTime(),
@@ -125,6 +137,8 @@ public class QueryMonitor
                             queryInfo.getErrorCode(),
                             failureType,
                             failureMessage,
+                            failureTask,
+                            failureHost,
                             objectMapper.writeValueAsString(queryInfo.getOutputStage()),
                             objectMapper.writeValueAsString(queryInfo.getFailureInfo()),
                             objectMapper.writeValueAsString(queryInfo.getInputs()),

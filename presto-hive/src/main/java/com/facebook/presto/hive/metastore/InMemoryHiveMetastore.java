@@ -19,7 +19,6 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -28,6 +27,7 @@ import java.io.File;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -103,8 +103,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
-            throws NoSuchObjectException
+    public Optional<List<String>> getAllTables(String databaseName)
     {
         ImmutableList.Builder<String> tables = ImmutableList.builder();
         for (SchemaTableName schemaTableName : this.relations.keySet()) {
@@ -112,12 +111,11 @@ public class InMemoryHiveMetastore
                 tables.add(schemaTableName.getTableName());
             }
         }
-        return tables.build();
+        return Optional.of(tables.build());
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
-            throws NoSuchObjectException
+    public Optional<List<String>> getAllViews(String databaseName)
     {
         ImmutableList.Builder<String> tables = ImmutableList.builder();
         for (SchemaTableName schemaTableName : this.views.keySet()) {
@@ -125,51 +123,38 @@ public class InMemoryHiveMetastore
                 tables.add(schemaTableName.getTableName());
             }
         }
-        return tables.build();
+        return Optional.of(tables.build());
     }
 
     @Override
-    public Database getDatabase(String databaseName)
-            throws NoSuchObjectException
+    public Optional<Database> getDatabase(String databaseName)
     {
-        Database database = databases.get(databaseName);
-        if (database == null) {
-            throw new NoSuchObjectException();
-        }
-        return database;
+        return Optional.ofNullable(databases.get(databaseName));
     }
 
     @Override
-    public List<String> getPartitionNames(String databaseName, String tableName)
-            throws NoSuchObjectException
+    public Optional<List<String>> getPartitionNames(String databaseName, String tableName)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<String> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts)
-            throws NoSuchObjectException
+    public Optional<List<String>> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Map<String, Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
-            throws NoSuchObjectException
+    public Optional<Map<String, Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Table getTable(String databaseName, String tableName)
-            throws NoSuchObjectException
+    public Optional<Table> getTable(String databaseName, String tableName)
     {
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
-        Table table = relations.get(schemaTableName);
-        if (table == null) {
-            throw new NoSuchObjectException();
-        }
-        return table;
+        return Optional.ofNullable(relations.get(schemaTableName));
     }
 
     @Override

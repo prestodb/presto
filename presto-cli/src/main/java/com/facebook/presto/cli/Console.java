@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.command.Command;
 import io.airlift.command.HelpOption;
+import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import jline.console.history.FileHistory;
@@ -83,6 +84,7 @@ public class Console
     public void run()
     {
         ClientSession session = clientOptions.toClientSession();
+        KerberosConfig kerberosConfig = clientOptions.toKerberosConfig();
         boolean hasQuery = !Strings.isNullOrEmpty(clientOptions.execute);
         boolean isFromFile = !Strings.isNullOrEmpty(clientOptions.file);
 
@@ -90,7 +92,7 @@ public class Console
             AnsiConsole.systemInstall();
         }
 
-        initializeLogging();
+        initializeLogging(clientOptions.logLevelsFile);
 
         String query = clientOptions.execute;
         if (hasQuery) {
@@ -110,7 +112,15 @@ public class Console
             }
         }
 
-        try (QueryRunner queryRunner = QueryRunner.create(session, Optional.ofNullable(clientOptions.socksProxy))) {
+        try (QueryRunner queryRunner = QueryRunner.create(
+                session,
+                Optional.ofNullable(clientOptions.socksProxy),
+                Optional.ofNullable(clientOptions.keystorePath),
+                Optional.ofNullable(clientOptions.keystorePassword),
+                Optional.ofNullable(clientOptions.krb5Principal),
+                Optional.ofNullable(clientOptions.krb5RemoteServiceName),
+                clientOptions.authenticationEnabled,
+                kerberosConfig)) {
             if (hasQuery) {
                 executeCommand(queryRunner, query, clientOptions.outputFormat);
             }
@@ -299,18 +309,27 @@ public class Console
         return history;
     }
 
-    private static void initializeLogging()
+    private static void initializeLogging(String logLevelsFile)
     {
         // unhook out and err while initializing logging or logger will print to them
         PrintStream out = System.out;
         PrintStream err = System.err;
+
         try {
-            System.setOut(new PrintStream(nullOutputStream()));
-            System.setErr(new PrintStream(nullOutputStream()));
+            LoggingConfiguration config = new LoggingConfiguration();
+
+            if (logLevelsFile == null) {
+                System.setOut(new PrintStream(nullOutputStream()));
+                System.setErr(new PrintStream(nullOutputStream()));
+
+                config.setConsoleEnabled(false);
+            }
+            else {
+                config.setLevelsFile(logLevelsFile);
+            }
 
             Logging logging = Logging.initialize();
-            logging.configure(new LoggingConfiguration());
-            logging.disableConsole();
+            logging.configure(config);
         }
         catch (IOException e) {
             throw Throwables.propagate(e);

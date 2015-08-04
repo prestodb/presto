@@ -23,6 +23,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -154,7 +155,7 @@ public abstract class AbstractTestIntegrationSmokeTest
             resultBuilder.row("tpch_sampled");
         }
 
-        assertTrue(actualSchemas.getMaterializedRows().containsAll(resultBuilder.build().getMaterializedRows()));
+        assertContains(actualSchemas, resultBuilder.build());
     }
 
     @Test
@@ -165,7 +166,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         MaterializedResult expectedTables = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR)
                 .row("orders")
                 .build();
-        assertEquals(actualTables, expectedTables);
+        assertContains(actualTables, expectedTables);
     }
 
     @Test

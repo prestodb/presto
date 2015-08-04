@@ -37,7 +37,6 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -50,19 +49,6 @@ public class TestJsonTableHandle
 
     private static final Map<String, Object> INFORMATION_SCHEMA_AS_MAP = ImmutableMap.<String, Object>of(
             "type", "information_schema",
-            "session", ImmutableMap.<String, Object>builder()
-                    .put("user", TEST_SESSION.getUser())
-                    .put("source", TEST_SESSION.getSource())
-                    .put("catalog", TEST_SESSION.getCatalog())
-                    .put("schema", TEST_SESSION.getSchema())
-                    .put("timeZoneKey", (int) TEST_SESSION.getTimeZoneKey().getKey())
-                    .put("locale", TEST_SESSION.getLocale().toString())
-                    .put("remoteUserAddress", TEST_SESSION.getRemoteUserAddress())
-                    .put("userAgent", TEST_SESSION.getUserAgent())
-                    .put("startTime", TEST_SESSION.getStartTime())
-                    .put("systemProperties", ImmutableMap.of())
-                    .put("catalogProperties", ImmutableMap.of())
-                    .build(),
             "catalogName", "information_schema_catalog",
             "schemaName", "information_schema_schema",
             "tableName", "information_schema_table"
@@ -106,7 +92,6 @@ public class TestJsonTableHandle
             throws Exception
     {
         InformationSchemaTableHandle informationSchemaTableHandle = new InformationSchemaTableHandle(
-                TEST_SESSION,
                 "information_schema_catalog",
                 "information_schema_schema",
                 "information_schema_table");

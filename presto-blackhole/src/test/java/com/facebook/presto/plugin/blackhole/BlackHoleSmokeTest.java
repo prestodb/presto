@@ -30,10 +30,9 @@ import org.testng.annotations.Test;
 import java.sql.SQLException;
 import java.util.List;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -68,13 +67,9 @@ public class BlackHoleSmokeTest
 
     public static Session createSession()
     {
-        return Session.builder()
-                .setUser("user")
-                .setSource("test")
+        return testSessionBuilder()
                 .setCatalog("blackhole")
                 .setSchema("default")
-                .setTimeZoneKey(UTC_KEY)
-                .setLocale(ENGLISH)
                 .build();
     }
 

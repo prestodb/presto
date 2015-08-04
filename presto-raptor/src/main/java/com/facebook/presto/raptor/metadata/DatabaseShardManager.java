@@ -24,11 +24,12 @@ import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.airlift.log.Logger;
+import org.h2.jdbc.JdbcConnection;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.Query;
@@ -39,8 +40,10 @@ import org.skife.jdbi.v2.util.LongMapper;
 
 import javax.inject.Inject;
 
+import java.sql.Connection;
 import java.sql.JDBCType;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
@@ -61,10 +64,12 @@ import static com.facebook.presto.raptor.util.ArrayUtil.intArrayToBytes;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static com.google.common.collect.Iterables.partition;
 import static java.lang.String.format;
+import static java.sql.Statement.RETURN_GENERATED_KEYS;
 import static java.util.Arrays.asList;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toSet;
@@ -73,8 +78,6 @@ public class DatabaseShardManager
         implements ShardManager
 {
     private static final String INDEX_TABLE_PREFIX = "x_shards_t";
-
-    private static final Logger log = Logger.get(DatabaseShardManager.class);
 
     private final IDBI dbi;
     private final ShardManagerDao dao;
@@ -140,7 +143,7 @@ public class DatabaseShardManager
         dbi.inTransaction((handle, status) -> {
             ShardManagerDao dao = handle.attach(ShardManagerDao.class);
 
-            insertShardsAndIndex(tableId, columns, shards, nodeIds, handle, dao);
+            insertShardsAndIndex(tableId, columns, shards, nodeIds, handle);
 
             if (externalBatchId.isPresent()) {
                 dao.insertExternalBatch(externalBatchId.get());
@@ -155,8 +158,7 @@ public class DatabaseShardManager
         Map<String, Integer> nodeIds = toNodeIdMap(newShards);
 
         runTransaction((handle, status) -> {
-            ShardManagerDao dao = handle.attach(ShardManagerDao.class);
-            insertShardsAndIndex(tableId, columns, newShards, nodeIds, handle, dao);
+            insertShardsAndIndex(tableId, columns, newShards, nodeIds, handle);
             deleteShardsAndIndex(tableId, oldShardIds, handle);
             return null;
         });
@@ -168,9 +170,8 @@ public class DatabaseShardManager
         Map<String, Integer> nodeIds = toNodeIdMap(newShards);
 
         runTransaction((handle, status) -> {
-            ShardManagerDao dao = handle.attach(ShardManagerDao.class);
             for (List<ShardInfo> shards : partition(newShards, 1000)) {
-                insertShardsAndIndex(tableId, columns, shards, nodeIds, handle, dao);
+                insertShardsAndIndex(tableId, columns, shards, nodeIds, handle);
             }
             for (List<UUID> uuids : partition(oldShardUuids, 1000)) {
                 Set<Long> ids = getShardIds(handle, ImmutableSet.copyOf(uuids));
@@ -230,22 +231,32 @@ public class DatabaseShardManager
         }
     }
 
-    private static void insertShardsAndIndex(long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Map<String, Integer> nodeIds, Handle handle, ShardManagerDao dao)
+    private static void insertShardsAndIndex(long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Map<String, Integer> nodeIds, Handle handle)
             throws SQLException
     {
-        try (IndexInserter indexInserter = new IndexInserter(handle.getConnection(), tableId, columns)) {
-            for (ShardInfo shard : shards) {
-                long shardId = dao.insertShard(shard.getShardUuid(), tableId, shard.getRowCount(), shard.getCompressedSize(), shard.getUncompressedSize());
-                Set<Integer> shardNodes = shard.getNodeIdentifiers().stream()
-                        .map(nodeIds::get)
-                        .collect(toSet());
-                for (int nodeId : shardNodes) {
-                    dao.insertShardNode(shardId, nodeId);
-                }
+        Connection connection = handle.getConnection();
+        try (IndexInserter indexInserter = new IndexInserter(connection, tableId, columns)) {
+            for (List<ShardInfo> batch : partition(shards, batchSize(connection))) {
+                List<Long> shardIds = insertShards(connection, tableId, batch);
+                insertShardNodes(connection, nodeIds, shardIds, batch);
 
-                indexInserter.insert(shardId, shard.getShardUuid(), shardNodes, shard.getColumnStats());
+                for (int i = 0; i < batch.size(); i++) {
+                    ShardInfo shard = batch.get(i);
+                    Set<Integer> shardNodes = shard.getNodeIdentifiers().stream()
+                            .map(nodeIds::get)
+                            .collect(toSet());
+                    indexInserter.insert(shardIds.get(i), shard.getShardUuid(), shardNodes, shard.getColumnStats());
+                }
+                indexInserter.execute();
             }
         }
+    }
+
+    private static int batchSize(Connection connection)
+    {
+        // H2 does not return generated keys properly
+        // https://github.com/h2database/h2database/issues/156
+        return (connection instanceof JdbcConnection) ? 1 : 1000;
     }
 
     private Map<String, Integer> toNodeIdMap(Collection<ShardInfo> shards)
@@ -331,6 +342,56 @@ public class DatabaseShardManager
             throw new PrestoException(INTERNAL_ERROR, "node does not exist after insert");
         }
         return id;
+    }
+
+    private static List<Long> insertShards(Connection connection, long tableId, List<ShardInfo> shards)
+            throws SQLException
+    {
+        String sql = "" +
+                "INSERT INTO shards (shard_uuid, table_id, create_time, row_count, compressed_size, uncompressed_size)\n" +
+                "VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?)";
+
+        try (PreparedStatement statement = connection.prepareStatement(sql, RETURN_GENERATED_KEYS)) {
+            for (ShardInfo shard : shards) {
+                statement.setBytes(1, uuidToBytes(shard.getShardUuid()));
+                statement.setLong(2, tableId);
+                statement.setLong(3, shard.getRowCount());
+                statement.setLong(4, shard.getCompressedSize());
+                statement.setLong(5, shard.getUncompressedSize());
+                statement.addBatch();
+            }
+            statement.executeBatch();
+
+            ImmutableList.Builder<Long> builder = ImmutableList.builder();
+            try (ResultSet keys = statement.getGeneratedKeys()) {
+                while (keys.next()) {
+                    builder.add(keys.getLong(1));
+                }
+            }
+            List<Long> shardIds = builder.build();
+
+            if (shardIds.size() != shards.size()) {
+                throw new PrestoException(RAPTOR_ERROR, "Wrong number of generated keys for inserted shards");
+            }
+            return shardIds;
+        }
+    }
+
+    private static void insertShardNodes(Connection connection, Map<String, Integer> nodeIds, List<Long> shardIds, List<ShardInfo> shards)
+            throws SQLException
+    {
+        checkArgument(shardIds.size() == shards.size(), "lists are not the same size");
+        String sql = "INSERT INTO shard_nodes (shard_id, node_id) VALUES (?, ?)";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            for (int i = 0; i < shards.size(); i++) {
+                for (String identifier : shards.get(i).getNodeIdentifiers()) {
+                    statement.setLong(1, shardIds.get(i));
+                    statement.setInt(2, nodeIds.get(identifier));
+                    statement.addBatch();
+                }
+            }
+            statement.executeBatch();
+        }
     }
 
     private static Collection<Integer> fetchLockedNodeIds(Handle handle, long tableId, UUID shardUuid)

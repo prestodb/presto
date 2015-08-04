@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -32,6 +33,7 @@ import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
@@ -65,6 +67,7 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.Union;
@@ -487,12 +490,6 @@ public class TestSqlParser
         SQL_PARSER.createStatement("select CAST(-12223222232535343423232435343 AS BIGINT)");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: mismatched input ',' expecting\\E.*")
-    public void testParseErrorPositionWithoutIn()
-    {
-        SQL_PARSER.createStatement("select POSITION('hi', 'high')");
-    }
-
     @Test
     public void testParsingExceptionPositionInfo()
     {
@@ -590,9 +587,15 @@ public class TestSqlParser
     public void testSetSession()
             throws Exception
     {
-        assertStatement("SET SESSION foo = 'bar'", new SetSession(QualifiedName.of("foo"), "bar"));
-        assertStatement("SET SESSION foo.bar = 'baz'", new SetSession(QualifiedName.of("foo", "bar"), "baz"));
-        assertStatement("SET SESSION foo.bar.boo = 'baz'", new SetSession(QualifiedName.of("foo", "bar", "boo"), "baz"));
+        assertStatement("SET SESSION foo = 'bar'", new SetSession(QualifiedName.of("foo"), new StringLiteral("bar")));
+        assertStatement("SET SESSION foo.bar = 'baz'", new SetSession(QualifiedName.of("foo", "bar"), new StringLiteral("baz")));
+        assertStatement("SET SESSION foo.bar.boo = 'baz'", new SetSession(QualifiedName.of("foo", "bar", "boo"), new StringLiteral("baz")));
+
+        assertStatement("SET SESSION foo.bar = 'ban' || 'ana'", new SetSession(
+                QualifiedName.of("foo", "bar"),
+                new FunctionCall(new QualifiedName("concat"), ImmutableList.of(
+                        new StringLiteral("ban"),
+                        new StringLiteral("ana")))));
     }
 
     @Test
@@ -660,6 +663,20 @@ public class TestSqlParser
                         Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
                         ImmutableList.of(new SortItem(new QualifiedNameReference(QualifiedName.of("y")), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
                         Optional.of("10")));
+    }
+
+    @Test
+    public void testCreateTable()
+            throws Exception
+    {
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(new TableElement("a", "VARCHAR"), new TableElement("b", "BIGINT")),
+                        false));
+        assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP)",
+                new CreateTable(QualifiedName.of("bar"),
+                        ImmutableList.of(new TableElement("c", "TIMESTAMP")),
+                        true));
     }
 
     @Test

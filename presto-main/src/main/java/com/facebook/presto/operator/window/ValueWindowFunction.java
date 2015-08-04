@@ -50,7 +50,7 @@ public abstract class ValueWindowFunction
     /**
      * Process a row by outputting the result of the window function.
      *
-     * @param output the {@link com.facebook.presto.spi.block.BlockBuilder} to use for writing the output row
+     * @param output the {@link BlockBuilder} to use for writing the output row
      * @param frameStart the position of the first row in the window frame
      * @param frameEnd the position of the last row in the window frame
      * @param currentPosition the current position for this row

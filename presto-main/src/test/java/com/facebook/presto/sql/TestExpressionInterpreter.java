@@ -577,6 +577,27 @@ public class TestExpressionInterpreter
     public void testSimpleCase()
             throws Exception
     {
+        assertOptimizedEquals("case 1 " +
+                "when 1 then 33 " +
+                "when 1 then 34 " +
+                "end",
+                "33");
+
+        assertOptimizedEquals("case null " +
+                "when true then 33 " +
+                "end",
+                "null");
+        assertOptimizedEquals("case null " +
+                "when true then 33 " +
+                "else 33 " +
+                "end",
+                "33");
+        assertOptimizedEquals("case 33 " +
+                "when null then 1 " +
+                "else 33 " +
+                "end",
+                "33");
+
         assertOptimizedEquals("case true " +
                 "when true then 33 " +
                 "end",
@@ -628,6 +649,47 @@ public class TestExpressionInterpreter
                         "case unbound_long " +
                         "when 1234 then 33 " +
                         "else 1 " +
+                        "end");
+
+        assertOptimizedEquals("case 33 " +
+                        "when 0 then 0 " +
+                        "when 33 then unbound_long " +
+                        "else 1 " +
+                        "end",
+                        "unbound_long");
+        assertOptimizedEquals("case 33 " +
+                        "when 0 then 0 " +
+                        "when 33 then 1 " +
+                        "when unbound_long then 2 " +
+                        "else 1 " +
+                        "end",
+                        "1");
+        assertOptimizedEquals("case 33 " +
+                        "when unbound_long then 0 " +
+                        "when 1 then 1 " +
+                        "when 33 then 2 " +
+                        "else 0 " +
+                        "end",
+                        "case 33 " +
+                        "when unbound_long then 0 " +
+                        "else 2 " +
+                        "end");
+        assertOptimizedEquals("case 33 " +
+                        "when 0 then 0 " +
+                        "when 1 then 1 " +
+                        "else unbound_long " +
+                        "end",
+                        "unbound_long");
+        assertOptimizedEquals("case 33 " +
+                        "when unbound_long then 0 " +
+                        "when 1 then 1 " +
+                        "when unbound_long2 then 2 " +
+                        "else 3 " +
+                        "end",
+                        "case 33 " +
+                        "when unbound_long then 0 " +
+                        "when unbound_long2 then 2 " +
+                        "else 3 " +
                         "end");
     }
 
@@ -779,6 +841,26 @@ public class TestExpressionInterpreter
             throws Exception
     {
         optimize("case when 0 / 0 = 0 then 1 end");
+    }
+
+    @Test(expectedExceptions = PrestoException.class)
+    public void testArraySubscriptConstantNegativeIndex()
+    {
+        optimize("ARRAY [1, 2, 3][-1]");
+    }
+
+    @Test(expectedExceptions = PrestoException.class)
+    public void testArraySubscriptConstantZeroIndex()
+    {
+        optimize("ARRAY [1, 2, 3][0]");
+    }
+
+    @Test
+    public void testMapSubscriptConstantIndexes()
+    {
+        optimize("MAP(ARRAY [1, 2], ARRAY [3, 4])[-1]");
+        optimize("MAP(ARRAY [1, 2], ARRAY [3, 4])[0]");
+        optimize("MAP(ARRAY [1, 2], ARRAY [3, 4])[5]");
     }
 
     @Test(timeOut = 60000)

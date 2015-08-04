@@ -57,16 +57,20 @@ public class TestStringFunctions
     @Test
     public void testConcat()
     {
+        assertInvalidFunction("CONCAT()", "There must be two or more concatenation arguments");
+        assertInvalidFunction("CONCAT('')", "There must be two or more concatenation arguments");
         assertFunction("CONCAT('hello', ' world')", VARCHAR, "hello world");
         assertFunction("CONCAT('', '')", VARCHAR, "");
         assertFunction("CONCAT('what', '')", VARCHAR, "what");
         assertFunction("CONCAT('', 'what')", VARCHAR, "what");
         assertFunction("CONCAT(CONCAT('this', ' is'), ' cool')", VARCHAR, "this is cool");
         assertFunction("CONCAT('this', CONCAT(' is', ' cool'))", VARCHAR, "this is cool");
+        assertFunction("CONCAT('this ', 'is ', 'cool ', 'foo ', 'bar')", VARCHAR, "this is cool foo bar");
         //
         // Test concat for non-ASCII
         assertFunction("CONCAT('hello na\u00EFve', ' world')", VARCHAR, "hello na\u00EFve world");
         assertFunction("CONCAT('\uD801\uDC2D', 'end')", VARCHAR, "\uD801\uDC2Dend");
+        assertFunction("CONCAT('\uD801\uDC2D', 'end', '\uD801\uDC2D')", VARCHAR, "\uD801\uDC2Dend\uD801\uDC2D");
         assertFunction("CONCAT(CONCAT('\u4FE1\u5FF5', ',\u7231'), ',\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
     }
 
@@ -353,6 +357,7 @@ public class TestStringFunctions
         assertFunction("CAST(LOWER(utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE}));
         assertFunction("CAST(LOWER('HELLO' || utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {'h', 'e', 'l', 'l', 'o', (byte) 0xCE}));
         assertFunction("CAST(LOWER(utf8(from_hex('CE')) || 'HELLO') AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE, 'h', 'e', 'l', 'l', 'o'}));
+        assertFunction("CAST(LOWER(utf8(from_hex('C8BAFF'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xE2, (byte) 0xB1, (byte) 0xA5, (byte) 0xFF}));
     }
 
     @Test

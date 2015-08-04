@@ -604,14 +604,7 @@ public class TestTupleDomain
                 .build();
 
         TupleDomain<Integer> domain = TupleDomain.withColumnDomains(domains);
-        TupleDomain<String> transformed = domain.transform(new TupleDomain.Function<Integer, String>()
-        {
-            @Override
-            public String apply(Integer input)
-            {
-                return input.toString();
-            }
-        });
+        TupleDomain<String> transformed = domain.transform(Object::toString);
 
         Map<String, Domain> expected = ImmutableMap.<String, Domain>builder()
                 .put("1", Domain.singleValue(1))
@@ -634,14 +627,7 @@ public class TestTupleDomain
 
         TupleDomain<Integer> domain = TupleDomain.withColumnDomains(domains);
 
-        domain.transform(new TupleDomain.Function<Integer, String>()
-        {
-            @Override
-            public String apply(Integer input)
-            {
-                return "x";
-            }
-        });
+        domain.transform(input -> "x");
     }
 
     private boolean overlaps(Map<ColumnHandle, Domain> domains1, Map<ColumnHandle, Domain> domains2)

@@ -55,6 +55,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.combineDisjunctsWithDefault;
+import static com.facebook.presto.sql.ExpressionUtils.flipComparison;
 import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
@@ -484,26 +485,9 @@ public final class DomainTranslator
             return comparison;
         }
         if (comparison.getRight() instanceof QualifiedNameReference) {
-            return new ComparisonExpression(flipComparisonDirection(comparison.getType()), comparison.getRight(), comparison.getLeft());
+            return new ComparisonExpression(flipComparison(comparison.getType()), comparison.getRight(), comparison.getLeft());
         }
         throw new IllegalArgumentException("ComparisonExpression not a simple literal comparison: " + comparison);
-    }
-
-    private static ComparisonExpression.Type flipComparisonDirection(ComparisonExpression.Type type)
-    {
-        switch (type) {
-            case LESS_THAN_OR_EQUAL:
-                return GREATER_THAN_OR_EQUAL;
-            case LESS_THAN:
-                return GREATER_THAN;
-            case GREATER_THAN_OR_EQUAL:
-                return LESS_THAN_OR_EQUAL;
-            case GREATER_THAN:
-                return LESS_THAN;
-            default:
-                // The remaining types have no direction association
-                return type;
-        }
     }
 
     private static Expression coerceDoubleToLongComparison(ComparisonExpression comparison)

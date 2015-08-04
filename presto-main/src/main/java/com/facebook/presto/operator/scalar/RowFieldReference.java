@@ -32,9 +32,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.sql.QueryUtil.mangleFieldReference;
 import static com.facebook.presto.type.RowType.RowField;
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 public class RowFieldReference
         extends ParametricScalar
@@ -46,12 +44,14 @@ public class RowFieldReference
 
     static {
         ImmutableMap.Builder<String, MethodHandle> builder = ImmutableMap.builder();
-        builder.put("long", Reflection.methodHandle(RowFieldReference.class, "longAccessor", Type.class, Integer.class, Slice.class));
-        builder.put("double", Reflection.methodHandle(RowFieldReference.class, "doubleAccessor", Type.class, Integer.class, Slice.class));
-        builder.put("boolean", Reflection.methodHandle(RowFieldReference.class, "booleanAccessor", Type.class, Integer.class, Slice.class));
-        builder.put("slice", Reflection.methodHandle(RowFieldReference.class, "sliceAccessor", Type.class, Integer.class, Slice.class));
+        builder.put("long", Reflection.methodHandle(RowFieldReference.class, "longAccessor", Type.class, Integer.class, Block.class));
+        builder.put("double", Reflection.methodHandle(RowFieldReference.class, "doubleAccessor", Type.class, Integer.class, Block.class));
+        builder.put("boolean", Reflection.methodHandle(RowFieldReference.class, "booleanAccessor", Type.class, Integer.class, Block.class));
+        builder.put("slice", Reflection.methodHandle(RowFieldReference.class, "sliceAccessor", Type.class, Integer.class, Block.class));
         METHOD_HANDLE_MAP = builder.build();
     }
+
+    private static final MethodHandle METHOD_HANDLE_OBJECT = Reflection.methodHandle(RowFieldReference.class, "objectAccessor", Type.class, Integer.class, Block.class);
 
     public RowFieldReference(RowType type, String fieldName)
     {
@@ -68,8 +68,14 @@ public class RowFieldReference
         signature = new Signature(mangleFieldReference(fieldName), returnType.getTypeSignature(), type.getTypeSignature());
 
         String stackType = returnType.getJavaType().getSimpleName().toLowerCase();
-        checkState(METHOD_HANDLE_MAP.containsKey(stackType), "method handle missing for %s stack type", stackType);
-        methodHandle = METHOD_HANDLE_MAP.get(stackType).bindTo(returnType).bindTo(index);
+        MethodHandle methodHandle;
+        if (METHOD_HANDLE_MAP.containsKey(stackType)) {
+            methodHandle = METHOD_HANDLE_MAP.get(stackType);
+        }
+        else {
+            methodHandle = METHOD_HANDLE_OBJECT;
+        }
+        this.methodHandle = methodHandle.bindTo(returnType).bindTo(index);
     }
 
     @Override
@@ -103,27 +109,28 @@ public class RowFieldReference
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false));
     }
 
-    public static Long longAccessor(Type type, Integer field, Slice row)
+    public static Long longAccessor(Type type, Integer field, Block row)
     {
-        Block block = readStructuralBlock(row);
-        return block.isNull(field) ? null : type.getLong(block, field);
+        return row.isNull(field) ? null : type.getLong(row, field);
     }
 
-    public static Boolean booleanAccessor(Type type, Integer field, Slice row)
+    public static Boolean booleanAccessor(Type type, Integer field, Block row)
     {
-        Block block = readStructuralBlock(row);
-        return block.isNull(field) ? null : type.getBoolean(block, field);
+        return row.isNull(field) ? null : type.getBoolean(row, field);
     }
 
-    public static Double doubleAccessor(Type type, Integer field, Slice row)
+    public static Double doubleAccessor(Type type, Integer field, Block row)
     {
-        Block block = readStructuralBlock(row);
-        return block.isNull(field) ? null : type.getDouble(block, field);
+        return row.isNull(field) ? null : type.getDouble(row, field);
     }
 
-    public static Slice sliceAccessor(Type type, Integer field, Slice row)
+    public static Slice sliceAccessor(Type type, Integer field, Block row)
     {
-        Block block = readStructuralBlock(row);
-        return block.isNull(field) ? null : type.getSlice(block, field);
+        return row.isNull(field) ? null : type.getSlice(row, field);
+    }
+
+    public static Object objectAccessor(Type type, Integer field, Block row)
+    {
+        return row.isNull(field) ? null : type.getObject(row, field);
     }
 }

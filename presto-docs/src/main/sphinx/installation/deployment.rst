@@ -75,9 +75,9 @@ The following provides a good starting point for creating ``etc/jvm.config``:
 
     -server
     -Xmx16G
-    -XX:+UseConcMarkSweepGC
+    -XX:+UseG1GC
+    -XX:+UseGCOverheadLimit
     -XX:+ExplicitGCInvokesConcurrent
-    -XX:+AggressiveOpts
     -XX:+HeapDumpOnOutOfMemoryError
     -XX:OnOutOfMemoryError=kill -9 %p
 
@@ -105,6 +105,8 @@ The following is a minimal configuration for the coordinator:
     node-scheduler.include-coordinator=false
     http-server.http.port=8080
     task.max-memory=1GB
+    query.max-memory=50GB
+    query.max-memory-per-node=1GB
     discovery-server.enabled=true
     discovery.uri=http://example.net:8080
 
@@ -115,6 +117,8 @@ And this is a minimal configuration for the workers:
     coordinator=false
     http-server.http.port=8080
     task.max-memory=1GB
+    query.max-memory=50GB
+    query.max-memory-per-node=1GB
     discovery.uri=http://example.net:8080
 
 Alternatively, if you are setting up a single machine for testing that
@@ -126,6 +130,8 @@ will function as both a coordinator and worker, use this configuration:
     node-scheduler.include-coordinator=true
     http-server.http.port=8080
     task.max-memory=1GB
+    query.max-memory=5GB
+    query.max-memory-per-node=1GB
     discovery-server.enabled=true
     discovery.uri=http://example.net:8080
 
@@ -156,6 +162,12 @@ These properties require some explanation:
   the size and complexity of queries.  Setting it too low will limit the
   queries that can be run, while setting it too high will cause the JVM
   to run out of memory.
+
+* ``query.max-memory=50GB``:
+  The maximum amount of distributed memory that a query may use.
+
+* ``query.max-memory-per-node=1GB``:
+  The maximum amount of memory that a query may use on any one machine.
 
 * ``discovery-server.enabled``:
   Presto uses the Discovery service to find all the nodes in the cluster.

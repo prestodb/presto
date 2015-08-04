@@ -26,6 +26,18 @@ public final class UnpartitionedPagePartitionFunction
     }
 
     @Override
+    public int getPartition()
+    {
+        return 0;
+    }
+
+    @Override
+    public int getPartitionCount()
+    {
+        return 1;
+    }
+
+    @Override
     public int hashCode()
     {
         return Objects.hash(getClass());

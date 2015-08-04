@@ -58,7 +58,7 @@ public class HivePageSourceProvider
             TypeManager typeManager)
     {
         checkNotNull(hiveClientConfig, "hiveClientConfig is null");
-        this.hiveStorageTimeZone = DateTimeZone.forTimeZone(hiveClientConfig.getTimeZone());
+        this.hiveStorageTimeZone = hiveClientConfig.getDateTimeZone();
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.cursorProviders = ImmutableSet.copyOf(checkNotNull(cursorProviders, "cursorProviders is null"));
         this.pageSourceFactories = ImmutableSet.copyOf(checkNotNull(pageSourceFactories, "pageSourceFactories is null"));
@@ -66,12 +66,11 @@ public class HivePageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorSplit split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
         HiveSplit hiveSplit = checkType(split, HiveSplit.class, "split");
 
         String clientId = hiveSplit.getClientId();
-        ConnectorSession session = hiveSplit.getSession();
 
         Path path = new Path(hiveSplit.getPath());
         long start = hiveSplit.getStart();

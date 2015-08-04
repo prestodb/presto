@@ -136,6 +136,15 @@ public class PageRecordSet
         }
 
         @Override
+        public Object getObject(int field)
+        {
+            checkState(position >= 0, "Not yet advanced");
+            checkState(position < page.getPositionCount(), "Already finished");
+            Type type = types.get(field);
+            return type.getObject(page.getBlock(field), position);
+        }
+
+        @Override
         public boolean isNull(int field)
         {
             checkState(position >= 0, "Not yet advanced");

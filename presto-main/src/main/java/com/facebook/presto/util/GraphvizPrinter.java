@@ -50,6 +50,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -61,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION_WITH_NULL_REPLICATION;
 import static com.google.common.collect.Maps.immutableEnumMap;
 import static java.lang.String.format;
 
@@ -293,8 +295,8 @@ public final class GraphvizPrinter
         public Void visitExchange(ExchangeNode node, Void context)
         {
             List<Symbol> symbols = node.getOutputSymbols();
-            if (node.getType() == REPARTITION) {
-                symbols = node.getPartitionKeys();
+            if (node.getType() == REPARTITION || node.getType() == REPARTITION_WITH_NULL_REPLICATION) {
+                symbols = node.getPartitionKeys().orElseGet(() -> ImmutableList.of(new Symbol("(absent)")));
             }
             String columns = Joiner.on(", ").join(symbols);
             printNode(node, format("ExchangeNode[%s]", node.getType()), columns, NODE_COLORS.get(NodeType.EXCHANGE));

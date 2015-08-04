@@ -19,25 +19,37 @@ import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
-import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
+import static java.util.Locale.ENGLISH;
 
 public final class HiveTestUtils
 {
     private HiveTestUtils()
     {
     }
+
+    public static final ConnectorSession SESSION = new TestingConnectorSession(
+            "user",
+            UTC_KEY,
+            ENGLISH,
+            System.currentTimeMillis(),
+            new HiveSessionProperties(new HiveClientConfig()).getSessionProperties(),
+            ImmutableMap.of());
 
     public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
 
@@ -65,29 +77,29 @@ public final class HiveTestUtils
         return types.build();
     }
 
-    public static Slice arraySliceOf(Type elementType, Object... values)
+    public static Block arrayBlockOf(Type elementType, Object... values)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), 1024);
         for (Object value : values) {
             appendToBlockBuilder(elementType, value, blockBuilder);
         }
-        return buildStructuralSlice(blockBuilder);
+        return blockBuilder.build();
     }
 
-    public static Slice mapSliceOf(Type keyType, Type valueType, Object key, Object value)
+    public static Block mapBlockOf(Type keyType, Type valueType, Object key, Object value)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
+        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), 1024);
         appendToBlockBuilder(keyType, key, blockBuilder);
         appendToBlockBuilder(valueType, value, blockBuilder);
-        return buildStructuralSlice(blockBuilder);
+        return blockBuilder.build();
     }
 
-    public static Slice rowSliceOf(List<Type> parameterTypes, Object... values)
+    public static Block rowBlockOf(List<Type> parameterTypes, Object... values)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
+        InterleavedBlockBuilder blockBuilder = new InterleavedBlockBuilder(parameterTypes, new BlockBuilderStatus(), 1024);
         for (int i = 0; i < values.length; i++) {
             appendToBlockBuilder(parameterTypes.get(i), values[i], blockBuilder);
         }
-        return buildStructuralSlice(blockBuilder);
+        return blockBuilder.build();
     }
 }

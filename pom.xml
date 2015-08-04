@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>40</version>
+        <version>42</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.108-SNAPSHOT</version>
+    <version>0.114-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -42,10 +42,12 @@
         <air.check.fail-checkstyle>true</air.check.fail-checkstyle>
         <air.check.skip-checkstyle>false</air.check.skip-checkstyle>
 
-        <dep.antlr.version>4.3</dep.antlr.version>
-        <dep.airlift.version>0.110</dep.airlift.version>
+        <air.java.version>1.8.0-40</air.java.version>
+
+        <dep.antlr.version>4.5.1</dep.antlr.version>
+        <dep.airlift.version>0.112</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.slice.version>0.14</dep.slice.version>
+        <dep.slice.version>0.15</dep.slice.version>
 
         <cli.skip-execute>true</cli.skip-execute>
         <cli.main-class>None</cli.main-class>
@@ -61,6 +63,7 @@
 
     <modules>
         <module>presto-spi</module>
+        <module>presto-jmx</module>
         <module>presto-kafka</module>
         <module>presto-cassandra</module>
         <module>presto-blackhole</module>
@@ -90,6 +93,7 @@
         <module>presto-server-rpm</module>
         <module>presto-docs</module>
         <module>presto-verifier</module>
+        <module>presto-testing-server-launcher</module>
     </modules>
 
     <dependencyManagement>
@@ -492,12 +496,6 @@
             <dependency>
                 <groupId>org.antlr</groupId>
                 <artifactId>antlr4-runtime</artifactId>
-                <version>${dep.antlr.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.antlr</groupId>
-                <artifactId>antlr4-annotations</artifactId>
                 <version>${dep.antlr.version}</version>
             </dependency>
 

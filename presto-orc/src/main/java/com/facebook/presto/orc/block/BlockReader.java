@@ -16,7 +16,6 @@ package com.facebook.presto.orc.block;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.facebook.presto.spi.block.BlockBuilder;
-import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.util.List;
@@ -34,9 +33,4 @@ public interface BlockReader
 
     void skip(int skipSize)
             throws IOException;
-
-    default Slice toSlice()
-    {
-        throw new UnsupportedOperationException();
-    };
 }

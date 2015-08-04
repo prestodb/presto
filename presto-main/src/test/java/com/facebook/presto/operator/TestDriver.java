@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.ScheduledSplit;
+import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
@@ -139,7 +140,7 @@ public class TestDriver
                 new PageSourceProvider()
                 {
                     @Override
-                    public ConnectorPageSource createPageSource(Split split, List<ColumnHandle> columns)
+                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
                     {
                         return new FixedPageSource(rowPagesBuilder(types)
                                 .addSequencePage(10, 20, 30, 40)
@@ -243,7 +244,7 @@ public class TestDriver
                 new PageSourceProvider()
                 {
                     @Override
-                    public ConnectorPageSource createPageSource(Split split, List<ColumnHandle> columns)
+                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
                     {
                         return new FixedPageSource(rowPagesBuilder(types)
                                 .addSequencePage(10, 20, 30, 40)

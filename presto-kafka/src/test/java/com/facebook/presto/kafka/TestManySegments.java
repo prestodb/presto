@@ -34,20 +34,15 @@ import java.util.UUID;
 
 import static com.facebook.presto.kafka.util.EmbeddedKafka.CloseableProducer;
 import static com.facebook.presto.kafka.util.TestUtils.createEmptyTopicDescription;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static java.util.Locale.ENGLISH;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestManySegments
 {
-    private static final Session SESSION = Session.builder()
-            .setUser("user")
-            .setSource("source")
+    private static final Session SESSION = testSessionBuilder()
             .setCatalog("kafka")
             .setSchema("default")
-            .setTimeZoneKey(UTC_KEY)
-            .setLocale(ENGLISH)
             .build();
 
     private EmbeddedKafka embeddedKafka;

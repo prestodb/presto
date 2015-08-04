@@ -151,7 +151,7 @@ public class OrcPageSource
                 close();
                 return null;
             }
-            long filePosition = recordReader.getFilePosition() - batchSize;
+            long filePosition = recordReader.getFilePosition();
 
             Block[] blocks = new Block[columnIndexes.length];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
@@ -406,9 +406,14 @@ public class OrcPageSource
         {
             checkState(batchId == expectedBatchId);
             try {
-                SliceVector vector = new SliceVector(batchSize);
+                SliceVector vector = new SliceVector();
                 recordReader.readVector(columnIndex, vector);
-                block.setValues(vector.vector);
+                if (vector.dictionary) {
+                    block.setValues(vector.vector, vector.ids, vector.isNull);
+                }
+                else {
+                    block.setValues(vector.vector);
+                }
             }
             catch (IOException e) {
                 throw new PrestoException(RAPTOR_ERROR, e);

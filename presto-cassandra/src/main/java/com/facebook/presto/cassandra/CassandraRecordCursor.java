@@ -122,6 +122,12 @@ public class CassandraRecordCursor
     }
 
     @Override
+    public Object getObject(int field)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public long getTotalBytes()
     {
         return atLeastCount;

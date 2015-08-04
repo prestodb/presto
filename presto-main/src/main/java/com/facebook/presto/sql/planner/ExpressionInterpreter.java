@@ -18,11 +18,19 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorType;
+import com.facebook.presto.operator.scalar.ArraySubscriptOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.AnalysisContext;
+import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
+import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.analyzer.TupleDescriptor;
+import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -32,7 +40,10 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -68,17 +79,21 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.any;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -112,6 +127,85 @@ public class ExpressionInterpreter
         checkNotNull(session, "session is null");
 
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, true);
+    }
+
+    public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session)
+    {
+        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session);
+        analyzer.analyze(expression, new TupleDescriptor(), new AnalysisContext());
+
+        Type actualType = analyzer.getExpressionTypes().get(expression);
+        if (!canCoerce(actualType, expectedType)) {
+            throw new PrestoException(StandardErrorCode.INVALID_SESSION_PROPERTY, String.format("Can not set property of type %s to %s",
+                    expectedType.getTypeSignature(),
+                    actualType.getTypeSignature()));
+        }
+
+        IdentityHashMap<Expression, Type> coercions = new IdentityHashMap<>();
+        coercions.putAll(analyzer.getExpressionCoercions());
+        coercions.put(expression, expectedType);
+        return evaluateConstantExpression(expression, coercions, metadata, session);
+    }
+
+    public static Object evaluateConstantExpression(Expression expression, IdentityHashMap<Expression, Type> coercions, Metadata metadata, Session session)
+    {
+        // verify expression is constant
+        expression.accept(new DefaultTraversalVisitor<Void, Void>()
+        {
+            @Override
+            protected Void visitQualifiedNameReference(QualifiedNameReference node, Void context)
+            {
+                throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
+            }
+
+            @Override
+            protected Void visitInputReference(InputReference node, Void context)
+            {
+                throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
+            }
+        }, null);
+
+        // add coercions
+        Expression rewrite = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+        {
+            @Override
+            public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
+
+                // cast expression if coercion is registered
+                Type coerceToType = coercions.get(node);
+                if (coerceToType != null) {
+                    rewrittenExpression = new Cast(rewrittenExpression, coerceToType.getTypeSignature().toString());
+                }
+
+                return rewrittenExpression;
+            }
+        }, expression);
+
+        // expressionInterpreter/optimizer only understands a subset of expression types
+        // TODO: remove this when the new expression tree is implemented
+        Expression canonicalized = CanonicalizeExpressions.canonicalizeExpression(rewrite);
+
+        // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
+        // to re-analyze coercions that might be necessary
+        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session);
+        analyzer.analyze(canonicalized, new TupleDescriptor(), new AnalysisContext());
+
+        // evaluate the expression
+        Object result = expressionInterpreter(canonicalized, metadata, session, analyzer.getExpressionTypes()).evaluate(0);
+        verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
+        return result;
+    }
+
+    private static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session)
+    {
+        return ExpressionAnalyzer.createWithoutSubqueries(
+                        metadata.getFunctionRegistry(),
+                        metadata.getTypeManager(),
+                        session,
+                        EXPRESSION_NOT_CONSTANT,
+                        "cannot contain a subquery");
     }
 
     private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes, boolean optimize)
@@ -279,38 +373,34 @@ public class ExpressionInterpreter
         protected Object visitSimpleCaseExpression(SimpleCaseExpression node, Object context)
         {
             Object operand = process(node.getOperand(), context);
-            if (operand instanceof Expression) {
-                // TODO: optimize this case
+            if (operand == null) {
+                return node.getDefaultValue().map(defaultValue -> process(defaultValue, context)).orElse(null);
+            }
+            else if (operand instanceof Expression) {
                 return node;
             }
 
-            Expression resultClause = node.getDefaultValue().orElse(null);
-            if (operand != null) {
-                for (WhenClause whenClause : node.getWhenClauses()) {
-                    Object value = process(whenClause.getOperand(), context);
-                    if (value == null) {
-                        continue;
-                    }
+            List<WhenClause> whenClauses = new ArrayList<>();
+            Expression defaultClause = node.getDefaultValue().orElse(null);
+            for (WhenClause whenClause : node.getWhenClauses()) {
+                Object value = process(whenClause.getOperand(), context);
+                if (value != null) {
                     if (value instanceof Expression) {
-                        // TODO: optimize this case
-                        return node;
+                        whenClauses.add(whenClause);
                     }
-
-                    if ((Boolean) invokeOperator(OperatorType.EQUAL, types(node.getOperand(), whenClause.getOperand()), ImmutableList.of(operand, value))) {
-                        resultClause = whenClause.getResult();
+                    else if ((Boolean) invokeOperator(OperatorType.EQUAL, types(node.getOperand(), whenClause.getOperand()), ImmutableList.of(operand, value))) {
+                        defaultClause = whenClause.getResult();
                         break;
                     }
                 }
             }
-            if (resultClause == null) {
-                return null;
-            }
 
-            Object result = process(resultClause, context);
-            if (result instanceof Expression) {
-                return node;
+            if (whenClauses.isEmpty()) {
+                return defaultClause == null ? null : process(defaultClause, context);
             }
-            return result;
+            else {
+                return new SimpleCaseExpression(node.getOperand(), whenClauses, Optional.ofNullable(defaultClause));
+            }
         }
 
         @Override
@@ -803,6 +893,9 @@ public class ExpressionInterpreter
             if (index == null) {
                 return null;
             }
+            if ((index instanceof Long) && isArray(expressionTypes.get(node.getBase()))) {
+                ArraySubscriptOperator.checkArrayIndex((Long) index);
+            }
 
             if (hasUnresolvedValue(base, index)) {
                 return new SubscriptExpression(toExpression(base, expressionTypes.get(node.getBase())), toExpression(index, expressionTypes.get(node.getIndex())));
@@ -886,5 +979,10 @@ public class ExpressionInterpreter
     private static boolean isNullLiteral(Expression entry)
     {
         return entry instanceof Literal && !(entry instanceof NullLiteral);
+    }
+
+    private static boolean isArray(Type type)
+    {
+        return type.getTypeSignature().getBase().equals(StandardTypes.ARRAY);
     }
 }

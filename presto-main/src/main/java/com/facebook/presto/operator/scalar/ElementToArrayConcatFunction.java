@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -36,6 +37,12 @@ public class ElementToArrayConcatFunction
     public static final ElementToArrayConcatFunction ELEMENT_TO_ARRAY_CONCAT_FUNCTION = new ElementToArrayConcatFunction();
     private static final String FUNCTION_NAME = "concat";
     private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("E", "array<E>"), false, false);
+
+    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(ArrayConcatUtils.class, "prependElement", Type.class, boolean.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(ArrayConcatUtils.class, "prependElement", Type.class, long.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(ArrayConcatUtils.class, "prependElement", Type.class, double.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(ArrayConcatUtils.class, "prependElement", Type.class, Slice.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(ArrayConcatUtils.class, "prependElement", Type.class, Object.class, Block.class);
 
     @Override
     public Signature getSignature()
@@ -65,8 +72,24 @@ public class ElementToArrayConcatFunction
     public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = types.get("E");
-        MethodHandle methodHandle = methodHandle(ArrayConcatUtils.class, "prependElement", Type.class, type.getJavaType(), Slice.class);
+        MethodHandle methodHandle;
+        if (type.getJavaType() == boolean.class) {
+            methodHandle = METHOD_HANDLE_BOOLEAN;
+        }
+        else if (type.getJavaType() == long.class) {
+            methodHandle = METHOD_HANDLE_LONG;
+        }
+        else if (type.getJavaType() == double.class) {
+            methodHandle = METHOD_HANDLE_DOUBLE;
+        }
+        else if (type.getJavaType() == Slice.class) {
+            methodHandle = METHOD_HANDLE_SLICE;
+        }
+        else {
+            methodHandle = METHOD_HANDLE_OBJECT;
+        }
         methodHandle = methodHandle.bindTo(type);
+
         TypeSignature typeSignature = type.getTypeSignature();
         TypeSignature returnType = parameterizedTypeName("array", typeSignature);
         Signature signature = new Signature(FUNCTION_NAME, returnType, typeSignature, returnType);

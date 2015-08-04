@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
@@ -36,15 +37,16 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
@@ -65,19 +67,14 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestAnalyzer
 {
-    public static final Session SESSION = Session.builder()
-            .setUser("user")
-            .setSource("test")
+    public static final Session SESSION = testSessionBuilder()
             .setCatalog("default")
             .setSchema("default")
-            .setTimeZoneKey(UTC_KEY)
-            .setLocale(ENGLISH)
             .build();
 
     private static final SqlParser SQL_PARSER = new SqlParser();
@@ -755,12 +752,24 @@ public class TestAnalyzer
         assertFails(NOT_SUPPORTED, "SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON IF(a.x = 1, true, false)");
     }
 
+    @Test
+    public void testLiteral()
+            throws Exception
+    {
+        assertFails(INVALID_LITERAL, "SELECT TIMESTAMP '2012-10-31 01:00:00 PT'");
+    }
+
     @BeforeMethod(alwaysRun = true)
     public void setup()
             throws Exception
     {
         TypeManager typeManager = new TypeRegistry();
-        MetadataManager metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeManager, new SplitManager(), new BlockEncodingManager(typeManager));
+        MetadataManager metadata = new MetadataManager(
+                new FeaturesConfig().setExperimentalSyntaxEnabled(true),
+                typeManager,
+                new SplitManager(),
+                new BlockEncodingManager(typeManager),
+                new SessionPropertyManager());
         metadata.addConnectorMetadata("tpch", "tpch", new TestingMetadata());
         metadata.addConnectorMetadata("c2", "c2", new TestingMetadata());
         metadata.addConnectorMetadata("c3", "c3", new TestingMetadata());
@@ -818,13 +827,9 @@ public class TestAnalyzer
         metadata.createView(SESSION, new QualifiedTableName("c3", "s3", "v3"), viewData3, false);
 
         analyzer = new Analyzer(
-                Session.builder()
-                        .setUser("user")
-                        .setSource("test")
+                testSessionBuilder()
                         .setCatalog("tpch")
                         .setSchema("default")
-                        .setTimeZoneKey(UTC_KEY)
-                        .setLocale(ENGLISH)
                         .build(),
                 metadata,
                 SQL_PARSER,
@@ -832,13 +837,9 @@ public class TestAnalyzer
                 true);
 
         approximateDisabledAnalyzer = new Analyzer(
-                Session.builder()
-                        .setUser("user")
-                        .setSource("test")
+                testSessionBuilder()
                         .setCatalog("tpch")
                         .setSchema("default")
-                        .setTimeZoneKey(UTC_KEY)
-                        .setLocale(ENGLISH)
                         .build(),
                 metadata,
                 SQL_PARSER,

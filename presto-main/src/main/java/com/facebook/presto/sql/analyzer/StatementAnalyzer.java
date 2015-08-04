@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
@@ -56,17 +57,13 @@ import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeMap;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS;
@@ -106,8 +103,10 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.elementsEqual;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.stream.Collectors.toList;
@@ -261,7 +260,7 @@ class StatementAnalyzer
         ImmutableList.Builder<SelectItem> selectList = ImmutableList.builder();
         ImmutableList.Builder<SelectItem> wrappedList = ImmutableList.builder();
         selectList.add(unaliasedName("partition_number"));
-        for (ColumnMetadata column : metadata.getTableMetadata(tableHandle.get()).getColumns()) {
+        for (ColumnMetadata column : metadata.getTableMetadata(session, tableHandle.get()).getColumns()) {
             if (!column.isPartitionKey()) {
                 continue;
             }
@@ -323,33 +322,34 @@ class StatementAnalyzer
     protected TupleDescriptor visitShowSession(ShowSession node, AnalysisContext context)
     {
         ImmutableList.Builder<Expression> rows = ImmutableList.builder();
-        for (Entry<String, String> property : new TreeMap<>(session.getSystemProperties()).entrySet()) {
+        List<SessionPropertyValue> sessionProperties = metadata.getSessionPropertyManager().getAllSessionProperties(session);
+        for (SessionPropertyValue sessionProperty : sessionProperties) {
+            String value = sessionProperty.getValue();
+            String defaultValue = sessionProperty.getDefaultValue();
             rows.add(row(
-                    new StringLiteral(property.getKey()),
-                    new StringLiteral(property.getValue()),
+                    new StringLiteral(sessionProperty.getFullyQualifiedName()),
+                    new StringLiteral(nullToEmpty(value)),
+                    new StringLiteral(nullToEmpty(defaultValue)),
+                    new StringLiteral(sessionProperty.getType()),
+                    new StringLiteral(sessionProperty.getDescription()),
                     TRUE_LITERAL));
-        }
-        for (Entry<String, Map<String, String>> entry : new TreeMap<>(session.getCatalogProperties()).entrySet()) {
-            String catalog = entry.getKey();
-            for (Entry<String, String> property : new TreeMap<>(entry.getValue()).entrySet()) {
-                rows.add(row(
-                        new StringLiteral(catalog + "." + property.getKey()),
-                        new StringLiteral(property.getValue()),
-                        TRUE_LITERAL));
-            }
         }
 
         // add bogus row so we can support empty sessions
-        rows.add(row(new StringLiteral(""), new StringLiteral(""), FALSE_LITERAL));
+        StringLiteral empty = new StringLiteral("");
+        rows.add(row(empty, empty, empty, empty, empty, FALSE_LITERAL));
 
         Query query = simpleQuery(
                 selectList(
                         aliasedName("name", "Name"),
-                        aliasedName("value", "Value")),
+                        aliasedName("value", "Value"),
+                        aliasedName("default", "Default"),
+                        aliasedName("type", "Type"),
+                        aliasedName("description", "Description")),
                 aliased(
                         new Values(rows.build()),
                         "session",
-                        ImmutableList.of("name", "value", "include")),
+                        ImmutableList.of("name", "value", "default", "type", "description", "include")),
                 nameReference("include"));
 
         return process(query, context);
@@ -371,10 +371,11 @@ class StatementAnalyzer
         }
         analysis.setInsertTarget(targetTableHandle.get());
 
-        List<ColumnMetadata> columns = metadata.getTableMetadata(targetTableHandle.get()).getColumns();
-        Iterable<Type> tableTypes = FluentIterable.from(columns)
+        List<ColumnMetadata> columns = metadata.getTableMetadata(session, targetTableHandle.get()).getColumns();
+        Iterable<Type> tableTypes = columns.stream()
                 .filter(column -> !column.isHidden())
-                .transform(ColumnMetadata::getType);
+                .map(ColumnMetadata::getType)
+                .collect(toImmutableList());
 
         Iterable<Type> queryTypes = transform(descriptor.getVisibleFields(), Field::getType);
 

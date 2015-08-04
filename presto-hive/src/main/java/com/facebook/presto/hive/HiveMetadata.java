@@ -14,8 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.HiveMetastore;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -40,7 +40,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -52,6 +51,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
@@ -76,6 +76,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
@@ -92,7 +93,6 @@ public class HiveMetadata
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final DateTimeZone timeZone;
-    private final HiveStorageFormat hiveStorageFormat;
     private final TypeManager typeManager;
 
     @Inject
@@ -108,11 +108,10 @@ public class HiveMetadata
         this(connectorId,
                 metastore,
                 hdfsEnvironment,
-                DateTimeZone.forTimeZone(hiveClientConfig.getTimeZone()),
+                hiveClientConfig.getDateTimeZone(),
                 hiveClientConfig.getAllowDropTable(),
                 hiveClientConfig.getAllowRenameTable(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
-                hiveClientConfig.getHiveStorageFormat(),
                 typeManager);
     }
 
@@ -124,7 +123,6 @@ public class HiveMetadata
             boolean allowDropTable,
             boolean allowRenameTable,
             boolean allowCorruptWritesForTesting,
-            HiveStorageFormat hiveStorageFormat,
             TypeManager typeManager)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
@@ -136,7 +134,6 @@ public class HiveMetadata
         this.metastore = checkNotNull(metastore, "metastore is null");
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.timeZone = checkNotNull(timeZone, "timeZone is null");
-        this.hiveStorageFormat = hiveStorageFormat;
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
@@ -162,18 +159,14 @@ public class HiveMetadata
     public HiveTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         checkNotNull(tableName, "tableName is null");
-        try {
-            metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            return new HiveTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName(), session);
-        }
-        catch (NoSuchObjectException e) {
-            // table was not found
+        if (!metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).isPresent()) {
             return null;
         }
+        return new HiveTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName());
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle tableHandle)
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         SchemaTableName tableName = schemaTableName(tableHandle);
@@ -182,18 +175,13 @@ public class HiveMetadata
 
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
     {
-        try {
-            Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
-                throw new TableNotFoundException(tableName);
-            }
-            List<HiveColumnHandle> handles = hiveColumnHandles(typeManager, connectorId, table, false);
-            List<ColumnMetadata> columns = ImmutableList.copyOf(transform(handles, columnMetadataGetter(table, typeManager)));
-            return new ConnectorTableMetadata(tableName, columns, table.getOwner());
-        }
-        catch (NoSuchObjectException e) {
+        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+        if (!table.isPresent() || table.get().getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
             throw new TableNotFoundException(tableName);
         }
+        List<HiveColumnHandle> handles = hiveColumnHandles(typeManager, connectorId, table.get(), false);
+        List<ColumnMetadata> columns = ImmutableList.copyOf(transform(handles, columnMetadataGetter(table.get(), typeManager)));
+        return new ConnectorTableMetadata(tableName, columns, table.get().getOwner());
     }
 
     @Override
@@ -201,13 +189,8 @@ public class HiveMetadata
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schemaName : listSchemas(session, schemaNameOrNull)) {
-            try {
-                for (String tableName : metastore.getAllTables(schemaName)) {
-                    tableNames.add(new SchemaTableName(schemaName, tableName));
-                }
-            }
-            catch (NoSuchObjectException e) {
-                // schema disappeared during listing operation
+            for (String tableName : metastore.getAllTables(schemaName).orElse(emptyList())) {
+                tableNames.add(new SchemaTableName(schemaName, tableName));
             }
         }
         return tableNames.build();
@@ -222,21 +205,19 @@ public class HiveMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         SchemaTableName tableName = schemaTableName(tableHandle);
-        try {
-            Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            for (HiveColumnHandle columnHandle : hiveColumnHandles(typeManager, connectorId, table, true)) {
-                if (columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
-                    return columnHandle;
-                }
-            }
-            return null;
-        }
-        catch (NoSuchObjectException e) {
+        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+        if (!table.isPresent()) {
             throw new TableNotFoundException(tableName);
         }
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(typeManager, connectorId, table.get(), true)) {
+            if (columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
+                return columnHandle;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -246,22 +227,21 @@ public class HiveMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         SchemaTableName tableName = schemaTableName(tableHandle);
-        try {
-            Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-            for (HiveColumnHandle columnHandle : hiveColumnHandles(typeManager, connectorId, table, false)) {
-                columnHandles.put(columnHandle.getName(), columnHandle);
-            }
-            return columnHandles.build();
-        }
-        catch (NoSuchObjectException e) {
+        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+        if (!table.isPresent()) {
             throw new TableNotFoundException(tableName);
         }
+        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(typeManager, connectorId, table.get(), false)) {
+            columnHandles.put(columnHandle.getName(), columnHandle);
+        }
+        return columnHandles.build();
     }
 
+    @SuppressWarnings("TryWithIdenticalCatches")
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
@@ -293,7 +273,7 @@ public class HiveMetadata
      * NOTE: This method does not return column comment
      */
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         checkType(tableHandle, HiveTableHandle.class, "tableHandle");
         return checkType(columnHandle, HiveColumnHandle.class, "columnHandle").getColumnMetadata(typeManager);
@@ -333,18 +313,19 @@ public class HiveMetadata
 
         Path targetPath = getTargetPath(schemaName, tableName, schemaTableName);
 
-        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(session, this.hiveStorageFormat);
+        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(session);
         SerDeInfo serdeInfo = new SerDeInfo();
         serdeInfo.setName(tableName);
         serdeInfo.setSerializationLib(hiveStorageFormat.getSerDe());
+        serdeInfo.setParameters(ImmutableMap.of());
 
         StorageDescriptor sd = new StorageDescriptor();
         sd.setLocation(targetPath.toString());
-
         sd.setCols(columns.build());
         sd.setSerdeInfo(serdeInfo);
         sd.setInputFormat(hiveStorageFormat.getInputFormat());
         sd.setOutputFormat(hiveStorageFormat.getOutputFormat());
+        sd.setParameters(ImmutableMap.of());
 
         Table table = new Table();
         table.setDbName(schemaName);
@@ -360,7 +341,7 @@ public class HiveMetadata
     }
 
     @Override
-    public void renameTable(ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         if (!allowRenameTable) {
             throw new PrestoException(PERMISSION_DENIED, "Renaming tables is disabled in this Hive catalog");
@@ -371,7 +352,7 @@ public class HiveMetadata
     }
 
     @Override
-    public void dropTable(ConnectorTableHandle tableHandle)
+    public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
         SchemaTableName tableName = schemaTableName(tableHandle);
@@ -380,16 +361,16 @@ public class HiveMetadata
             throw new PrestoException(PERMISSION_DENIED, "DROP TABLE is disabled in this Hive catalog");
         }
 
-        try {
-            Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
-            if (!handle.getSession().getUser().equals(table.getOwner())) {
-                throw new PrestoException(PERMISSION_DENIED, format("Unable to drop table '%s': owner of the table is different from session user", table));
-            }
-            metastore.dropTable(handle.getSchemaName(), handle.getTableName());
-        }
-        catch (NoSuchObjectException e) {
+        Optional<Table> target = metastore.getTable(handle.getSchemaName(), handle.getTableName());
+        if (!target.isPresent()) {
             throw new TableNotFoundException(tableName);
         }
+        Table table = target.get();
+
+        if (!session.getUser().equals(table.getOwner())) {
+            throw new PrestoException(PERMISSION_DENIED, format("Unable to drop table '%s': owner of the table is different from session user", table));
+        }
+        metastore.dropTable(handle.getSchemaName(), handle.getTableName());
     }
 
     @Override
@@ -399,7 +380,7 @@ public class HiveMetadata
 
         checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
 
-        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(session, this.hiveStorageFormat);
+        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(session);
 
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
@@ -423,7 +404,6 @@ public class HiveMetadata
                     tableMetadata.getOwner(),
                     targetPath.toString(),
                     targetPath.toString(),
-                    session,
                     hiveStorageFormat);
         }
 
@@ -445,12 +425,11 @@ public class HiveMetadata
                 tableMetadata.getOwner(),
                 targetPath.toString(),
                 temporaryPath.toString(),
-                session,
                 hiveStorageFormat);
     }
 
     @Override
-    public void commitCreateTable(ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         HiveOutputTableHandle handle = checkType(tableHandle, HiveOutputTableHandle.class, "tableHandle");
 
@@ -543,12 +522,7 @@ public class HiveMetadata
 
     private Database getDatabase(String database)
     {
-        try {
-            return metastore.getDatabase(database);
-        }
-        catch (NoSuchObjectException e) {
-            throw new SchemaNotFoundException(database);
-        }
+        return metastore.getDatabase(database).orElseThrow(() -> new SchemaNotFoundException(database));
     }
 
     private boolean useTemporaryDirectory(Path path)
@@ -667,13 +641,8 @@ public class HiveMetadata
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schemaName : listSchemas(session, schemaNameOrNull)) {
-            try {
-                for (String tableName : metastore.getAllViews(schemaName)) {
-                    tableNames.add(new SchemaTableName(schemaName, tableName));
-                }
-            }
-            catch (NoSuchObjectException e) {
-                // schema disappeared during listing operation
+            for (String tableName : metastore.getAllViews(schemaName).orElse(emptyList())) {
+                tableNames.add(new SchemaTableName(schemaName, tableName));
             }
         }
         return tableNames.build();
@@ -692,13 +661,9 @@ public class HiveMetadata
         }
 
         for (SchemaTableName schemaTableName : tableNames) {
-            try {
-                Table table = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
-                if (HiveUtil.isPrestoView(table)) {
-                    views.put(schemaTableName, decodeViewData(table.getViewOriginalText()));
-                }
-            }
-            catch (NoSuchObjectException ignored) {
+            Optional<Table> table = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+            if (table.isPresent() && HiveUtil.isPrestoView(table.get())) {
+                views.put(schemaTableName, decodeViewData(table.get().getViewOriginalText()));
             }
         }
 
@@ -714,7 +679,7 @@ public class HiveMetadata
     }
 
     @Override
-    public void commitInsert(ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         throw new PrestoException(NOT_SUPPORTED, "INSERT not yet supported for Hive");
     }
@@ -753,7 +718,7 @@ public class HiveMetadata
         }
     }
 
-    private static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table, final TypeManager typeManager)
+    private static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table, TypeManager typeManager)
     {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         for (FieldSchema field : concat(table.getSd().getCols(), table.getPartitionKeys())) {
@@ -761,7 +726,7 @@ public class HiveMetadata
                 builder.put(field.getName(), field.getComment());
             }
         }
-        final Map<String, String> columnComment = builder.build();
+        Map<String, String> columnComment = builder.build();
 
         return input -> new ColumnMetadata(
                 input.getName(),

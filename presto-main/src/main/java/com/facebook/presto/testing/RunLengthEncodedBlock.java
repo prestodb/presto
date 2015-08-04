@@ -17,6 +17,8 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
 
+import java.util.List;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -67,6 +69,12 @@ public class RunLengthEncodedBlock
     public RunLengthBlockEncoding getEncoding()
     {
         return new RunLengthBlockEncoding(value.getEncoding());
+    }
+
+    @Override
+    public Block copyPositions(List<Integer> positions)
+    {
+        return new RunLengthEncodedBlock(value.copyRegion(0, 1), positions.size());
     }
 
     @Override
@@ -132,6 +140,12 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public <T> T getObject(int position, Class<T> clazz)
+    {
+        return value.getObject(0, clazz);
+    }
+
+    @Override
     public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
     {
         return value.bytesEqual(0, offset, otherSlice, otherOffset, length);
@@ -147,6 +161,12 @@ public class RunLengthEncodedBlock
     public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
     {
         value.writeBytesTo(0, offset, length, blockBuilder);
+    }
+
+    @Override
+    public void writePositionTo(int position, BlockBuilder blockBuilder)
+    {
+        value.writePositionTo(position, blockBuilder);
     }
 
     @Override

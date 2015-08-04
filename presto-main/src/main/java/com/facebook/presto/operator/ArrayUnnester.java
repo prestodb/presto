@@ -18,11 +18,9 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
-import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
-import static com.facebook.presto.type.TypeUtils.readStructuralBlock;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ArrayUnnester
@@ -35,19 +33,13 @@ public class ArrayUnnester
     private int position;
     private final int positionCount;
 
-    public ArrayUnnester(ArrayType arrayType, @Nullable Slice slice)
+    public ArrayUnnester(ArrayType arrayType, @Nullable Block arrayBlock)
     {
         this.channelCount = 1;
         this.elementType = checkNotNull(arrayType, "arrayType is null").getElementType();
 
-        if (slice == null) {
-            arrayBlock = null;
-            positionCount = 0;
-        }
-        else {
-            arrayBlock = readStructuralBlock(slice);
-            positionCount = arrayBlock.getPositionCount();
-        }
+        this.arrayBlock = arrayBlock;
+        this.positionCount = arrayBlock == null ? 0 : arrayBlock.getPositionCount();
     }
 
     protected void appendTo(PageBuilder pageBuilder, int outputChannelOffset)

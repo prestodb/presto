@@ -251,7 +251,7 @@ public class ScanFilterAndProjectOperator
     private void createSourceIfNecessary()
     {
         if ((split != null) && (pageSource == null) && (cursor == null)) {
-            ConnectorPageSource source = pageSourceProvider.createPageSource(split, columns);
+            ConnectorPageSource source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
             if (source instanceof RecordPageSource) {
                 cursor = ((RecordPageSource) source).getCursor();
             }

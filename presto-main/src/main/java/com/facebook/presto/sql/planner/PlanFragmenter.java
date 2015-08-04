@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.PlanFragment.NullPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -87,6 +88,7 @@ public class PlanFragmenter
                     properties.getDistributeBy(),
                     properties.getOutputPartitioning(),
                     properties.getPartitionBy(),
+                    properties.getNullPartitionPolicy(),
                     properties.getHash());
 
             return new SubPlan(fragment, properties.getChildren());
@@ -143,7 +145,17 @@ public class PlanFragmenter
                 context.get().setFixedDistribution();
 
                 FragmentProperties childProperties = new FragmentProperties()
-                        .setHashPartitionedOutput(exchange.getPartitionKeys(), exchange.getHashSymbol())
+                        .setPartitionedOutput(exchange.getPartitionKeys(), exchange.getHashSymbol())
+                        .setOutputLayout(Iterables.getOnlyElement(exchange.getInputs()));
+
+                builder.add(buildSubPlan(Iterables.getOnlyElement(exchange.getSources()), childProperties, context));
+            }
+            else if (exchange.getType() == ExchangeNode.Type.REPARTITION_WITH_NULL_REPLICATION) {
+                context.get().setFixedDistribution();
+
+                FragmentProperties childProperties = new FragmentProperties()
+                        .setPartitionedOutput(exchange.getPartitionKeys(), exchange.getHashSymbol())
+                        .replicateNulls()
                         .setOutputLayout(Iterables.getOnlyElement(exchange.getInputs()));
 
                 builder.add(buildSubPlan(Iterables.getOnlyElement(exchange.getSources()), childProperties, context));
@@ -180,8 +192,9 @@ public class PlanFragmenter
 
         private Optional<List<Symbol>> outputLayout = Optional.empty();
         private Optional<OutputPartitioning> outputPartitioning = Optional.empty();
+        private Optional<NullPartitioning> nullPartitionPolicy = Optional.empty();
 
-        private List<Symbol> partitionBy = ImmutableList.of();
+        private Optional<List<Symbol>> partitionBy = Optional.empty();
         private Optional<Symbol> hash = Optional.empty();
 
         private Optional<PlanDistribution> distribution = Optional.empty();
@@ -270,15 +283,31 @@ public class PlanFragmenter
             return this;
         }
 
-        public FragmentProperties setHashPartitionedOutput(List<Symbol> partitionKeys, Optional<Symbol> hash)
+        public FragmentProperties setPartitionedOutput(Optional<List<Symbol>> partitionKeys, Optional<Symbol> hash)
         {
             outputPartitioning.ifPresent(current -> {
                 throw new IllegalStateException(String.format("Cannot overwrite output partitioning with %s (currently set to %s)", OutputPartitioning.HASH, current));
             });
 
-            this.outputPartitioning = Optional.of(OutputPartitioning.HASH);
-            this.partitionBy = ImmutableList.copyOf(partitionKeys);
-            this.hash = hash;
+            if (partitionKeys.isPresent()) {
+                this.outputPartitioning = Optional.of(OutputPartitioning.HASH);
+            this.nullPartitionPolicy = Optional.of(NullPartitioning.HASH);
+                this.partitionBy = partitionKeys.map(ImmutableList::copyOf);
+                this.hash = hash;
+
+            }
+            else {
+                this.outputPartitioning = Optional.of(OutputPartitioning.ROUND_ROBIN);
+            }
+            return this;
+        }
+
+        public FragmentProperties replicateNulls()
+        {
+            checkState(outputPartitioning.isPresent() && outputPartitioning.get().equals(OutputPartitioning.HASH),
+                    "Can only set null replicate if output partitioning is %s (currently set to %s)", OutputPartitioning.HASH, outputPartitioning);
+
+            this.nullPartitionPolicy = Optional.of(NullPartitioning.REPLICATE);
 
             return this;
         }
@@ -300,12 +329,17 @@ public class PlanFragmenter
             return outputPartitioning.get();
         }
 
+        public Optional<NullPartitioning> getNullPartitionPolicy()
+        {
+            return nullPartitionPolicy;
+        }
+
         public PlanDistribution getDistribution()
         {
             return distribution.get();
         }
 
-        public List<Symbol> getPartitionBy()
+        public Optional<List<Symbol>> getPartitionBy()
         {
             return partitionBy;
         }

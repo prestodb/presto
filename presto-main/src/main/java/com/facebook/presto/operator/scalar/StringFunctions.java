@@ -15,6 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
@@ -65,17 +66,6 @@ public final class StringFunctions
         catch (InvalidCodePointException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Not a valid Unicode code point: " + codepoint, e);
         }
-    }
-
-    @Description("concatenates given strings")
-    @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice concat(@SqlType(StandardTypes.VARCHAR) Slice str1, @SqlType(StandardTypes.VARCHAR) Slice str2)
-    {
-        Slice concat = Slices.allocate(str1.length() + str2.length());
-        concat.setBytes(0, str1);
-        concat.setBytes(str1.length(), str2);
-        return concat;
     }
 
     @Description("count of code points of the given string")
@@ -270,14 +260,14 @@ public final class StringFunctions
 
     @ScalarFunction
     @SqlType("array<varchar>")
-    public static Slice split(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter)
+    public static Block split(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter)
     {
         return split(string, delimiter, string.length() + 1);
     }
 
     @ScalarFunction
     @SqlType("array<varchar>")
-    public static Slice split(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter, @SqlType(StandardTypes.BIGINT) long limit)
+    public static Block split(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter, @SqlType(StandardTypes.BIGINT) long limit)
     {
         checkCondition(limit > 0, INVALID_FUNCTION_ARGUMENT, "Limit must be positive");
         checkCondition(limit <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "Limit is too large");
