@@ -404,7 +404,7 @@ public class TestDomainTranslator
         assertTrue(result.getTupleDomain().isAll());
     }
 
-    @Test(enabled = false) // todo enable in commit which adds greater than
+    @Test
     public void testFromDecimalComparison()
             throws Exception
     {
