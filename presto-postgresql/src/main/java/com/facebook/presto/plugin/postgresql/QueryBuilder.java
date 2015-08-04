@@ -20,7 +20,6 @@ import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
-
 import io.airlift.slice.Slice;
 
 import java.time.Instant;
@@ -30,6 +29,10 @@ import java.time.format.DateTimeFormatter;
 
 public class QueryBuilder extends com.facebook.presto.plugin.jdbc.QueryBuilder
 {
+    private static final DateTimeFormatter PATTERN = DateTimeFormatter
+            .ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+            .withZone(ZoneId.systemDefault());
+
     public QueryBuilder(String quote)
     {
         super(quote);
@@ -37,7 +40,8 @@ public class QueryBuilder extends com.facebook.presto.plugin.jdbc.QueryBuilder
 
     /**
      * @param type
-     * @return True by default for {@link BigintType}, {@link DoubleType}, {@link BooleanType}, {@link VarcharType}, {@link DateType}, {@link TimestampType}.
+     * @return True by default for {@link BigintType}, {@link DoubleType}, {@link BooleanType}, {@link VarcharType},
+     * {@link DateType}, {@link TimestampType}.
      */
     @Override
     protected boolean supportPredicateOnType(Type type)
@@ -57,11 +61,10 @@ public class QueryBuilder extends com.facebook.presto.plugin.jdbc.QueryBuilder
     {
         if (type.equals(TimestampType.TIMESTAMP)) {
             Instant ofEpochMilli = Instant.ofEpochMilli((long) value);
-            DateTimeFormatter ofPattern = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(ZoneId.systemDefault());
-            return singleQuote(ofPattern.format(ofEpochMilli));
+            return singleQuote(PATTERN.format(ofEpochMilli));
         }
         else if (type.equals(DateType.DATE)) {
-            LocalDate localDate = LocalDate.ofEpochDay((long) value);
+            LocalDate localDate = LocalDate.from(Instant.ofEpochMilli((long) value).atZone(ZoneId.systemDefault()));
             return singleQuote(localDate.toString());
         }
         else if (type.equals(VarcharType.VARCHAR)) {
