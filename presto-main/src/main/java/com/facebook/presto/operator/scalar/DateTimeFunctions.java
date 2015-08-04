@@ -677,7 +677,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayOfWeekFromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        return getChronology(session.getTimeZoneKey()).dayOfWeek().get(timestamp);
+        return getChronology(session.getTimeZoneKey()).dayOfWeek().get(timestamp) % 7;
     }
 
     @Description("day of the week of the given timestamp")
@@ -685,7 +685,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayOfWeekFromTimestampWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        return unpackChronology(timestampWithTimeZone).dayOfWeek().get(unpackMillisUtc(timestampWithTimeZone));
+        return unpackChronology(timestampWithTimeZone).dayOfWeek().get(unpackMillisUtc(timestampWithTimeZone)) % 7;
     }
 
     @Description("day of the week of the given date")
@@ -693,7 +693,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayOfWeekFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return DAY_OF_WEEK.get(DAYS.toMillis(date));
+        return DAY_OF_WEEK.get(DAYS.toMillis(date)) % 7;
     }
 
     @Description("day of the month of the given timestamp")
