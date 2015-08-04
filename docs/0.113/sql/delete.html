@@ -1,0 +1,101 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>7.5. DELETE &mdash; Presto 0.113 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.113',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.113 Documentation" href="../index.html" />
+    <link rel="up" title="7. SQL Statement Syntax" href="../sql.html" />
+    <link rel="next" title="7.6. DESCRIBE" href="describe.html" />
+    <link rel="prev" title="7.4. CREATE VIEW" href="create-view.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.113 Documentation</span></a></h1>
+    <h2 class="heading"><span>7.5. DELETE</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="create-view.html">7.4. CREATE VIEW</a>
+    </span>
+    <span class="right">
+        <a href="describe.html">7.6. DESCRIBE</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="delete">
+<h1>7.5. DELETE</h1>
+<div class="section" id="synopsis">
+<h2>Synopsis</h2>
+<div class="highlight-none"><div class="highlight"><pre>DELETE FROM table_name [ WHERE condition ]
+</pre></div>
+</div>
+</div>
+<div class="section" id="description">
+<h2>Description</h2>
+<p>Delete rows from a table. If the <tt class="docutils literal"><span class="pre">WHERE</span></tt> clause is specified, only the
+matching rows are deleted. Otherwise, all rows from the table are deleted.</p>
+</div>
+<div class="section" id="examples">
+<h2>Examples</h2>
+<p>Delete all line items shipped by air:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">DELETE</span> <span class="k">FROM</span> <span class="n">lineitem</span> <span class="k">WHERE</span> <span class="n">shipmode</span> <span class="o">=</span> <span class="s1">&#39;AIR&#39;</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>Delete all line items for low priority orders:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">DELETE</span> <span class="k">FROM</span> <span class="n">lineitem</span>
+<span class="k">WHERE</span> <span class="n">orderkey</span> <span class="k">IN</span> <span class="p">(</span><span class="k">SELECT</span> <span class="n">orderkey</span> <span class="k">FROM</span> <span class="n">orders</span> <span class="k">WHERE</span> <span class="n">priority</span> <span class="o">=</span> <span class="s1">&#39;LOW&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Delete all orders:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">DELETE</span> <span class="k">FROM</span> <span class="n">orders</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="create-view.html">7.4. CREATE VIEW</a>
+    </span>
+    <span class="right">
+        <a href="describe.html">7.6. DESCRIBE</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
