@@ -145,9 +145,10 @@ public class LazySliceArrayBlock
         }
 
         assureLoaded();
+
         if (dictionary) {
             List<Integer> positions = IntStream.range(positionOffset, positionOffset + length).boxed().collect(toList());
-            compactAndGet(positions, false);
+            return compactAndGet(positions, false);
         }
         Slice[] newValues = Arrays.copyOfRange(values, positionOffset, positionOffset + length);
         return new SliceArrayBlock(length, newValues);
@@ -182,14 +183,6 @@ public class LazySliceArrayBlock
             throw new IllegalArgumentException("Lazy block loader did not load this block");
         }
 
-        if (dictionary && ids.length != positionCount) {
-            throw new IllegalArgumentException(format("Expected %s positions, loaded %s", positionCount, ids.length));
-        }
-
-        if (!dictionary && values.length != positionCount) {
-            throw new IllegalArgumentException(format("Expected %s positions, loaded %s", positionCount, values.length));
-        }
-
         // clear reference to loader to free resources, since load was successful
         loader = null;
     }
@@ -205,31 +198,51 @@ public class LazySliceArrayBlock
 
     private Block compactAndGet(List<Integer> positions, boolean copy)
     {
-        List<Integer> distinctPositions = positions.stream().distinct().collect(toList());
-        List<Integer> currentDictionaryIndexes = distinctPositions.stream().map(this::getPosition).collect(toList());
-        List<Integer> positionsToCopy = currentDictionaryIndexes.stream().distinct().collect(toList());
+        int[] newIds = new int[positions.size()];
+        boolean hasNull = false;
 
-        Slice[] newValues = new Slice[positionsToCopy.size()];
-        for (int i = 0; i < positionsToCopy.size(); i++) {
-            int position = positionsToCopy.get(i);
+        int[] newDictionaryIndexes = new int[values.length];
+        Arrays.fill(newDictionaryIndexes, -1);
+
+        int nextIndex = 0;
+        for (int i = 0; i < positions.size(); i++) {
+            int position = positions.get(i);
             if (isEntryNull(position)) {
-                newValues[i] = null;
+                hasNull = true;
+                newIds[i] = -1;
             }
             else {
-                Slice value = values[position];
-                if (copy) {
-                    newValues[i] = copyOf(value);
+                int oldIndex = ids[position];
+                if (newDictionaryIndexes[oldIndex] == -1) {
+                    newDictionaryIndexes[oldIndex] = nextIndex;
+                    nextIndex++;
                 }
-                else {
-                    newValues[i] = value;
-                }
+                newIds[i] = newDictionaryIndexes[oldIndex];
             }
         }
 
-        int[] newIds = new int[positions.size()];
-        for (int i = 0; i < positions.size(); i++) {
-            int oldIndex = currentDictionaryIndexes.get(distinctPositions.indexOf(positions.get(i)));
-            newIds[i] = positionsToCopy.indexOf(oldIndex);
+        int newDictionaryLength = nextIndex;
+        if (hasNull) {
+            newDictionaryLength++;
+        }
+        Slice[] newValues = new Slice[newDictionaryLength];
+
+        for (int i = 0; i < values.length; i++) {
+            if (newDictionaryIndexes[i] != -1) {
+                // key was referenced
+                Slice value = values[i];
+                int newIndex = newDictionaryIndexes[i];
+                newValues[newIndex] = copy ? copyOf(value) : value;
+            }
+        }
+
+        if (hasNull) {
+            int nullIndex = newValues.length - 1;
+            for (int i = 0; i < newIds.length; i++) {
+                if (newIds[i] == -1) {
+                    newIds[i] = nullIndex;
+                }
+            }
         }
         return new DictionaryBlock(positions.size(), new SliceArrayBlock(newValues.length, newValues), wrappedIntArray(newIds));
     }
