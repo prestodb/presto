@@ -53,7 +53,7 @@ public class PlanFragmenter
         FragmentProperties properties = new FragmentProperties();
         PlanNode root = PlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 
-        SubPlan result = fragmenter.buildFragment(root, properties);
+        SubPlan result = fragmenter.buildRootFragment(root, properties);
         result.sanityCheck();
 
         return result;
@@ -62,12 +62,19 @@ public class PlanFragmenter
     private static class Fragmenter
             extends PlanRewriter<FragmentProperties>
     {
+        private static final int ROOT_FRAGMENT_ID = 0;
+
         private final Map<Symbol, Type> types;
-        private int nextFragmentId;
+        private int nextFragmentId = ROOT_FRAGMENT_ID + 1;
 
         public Fragmenter(Map<Symbol, Type> types)
         {
             this.types = types;
+        }
+
+        public SubPlan buildRootFragment(PlanNode root, FragmentProperties properties)
+        {
+            return buildFragment(root, properties, new PlanFragmentId(String.valueOf(ROOT_FRAGMENT_ID)));
         }
 
         private PlanFragmentId nextFragmentId()
@@ -75,12 +82,12 @@ public class PlanFragmenter
             return new PlanFragmentId(String.valueOf(nextFragmentId++));
         }
 
-        private SubPlan buildFragment(PlanNode root, FragmentProperties properties)
+        private SubPlan buildFragment(PlanNode root, FragmentProperties properties, PlanFragmentId fragmentId)
         {
             Set<Symbol> dependencies = SymbolExtractor.extract(root);
 
             PlanFragment fragment = new PlanFragment(
-                    nextFragmentId(),
+                    fragmentId,
                     root,
                     Maps.filterKeys(types, in(dependencies)),
                     properties.getOutputLayout(),
@@ -181,8 +188,9 @@ public class PlanFragmenter
 
         private SubPlan buildSubPlan(PlanNode node, FragmentProperties properties, RewriteContext<FragmentProperties> context)
         {
+            PlanFragmentId planFragmentId = nextFragmentId();
             PlanNode child = context.rewrite(node, properties);
-            return buildFragment(child, properties);
+            return buildFragment(child, properties, planFragmentId);
         }
     }
 
