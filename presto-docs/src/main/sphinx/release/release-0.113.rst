@@ -2,6 +2,10 @@
 Release 0.113
 =============
 
+.. warning::
+
+    The ORC reader in the Hive connector is broken in this release.
+
 Cluster Resource Management
 ---------------------------
 

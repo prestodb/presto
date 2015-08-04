@@ -45,7 +45,7 @@ public class SliceArrayBlock
         retainedSizeInBytes = getSliceArrayRetainedSizeInBytes(values);
     }
 
-    Slice[] getValues()
+    public Slice[] getValues()
     {
         return values;
     }

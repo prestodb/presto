@@ -184,7 +184,8 @@ public class SliceDictionaryStreamReader
         else {
             int[] ids = Arrays.copyOfRange(dataVector, 0, nextBatchSize);
             boolean[] isNullVector = Arrays.copyOfRange(this.isNullVector, 0, nextBatchSize);
-            sliceVector.setDictionary(dictionary, ids, isNullVector);
+            Slice[] values = Arrays.copyOf(dictionary, dictionary.length);
+            sliceVector.setDictionary(values, ids, isNullVector);
         }
 
         readOffset = 0;

@@ -13,15 +13,20 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.LazySliceArrayBlock;
+import com.facebook.presto.spi.block.SliceArrayBlock;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.block.SliceArrayBlock.getSliceArraySizeInBytes;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -65,7 +70,7 @@ public class TestLazySliceArrayBlock
             throws Exception
     {
         Slice[] expectedValues = createExpectedValues(3);
-        int[] ids = new int[] {0, 2, 1, 0, 0, 0, 1, 1, 1, 0, 1, 2};
+        int[] ids = new int[] { 0, 2, 1, 0, 0, 0, 1, 1, 1, 0, 1, 2 };
         boolean[] isNull = new boolean[ids.length];
 
         TestDictionaryLazySliceArrayBlockLoader loader = new TestDictionaryLazySliceArrayBlockLoader(expectedValues, ids, isNull);
@@ -79,6 +84,31 @@ public class TestLazySliceArrayBlock
 
         int expectedSizeInBytes = getSliceArraySizeInBytes(expectedValues) + (ids.length * SIZE_OF_INT) + (isNull.length * SIZE_OF_BYTE);
         assertEquals(block.getSizeInBytes(), expectedSizeInBytes);
+    }
+
+    @Test
+    public void testDictionaryBlockGetRegion()
+            throws Exception
+    {
+        Slice[] expectedValues = createExpectedValues(3);
+        int[] ids = new int[] { 0, 2, 1, 0, 0, 0, 1, 1, 1, 0, 1, 2 };
+        boolean[] isNull = new boolean[ids.length];
+        isNull[2] = true;
+
+        LazyBlockLoader<LazySliceArrayBlock> loader = new TestDictionaryLazySliceArrayBlockLoader(expectedValues, ids, isNull);
+        LazySliceArrayBlock block = new LazySliceArrayBlock(ids.length, loader);
+
+        Block region = block.getRegion(0, 3);
+        assertFalse(region.isNull(0));
+        assertFalse(region.isNull(1));
+        assertTrue(region.isNull(2));
+
+        assertTrue(region instanceof DictionaryBlock);
+        DictionaryBlock dictionaryBlock = (DictionaryBlock) region;
+        assertEquals(((SliceArrayBlock) dictionaryBlock.getDictionary()).getValues(), new Slice[] { expectedValues[0], expectedValues[2], null });
+        // The values in the dictionary are rearranged during compaction in the order in which they are referenced,
+        // with a null appended to the end of the list if applicable
+        assertEquals(dictionaryBlock.getIds(), Slices.wrappedIntArray(0, 1, 2));
     }
 
     private static void assertVariableWithValues(Slice[] expectedValues)
