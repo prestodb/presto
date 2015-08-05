@@ -140,16 +140,13 @@ public class BackgroundHiveSplitLoader
 
     private void startLoadSplits()
     {
+        if (stopped || (fileIterators.isEmpty() && partitions.isEmpty())) {
+            return;
+        }
         if (outstandingTasks.incrementAndGet() > maxPartitionBatchSize) {
             outstandingTasks.decrementAndGet();
             return;
         }
-
-        if (stopped || (fileIterators.isEmpty() && partitions.isEmpty())) {
-            outstandingTasks.decrementAndGet();
-            return;
-        }
-
         executor.execute(() -> {
             try {
                 loadSplits();
