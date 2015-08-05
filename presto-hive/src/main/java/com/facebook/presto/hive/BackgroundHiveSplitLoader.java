@@ -138,6 +138,7 @@ public class BackgroundHiveSplitLoader
         stopped = true;
     }
 
+    // This method may only be called if outstandingTasks == 0, or recursively after incrementing outstandingTasks
     private void startLoadSplits()
     {
         if (stopped || (fileIterators.isEmpty() && partitions.isEmpty())) {
@@ -150,18 +151,19 @@ public class BackgroundHiveSplitLoader
         executor.execute(() -> {
             try {
                 loadSplits();
-                if (outstandingTasks.decrementAndGet() == 0) {
-                    if (fileIterators.isEmpty() && partitions.isEmpty()) {
-                        hiveSplitSource.finished();
-                        return;
-                    }
-                }
                 if (!hiveSplitSource.isQueueFull()) {
                     // Start another task to replace this one
                     startLoadSplits();
                     // Ramp up if we're below the limit and the queue still isn't filled
                     if (outstandingTasks.get() < maxPartitionBatchSize) {
                         startLoadSplits();
+                    }
+                }
+                if (outstandingTasks.decrementAndGet() == 0) {
+                    // Only one thread will reach this point, and all other threads are guaranteed to have finished their work,
+                    // so it's safe to check the queues without further synchronization
+                    if (fileIterators.isEmpty() && partitions.isEmpty()) {
+                        hiveSplitSource.finished();
                     }
                 }
             }
