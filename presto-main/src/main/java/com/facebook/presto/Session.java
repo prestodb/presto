@@ -132,6 +132,11 @@ public final class Session
         return sessionPropertyManager.decodeProperty(name, systemProperties.get(name), type);
     }
 
+    public Map<String, Map<String, String>> getCatalogProperties()
+    {
+        return catalogProperties;
+    }
+
     public Map<String, String> getCatalogProperties(String catalog)
     {
         return catalogProperties.getOrDefault(catalog, ImmutableMap.of());

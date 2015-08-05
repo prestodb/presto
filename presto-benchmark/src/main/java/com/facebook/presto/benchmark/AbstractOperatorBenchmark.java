@@ -65,6 +65,14 @@ public abstract class AbstractOperatorBenchmark
         return localQueryRunner.createTableScanOperator(operatorId, tableName, columnNames);
     }
 
+    public OperatorFactory createTableScanOperator(Session session, int operatorId, String tableName, String... columnNames)
+    {
+        return localQueryRunner.createTableScanOperator(session,
+                operatorId,
+                tableName,
+                columnNames);
+    }
+
     protected OperatorFactory createHashProjectOperator(int operatorId, List<Type> types)
     {
         return localQueryRunner.createHashProjectOperator(operatorId, types);

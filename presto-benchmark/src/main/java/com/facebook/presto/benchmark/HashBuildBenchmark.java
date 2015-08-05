@@ -32,7 +32,7 @@ public class HashBuildBenchmark
 {
     public HashBuildBenchmark(LocalQueryRunner localQueryRunner)
     {
-        super(localQueryRunner, "hash_build" + localQueryRunner.isHashEnabled(), 4, 5);
+        super(localQueryRunner, "hash_build", 4, 5);
     }
 
     @Override
