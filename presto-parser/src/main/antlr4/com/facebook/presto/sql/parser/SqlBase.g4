@@ -59,11 +59,15 @@ statement
     ;
 
 query
-    :  with? queryNoWith
+    :  with? queryNoWith (withOrWithoutData)?
     ;
 
 with
     : WITH RECURSIVE? namedQuery (',' namedQuery)*
+    ;
+
+withOrWithoutData
+    : WITH (NO)? DATA
     ;
 
 tableElement
@@ -363,6 +367,7 @@ OR: 'OR';
 AND: 'AND';
 IN: 'IN';
 NOT: 'NOT';
+NO: 'NO';
 EXISTS: 'EXISTS';
 BETWEEN: 'BETWEEN';
 LIKE: 'LIKE';
@@ -471,6 +476,7 @@ MAP: 'MAP';
 SET: 'SET';
 RESET: 'RESET';
 SESSION: 'SESSION';
+DATA: 'DATA';
 
 NORMALIZE: 'NORMALIZE';
 NFD : 'NFD';

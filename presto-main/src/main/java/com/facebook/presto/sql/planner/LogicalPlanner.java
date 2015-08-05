@@ -24,11 +24,7 @@ import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.planner.plan.DeleteNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.TableCommitNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.*;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -143,6 +139,11 @@ public class LogicalPlanner
                 plan.getSampleWeight());
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
+
+        if (analysis.getCreateTableWithoutData()) {
+            LimitNode limitNode = new LimitNode(idAllocator.getNextId(), writerNode, 0L);
+            return new RelationPlan(limitNode, analysis.getOutputDescriptor(), outputs, Optional.empty());
+        }
 
         TableCommitNode commitNode = new TableCommitNode(
                 idAllocator.getNextId(),

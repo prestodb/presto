@@ -23,11 +23,13 @@ public class CreateTableAsSelect
 {
     private final QualifiedName name;
     private final Query query;
+    private final boolean createTableWithoutData;
 
-    public CreateTableAsSelect(QualifiedName name, Query query)
+    public CreateTableAsSelect(QualifiedName name, Query query, boolean createTableWithoutData)
     {
         this.name = checkNotNull(name, "name is null");
         this.query = checkNotNull(query, "query is null");
+        this.createTableWithoutData = createTableWithoutData;
     }
 
     public QualifiedName getName()
@@ -38,6 +40,11 @@ public class CreateTableAsSelect
     public Query getQuery()
     {
         return query;
+    }
+
+    public boolean getCreateTableWithoutData()
+    {
+        return createTableWithoutData;
     }
 
     @Override
@@ -72,6 +79,7 @@ public class CreateTableAsSelect
         return toStringHelper(this)
                 .add("name", name)
                 .add("query", query)
+                .add("data", createTableWithoutData)
                 .toString();
     }
 }

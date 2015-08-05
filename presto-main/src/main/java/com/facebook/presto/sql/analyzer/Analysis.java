@@ -49,6 +49,7 @@ public class Analysis
 {
     private Query query;
     private String updateType;
+    private boolean createTableWithoutData = false;
 
     private final IdentityHashMap<Table, Query> namedQueries = new IdentityHashMap<>();
 
@@ -107,6 +108,16 @@ public class Analysis
     public void setUpdateType(String updateType)
     {
         this.updateType = updateType;
+    }
+
+    public boolean getCreateTableWithoutData()
+    {
+        return createTableWithoutData;
+    }
+
+    public void setCreateTableWithoutData(Boolean createTableWithoutData)
+    {
+        this.createTableWithoutData = createTableWithoutData;
     }
 
     public void addResolvedNames(Expression expression, Map<QualifiedName, Integer> mappings)
