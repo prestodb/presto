@@ -1331,7 +1331,7 @@ public abstract class AbstractTestHiveClient
                 .build();
 
         Map<String, Object> properties = ImmutableMap.of(STORAGE_FORMAT_PROPERTY, storageFormat);
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateTable, columns, properties, SESSION.getUser());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, properties, SESSION.getUser());
 
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, tableMetadata);
 
