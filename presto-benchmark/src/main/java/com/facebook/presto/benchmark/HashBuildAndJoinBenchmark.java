@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
@@ -32,6 +34,7 @@ import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQuer
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunnerHashEnabled;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class HashBuildAndJoinBenchmark
         extends AbstractOperatorBenchmark
@@ -40,10 +43,15 @@ public class HashBuildAndJoinBenchmark
     private final OperatorFactory ordersTableScan = createTableScanOperator(0, "orders", "orderkey", "totalprice");
     private final OperatorFactory lineItemTableScan = createTableScanOperator(0, "lineitem", "orderkey", "quantity");
 
-    public HashBuildAndJoinBenchmark(LocalQueryRunner localQueryRunner)
+    public HashBuildAndJoinBenchmark(Session session, LocalQueryRunner localQueryRunner)
     {
-        super(localQueryRunner, "hash_build_and_join_hash_enabled_" + localQueryRunner.isHashEnabled(), 4, 5);
-        this.hashEnabled = localQueryRunner.isHashEnabled();
+        super(localQueryRunner, "hash_build_and_join_hash_enabled_" + isHashEnabled(session), 4, 5);
+        this.hashEnabled = isHashEnabled(session);
+    }
+
+    private static boolean isHashEnabled(Session session)
+    {
+        return SystemSessionProperties.isOptimizeHashGenerationEnabled(session);
     }
 
     /*
@@ -80,9 +88,9 @@ public class HashBuildAndJoinBenchmark
             hashChannel = Optional.of(2);
         }
 
-        OperatorFactory joinOperator = LookupJoinOperators.innerJoin(1, hashBuilder.getLookupSourceSupplier(), source.getTypes(), Ints.asList(0), hashChannel);
+        OperatorFactory joinOperator = LookupJoinOperators.innerJoin(2, hashBuilder.getLookupSourceSupplier(), source.getTypes(), Ints.asList(0), hashChannel);
         joinDriversBuilder.add(joinOperator);
-        joinDriversBuilder.add(new NullOutputOperatorFactory(2, joinOperator.getTypes()));
+        joinDriversBuilder.add(new NullOutputOperatorFactory(3, joinOperator.getTypes()));
         DriverFactory joinDriverFactory = new DriverFactory(true, true, joinDriversBuilder.build());
         Driver joinDriver = joinDriverFactory.createDriver(taskContext.addPipelineContext(true, true).addDriverContext());
 
@@ -91,7 +99,7 @@ public class HashBuildAndJoinBenchmark
 
     public static void main(String[] args)
     {
-        new HashBuildAndJoinBenchmark(createLocalQueryRunner()).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
-        new HashBuildAndJoinBenchmark(createLocalQueryRunnerHashEnabled()).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
+        new HashBuildAndJoinBenchmark(testSessionBuilder().build(), createLocalQueryRunner()).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
+        new HashBuildAndJoinBenchmark(testSessionBuilder().build(), createLocalQueryRunnerHashEnabled()).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
     }
 }
