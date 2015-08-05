@@ -1,0 +1,95 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.10. Release 0.105 &mdash; Presto 0.114 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.114',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.114 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.11. Release 0.104" href="release-0.104.html" />
+    <link rel="prev" title="10.9. Release 0.106" href="release-0.106.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.114 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.10. Release 0.105</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.106.html">10.9. Release 0.106</a>
+    </span>
+    <span class="right">
+        <a href="release-0.104.html">10.11. Release 0.104</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-105">
+<h1>10.10. Release 0.105</h1>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Fix issue which can cause queries to be blocked permanently.</li>
+<li>Close connections correctly in JDBC connectors.</li>
+<li>Add implicit coercions for values of equi-join criteria.</li>
+<li>Fix detection of window function calls without an <tt class="docutils literal"><span class="pre">OVER</span></tt> clause.</li>
+</ul>
+</div>
+<div class="section" id="spi-changes">
+<h2>SPI Changes</h2>
+<ul class="simple">
+<li>Remove <tt class="docutils literal"><span class="pre">ordinalPosition</span></tt> from <tt class="docutils literal"><span class="pre">ColumnMetadata</span></tt>.</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This is a backwards incompatible change with the previous connector SPI.
+If you have written a connector, you will need to update your code
+before deploying this release.</p>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.106.html">10.9. Release 0.106</a>
+    </span>
+    <span class="right">
+        <a href="release-0.104.html">10.11. Release 0.104</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

@@ -1,0 +1,85 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.57. Release 0.58 &mdash; Presto 0.114 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.114',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.114 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.58. Release 0.57" href="release-0.57.html" />
+    <link rel="prev" title="10.56. Release 0.59" href="release-0.59.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.114 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.57. Release 0.58</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.59.html">10.56. Release 0.59</a>
+    </span>
+    <span class="right">
+        <a href="release-0.57.html">10.58. Release 0.57</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-58">
+<h1>10.57. Release 0.58</h1>
+<ul class="simple">
+<li>Add first version of Cassandra connector. This plugin is still in
+development and is not yet bundled with the server. See the <tt class="docutils literal"><span class="pre">README</span></tt>
+in the plugin source directory for details.</li>
+<li>Support UDFs for internal plugins. This is not yet part of the SPI
+and is a stopgap feature intended for advanced users. UDFs must be
+implemented using the internal Presto APIs which often change
+substantially between releases.</li>
+<li>Fix Hive connector semaphore release bug.</li>
+<li>Fix handling of non-splittable files without blocks.</li>
+</ul>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.59.html">10.56. Release 0.59</a>
+    </span>
+    <span class="right">
+        <a href="release-0.57.html">10.58. Release 0.57</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

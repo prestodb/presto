@@ -1,0 +1,109 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>2.4. Presto Verifier &mdash; Presto 0.114 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.114',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.114 Documentation" href="../index.html" />
+    <link rel="up" title="2. Installation" href="../installation.html" />
+    <link rel="next" title="2.5. Benchmark Driver" href="benchmark-driver.html" />
+    <link rel="prev" title="2.3. JDBC Driver" href="jdbc.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.114 Documentation</span></a></h1>
+    <h2 class="heading"><span>2.4. Presto Verifier</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="jdbc.html">2.3. JDBC Driver</a>
+    </span>
+    <span class="right">
+        <a href="benchmark-driver.html">2.5. Benchmark Driver</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="presto-verifier">
+<h1>2.4. Presto Verifier</h1>
+<p>The Presto Verifier can be used to test Presto against another database (such as MySQL),
+or to test two Presto clusters against each other. We use it to continuously test trunk
+against the previous release while developing Presto.</p>
+<p>Create a MySQL database with the following table and load it with the queries you would like to run:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">verifier_queries</span><span class="p">(</span>
+    <span class="n">id</span> <span class="nb">INT</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="n">AUTO_INCREMENT</span><span class="p">,</span>
+    <span class="n">suite</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">),</span>
+    <span class="n">test_catalog</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">test_schema</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">test_query</span> <span class="nb">TEXT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">test_username</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">default</span> <span class="s1">&#39;verifier-test&#39;</span><span class="p">,</span>
+    <span class="n">test_password</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">),</span>
+    <span class="n">control_catalog</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">control_schema</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">control_query</span> <span class="nb">TEXT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">control_username</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">default</span> <span class="s1">&#39;verifier-test&#39;</span><span class="p">,</span>
+    <span class="n">control_password</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">),</span>
+    <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">id</span><span class="p">)</span>
+<span class="p">);</span>
+</pre></div>
+</div>
+<p>Next, create a properties file to configure the verifier:</p>
+<div class="highlight-none"><div class="highlight"><pre>suite=my_suite
+query-database=jdbc:mysql://localhost:3306/my_database?user=my_username&amp;password=my_password
+control.gateway=jdbc:presto://localhost:8080
+test.gateway=jdbc:presto://localhost:8081
+thread-count=1
+</pre></div>
+</div>
+<p>Lastly, download <a class="reference external" href="https://repo1.maven.org/maven2/com/facebook/presto/presto-verifier/0.114/presto-verifier-0.114-executable.jar">presto-verifier-0.114-executable.jar</a>, rename it to <tt class="docutils literal"><span class="pre">verifier</span></tt>,
+make it executable with <tt class="docutils literal"><span class="pre">chmod</span> <span class="pre">+x</span></tt>, then run it:</p>
+<div class="highlight-none"><div class="highlight"><pre>./verifier config.properties
+</pre></div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="jdbc.html">2.3. JDBC Driver</a>
+    </span>
+    <span class="right">
+        <a href="benchmark-driver.html">2.5. Benchmark Driver</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

@@ -1,0 +1,97 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>7.7. DROP TABLE &mdash; Presto 0.114 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.114',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.114 Documentation" href="../index.html" />
+    <link rel="up" title="7. SQL Statement Syntax" href="../sql.html" />
+    <link rel="next" title="7.8. DROP VIEW" href="drop-view.html" />
+    <link rel="prev" title="7.6. DESCRIBE" href="describe.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.114 Documentation</span></a></h1>
+    <h2 class="heading"><span>7.7. DROP TABLE</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="describe.html">7.6. DESCRIBE</a>
+    </span>
+    <span class="right">
+        <a href="drop-view.html">7.8. DROP VIEW</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="drop-table">
+<h1>7.7. DROP TABLE</h1>
+<div class="section" id="synopsis">
+<h2>Synopsis</h2>
+<div class="highlight-none"><div class="highlight"><pre>DROP TABLE  [ IF EXISTS ] table_name
+</pre></div>
+</div>
+</div>
+<div class="section" id="description">
+<h2>Description</h2>
+<p>Drops an existing table.</p>
+<p>The optional <tt class="docutils literal"><span class="pre">IF</span> <span class="pre">EXISTS</span></tt> clause causes the error to be suppressed if
+the table does not exist.</p>
+</div>
+<div class="section" id="examples">
+<h2>Examples</h2>
+<p>Drop the table <tt class="docutils literal"><span class="pre">orders_by_date</span></tt>:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">DROP</span> <span class="k">TABLE</span> <span class="n">orders_by_date</span>
+</pre></div>
+</div>
+<p>Drop the table <tt class="docutils literal"><span class="pre">orders_by_date</span></tt> if it exists:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">DROP</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">EXISTS</span> <span class="n">orders_by_date</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="describe.html">7.6. DESCRIBE</a>
+    </span>
+    <span class="right">
+        <a href="drop-view.html">7.8. DROP VIEW</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
