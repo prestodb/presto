@@ -209,7 +209,7 @@ public final class TypeRegistry
         return false;
     }
 
-    private static boolean isCovariantParameterPosition(String firstTypeBase, int position)
+    static boolean isCovariantParameterPosition(String firstTypeBase, int position)
     {
         // canCastTypeBase and isCovariantParameterPosition defines all hand-coded rules for type coercion.
         // Other methods should reference these two functions instead of hand-code new rules.
