@@ -20,7 +20,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.session.SessionPropertyMetadata;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
@@ -48,7 +48,7 @@ public class SetSessionTask
         }
         String name = statement.getName().toString();
 
-        SessionPropertyMetadata<?> sessionPropertyInfo = metadata.getSessionPropertyManager().getSessionPropertyMetadata(name);
+        PropertyMetadata<?> sessionPropertyInfo = metadata.getSessionPropertyManager().getSessionPropertyMetadata(name);
         Type type = sessionPropertyInfo.getSqlType();
 
         Object objectValue = toObjectValue(statement.getValue(), type, session, metadata);

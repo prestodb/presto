@@ -24,7 +24,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public final class SessionPropertyMetadata<T>
+public final class PropertyMetadata<T>
 {
     private final String name;
     private final String description;
@@ -34,12 +34,12 @@ public final class SessionPropertyMetadata<T>
     private final boolean hidden;
     private final Function<Object, T> decoder;
 
-    public SessionPropertyMetadata(String name, String description, Type sqlType, Class<T> javaType, T defaultValue, boolean hidden)
+    public PropertyMetadata(String name, String description, Type sqlType, Class<T> javaType, T defaultValue, boolean hidden)
     {
         this(name, description, sqlType, javaType, defaultValue, hidden, javaType::cast);
     }
 
-    public SessionPropertyMetadata(
+    public PropertyMetadata(
             String name,
             String description,
             Type sqlType,
@@ -126,9 +126,9 @@ public final class SessionPropertyMetadata<T>
         return decoder.apply(value);
     }
 
-    public static SessionPropertyMetadata<Boolean> booleanSessionProperty(String name, String description, Boolean defaultValue, boolean hidden)
+    public static PropertyMetadata<Boolean> booleanSessionProperty(String name, String description, Boolean defaultValue, boolean hidden)
     {
-        return new SessionPropertyMetadata<>(
+        return new PropertyMetadata<>(
                 name,
                 description,
                 BOOLEAN,
@@ -138,9 +138,9 @@ public final class SessionPropertyMetadata<T>
                 Boolean.class::cast);
     }
 
-    public static SessionPropertyMetadata<Integer> integerSessionProperty(String name, String description, Integer defaultValue, boolean hidden)
+    public static PropertyMetadata<Integer> integerSessionProperty(String name, String description, Integer defaultValue, boolean hidden)
     {
-        return new SessionPropertyMetadata<>(
+        return new PropertyMetadata<>(
                 name,
                 description,
                 BIGINT,
@@ -150,9 +150,9 @@ public final class SessionPropertyMetadata<T>
                 value -> ((Number) value).intValue());
     }
 
-    public static SessionPropertyMetadata<Long> longSessionProperty(String name, String description, Long defaultValue, boolean hidden)
+    public static PropertyMetadata<Long> longSessionProperty(String name, String description, Long defaultValue, boolean hidden)
     {
-        return new SessionPropertyMetadata<>(
+        return new PropertyMetadata<>(
                 name,
                 description,
                 BIGINT,
@@ -162,9 +162,9 @@ public final class SessionPropertyMetadata<T>
                 value -> ((Number) value).longValue());
     }
 
-    public static SessionPropertyMetadata<Double> doubleSessionProperty(String name, String description, Double defaultValue, boolean hidden)
+    public static PropertyMetadata<Double> doubleSessionProperty(String name, String description, Double defaultValue, boolean hidden)
     {
-        return new SessionPropertyMetadata<>(
+        return new PropertyMetadata<>(
                 name,
                 description,
                 DOUBLE,
@@ -174,9 +174,9 @@ public final class SessionPropertyMetadata<T>
                 value -> ((Number) value).doubleValue());
     }
 
-    public static SessionPropertyMetadata<String> stringSessionProperty(String name, String description, String defaultValue, boolean hidden)
+    public static PropertyMetadata<String> stringSessionProperty(String name, String description, String defaultValue, boolean hidden)
     {
-        return new SessionPropertyMetadata<>(
+        return new PropertyMetadata<>(
                 name,
                 description,
                 VARCHAR,

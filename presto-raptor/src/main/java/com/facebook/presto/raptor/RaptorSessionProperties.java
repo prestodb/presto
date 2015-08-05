@@ -14,20 +14,20 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.session.SessionPropertyMetadata;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.session.SessionPropertyMetadata.stringSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
 
 public class RaptorSessionProperties
 {
     private static final String EXTERNAL_BATCH_ID = "external_batch_id";
 
-    private final List<SessionPropertyMetadata<?>> sessionProperties;
+    private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
     public RaptorSessionProperties()
@@ -40,7 +40,7 @@ public class RaptorSessionProperties
                         true));
     }
 
-    public List<SessionPropertyMetadata<?>> getSessionProperties()
+    public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
     }

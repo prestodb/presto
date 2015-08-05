@@ -16,7 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.operator.scalar.TestingRowConstructor;
-import com.facebook.presto.spi.session.SessionPropertyMetadata;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
@@ -82,34 +82,34 @@ public abstract class AbstractTestQueries
             .scalar(TestingRowConstructor.class)
             .getFunctions();
 
-    public static final List<SessionPropertyMetadata<?>> TEST_SYSTEM_PROPERTIES = ImmutableList.of(
-            SessionPropertyMetadata.stringSessionProperty(
+    public static final List<PropertyMetadata<?>> TEST_SYSTEM_PROPERTIES = ImmutableList.of(
+            PropertyMetadata.stringSessionProperty(
                     "test_string",
                     "test string property",
                     "test default",
                     false),
-            SessionPropertyMetadata.longSessionProperty(
+            PropertyMetadata.longSessionProperty(
                     "test_long",
                     "test long property",
                     42L,
                     false));
-    public static final List<SessionPropertyMetadata<?>> TEST_CATALOG_PROPERTIES = ImmutableList.of(
-            SessionPropertyMetadata.stringSessionProperty(
+    public static final List<PropertyMetadata<?>> TEST_CATALOG_PROPERTIES = ImmutableList.of(
+            PropertyMetadata.stringSessionProperty(
                     "connector_string",
                     "connector string property",
                     "connector default",
                     false),
-            SessionPropertyMetadata.longSessionProperty(
+            PropertyMetadata.longSessionProperty(
                     "connector_long",
                     "connector long property",
                     33L,
                     false),
-            SessionPropertyMetadata.booleanSessionProperty(
+            PropertyMetadata.booleanSessionProperty(
                     "connector_boolean",
                     "connector boolean property",
                     true,
                     false),
-            SessionPropertyMetadata.doubleSessionProperty(
+            PropertyMetadata.doubleSessionProperty(
                     "connector_double",
                     "connector double property",
                     99.0,

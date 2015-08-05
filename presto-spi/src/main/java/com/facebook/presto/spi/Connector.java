@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.session.SessionPropertyMetadata;
+import com.facebook.presto.spi.session.PropertyMetadata;
 
 import java.util.List;
 import java.util.Set;
@@ -80,7 +80,7 @@ public interface Connector
     /**
      * @return the system properties for this connector
      */
-    default List<SessionPropertyMetadata<?>> getSessionProperties()
+    default List<PropertyMetadata<?>> getSessionProperties()
     {
         return emptyList();
     }

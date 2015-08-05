@@ -16,7 +16,7 @@ package com.facebook.presto;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
-import com.facebook.presto.spi.session.SessionPropertyMetadata;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -25,8 +25,8 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.session.SessionPropertyMetadata.booleanSessionProperty;
-import static com.facebook.presto.spi.session.SessionPropertyMetadata.integerSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public final class SystemSessionProperties
@@ -43,7 +43,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
 
-    private final List<SessionPropertyMetadata<?>> sessionProperties;
+    private final List<PropertyMetadata<?>> sessionProperties;
 
     public SystemSessionProperties()
     {
@@ -108,7 +108,7 @@ public final class SystemSessionProperties
                         "Experimental: Default number of local parallel aggregation jobs per worker",
                         taskManagerConfig.getTaskDefaultConcurrency(),
                         false),
-                new SessionPropertyMetadata<>(
+                new PropertyMetadata<>(
                         QUERY_MAX_MEMORY,
                         "Maximum amount of distributed memory a query can use",
                         VARCHAR,
@@ -118,7 +118,7 @@ public final class SystemSessionProperties
                         value -> DataSize.valueOf((String) value)));
     }
 
-    public List<SessionPropertyMetadata<?>> getSessionProperties()
+    public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
     }
