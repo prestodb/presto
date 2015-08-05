@@ -19,7 +19,7 @@ import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
-import com.facebook.presto.spi.session.SessionPropertyMetadata;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 
@@ -40,7 +40,7 @@ public class RaptorConnector
     private final RaptorPageSourceProvider pageSourceProvider;
     private final RaptorPageSinkProvider pageSinkProvider;
     private final RaptorHandleResolver handleResolver;
-    private final List<SessionPropertyMetadata<?>> sessionProperties;
+    private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
     public RaptorConnector(
@@ -92,7 +92,7 @@ public class RaptorConnector
     }
 
     @Override
-    public List<SessionPropertyMetadata<?>> getSessionProperties()
+    public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
     }

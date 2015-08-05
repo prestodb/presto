@@ -20,7 +20,7 @@ import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.session.SessionPropertyMetadata;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
@@ -43,7 +43,7 @@ public class HiveConnector
     private final ConnectorRecordSinkProvider recordSinkProvider;
     private final ConnectorHandleResolver handleResolver;
     private final Set<SystemTable> systemTables;
-    private final List<SessionPropertyMetadata<?>> sessionProperties;
+    private final List<PropertyMetadata<?>> sessionProperties;
 
     public HiveConnector(
             LifeCycleManager lifeCycleManager,
@@ -53,7 +53,7 @@ public class HiveConnector
             ConnectorRecordSinkProvider recordSinkProvider,
             ConnectorHandleResolver handleResolver,
             Set<SystemTable> systemTables,
-            List<SessionPropertyMetadata<?>> sessionProperties)
+            List<PropertyMetadata<?>> sessionProperties)
     {
         this.lifeCycleManager = checkNotNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
@@ -102,7 +102,7 @@ public class HiveConnector
     }
 
     @Override
-    public List<SessionPropertyMetadata<?>> getSessionProperties()
+    public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
     }

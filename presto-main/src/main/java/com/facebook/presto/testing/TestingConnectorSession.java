@@ -15,7 +15,7 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.session.SessionPropertyMetadata;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +45,7 @@ public class TestingConnectorSession
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
     private final long startTime;
-    private final Map<String, SessionPropertyMetadata<?>> properties;
+    private final Map<String, PropertyMetadata<?>> properties;
     private final Map<String, Object> propertyValues;
 
     public TestingConnectorSession(
@@ -53,7 +53,7 @@ public class TestingConnectorSession
             TimeZoneKey timeZoneKey,
             Locale locale,
             long startTime,
-            List<SessionPropertyMetadata<?>> sessionPropertyMetadatas,
+            List<PropertyMetadata<?>> propertyMetadatas,
             Map<String, Object> propertyValues)
     {
         this.user = requireNonNull(user, "user is null");
@@ -61,9 +61,9 @@ public class TestingConnectorSession
         this.locale = requireNonNull(locale, "locale is null");
         this.startTime = startTime;
 
-        ImmutableMap.Builder<String, SessionPropertyMetadata<?>> builder = ImmutableMap.builder();
-        for (SessionPropertyMetadata<?> sessionPropertyMetadata : sessionPropertyMetadatas) {
-            builder.put(sessionPropertyMetadata.getName(), sessionPropertyMetadata);
+        ImmutableMap.Builder<String, PropertyMetadata<?>> builder = ImmutableMap.builder();
+        for (PropertyMetadata<?> propertyMetadata : propertyMetadatas) {
+            builder.put(propertyMetadata.getName(), propertyMetadata);
         }
         this.properties = builder.build();
         this.propertyValues = ImmutableMap.copyOf(propertyValues);
@@ -96,7 +96,7 @@ public class TestingConnectorSession
     @Override
     public <T> T getProperty(String name, Class<T> type)
     {
-        SessionPropertyMetadata<?> metadata = properties.get(name);
+        PropertyMetadata<?> metadata = properties.get(name);
         if (metadata == null) {
             throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name);
         }

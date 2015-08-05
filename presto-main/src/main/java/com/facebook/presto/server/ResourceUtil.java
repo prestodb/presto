@@ -16,7 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.spi.session.SessionPropertyMetadata;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
 import com.google.common.base.Splitter;
@@ -127,7 +127,7 @@ final class ResourceUtil
         String value = nameValue.get(1);
 
         // validate session property value
-        SessionPropertyMetadata<?> metadata = sessionPropertyManager.getSessionPropertyMetadata(fullPropertyName);
+        PropertyMetadata<?> metadata = sessionPropertyManager.getSessionPropertyMetadata(fullPropertyName);
         try {
             sessionPropertyManager.decodeProperty(fullPropertyName, value, metadata.getJavaType());
         }
