@@ -748,6 +748,14 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testLimitAll()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM nation LIMIT 10)", "SELECT 10");
+        assertQuery("SELECT COUNT(*) FROM (SELECT * FROM nation LIMIT ALL)", "SELECT 25");
+    }
+
+    @Test
     public void testCountAll()
             throws Exception
     {

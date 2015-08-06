@@ -15,7 +15,7 @@ Synopsis
     [ HAVING condition]
     [ UNION [ ALL | DISTINCT ] select ]
     [ ORDER BY expression [ ASC | DESC ] [, ...] ]
-    [ LIMIT count ]
+    [ LIMIT [ ALL | count] ]
 
 where ``from_item`` is one of
 
@@ -189,6 +189,7 @@ LIMIT Clause
 ------------
 
 The ``LIMIT`` clause restricts the number of rows in the result set.
+The argument ``ALL`` effectively returns all rows from the result set.
 The following example queries a large table, but the limit clause restricts
 the output to only have five rows (because the query lacks an ``ORDER BY``,
 exactly which rows are returned is arbitrary)::
