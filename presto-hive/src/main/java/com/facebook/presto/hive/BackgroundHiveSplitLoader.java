@@ -49,6 +49,7 @@ import java.util.Properties;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
 import static com.facebook.presto.hadoop.HadoopFileStatus.isFile;
@@ -81,6 +82,19 @@ public class BackgroundHiveSplitLoader
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
     private final Deque<HiveFileIterator> fileIterators = new ConcurrentLinkedDeque<>();
     private final AtomicInteger remainingInitialSplits;
+
+    // Purpose of this lock:
+    // * When write lock is acquired, except the holder, no one can do any of the following:
+    // ** poll from partitions
+    // ** poll from or push to fileIterators
+    // ** push to hiveSplitSource
+    // * When any of the above three operations is carried out, either a read lock or a write lock must be held.
+    // * When a series of operations involving two or more of the above three operations are carried out, the lock
+    //   must be continuously held throughout the series of operations.
+    // Implications:
+    // * if you hold a read lock but not a write lock, you can do any of the above three operations, but you may
+    //   see a series of operations involving two or more of the operations carried out half way.
+    private final ReentrantReadWriteLock taskExecutionLock = new ReentrantReadWriteLock();
 
     private HiveSplitSource hiveSplitSource;
     private volatile boolean stopped;
@@ -145,32 +159,50 @@ public class BackgroundHiveSplitLoader
             return;
         }
         if (outstandingTasks.incrementAndGet() > maxPartitionBatchSize) {
-            outstandingTasks.decrementAndGet();
+            if (outstandingTasks.decrementAndGet() == 0) {
+                invokeFinishedIfShould();
+            }
             return;
         }
         executor.execute(() -> {
             try {
-                loadSplits();
+                taskExecutionLock.readLock().lock();
+                try {
+                    loadSplits();
+                }
+                finally {
+                    taskExecutionLock.readLock().unlock();
+                }
                 if (!hiveSplitSource.isQueueFull()) {
                     // Start another task to replace this one
                     startLoadSplits();
                     // Ramp up if we're below the limit and the queue still isn't filled
-                    if (outstandingTasks.get() < maxPartitionBatchSize) {
-                        startLoadSplits();
-                    }
+                    startLoadSplits();
                 }
                 if (outstandingTasks.decrementAndGet() == 0) {
-                    // Only one thread will reach this point, and all other threads are guaranteed to have finished their work,
-                    // so it's safe to check the queues without further synchronization
-                    if (fileIterators.isEmpty() && partitions.isEmpty()) {
-                        hiveSplitSource.finished();
-                    }
+                    invokeFinishedIfShould();
                 }
             }
             catch (Exception e) {
                 hiveSplitSource.fail(e);
             }
         });
+    }
+
+    private void invokeFinishedIfShould()
+    {
+        taskExecutionLock.writeLock().lock();
+        try {
+            // checking outstandingTasks.get() == 0 because the lock already guarantees that no one is operating on the 3 queues, or half way through doing so.
+            if (fileIterators.isEmpty() && partitions.isEmpty()) {
+                // It is legal to call `finished` multiple times or after `stop` was called
+                // Nothing bad will happen if `finished` implementation calls methods that will try to obtain a read lock
+                hiveSplitSource.finished();
+            }
+        }
+        finally {
+            taskExecutionLock.writeLock().unlock();
+        }
     }
 
     private void loadSplits()
