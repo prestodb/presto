@@ -26,7 +26,6 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -60,6 +59,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.server.testing.FileUtils.deleteRecursively;
@@ -120,7 +120,7 @@ public class TestingPrestoServer
         }
 
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
-                .add(new TestingNodeModule(Optional.fromNullable(environment)))
+                .add(new TestingNodeModule(Optional.ofNullable(environment)))
                 .add(new TestingHttpServerModule())
                 .add(new JsonModule())
                 .add(new JaxrsModule(true))
