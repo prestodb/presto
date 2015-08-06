@@ -17,6 +17,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.ConnectorAccessControl;
 import com.facebook.presto.spi.security.Identity;
 
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
@@ -29,6 +30,12 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameT
 public class ReadOnlyAccessControl
         implements ConnectorAccessControl
 {
+    @Override
+    public void checkCanAddColumn(Identity identity, SchemaTableName tableName)
+    {
+        denyAddColumn(tableName.toString());
+    }
+
     @Override
     public void checkCanCreateTable(Identity identity, SchemaTableName tableName)
     {

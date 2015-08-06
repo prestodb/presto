@@ -505,22 +505,19 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName)
+    public void alterTable(String databaseName, String tableName, Table table)
     {
         try {
             retry()
                     .exceptionMapper(getExceptionMapper())
                     .stopOn(InvalidOperationException.class, MetaException.class)
                     .stopOnIllegalExceptions()
-                    .run("renameTable", stats.getRenameTable().wrap(() -> {
+                    .run("alterTable", stats.getAlterTable().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                             Optional<Table> source = loadTable(new HiveTableName(databaseName, tableName));
                             if (!source.isPresent()) {
                                 throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
                             }
-                            Table table = new Table(source.get());
-                            table.setDbName(newDatabaseName);
-                            table.setTableName(newTableName);
                             client.alter_table(databaseName, tableName, table);
                         }
                         return null;
@@ -543,7 +540,6 @@ public class CachingHiveMetastore
         }
         finally {
             invalidateTable(databaseName, tableName);
-            invalidateTable(newDatabaseName, newTableName);
         }
     }
 

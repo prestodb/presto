@@ -151,20 +151,30 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName)
+    public void alterTable(String databaseName, String tableName, Table newTable)
     {
-        // TODO: use locking to do this properly
-        SchemaTableName oldTable = new SchemaTableName(databaseName, tableName);
-        Table table = relations.get(oldTable);
-        if (table == null) {
-            throw new TableNotFoundException(oldTable);
+        SchemaTableName oldName = new SchemaTableName(databaseName, tableName);
+        SchemaTableName newName = new SchemaTableName(newTable.getDbName(), newTable.getTableName());
+
+        // if the name did not change, this is a simple schema change
+        if (oldName.equals(newName)) {
+            if (relations.replace(oldName, newTable) != null) {
+                throw new TableNotFoundException(oldName);
+            }
+            return;
         }
 
-        SchemaTableName newTable = new SchemaTableName(newDatabaseName, newTableName);
-        if (relations.putIfAbsent(newTable, table) != null) {
-            throw new TableAlreadyExistsException(newTable);
+        // remove old table definition and add the new one
+        // TODO: use locking to do this properly
+        Table table = relations.get(oldName);
+        if (table == null) {
+            throw new TableNotFoundException(oldName);
         }
-        relations.remove(oldTable);
+
+        if (relations.putIfAbsent(newName, newTable) != null) {
+            throw new TableAlreadyExistsException(newName);
+        }
+        relations.remove(oldName);
     }
 
     @Override

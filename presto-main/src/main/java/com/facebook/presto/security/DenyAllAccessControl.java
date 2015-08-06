@@ -18,6 +18,7 @@ import com.facebook.presto.spi.security.Identity;
 
 import java.security.Principal;
 
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
@@ -57,6 +58,12 @@ public class DenyAllAccessControl
     public void checkCanRenameTable(Identity identity, QualifiedTableName tableName, QualifiedTableName newTableName)
     {
         denyRenameTable(tableName.toString(), newTableName.toString());
+    }
+
+    @Override
+    public void checkCanAddColumns(Identity identity, QualifiedTableName tableName)
+    {
+        denyAddColumn(tableName.toString());
     }
 
     @Override

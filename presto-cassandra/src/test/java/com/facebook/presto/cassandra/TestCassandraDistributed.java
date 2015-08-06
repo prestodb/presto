@@ -38,6 +38,13 @@ public class TestCassandraDistributed
     }
 
     @Override
+    public void testAddColumn()
+            throws Exception
+    {
+        // Cassandra does not support adding columns
+    }
+
+    @Override
     public void testRenameColumn()
             throws Exception
     {

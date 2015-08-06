@@ -225,6 +225,22 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testAddColumn()
+            throws Exception
+    {
+        assertQueryTrue("CREATE TABLE test_add_column AS SELECT 123 x");
+
+        assertQueryTrue("ALTER TABLE test_add_column ADD COLUMN (a bigint, b double)");
+        MaterializedResult materializedRows = computeActual("SELECT x, a, b FROM test_add_column");
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123L);
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(1), null);
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(2), null);
+
+        assertQueryTrue("DROP TABLE test_add_column");
+        assertFalse(queryRunner.tableExists(getSession(), "test_add_column"));
+    }
+
+    @Test
     public void testInsert()
             throws Exception
     {
