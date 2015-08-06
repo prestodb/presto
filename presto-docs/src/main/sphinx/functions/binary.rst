@@ -37,3 +37,15 @@ Binary Functions
 .. function:: md5(binary) -> varbinary
 
     Computes the md5 hash of ``binary``.
+
+.. function:: sha1(binary) -> varbinary
+
+    Computes the sha1 hash of ``binary``.
+
+.. function:: sha256(binary) -> varbinary
+
+    Computes the sha256 hash of ``binary``.
+
+.. function:: sha512(binary) -> varbinary
+
+    Computes the sha512 hash of ``binary``.

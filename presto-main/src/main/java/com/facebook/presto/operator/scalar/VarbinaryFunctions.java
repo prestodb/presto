@@ -118,6 +118,30 @@ public final class VarbinaryFunctions
         return Slices.wrappedBuffer(Hashing.md5().hashBytes(slice.getBytes()).asBytes());
     }
 
+    @Description("compute sha1 hash")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice sha1(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return Slices.wrappedBuffer(Hashing.sha1().hashBytes(slice.getBytes()).asBytes());
+    }
+
+    @Description("compute sha256 hash")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice sha256(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return Slices.wrappedBuffer(Hashing.sha256().hashBytes(slice.getBytes()).asBytes());
+    }
+
+    @Description("compute sha512 hash")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice sha512(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return Slices.wrappedBuffer(Hashing.sha512().hashBytes(slice.getBytes()).asBytes());
+    }
+
     private static int hexDigitCharToInt(byte b)
     {
         if (b >= '0' && b <= '9') {
