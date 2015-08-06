@@ -74,4 +74,11 @@ public class TestRaptorDistributedQueries
             UUID.fromString((String) uuid);
         }
     }
+
+    @Override
+    public void testAddColumn()
+            throws Exception
+    {
+        // Raptor currently does not support add column
+    }
 }

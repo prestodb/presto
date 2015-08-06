@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
@@ -38,6 +39,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySelectV
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_TABLE;
@@ -121,6 +123,15 @@ public class TestingAccessControlManager
         if (denyPrivileges.isEmpty()) {
             super.checkCanRenameTable(identity, tableName, newTableName);
         }
+    }
+
+    @Override
+    public void checkCanAddColumns(Identity identity, QualifiedTableName tableName)
+    {
+        if (shouldDenyPrivilege(identity.getUser(), tableName.getTableName(), ADD_COLUMN)) {
+            denyAddColumn(tableName.toString());
+        }
+        super.checkCanAddColumns(identity, tableName);
     }
 
     @Override
@@ -256,7 +267,8 @@ public class TestingAccessControlManager
     public enum TestingPrivilegeType
     {
         SET_USER,
-        CREATE_TABLE, DROP_TABLE, RENAME_TABLE, RENAME_COLUMN, SELECT_TABLE, INSERT_TABLE, DELETE_TABLE,
+        CREATE_TABLE, DROP_TABLE, RENAME_TABLE, SELECT_TABLE, INSERT_TABLE, DELETE_TABLE,
+        ADD_COLUMN, RENAME_COLUMN,
         CREATE_VIEW, DROP_VIEW, SELECT_VIEW,
         CREATE_VIEW_WITH_SELECT_TABLE, CREATE_VIEW_WITH_SELECT_VIEW,
         SET_SESSION

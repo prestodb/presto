@@ -165,6 +165,8 @@ public class TestStatementBuilder
 
         printStatement("alter table a.b.c rename column x to y");
 
+        printStatement("alter table a.b.c add column x bigint");
+
         printStatement("create table test (a boolean, b bigint, c double, d varchar, e timestamp)");
         printStatement("create table if not exists baz (a timestamp, b varchar)");
         printStatement("create table test (a boolean, b bigint) with (a = 'apple', b = 'banana')");

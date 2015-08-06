@@ -40,6 +40,8 @@ statement
     | ALTER TABLE from=qualifiedName RENAME TO to=qualifiedName        #renameTable
     | ALTER TABLE tableName=qualifiedName
         RENAME COLUMN from=identifier TO to=identifier                 #renameColumn
+    | ALTER TABLE tableName=qualifiedName
+        ADD COLUMN column=tableElement                                 #addColumn
     | CREATE (OR REPLACE)? VIEW qualifiedName AS query                 #createView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | EXPLAIN ('(' explainOption (',' explainOption)* ')')? statement  #explain
@@ -335,6 +337,7 @@ number
 
 nonReserved
     : SHOW | TABLES | COLUMNS | COLUMN | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS | SESSION
+    | ADD
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW | MAP
     | DATE | TIME | TIMESTAMP | INTERVAL
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
@@ -354,6 +357,7 @@ normalForm
 
 SELECT: 'SELECT';
 FROM: 'FROM';
+ADD: 'ADD';
 AS: 'AS';
 ALL: 'ALL';
 SOME: 'SOME';
