@@ -25,6 +25,11 @@ public interface PagesHashStrategy
     int getChannelCount();
 
     /**
+     * Get the total of allocated size
+     */
+    long getSizeInBytes();
+
+    /**
      * Appends all values at the specified position to the page builder starting at {@code outputChannelOffset}.
      */
     void appendTo(int blockIndex, int position, PageBuilder pageBuilder, int outputChannelOffset);

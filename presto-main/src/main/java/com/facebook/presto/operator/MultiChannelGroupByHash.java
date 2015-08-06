@@ -121,7 +121,7 @@ public class MultiChannelGroupByHash
     {
         return (sizeOf(channelBuilders.get(0).elements()) * channelBuilders.size()) +
                 completedPagesMemorySize +
-                currentPageBuilder.getSizeInBytes() +
+                currentPageBuilder.getRetainedSizeInBytes() +
                 sizeOf(groupAddressByHash) +
                 sizeOf(groupIdsByHash) +
                 groupAddressByGroupId.sizeOf();
@@ -295,7 +295,7 @@ public class MultiChannelGroupByHash
     private void startNewPage()
     {
         if (currentPageBuilder != null) {
-            completedPagesMemorySize += currentPageBuilder.getSizeInBytes();
+            completedPagesMemorySize += currentPageBuilder.getRetainedSizeInBytes();
         }
 
         currentPageBuilder = new PageBuilder(types);
