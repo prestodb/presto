@@ -150,18 +150,17 @@ public class BackgroundHiveSplitLoader
         executor.execute(() -> {
             try {
                 loadSplits();
-                if (outstandingTasks.decrementAndGet() == 0) {
-                    if (fileIterators.isEmpty() && partitions.isEmpty()) {
-                        hiveSplitSource.finished();
-                        return;
-                    }
-                }
                 if (!hiveSplitSource.isQueueFull()) {
                     // Start another task to replace this one
                     startLoadSplits();
                     // Ramp up if we're below the limit and the queue still isn't filled
                     if (outstandingTasks.get() < maxPartitionBatchSize) {
                         startLoadSplits();
+                    }
+                }
+                if (outstandingTasks.decrementAndGet() == 0) {
+                    if (fileIterators.isEmpty() && partitions.isEmpty()) {
+                        hiveSplitSource.finished();
                     }
                 }
             }
