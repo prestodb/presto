@@ -58,7 +58,7 @@ public class QueryRunner
         this.httpClient = new JettyHttpClient(
                 getHttpClientConfig(socksProxy, keystorePath, keystorePassword, kerberosPrincipal, kerberosRemoteServiceName, authenticationEnabled),
                 kerberosConfig,
-                com.google.common.base.Optional.<JettyIoPool>absent(),
+                Optional.<JettyIoPool>empty(),
                 ImmutableList.<HttpRequestFilter>of());
     }
 
