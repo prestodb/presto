@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -668,6 +669,21 @@ public final class SqlFormatter
                     .append(" TO ")
                     .append(node.getTarget());
 
+            return null;
+        }
+
+        @Override
+        protected Void visitAddColumn(AddColumn node, Integer indent)
+        {
+            builder.append("ALTER TABLE ")
+                    .append(node.getName())
+                    .append(" ADD COLUMN ")
+                    .append(" (");
+
+            Joiner.on(", ").appendTo(builder, transform(node.getElements(),
+                    element -> element.getName() + " " + element.getType()));
+
+            builder.append(")");
             return null;
         }
 
