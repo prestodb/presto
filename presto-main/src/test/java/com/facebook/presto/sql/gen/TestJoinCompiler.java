@@ -179,6 +179,12 @@ public class TestJoinCompiler
 
         // verify channel count
         assertEquals(hashStrategy.getChannelCount(), types.size());
+        // verify size
+        long sizeInBytes = channels.stream()
+                .flatMap(List::stream)
+                .mapToLong(Block::getRetainedSizeInBytes)
+                .sum();
+        assertEquals(hashStrategy.getSizeInBytes(), sizeInBytes);
 
         // verify hashStrategy is consistent with equals and hash code from block
         for (int leftBlockIndex = 0; leftBlockIndex < varcharChannel.size(); leftBlockIndex++) {

@@ -55,6 +55,15 @@ public class SimplePagesHashStrategy
     }
 
     @Override
+    public long getSizeInBytes()
+    {
+        return channels.stream()
+                .flatMap(List::stream)
+                .mapToLong(Block::getRetainedSizeInBytes)
+                .sum();
+    }
+
+    @Override
     public void appendTo(int blockIndex, int position, PageBuilder pageBuilder, int outputChannelOffset)
     {
         for (int i = 0; i < channels.size(); i++) {
