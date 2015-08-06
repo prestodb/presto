@@ -161,7 +161,6 @@ public class BackgroundHiveSplitLoader
                 if (outstandingTasks.decrementAndGet() == 0) {
                     if (fileIterators.isEmpty() && partitions.isEmpty()) {
                         hiveSplitSource.finished();
-                        return;
                     }
                 }
             }
