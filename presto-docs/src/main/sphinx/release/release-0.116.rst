@@ -27,3 +27,5 @@ General Changes
 * Removed ``experimental.cluster-memory-manager-enabled`` config. The cluster
   memory manager is now always enabled.
 * Removed ``task.max-memory`` config.
+* ``optimizer.optimize-hash-generation`` and ``distributed-joins-enabled`` are
+  both enabled by default now.
