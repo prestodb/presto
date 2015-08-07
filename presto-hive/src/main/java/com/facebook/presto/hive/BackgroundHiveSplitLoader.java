@@ -173,14 +173,15 @@ public class BackgroundHiveSplitLoader
                 finally {
                     taskExecutionLock.readLock().unlock();
                 }
+                // Decrement must happen before starting new splits. It will otherwise lead to starvation.
+                if (outstandingTasks.decrementAndGet() == 0) {
+                    invokeFinishedIfShould();
+                }
                 if (!hiveSplitSource.isQueueFull()) {
                     // Start another task to replace this one
                     startLoadSplits();
                     // Ramp up if we're below the limit and the queue still isn't filled
                     startLoadSplits();
-                }
-                if (outstandingTasks.decrementAndGet() == 0) {
-                    invokeFinishedIfShould();
                 }
             }
             catch (Exception e) {
