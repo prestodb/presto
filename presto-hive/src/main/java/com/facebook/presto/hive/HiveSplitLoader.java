@@ -17,7 +17,5 @@ interface HiveSplitLoader
 {
     void start(HiveSplitSource splitSource);
 
-    void resume();
-
     void stop();
 }

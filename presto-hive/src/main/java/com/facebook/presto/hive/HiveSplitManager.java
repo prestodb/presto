@@ -375,7 +375,7 @@ public class HiveSplitManager
                 maxInitialSplits,
                 recursiveDfsWalkerEnabled);
 
-        HiveSplitSource splitSource = new HiveSplitSource(connectorId, maxOutstandingSplits, hiveSplitLoader);
+        HiveSplitSource splitSource = new HiveSplitSource(connectorId, maxOutstandingSplits, hiveSplitLoader, executor);
         hiveSplitLoader.start(splitSource);
 
         return splitSource;

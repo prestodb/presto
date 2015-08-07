@@ -14,6 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.util.HiveFileIterator;
+import com.facebook.presto.hive.util.ResumableTask;
+import com.facebook.presto.hive.util.ResumableTasks;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.TupleDomain;
@@ -46,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -66,6 +69,8 @@ import static com.google.common.base.Preconditions.checkState;
 public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
 {
+    public static final CompletableFuture<?> COMPLETED_FUTURE = CompletableFuture.completedFuture(null);
+
     private final String connectorId;
     private final Table table;
     private final Optional<HiveBucket> bucket;
@@ -78,7 +83,6 @@ public class BackgroundHiveSplitLoader
     private final boolean recursiveDirWalkerEnabled;
     private final Executor executor;
     private final ConnectorSession session;
-    private final AtomicInteger outstandingTasks = new AtomicInteger();
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
     private final Deque<HiveFileIterator> fileIterators = new ConcurrentLinkedDeque<>();
     private final AtomicInteger remainingInitialSplits;
@@ -135,14 +139,8 @@ public class BackgroundHiveSplitLoader
     public void start(HiveSplitSource splitSource)
     {
         this.hiveSplitSource = splitSource;
-        startLoadSplits();
-    }
-
-    @Override
-    public void resume()
-    {
-        if (outstandingTasks.get() == 0) {
-            startLoadSplits();
+        for (int i = 0; i < maxPartitionBatchSize; i++) {
+            ResumableTasks.submit(executor, new HiveSplitLoaderTask());
         }
     }
 
@@ -152,70 +150,66 @@ public class BackgroundHiveSplitLoader
         stopped = true;
     }
 
-    // This method may only be called if outstandingTasks == 0, or recursively after incrementing outstandingTasks
-    private void startLoadSplits()
+    private class HiveSplitLoaderTask
+            implements ResumableTask
     {
-        if (stopped || (fileIterators.isEmpty() && partitions.isEmpty())) {
-            return;
-        }
-        if (outstandingTasks.incrementAndGet() > maxPartitionBatchSize) {
-            if (outstandingTasks.decrementAndGet() == 0) {
-                invokeFinishedIfShould();
-            }
-            return;
-        }
-        executor.execute(() -> {
-            try {
-                taskExecutionLock.readLock().lock();
+        @Override
+        public TaskStatus process()
+        {
+            while (true) {
+                if (stopped) {
+                    return TaskStatus.finished();
+                }
                 try {
-                    loadSplits();
+                    CompletableFuture<?> future;
+                    taskExecutionLock.readLock().lock();
+                    try {
+                        future = loadSplits();
+                    }
+                    finally {
+                        taskExecutionLock.readLock().unlock();
+                    }
+                    invokeFinishedIfNecessary();
+                    if (!future.isDone()) {
+                        return TaskStatus.continueOn(future);
+                    }
                 }
-                finally {
-                    taskExecutionLock.readLock().unlock();
-                }
-                // Decrement must happen before starting new splits. It will otherwise lead to starvation.
-                if (outstandingTasks.decrementAndGet() == 0) {
-                    invokeFinishedIfShould();
-                }
-                if (!hiveSplitSource.isQueueFull()) {
-                    // Start another task to replace this one
-                    startLoadSplits();
-                    // Ramp up if we're below the limit and the queue still isn't filled
-                    startLoadSplits();
+                catch (Exception e) {
+                    hiveSplitSource.fail(e);
                 }
             }
-            catch (Exception e) {
-                hiveSplitSource.fail(e);
-            }
-        });
+        }
     }
 
-    private void invokeFinishedIfShould()
+    private void invokeFinishedIfNecessary()
     {
-        taskExecutionLock.writeLock().lock();
-        try {
-            // checking outstandingTasks.get() == 0 because the lock already guarantees that no one is operating on the 3 queues, or half way through doing so.
-            if (fileIterators.isEmpty() && partitions.isEmpty()) {
-                // It is legal to call `finished` multiple times or after `stop` was called
-                // Nothing bad will happen if `finished` implementation calls methods that will try to obtain a read lock
-                hiveSplitSource.finished();
+        if (partitions.isEmpty() && fileIterators.isEmpty()) {
+            taskExecutionLock.writeLock().lock();
+            try {
+                // the write lock guarantees that no one is operating on the partitions, fileIterators, or hiveSplitSource, or half way through doing so.
+                if (partitions.isEmpty() && fileIterators.isEmpty()) {
+                    // It is legal to call `finished` multiple times or after `stop` was called.
+                    // Nothing bad will happen if `finished` implementation calls methods that will try to obtain a read lock because the lock is re-entrant.
+                    hiveSplitSource.finished();
+                }
             }
-        }
-        finally {
-            taskExecutionLock.writeLock().unlock();
+            finally {
+                taskExecutionLock.writeLock().unlock();
+            }
         }
     }
 
-    private void loadSplits()
+    private CompletableFuture<?> loadSplits()
             throws IOException
     {
         HiveFileIterator files = fileIterators.poll();
         if (files == null) {
             HivePartitionMetadata partition = partitions.poll();
-            if (partition != null) {
-                loadPartition(partition);
+            if (partition == null) {
+                return COMPLETED_FUTURE;
             }
-            return;
+            loadPartition(partition);
+            return COMPLETED_FUTURE;
         }
 
         while (files.hasNext() && !stopped) {
@@ -238,7 +232,7 @@ public class BackgroundHiveSplitLoader
             else {
                 boolean splittable = isSplittable(files.getInputFormat(), hdfsEnvironment.getFileSystem(file.getPath()), file.getPath());
 
-                hiveSplitSource.addToQueue(createHiveSplits(
+                CompletableFuture<?> future = hiveSplitSource.addToQueue(createHiveSplits(
                         files.getPartitionName(),
                         file.getPath().toString(),
                         file.getBlockLocations(),
@@ -249,14 +243,15 @@ public class BackgroundHiveSplitLoader
                         splittable,
                         session,
                         files.getEffectivePredicate()));
-                if (hiveSplitSource.isQueueFull()) {
+                if (!future.isDone()) {
                     fileIterators.addFirst(files);
-                    return;
+                    return future;
                 }
             }
         }
 
         // No need to put the iterator back, since it's either empty or we've stopped
+        return COMPLETED_FUTURE;
     }
 
     private void loadPartition(HivePartitionMetadata partition)
