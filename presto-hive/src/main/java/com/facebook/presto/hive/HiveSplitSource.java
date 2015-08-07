@@ -17,11 +17,12 @@ import com.facebook.presto.hive.util.AsyncQueue;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.annotations.VisibleForTesting;
 
 import java.io.FileNotFoundException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
@@ -33,43 +34,39 @@ class HiveSplitSource
         implements ConnectorSplitSource
 {
     private final String connectorId;
-    private final AsyncQueue<ConnectorSplit> queue = new AsyncQueue<>();
-    private final AtomicInteger outstandingSplitCount = new AtomicInteger();
+    private final AsyncQueue<ConnectorSplit> queue;
     private final AtomicReference<Throwable> throwable = new AtomicReference<>();
-    private final int maxOutstandingSplits;
     private final HiveSplitLoader splitLoader;
     private volatile boolean closed;
 
-    HiveSplitSource(String connectorId, int maxOutstandingSplits, HiveSplitLoader splitLoader)
+    HiveSplitSource(String connectorId, int maxOutstandingSplits, HiveSplitLoader splitLoader, Executor executor)
     {
         this.connectorId = connectorId;
-        this.maxOutstandingSplits = maxOutstandingSplits;
+        this.queue = new AsyncQueue<>(maxOutstandingSplits, executor);
         this.splitLoader = splitLoader;
     }
 
+    @VisibleForTesting
     int getOutstandingSplitCount()
     {
-        return outstandingSplitCount.get();
+        return queue.size();
     }
 
-    void addToQueue(Iterable<? extends ConnectorSplit> splits)
+    CompletableFuture<?> addToQueue(Iterable<? extends ConnectorSplit> splits)
     {
+        CompletableFuture<?> lastResult = CompletableFuture.completedFuture(null);
         for (ConnectorSplit split : splits) {
-            addToQueue(split);
+            lastResult = addToQueue(split);
         }
+        return lastResult;
     }
 
-    void addToQueue(ConnectorSplit split)
+    CompletableFuture<?> addToQueue(ConnectorSplit split)
     {
         if (throwable.get() == null) {
-            outstandingSplitCount.incrementAndGet();
-            queue.add(split);
+            return queue.offer(split);
         }
-    }
-
-    boolean isQueueFull()
-    {
-        return outstandingSplitCount.get() >= maxOutstandingSplits;
+        return CompletableFuture.completedFuture(null);
     }
 
     void finished()
@@ -112,14 +109,6 @@ class HiveSplitSource
         if (throwable.get() != null) {
             return failedFuture(throwable.get());
         }
-
-        // when future completes, decrement the outstanding split count by the number of splits we took
-        future.thenAccept(splits -> {
-            if (outstandingSplitCount.addAndGet(-splits.size()) < maxOutstandingSplits) {
-                // we are below the low water mark (and there isn't a failure) so resume scanning hdfs
-                splitLoader.resume();
-            }
-        });
 
         return future;
     }
