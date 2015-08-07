@@ -20,10 +20,10 @@ public class FeaturesConfig
 {
     private boolean experimentalSyntaxEnabled;
     private boolean distributedIndexJoinsEnabled;
-    private boolean distributedJoinsEnabled;
+    private boolean distributedJoinsEnabled = true;
     private boolean redistributeWrites = true;
     private boolean optimizeMetadataQueries;
-    private boolean optimizeHashGeneration;
+    private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
 
     @LegacyConfig("analyzer.experimental-syntax-enabled")
