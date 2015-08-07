@@ -795,17 +795,36 @@ class ParquetHiveRecordCursor
             //
             // However, some parquet libraries don't follow this spec. The
             // compatibility rules used here are specified in the Parquet
-            // documentation at http://git.io/vf3wG.
+            // documentation at http://git.io/vOpNz.
             parquet.schema.Type elementType = listType.getType(0);
-            if (elementType.isPrimitive() ||
-                    elementType.asGroupType().getFieldCount() > 1 ||
-                    elementType.getName().equals("array") ||
-                    elementType.getName().equals(listType.getName() + "_tuple")) {
+            if (isElementType(elementType, listType.getName())) {
                 elementConverter = createConverter(prestoType.getTypeParameters().get(0), columnName + ".element", elementType);
             }
             else {
                 elementConverter = new ParquetListEntryConverter(prestoType.getTypeParameters().get(0), columnName, elementType.asGroupType());
             }
+        }
+
+        //copied over from Apache Hive
+        private boolean isElementType(parquet.schema.Type repeatedType, String parentName)
+        {
+            if (repeatedType.isPrimitive() ||
+                    (repeatedType.asGroupType().getFieldCount() > 1)) {
+                return true;
+            }
+
+            if (repeatedType.getName().equals("array")) {
+                return true; // existing avro data
+            }
+
+            if (repeatedType.getName().equals(parentName + "_tuple")) {
+                return true; // existing thrift data
+            }
+            // false for the following cases:
+            // * name is "list", which matches the spec
+            // * name is "bag", which indicates existing hive or pig data
+            // * ambiguous case, which should be assumed is 3-level according to spec
+            return false;
         }
 
         @Override
@@ -883,11 +902,6 @@ class ParquetHiveRecordCursor
                     "Expected LIST column '%s' element to have one field, but has %s fields",
                     columnName,
                     elementType.getFieldCount());
-
-            checkArgument(elementType.getFieldName(0).equals("array_element"),
-                    "Expected LIST column '%s' entry field 0 to be named 'array_element', but is named %s",
-                    columnName,
-                    elementType.getFieldName(0));
 
             elementConverter = createConverter(prestoType, columnName + ".element", elementType.getType(0));
         }
