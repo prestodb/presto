@@ -64,11 +64,12 @@ public class HiveMetastoreClientFactory
         return new HiveMetastoreClient(createTransport(host, port));
     }
 
-    protected TTransport createTransport(String host, int port)
+    protected TTransport createRawTransport(String host, int port)
             throws TTransportException
     {
         if (socksProxy == null) {
-            TTransport transport = new TTransportWrapper(new TSocket(host, port, timeoutMillis), host);
+            TTransport transport = new TSocket(host, port, timeoutMillis);
+
             try {
                 transport.open();
                 return transport;
@@ -84,7 +85,7 @@ public class HiveMetastoreClientFactory
             try {
                 socks.connect(InetSocketAddress.createUnresolved(host, port), timeoutMillis);
                 socks.setSoTimeout(timeoutMillis);
-                return new TTransportWrapper(new TSocket(socks), host);
+                return new TSocket(socks);
             }
             catch (Throwable t) {
                 closeQuietly(socks);
@@ -92,7 +93,15 @@ public class HiveMetastoreClientFactory
             }
         }
         catch (IOException e) {
-            throw rewriteException(new TTransportException(e), host);
+            throw new TTransportException(e);
+        }
+    }
+
+    protected TTransport createTransport(String host, int port)
+            throws TTransportException
+    {
+        try {
+            return new TTransportWrapper(createRawTransport(host, port), host);
         }
         catch (TTransportException e) {
             throw rewriteException(e, host);
