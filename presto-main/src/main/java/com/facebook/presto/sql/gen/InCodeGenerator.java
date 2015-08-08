@@ -30,10 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static com.facebook.presto.byteCode.control.LookupSwitch.lookupSwitchBuilder;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
@@ -67,12 +64,17 @@ public class InCodeGenerator
         ImmutableList.Builder<ByteCodeNode> defaultBucket = ImmutableList.builder();
         ImmutableSet.Builder<Object> constantValuesBuilder = ImmutableSet.builder();
 
+        long maxValue = -1;
+        long minValue = 1;
+
         for (RowExpression testValue : values) {
             ByteCodeNode testByteCode = generatorContext.generate(testValue);
 
             if (testValue instanceof ConstantExpression && ((ConstantExpression) testValue).getValue() != null) {
                 ConstantExpression constant = (ConstantExpression) testValue;
                 Object object = constant.getValue();
+                maxValue = Math.max((long) object, maxValue);
+                minValue = Math.min((long) object, minValue);
                 constantValuesBuilder.add(object);
 
                 try {
@@ -99,7 +101,11 @@ public class InCodeGenerator
         Scope scope = generatorContext.getScope();
 
         ByteCodeNode switchBlock;
-        if (constantValues.size() < 1000) {
+
+        if (maxValue <= Integer.MAX_VALUE && minValue >= Integer.MIN_VALUE) {
+            switchBlock = new Block().comment("value between max and min integer").dup(javaType).append(ByteCodeUtils.boxPrimitive(javaType)).longToInt();
+        }
+        else if (constantValues.size() < 1000) {
             Block switchCaseBlocks = new Block();
             LookupSwitch.LookupSwitchBuilder switchBuilder = lookupSwitchBuilder();
             for (Map.Entry<Integer, Collection<ByteCodeNode>> bucket : hashBuckets.asMap().entrySet()) {
