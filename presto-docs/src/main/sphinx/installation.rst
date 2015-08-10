@@ -9,5 +9,6 @@ Installation
     installation/tuning
     installation/cli
     installation/jdbc
+    installation/web-interface
     installation/verifier
     installation/benchmark-driver
