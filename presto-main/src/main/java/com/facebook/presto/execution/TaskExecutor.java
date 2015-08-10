@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.memory.LocalMemoryManager;
+import com.facebook.presto.memory.MemoryManagerConfig;
+import com.facebook.presto.memory.ReservedSystemMemoryConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.util.CpuTimer;
 import com.google.common.annotations.VisibleForTesting;
@@ -56,6 +59,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
 
+import static com.facebook.presto.memory.LocalMemoryManager.SYSTEM_POOL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -84,8 +88,11 @@ public class TaskExecutor
 
     private final int runnerThreads;
     private final int minimumNumberOfDrivers;
+    private final int maximumNumberOfDrivers;
+    private int currentNumberOfDrivers;
 
     private final Ticker ticker;
+    private final LocalMemoryManager localMemoryManager;
 
     @GuardedBy("this")
     private final List<TaskHandle> tasks;
@@ -118,19 +125,38 @@ public class TaskExecutor
 
     private volatile boolean closed;
 
+    private final PIDController pidController = new PIDController(0.1, 0.25, 0);
+
     @Inject
-    public TaskExecutor(TaskManagerConfig config)
+    public TaskExecutor(TaskManagerConfig config, LocalMemoryManager localMemoryManager)
     {
-        this(checkNotNull(config, "config is null").getMaxWorkerThreads(), config.getMinDrivers());
+        this(checkNotNull(config, "config is null").getMaxWorkerThreads(), config.getMinDrivers(), checkNotNull(localMemoryManager, "localMemoryManager is null"));
     }
 
     public TaskExecutor(int runnerThreads, int minDrivers)
     {
-        this(runnerThreads, minDrivers, Ticker.systemTicker());
+        this(runnerThreads, minDrivers, minDrivers * 10);
+    }
+
+    public TaskExecutor(int runnerThreads, int minDrivers, int maxDrivers)
+    {
+        this(runnerThreads, minDrivers, maxDrivers, Ticker.systemTicker(), new LocalMemoryManager(new MemoryManagerConfig(), new ReservedSystemMemoryConfig()));
     }
 
     @VisibleForTesting
     public TaskExecutor(int runnerThreads, int minDrivers, Ticker ticker)
+    {
+        this(runnerThreads, minDrivers, minDrivers * 10, ticker, new LocalMemoryManager(new MemoryManagerConfig(), new ReservedSystemMemoryConfig()));
+    }
+
+    @VisibleForTesting
+    public TaskExecutor(int runnerThreads, int minDrivers, LocalMemoryManager localMemoryManager)
+    {
+        this(runnerThreads, minDrivers, minDrivers * 10, Ticker.systemTicker(), localMemoryManager);
+    }
+
+    @VisibleForTesting
+    public TaskExecutor(int runnerThreads, int minDrivers, int maxDrivers, Ticker ticker, LocalMemoryManager localMemoryManager)
     {
         checkArgument(runnerThreads > 0, "runnerThreads must be at least 1");
 
@@ -140,8 +166,11 @@ public class TaskExecutor
         this.runnerThreads = runnerThreads;
 
         this.ticker = checkNotNull(ticker, "ticker is null");
+        this.localMemoryManager = checkNotNull(localMemoryManager, "localMemoryManager is null");
 
         this.minimumNumberOfDrivers = minDrivers;
+        this.maximumNumberOfDrivers = maxDrivers;
+        this.currentNumberOfDrivers = minDrivers;
         this.pendingSplits = new PriorityBlockingQueue<>(Runtime.getRuntime().availableProcessors() * 10);
         this.tasks = new LinkedList<>();
     }
@@ -265,6 +294,23 @@ public class TaskExecutor
 
             scheduleTaskIfNecessary(taskHandle);
 
+            long systemMemoryInTotal = localMemoryManager.getPool(SYSTEM_POOL).getMaxBytes();
+            long systemMemoryUsed = systemMemoryInTotal - localMemoryManager.getPool(SYSTEM_POOL).getFreeBytes();
+
+            double systemMemoryUsage = systemMemoryUsed * 1.0 / systemMemoryInTotal;
+
+            if (systemMemoryUsage <= 1) {
+                pidController.setOutputRange(minimumNumberOfDrivers, maximumNumberOfDrivers);
+                if (systemMemoryUsage == 0) {
+                    pidController.setSetpoint(maximumNumberOfDrivers);
+                }
+                else {
+                    pidController.setSetpoint(currentNumberOfDrivers / systemMemoryUsage * 0.85);
+                }
+                pidController.setInput(currentNumberOfDrivers);
+                currentNumberOfDrivers = (int) pidController.performPID();
+            }
+
             addNewEntrants();
         }
         // call destroy outside of synchronized block as it is expensive and doesn't need a lock on the task executor
@@ -289,7 +335,7 @@ public class TaskExecutor
     private synchronized void addNewEntrants()
     {
         int running = allSplits.size();
-        for (int i = 0; i < minimumNumberOfDrivers - running; i++) {
+        for (int i = 0; i < currentNumberOfDrivers - running; i++) {
             PrioritizedSplitRunner split = pollNextSplitWorker();
             if (split == null) {
                 break;
@@ -331,7 +377,7 @@ public class TaskExecutor
     public static class TaskHandle
     {
         private final TaskId taskId;
-        private final Queue<PrioritizedSplitRunner> queuedSplits = new ArrayDeque<>(10);
+        public final Queue<PrioritizedSplitRunner> queuedSplits = new ArrayDeque<>(10);
         private final List<PrioritizedSplitRunner> runningSplits = new ArrayList<>(10);
         private final List<PrioritizedSplitRunner> forcedRunningSplits = new ArrayList<>(10);
         private final AtomicLong taskThreadUsageNanos = new AtomicLong();
@@ -823,5 +869,104 @@ public class TaskExecutor
     public ThreadPoolExecutorMBean getProcessorExecutor()
     {
         return executorMBean;
+    }
+
+    private class PIDController
+    {
+        private double proportionalCoefficient;
+        private double integralCoefficient;
+        private double differentialCoefficient;
+        private double input;
+        private double maximumOutput;
+        private double minimumOutput;
+        private double previousError;
+        private double totalError;
+        private double setpoint;
+        private double error;
+        private double result;
+
+        public PIDController(double p, double i, double d)
+        {
+            proportionalCoefficient = p;
+            integralCoefficient = i;
+            differentialCoefficient = d;
+        }
+
+        public double getP()
+        {
+            return proportionalCoefficient;
+        }
+
+        public double getI()
+        {
+            return integralCoefficient;
+        }
+
+        public double getD()
+        {
+            return differentialCoefficient;
+        }
+
+        public double performPID()
+        {
+            error = setpoint - input;
+
+            if (((totalError + error) * integralCoefficient < maximumOutput) && ((totalError + error) * integralCoefficient > minimumOutput)) {
+                totalError += error;
+            }
+
+            result = (proportionalCoefficient * error + integralCoefficient * totalError + differentialCoefficient * (error - previousError));
+
+            previousError = error;
+
+            if (result > maximumOutput) {
+                result = maximumOutput;
+            }
+            else if (result < minimumOutput) {
+                result = minimumOutput;
+            }
+            return result;
+        }
+
+        public void setInput(double input)
+        {
+            this.input = input;
+        }
+
+        public void setOutputRange(double minimumOutput, double maximumOutput)
+        {
+            this.minimumOutput = minimumOutput;
+            this.maximumOutput = maximumOutput;
+        }
+
+        public void setSetpoint(double setpoint)
+        {
+            if (maximumOutput > minimumOutput) {
+                if (setpoint > maximumOutput) {
+                    this.setpoint = maximumOutput;
+                }
+                else if (setpoint < minimumOutput) {
+                    this.setpoint = minimumOutput;
+                }
+                else {
+                    this.setpoint = setpoint;
+                }
+            }
+            else {
+                this.setpoint = setpoint;
+            }
+        }
+
+        public synchronized double getError()
+        {
+            return error;
+        }
+
+        public void reset()
+        {
+            previousError = 0;
+            totalError = 0;
+            result = 0;
+        }
     }
 }
