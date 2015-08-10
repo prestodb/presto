@@ -195,7 +195,7 @@ public final class Session
         return new Session(
                 identity,
                 source,
-                catalog,
+                this.catalog,
                 schema,
                 timeZoneKey,
                 locale,
