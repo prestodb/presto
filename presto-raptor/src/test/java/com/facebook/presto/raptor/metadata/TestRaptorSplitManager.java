@@ -42,6 +42,8 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.testng.annotations.AfterMethod;
@@ -115,7 +117,7 @@ public class TestRaptorSplitManager
         storageManagerWithBackup = createOrcStorageManager(storageService, backupStore, recoveryManager);
 
         String nodeName = UUID.randomUUID().toString();
-        nodeManager.addNode("raptor", new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));
+        nodeManager.addNode("raptor", new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, DateTime.now(DateTimeZone.UTC).getMillis()));
 
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
         RaptorMetadata metadata = new RaptorMetadata(connectorId, dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
@@ -187,7 +189,7 @@ public class TestRaptorSplitManager
             throws InterruptedException, URISyntaxException
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        PrestoNode node = new PrestoNode(UUID.randomUUID().toString(), new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN);
+        PrestoNode node = new PrestoNode(UUID.randomUUID().toString(), new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, DateTime.now(DateTimeZone.UTC).getMillis());
         nodeManager.addNode("fbraptor", node);
         RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), nodeManager, shardManager, storageManagerWithBackup);
 

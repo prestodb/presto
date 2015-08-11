@@ -28,6 +28,7 @@ import javax.inject.Inject;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -38,6 +39,7 @@ public class NodeSystemTable
 
     public static final ConnectorTableMetadata NODES_TABLE = tableMetadataBuilder(NODES_TABLE_NAME)
             .column("node_id", VARCHAR)
+            .column("start_time", TIMESTAMP)
             .column("http_uri", VARCHAR)
             .column("node_version", VARCHAR)
             .column("coordinator", BOOLEAN)
@@ -70,10 +72,12 @@ public class NodeSystemTable
         Builder table = InMemoryRecordSet.builder(NODES_TABLE);
         AllNodes allNodes = nodeManager.getAllNodes();
         for (Node node : allNodes.getActiveNodes()) {
-            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), isCoordinator(node), Boolean.TRUE);
+            table.addRow(node.getNodeIdentifier(), node.getStartTime(), node.getHttpUri().toString(),
+                    getNodeVersion(node), isCoordinator(node), Boolean.TRUE);
         }
         for (Node node : allNodes.getInactiveNodes()) {
-            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), isCoordinator(node), Boolean.FALSE);
+            table.addRow(node.getNodeIdentifier(), node.getStartTime(), node.getHttpUri().toString(),
+                    getNodeVersion(node), isCoordinator(node), Boolean.FALSE);
         }
         return table.build().cursor();
     }

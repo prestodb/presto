@@ -101,8 +101,9 @@ public final class DiscoveryNodeManager
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service);
             NodeVersion nodeVersion = getNodeVersion(service);
+            Long nodeStartTime = getNodeStartTime(service);
             if (uri != null && nodeVersion != null) {
-                PrestoNode node = new PrestoNode(service.getNodeId(), uri, nodeVersion);
+                PrestoNode node = new PrestoNode(service.getNodeId(), uri, nodeVersion, nodeStartTime);
 
                 // record current node
                 if (node.getNodeIdentifier().equals(nodeInfo.getNodeId())) {
@@ -206,5 +207,11 @@ public final class DiscoveryNodeManager
     {
         String nodeVersion = descriptor.getProperties().get("node_version");
         return nodeVersion == null ? null : new NodeVersion(nodeVersion);
+    }
+
+    private static Long getNodeStartTime(ServiceDescriptor descriptor)
+    {
+        String startTime = descriptor.getProperties().get("start_time");
+        return startTime == null ? null : Long.valueOf(startTime);
     }
 }
