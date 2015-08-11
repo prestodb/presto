@@ -13,39 +13,6 @@ Code
 The Example HTTP connector can be found in the ``presto-example-http``
 directory in the root of the Presto source tree.
 
-Maven Project
--------------
-
-The Example HTTP connector uses Maven to build via the ``pom.xml``
-file in the root of the plugin directory.
-
-Project Dependencies
-^^^^^^^^^^^^^^^^^^^^
-
-Plugins depend on the SPI from Presto:
-
-.. code-block:: xml
-
-    <dependency>
-        <groupId>com.facebook.presto</groupId>
-        <artifactId>presto-spi</artifactId>
-        <scope>provided</scope>
-    </dependency>
-
-The plugin uses the Maven ``provided`` scope because Presto provides
-the classes from the SPI at runtime and thus the plugin should not
-include them in the plugin assembly.
-
-There are a few other dependencies that are provided by Presto such
-as ``javax.inject`` and Jackson. In particular, Jackson is used for
-serializing handles and thus plugins must use the verison provided
-by Presto.
-
-All other dependencies are based on what the plugin needs for its
-own implementation. Plugins are loaded in a separate class loader
-to provide isolation and to allow plugins to use a different version
-of a library that Presto uses internally.
-
 Plugin Implementation
 ---------------------
 
@@ -57,19 +24,15 @@ interest is the following:
 .. code-block:: java
 
     @Override
-    public <T> List<T> getServices(Class<T> type)
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        if (type == ConnectorFactory.class) {
-            return ImmutableList.of(type.cast(new ExampleConnectorFactory(getOptionalConfig())));
-        }
-        return ImmutableList.of();
+        return ImmutableList.of(new ExampleConnectorFactory());
     }
 
 Note that the ``ImmutableList`` class is a utility class from Guava.
 
-As with all plugins, this plugin overrides the ``getServices()`` method
-and returns an ``ExampleConnectorFactory`` in response to a request for a
-service of type ``ConnectorFactory``.
+As with all connectors, this plugin overrides the ``getConnectorFactories()`` method
+and returns an ``ExampleConnectorFactory``.
 
 ConnectorFactory Implementation
 -------------------------------
@@ -108,7 +71,6 @@ and exception handling:
             .strictConfig()
             .doNotInitializeLogging()
             .setRequiredConfigurationProperties(requiredConfig)
-            .setOptionalConfigurationProperties(optionalConfig)
             .initialize();
 
     return injector.getInstance(ExampleConnector.class);
