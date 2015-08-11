@@ -106,7 +106,6 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 
 import javax.annotation.concurrent.ThreadSafe;
-
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
@@ -123,6 +122,7 @@ import static com.facebook.presto.operator.aggregation.ChecksumAggregation.CHECK
 import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
 import static com.facebook.presto.operator.aggregation.Histogram.HISTOGRAM;
 import static com.facebook.presto.operator.aggregation.MapAggregation.MAP_AGG;
+import static com.facebook.presto.operator.aggregation.MapUnionAggregation.MAP_UNION;
 import static com.facebook.presto.operator.aggregation.MaxAggregation.MAX_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
 import static com.facebook.presto.operator.aggregation.MaxNAggregation.MAX_N_AGGREGATION;
@@ -304,7 +304,7 @@ public class FunctionRegistry
                 .functions(MAP_EQUAL, MAP_NOT_EQUAL, MAP_HASH_CODE)
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_ELEMENT_AT_FUNCTION, ARRAY_CARDINALITY, ARRAY_POSITION, ARRAY_SORT_FUNCTION, ARRAY_INTERSECT_FUNCTION, ARRAY_TO_JSON, JSON_TO_ARRAY, ARRAY_DISTINCT_FUNCTION, ARRAY_REMOVE_FUNCTION, ARRAY_SLICE_FUNCTION)
                 .functions(MAP_CONSTRUCTOR, MAP_CARDINALITY, MAP_SUBSCRIPT, MAP_TO_JSON, JSON_TO_MAP, MAP_KEYS, MAP_VALUES)
-                .functions(MAP_AGG, MULTIMAP_AGG)
+                .functions(MAP_AGG, MULTIMAP_AGG, MAP_UNION)
                 .function(HISTOGRAM)
                 .function(CHECKSUM_AGGREGATION)
                 .function(ARBITRARY_AGGREGATION)
