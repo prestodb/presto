@@ -14,9 +14,8 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -24,6 +23,7 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
+import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
@@ -83,6 +83,7 @@ public class TestAnalyzer
 
     private static final SqlParser SQL_PARSER = new SqlParser();
 
+    private Metadata metadata;
     private Analyzer analyzer;
     private Analyzer approximateDisabledAnalyzer;
 
@@ -282,16 +283,7 @@ public class TestAnalyzer
     public void testApproximateNotEnabled()
             throws Exception
     {
-        try {
-            Statement statement = SQL_PARSER.createStatement("SELECT AVG(a) FROM t1 APPROXIMATE AT 99.0 CONFIDENCE");
-            approximateDisabledAnalyzer.analyze(statement);
-            fail(format("Expected error %s, but analysis succeeded", NOT_SUPPORTED));
-        }
-        catch (SemanticException e) {
-            if (e.getCode() != NOT_SUPPORTED) {
-                fail(format("Expected error %s, but found %s: %s", NOT_SUPPORTED, e.getCode(), e.getMessage()), e);
-            }
-        }
+        assertFails(approximateDisabledAnalyzer, NOT_SUPPORTED, "SELECT AVG(a) FROM t1 APPROXIMATE AT 99.0 CONFIDENCE");
     }
 
     @Test
@@ -809,7 +801,6 @@ public class TestAnalyzer
         metadata.addConnectorMetadata("tpch", "tpch", new TestingMetadata());
         metadata.addConnectorMetadata("c2", "c2", new TestingMetadata());
         metadata.addConnectorMetadata("c3", "c3", new TestingMetadata());
-        AccessControl accessControl = new AllowAllAccessControl();
 
         SchemaTableName table1 = new SchemaTableName("default", "t1");
         metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
@@ -860,36 +851,42 @@ public class TestAnalyzer
                 new ViewDefinition("select a from t4", "c2", "s2", ImmutableList.of(new ViewColumn("a", BIGINT)), Optional.of("user")));
         metadata.createView(SESSION, new QualifiedTableName("c3", "s3", "v3"), viewData3, false);
 
-        analyzer = new Analyzer(
-                testSessionBuilder()
-                        .setCatalog("tpch")
-                        .setSchema("default")
-                        .build(),
-                metadata,
-                SQL_PARSER,
-                accessControl,
-                Optional.empty(),
-                true);
+        this.metadata = metadata;
+        analyzer = createAnalyzer("tpch", "default", true);
+        approximateDisabledAnalyzer = createAnalyzer("tpch", "default", false);
+    }
 
-        approximateDisabledAnalyzer = new Analyzer(
+    private Analyzer createAnalyzer(String catalog, String schema, boolean experimentalSyntaxEnabled)
+    {
+        return new Analyzer(
                 testSessionBuilder()
-                        .setCatalog("tpch")
-                        .setSchema("default")
+                        .setCatalog(catalog)
+                        .setSchema(schema)
                         .build(),
                 metadata,
                 SQL_PARSER,
-                accessControl,
+                new AllowAllAccessControl(),
                 Optional.empty(),
-                false);
+                experimentalSyntaxEnabled);
     }
 
     private void analyze(@Language("SQL") String query)
+    {
+        analyze(analyzer, query);
+    }
+
+    private static void analyze(Analyzer analyzer, @Language("SQL") String query)
     {
         Statement statement = SQL_PARSER.createStatement(query);
         analyzer.analyze(statement);
     }
 
     private void assertFails(SemanticErrorCode error, @Language("SQL") String query)
+    {
+        assertFails(analyzer, error, query);
+    }
+
+    private static void assertFails(Analyzer analyzer, SemanticErrorCode error, @Language("SQL") String query)
     {
         try {
             Statement statement = SQL_PARSER.createStatement(query);
