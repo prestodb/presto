@@ -182,5 +182,11 @@ public class TestJmxSplitManager
         {
             return hostname;
         }
+
+        @Override
+        public Long getStartTime()
+        {
+            return 0L;
+        }
     }
 }

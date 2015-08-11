@@ -92,6 +92,8 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 
 import javax.inject.Singleton;
 
@@ -273,8 +275,10 @@ public class ServerMainModule
         binder.bind(NodeVersion.class).toInstance(nodeVersion);
 
         // presto announcement
+        long startTime = DateTime.now(DateTimeZone.UTC).getMillis();
         discoveryBinder(binder).bindHttpAnnouncement("presto")
                 .addProperty("node_version", nodeVersion.toString())
+                .addProperty("start_time", String.valueOf(startTime))
                 .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()))
                 .addProperty("datasources", nullToEmpty(serverConfig.getDataSources()));
 

@@ -22,4 +22,6 @@ public interface Node
     URI getHttpUri();
 
     String getNodeIdentifier();
+
+    Long getStartTime();
 }

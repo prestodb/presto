@@ -135,5 +135,11 @@ public class TestKafkaPlugin
         {
             return UUID.randomUUID().toString();
         }
+
+        @Override
+        public Long getStartTime()
+        {
+            return 0L;
+        }
     }
 }

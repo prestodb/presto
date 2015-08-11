@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -60,10 +62,11 @@ public class TestNodeScheduler
         nodeTaskMap = new NodeTaskMap();
         nodeManager = new InMemoryNodeManager();
 
+        long startTime = DateTime.now(DateTimeZone.UTC).getMillis();
         ImmutableList.Builder<Node> nodeBuilder = ImmutableList.builder();
-        nodeBuilder.add(new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
-        nodeBuilder.add(new PrestoNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN));
-        nodeBuilder.add(new PrestoNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN));
+        nodeBuilder.add(new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, startTime));
+        nodeBuilder.add(new PrestoNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, startTime));
+        nodeBuilder.add(new PrestoNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, startTime));
         ImmutableList<Node> nodes = nodeBuilder.build();
         nodeManager.addNode("foo", nodes);
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
@@ -175,7 +178,8 @@ public class TestNodeScheduler
     public void testMaxSplitsPerNode()
             throws Exception
     {
-        Node newNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN);
+        long startTime = DateTime.now(DateTimeZone.UTC).getMillis();
+        Node newNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, startTime);
         nodeManager.addNode("foo", newNode);
 
         ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
@@ -204,7 +208,8 @@ public class TestNodeScheduler
     public void testMaxSplitsPerNodePerTask()
             throws Exception
     {
-        Node newNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN);
+        long startTime = DateTime.now(DateTimeZone.UTC).getMillis();
+        Node newNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, startTime);
         nodeManager.addNode("foo", newNode);
 
         ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();

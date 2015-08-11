@@ -32,19 +32,27 @@ public class PrestoNode
     private final String nodeIdentifier;
     private final URI httpUri;
     private final NodeVersion nodeVersion;
+    private final Long startTimeUTC;
 
-    public PrestoNode(String nodeIdentifier, URI httpUri, NodeVersion nodeVersion)
+    public PrestoNode(String nodeIdentifier, URI httpUri, NodeVersion nodeVersion, Long startTimeUTC)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null or empty");
         this.httpUri = checkNotNull(httpUri, "httpUri is null");
         this.nodeVersion = checkNotNull(nodeVersion, "nodeVersion is null");
+        this.startTimeUTC = startTimeUTC;
     }
 
     @Override
     public String getNodeIdentifier()
     {
         return nodeIdentifier;
+    }
+
+    @Override
+    public Long getStartTime()
+    {
+        return startTimeUTC;
     }
 
     @Override
@@ -90,6 +98,7 @@ public class PrestoNode
                 .add("nodeIdentifier", nodeIdentifier)
                 .add("httpUri", httpUri)
                 .add("nodeVersion", nodeVersion)
+                .add("startTime", startTimeUTC)
                 .toString();
     }
 }

@@ -58,6 +58,7 @@ import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -103,11 +104,12 @@ public class TestSqlStageExecution
     public void setUp()
             throws Exception
     {
+        long startTime = DateTime.now(DateTimeZone.UTC).getMillis();
         nodeManager = new InMemoryNodeManager();
         ImmutableList.Builder<Node> nodeBuilder = ImmutableList.builder();
-        nodeBuilder.add(new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
-        nodeBuilder.add(new PrestoNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN));
-        nodeBuilder.add(new PrestoNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN));
+        nodeBuilder.add(new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, startTime));
+        nodeBuilder.add(new PrestoNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, startTime));
+        nodeBuilder.add(new PrestoNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, startTime));
         ImmutableList<Node> nodes = nodeBuilder.build();
 
         nodeManager.addNode("foo", nodes);
@@ -150,7 +152,8 @@ public class TestSqlStageExecution
         }
 
         // Add new node
-        Node additionalNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN);
+        Node additionalNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN,
+                DateTime.now(DateTimeZone.UTC).getMillis());
         nodeManager.addNode("foo", additionalNode);
 
         // Schedule next query with 5 splits. Since the new node does not have any splits, all 5 splits are assigned to the new node
@@ -220,7 +223,8 @@ public class TestSqlStageExecution
             StageExecutionPlan joinPlan = createJoinPlan("A");
 
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-            nodeManager.addNode("foo", new PrestoNode("other", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
+            nodeManager.addNode("foo", new PrestoNode("other", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN,
+                    DateTime.now(DateTimeZone.UTC).getMillis()));
 
             OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
                     .withBuffer(OUT, new UnpartitionedPagePartitionFunction())
