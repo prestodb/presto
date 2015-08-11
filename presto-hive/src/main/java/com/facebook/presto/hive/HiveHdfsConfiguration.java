@@ -18,19 +18,25 @@ import org.apache.hadoop.conf.Configuration;
 import javax.inject.Inject;
 
 import java.net.URI;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HiveHdfsConfiguration
         implements HdfsConfiguration
 {
+    private static final Configuration DEFAULT_CONFIGURATION = new Configuration();
+
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
     {
         @Override
         protected Configuration initialValue()
         {
-            Configuration config = new Configuration();
+            Configuration config = new Configuration(false);
+            for (Map.Entry<String, String> entry : DEFAULT_CONFIGURATION) {
+                config.set(entry.getKey(), entry.getValue());
+            }
             updater.updateConfiguration(config);
             return config;
         }
