@@ -247,7 +247,7 @@ var QueryPane = React.createClass({
         this.setState({autoRefresh: event.target.checked});
     },
     render: function() {
-        if (this.state.queries.length > 0) {
+        if (this.state.queries !== null && this.state.queries.length > 0) {
             var runningQueries = [];
             var doneQueries = [];
             runningQueries = this.state.queries.filter(function (query) {
