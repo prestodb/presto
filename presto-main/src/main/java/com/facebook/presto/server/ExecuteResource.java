@@ -28,7 +28,6 @@ import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -41,12 +40,6 @@ import java.net.URI;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.server.ResourceUtil.assertRequest;
 import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
 import static com.google.common.base.Preconditions.checkState;
@@ -84,15 +77,7 @@ public class ExecuteResource
 
     @POST
     @Produces(MediaType.APPLICATION_JSON)
-    public Response createQuery(
-            String query,
-            @HeaderParam(PRESTO_USER) String user,
-            @HeaderParam(PRESTO_SOURCE) String source,
-            @HeaderParam(PRESTO_CATALOG) String catalog,
-            @HeaderParam(PRESTO_SCHEMA) String schema,
-            @HeaderParam(PRESTO_TIME_ZONE) String timeZoneId,
-            @HeaderParam(PRESTO_LANGUAGE) String language,
-            @Context HttpServletRequest servletRequest)
+    public Response createQuery(String query, @Context HttpServletRequest servletRequest)
     {
         assertRequest(!isNullOrEmpty(query), "SQL query is empty");
 
