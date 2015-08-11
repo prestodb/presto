@@ -161,6 +161,7 @@ import static com.facebook.presto.operator.aggregation.ChecksumAggregationFuncti
 import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
 import static com.facebook.presto.operator.aggregation.Histogram.HISTOGRAM;
 import static com.facebook.presto.operator.aggregation.MapAggregationFunction.MAP_AGG;
+import static com.facebook.presto.operator.aggregation.MapUnionAggregation.MAP_UNION;
 import static com.facebook.presto.operator.aggregation.MaxAggregationFunction.MAX_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
 import static com.facebook.presto.operator.aggregation.MaxByNAggregationFunction.MAX_BY_N_AGGREGATION;
@@ -417,7 +418,7 @@ public class FunctionRegistry
                 .function(ARRAY_FLATTEN_FUNCTION)
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_TO_JSON, JSON_TO_ARRAY)
                 .functions(MAP_CONSTRUCTOR, MAP_SUBSCRIPT, MAP_TO_JSON, JSON_TO_MAP)
-                .functions(MAP_AGG, MULTIMAP_AGG)
+                .functions(MAP_AGG, MULTIMAP_AGG, MAP_UNION)
                 .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_BOOLEAN_CAST)
                 .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST)
                 .functions(JSON_TO_DECIMAL_CAST, DECIMAL_TO_JSON_CAST)
