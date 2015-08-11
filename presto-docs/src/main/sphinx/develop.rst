@@ -8,6 +8,7 @@ This guide is intended for Presto contributors and plugin developers.
     :maxdepth: 1
 
     develop/spi-overview
+    develop/connector
     develop/example-http
     develop/types
     develop/functions
