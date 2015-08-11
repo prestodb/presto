@@ -156,7 +156,7 @@ class StatementAnalyzer
         if (schema.isPresent()) {
             List<String> parts = schema.get().getParts();
             if (parts.size() > 2) {
-                throw new SemanticException(INVALID_SCHEMA_NAME, showTables, "too many parts in schema name: %s", schema);
+                throw new SemanticException(INVALID_SCHEMA_NAME, showTables, "Too many parts in schema name: %s", schema);
             }
             if (parts.size() == 2) {
                 catalogName = parts.get(0);

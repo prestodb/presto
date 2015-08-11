@@ -50,6 +50,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUM
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
@@ -785,6 +786,12 @@ public class TestAnalyzer
         assertFails(MISSING_TABLE, "DELETE FROM foo");
         assertFails(NOT_SUPPORTED, "DELETE FROM v1");
         assertFails(NOT_SUPPORTED, "DELETE FROM v1 WHERE a = 1");
+    }
+
+    @Test
+    public void testInvalidShowTables()
+    {
+        assertFails(INVALID_SCHEMA_NAME, "SHOW TABLES FROM a.b.c");
     }
 
     @BeforeMethod(alwaysRun = true)
