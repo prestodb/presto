@@ -207,6 +207,6 @@ public interface MetadataDao
             "temporal_column_id = :columnId\n" +
             "WHERE table_id = :tableId")
     void updateTemporalColumnId(
-            @Bind("columnId") long columnId,
-            @Bind("tableId") long tableId);
+            @Bind("tableId") long tableId,
+            @Bind("columnId") long columnId);
 }
