@@ -61,7 +61,7 @@ public class QueryQueue
 
     public boolean reserve(QueryExecution queryExecution)
     {
-        if (queuePermits.getAndDecrement() < 0) {
+        if (queuePermits.decrementAndGet() < 0) {
             queuePermits.incrementAndGet();
             return false;
         }
