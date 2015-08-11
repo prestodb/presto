@@ -33,7 +33,6 @@ import static com.facebook.presto.metadata.MetadataUtil.SchemaMetadataBuilder.sc
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -51,7 +50,6 @@ public class InformationSchemaMetadata
     public static final SchemaTableName TABLE_TABLES = new SchemaTableName(INFORMATION_SCHEMA, "tables");
     public static final SchemaTableName TABLE_VIEWS = new SchemaTableName(INFORMATION_SCHEMA, "views");
     public static final SchemaTableName TABLE_SCHEMATA = new SchemaTableName(INFORMATION_SCHEMA, "schemata");
-    public static final SchemaTableName TABLE_INTERNAL_FUNCTIONS = new SchemaTableName(INFORMATION_SCHEMA, "__internal_functions__");
     public static final SchemaTableName TABLE_INTERNAL_PARTITIONS = new SchemaTableName(INFORMATION_SCHEMA, "__internal_partitions__");
 
     public static final Map<SchemaTableName, ConnectorTableMetadata> TABLES = schemaMetadataBuilder()
@@ -82,14 +80,6 @@ public class InformationSchemaMetadata
             .table(tableMetadataBuilder(TABLE_SCHEMATA)
                     .column("catalog_name", VARCHAR)
                     .column("schema_name", VARCHAR)
-                    .build())
-            .table(tableMetadataBuilder(TABLE_INTERNAL_FUNCTIONS)
-                    .column("function_name", VARCHAR)
-                    .column("argument_types", VARCHAR)
-                    .column("return_type", VARCHAR)
-                    .column("function_type", VARCHAR)
-                    .column("deterministic", BOOLEAN)
-                    .column("description", VARCHAR)
                     .build())
             .table(tableMetadataBuilder(TABLE_INTERNAL_PARTITIONS)
                     .column("table_catalog", VARCHAR)

@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
-import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.TableHandle;
@@ -38,7 +37,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.Block;
-import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -56,7 +54,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
-import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
@@ -65,7 +62,6 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Sets.union;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -140,9 +136,6 @@ public class InformationSchemaPageSourceProvider
         }
         if (table.equals(TABLE_SCHEMATA)) {
             return buildSchemata(session, catalog);
-        }
-        if (table.equals(TABLE_INTERNAL_FUNCTIONS)) {
-            return buildFunctions();
         }
         if (table.equals(TABLE_INTERNAL_PARTITIONS)) {
             return buildPartitions(session, catalog, filters);
@@ -227,24 +220,6 @@ public class InformationSchemaPageSourceProvider
     private Map<QualifiedTableName, ViewDefinition> getViews(Session session, String catalogName, Map<String, SerializableNativeValue> filters)
     {
         return metadata.getViews(session, extractQualifiedTablePrefix(catalogName, filters));
-    }
-
-    private InternalTable buildFunctions()
-    {
-        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_INTERNAL_FUNCTIONS));
-        for (ParametricFunction function : metadata.listFunctions()) {
-            if (function.isApproximate()) {
-                continue;
-            }
-            table.add(
-                    function.getSignature().getName(),
-                    Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
-                    function.getSignature().getReturnType().toString(),
-                    getFunctionType(function),
-                    function.isDeterministic(),
-                    nullToEmpty(function.getDescription()));
-        }
-        return table.build();
     }
 
     private InternalTable buildSchemata(Session session, String catalogName)
@@ -338,16 +313,5 @@ public class InformationSchemaPageSourceProvider
             return Optional.of(((String) value.getValue()).toLowerCase(ENGLISH));
         }
         return Optional.empty();
-    }
-
-    private static String getFunctionType(ParametricFunction function)
-    {
-        if (function.isAggregate()) {
-            return "aggregate";
-        }
-        if (function.isWindow()) {
-            return "window";
-        }
-        return "scalar";
     }
 }

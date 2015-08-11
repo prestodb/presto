@@ -18,6 +18,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
+import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
 import com.facebook.presto.metadata.TableHandle;
@@ -61,15 +62,16 @@ import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
-import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
@@ -310,14 +312,34 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitShowFunctions(ShowFunctions node, AnalysisContext context)
     {
-        Query query = simpleQuery(selectList(
-                        aliasedName("function_name", "Function"),
-                        aliasedName("return_type", "Return Type"),
-                        aliasedName("argument_types", "Argument Types"),
-                        aliasedName("function_type", "Function Type"),
-                        aliasedName("deterministic", "Deterministic"),
-                        aliasedName("description", "Description")),
-                from(session.getCatalog(), TABLE_INTERNAL_FUNCTIONS),
+        ImmutableList.Builder<Expression> rows = ImmutableList.builder();
+        for (ParametricFunction function : metadata.listFunctions()) {
+            if (function.isApproximate()) {
+                continue;
+            }
+            rows.add(row(
+                    new StringLiteral(function.getSignature().getName()),
+                    new StringLiteral(function.getSignature().getReturnType().toString()),
+                    new StringLiteral(Joiner.on(", ").join(function.getSignature().getArgumentTypes())),
+                    new StringLiteral(getFunctionType(function)),
+                    function.isDeterministic() ? TRUE_LITERAL : FALSE_LITERAL,
+                    new StringLiteral(nullToEmpty(function.getDescription()))));
+        }
+
+        Map<String, String> columns = ImmutableMap.<String, String>builder()
+                .put("function_name", "Function")
+                .put("return_type", "Return Type")
+                .put("argument_types", "Argument Types")
+                .put("function_type", "Function Type")
+                .put("deterministic", "Deterministic")
+                .put("description", "Description")
+                .build();
+
+        Query query = simpleQuery(
+                selectAll(columns.entrySet().stream()
+                        .map(entry -> aliasedName(entry.getKey(), entry.getValue()))
+                        .collect(toImmutableList())),
+                aliased(new Values(rows.build()), "functions", ImmutableList.copyOf(columns.keySet())),
                 ordering(
                         ascending("function_name"),
                         ascending("return_type"),
@@ -325,6 +347,17 @@ class StatementAnalyzer
                         ascending("function_type")));
 
         return process(query, context);
+    }
+
+    private static String getFunctionType(ParametricFunction function)
+    {
+        if (function.isAggregate()) {
+            return "aggregate";
+        }
+        if (function.isWindow()) {
+            return "window";
+        }
+        return "scalar";
     }
 
     @Override
