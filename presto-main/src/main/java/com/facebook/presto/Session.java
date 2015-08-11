@@ -269,14 +269,15 @@ public final class Session
     {
         return toStringHelper(this)
                 .add("user", getUser())
-                .add("source", source)
+                .add("source", source.orElse(null))
                 .add("catalog", catalog)
                 .add("schema", schema)
                 .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)
-                .add("remoteUserAddress", remoteUserAddress)
-                .add("userAgent", userAgent)
+                .add("remoteUserAddress", remoteUserAddress.orElse(null))
+                .add("userAgent", userAgent.orElse(null))
                 .add("startTime", startTime)
+                .omitNullValues()
                 .toString();
     }
 
