@@ -57,7 +57,7 @@ public class TestMetadataDao
         Long temporalColumnId = dao.getTemporalColumnId(tableId);
         assertNull(temporalColumnId);
 
-        dao.updateTemporalColumnId(columnId, tableId);
+        dao.updateTemporalColumnId(tableId, columnId);
         temporalColumnId = dao.getTemporalColumnId(tableId);
         assertNotNull(temporalColumnId);
         assertEquals(temporalColumnId, columnId);

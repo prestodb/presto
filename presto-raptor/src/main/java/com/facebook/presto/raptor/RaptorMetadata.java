@@ -369,7 +369,7 @@ public class RaptorMetadata
                 dao.insertColumn(tableId, columnId, column.getColumnName(), i, table.getColumnTypes().get(i).getTypeSignature().toString(), sortPosition);
 
                 if (table.getTemporalColumnHandle().isPresent() && table.getTemporalColumnHandle().get().equals(column)) {
-                    dao.updateTemporalColumnId(columnId, tableId);
+                    dao.updateTemporalColumnId(tableId, columnId);
                 }
             }
 
