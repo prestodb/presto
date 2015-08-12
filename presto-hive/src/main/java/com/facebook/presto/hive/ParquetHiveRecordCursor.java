@@ -963,15 +963,6 @@ class ParquetHiveRecordCursor
 
             parquet.schema.Type entryType = mapType.getFields().get(0);
 
-            // original versions of parquet had map end entry swapped
-            if (mapType.getOriginalType() != MAP_KEY_VALUE) {
-                checkArgument(entryType.getOriginalType() == MAP_KEY_VALUE,
-                        "Expected MAP column '%s' field to be type %s, but is %s",
-                        mapType.getName(),
-                        MAP_KEY_VALUE,
-                        entryType);
-            }
-
             entryConverter = new ParquetMapEntryConverter(type, columnName + ".entry", entryType.asGroupType());
         }
 
