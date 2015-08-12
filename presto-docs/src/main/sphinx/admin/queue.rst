@@ -7,12 +7,21 @@ that can be submitted to Presto and the quota of running queries per queue.
 The filename of the JSON config file should be specified in ``query.queue-config-file``
 config property.
 
-Rules that specify multiple queues will cause the query to enter the queues sequentially.
+Rules that specify multiple queues will cause the query to acquire the queues'
+permits sequentially. The query must acquire all queues' permits before it starts
+being executed. It acquires the next queue permit only after it is accepted for
+execution by the previous queue. A slot for the query is reserved in all queues.
+The query is rejected if no slot is available in any of the queues.
+
 Rules are processed sequentially and the first one that matches will be used.
-In the example configuration below, there are five queue templates. In the
-``user.${USER}`` queue, ``${USER}`` will be expanded to the name of the user
-that submitted the query. ``${SOURCE}`` is also supported, which expands to the
-source submitting the query.
+In the example configuration below, there are five queue templates.
+In the ``user.${USER}`` queue, ``${USER}`` will be expanded to the name of the
+user that submitted the query. ``${SOURCE}`` is also supported, which expands
+to the source submitting the query. The source name can be set as follows:
+
+  * CLI: use the ``--source`` option.
+
+  * JDBC: set the ``ApplicationName`` client info property on the ``Connection`` instance.
 
 There are also five rules that define which queries go into which queues:
 
@@ -20,7 +29,8 @@ There are also five rules that define which queries go into which queues:
 
   * The second rule states that all queries that come from a source that includes ``pipeline``
     should first be queued in the user's personal queue, then the ``pipeline`` queue. When a
-    query enters a new queue, it doesn't leave previous queues until the query finishes execution.
+    query acquires a permit from a new queue, it doesn't release permits from previous queues
+    until the query finishes execution.
 
   * The last rule is a catch all, which puts all queries into the user's personal queue.
 
