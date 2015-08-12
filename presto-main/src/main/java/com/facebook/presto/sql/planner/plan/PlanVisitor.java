@@ -115,6 +115,11 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
+    public R visitMetadataDelete(MetadataDeleteNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitTableCommit(TableCommitNode node, C context)
     {
         return visitPlan(node, context);

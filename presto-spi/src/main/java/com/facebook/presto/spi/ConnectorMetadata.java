@@ -19,6 +19,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
@@ -253,5 +254,22 @@ public interface ConnectorMetadata
     default Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
         return emptyMap();
+    }
+
+    /**
+     * @return whether delete without table scan is supported
+     */
+    default boolean supportsMetadataDelete(ConnectorSession session)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
+    }
+
+    /**
+     * Delete the provided table layout
+     * @return number of rows deleted, or null for unknown
+     */
+    default OptionalLong metadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
     }
 }
