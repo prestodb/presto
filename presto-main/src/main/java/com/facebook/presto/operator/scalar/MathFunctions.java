@@ -218,9 +218,9 @@ public final class MathFunctions
     }
 
     @Description("value raised to the power of exponent")
-    @ScalarFunction
+    @ScalarFunction(alias = "pow")
     @SqlType(StandardTypes.DOUBLE)
-    public static double pow(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.DOUBLE) double exponent)
+    public static double power(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.DOUBLE) double exponent)
     {
         return Math.pow(num, exponent);
     }
