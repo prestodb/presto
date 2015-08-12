@@ -77,8 +77,8 @@ import static org.testng.Assert.fail;
 public class TestAnalyzer
 {
     public static final Session SESSION = testSessionBuilder()
-            .setCatalog("default")
-            .setSchema("default")
+            .setCatalog("c1")
+            .setSchema("s1")
             .build();
 
     private static final SqlParser SQL_PARSER = new SqlParser();
@@ -225,7 +225,7 @@ public class TestAnalyzer
     public void testInvalidTable()
             throws Exception
     {
-        assertFails(MISSING_CATALOG, "SELECT * FROM foo.default.t");
+        assertFails(MISSING_CATALOG, "SELECT * FROM foo.bar.t");
         assertFails(MISSING_SCHEMA, "SELECT * FROM foo.t");
         assertFails(MISSING_TABLE, "SELECT * FROM foo");
     }
@@ -747,7 +747,7 @@ public class TestAnalyzer
     public void testUse()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "USE default");
+        assertFails(NOT_SUPPORTED, "USE foo");
     }
 
     @Test
@@ -802,7 +802,7 @@ public class TestAnalyzer
         metadata.addConnectorMetadata("c2", "c2", new TestingMetadata());
         metadata.addConnectorMetadata("c3", "c3", new TestingMetadata());
 
-        SchemaTableName table1 = new SchemaTableName("default", "t1");
+        SchemaTableName table1 = new SchemaTableName("s1", "t1");
         metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", BIGINT, false),
@@ -810,13 +810,13 @@ public class TestAnalyzer
                         new ColumnMetadata("c", BIGINT, false),
                         new ColumnMetadata("d", BIGINT, false)))));
 
-        SchemaTableName table2 = new SchemaTableName("default", "t2");
+        SchemaTableName table2 = new SchemaTableName("s1", "t2");
         metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table2,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", BIGINT, false),
                         new ColumnMetadata("b", BIGINT, false)))));
 
-        SchemaTableName table3 = new SchemaTableName("default", "t3");
+        SchemaTableName table3 = new SchemaTableName("s1", "t3");
         metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table3,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", BIGINT, false),
@@ -830,7 +830,7 @@ public class TestAnalyzer
                         new ColumnMetadata("a", BIGINT, false)))));
 
         // table with a hidden column
-        SchemaTableName table5 = new SchemaTableName("default", "t5");
+        SchemaTableName table5 = new SchemaTableName("s1", "t5");
         metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table5,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", BIGINT, false),
@@ -838,13 +838,13 @@ public class TestAnalyzer
 
         // valid view referencing table in same schema
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
-                new ViewDefinition("select a from t1", "tpch", "default", ImmutableList.of(new ViewColumn("a", BIGINT)), Optional.of("user")));
-        metadata.createView(SESSION, new QualifiedTableName("tpch", "default", "v1"), viewData1, false);
+                new ViewDefinition("select a from t1", "tpch", "s1", ImmutableList.of(new ViewColumn("a", BIGINT)), Optional.of("user")));
+        metadata.createView(SESSION, new QualifiedTableName("tpch", "s1", "v1"), viewData1, false);
 
         // stale view (different column type)
         String viewData2 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
-                new ViewDefinition("select a from t1", "tpch", "default", ImmutableList.of(new ViewColumn("a", VARCHAR)), Optional.of("user")));
-        metadata.createView(SESSION, new QualifiedTableName("tpch", "default", "v2"), viewData2, false);
+                new ViewDefinition("select a from t1", "tpch", "s1", ImmutableList.of(new ViewColumn("a", VARCHAR)), Optional.of("user")));
+        metadata.createView(SESSION, new QualifiedTableName("tpch", "s1", "v2"), viewData2, false);
 
         // view referencing table in different schema from itself and session
         String viewData3 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -852,8 +852,8 @@ public class TestAnalyzer
         metadata.createView(SESSION, new QualifiedTableName("c3", "s3", "v3"), viewData3, false);
 
         this.metadata = metadata;
-        analyzer = createAnalyzer("tpch", "default", true);
-        approximateDisabledAnalyzer = createAnalyzer("tpch", "default", false);
+        analyzer = createAnalyzer("tpch", "s1", true);
+        approximateDisabledAnalyzer = createAnalyzer("tpch", "s1", false);
     }
 
     private Analyzer createAnalyzer(String catalog, String schema, boolean experimentalSyntaxEnabled)
