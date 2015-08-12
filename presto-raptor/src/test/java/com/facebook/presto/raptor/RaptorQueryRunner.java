@@ -61,7 +61,7 @@ public final class RaptorQueryRunner
                 .put("backup.directory", new File(baseDir, "backup").getAbsolutePath())
                 .build();
 
-        queryRunner.createCatalog("default", "raptor", raptorProperties);
+        queryRunner.createCatalog("raptor", "raptor", raptorProperties);
 
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
         copyTpchTables(queryRunner, "tpch_sampled", TINY_SCHEMA_NAME, createSampledSession(), tables);
@@ -82,7 +82,7 @@ public final class RaptorQueryRunner
     private static Session createSession(String schema)
     {
         return testSessionBuilder()
-                .setCatalog("default")
+                .setCatalog("raptor")
                 .setSchema(schema)
                 .build();
     }
