@@ -41,6 +41,7 @@ public class RaptorConnector
     private final RaptorPageSinkProvider pageSinkProvider;
     private final RaptorHandleResolver handleResolver;
     private final List<PropertyMetadata<?>> sessionProperties;
+    private final List<PropertyMetadata<?>> tableProperties;
 
     @Inject
     public RaptorConnector(
@@ -50,7 +51,8 @@ public class RaptorConnector
             RaptorPageSourceProvider pageSourceProvider,
             RaptorPageSinkProvider pageSinkProvider,
             RaptorHandleResolver handleResolver,
-            RaptorSessionProperties sessionProperties)
+            RaptorSessionProperties sessionProperties,
+            RaptorTableProperties tableProperties)
     {
         this.lifeCycleManager = checkNotNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
@@ -59,6 +61,7 @@ public class RaptorConnector
         this.pageSinkProvider = checkNotNull(pageSinkProvider, "pageSinkProvider is null");
         this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
         this.sessionProperties = checkNotNull(sessionProperties, "sessionProperties is null").getSessionProperties();
+        this.tableProperties = checkNotNull(tableProperties, "tableProperties is null").getTableProperties();
     }
 
     @Override
@@ -95,6 +98,12 @@ public class RaptorConnector
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getTableProperties()
+    {
+        return tableProperties;
     }
 
     @Override
