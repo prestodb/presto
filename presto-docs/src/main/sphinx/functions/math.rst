@@ -80,6 +80,10 @@ Mathematical Functions
 
 .. function:: pow(x, p) -> double
 
+    This is an alias for :func:`power`.
+
+.. function:: power(x, p) -> double
+
     Returns ``x`` raised to the power of ``p``.
 
 .. function:: radians(x) -> double
@@ -88,7 +92,7 @@ Mathematical Functions
 
 .. function:: rand() -> double
 
-    Alias for ``random()``.
+    This is an alias for :func:`random()`.
 
 .. function:: random() -> double
 
