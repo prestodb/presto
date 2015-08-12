@@ -67,6 +67,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -540,6 +541,20 @@ public class MetadataManager
     {
         ConnectorMetadataEntry entry = lookupConnectorFor(tableHandle);
         return entry.getMetadata().getUpdateRowIdColumnHandle(session.toConnectorSession(entry.getCatalog()), tableHandle.getConnectorHandle());
+    }
+
+    @Override
+    public boolean supportsMetadataDelete(Session session, TableHandle tableHandle)
+    {
+        ConnectorMetadataEntry entry = lookupConnectorFor(tableHandle);
+        return entry.getMetadata().supportsMetadataDelete(session.toConnectorSession(entry.getCatalog()));
+    }
+
+    @Override
+    public OptionalLong metadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle)
+    {
+        ConnectorMetadataEntry entry = lookupConnectorFor(tableHandle);
+        return entry.getMetadata().metadataDelete(session.toConnectorSession(entry.getCatalog()), tableHandle.getConnectorHandle(), tableLayoutHandle.getConnectorHandle());
     }
 
     @Override

@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
+import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
@@ -260,6 +261,14 @@ public final class SymbolExtractor
         {
             node.getSource().accept(this, context);
 
+            builder.addAll(node.getOutputSymbols());
+
+            return null;
+        }
+
+        @Override
+        public Void visitMetadataDelete(MetadataDeleteNode node, Void context)
+        {
             builder.addAll(node.getOutputSymbols());
 
             return null;

@@ -493,6 +493,12 @@ public class RaptorMetadata
     }
 
     @Override
+    public boolean supportsMetadataDelete(ConnectorSession session)
+    {
+        return false;
+    }
+
+    @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
     {
         String schemaName = viewName.getSchemaName();
