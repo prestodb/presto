@@ -15,19 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.SystemMemoryUsageListener;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-public class ExchangeClientSupplier
+public interface ExchangeClientSupplier
 {
-    private final ExchangeClient exchangeClient;
-
-    public ExchangeClientSupplier(ExchangeClient exchangeClient)
-    {
-        this.exchangeClient = checkNotNull(exchangeClient, "exchangeClient is null");
-    }
-
-    public ExchangeClient get(SystemMemoryUsageListener systemMemoryUsageListener)
-    {
-        return new ExchangeClient(exchangeClient, systemMemoryUsageListener);
-    }
+    ExchangeClient get(SystemMemoryUsageListener systemMemoryUsageListener);
 }

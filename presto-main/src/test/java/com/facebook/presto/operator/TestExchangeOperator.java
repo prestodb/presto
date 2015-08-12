@@ -51,7 +51,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.SequencePageBuilder.createSequencePage;
@@ -92,7 +91,7 @@ public class TestExchangeOperator
 
     private ScheduledExecutorService executor;
     private HttpClient httpClient;
-    private Supplier<ExchangeClient> exchangeClientSupplier;
+    private ExchangeClientSupplier exchangeClientSupplier;
 
     @SuppressWarnings("resource")
     @BeforeClass
@@ -103,14 +102,15 @@ public class TestExchangeOperator
 
         httpClient = new TestingHttpClient(new HttpClientHandler(taskBuffers), executor);
 
-        exchangeClientSupplier = () -> new ExchangeClient(
+        exchangeClientSupplier = (systemMemoryUsageListener) -> new ExchangeClient(
                 blockEncodingSerde,
                 new DataSize(32, MEGABYTE),
                 new DataSize(10, MEGABYTE),
                 3,
                 new Duration(1, TimeUnit.MINUTES),
                 httpClient,
-                executor);
+                executor,
+                systemMemoryUsageListener);
     }
 
     @AfterClass

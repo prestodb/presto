@@ -43,11 +43,11 @@ public class ExchangeOperator
         private final List<Type> types;
         private boolean closed;
 
-        public ExchangeOperatorFactory(int operatorId, PlanNodeId sourceId, Supplier<ExchangeClient> exchangeClientSupplier, List<Type> types)
+        public ExchangeOperatorFactory(int operatorId, PlanNodeId sourceId, ExchangeClientSupplier exchangeClientSupplier, List<Type> types)
         {
             this.operatorId = operatorId;
             this.sourceId = sourceId;
-            this.exchangeClientSupplier = new ExchangeClientSupplier(exchangeClientSupplier.get());
+            this.exchangeClientSupplier = exchangeClientSupplier;
             this.types = types;
         }
 

@@ -34,6 +34,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.ExchangeClient;
+import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.Page;
@@ -85,7 +86,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Supplier;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
@@ -116,7 +116,7 @@ public class StatementResource
 
     private final QueryManager queryManager;
     private final SessionPropertyManager sessionPropertyManager;
-    private final Supplier<ExchangeClient> exchangeClientSupplier;
+    private final ExchangeClientSupplier exchangeClientSupplier;
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("query-purger"));
@@ -124,7 +124,7 @@ public class StatementResource
     @Inject
     public StatementResource(QueryManager queryManager,
             SessionPropertyManager sessionPropertyManager,
-            Supplier<ExchangeClient> exchangeClientSupplier)
+            ExchangeClientSupplier exchangeClientSupplier)
     {
         this.queryManager = checkNotNull(queryManager, "queryManager is null");
         this.sessionPropertyManager = checkNotNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -151,7 +151,7 @@ public class StatementResource
 
         Session session = createSessionForRequest(servletRequest, sessionPropertyManager);
 
-        ExchangeClient exchangeClient = exchangeClientSupplier.get();
+        ExchangeClient exchangeClient = exchangeClientSupplier.get(deltaMemoryInBytes -> { });
         Query query = new Query(session, statement, queryManager, exchangeClient);
         queries.put(query.getQueryId(), query);
 

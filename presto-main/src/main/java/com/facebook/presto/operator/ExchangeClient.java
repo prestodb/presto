@@ -106,20 +106,6 @@ public class ExchangeClient
     }
 
     public ExchangeClient(
-            ExchangeClient exchangeClient,
-            SystemMemoryUsageListener systemMemoryUsageListener)
-    {
-        this.blockEncodingSerde = exchangeClient.getBlockEncodingSerde();
-        this.maxBufferedBytes = exchangeClient.getMaxBufferedBytes();
-        this.maxResponseSize = exchangeClient.getMaxResponseSize();
-        this.concurrentRequestMultiplier = exchangeClient.getConcurrentRequestMultiplier();
-        this.minErrorDuration = exchangeClient.getMinErrorDuration();
-        this.httpClient = exchangeClient.getHttpClient();
-        this.executor = exchangeClient.getExecutor();
-        this.systemMemoryUsageListener = systemMemoryUsageListener;
-    }
-
-    public ExchangeClient(
             BlockEncodingSerde blockEncodingSerde,
             DataSize maxBufferedBytes,
             DataSize maxResponseSize,
@@ -137,41 +123,6 @@ public class ExchangeClient
         this.httpClient = httpClient;
         this.executor = executor;
         this.systemMemoryUsageListener = systemMemoryUsageListener;
-    }
-
-    public BlockEncodingSerde getBlockEncodingSerde()
-    {
-        return blockEncodingSerde;
-    }
-
-    public long getMaxBufferedBytes()
-    {
-        return maxBufferedBytes;
-    }
-
-    public DataSize getMaxResponseSize()
-    {
-        return maxResponseSize;
-    }
-
-    public int getConcurrentRequestMultiplier()
-    {
-        return concurrentRequestMultiplier;
-    }
-
-    public Duration getMinErrorDuration()
-    {
-        return minErrorDuration;
-    }
-
-    public HttpClient getHttpClient()
-    {
-        return httpClient;
-    }
-
-    public ScheduledExecutorService getExecutor()
-    {
-        return executor;
     }
 
     public synchronized ExchangeClientStatus getStatus()
