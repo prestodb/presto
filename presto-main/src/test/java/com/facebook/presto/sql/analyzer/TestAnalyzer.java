@@ -804,7 +804,7 @@ public class TestAnalyzer
 
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
         metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
-                ImmutableList.<ColumnMetadata>of(
+                ImmutableList.of(
                         new ColumnMetadata("a", BIGINT, false),
                         new ColumnMetadata("b", BIGINT, false),
                         new ColumnMetadata("c", BIGINT, false),
@@ -812,13 +812,13 @@ public class TestAnalyzer
 
         SchemaTableName table2 = new SchemaTableName("s1", "t2");
         metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table2,
-                ImmutableList.<ColumnMetadata>of(
+                ImmutableList.of(
                         new ColumnMetadata("a", BIGINT, false),
                         new ColumnMetadata("b", BIGINT, false)))));
 
         SchemaTableName table3 = new SchemaTableName("s1", "t3");
         metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table3,
-                ImmutableList.<ColumnMetadata>of(
+                ImmutableList.of(
                         new ColumnMetadata("a", BIGINT, false),
                         new ColumnMetadata("b", BIGINT, false),
                         new ColumnMetadata("x", BIGINT, false, null, true)))));
@@ -826,13 +826,13 @@ public class TestAnalyzer
         // table in different catalog
         SchemaTableName table4 = new SchemaTableName("s2", "t4");
         metadata.createTable(SESSION, "c2", new TableMetadata("tpch", new ConnectorTableMetadata(table4,
-                ImmutableList.<ColumnMetadata>of(
+                ImmutableList.of(
                         new ColumnMetadata("a", BIGINT, false)))));
 
         // table with a hidden column
         SchemaTableName table5 = new SchemaTableName("s1", "t5");
         metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table5,
-                ImmutableList.<ColumnMetadata>of(
+                ImmutableList.of(
                         new ColumnMetadata("a", BIGINT, false),
                         new ColumnMetadata("b", BIGINT, false, null, true)))));
 
