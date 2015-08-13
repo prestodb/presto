@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 public interface BlockBuilder
         extends Block
@@ -59,6 +61,42 @@ public interface BlockBuilder
     default BlockBuilder writeObject(Object value)
     {
         throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Write a native value object to the current entry;
+     */
+    default BlockBuilder write(Type type, Object value)
+    {
+        if (value == null) {
+            appendNull();
+        }
+        else if (type.getJavaType() == boolean.class) {
+            type.writeBoolean(this, (Boolean) value);
+        }
+        else if (type.getJavaType() == double.class) {
+            type.writeDouble(this, ((Number) value).doubleValue());
+        }
+        else if (type.getJavaType() == long.class) {
+            type.writeLong(this, ((Number) value).longValue());
+        }
+        else if (type.getJavaType() == Slice.class) {
+            Slice slice;
+            if (value instanceof byte[]) {
+                slice = Slices.wrappedBuffer((byte[]) value);
+            }
+            else if (value instanceof String) {
+                slice = Slices.utf8Slice((String) value);
+            }
+            else {
+                slice = (Slice) value;
+            }
+            type.writeSlice(this, slice, 0, slice.length());
+        }
+        else {
+            type.writeObject(this, value);
+        }
+        return this;
     }
 
     /**
