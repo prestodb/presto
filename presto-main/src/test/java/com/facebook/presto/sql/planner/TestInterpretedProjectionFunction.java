@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.block.Block;
@@ -193,8 +192,8 @@ public class TestInterpretedProjectionFunction
 
     private static Block createBlock(Type type, Object value)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
-        BlockUtils.appendObject(type, blockBuilder, value);
-        return blockBuilder.build();
+        return type.createBlockBuilder(new BlockBuilderStatus(), 1)
+                .write(type, value)
+                .build();
     }
 }

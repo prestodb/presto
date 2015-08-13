@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
 import java.util.List;
@@ -65,6 +66,29 @@ public interface Block
     default <T> T getObject(int position, Class<T> clazz)
     {
         throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Gets the native value as an object in the value at {@code position}.
+     */
+    default Object read(Type type, int position)
+    {
+        Class<?> javaType = type.getJavaType();
+        if (javaType == long.class) {
+            return type.getLong(this, position);
+        }
+        else if (javaType == double.class) {
+            return type.getDouble(this, position);
+        }
+        else if (javaType == boolean.class) {
+            return type.getBoolean(this, position);
+        }
+        else if (javaType == Slice.class) {
+            return type.getSlice(this, position);
+        }
+        else {
+            return type.getObject(this, position);
+        }
     }
 
     /**
