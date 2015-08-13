@@ -15,7 +15,6 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.slice.SliceInput;
@@ -23,6 +22,8 @@ import io.airlift.slice.SliceOutput;
 
 import java.util.Iterator;
 
+import static com.facebook.presto.block.BlockSerdeUtil.readBlock;
+import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -79,9 +80,7 @@ public final class PagesSerde
             output.writeInt(page.getPositionCount());
             output.writeInt(blocks.length);
             for (int i = 0; i < blocks.length; i++) {
-                BlockEncoding encoding = blocks[i].getEncoding();
-                serde.writeBlockEncoding(output, encoding);
-                encoding.writeBlock(output, blocks[i]);
+                writeBlock(serde, output, blocks[i]);
             }
 
             return this;
@@ -111,8 +110,7 @@ public final class PagesSerde
             int numberOfBlocks = input.readInt();
             Block[] blocks = new Block[numberOfBlocks];
             for (int i = 0; i < blocks.length; i++) {
-                BlockEncoding encoding = serde.readBlockEncoding(input);
-                blocks[i] = encoding.readBlock(input);
+                blocks[i] = readBlock(serde, input);
             }
 
             @SuppressWarnings("UnnecessaryLocalVariable")

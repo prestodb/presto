@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.ServerInfo;
@@ -63,6 +64,7 @@ import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
@@ -313,6 +315,8 @@ public class ServerMainModule
         binder.bind(BlockEncodingManager.class).in(Scopes.SINGLETON);
         binder.bind(BlockEncodingSerde.class).to(BlockEncodingManager.class).in(Scopes.SINGLETON);
         newSetBinder(binder, new TypeLiteral<BlockEncodingFactory<?>>() {});
+        jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
+        jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
 
         // thread visualizer
         jaxrsBinder(binder).bind(ThreadResource.class);
