@@ -285,7 +285,7 @@ public class TestMathFunctions
     }
 
     @Test
-    public void testPow()
+    public void testPower()
     {
         for (long left : longLefts) {
             for (long right : longRights) {
@@ -313,6 +313,33 @@ public class TestMathFunctions
         assertFunction("pow(NULL, NULL)", DOUBLE, null);
         assertFunction("pow(5.0, NULL)", DOUBLE, null);
         assertFunction("pow(NULL, 5.0)", DOUBLE, null);
+
+        for (long left : longLefts) {
+            for (long right : longRights) {
+                assertFunction("power(" + left + ", " + right + ")", DOUBLE, Math.pow(left, right));
+            }
+        }
+
+        for (long left : longLefts) {
+            for (double right : doubleRights) {
+                assertFunction("power(" + left + ", " + right + ")", DOUBLE, Math.pow(left, right));
+            }
+        }
+
+        for (double left : doubleLefts) {
+            for (long right : longRights) {
+                assertFunction("power(" + left + ", " + right + ")", DOUBLE, Math.pow(left, right));
+            }
+        }
+
+        for (double left : doubleLefts) {
+            for (double right : doubleRights) {
+                assertFunction("power(" + left + ", " + right + ")", DOUBLE, Math.pow(left, right));
+            }
+        }
+        assertFunction("power(NULL, NULL)", DOUBLE, null);
+        assertFunction("power(5.0, NULL)", DOUBLE, null);
+        assertFunction("power(NULL, 5.0)", DOUBLE, null);
     }
 
     @Test

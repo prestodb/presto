@@ -80,6 +80,10 @@ Mathematical Functions
 
 .. function:: pow(x, p) -> double
 
+    Alias for :func:`power`
+
+.. function:: power(x, p) -> double
+
     Returns ``x`` raised to the power of ``p``.
 
 .. function:: radians(x) -> double
