@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
@@ -27,6 +28,7 @@ public class PageBufferInfo
     private final long bufferedBytes;
     private final long pagesAdded;
 
+    @JsonCreator
     public PageBufferInfo(
             @JsonProperty("partition") int partition,
             @JsonProperty("bufferedPages") long bufferedPages,
