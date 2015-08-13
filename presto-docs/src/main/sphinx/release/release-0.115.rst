@@ -2,6 +2,11 @@
 Release 0.115
 =============
 
+General Changes
+---------------
+
+* Fix an issue with hierarchical queue rules where queries could be rejected after being accepted.
+
 Hive Changes
 ------------
 
