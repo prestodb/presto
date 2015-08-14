@@ -22,7 +22,6 @@ import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -894,82 +893,45 @@ public class PrestoDatabaseMetaData
     public ResultSet getProcedures(String catalog, String schemaPattern, String procedureNamePattern)
             throws SQLException
     {
-        // TODO: support stored procedures
-        throw new SQLFeatureNotSupportedException("stored procedures not supported");
+        return selectEmpty("" +
+                "SELECT PROCEDURE_CAT, PROCEDURE_SCHEM, PROCEDURE_NAME,\n " +
+                "  null, null, null, REMARKS, PROCEDURE_TYPE, SPECIFIC_NAME\n" +
+                "FROM system.jdbc.procedures\n" +
+                "ORDER BY PROCEDURE_CAT, PROCEDURE_SCHEM, PROCEDURE_NAME, SPECIFIC_NAME");
     }
 
     @Override
     public ResultSet getProcedureColumns(String catalog, String schemaPattern, String procedureNamePattern, String columnNamePattern)
             throws SQLException
     {
-        // TODO: support stored procedures
-        throw new SQLFeatureNotSupportedException("stored procedures not supported");
+        return selectEmpty("" +
+                "SELECT PROCEDURE_CAT, PROCEDURE_SCHEM, PROCEDURE_NAME, " +
+                "  COLUMN_NAME, COLUMN_TYPE, DATA_TYPE, TYPE_NAME,\n" +
+                "  PRECISION, LENGTH, SCALE, RADIX,\n" +
+                "  NULLABLE, REMARKS, COLUMN_DEF, SQL_DATA_TYPE, SQL_DATETIME_SUB,\n" +
+                "  CHAR_OCTET_LENGTH, ORDINAL_POSITION, IS_NULLABLE, SPECIFIC_NAME\n" +
+                "FROM system.jdbc.procedure_columns\n" +
+                "ORDER BY PROCEDURE_CAT, PROCEDURE_SCHEM, PROCEDURE_NAME, SPECIFIC_NAME, COLUMN_NAME");
     }
 
     @Override
     public ResultSet getTables(String catalog, String schemaPattern, String tableNamePattern, String[] types)
             throws SQLException
     {
-        StringBuilder query = new StringBuilder(1024);
-        query.append("SELECT");
-        query.append(" table_catalog AS TABLE_CAT");
-        query.append(", table_schema AS TABLE_SCHEM");
-        query.append(", table_name AS TABLE_NAME");
-        query.append(", table_type AS TABLE_TYPE");
-        query.append(", '' AS REMARKS");
-        query.append(", '' AS TYPE_CAT");
-        query.append(", '' AS TYPE_SCHEM");
-        query.append(", '' AS TYPE_NAME");
-        query.append(", '' AS SELF_REFERENCING_COL_NAME");
-        query.append(", '' AS REF_GENERATION");
-        query.append(" FROM information_schema.tables ");
+        StringBuilder query = new StringBuilder("" +
+                "SELECT TABLE_CAT, TABLE_SCHEM, TABLE_NAME, TABLE_TYPE, REMARKS,\n" +
+                "  TYPE_CAT, TYPE_SCHEM, TYPE_NAME, " +
+                "  SELF_REFERENCING_COL_NAME, REF_GENERATION\n" +
+                "FROM system.jdbc.tables");
 
-        List<String> filters = new ArrayList<>(4);
-        if (catalog != null) {
-            if (catalog.isEmpty()) {
-                filters.add("table_catalog IS NULL");
-            }
-            else {
-                filters.add(stringColumnEquals("table_catalog", catalog));
-            }
-        }
+        List<String> filters = new ArrayList<>();
+        emptyStringEqualsFilter(filters, "TABLE_CAT", catalog);
+        emptyStringLikeFilter(filters, "TABLE_SCHEM", schemaPattern);
+        optionalStringLikeFilter(filters, "TABLE_NAME", tableNamePattern);
+        optionalStringInFilter(filters, "TABLE_TYPE", types);
+        buildFilters(query, filters);
 
-        if (schemaPattern != null) {
-            if (schemaPattern.isEmpty()) {
-                filters.add("table_schema IS NULL");
-            }
-            else {
-                filters.add(stringColumnLike("table_schema", schemaPattern));
-            }
-        }
-
-        if (tableNamePattern != null) {
-            filters.add(stringColumnLike("table_name", tableNamePattern));
-        }
-
-        if (types != null && types.length > 0) {
-            StringBuilder filter = new StringBuilder();
-            filter.append("table_type in (");
-
-            for (int i = 0; i < types.length; i++) {
-                String type = types[i];
-
-                if (i > 0) {
-                    filter.append(" ,");
-                }
-
-                quoteStringLiteral(filter, type);
-            }
-            filter.append(")");
-            filters.add(filter.toString());
-        }
-
-        if (!filters.isEmpty()) {
-            query.append(" WHERE ");
-            Joiner.on(" AND ").appendTo(query, filters);
-        }
-
-        query.append(" ORDER BY TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME");
+        query.append("\nORDER BY TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME");
 
         return select(query.toString());
     }
@@ -979,8 +941,8 @@ public class PrestoDatabaseMetaData
             throws SQLException
     {
         return select("" +
-                "SELECT schema_name AS TABLE_SCHEM, catalog_name TABLE_CATALOG " +
-                "FROM information_schema.schemata " +
+                "SELECT TABLE_SCHEM, TABLE_CATALOG\n" +
+                "FROM system.jdbc.schemas\n" +
                 "ORDER BY TABLE_CATALOG, TABLE_SCHEM");
     }
 
@@ -989,8 +951,8 @@ public class PrestoDatabaseMetaData
             throws SQLException
     {
         return select("" +
-                "SELECT DISTINCT catalog_name AS TABLE_CAT " +
-                "FROM information_schema.schemata " +
+                "SELECT TABLE_CAT\n" +
+                "FROM system.jdbc.catalogs\n" +
                 "ORDER BY TABLE_CAT");
     }
 
@@ -999,8 +961,8 @@ public class PrestoDatabaseMetaData
             throws SQLException
     {
         return select("" +
-                "SELECT DISTINCT table_type AS TABLE_TYPE " +
-                "FROM information_schema.tables " +
+                "SELECT TABLE_TYPE\n" +
+                "FROM system.jdbc.table_types\n" +
                 "ORDER BY TABLE_TYPE");
     }
 
@@ -1009,82 +971,22 @@ public class PrestoDatabaseMetaData
             throws SQLException
     {
         StringBuilder query = new StringBuilder("" +
-                "SELECT " +
-                "  table_catalog TABLE_CAT " +
-                ", table_schema TABLE_SCHEM " +
-                ", table_name TABLE_NAME " +
-                ", column_name COLUMN_NAME " +
-                ", CASE data_type " +
-                "    WHEN 'bigint' THEN " + Types.BIGINT + " " +
-                "    WHEN 'double' THEN " + Types.DOUBLE + " " +
-                "    WHEN 'varchar' THEN " + Types.LONGNVARCHAR + " " +
-                "    WHEN 'boolean' THEN " + Types.BOOLEAN + " " +
-                "    ELSE " + Types.OTHER + " " +
-                "  END DATA_TYPE " +
-                ", data_type TYPE_NAME " +
-                ", 0 COLUMN_SIZE " +
-                ", 0 BUFFER_LENGTH " +
-                ", CASE data_type " +
-                "    WHEN 'bigint' THEN 0 " +
-                "  END DECIMAL_DIGITS " +
-                ", CASE data_type " +
-                "    WHEN 'bigint' THEN 10 " +
-                "    WHEN 'double' THEN 10 " +
-                "    ELSE 0 " +
-                "  END AS NUM_PREC_RADIX " +
-                ", CASE is_nullable " +
-                "    WHEN 'NO' THEN " + columnNoNulls + " " +
-                "    WHEN 'YES' THEN 1" + columnNullable + " " +
-                "    ELSE 2" + columnNullableUnknown + " " +
-                "  END NULLABLE " +
-                ", CAST(NULL AS varchar) REMARKS " +
-                ", column_default AS COLUMN_DEF " +
-                ", CAST(NULL AS bigint) AS SQL_DATA_TYPE " +
-                ", CAST(NULL AS bigint) AS SQL_DATETIME_SUB " +
-                ", 0 AS CHAR_OCTET_LENGTH " +
-                ", ordinal_position ORDINAL_POSITION " +
-                ", is_nullable IS_NULLABLE " +
-                ", CAST(NULL AS varchar) SCOPE_CATALOG " +
-                ", CAST(NULL AS varchar) SCOPE_SCHEMA " +
-                ", CAST(NULL AS varchar) SCOPE_TABLE " +
-                ", CAST(NULL AS bigint) SOURCE_DATA_TYPE " +
-                ", '' IS_AUTOINCREMENT " +
-                ", '' IS_GENERATEDCOLUMN " +
-                "FROM information_schema.columns ");
+                "SELECT TABLE_CAT, TABLE_SCHEM, TABLE_NAME, COLUMN_NAME, DATA_TYPE,\n" +
+                "  TYPE_NAME, COLUMN_SIZE, BUFFER_LENGTH, DECIMAL_DIGITS, NUM_PREC_RADIX,\n" +
+                "  NULLABLE, REMARKS, COLUMN_DEF, SQL_DATA_TYPE, SQL_DATETIME_SUB,\n" +
+                "  CHAR_OCTET_LENGTH, ORDINAL_POSITION, IS_NULLABLE,\n" +
+                "  SCOPE_CATALOG, SCOPE_SCHEMA, SCOPE_TABLE,\n" +
+                "  SOURCE_DATA_TYPE, IS_AUTOINCREMENT, IS_GENERATEDCOLUMN\n" +
+                "FROM system.jdbc.columns\n");
 
-        List<String> filters = new ArrayList<>(4);
-        if (catalog != null) {
-            if (catalog.isEmpty()) {
-                filters.add("table_catalog IS NULL");
-            }
-            else {
-                filters.add(stringColumnEquals("table_catalog", catalog));
-            }
-        }
+        List<String> filters = new ArrayList<>();
+        emptyStringEqualsFilter(filters, "TABLE_CAT", catalog);
+        emptyStringLikeFilter(filters, "TABLE_SCHEM", schemaPattern);
+        optionalStringLikeFilter(filters, "TABLE_NAME", tableNamePattern);
+        optionalStringLikeFilter(filters, "COLUMN_NAME", columnNamePattern);
+        buildFilters(query, filters);
 
-        if (schemaPattern != null) {
-            if (schemaPattern.isEmpty()) {
-                filters.add("table_schema IS NULL");
-            }
-            else {
-                filters.add(stringColumnLike("table_schema", schemaPattern));
-            }
-        }
-
-        if (tableNamePattern != null) {
-            filters.add(stringColumnLike("table_name", tableNamePattern));
-        }
-
-        if (columnNamePattern != null) {
-            filters.add(stringColumnLike("column_name", columnNamePattern));
-        }
-
-        if (!filters.isEmpty()) {
-            query.append(" WHERE ");
-            Joiner.on(" AND ").appendTo(query, filters);
-        }
-
-        query.append(" ORDER BY table_cat, table_schem, table_name, ordinal_position");
+        query.append("\nORDER BY TABLE_CAT, TABLE_SCHEM, TABLE_NAME, ORDINAL_POSITION");
 
         return select(query.toString());
     }
@@ -1250,7 +1152,11 @@ public class PrestoDatabaseMetaData
     public ResultSet getUDTs(String catalog, String schemaPattern, String typeNamePattern, int[] types)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("user-defined types not supported");
+        return selectEmpty("" +
+                "SELECT TYPE_CAT, TYPE_SCHEM, TYPE_NAME,\n" +
+                "  CLASS_NAME, DATA_TYPE, REMARKS, BASE_TYPE\n" +
+                "FROM system.jdbc.udts\n" +
+                "ORDER BY DATA_TYPE, TYPE_CAT, TYPE_SCHEM, TYPE_NAME");
     }
 
     @Override
@@ -1292,21 +1198,35 @@ public class PrestoDatabaseMetaData
     public ResultSet getSuperTypes(String catalog, String schemaPattern, String typeNamePattern)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("type hierarchies not supported");
+        return selectEmpty("" +
+                "SELECT TYPE_CAT, TYPE_SCHEM, TYPE_NAME,\n" +
+                "  SUPERTYPE_CAT, SUPERTYPE_SCHEM, SUPERTYPE_NAME\n" +
+                "FROM system.jdbc.super_types\n" +
+                "ORDER BY TYPE_CAT, TYPE_SCHEM, TYPE_NAME");
     }
 
     @Override
     public ResultSet getSuperTables(String catalog, String schemaPattern, String tableNamePattern)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("type hierarchies not supported");
+        return selectEmpty("" +
+                "SELECT TABLE_CAT, TABLE_SCHEM, TABLE_NAME, SUPERTABLE_NAME\n" +
+                "FROM system.jdbc.super_tables\n" +
+                "ORDER BY TABLE_CAT, TABLE_SCHEM, TABLE_NAME");
     }
 
     @Override
     public ResultSet getAttributes(String catalog, String schemaPattern, String typeNamePattern, String attributeNamePattern)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("user-defined types not supported");
+        return selectEmpty("" +
+                "SELECT TYPE_CAT, TYPE_SCHEM, TYPE_NAME, ATTR_NAME, DATA_TYPE,\n" +
+                "  ATTR_TYPE_NAME, ATTR_SIZE, DECIMAL_DIGITS, NUM_PREC_RADIX, NULLABLE,\n" +
+                "  REMARKS, ATTR_DEF, SQL_DATA_TYPE, SQL_DATETIME_SUB, CHAR_OCTET_LENGTH,\n" +
+                "  ORDINAL_POSITION, IS_NULLABLE, SCOPE_CATALOG, SCOPE_SCHEMA, SCOPE_TABLE,\n" +
+                "SOURCE_DATA_TYPE\n" +
+                "FROM system.jdbc.attributes\n" +
+                "ORDER BY TYPE_CAT, TYPE_SCHEM, TYPE_NAME, ORDINAL_POSITION");
     }
 
     @Override
@@ -1384,33 +1304,16 @@ public class PrestoDatabaseMetaData
     public ResultSet getSchemas(String catalog, String schemaPattern)
             throws SQLException
     {
-        // The schema columns are:
-        // TABLE_SCHEM String => schema name
-        // TABLE_CATALOG String => catalog name (may be null)
-        StringBuilder query = new StringBuilder(512);
-        query.append("SELECT DISTINCT schema_name TABLE_SCHEM, catalog_name TABLE_CATALOG ");
-        query.append(" FROM information_schema.schemata");
+        StringBuilder query = new StringBuilder("" +
+                "SELECT TABLE_SCHEM, TABLE_CATALOG\n" +
+                "FROM system.jdbc.schemas");
 
-        List<String> filters = new ArrayList<>(4);
-        if (catalog != null) {
-            if (catalog.isEmpty()) {
-                filters.add("catalog_name IS NULL");
-            }
-            else {
-                filters.add(stringColumnEquals("catalog_name", catalog));
-            }
-        }
+        List<String> filters = new ArrayList<>();
+        emptyStringEqualsFilter(filters, "TABLE_CATALOG", catalog);
+        optionalStringLikeFilter(filters, "TABLE_SCHEM", schemaPattern);
+        buildFilters(query, filters);
 
-        if (schemaPattern != null) {
-            filters.add(stringColumnLike("schema_name", schemaPattern));
-        }
-
-        if (!filters.isEmpty()) {
-            query.append(" WHERE ");
-            Joiner.on(" AND ").appendTo(query, filters);
-        }
-
-        query.append(" ORDER BY TABLE_CATALOG, TABLE_SCHEM");
+        query.append("\nORDER BY TABLE_CATALOG, TABLE_SCHEM");
 
         return select(query.toString());
     }
@@ -1457,8 +1360,12 @@ public class PrestoDatabaseMetaData
     public ResultSet getPseudoColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)
             throws SQLException
     {
-        // TODO: implement this
-        throw new NotImplementedException("DatabaseMetaData", "getPseudoColumns");
+        return selectEmpty("" +
+                "SELECT TABLE_CAT, TABLE_SCHEM, TABLE_NAME, COLUMN_NAME, DATA_TYPE,\n" +
+                "  COLUMN_SIZE, DECIMAL_DIGITS, NUM_PREC_RADIX, COLUMN_USAGE, REMARKS,\n" +
+                "  CHAR_OCTET_LENGTH, IS_NULLABLE\n" +
+                "FROM system.jdbc.pseudo_columns\n" +
+                "ORDER BY TABLE_CAT, table_SCHEM, TABLE_NAME, COLUMN_NAME");
     }
 
     @Override
@@ -1486,11 +1393,81 @@ public class PrestoDatabaseMetaData
         return iface.isInstance(this);
     }
 
+    private ResultSet selectEmpty(String sql)
+            throws SQLException
+    {
+        return select(sql + " LIMIT 0");
+    }
+
     private ResultSet select(String sql)
             throws SQLException
     {
         try (Statement statement = getConnection().createStatement()) {
             return statement.executeQuery(sql);
+        }
+    }
+
+    private static void buildFilters(StringBuilder out, List<String> filters)
+    {
+        if (!filters.isEmpty()) {
+            out.append("\nWHERE ");
+            Joiner.on(" AND ").appendTo(out, filters);
+        }
+    }
+
+    private static void optionalStringInFilter(List<String> filters, String columnName, String[] values)
+    {
+        if (values == null) {
+            return;
+        }
+
+        if (values.length == 0) {
+            filters.add("false");
+            return;
+        }
+
+        StringBuilder filter = new StringBuilder();
+        filter.append(columnName).append(" IN (");
+
+        for (int i = 0; i < values.length; i++) {
+            if (i > 0) {
+                filter.append(", ");
+            }
+            quoteStringLiteral(filter, values[i]);
+        }
+
+        filter.append(")");
+        filters.add(filter.toString());
+    }
+
+    private static void optionalStringLikeFilter(List<String> filters, String columnName, String value)
+    {
+        if (value != null) {
+            filters.add(stringColumnLike(columnName, value));
+        }
+    }
+
+    private static void emptyStringEqualsFilter(List<String> filters, String columnName, String value)
+    {
+        if (value != null) {
+            if (value.isEmpty()) {
+                filters.add(columnName + " IS NULL");
+            }
+            else {
+                filters.add(stringColumnEquals(columnName, value));
+            }
+        }
+    }
+
+    private static void emptyStringLikeFilter(List<String> filters, String columnName, String value)
+    {
+        if (value != null) {
+            if (value.isEmpty()) {
+                filters.add(columnName + " IS NULL");
+            }
+            else {
+                filters.add(stringColumnLike(columnName, value));
+            }
         }
     }
 

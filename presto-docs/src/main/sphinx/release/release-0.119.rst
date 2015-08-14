@@ -9,6 +9,7 @@ General Changes
 * Add :func:`geometric_mean` function.
 * Fix restoring interrupt status in ``StatementClient``.
 * Support getting server version in JDBC driver.
+* Improve correctness and compliance of JDBC ``DatabaseMetaData``.
 * Execute views with the permissions of the view owner.
 * Add owner to view metadata.
 
