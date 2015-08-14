@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.memory.ClusterMemoryManager;
@@ -53,6 +54,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -143,6 +145,13 @@ public class SqlQueryManager
                 }
                 catch (Throwable e) {
                     log.warn(e, "Error enforcing memory limits");
+                }
+
+                try {
+                    enforceQueryMaxRunTimeLimits();
+                }
+                catch (Throwable e) {
+                    log.warn(e, "Error enforcing query timeout limits");
                 }
 
                 try {
@@ -364,6 +373,23 @@ public class SqlQueryManager
         memoryManager.process(queries.values().stream()
                 .filter(query -> query.getQueryInfo().getState() == RUNNING)
                 .collect(toImmutableList()));
+    }
+
+    /**
+     * Enforce timeout at the query level
+     */
+    public void enforceQueryMaxRunTimeLimits()
+    {
+        for (QueryExecution query : queries.values()) {
+            if (query.getQueryInfo().getState().isDone()) {
+                continue;
+            }
+            Duration queryMaxRunTime = SystemSessionProperties.getQueryMaxRunTime(query.getSession());
+            DateTime executionStartTime = query.getQueryInfo().getQueryStats().getCreateTime();
+            if (executionStartTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
+                query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRunTime));
+            }
+        }
     }
 
     /**
