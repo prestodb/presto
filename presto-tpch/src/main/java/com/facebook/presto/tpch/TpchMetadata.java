@@ -58,6 +58,9 @@ public class TpchMetadata
     public static final String TINY_SCHEMA_NAME = "tiny";
     public static final double TINY_SCALE_FACTOR = 0.01;
 
+    public static final List<String> SCHEMA_NAMES = ImmutableList.of(
+            TINY_SCHEMA_NAME, "sf1", "sf100", "sf300", "sf1000", "sf3000", "sf10000", "sf30000", "sf100000");
+
     public static final String ROW_NUMBER_COLUMN_NAME = "row_number";
 
     private final String connectorId;
@@ -76,7 +79,7 @@ public class TpchMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return ImmutableList.of(TINY_SCHEMA_NAME, "sf1", "sf100", "sf300", "sf1000", "sf3000", "sf10000", "sf30000", "sf100000");
+        return SCHEMA_NAMES;
     }
 
     @Override
