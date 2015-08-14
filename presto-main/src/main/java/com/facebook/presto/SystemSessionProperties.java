@@ -20,6 +20,7 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 
@@ -42,6 +43,7 @@ public final class SystemSessionProperties
     public static final String TASK_HASH_BUILD_CONCURRENCY = "task_hash_build_concurrency";
     public static final String TASK_AGGREGATION_CONCURRENCY = "task_aggregation_concurrency";
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
+    public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String EXECUTION_POLICY = "execution_policy";
 
@@ -116,6 +118,14 @@ public final class SystemSessionProperties
                         taskManagerConfig.getTaskDefaultConcurrency(),
                         false),
                 new PropertyMetadata<>(
+                        QUERY_MAX_RUN_TIME,
+                        "Maximum run time of a query",
+                        VARCHAR,
+                        Duration.class,
+                        queryManagerConfig.getQueryMaxRunTime(),
+                        false,
+                        value -> Duration.valueOf((String) value)),
+                new PropertyMetadata<>(
                         QUERY_MAX_MEMORY,
                         "Maximum amount of distributed memory a query can use",
                         VARCHAR,
@@ -183,6 +193,11 @@ public final class SystemSessionProperties
     public static DataSize getQueryMaxMemory(Session session)
     {
         return session.getProperty(QUERY_MAX_MEMORY, DataSize.class);
+    }
+
+    public static Duration getQueryMaxRunTime(Session session)
+    {
+        return session.getProperty(QUERY_MAX_RUN_TIME, Duration.class);
     }
 
     private static <T> T getPropertyOr(Session session, String propertyName, String defaultPropertyName, Class<T> type)
