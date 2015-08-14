@@ -79,7 +79,7 @@ public class CreateViewTask
     @Override
     public void execute(CreateView statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
-        QualifiedTableName name = createQualifiedTableName(session, statement.getName());
+        QualifiedTableName name = createQualifiedTableName(session, statement, statement.getName());
 
         accessControl.checkCanCreateView(session.getIdentity(), name);
 

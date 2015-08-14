@@ -41,7 +41,6 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.server.testing.TestingPrestoServer.TEST_CATALOG;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -58,6 +57,7 @@ public class TestDriver
 {
     private static final DateTimeZone ASIA_ORAL_ZONE = DateTimeZone.forID("Asia/Oral");
     private static final GregorianCalendar ASIA_ORAL_CALENDAR = new GregorianCalendar(ASIA_ORAL_ZONE.toTimeZone());
+    private static final String TEST_CATALOG = "test_catalog";
 
     private TestingPrestoServer server;
 
@@ -68,7 +68,7 @@ public class TestDriver
         Logging.initialize();
         server = new TestingPrestoServer();
         server.installPlugin(new TpchPlugin());
-        server.createCatalog("default", "tpch"); // TODO: change catalog name
+        server.createCatalog(TEST_CATALOG, "tpch");
     }
 
     @AfterClass
@@ -242,7 +242,7 @@ public class TestDriver
     {
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getCatalogs()) {
-                assertEquals(readRows(rs), list(list("default"), list("system")));
+                assertEquals(readRows(rs), list(list("system"), list(TEST_CATALOG)));
 
                 ResultSetMetaData metadata = rs.getMetaData();
                 assertEquals(metadata.getColumnCount(), 1);
@@ -904,19 +904,19 @@ public class TestDriver
 
         connection = DriverManager.getConnection(prefix + "/a/", "test", null);
         assertEquals(connection.getCatalog(), "a");
-        assertEquals(connection.getSchema(), TEST_CATALOG);
+        assertNull(connection.getSchema());
 
         connection = DriverManager.getConnection(prefix + "/a", "test", null);
         assertEquals(connection.getCatalog(), "a");
-        assertEquals(connection.getSchema(), TEST_CATALOG);
+        assertNull(connection.getSchema());
 
         connection = DriverManager.getConnection(prefix + "/", "test", null);
-        assertEquals(connection.getCatalog(), TEST_CATALOG);
-        assertEquals(connection.getSchema(), TEST_CATALOG);
+        assertNull(connection.getCatalog());
+        assertNull(connection.getSchema());
 
         connection = DriverManager.getConnection(prefix, "test", null);
-        assertEquals(connection.getCatalog(), TEST_CATALOG);
-        assertEquals(connection.getSchema(), TEST_CATALOG);
+        assertNull(connection.getCatalog());
+        assertNull(connection.getSchema());
     }
 
     @Test
@@ -988,7 +988,7 @@ public class TestDriver
     public void testBadQuery()
             throws Exception
     {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = createConnection("test", "tiny")) {
             try (Statement statement = connection.createStatement()) {
                 try (ResultSet ignored = statement.executeQuery("SELECT * FROM bad_table")) {
                     fail("expected exception");

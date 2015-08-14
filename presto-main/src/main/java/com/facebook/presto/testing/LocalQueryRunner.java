@@ -37,6 +37,7 @@ import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -364,8 +365,7 @@ public class LocalQueryRunner
     {
         lock.readLock().lock();
         try {
-            QualifiedTableName name = new QualifiedTableName(session.getCatalog(), session.getSchema(), table);
-            return getMetadata().getTableHandle(session, name).isPresent();
+            return MetadataUtil.tableExists(getMetadata(), session, table);
         }
         finally {
             lock.readLock().unlock();
@@ -529,8 +529,11 @@ public class LocalQueryRunner
             String tableName,
             String... columnNames)
     {
+        checkArgument(session.getCatalog().isPresent(), "catalog not set");
+        checkArgument(session.getSchema().isPresent(), "schema not set");
+
         // look up the table
-        QualifiedTableName qualifiedTableName = new QualifiedTableName(session.getCatalog(), session.getSchema(), tableName);
+        QualifiedTableName qualifiedTableName = new QualifiedTableName(session.getCatalog().get(), session.getSchema().get(), tableName);
         TableHandle tableHandle = metadata.getTableHandle(session, qualifiedTableName).orElse(null);
         checkArgument(tableHandle != null, "Table %s does not exist", qualifiedTableName);
 

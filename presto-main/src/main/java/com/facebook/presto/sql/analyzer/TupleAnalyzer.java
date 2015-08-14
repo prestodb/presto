@@ -210,7 +210,7 @@ public class TupleAnalyzer
             }
         }
 
-        QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, table.getName());
+        QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, table, table.getName());
 
         Optional<ViewDefinition> optionalView = metadata.getView(session, name);
         if (optionalView.isPresent()) {
@@ -1083,7 +1083,7 @@ public class TupleAnalyzer
         }
     }
 
-    private TupleDescriptor analyzeView(Query query, QualifiedTableName name, String catalog, String schema, Optional<String> owner, Table node)
+    private TupleDescriptor analyzeView(Query query, QualifiedTableName name, Optional<String> catalog, Optional<String> schema, Optional<String> owner, Table node)
     {
         try {
             // run view as view owner if set; otherwise, run as session user
@@ -1101,8 +1101,8 @@ public class TupleAnalyzer
             Session viewSession = Session.builder(metadata.getSessionPropertyManager())
                     .setIdentity(identity)
                     .setSource(session.getSource().orElse(null))
-                    .setCatalog(catalog)
-                    .setSchema(schema)
+                    .setCatalog(catalog.orElse(null))
+                    .setSchema(schema.orElse(null))
                     .setTimeZoneKey(session.getTimeZoneKey())
                     .setLocale(session.getLocale())
                     .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))

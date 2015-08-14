@@ -10,6 +10,10 @@ General Changes
 * Fix restoring interrupt status in ``StatementClient``.
 * Support getting server version in JDBC driver.
 * Improve correctness and compliance of JDBC ``DatabaseMetaData``.
+* Catalog and schema are now optional on the server. This allows connecting
+  and executing metadata commands or queries that use fully qualified names.
+  Previously, the CLI and JDBC driver would use a catalog and schema named
+  ``default`` if they were not specified.
 * Execute views with the permissions of the view owner.
 * Add owner to view metadata.
 

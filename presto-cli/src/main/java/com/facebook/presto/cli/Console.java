@@ -138,7 +138,10 @@ public class Console
             StringBuilder buffer = new StringBuilder();
             while (true) {
                 // read a line of input from user
-                String prompt = PROMPT_NAME + ":" + session.getSchema();
+                String prompt = PROMPT_NAME;
+                if (session.getSchema() != null) {
+                    prompt += ":" + session.getSchema();
+                }
                 if (buffer.length() > 0) {
                     prompt = Strings.repeat(" ", prompt.length() - 1) + "-";
                 }

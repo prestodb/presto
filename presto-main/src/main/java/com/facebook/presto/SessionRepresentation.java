@@ -31,8 +31,8 @@ public final class SessionRepresentation
 {
     private final String user;
     private final Optional<String> source;
-    private final String catalog;
-    private final String schema;
+    private final Optional<String> catalog;
+    private final Optional<String> schema;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
     private final Optional<String> remoteUserAddress;
@@ -45,8 +45,8 @@ public final class SessionRepresentation
     public SessionRepresentation(
             @JsonProperty("user") String user,
             @JsonProperty("source") Optional<String> source,
-            @JsonProperty("catalog") String catalog,
-            @JsonProperty("schema") String schema,
+            @JsonProperty("catalog") Optional<String> catalog,
+            @JsonProperty("schema") Optional<String> schema,
             @JsonProperty("timeZoneKey") TimeZoneKey timeZoneKey,
             @JsonProperty("locale") Locale locale,
             @JsonProperty("remoteUserAddress") Optional<String> remoteUserAddress,
@@ -86,13 +86,13 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
-    public String getCatalog()
+    public Optional<String> getCatalog()
     {
         return catalog;
     }
 
     @JsonProperty
-    public String getSchema()
+    public Optional<String> getSchema()
     {
         return schema;
     }

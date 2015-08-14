@@ -382,7 +382,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertQuery("WITH orders AS (SELECT * FROM orders LIMIT 0) SELECT * FROM test_view", query);
 
-        String name = format("%s.%s.test_view", getSession().getCatalog(), getSession().getSchema());
+        String name = format("%s.%s.test_view", getSession().getCatalog().get(), getSession().getSchema().get());
         assertQuery("SELECT * FROM " + name, query);
 
         assertQueryTrue("DROP VIEW test_view");
@@ -398,7 +398,7 @@ public abstract class AbstractTestDistributedQueries
         // test INFORMATION_SCHEMA.TABLES
         MaterializedResult actual = computeActual(format(
                 "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '%s'",
-                getSession().getSchema()));
+                getSession().getSchema().get()));
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
                 .row("customer", "BASE TABLE")
@@ -428,7 +428,7 @@ public abstract class AbstractTestDistributedQueries
         // test INFORMATION_SCHEMA.VIEWS
         actual = computeActual(format(
                 "SELECT table_name, view_definition FROM information_schema.views WHERE table_schema = '%s'",
-                getSession().getSchema()));
+                getSession().getSchema().get()));
 
         expected = resultBuilder(getSession(), actual.getTypes())
                 .row("meta_test_view", formatSql(new SqlParser().createStatement(query)))

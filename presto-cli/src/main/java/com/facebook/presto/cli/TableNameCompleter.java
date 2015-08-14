@@ -89,16 +89,13 @@ public class TableNameCompleter
 
     public void populateCache()
     {
-        final String schemaName = queryRunner.getSession().getSchema();
-        executor.execute(new Runnable()
-        {
-            @Override
-            public void run()
-            {
+        String schemaName = queryRunner.getSession().getSchema();
+        if (schemaName != null) {
+            executor.execute(() -> {
                 functionCache.refresh(schemaName);
                 tableCache.refresh(schemaName);
-            }
-        });
+            });
+        }
     }
 
     @Override

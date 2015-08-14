@@ -38,8 +38,8 @@ public final class Session
 {
     private final Identity identity;
     private final Optional<String> source;
-    private final String catalog;
-    private final String schema;
+    private final Optional<String> catalog;
+    private final Optional<String> schema;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
     private final Optional<String> remoteUserAddress;
@@ -52,8 +52,8 @@ public final class Session
     public Session(
             Identity identity,
             Optional<String> source,
-            String catalog,
-            String schema,
+            Optional<String> catalog,
+            Optional<String> schema,
             TimeZoneKey timeZoneKey,
             Locale locale,
             Optional<String> remoteUserAddress,
@@ -80,6 +80,8 @@ public final class Session
                 .map(entry -> Maps.immutableEntry(entry.getKey(), ImmutableMap.copyOf(entry.getValue())))
                 .forEach(catalogPropertiesBuilder::put);
         this.catalogProperties = catalogPropertiesBuilder.build();
+
+        checkArgument(catalog.isPresent() || !schema.isPresent(), "schema is set but catalog is not");
     }
 
     public String getUser()
@@ -97,12 +99,12 @@ public final class Session
         return source;
     }
 
-    public String getCatalog()
+    public Optional<String> getCatalog()
     {
         return catalog;
     }
 
-    public String getSchema()
+    public Optional<String> getSchema()
     {
         return schema;
     }
@@ -240,8 +242,8 @@ public final class Session
                 requireNonNull(server, "server is null"),
                 identity.getUser(),
                 source.orElse(null),
-                catalog,
-                schema,
+                catalog.orElse(null),
+                schema.orElse(null),
                 timeZoneKey.getId(),
                 locale,
                 properties.build(),
@@ -270,8 +272,8 @@ public final class Session
         return toStringHelper(this)
                 .add("user", getUser())
                 .add("source", source.orElse(null))
-                .add("catalog", catalog)
-                .add("schema", schema)
+                .add("catalog", catalog.orElse(null))
+                .add("schema", schema.orElse(null))
                 .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)
                 .add("remoteUserAddress", remoteUserAddress.orElse(null))
@@ -388,8 +390,8 @@ public final class Session
             return new Session(
                     identity,
                     Optional.ofNullable(source),
-                    catalog,
-                    schema,
+                    Optional.ofNullable(catalog),
+                    Optional.ofNullable(schema),
                     timeZoneKey,
                     locale,
                     Optional.ofNullable(remoteUserAddress),

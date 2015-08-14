@@ -45,6 +45,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
@@ -65,12 +66,14 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NON_NUMERIC_SAM
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_SELECT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -784,6 +787,27 @@ public class TestAnalyzer
     public void testInvalidShowTables()
     {
         assertFails(INVALID_SCHEMA_NAME, "SHOW TABLES FROM a.b.c");
+
+        Analyzer analyzer = createAnalyzer(null, null, true);
+        assertFails(analyzer, CATALOG_NOT_SPECIFIED, "SHOW TABLES");
+        assertFails(analyzer, CATALOG_NOT_SPECIFIED, "SHOW TABLES FROM a");
+        assertMissingInformationSchema(analyzer, "SHOW TABLES FROM c2.s2");
+
+        analyzer = createAnalyzer("c2", null, true);
+        assertFails(analyzer, SCHEMA_NOT_SPECIFIED, "SHOW TABLES");
+        assertMissingInformationSchema(analyzer, "SHOW TABLES FROM s2");
+    }
+
+    private static void assertMissingInformationSchema(Analyzer analyzer, @Language("SQL") String query)
+    {
+        try {
+            analyze(analyzer, query);
+            fail("expected exception");
+        }
+        catch (SemanticException e) {
+            assertEquals(e.getCode(), MISSING_SCHEMA);
+            assertEquals(e.getMessage(), "Schema information_schema does not exist");
+        }
     }
 
     @BeforeMethod(alwaysRun = true)
@@ -838,17 +862,32 @@ public class TestAnalyzer
 
         // valid view referencing table in same schema
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
-                new ViewDefinition("select a from t1", "tpch", "s1", ImmutableList.of(new ViewColumn("a", BIGINT)), Optional.of("user")));
+                new ViewDefinition(
+                        "select a from t1",
+                        Optional.of("tpch"),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewColumn("a", BIGINT)),
+                        Optional.of("user")));
         metadata.createView(SESSION, new QualifiedTableName("tpch", "s1", "v1"), viewData1, false);
 
         // stale view (different column type)
         String viewData2 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
-                new ViewDefinition("select a from t1", "tpch", "s1", ImmutableList.of(new ViewColumn("a", VARCHAR)), Optional.of("user")));
+                new ViewDefinition(
+                        "select a from t1",
+                        Optional.of("tpch"),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewColumn("a", VARCHAR)),
+                        Optional.of("user")));
         metadata.createView(SESSION, new QualifiedTableName("tpch", "s1", "v2"), viewData2, false);
 
         // view referencing table in different schema from itself and session
         String viewData3 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
-                new ViewDefinition("select a from t4", "c2", "s2", ImmutableList.of(new ViewColumn("a", BIGINT)), Optional.of("user")));
+                new ViewDefinition(
+                        "select a from t4",
+                        Optional.of("c2"),
+                        Optional.of("s2"),
+                        ImmutableList.of(new ViewColumn("a", BIGINT)),
+                        Optional.of("owner")));
         metadata.createView(SESSION, new QualifiedTableName("c3", "s3", "v3"), viewData3, false);
 
         this.metadata = metadata;

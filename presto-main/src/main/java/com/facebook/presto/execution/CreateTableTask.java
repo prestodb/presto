@@ -58,7 +58,7 @@ public class CreateTableTask
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
-        QualifiedTableName tableName = createQualifiedTableName(session, statement.getName());
+        QualifiedTableName tableName = createQualifiedTableName(session, statement, statement.getName());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (tableHandle.isPresent()) {
             if (!statement.isNotExists()) {

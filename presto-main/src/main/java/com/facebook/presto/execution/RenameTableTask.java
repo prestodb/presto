@@ -41,13 +41,13 @@ public class RenameTableTask
     @Override
     public void execute(RenameTable statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
-        QualifiedTableName tableName = createQualifiedTableName(session, statement.getSource());
+        QualifiedTableName tableName = createQualifiedTableName(session, statement, statement.getSource());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (!tableHandle.isPresent()) {
             throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
         }
 
-        QualifiedTableName target = createQualifiedTableName(session, statement.getTarget());
+        QualifiedTableName target = createQualifiedTableName(session, statement, statement.getTarget());
         if (!metadata.getCatalogNames().containsKey(target.getCatalogName())) {
             throw new SemanticException(MISSING_CATALOG, statement, "Target catalog '%s' does not exist", target.getCatalogName());
         }

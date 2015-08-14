@@ -87,10 +87,10 @@ public class PerfTest
     public String server = "localhost:8080";
 
     @Option(name = "--catalog", title = "catalog", description = "Default catalog")
-    public String catalog = "default";
+    public String catalog;
 
     @Option(name = "--schema", title = "schema", description = "Default schema")
-    public String schema = "default";
+    public String schema;
 
     @Option(name = {"-f", "--file"}, title = "file", description = "Execute statements from file and exit")
     public String file;

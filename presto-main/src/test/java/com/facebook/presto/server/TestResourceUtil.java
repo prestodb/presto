@@ -61,8 +61,8 @@ public class TestResourceUtil
 
         assertEquals(session.getUser(), "testUser");
         assertEquals(session.getSource().get(), "testSource");
-        assertEquals(session.getCatalog(), "testCatalog");
-        assertEquals(session.getSchema(), "testSchema");
+        assertEquals(session.getCatalog().get(), "testCatalog");
+        assertEquals(session.getSchema().get(), "testSchema");
         assertEquals(session.getLocale(), Locale.TAIWAN);
         assertEquals(session.getTimeZoneKey(), getTimeZoneKey("Asia/Taipei"));
         assertEquals(session.getRemoteUserAddress().get(), "testRemote");
