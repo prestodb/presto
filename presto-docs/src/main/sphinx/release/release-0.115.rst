@@ -6,6 +6,7 @@ General Changes
 ---------------
 
 * Fix an issue with hierarchical queue rules where queries could be rejected after being accepted.
+* Add :func:`sha1`, :func:`sha256` and :func:`sha512` functions.
 
 Hive Changes
 ------------
