@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
@@ -90,6 +91,7 @@ public class HiveRecordSink
     private final Object row;
     private final int sampleWeightField;
     private final ConnectorSession connectorSession;
+    private final long deltaMemory;
 
     private int field = -1;
 
@@ -114,6 +116,7 @@ public class HiveRecordSink
         tableInspector = getStandardStructObjectInspector(handle.getColumnNames(), getJavaObjectInspectors(columnTypes));
         structFields = ImmutableList.copyOf(tableInspector.getAllStructFieldRefs());
         row = tableInspector.create();
+        deltaMemory = HiveConf.getIntVar(conf, HiveConf.ConfVars.HIVE_ORC_DEFAULT_BUFFER_SIZE);
     }
 
     @Override
@@ -252,6 +255,12 @@ public class HiveRecordSink
         if (field == sampleWeightField) {
             field++;
         }
+    }
+
+    @Override
+    public long getDeltaMemory()
+    {
+        return deltaMemory;
     }
 
     @SuppressWarnings("deprecation")

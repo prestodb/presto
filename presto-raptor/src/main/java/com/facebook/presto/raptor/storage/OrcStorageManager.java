@@ -520,6 +520,17 @@ public class OrcStorageManager
             }
         }
 
+        @Override
+        public long getDeltaMemory()
+        {
+            if (writer != null){
+                return writer.getDeltaMemory();
+            }
+            else {
+                return 0;
+            }
+        }
+
         private void createWriterIfNecessary()
         {
             if (writer == null) {

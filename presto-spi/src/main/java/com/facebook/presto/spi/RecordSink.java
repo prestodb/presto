@@ -46,4 +46,6 @@ public interface RecordSink
     void rollback();
 
     List<Type> getColumnTypes();
+
+    long getDeltaMemory();
 }

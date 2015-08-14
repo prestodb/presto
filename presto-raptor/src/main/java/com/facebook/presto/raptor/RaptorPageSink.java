@@ -110,7 +110,7 @@ public class RaptorPageSink
     @Override
     public long getDeltaMemory()
     {
-        return pageBuffer.getDeltaMemory().get();
+        return pageBuffer.getDeltaMemory().get() + storagePageSink.getDeltaMemory();
     }
 
     @Override

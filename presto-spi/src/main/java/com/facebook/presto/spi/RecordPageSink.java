@@ -42,7 +42,7 @@ public class RecordPageSink
     @Override
     public long getDeltaMemory()
     {
-        return 0;
+        return recordSink.getDeltaMemory();
     }
 
     @Override

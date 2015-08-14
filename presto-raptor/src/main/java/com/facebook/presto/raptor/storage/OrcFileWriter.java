@@ -27,6 +27,7 @@ import io.airlift.slice.Slice;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
@@ -167,6 +168,11 @@ public class OrcFileWriter
     public long getUncompressedSize()
     {
         return uncompressedSize;
+    }
+
+    public long getDeltaMemory()
+    {
+        return HiveConf.getIntVar(CONFIGURATION, HiveConf.ConfVars.HIVE_ORC_DEFAULT_BUFFER_SIZE);
     }
 
     private static OrcSerde createSerializer(Configuration conf, Properties properties)

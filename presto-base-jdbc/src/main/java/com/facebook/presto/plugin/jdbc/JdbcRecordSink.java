@@ -201,6 +201,12 @@ public class JdbcRecordSink
         return columnTypes;
     }
 
+    @Override
+    public long getDeltaMemory()
+    {
+        return 0;
+    }
+
     private int next()
     {
         checkState(field != -1, "not in record");
