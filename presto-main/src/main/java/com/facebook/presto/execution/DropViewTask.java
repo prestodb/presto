@@ -38,7 +38,7 @@ public class DropViewTask
     @Override
     public void execute(DropView statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
-        QualifiedTableName name = createQualifiedTableName(session, statement.getName());
+        QualifiedTableName name = createQualifiedTableName(session, statement, statement.getName());
 
         Optional<ViewDefinition> view = metadata.getView(session, name);
         if (!view.isPresent()) {

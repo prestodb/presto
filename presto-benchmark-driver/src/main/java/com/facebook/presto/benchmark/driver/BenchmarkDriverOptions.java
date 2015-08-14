@@ -43,11 +43,11 @@ public class BenchmarkDriverOptions
     @Option(name = "--user", title = "user", description = "Username")
     public String user = System.getProperty("user.name");
 
-    @Option(name = "--catalog", title = "catalog", description = "Default catalog (default: default)")
-    public String catalog = "default";
+    @Option(name = "--catalog", title = "catalog", description = "Default catalog")
+    public String catalog;
 
-    @Option(name = "--schema", title = "schema", description = "Default schema (default: default)")
-    public String schema = "default";
+    @Option(name = "--schema", title = "schema", description = "Default schema")
+    public String schema;
 
     @Option(name = "--suite", title = "suite", description = "Suite to execute")
     public List<String> suites = new ArrayList<>();

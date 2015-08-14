@@ -38,7 +38,7 @@ public class DropTableTask
     @Override
     public void execute(DropTable statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
-        QualifiedTableName tableName = createQualifiedTableName(session, statement.getTableName());
+        QualifiedTableName tableName = createQualifiedTableName(session, statement, statement.getTableName());
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (!tableHandle.isPresent()) {

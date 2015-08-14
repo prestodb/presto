@@ -43,7 +43,7 @@ public class RenameColumnTask
     @Override
     public void execute(RenameColumn statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
-        QualifiedTableName tableName = createQualifiedTableName(session, statement.getTable());
+        QualifiedTableName tableName = createQualifiedTableName(session, statement, statement.getTable());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
 
         String source = statement.getSource().toLowerCase(ENGLISH);

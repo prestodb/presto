@@ -27,16 +27,16 @@ import static java.util.Objects.requireNonNull;
 public final class ViewDefinition
 {
     private final String originalSql;
-    private final String catalog;
-    private final String schema;
+    private final Optional<String> catalog;
+    private final Optional<String> schema;
     private final List<ViewColumn> columns;
     private final Optional<String> owner;
 
     @JsonCreator
     public ViewDefinition(
             @JsonProperty("originalSql") String originalSql,
-            @JsonProperty("catalog") String catalog,
-            @JsonProperty("schema") String schema,
+            @JsonProperty("catalog") Optional<String> catalog,
+            @JsonProperty("schema") Optional<String> schema,
             @JsonProperty("columns") List<ViewColumn> columns,
             @JsonProperty("owner") Optional<String> owner)
     {
@@ -54,13 +54,13 @@ public final class ViewDefinition
     }
 
     @JsonProperty
-    public String getCatalog()
+    public Optional<String> getCatalog()
     {
         return catalog;
     }
 
     @JsonProperty
-    public String getSchema()
+    public Optional<String> getSchema()
     {
         return schema;
     }
@@ -82,10 +82,11 @@ public final class ViewDefinition
     {
         return toStringHelper(this)
                 .add("originalSql", originalSql)
-                .add("catalog", catalog)
-                .add("schema", schema)
+                .add("catalog", catalog.orElse(null))
+                .add("schema", schema.orElse(null))
                 .add("columns", columns)
                 .add("owner", owner)
+                .omitNullValues()
                 .toString();
     }
 

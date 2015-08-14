@@ -3335,7 +3335,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult result = computeActual("SHOW CATALOGS");
         Set<String> catalogNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertTrue(catalogNames.contains(getSession().getCatalog()));
+        assertTrue(catalogNames.contains(getSession().getCatalog().get()));
     }
 
     @Test
@@ -3344,16 +3344,16 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS");
         ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertTrue(schemaNames.containsAll(ImmutableSet.of(getSession().getSchema(), INFORMATION_SCHEMA)));
+        assertTrue(schemaNames.containsAll(ImmutableSet.of(getSession().getSchema().get(), INFORMATION_SCHEMA)));
     }
 
     @Test
     public void testShowSchemasFrom()
             throws Exception
     {
-        MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", getSession().getCatalog()));
+        MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", getSession().getCatalog().get()));
         ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertTrue(schemaNames.containsAll(ImmutableSet.of(getSession().getSchema(), INFORMATION_SCHEMA)));
+        assertTrue(schemaNames.containsAll(ImmutableSet.of(getSession().getSchema().get(), INFORMATION_SCHEMA)));
     }
 
     @Test
@@ -3373,11 +3373,14 @@ public abstract class AbstractTestQueries
     {
         Set<String> expectedTables = ImmutableSet.copyOf(transform(TpchTable.getTables(), tableNameGetter()));
 
-        MaterializedResult result = computeActual("SHOW TABLES FROM " + getSession().getSchema());
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+
+        MaterializedResult result = computeActual("SHOW TABLES FROM " + schema);
         Set<String> tableNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertTrue(tableNames.containsAll(expectedTables));
 
-        result = computeActual("SHOW TABLES FROM " + getSession().getCatalog() + "." + getSession().getSchema());
+        result = computeActual("SHOW TABLES FROM " + catalog + "." + schema);
         tableNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertTrue(tableNames.containsAll(expectedTables));
 

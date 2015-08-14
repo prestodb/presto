@@ -47,7 +47,7 @@ public class AddColumnTask
     @Override
     public void execute(AddColumn statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
-        QualifiedTableName tableName = createQualifiedTableName(session, statement.getName());
+        QualifiedTableName tableName = createQualifiedTableName(session, statement, statement.getName());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (!tableHandle.isPresent()) {
             throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);

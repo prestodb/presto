@@ -228,8 +228,8 @@ public abstract class AbstractTestIntegrationSmokeTest
     {
         Session viewOwnerSession = TestingSession.testSessionBuilder()
                 .setIdentity(new Identity("test_view_access_owner", Optional.empty()))
-                .setCatalog(getSession().getCatalog())
-                .setSchema(getSession().getSchema())
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
                 .build();
 
         // verify creation of view over a table requires special view creation privileges for the table
@@ -261,8 +261,8 @@ public abstract class AbstractTestIntegrationSmokeTest
 
         Session nestedViewOwnerSession = TestingSession.testSessionBuilder()
                 .setIdentity(new Identity("test_nested_view_access_owner", Optional.empty()))
-                .setCatalog(getSession().getCatalog())
-                .setSchema(getSession().getSchema())
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
                 .build();
 
         // verify creation of view over a view requires special view creation privileges for the view

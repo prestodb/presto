@@ -14,14 +14,13 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.security.ViewAccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
@@ -56,6 +55,7 @@ import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
@@ -75,6 +75,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
+import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.aliasedName;
@@ -96,6 +97,7 @@ import static com.facebook.presto.sql.QueryUtil.table;
 import static com.facebook.presto.sql.QueryUtil.unaliasedName;
 import static com.facebook.presto.sql.QueryUtil.values;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
@@ -105,6 +107,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -149,8 +152,8 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitShowTables(ShowTables showTables, AnalysisContext context)
     {
-        String catalogName = session.getCatalog();
-        String schemaName = session.getSchema();
+        String catalogName = session.getCatalog().orElse(null);
+        String schemaName = session.getSchema().orElse(null);
 
         Optional<QualifiedName> schema = showTables.getSchema();
         if (schema.isPresent()) {
@@ -162,6 +165,13 @@ class StatementAnalyzer
                 catalogName = parts.get(0);
             }
             schemaName = schema.get().getSuffix();
+        }
+
+        if (catalogName == null) {
+            throw new SemanticException(CATALOG_NOT_SPECIFIED, showTables, "Catalog must be specified when session catalog is not set");
+        }
+        if (schemaName == null) {
+            throw new SemanticException(SCHEMA_NOT_SPECIFIED, showTables, "Schema must be specified when session schema is not set");
         }
 
         if (!metadata.listSchemaNames(session, catalogName).contains(schemaName)) {
@@ -188,9 +198,13 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitShowSchemas(ShowSchemas node, AnalysisContext context)
     {
+        if (!node.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
+            throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
+        }
+
         Query query = simpleQuery(
                 selectList(aliasedName("schema_name", "Schema")),
-                from(node.getCatalog().orElse(session.getCatalog()), TABLE_SCHEMATA),
+                from(node.getCatalog().orElseGet(() -> session.getCatalog().get()), TABLE_SCHEMATA),
                 ordering(ascending("schema_name")));
 
         return process(query, context);
@@ -213,7 +227,7 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitShowColumns(ShowColumns showColumns, AnalysisContext context)
     {
-        QualifiedTableName tableName = MetadataUtil.createQualifiedTableName(session, showColumns.getTable());
+        QualifiedTableName tableName = createQualifiedTableName(session, showColumns, showColumns.getTable());
 
         if (!metadata.getView(session, tableName).isPresent() &&
                 !metadata.getTableHandle(session, tableName).isPresent()) {
@@ -246,7 +260,7 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitShowPartitions(ShowPartitions showPartitions, AnalysisContext context)
     {
-        QualifiedTableName table = MetadataUtil.createQualifiedTableName(session, showPartitions.getTable());
+        QualifiedTableName table = createQualifiedTableName(session, showPartitions, showPartitions.getTable());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, table);
         if (!tableHandle.isPresent()) {
             throw new SemanticException(MISSING_TABLE, showPartitions, "Table '%s' does not exist", table);
@@ -400,7 +414,7 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitInsert(Insert insert, AnalysisContext context)
     {
-        QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, insert.getTarget());
+        QualifiedTableName targetTable = createQualifiedTableName(session, insert, insert.getTarget());
         if (metadata.getView(session, targetTable).isPresent()) {
             throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into views is not supported");
         }
@@ -438,7 +452,8 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitDelete(Delete node, AnalysisContext context)
     {
-        QualifiedTableName tableName = MetadataUtil.createQualifiedTableName(session, node.getTable().getName());
+        Table table = node.getTable();
+        QualifiedTableName tableName = createQualifiedTableName(session, table, table.getName());
         if (metadata.getView(session, tableName).isPresent()) {
             throw new SemanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
         }
@@ -449,7 +464,7 @@ class StatementAnalyzer
 
         // Tuple analyzer checks for select permissions but DELETE has a separate permission, so disable access checks
         TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata, sqlParser, new AllowAllAccessControl(), experimentalSyntaxEnabled);
-        TupleDescriptor descriptor = analyzer.process(node.getTable(), context);
+        TupleDescriptor descriptor = analyzer.process(table, context);
         node.getWhere().ifPresent(where -> analyzer.analyzeWhere(node, descriptor, context, where));
 
         accessControl.checkCanDeleteFromTable(session.getIdentity(), tableName);
@@ -463,7 +478,7 @@ class StatementAnalyzer
         analysis.setUpdateType("CREATE TABLE");
 
         // turn this into a query that has a new table writer node on top.
-        QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, node.getName());
+        QualifiedTableName targetTable = createQualifiedTableName(session, node, node.getName());
         analysis.setCreateTableDestination(targetTable);
 
         for (Expression expression : node.getProperties().values()) {
@@ -503,7 +518,7 @@ class StatementAnalyzer
                 queryExplainer);
         TupleDescriptor descriptor = analyzer.process(node.getQuery(), new AnalysisContext());
 
-        QualifiedTableName viewName = MetadataUtil.createQualifiedTableName(session, node.getName());
+        QualifiedTableName viewName = createQualifiedTableName(session, node, node.getName());
         accessControl.checkCanCreateView(session.getIdentity(), viewName);
 
         validateColumnNames(node, descriptor);

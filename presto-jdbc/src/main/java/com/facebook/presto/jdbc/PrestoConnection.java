@@ -79,8 +79,6 @@ public class PrestoConnection
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
         this.user = requireNonNull(user, "user is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
-        catalog.set("default");
-        schema.set("default");
         timeZoneId.set(TimeZone.getDefault().getID());
         locale.set(Locale.getDefault());
 

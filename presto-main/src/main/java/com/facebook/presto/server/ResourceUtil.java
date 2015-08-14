@@ -52,7 +52,8 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Strings.emptyToNull;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static java.lang.String.format;
 
@@ -64,7 +65,13 @@ final class ResourceUtil
 
     public static Session createSessionForRequest(HttpServletRequest servletRequest, AccessControl accessControl, SessionPropertyManager sessionPropertyManager)
     {
-        String user = getRequiredHeader(servletRequest, PRESTO_USER, "User");
+        String catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
+        String schema = trimEmptyToNull(servletRequest.getHeader(PRESTO_SCHEMA));
+        assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
+
+        String user = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
+        assertRequest(user != null, "User must be set");
+
         Principal principal = servletRequest.getUserPrincipal();
         try {
             accessControl.checkCanSetUser(principal, user);
@@ -77,8 +84,8 @@ final class ResourceUtil
         SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
                 .setIdentity(identity)
                 .setSource(servletRequest.getHeader(PRESTO_SOURCE))
-                .setCatalog(getRequiredHeader(servletRequest, PRESTO_CATALOG, "Catalog"))
-                .setSchema(getRequiredHeader(servletRequest, PRESTO_SCHEMA, "Schema"))
+                .setCatalog(catalog)
+                .setSchema(schema)
                 .setRemoteUserAddress(servletRequest.getRemoteAddr())
                 .setUserAgent(servletRequest.getHeader(USER_AGENT));
 
@@ -179,13 +186,6 @@ final class ResourceUtil
         return builder.build();
     }
 
-    private static String getRequiredHeader(HttpServletRequest servletRequest, String name, String description)
-    {
-        String value = servletRequest.getHeader(name);
-        assertRequest(!isNullOrEmpty(value), description + " (%s) is empty", name);
-        return value;
-    }
-
     public static void assertRequest(boolean expression, String format, Object... args)
     {
         if (!expression) {
@@ -210,5 +210,10 @@ final class ResourceUtil
                 .type(MediaType.TEXT_PLAIN)
                 .entity(message)
                 .build());
+    }
+
+    private static String trimEmptyToNull(String value)
+    {
+        return emptyToNull(nullToEmpty(value).trim());
     }
 }

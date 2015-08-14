@@ -18,6 +18,7 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.server.testing.TestingPrestoServer;
@@ -111,8 +112,7 @@ public abstract class AbstractTestingPrestoClient<T>
 
     public boolean tableExists(Session session, String table)
     {
-        QualifiedTableName name = new QualifiedTableName(session.getCatalog(), session.getSchema(), table);
-        return prestoServer.getMetadata().getTableHandle(session, name).isPresent();
+        return MetadataUtil.tableExists(prestoServer.getMetadata(), session, table);
     }
 
     public Session getDefaultSession()
