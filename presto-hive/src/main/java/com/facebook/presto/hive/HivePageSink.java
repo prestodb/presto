@@ -33,16 +33,21 @@ import io.airlift.slice.Slice;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
+import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
+import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
+import org.apache.hadoop.io.compress.CompressionCodec;
+import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hive.common.util.ReflectionUtil;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -60,6 +65,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_ERROR;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.getField;
@@ -74,6 +80,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -358,7 +365,7 @@ public class HivePageSink
                     outputFormat,
                     serDe,
                     schema,
-                    generateRandomFileName(),
+                    generateRandomFileName(outputFormat),
                     write,
                     target,
                     typeManager,
@@ -396,7 +403,7 @@ public class HivePageSink
                     outputFormat,
                     serDe,
                     schema,
-                    generateRandomFileName(),
+                    generateRandomFileName(outputFormat),
                     write,
                     targetPath,
                     typeManager,
@@ -404,9 +411,28 @@ public class HivePageSink
         }
     }
 
-    private String generateRandomFileName()
+    private String generateRandomFileName(String outputFormat)
     {
-        return filePrefix + "_" + randomUUID();
+        // text format files must have the correct extension when compressed
+        String extension = "";
+        if (HiveConf.getBoolVar(conf, COMPRESSRESULT) && HiveIgnoreKeyTextOutputFormat.class.getName().equals(outputFormat)) {
+            extension = new DefaultCodec().getDefaultExtension();
+
+            String compressionCodecClass = conf.get("mapred.output.compression.codec");
+            if (compressionCodecClass != null) {
+                try {
+                    Class<? extends CompressionCodec> codecClass = conf.getClassByName(compressionCodecClass).asSubclass(CompressionCodec.class);
+                    extension = ReflectionUtil.newInstance(codecClass, conf).getDefaultExtension();
+                }
+                catch (ClassNotFoundException e) {
+                    throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Compression codec not found: " + compressionCodecClass, e);
+                }
+                catch (RuntimeException e) {
+                    throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Failed to load compression codec: " + compressionCodecClass, e);
+                }
+            }
+        }
+        return filePrefix + "_" + randomUUID() + extension;
     }
 
     private Block[] getDataBlocks(Page page, Block sampleWeightBlock)
