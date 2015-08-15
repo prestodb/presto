@@ -142,7 +142,7 @@ public class HdfsConfigurationUpdater
             config.set("fs.s3bfs.awsSecretAccessKey", s3AwsSecretKey);
         }
 
-        configureCompression(config);
+        configureCompression(config, compressionCodec);
 
         // set config for S3
         config.setBoolean(PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS, s3UseInstanceCredentials);
@@ -161,7 +161,7 @@ public class HdfsConfigurationUpdater
         config.setBoolean(PrestoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION, pinS3ClientToCurrentRegion);
     }
 
-    private void configureCompression(Configuration config)
+    public static void configureCompression(Configuration config, HiveCompressionCodec compressionCodec)
     {
         boolean compression = compressionCodec != HiveCompressionCodec.NONE;
         config.setBoolean(COMPRESSRESULT.varname, compression);
