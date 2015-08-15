@@ -23,6 +23,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -449,7 +450,8 @@ public class HivePageSink
         return blocks;
     }
 
-    private static class HiveRecordWriter
+    @VisibleForTesting
+    public static class HiveRecordWriter
     {
         private final String partitionName;
         private final boolean isNew;
@@ -628,7 +630,8 @@ public class HivePageSink
         }
     }
 
-    private class DataColumn
+    @VisibleForTesting
+    public static class DataColumn
     {
         private final String name;
         private final Type type;
