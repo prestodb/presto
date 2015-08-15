@@ -103,7 +103,9 @@ public class TestStatementBuilder
         printStatement("show partitions from foo where name = 'foo'");
         printStatement("show partitions from foo order by x");
         printStatement("show partitions from foo limit 10");
+        printStatement("show partitions from foo limit all");
         printStatement("show partitions from foo order by x desc limit 10");
+        printStatement("show partitions from foo order by x desc limit all");
 
         printStatement("show functions");
 
@@ -140,6 +142,9 @@ public class TestStatementBuilder
         printStatement("(table foo)");
         printStatement("(table foo) limit 10");
         printStatement("(table foo limit 5) limit 10");
+
+        printStatement("select * from a limit all");
+        printStatement("select * from a order by x limit all");
 
         printStatement("select * from a union select * from b");
         printStatement("table a union all table b");
