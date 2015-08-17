@@ -39,7 +39,7 @@ public class TestQueryManagerConfig
                 .setRemoteTaskMaxConsecutiveErrorCount(10)
                 .setRemoteTaskMinErrorDuration(new Duration(2, TimeUnit.MINUTES))
                 .setRemoteTaskMaxCallbackThreads(1000)
-                .setQueryMaxRuntime(new Duration(1, TimeUnit.HOURS)));
+                .setQueryMaxRuntime(new Duration(1, TimeUnit.DAYS)));
     }
 
     @Test
