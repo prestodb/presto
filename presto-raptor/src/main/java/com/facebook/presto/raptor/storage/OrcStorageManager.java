@@ -523,7 +523,7 @@ public class OrcStorageManager
         @Override
         public long getDeltaMemory()
         {
-            if (writer != null){
+            if (writer != null) {
                 return writer.getDeltaMemory();
             }
             else {
