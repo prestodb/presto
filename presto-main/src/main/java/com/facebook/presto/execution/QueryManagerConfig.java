@@ -45,7 +45,7 @@ public class QueryManagerConfig
     private Duration remoteTaskMinErrorDuration = new Duration(2, TimeUnit.MINUTES);
     private int remoteTaskMaxCallbackThreads = 1000;
 
-    private Duration queryMaxRuntime = new Duration(1, TimeUnit.HOURS);
+    private Duration queryMaxRuntime = new Duration(1, TimeUnit.DAYS);
 
     public String getQueueConfigFile()
     {

@@ -54,7 +54,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_TIMEOUT;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -388,7 +388,7 @@ public class SqlQueryManager
             Duration queryMaxRuntime = SystemSessionProperties.getQueryMaxRuntime(runningQuery.getSession());
             DateTime executionStartTime = runningQuery.getQueryInfo().getQueryStats().getExecutionStartTime();
             if (executionStartTime.plus(queryMaxRuntime.toMillis()).isBeforeNow()) {
-                runningQuery.fail(new PrestoException(QUERY_TIMEOUT, "Query timeout"));
+                runningQuery.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRuntime));
             }
         }
     }
