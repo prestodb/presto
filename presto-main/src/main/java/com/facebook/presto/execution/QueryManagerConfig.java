@@ -45,6 +45,8 @@ public class QueryManagerConfig
     private Duration remoteTaskMinErrorDuration = new Duration(2, TimeUnit.MINUTES);
     private int remoteTaskMaxCallbackThreads = 1000;
 
+    private Duration queryMaxRuntime = new Duration(1, TimeUnit.DAYS);
+
     public String getQueueConfigFile()
     {
         return queueConfigFile;
@@ -189,6 +191,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setRemoteTaskMinErrorDuration(Duration remoteTaskMinErrorDuration)
     {
         this.remoteTaskMinErrorDuration = remoteTaskMinErrorDuration;
+        return this;
+    }
+
+    @NotNull
+    public Duration getQueryMaxRuntime()
+    {
+        return queryMaxRuntime;
+    }
+
+    @Config("query.max-runtime")
+    public QueryManagerConfig setQueryMaxRuntime(Duration queryMaxRuntime)
+    {
+        this.queryMaxRuntime = queryMaxRuntime;
         return this;
     }
 

@@ -38,7 +38,8 @@ public class TestQueryManagerConfig
                 .setQueryManagerExecutorPoolSize(5)
                 .setRemoteTaskMaxConsecutiveErrorCount(10)
                 .setRemoteTaskMinErrorDuration(new Duration(2, TimeUnit.MINUTES))
-                .setRemoteTaskMaxCallbackThreads(1000));
+                .setRemoteTaskMaxCallbackThreads(1000)
+                .setQueryMaxRuntime(new Duration(1, TimeUnit.DAYS)));
     }
 
     @Test
@@ -57,6 +58,7 @@ public class TestQueryManagerConfig
                 .put("query.remote-task.max-consecutive-error-count", "300")
                 .put("query.remote-task.min-error-duration", "30s")
                 .put("query.remote-task.max-callback-threads", "10")
+                .put("query.max-runtime", "2h")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -71,7 +73,8 @@ public class TestQueryManagerConfig
                 .setQueryManagerExecutorPoolSize(11)
                 .setRemoteTaskMaxConsecutiveErrorCount(300)
                 .setRemoteTaskMinErrorDuration(new Duration(30, TimeUnit.SECONDS))
-                .setRemoteTaskMaxCallbackThreads(10);
+                .setRemoteTaskMaxCallbackThreads(10)
+                .setQueryMaxRuntime(new Duration(2, TimeUnit.HOURS));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
