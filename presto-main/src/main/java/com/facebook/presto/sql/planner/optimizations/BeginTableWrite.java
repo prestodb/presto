@@ -21,11 +21,13 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
+import com.google.common.collect.Iterables;
 
 import java.util.Map;
 
@@ -96,18 +98,26 @@ public class BeginTableWrite
         {
             PlanNode child = node.getSource().accept(this, context);
 
-            TableWriterNode.WriterTarget target;
-            if (child instanceof TableWriterNode) {
-                target = ((TableWriterNode) child).getTarget();
-            }
-            else if (child instanceof DeleteNode) {
-                target = ((DeleteNode) child).getTarget();
-            }
-            else {
-                throw new IllegalArgumentException("Invalid child for TableCommitNode: " + child.getClass().getSimpleName());
-            }
+            TableWriterNode.WriterTarget target = getTarget(child);
 
             return new TableCommitNode(node.getId(), child, target, node.getOutputSymbols());
+        }
+
+        public TableWriterNode.WriterTarget getTarget(PlanNode node)
+        {
+            if (node instanceof TableWriterNode) {
+                return ((TableWriterNode) node).getTarget();
+            }
+            else if (node instanceof DeleteNode) {
+                return ((DeleteNode) node).getTarget();
+            }
+            else if (node instanceof ExchangeNode) {
+                PlanNode source = Iterables.getOnlyElement(node.getSources());
+                return getTarget(source);
+            }
+            else {
+                throw new IllegalArgumentException("Invalid child for TableCommitNode: " + node.getClass().getSimpleName());
+            }
         }
 
         private TableWriterNode.WriterTarget createWriterTarget(TableWriterNode.WriterTarget target)
