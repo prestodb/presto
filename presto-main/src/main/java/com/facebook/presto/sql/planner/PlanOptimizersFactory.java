@@ -90,8 +90,6 @@ public class PlanOptimizersFactory
             builder.add(new PruneUnreferencedOutputs());
         }
 
-        builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
-
         if (!forceSingleNode) {
             builder.add(new AddExchanges(metadata, sqlParser, featuresConfig.isDistributedIndexJoinsEnabled()));
         }
@@ -103,6 +101,8 @@ public class PlanOptimizersFactory
         builder.add(new MergeProjections());
         builder.add(new PruneUnreferencedOutputs());
         builder.add(new PruneRedundantProjections());
+
+        builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
 
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
