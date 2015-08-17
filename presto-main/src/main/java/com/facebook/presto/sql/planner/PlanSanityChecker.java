@@ -408,6 +408,12 @@ public final class PlanSanityChecker
         @Override
         public Void visitExchange(ExchangeNode node, Void context)
         {
+            for (int i = 0; i < node.getSources().size(); i++) {
+                PlanNode subplan = node.getSources().get(i);
+                checkDependencies(subplan.getOutputSymbols(), node.getInputs().get(i), "EXCHANGE subplan must provide all of the necessary symbols");
+                subplan.accept(this, context); // visit child
+            }
+
             verifyUniqueId(node);
 
             return null;
