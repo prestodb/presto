@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -30,22 +32,25 @@ public class SystemSplit
 {
     private final SystemTableHandle tableHandle;
     private final List<HostAddress> addresses;
+    private final TupleDomain<ColumnHandle> constraint;
 
-    public SystemSplit(SystemTableHandle tableHandle, HostAddress address)
+    public SystemSplit(SystemTableHandle tableHandle, HostAddress address, TupleDomain<ColumnHandle> constraint)
     {
-        this(tableHandle, ImmutableList.of(checkNotNull(address, "address is null")));
+        this(tableHandle, ImmutableList.of(checkNotNull(address, "address is null")), constraint);
     }
 
     @JsonCreator
     public SystemSplit(
             @JsonProperty("tableHandle") SystemTableHandle tableHandle,
-            @JsonProperty("addresses") List<HostAddress> addresses)
+            @JsonProperty("addresses") List<HostAddress> addresses,
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
         this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
 
         checkNotNull(addresses, "hosts is null");
         checkArgument(!addresses.isEmpty(), "hosts is empty");
         this.addresses = ImmutableList.copyOf(addresses);
+        this.constraint = checkNotNull(constraint, "constraint is null");
     }
 
     @Override
@@ -65,6 +70,12 @@ public class SystemSplit
     public SystemTableHandle getTableHandle()
     {
         return tableHandle;
+    }
+
+    @JsonProperty
+    public TupleDomain<ColumnHandle> getConstraint()
+    {
+        return constraint;
     }
 
     @Override

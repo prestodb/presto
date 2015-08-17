@@ -18,14 +18,17 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.MappedRecordSet;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
 import java.util.List;
@@ -33,6 +36,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.TupleDomain.withColumnDomains;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -53,11 +57,11 @@ public class SystemRecordSetProvider
     @Override
     public RecordSet getRecordSet(ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
-        SchemaTableName tableName = checkType(split, SystemSplit.class, "split").getTableHandle().getSchemaTableName();
-
         checkNotNull(columns, "columns is null");
-
+        SystemSplit systemSplit = checkType(split, SystemSplit.class, "split");
+        SchemaTableName tableName = systemSplit.getTableHandle().getSchemaTableName();
         SystemTable systemTable = tables.get(tableName);
+
         checkArgument(systemTable != null, "Table %s does not exist", tableName);
         List<ColumnMetadata> tableColumns = systemTable.getTableMetadata().getColumns();
 
@@ -81,10 +85,18 @@ public class SystemRecordSetProvider
             userToSystemFieldIndex.add(index);
         }
 
-        return new MappedRecordSet(toRecordSet(systemTable), userToSystemFieldIndex.build());
+        TupleDomain<ColumnHandle> constraint = systemSplit.getConstraint();
+        ImmutableMap.Builder<Integer, Domain> newConstraints = ImmutableMap.builder();
+        for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().entrySet()) {
+            String columnName = checkType(entry.getKey(), SystemColumnHandle.class, "column").getColumnName();
+            newConstraints.put(columnsByName.get(columnName), entry.getValue());
+        }
+        TupleDomain<Integer> newContraint = withColumnDomains(newConstraints.build());
+
+        return new MappedRecordSet(toRecordSet(systemTable, session, newContraint), userToSystemFieldIndex.build());
     }
 
-    private static RecordSet toRecordSet(SystemTable table)
+    private static RecordSet toRecordSet(SystemTable table, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         return new RecordSet()
         {
@@ -101,7 +113,7 @@ public class SystemRecordSetProvider
             @Override
             public RecordCursor cursor()
             {
-                return table.cursor();
+                return table.cursor(session, constraint);
             }
         };
     }

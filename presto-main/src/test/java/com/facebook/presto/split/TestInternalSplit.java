@@ -16,7 +16,7 @@ package com.facebook.presto.split;
 import com.facebook.presto.connector.system.SystemSplit;
 import com.facebook.presto.connector.system.SystemTableHandle;
 import com.facebook.presto.spi.HostAddress;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.TupleDomain;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
@@ -30,7 +30,7 @@ public class TestInternalSplit
             throws Exception
     {
         SystemTableHandle tableHandle = new SystemTableHandle("xyz", "foo");
-        SystemSplit expected = new SystemSplit(tableHandle, ImmutableList.of(HostAddress.fromParts("127.0.0.1", 0)));
+        SystemSplit expected = new SystemSplit(tableHandle, HostAddress.fromParts("127.0.0.1", 0), TupleDomain.all());
 
         JsonCodec<SystemSplit> codec = jsonCodec(SystemSplit.class);
         SystemSplit actual = codec.fromJson(codec.toJson(expected));

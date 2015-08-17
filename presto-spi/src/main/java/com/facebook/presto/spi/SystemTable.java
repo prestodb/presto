@@ -22,5 +22,11 @@ public interface SystemTable
 
     ConnectorTableMetadata getTableMetadata();
 
-    RecordCursor cursor();
+    /**
+     * Create a cursor for the data in this table.
+     *
+     * @param session the session to use for creating the data
+     * @param constraint the constraints for the table columns (indexed from 0)
+     */
+    RecordCursor cursor(ConnectorSession session, TupleDomain<Integer> constraint);
 }

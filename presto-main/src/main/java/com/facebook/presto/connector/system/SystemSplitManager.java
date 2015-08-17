@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -24,6 +25,7 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
@@ -50,18 +52,20 @@ public class SystemSplitManager
     {
         SystemTableLayoutHandle layoutHandle = checkType(layout, SystemTableLayoutHandle.class, "layout");
         SystemTableHandle tableHandle = layoutHandle.getTable();
+
+        TupleDomain<ColumnHandle> constraint = layoutHandle.getConstraint();
         SystemTable systemTable = tables.get(tableHandle.getSchemaTableName());
 
         if (systemTable.isDistributed()) {
             ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
             for (Node node : nodeManager.getActiveNodes()) {
-                splits.add(new SystemSplit(tableHandle, node.getHostAndPort()));
+                splits.add(new SystemSplit(tableHandle, node.getHostAndPort(), constraint));
             }
             return new FixedSplitSource(SystemConnector.NAME, splits.build());
         }
 
         HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
-        ConnectorSplit split = new SystemSplit(tableHandle, address);
+        ConnectorSplit split = new SystemSplit(tableHandle, address, constraint);
         return new FixedSplitSource(SystemConnector.NAME, ImmutableList.of(split));
     }
 }
