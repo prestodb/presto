@@ -87,7 +87,7 @@ public class SystemTablesMetadata
     {
         SystemTableHandle tableHandle = checkType(table, SystemTableHandle.class, "table");
         ConnectorTableLayout layout = new ConnectorTableLayout(
-                new SystemTableLayoutHandle(tableHandle),
+                new SystemTableLayoutHandle(tableHandle, constraint.getSummary()),
                 Optional.empty(),
                 TupleDomain.<ColumnHandle>all(),
                 Optional.empty(),
