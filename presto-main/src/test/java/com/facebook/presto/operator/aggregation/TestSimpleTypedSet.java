@@ -14,7 +14,9 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
@@ -26,6 +28,7 @@ import static com.facebook.presto.block.BlockAssertions.createEmptyLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -38,7 +41,7 @@ public class TestSimpleTypedSet
         for (int i = -2; i <= 0; i++) {
             try {
                 //noinspection ResultOfObjectAllocationIgnored
-                new SimpleTypedSet(BIGINT, i);
+                new TypedSet(BIGINT, i);
                 fail("Should throw exception if expectedSize <= 0");
             }
             catch (IllegalArgumentException e) {
@@ -48,11 +51,29 @@ public class TestSimpleTypedSet
 
         try {
             //noinspection ResultOfObjectAllocationIgnored
-            new SimpleTypedSet(null, 1);
+            new TypedSet(null, 1);
             fail("Should throw exception if type is null");
         }
         catch (NullPointerException | IllegalArgumentException e) {
             // ignored
+        }
+    }
+
+    @Test
+    public void testGetElementPosition()
+            throws Exception
+    {
+        int elementCount = 100;
+        TypedSet typedSet = new TypedSet(BIGINT, elementCount);
+        List<Long> longs = Lists.newArrayList();
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
+        for (Long element = 0L; element < elementCount; element++) {
+            appendToBlockBuilder(BIGINT, element, blockBuilder);
+            typedSet.add(blockBuilder, blockBuilder.getPositionCount() - 1);
+            longs.add(element);
+            for (int j = 0; j < blockBuilder.getPositionCount(); j++) {
+                assertEquals(Long.valueOf(typedSet.positionOf(blockBuilder, j)), longs.get(j));
+            }
         }
     }
 
@@ -86,18 +107,18 @@ public class TestSimpleTypedSet
 
     private static void testBigint(Block longBlock, int expectedSetSize)
     {
-        SimpleTypedSet simpleTypedSet = new SimpleTypedSet(BIGINT, expectedSetSize);
+        TypedSet typedSet = new TypedSet(BIGINT, expectedSetSize);
         Set<Long> set = new HashSet<>();
         for (int blockPosition = 0; blockPosition < longBlock.getPositionCount(); blockPosition++) {
             long number = BIGINT.getLong(longBlock, blockPosition);
-            assertEquals(simpleTypedSet.contains(longBlock, blockPosition), set.contains(number));
-            assertEquals(simpleTypedSet.size(), set.size());
+            assertEquals(typedSet.contains(longBlock, blockPosition), set.contains(number));
+            assertEquals(typedSet.size(), set.size());
 
             set.add(number);
-            simpleTypedSet.add(longBlock, blockPosition);
+            typedSet.add(longBlock, blockPosition);
 
-            assertEquals(simpleTypedSet.contains(longBlock, blockPosition), set.contains(number));
-            assertEquals(simpleTypedSet.size(), set.size());
+            assertEquals(typedSet.contains(longBlock, blockPosition), set.contains(number));
+            assertEquals(typedSet.size(), set.size());
         }
     }
 }
