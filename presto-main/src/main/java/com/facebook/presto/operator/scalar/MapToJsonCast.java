@@ -23,7 +23,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.type.MapType;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonSerializer;
@@ -40,13 +39,13 @@ import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeUtils.createBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -78,10 +77,12 @@ public class MapToJsonCast
 
     public static Slice toJson(Type keyType, Type valueType, ConnectorSession session, Block block)
     {
-        MapType mapType = new MapType(keyType, valueType);
-        Object object = mapType.getObjectValue(session, createBlock(mapType, block), 0);
+        Map<Object, Object> map = new HashMap<>();
+        for (int i = 0; i < block.getPositionCount(); i += 2) {
+            map.put(keyType.getObjectValue(session, block, i), valueType.getObjectValue(session, block, i + 1));
+        }
         try {
-            return Slices.utf8Slice(OBJECT_MAPPER.get().writeValueAsString(object));
+            return Slices.utf8Slice(OBJECT_MAPPER.get().writeValueAsString(map));
         }
         catch (JsonProcessingException e) {
             throw Throwables.propagate(e);
