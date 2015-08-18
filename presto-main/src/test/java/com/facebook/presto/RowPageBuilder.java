@@ -28,7 +28,7 @@ import io.airlift.slice.Slices;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
+import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
