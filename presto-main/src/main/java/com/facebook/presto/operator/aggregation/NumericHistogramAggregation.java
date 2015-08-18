@@ -33,7 +33,7 @@ import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.util.Failures.checkCondition;
 
 @AggregationFunction("numeric_histogram")
-public class NumericHistogramAggregation
+public final class NumericHistogramAggregation
 {
     public static final int ENTRY_BUFFER_SIZE = 100;
 
