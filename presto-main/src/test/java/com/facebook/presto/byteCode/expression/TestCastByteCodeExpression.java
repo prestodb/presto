@@ -23,6 +23,7 @@ import static org.testng.Assert.assertEquals;
 public class TestCastByteCodeExpression
 {
     public static final Object OBJECT_FIELD = "foo";
+    public static final boolean BOOLEAN_FIELD = true;
     public static final byte BYTE_FIELD = 99;
     public static final char CHAR_FIELD = 11;
     public static final short SHORT_FIELD = 22;
@@ -44,6 +45,8 @@ public class TestCastByteCodeExpression
     public void testCastPrimitive()
             throws Exception
     {
+        assertPrimitiveCast("BOOLEAN_FIELD", boolean.class, BOOLEAN_FIELD);
+
         assertPrimitiveCast("BYTE_FIELD", byte.class, BYTE_FIELD);
         assertPrimitiveCast("BYTE_FIELD", char.class, (char) BYTE_FIELD);
         assertPrimitiveCast("BYTE_FIELD", short.class, (short) BYTE_FIELD);

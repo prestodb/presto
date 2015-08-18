@@ -77,6 +77,11 @@ class CastByteCodeExpression
 
     private static Block castPrimitiveToPrimitive(Block block, Class<?> sourceType, Class<?> targetType)
     {
+        if (sourceType == boolean.class) {
+            if (targetType == boolean.class) {
+                return block;
+            }
+        }
         if (sourceType == byte.class) {
             if (targetType == byte.class) {
                 return block;
@@ -250,6 +255,8 @@ class CastByteCodeExpression
             return type.getPrimitiveType();
         }
         switch (type.getJavaClassName()) {
+            case "java.lang.Boolean":
+                return boolean.class;
             case "java.lang.Byte":
                 return byte.class;
             case "java.lang.Character":
