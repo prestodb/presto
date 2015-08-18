@@ -18,12 +18,14 @@ import com.facebook.presto.operator.aggregation.state.AccumulatorStateMetadata;
 import com.facebook.presto.operator.aggregation.state.NumericHistogramStateSerializer;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Ints;
 
 import javax.validation.constraints.NotNull;
+
+import java.util.Map;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
@@ -88,7 +90,13 @@ public class NumericHistogramAggregation
             out.appendNull();
         }
         else {
-            Block block = MapType.toStackRepresentation(state.get().getBuckets(), DoubleType.DOUBLE, DoubleType.DOUBLE);
+            Map<Double, Double> value = state.get().getBuckets();
+            BlockBuilder blockBuilder = DoubleType.DOUBLE.createBlockBuilder(new BlockBuilderStatus(), value.size() * 2);
+            for (Map.Entry<Double, Double> entry : value.entrySet()) {
+                DoubleType.DOUBLE.writeDouble(blockBuilder, entry.getKey());
+                DoubleType.DOUBLE.writeDouble(blockBuilder, entry.getValue());
+            }
+            Block block = blockBuilder.build();
             out.writeObject(block);
             out.closeEntry();
         }
