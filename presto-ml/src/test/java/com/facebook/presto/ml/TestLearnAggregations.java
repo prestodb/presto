@@ -42,7 +42,7 @@ import java.util.Optional;
 import java.util.Random;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
+import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 

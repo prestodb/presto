@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
+import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 
 public final class StructuralTestUtil
 {
