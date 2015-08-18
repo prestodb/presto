@@ -20,6 +20,8 @@ import com.facebook.presto.metadata.ParametricOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -34,9 +36,9 @@ import java.util.Map;
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 import static com.facebook.presto.type.TypeJsonUtils.canCastFromJson;
 import static com.facebook.presto.type.TypeJsonUtils.stackRepresentationToObject;
+import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -67,11 +69,16 @@ public class JsonToArrayCast
     public static Block toArray(Type arrayType, ConnectorSession connectorSession, Slice json)
     {
         try {
-            Object array = stackRepresentationToObject(connectorSession, json, arrayType);
+            List<?> array = (List<?>) stackRepresentationToObject(connectorSession, json, arrayType);
             if (array == null) {
                 return null;
             }
-            return toStackRepresentation((List<?>) array, ((ArrayType) arrayType).getElementType());
+            Type elementType = ((ArrayType) arrayType).getElementType();
+            BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), array.size());
+            for (Object element : array) {
+                appendToBlockBuilder(elementType, element, blockBuilder);
+            }
+            return blockBuilder.build();
         }
         catch (RuntimeException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to " + arrayType, e);

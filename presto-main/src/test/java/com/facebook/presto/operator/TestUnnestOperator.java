@@ -37,6 +37,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
@@ -74,11 +75,11 @@ public class TestUnnestOperator
         Type mapType = metadata.getType(parseTypeSignature("map<bigint,bigint>"));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
-                .row(1, ArrayType.toStackRepresentation(ImmutableList.of(2, 3), BIGINT), MapType.toStackRepresentation(ImmutableMap.of(4, 5), BIGINT, BIGINT))
-                .row(2, ArrayType.toStackRepresentation(ImmutableList.of(99), BIGINT), null)
+                .row(1, arrayBlockOf(BIGINT, 2, 3), MapType.toStackRepresentation(ImmutableMap.of(4, 5), BIGINT, BIGINT))
+                .row(2, arrayBlockOf(BIGINT, 99), null)
                 .row(3, null, null)
                 .pageBreak()
-                .row(6, ArrayType.toStackRepresentation(ImmutableList.of(7, 8), BIGINT), MapType.toStackRepresentation(ImmutableMap.of(9, 10, 11, 12), BIGINT, BIGINT))
+                .row(6, arrayBlockOf(BIGINT, 7, 8), MapType.toStackRepresentation(ImmutableMap.of(9, 10, 11, 12), BIGINT, BIGINT))
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
@@ -107,14 +108,14 @@ public class TestUnnestOperator
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(
                         1,
-                        ArrayType.toStackRepresentation(ImmutableList.of(ImmutableList.of(2, 4), ImmutableList.of(3, 6)), new ArrayType(BIGINT)),
+                        arrayBlockOf(new ArrayType(BIGINT), ImmutableList.of(2, 4), ImmutableList.of(3, 6)),
                         MapType.toStackRepresentation(ImmutableMap.of(ImmutableList.of(4, 8), ImmutableList.of(5, 10)), new ArrayType(BIGINT), new ArrayType(BIGINT)))
-                .row(2, ArrayType.toStackRepresentation(ImmutableList.of(ImmutableList.of(99, 198)), new ArrayType(BIGINT)), null)
+                .row(2, arrayBlockOf(new ArrayType(BIGINT), ImmutableList.of(99, 198)), null)
                 .row(3, null, null)
                 .pageBreak()
                 .row(
                         6,
-                        ArrayType.toStackRepresentation(ImmutableList.of(ImmutableList.of(7, 14), ImmutableList.of(8, 16)), new ArrayType(BIGINT)),
+                        arrayBlockOf(new ArrayType(BIGINT), ImmutableList.of(7, 14), ImmutableList.of(8, 16)),
                         MapType.toStackRepresentation(ImmutableMap.of(ImmutableList.of(9, 18), ImmutableList.of(10, 20), ImmutableList.of(11, 22), ImmutableList.of(12, 24)), new ArrayType(BIGINT), new ArrayType(BIGINT)))
                 .build();
 
@@ -142,11 +143,11 @@ public class TestUnnestOperator
         Type mapType = metadata.getType(parseTypeSignature("map<bigint,bigint>"));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
-                .row(1, ArrayType.toStackRepresentation(ImmutableList.of(2, 3), BIGINT), MapType.toStackRepresentation(ImmutableMap.of(4, 5), BIGINT, BIGINT))
-                .row(2, ArrayType.toStackRepresentation(ImmutableList.of(99), BIGINT), null)
+                .row(1, arrayBlockOf(BIGINT, 2, 3), MapType.toStackRepresentation(ImmutableMap.of(4, 5), BIGINT, BIGINT))
+                .row(2, arrayBlockOf(BIGINT, 99), null)
                 .row(3, null, null)
                 .pageBreak()
-                .row(6, ArrayType.toStackRepresentation(ImmutableList.of(7, 8), BIGINT), MapType.toStackRepresentation(ImmutableMap.of(9, 10, 11, 12), BIGINT, BIGINT))
+                .row(6, arrayBlockOf(BIGINT, 7, 8), MapType.toStackRepresentation(ImmutableMap.of(9, 10, 11, 12), BIGINT, BIGINT))
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
@@ -173,7 +174,7 @@ public class TestUnnestOperator
         Type mapType = metadata.getType(parseTypeSignature("map<bigint,double>"));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
-                .row(1, ArrayType.toStackRepresentation(ImmutableList.of(NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, NaN), DOUBLE),
+                .row(1, arrayBlockOf(DOUBLE, NEGATIVE_INFINITY, POSITIVE_INFINITY, NaN),
                         MapType.toStackRepresentation(ImmutableMap.of(1, NEGATIVE_INFINITY, 2, POSITIVE_INFINITY, 3, NaN), BIGINT, DOUBLE))
                 .build();
 

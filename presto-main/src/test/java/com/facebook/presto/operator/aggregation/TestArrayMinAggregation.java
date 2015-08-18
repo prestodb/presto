@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.type.ArrayType.toStackRepresentation;
+import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 
 public class TestArrayMinAggregation
         extends AbstractTestAggregationFunction
@@ -33,7 +33,7 @@ public class TestArrayMinAggregation
         ArrayType arrayType = new ArrayType(BIGINT);
         BlockBuilder blockBuilder = arrayType.createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = start; i < start + length; i++) {
-            arrayType.writeObject(blockBuilder, toStackRepresentation(ImmutableList.of(i), BIGINT));
+            arrayType.writeObject(blockBuilder, arrayBlockOf(BIGINT, i));
         }
         return new Block[] {blockBuilder.build()};
     }

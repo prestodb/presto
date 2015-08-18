@@ -29,7 +29,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -49,18 +48,6 @@ public class ArrayType
     public Type getElementType()
     {
         return elementType;
-    }
-
-    /**
-     * Takes a list of stack types and converts them to the stack representation of an array
-     */
-    public static Block toStackRepresentation(List<?> values, Type elementType)
-    {
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), values.size());
-        for (Object element : values) {
-            appendToBlockBuilder(elementType, element, blockBuilder);
-        }
-        return blockBuilder.build();
     }
 
     @Override
