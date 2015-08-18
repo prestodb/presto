@@ -40,6 +40,7 @@ import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
+import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.util.Collections.unmodifiableSortedMap;
@@ -497,7 +498,7 @@ public abstract class AbstractTestType
             Object keyNonNullValue = getNonNullValueForType(keyType);
             Object valueNonNullValue = getNonNullValueForType(valueType);
             Map map = ImmutableMap.of(keyNonNullValue, valueNonNullValue);
-            return MapType.toStackRepresentation(map, keyType, valueType);
+            return mapBlockOf(keyType, valueType, map);
         }
         if (type instanceof RowType) {
             RowType rowType = (RowType) type;

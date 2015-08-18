@@ -28,7 +28,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
@@ -48,16 +47,6 @@ public class MapType
         checkArgument(keyType.isComparable(), "key type must be comparable");
         this.keyType = keyType;
         this.valueType = valueType;
-    }
-
-    public static Block toStackRepresentation(Map<?, ?> value, Type keyType, Type valueType)
-    {
-        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), value.size() * 2, EXPECTED_BYTES_PER_ENTRY);
-        for (Map.Entry<?, ?> entry : value.entrySet()) {
-            appendToBlockBuilder(keyType, entry.getKey(), blockBuilder);
-            appendToBlockBuilder(valueType, entry.getValue(), blockBuilder);
-        }
-        return blockBuilder.build();
     }
 
     @Override

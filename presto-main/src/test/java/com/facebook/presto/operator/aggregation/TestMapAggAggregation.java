@@ -41,6 +41,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
+import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
 
 public class TestMapAggAggregation
 {
@@ -173,15 +174,15 @@ public class TestMapAggAggregation
 
         builder.declarePosition();
         DOUBLE.writeDouble(builder.getBlockBuilder(0), 1.0);
-        innerMapType.writeObject(builder.getBlockBuilder(1), MapType.toStackRepresentation(ImmutableMap.of("a", "b"), VARCHAR, VARCHAR));
+        innerMapType.writeObject(builder.getBlockBuilder(1), mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
 
         builder.declarePosition();
         DOUBLE.writeDouble(builder.getBlockBuilder(0), 2.0);
-        innerMapType.writeObject(builder.getBlockBuilder(1), MapType.toStackRepresentation(ImmutableMap.of("c", "d"), VARCHAR, VARCHAR));
+        innerMapType.writeObject(builder.getBlockBuilder(1), mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("c", "d")));
 
         builder.declarePosition();
         DOUBLE.writeDouble(builder.getBlockBuilder(0), 3.0);
-        innerMapType.writeObject(builder.getBlockBuilder(1), MapType.toStackRepresentation(ImmutableMap.of("e", "f"), VARCHAR, VARCHAR));
+        innerMapType.writeObject(builder.getBlockBuilder(1), mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("e", "f")));
 
         assertAggregation(
                 aggFunc,
