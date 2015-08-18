@@ -14,6 +14,9 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.metadata.ShardMetadata;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -26,6 +29,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -33,11 +37,15 @@ public class TemporalCompactionSetCreator
         implements CompactionSetCreator
 {
     private final long maxShardSizeBytes;
+    private final Type type;
 
-    public TemporalCompactionSetCreator(DataSize maxShardSize)
+    public TemporalCompactionSetCreator(DataSize maxShardSize, Type type)
     {
         requireNonNull(maxShardSize, "maxShardSize is null");
+        checkArgument(type == DateType.DATE || type == TimestampType.TIMESTAMP, "type must be timestamp or date");
+
         this.maxShardSizeBytes = maxShardSize.toBytes();
+        this.type = requireNonNull(type, "type is null");
     }
 
     @Override
@@ -49,7 +57,7 @@ public class TemporalCompactionSetCreator
 
         ImmutableSet.Builder<CompactionSet> compactionSets = ImmutableSet.builder();
         // don't compact shards across days
-        Multimap<Long, ShardMetadata> shardsByDays = getShardsByDays(shardMetadata);
+        Multimap<Long, ShardMetadata> shardsByDays = getShardsByDays(shardMetadata, type);
 
         for (Collection<ShardMetadata> shardSet : shardsByDays.asMap().values()) {
             List<ShardMetadata> shards = shardSet.stream()
@@ -78,7 +86,7 @@ public class TemporalCompactionSetCreator
         return compactionSets.build();
     }
 
-    private static Multimap<Long, ShardMetadata> getShardsByDays(Set<ShardMetadata> shardMetadata)
+    private static Multimap<Long, ShardMetadata> getShardsByDays(Set<ShardMetadata> shardMetadata, Type type)
     {
         // bucket shards by the start day
         ImmutableMultimap.Builder<Long, ShardMetadata> shardsByDays = ImmutableMultimap.builder();
@@ -87,14 +95,18 @@ public class TemporalCompactionSetCreator
         shardMetadata.stream()
                 .filter(shard -> shard.getRangeStart().isPresent() && shard.getRangeEnd().isPresent())
                 .forEach(shard -> {
-                    long day = determineDay(shard.getRangeStart().getAsLong(), shard.getRangeEnd().getAsLong());
+                    long day = determineDay(shard.getRangeStart().getAsLong(), shard.getRangeEnd().getAsLong(), type);
                     shardsByDays.put(day, shard);
                 });
         return shardsByDays.build();
     }
 
-    private static long determineDay(long rangeStart, long rangeEnd)
+    private static long determineDay(long rangeStart, long rangeEnd, Type type)
     {
+        if (type == DateType.DATE) {
+            return rangeStart;
+        }
+
         long startDay = Duration.ofMillis(rangeStart).toDays();
         long endDay = Duration.ofMillis(rangeEnd).toDays();
         if (startDay == endDay) {

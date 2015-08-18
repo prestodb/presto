@@ -26,6 +26,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
@@ -76,7 +78,7 @@ public class TestCompactionSetCreator
     public void testTemporalCompactionNoCompactionAcrossDays()
             throws Exception
     {
-        CompactionSetCreator compactionSetCreator = new TemporalCompactionSetCreator(new DataSize(100, BYTE));
+        CompactionSetCreator compactionSetCreator = new TemporalCompactionSetCreator(new DataSize(100, BYTE), TIMESTAMP);
         long tableId = 1L;
         long day1 = Duration.ofDays(Duration.ofMillis(System.currentTimeMillis()).toDays()).toMillis();
         long day2 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 1).toMillis();
@@ -99,7 +101,7 @@ public class TestCompactionSetCreator
     public void testTemporalCompactionSpanningDays()
             throws Exception
     {
-        CompactionSetCreator compactionSetCreator = new TemporalCompactionSetCreator(new DataSize(100, BYTE));
+        CompactionSetCreator compactionSetCreator = new TemporalCompactionSetCreator(new DataSize(100, BYTE), TIMESTAMP);
         long tableId = 1L;
         long day1 = Duration.ofDays(Duration.ofMillis(System.currentTimeMillis()).toDays()).toMillis();
         long day2 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 1).toMillis();
@@ -122,6 +124,33 @@ public class TestCompactionSetCreator
                 new CompactionSet(tableId, ImmutableSet.of(inputShards.get(0), inputShards.get(1), inputShards.get(5), inputShards.get(6))),
                 new CompactionSet(tableId, ImmutableSet.of(inputShards.get(2), inputShards.get(3), inputShards.get(4))));
         assertEquals(compactionSets, expected);
+    }
+
+    @Test
+    public void testTemporalCompactionDate()
+            throws Exception
+    {
+        CompactionSetCreator compactionSetCreator = new TemporalCompactionSetCreator(new DataSize(100, BYTE), DATE);
+        long tableId = 1L;
+        long day1 = Duration.ofMillis(System.currentTimeMillis()).toDays();
+        long day2 = day1 + 1;
+        long day3 = day1 + 2;
+
+        List<ShardMetadata> inputShards = ImmutableList.of(
+                shardWithRange(10, day1, day1),
+                shardWithRange(10, day2, day2),
+                shardWithRange(10, day3, day3),
+                shardWithRange(10, day1, day3),
+                shardWithRange(10, day2, day3),
+                shardWithRange(10, day1, day2));
+
+        Set<CompactionSet> actual = compactionSetCreator.createCompactionSets(tableId, ImmutableSet.copyOf(inputShards));
+        assertEquals(actual.size(), 3);
+        Set<CompactionSet> expected = ImmutableSet.of(
+                new CompactionSet(tableId, ImmutableSet.of(inputShards.get(0), inputShards.get(3), inputShards.get(5))),
+                new CompactionSet(tableId, ImmutableSet.of(inputShards.get(1), inputShards.get(4))),
+                new CompactionSet(tableId, ImmutableSet.of(inputShards.get(2))));
+        assertEquals(actual, expected);
     }
 
     private static ShardMetadata shardWithSize(long uncompressedSize)

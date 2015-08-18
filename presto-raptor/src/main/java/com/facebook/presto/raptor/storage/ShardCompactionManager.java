@@ -23,6 +23,7 @@ import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.raptor.metadata.TableMetadata;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
@@ -198,7 +199,8 @@ public class ShardCompactionManager
                 compactionSetCreator = new FileCompactionSetCreator(maxShardSize);
             }
             else {
-                compactionSetCreator = new TemporalCompactionSetCreator(maxShardSize);
+                Type type = metadataDao.getTableColumn(tableId, temporalColumnId).getDataType();
+                compactionSetCreator = new TemporalCompactionSetCreator(maxShardSize, type);
                 shards = filterShardsWithTemporalMetadata(shardMetadata, tableId, temporalColumnId);
             }
             addToCompactionQueue(compactionSetCreator, tableId, shards);
