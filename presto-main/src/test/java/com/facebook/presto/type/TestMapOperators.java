@@ -41,7 +41,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.JsonType.JSON;
-import static com.facebook.presto.type.MapType.toStackRepresentation;
+import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 import static org.testng.Assert.assertEquals;
@@ -66,7 +66,7 @@ public class TestMapOperators
             throws Exception
     {
         Block array = arrayBlockOf(BIGINT, 1L, 2L);
-        Block actualBlock = toStackRepresentation(ImmutableMap.of(1.0, array), DOUBLE, new ArrayType(BIGINT));
+        Block actualBlock = mapBlockOf(DOUBLE, new ArrayType(BIGINT), ImmutableMap.of(1.0, array));
         DynamicSliceOutput actualSliceOutput = new DynamicSliceOutput(100);
         writeBlock(actualSliceOutput, actualBlock);
 

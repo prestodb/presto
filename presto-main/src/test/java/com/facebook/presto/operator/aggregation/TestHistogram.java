@@ -47,6 +47,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
+import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
 
 public class TestHistogram
 {
@@ -151,13 +152,13 @@ public class TestHistogram
         PageBuilder builder = new PageBuilder(ImmutableList.of(innerMapType));
 
         builder.declarePosition();
-        innerMapType.writeObject(builder.getBlockBuilder(0), MapType.toStackRepresentation(ImmutableMap.of("a", "b"), VARCHAR, VARCHAR));
+        innerMapType.writeObject(builder.getBlockBuilder(0), mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
 
         builder.declarePosition();
-        innerMapType.writeObject(builder.getBlockBuilder(0), MapType.toStackRepresentation(ImmutableMap.of("c", "d"), VARCHAR, VARCHAR));
+        innerMapType.writeObject(builder.getBlockBuilder(0), mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("c", "d")));
 
         builder.declarePosition();
-        innerMapType.writeObject(builder.getBlockBuilder(0), MapType.toStackRepresentation(ImmutableMap.of("e", "f"), VARCHAR, VARCHAR));
+        innerMapType.writeObject(builder.getBlockBuilder(0), mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("e", "f")));
 
         assertAggregation(
                 aggregationFunction,

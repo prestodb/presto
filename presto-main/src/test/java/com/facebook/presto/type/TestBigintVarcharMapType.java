@@ -24,7 +24,7 @@ import java.util.Map;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.type.MapType.toStackRepresentation;
+import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
 
 public class TestBigintVarcharMapType
         extends AbstractTestType
@@ -37,8 +37,8 @@ public class TestBigintVarcharMapType
     public static Block createTestBlock(Type mapType)
     {
         BlockBuilder blockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 2);
-        mapType.writeObject(blockBuilder, toStackRepresentation(ImmutableMap.of(1, "hi"), BIGINT, VARCHAR));
-        mapType.writeObject(blockBuilder, toStackRepresentation(ImmutableMap.of(1, "2", 2, "hello"), BIGINT, VARCHAR));
+        mapType.writeObject(blockBuilder, mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(1, "hi")));
+        mapType.writeObject(blockBuilder, mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(1, "2", 2, "hello")));
         return blockBuilder.build();
     }
 
