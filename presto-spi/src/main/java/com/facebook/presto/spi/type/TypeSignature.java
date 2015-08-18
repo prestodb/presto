@@ -129,24 +129,24 @@ public class TypeSignature
         List<TypeSignature> parameters = new ArrayList<>();
         List<Object> literalParameters = new ArrayList<>();
         int parameterStart = -1;
-        int bracketCount = 0;
-        boolean inLiteralParameters = false;
+        int angleBracketDepth = 0;
+        int roundBracketDepth = 0;
 
         for (int i = 0; i < signature.length(); i++) {
             char c = signature.charAt(i);
             if (c == '<') {
-                if (bracketCount == 0) {
+                if (angleBracketDepth == 0) {
                     verify(baseName == null, "Expected baseName to be null");
                     verify(parameterStart == -1, "Expected parameter start to be -1");
                     baseName = signature.substring(0, i);
                     parameterStart = i + 1;
                 }
-                bracketCount++;
+                angleBracketDepth++;
             }
             else if (c == '>') {
-                bracketCount--;
-                checkArgument(bracketCount >= 0, "Bad type signature: '%s'", signature);
-                if (bracketCount == 0) {
+                angleBracketDepth--;
+                checkArgument(angleBracketDepth >= 0, "Bad type signature: '%s'", signature);
+                if (angleBracketDepth == 0) {
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
                     parameters.add(parseTypeSignature(signature.substring(parameterStart, i)));
                     parameterStart = i + 1;
@@ -155,22 +155,20 @@ public class TypeSignature
                     }
                 }
             }
-            else if (c == ',') {
-                if (bracketCount == 1 && !inLiteralParameters) {
+            else if (c == ',' && roundBracketDepth <= 1) {
+                if (angleBracketDepth == 1 && roundBracketDepth == 0) {
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
                     parameters.add(parseTypeSignature(signature.substring(parameterStart, i)));
                     parameterStart = i + 1;
                 }
-                else if (bracketCount == 0 && inLiteralParameters) {
+                else if (angleBracketDepth == 0 && roundBracketDepth == 1) {
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
                     literalParameters.add(parseLiteral(signature.substring(parameterStart, i)));
                     parameterStart = i + 1;
                 }
             }
-            else if (c == '(') {
-                checkArgument(!inLiteralParameters, "Bad type signature: '%s'", signature);
-                inLiteralParameters = true;
-                if (bracketCount == 0) {
+            else if (c == '(' && roundBracketDepth++ == 0) {
+                if (angleBracketDepth == 0) {
                     if (baseName == null) {
                         verify(parameters.isEmpty(), "Expected no parameters");
                         verify(parameterStart == -1, "Expected parameter start to be -1");
@@ -179,10 +177,8 @@ public class TypeSignature
                     parameterStart = i + 1;
                 }
             }
-            else if (c == ')') {
-                checkArgument(inLiteralParameters, "Bad type signature: '%s'", signature);
-                inLiteralParameters = false;
-                if (bracketCount == 0) {
+            else if (c == ')' && --roundBracketDepth == 0) {
+                if (angleBracketDepth == 0) {
                     checkArgument(i == signature.length() - 1, "Bad type signature: '%s'", signature);
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
                     literalParameters.add(parseLiteral(signature.substring(parameterStart, i)));
