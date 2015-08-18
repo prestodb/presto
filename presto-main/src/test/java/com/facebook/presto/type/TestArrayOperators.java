@@ -39,9 +39,9 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
@@ -63,9 +63,7 @@ public class TestArrayOperators
     public void testStackRepresentation()
             throws Exception
     {
-        Block actualBlock = toStackRepresentation(ImmutableList.of(
-                toStackRepresentation(ImmutableList.of(1L, 2L), BIGINT),
-                toStackRepresentation(ImmutableList.of(3L), BIGINT)), new ArrayType(BIGINT));
+        Block actualBlock = arrayBlockOf(new ArrayType(BIGINT), arrayBlockOf(BIGINT, 1L, 2L), arrayBlockOf(BIGINT, 3L));
         DynamicSliceOutput actualSliceOutput = new DynamicSliceOutput(100);
         writeBlock(actualSliceOutput, actualBlock);
 

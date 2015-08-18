@@ -28,6 +28,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 import static org.testng.Assert.assertTrue;
 
 public class TestFieldSetFilteringRecordSet
@@ -51,8 +52,8 @@ public class TestFieldSetFilteringRecordSet
                                         packDateTimeWithZone(100, getTimeZoneKeyForOffset(123)),
                                         packDateTimeWithZone(100, getTimeZoneKeyForOffset(234)),
                                         // test structural type
-                                        ArrayType.toStackRepresentation(ImmutableList.of(12, 34, 56), BIGINT),
-                                        ArrayType.toStackRepresentation(ImmutableList.of(12, 34, 56), BIGINT)
+                                        arrayBlockOf(BIGINT, 12, 34, 56),
+                                        arrayBlockOf(BIGINT, 12, 34, 56)
                                 ))),
                 ImmutableList.of(ImmutableSet.of(0, 1), ImmutableSet.of(2, 3), ImmutableSet.of(4, 5)));
         RecordCursor recordCursor = fieldSetFilteringRecordSet.cursor();

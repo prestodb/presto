@@ -18,7 +18,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -40,6 +39,7 @@ import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
+import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.util.Collections.unmodifiableSortedMap;
@@ -488,7 +488,7 @@ public abstract class AbstractTestType
             ArrayType arrayType = (ArrayType) type;
             Type elementType = arrayType.getElementType();
             Object elementNonNullValue = getNonNullValueForType(elementType);
-            return ArrayType.toStackRepresentation(ImmutableList.of(elementNonNullValue), elementType);
+            return arrayBlockOf(elementType, elementNonNullValue);
         }
         if (type instanceof MapType) {
             MapType mapType = (MapType) type;
