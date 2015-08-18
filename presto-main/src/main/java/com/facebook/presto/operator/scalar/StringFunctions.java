@@ -16,9 +16,10 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
-import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.InvalidCodePointException;
 import io.airlift.slice.InvalidUtf8Exception;
@@ -29,13 +30,10 @@ import io.airlift.slice.Slices;
 import javax.annotation.Nullable;
 
 import java.text.Normalizer;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
@@ -272,13 +270,12 @@ public final class StringFunctions
         checkCondition(limit > 0, INVALID_FUNCTION_ARGUMENT, "Limit must be positive");
         checkCondition(limit <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "Limit is too large");
         checkCondition(delimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "The delimiter may not be the empty string");
+        BlockBuilder parts = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1, string.length());
         // If limit is one, the last and only element is the complete string
         if (limit == 1) {
-            return toStackRepresentation(ImmutableList.of(string), VARCHAR);
+            VARCHAR.writeSlice(parts, string);
+            return parts.build();
         }
-
-        // todo this should write directly into a block
-        List<Slice> parts = new ArrayList<>();
 
         int index = 0;
         while (index < string.length()) {
@@ -288,18 +285,18 @@ public final class StringFunctions
                 break;
             }
             // Add the part from current index to found split
-            parts.add(string.slice(index, splitIndex - index));
+            VARCHAR.writeSlice(parts, string, index, splitIndex - index);
             // Continue searching after delimiter
             index = splitIndex + delimiter.length();
             // Reached limit-1 parts so we can stop
-            if (parts.size() == limit - 1) {
+            if (parts.getPositionCount() == limit - 1) {
                 break;
             }
         }
         // Rest of string
-        parts.add(string.slice(index, string.length() - index));
+        VARCHAR.writeSlice(parts, string, index, string.length() - index);
 
-        return toStackRepresentation(parts, VARCHAR);
+        return parts.build();
     }
 
     @Nullable
