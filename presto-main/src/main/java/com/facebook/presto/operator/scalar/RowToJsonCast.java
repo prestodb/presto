@@ -35,12 +35,13 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.Signature.withVariadicBound;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeUtils.createBlock;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -67,9 +68,12 @@ public class RowToJsonCast
 
     public static Slice toJson(Type rowType, ConnectorSession session, Block row)
     {
-        Object object = rowType.getObjectValue(session, createBlock(rowType, row), 0);
+        List<Object> objectValue = new ArrayList<>(row.getPositionCount());
+        for (int i = 0; i < row.getPositionCount(); i++) {
+            objectValue.add(rowType.getTypeParameters().get(i).getObjectValue(session, row, i));
+        }
         try {
-            return Slices.utf8Slice(OBJECT_MAPPER.get().writeValueAsString(object));
+            return Slices.utf8Slice(OBJECT_MAPPER.get().writeValueAsString(objectValue));
         }
         catch (JsonProcessingException e) {
             throw Throwables.propagate(e);

@@ -159,13 +159,6 @@ public final class TypeUtils
         return new Page(blocks);
     }
 
-    public static Block createBlock(Type type, Object element)
-    {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, EXPECTED_ARRAY_SIZE);
-        appendToBlockBuilder(type, element, blockBuilder);
-        return blockBuilder.build();
-    }
-
     public static void appendToBlockBuilder(Type type, Object element, BlockBuilder blockBuilder)
     {
         Class<?> javaType = type.getJavaType();
