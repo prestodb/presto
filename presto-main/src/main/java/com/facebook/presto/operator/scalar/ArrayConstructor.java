@@ -20,16 +20,18 @@ import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
+import com.facebook.presto.byteCode.control.IfStatement;
+import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricScalar;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.sql.gen.ByteCodeUtils;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.CompilerUtils;
-import com.facebook.presto.type.ArrayType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -37,7 +39,6 @@ import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +50,10 @@ import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantNull;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.equal;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.newInstance;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
@@ -142,36 +147,28 @@ public final class ArrayConstructor
         Scope scope = method.getScope();
         Block body = method.getBody();
 
-        Variable elementTypeVariable = scope.declareVariable(Type.class, "elementTypeVariable");
+        Variable blockBuilderVariable = scope.declareVariable(BlockBuilder.class, "blockBuilder");
         CallSiteBinder binder = new CallSiteBinder();
 
-        body.comment("elementTypeVariable = elementType;")
-                .append(constantType(binder, elementType))
-                .putVariable(elementTypeVariable);
-
-        Variable valuesVariable = scope.declareVariable(List.class, "values");
-        body.comment("List<Object> values = new ArrayList();")
-                .newObject(ArrayList.class)
-                .dup()
-                .invokeConstructor(ArrayList.class)
-                .putVariable(valuesVariable);
+        ByteCodeExpression createBlockBuilder = blockBuilderVariable.set(
+                constantType(binder, elementType).invoke("createBlockBuilder", BlockBuilder.class, newInstance(BlockBuilderStatus.class), constantInt(stackTypes.size())));
+        body.append(createBlockBuilder);
 
         for (int i = 0; i < stackTypes.size(); i++) {
-            body.comment("values.add(arg%d);", i)
-                    .getVariable(valuesVariable)
-                    .append(scope.getVariable("arg" + i));
-            Class<?> stackType = stackTypes.get(i);
-            if (stackType.isPrimitive()) {
-                body.append(ByteCodeUtils.boxPrimitiveIfNecessary(scope, stackType));
+            if (elementType.getJavaType() == void.class) {
+                body.append(blockBuilderVariable.invoke("appendNull", BlockBuilder.class));
             }
-            body.invokeInterface(List.class, "add", boolean.class, Object.class);
+            else {
+                Variable argument = scope.getVariable("arg" + i);
+                IfStatement ifStatement = new IfStatement()
+                        .condition(equal(argument, constantNull(stackTypes.get(i))))
+                        .ifTrue(blockBuilderVariable.invoke("appendNull", BlockBuilder.class).pop())
+                        .ifFalse(constantType(binder, elementType).writeValue(blockBuilderVariable, argument.cast(elementType.getJavaType())));
+                body.append(ifStatement);
+            }
         }
 
-        body.comment("return toStackRepresentation(values, elementType);")
-                .getVariable(valuesVariable)
-                .getVariable(elementTypeVariable)
-                .invokeStatic(ArrayType.class, "toStackRepresentation", com.facebook.presto.spi.block.Block.class, List.class, Type.class)
-                .retObject();
+        body.append(blockBuilderVariable.invoke("build", com.facebook.presto.spi.block.Block.class).ret());
 
         return defineClass(definition, Object.class, binder.getBindings(), new DynamicClassLoader(ArrayConstructor.class.getClassLoader()));
     }
