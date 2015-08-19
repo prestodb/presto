@@ -13,12 +13,22 @@
  */
 package com.facebook.presto.hive;
 
+import org.apache.hadoop.hive.serde2.thrift.ThriftDeserializer;
+import org.apache.hadoop.hive.serde2.thrift.test.IntString;
+import org.apache.thrift.protocol.TBinaryProtocol;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.testng.annotations.Test;
 
+import java.util.Properties;
+
+import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
+import static io.airlift.testing.Assertions.assertInstanceOf;
+import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_CLASS;
+import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
+import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveUtil
@@ -32,6 +42,17 @@ public class TestHiveUtil
         assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSS"), unixTime(time, 3));
         assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSSSSSS"), unixTime(time, 6));
         assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSSSSSSSS"), unixTime(time, 7));
+    }
+
+    @Test
+    public void testGetThriftDeserializer()
+    {
+        Properties schema = new Properties();
+        schema.setProperty(SERIALIZATION_LIB, ThriftDeserializer.class.getName());
+        schema.setProperty(SERIALIZATION_CLASS, IntString.class.getName());
+        schema.setProperty(SERIALIZATION_FORMAT, TBinaryProtocol.class.getName());
+
+        assertInstanceOf(getDeserializer(schema), ThriftDeserializer.class);
     }
 
     private static long parse(DateTime time, String pattern)
