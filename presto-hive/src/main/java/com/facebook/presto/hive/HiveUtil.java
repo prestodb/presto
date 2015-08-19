@@ -332,7 +332,7 @@ public final class HiveUtil
     private static void initializeDeserializer(Deserializer deserializer, Properties schema)
     {
         try {
-            deserializer.initialize(null, schema);
+            deserializer.initialize(new Configuration(false), schema);
         }
         catch (SerDeException e) {
             throw new RuntimeException("error initializing deserializer: " + deserializer.getClass().getName());
