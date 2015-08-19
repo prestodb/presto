@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 import javax.inject.Inject;
 
@@ -38,6 +39,11 @@ public class HiveHandleResolver
     public boolean canHandle(ConnectorTableHandle tableHandle)
     {
         return (tableHandle instanceof HiveTableHandle) && ((HiveTableHandle) tableHandle).getClientId().equals(connectorId);
+    }
+
+    public boolean canHandle(ConnectorTableLayoutHandle handle)
+    {
+        return handle instanceof HiveTableLayoutHandle && ((HiveTableLayoutHandle) handle).getClientId().equals(connectorId);
     }
 
     @Override
@@ -62,6 +68,12 @@ public class HiveHandleResolver
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return HiveTableHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
+    {
+        return HiveTableLayoutHandle.class;
     }
 
     @Override

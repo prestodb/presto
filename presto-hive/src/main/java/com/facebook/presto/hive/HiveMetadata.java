@@ -21,12 +21,17 @@ import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayout;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -52,6 +57,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
@@ -95,6 +101,7 @@ public class HiveMetadata
     private final boolean allowCorruptWritesForTesting;
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
+    private final HivePartitionManager partitionManager;
     private final DateTimeZone timeZone;
     private final TypeManager typeManager;
 
@@ -105,12 +112,14 @@ public class HiveMetadata
             HiveClientConfig hiveClientConfig,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
+            HivePartitionManager partitionManager,
             @ForHiveClient ExecutorService executorService,
             TypeManager typeManager)
     {
         this(connectorId,
                 metastore,
                 hdfsEnvironment,
+                partitionManager,
                 hiveClientConfig.getDateTimeZone(),
                 hiveClientConfig.getAllowDropTable(),
                 hiveClientConfig.getAllowRenameTable(),
@@ -122,6 +131,7 @@ public class HiveMetadata
             HiveConnectorId connectorId,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
+            HivePartitionManager patitionManager,
             DateTimeZone timeZone,
             boolean allowDropTable,
             boolean allowRenameTable,
@@ -136,6 +146,7 @@ public class HiveMetadata
 
         this.metastore = checkNotNull(metastore, "metastore is null");
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.partitionManager = checkNotNull(patitionManager, "patitionManager is null");
         this.timeZone = checkNotNull(timeZone, "timeZone is null");
         this.typeManager = checkNotNull(typeManager, "typeManager is null");
 
@@ -150,6 +161,11 @@ public class HiveMetadata
     public HiveMetastore getMetastore()
     {
         return metastore;
+    }
+
+    public HivePartitionManager getPartitionManager()
+    {
+        return partitionManager;
     }
 
     @Override
@@ -715,6 +731,32 @@ public class HiveMetadata
     public void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         throw new PrestoException(NOT_SUPPORTED, "INSERT not yet supported for Hive");
+    }
+
+    @Override
+    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    {
+        HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
+
+        HivePartitionResult hivePartitionResult = partitionManager.getPartitions(session, metastore, tableHandle, constraint.getSummary());
+        return ImmutableList.of(new ConnectorTableLayoutResult(
+                getTableLayout(session, new HiveTableLayoutHandle(handle.getClientId(), hivePartitionResult.getPartitions())),
+                hivePartitionResult.getUnenforcedConstraint()));
+    }
+
+    @Override
+    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
+    {
+        HiveTableLayoutHandle hiveLayoutHandle = checkType(layoutHandle, HiveTableLayoutHandle.class, "layoutHandle");
+        List<TupleDomain<ColumnHandle>> partitionDomains = hiveLayoutHandle.getPartitions().stream()
+                .map(HivePartition::getTupleDomain)
+                .collect(toList());
+
+        TupleDomain<ColumnHandle> predicate = TupleDomain.none();
+        if (!partitionDomains.isEmpty()) {
+            predicate = TupleDomain.columnWiseUnion(partitionDomains);
+        }
+        return new ConnectorTableLayout(hiveLayoutHandle, Optional.empty(), predicate, Optional.empty(), Optional.of(partitionDomains), ImmutableList.of());
     }
 
     @Override
