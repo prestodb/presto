@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.TupleDomain;
@@ -28,7 +27,6 @@ import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HivePartition
-        implements ConnectorPartition
 {
     public static final String UNPARTITIONED_ID = "<UNPARTITIONED>";
 
@@ -75,13 +73,11 @@ public class HivePartition
         return effectivePredicate;
     }
 
-    @Override
     public String getPartitionId()
     {
         return partitionId;
     }
 
-    @Override
     public TupleDomain<ColumnHandle> getTupleDomain()
     {
         return TupleDomain.withNullableFixedValues(keys);
