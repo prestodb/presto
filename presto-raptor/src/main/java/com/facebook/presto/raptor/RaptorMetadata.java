@@ -359,6 +359,13 @@ public class RaptorMetadata
     {
         RaptorOutputTableHandle table = checkType(outputTableHandle, RaptorOutputTableHandle.class, "outputTableHandle");
 
+        if (table.getTemporalColumnHandle().isPresent()) {
+            RaptorColumnHandle column = table.getTemporalColumnHandle().get();
+            if (column.getColumnType() != TIMESTAMP && column.getColumnType() != DATE) {
+                throw new PrestoException(NOT_SUPPORTED, "Temporal column must be of type timestamp or date: " + column.getColumnName());
+            }
+        }
+
         long newTableId = dbi.inTransaction((dbiHandle, status) -> {
             MetadataDao dao = dbiHandle.attach(MetadataDao.class);
             long tableId = dao.insertTable(table.getSchemaName(), table.getTableName());
@@ -372,9 +379,6 @@ public class RaptorMetadata
                 dao.insertColumn(tableId, columnId, column.getColumnName(), i, table.getColumnTypes().get(i).getTypeSignature().toString(), sortPosition);
 
                 if (table.getTemporalColumnHandle().isPresent() && table.getTemporalColumnHandle().get().equals(column)) {
-                    if (column.getColumnType() != TIMESTAMP && column.getColumnType() != DATE) {
-                        throw new PrestoException(NOT_SUPPORTED, "Temporal column must be of type timestamp or date: " + column.getColumnName());
-                    }
                     dao.updateTemporalColumnId(tableId, columnId);
                 }
             }

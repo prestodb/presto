@@ -198,6 +198,14 @@ public class TestRaptorMetadata
         fail("Expected createTable to fail");
     }
 
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Temporal column must be of type timestamp or date: orderkey")
+    public void testInvalidTemporalColumnType()
+            throws Exception
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "orderkey")));
+    }
+
     @Test
     public void testSortOrderProperty()
             throws Exception
