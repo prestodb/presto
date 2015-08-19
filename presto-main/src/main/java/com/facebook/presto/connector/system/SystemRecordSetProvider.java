@@ -19,9 +19,11 @@ import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.MappedRecordSet;
 import com.google.common.collect.ImmutableList;
 
@@ -31,6 +33,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -78,6 +81,28 @@ public class SystemRecordSetProvider
             userToSystemFieldIndex.add(index);
         }
 
-        return new MappedRecordSet(systemTable, userToSystemFieldIndex.build());
+        return new MappedRecordSet(toRecordSet(systemTable), userToSystemFieldIndex.build());
+    }
+
+    private static RecordSet toRecordSet(SystemTable table)
+    {
+        return new RecordSet()
+        {
+            private final List<Type> types = table.getTableMetadata().getColumns().stream()
+                    .map(ColumnMetadata::getType)
+                    .collect(toImmutableList());
+
+            @Override
+            public List<Type> getColumnTypes()
+            {
+                return types;
+            }
+
+            @Override
+            public RecordCursor cursor()
+            {
+                return table.cursor();
+            }
+        };
     }
 }
