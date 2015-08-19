@@ -88,6 +88,7 @@ public final class ArrayContains
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             if (arrayBlock.isNull(i)) {
                 foundNull = true;
+                continue;
             }
             try {
                 if ((boolean) equals.invokeExact((Block) elementType.getObject(arrayBlock, i), value)) {
@@ -113,6 +114,7 @@ public final class ArrayContains
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             if (arrayBlock.isNull(i)) {
                 foundNull = true;
+                continue;
             }
             try {
                 if ((boolean) equals.invokeExact(elementType.getSlice(arrayBlock, i), value)) {
@@ -138,6 +140,7 @@ public final class ArrayContains
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             if (arrayBlock.isNull(i)) {
                 foundNull = true;
+                continue;
             }
             try {
                 if ((boolean) equals.invokeExact(elementType.getLong(arrayBlock, i), value)) {
@@ -163,6 +166,7 @@ public final class ArrayContains
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             if (arrayBlock.isNull(i)) {
                 foundNull = true;
+                continue;
             }
             try {
                 if ((boolean) equals.invokeExact(elementType.getBoolean(arrayBlock, i), value)) {
@@ -188,6 +192,7 @@ public final class ArrayContains
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             if (arrayBlock.isNull(i)) {
                 foundNull = true;
+                continue;
             }
             try {
                 if ((boolean) equals.invokeExact(elementType.getDouble(arrayBlock, i), value)) {
