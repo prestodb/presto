@@ -64,15 +64,15 @@ public final class Session
             SessionPropertyManager sessionPropertyManager)
     {
         this.user = requireNonNull(user, "user is null");
-        this.source = source;
+        this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
-        this.remoteUserAddress = remoteUserAddress;
-        this.userAgent = userAgent;
+        this.remoteUserAddress = requireNonNull(remoteUserAddress, "remoteUserAddress is null");
+        this.userAgent = requireNonNull(userAgent, "userAgent is null");
         this.startTime = startTime;
-        this.systemProperties = ImmutableMap.copyOf(systemProperties);
+        this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
 
         ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.<String, Map<String, String>>builder();
