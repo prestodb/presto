@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static java.util.Locale.ENGLISH;
 
 public class HiveTableProperties
 {
@@ -42,7 +41,7 @@ public class HiveTableProperties
                         HiveStorageFormat.class,
                         config.getHiveStorageFormat(),
                         false,
-                        value -> HiveStorageFormat.valueOf(((String) value).toUpperCase(ENGLISH))));
+                        value -> HiveStorageFormat.valueOf(((String) value))));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()

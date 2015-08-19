@@ -35,6 +35,7 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.FileSystem;
@@ -50,6 +51,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
@@ -269,7 +271,12 @@ public abstract class AbstractTestHiveClientS3
     public void testTableCreation()
             throws Exception
     {
-        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+        Set<HiveStorageFormat> createTableFormats = ImmutableSet.<HiveStorageFormat>builder()
+                .addAll(HiveStorageFormat.predefinedFormats())
+                .add(HiveStorageFormat.valueOf(TestHiveStorageHandler.class.getName()))
+                .build();
+
+        for (HiveStorageFormat storageFormat : createTableFormats) {
             try {
                 doCreateTable(temporaryCreateTable, storageFormat, "presto_test");
             }
