@@ -16,12 +16,14 @@ package com.facebook.presto.split;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.base.Preconditions.checkElementIndex;
+import static java.util.Objects.requireNonNull;
 
 public class MappedRecordSet
         implements RecordSet
@@ -32,19 +34,11 @@ public class MappedRecordSet
 
     public MappedRecordSet(RecordSet delegate, List<Integer> delegateFieldIndex)
     {
-        this.delegate = delegate;
-        this.delegateFieldIndex = new int[delegateFieldIndex.size()];
-        for (int i = 0; i < delegateFieldIndex.size(); i++) {
-            this.delegateFieldIndex[i] = delegateFieldIndex.get(i);
-        }
+        this.delegate = requireNonNull(delegate, "delegate is null");
+        this.delegateFieldIndex = Ints.toArray(requireNonNull(delegateFieldIndex, "delegateFieldIndex is null"));
 
-        List<Type> delegateColumnTypes = delegate.getColumnTypes();
-        ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
-        for (int delegateField : delegateFieldIndex) {
-            checkArgument(delegateField >= 0 && delegateField < delegateColumnTypes.size(), "Invalid system field %s", delegateField);
-            columnTypes.add(delegateColumnTypes.get(delegateField));
-        }
-        this.columnTypes = columnTypes.build();
+        List<Type> types = delegate.getColumnTypes();
+        this.columnTypes = delegateFieldIndex.stream().map(types::get).collect(toImmutableList());
     }
 
     @Override
@@ -145,8 +139,7 @@ public class MappedRecordSet
 
         private int toDelegateField(int field)
         {
-            checkArgument(field >= 0, "field is negative");
-            checkArgument(field < delegateFieldIndex.length);
+            checkElementIndex(field, delegateFieldIndex.length, "field");
             return delegateFieldIndex[field];
         }
     }
