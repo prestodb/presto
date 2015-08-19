@@ -1,0 +1,98 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.7. Release 0.109 &mdash; Presto 0.115 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.115',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.115 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.8. Release 0.108" href="release-0.108.html" />
+    <link rel="prev" title="10.6. Release 0.110" href="release-0.110.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.115 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.7. Release 0.109</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.110.html">10.6. Release 0.110</a>
+    </span>
+    <span class="right">
+        <a href="release-0.108.html">10.8. Release 0.108</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-109">
+<h1>10.7. Release 0.109</h1>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Add <a class="reference internal" href="../functions/array.html#slice" title="slice"><tt class="xref py py-func docutils literal"><span class="pre">slice()</span></tt></a>, <a class="reference internal" href="../functions/binary.html#md5" title="md5"><tt class="xref py py-func docutils literal"><span class="pre">md5()</span></tt></a>, <a class="reference internal" href="../functions/array.html#array_min" title="array_min"><tt class="xref py py-func docutils literal"><span class="pre">array_min()</span></tt></a> and <a class="reference internal" href="../functions/array.html#array_max" title="array_max"><tt class="xref py py-func docutils literal"><span class="pre">array_max()</span></tt></a> functions.</li>
+<li>Fix bug that could cause queries submitted soon after startup to hang forever.</li>
+<li>Fix bug that could cause <tt class="docutils literal"><span class="pre">JOIN</span></tt> queries to hang forever, if the right side of
+the <tt class="docutils literal"><span class="pre">JOIN</span></tt> had too little data or skewed data.</li>
+<li>Improve index join planning heuristics to favor streaming execution.</li>
+<li>Improve validation of date/time literals.</li>
+<li>Produce RPM package for Presto server.</li>
+<li>Always redistribute data when writing tables to avoid skew. This can
+be disabled by setting the session property <tt class="docutils literal"><span class="pre">redistribute_writes</span></tt>
+or the config property <tt class="docutils literal"><span class="pre">redistribute-writes</span></tt> to false.</li>
+</ul>
+</div>
+<div class="section" id="remove-big-query-support">
+<h2>Remove &#8220;Big Query&#8221; Support</h2>
+<p>The experimental support for big queries has been removed in favor of
+the new resource manager which can be enabled via the
+<tt class="docutils literal"><span class="pre">experimental.cluster-memory-manager-enabled</span></tt> config option.
+The <tt class="docutils literal"><span class="pre">experimental_big_query</span></tt> session property and the following config
+options are no longer supported: <tt class="docutils literal"><span class="pre">experimental.big-query-initial-hash-partitions</span></tt>,
+<tt class="docutils literal"><span class="pre">experimental.max-concurrent-big-queries</span></tt> and <tt class="docutils literal"><span class="pre">experimental.max-queued-big-queries</span></tt>.</p>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.110.html">10.6. Release 0.110</a>
+    </span>
+    <span class="right">
+        <a href="release-0.108.html">10.8. Release 0.108</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
