@@ -361,7 +361,7 @@ public class RaptorMetadata
 
         if (table.getTemporalColumnHandle().isPresent()) {
             RaptorColumnHandle column = table.getTemporalColumnHandle().get();
-            if (column.getColumnType() != TIMESTAMP && column.getColumnType() != DATE) {
+            if (!column.getColumnType().equals(TIMESTAMP) && !column.getColumnType().equals(DATE)) {
                 throw new PrestoException(NOT_SUPPORTED, "Temporal column must be of type timestamp or date: " + column.getColumnName());
             }
         }

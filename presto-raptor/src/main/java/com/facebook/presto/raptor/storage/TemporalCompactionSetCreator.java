@@ -14,8 +14,6 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.metadata.ShardMetadata;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableMultimap;
@@ -29,6 +27,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -42,7 +42,7 @@ public class TemporalCompactionSetCreator
     public TemporalCompactionSetCreator(DataSize maxShardSize, Type type)
     {
         requireNonNull(maxShardSize, "maxShardSize is null");
-        checkArgument(type == DateType.DATE || type == TimestampType.TIMESTAMP, "type must be timestamp or date");
+        checkArgument(type.equals(DATE) || type.equals(TIMESTAMP), "type must be timestamp or date");
 
         this.maxShardSizeBytes = maxShardSize.toBytes();
         this.type = requireNonNull(type, "type is null");
@@ -103,7 +103,7 @@ public class TemporalCompactionSetCreator
 
     private static long determineDay(long rangeStart, long rangeEnd, Type type)
     {
-        if (type == DateType.DATE) {
+        if (type.equals(DATE)) {
             return rangeStart;
         }
 
