@@ -127,6 +127,7 @@ public class TemporalCompactionSetCreator
     private static class ShardSorter
             implements Comparator<ShardMetadata>
     {
+        @SuppressWarnings("SubtractionInCompareTo")
         @Override
         public int compare(ShardMetadata shard1, ShardMetadata shard2)
         {
