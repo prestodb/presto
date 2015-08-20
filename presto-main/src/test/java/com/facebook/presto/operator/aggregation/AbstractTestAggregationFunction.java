@@ -110,7 +110,7 @@ public abstract class AbstractTestAggregationFunction
             return;
         }
 
-        Block[] alternatingNullsBlocks = createAlternatingNullsBlock(parameterTypes.get(0), getSequenceBlocks(0, 10));
+        Block[] alternatingNullsBlocks = createAlternatingNullsBlock(parameterTypes, getSequenceBlocks(0, 10));
         testAggregation(getExpectedValueIncludingNulls(0, 10, 20), alternatingNullsBlocks);
     }
 
@@ -126,11 +126,12 @@ public abstract class AbstractTestAggregationFunction
         testAggregation(getExpectedValue(2, 4), getSequenceBlocks(2, 4));
     }
 
-    public Block[] createAlternatingNullsBlock(Type type, Block... sequenceBlocks)
+    public Block[] createAlternatingNullsBlock(List<Type> types, Block... sequenceBlocks)
     {
         Block[] alternatingNullsBlocks = new Block[sequenceBlocks.length];
         for (int i = 0; i < sequenceBlocks.length; i++) {
             int positionCount = sequenceBlocks[i].getPositionCount();
+            Type type = types.get(i);
             BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), positionCount);
             for (int position = 0; position < positionCount; position++) {
                 // append null
