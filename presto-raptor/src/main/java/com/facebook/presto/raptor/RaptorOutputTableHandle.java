@@ -20,8 +20,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nullable;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -36,8 +34,7 @@ public class RaptorOutputTableHandle
     private final String tableName;
     private final List<RaptorColumnHandle> columnHandles;
     private final List<Type> columnTypes;
-    @Nullable
-    private final RaptorColumnHandle sampleWeightColumnHandle;
+    private final Optional<RaptorColumnHandle> sampleWeightColumnHandle;
     private final List<RaptorColumnHandle> sortColumnHandles;
     private final List<SortOrder> sortOrders;
     private final Optional<RaptorColumnHandle> temporalColumnHandle;
@@ -48,7 +45,7 @@ public class RaptorOutputTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnHandles") List<RaptorColumnHandle> columnHandles,
             @JsonProperty("columnTypes") List<Type> columnTypes,
-            @JsonProperty("sampleWeightColumnHandle") @Nullable RaptorColumnHandle sampleWeightColumnHandle,
+            @JsonProperty("sampleWeightColumnHandle") Optional<RaptorColumnHandle> sampleWeightColumnHandle,
             @JsonProperty("sortColumnHandles") List<RaptorColumnHandle> sortColumnHandles,
             @JsonProperty("sortOrders") List<SortOrder> sortOrders,
             @JsonProperty("temporalColumnHandle") Optional<RaptorColumnHandle> temporalColumnHandle)
@@ -57,7 +54,7 @@ public class RaptorOutputTableHandle
         this.tableName = checkTableName(tableName);
         this.columnHandles = ImmutableList.copyOf(checkNotNull(columnHandles, "columnHandles is null"));
         this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
-        this.sampleWeightColumnHandle = sampleWeightColumnHandle;
+        this.sampleWeightColumnHandle = checkNotNull(sampleWeightColumnHandle, "sampleWeightColumnHandle is null");
         this.sortOrders = checkNotNull(sortOrders, "sortOrders is null");
         this.sortColumnHandles = checkNotNull(sortColumnHandles, "sortColumnHandles is null");
         this.temporalColumnHandle = checkNotNull(temporalColumnHandle, "temporalColumnHandle is null");
@@ -87,9 +84,8 @@ public class RaptorOutputTableHandle
         return columnTypes;
     }
 
-    @Nullable
     @JsonProperty
-    public RaptorColumnHandle getSampleWeightColumnHandle()
+    public Optional<RaptorColumnHandle> getSampleWeightColumnHandle()
     {
         return sampleWeightColumnHandle;
     }

@@ -20,9 +20,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nullable;
-
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -34,8 +33,7 @@ public class RaptorInsertTableHandle
     private final long tableId;
     private final List<RaptorColumnHandle> columnHandles;
     private final List<Type> columnTypes;
-    @Nullable
-    private final String externalBatchId;
+    private final Optional<String> externalBatchId;
     private final List<RaptorColumnHandle> sortColumnHandles;
     private final List<SortOrder> sortOrders;
 
@@ -45,7 +43,7 @@ public class RaptorInsertTableHandle
             @JsonProperty("tableId") long tableId,
             @JsonProperty("columnHandles") List<RaptorColumnHandle> columnHandles,
             @JsonProperty("columnTypes") List<Type> columnTypes,
-            @JsonProperty("externalBatchId") @Nullable String externalBatchId,
+            @JsonProperty("externalBatchId") Optional<String> externalBatchId,
             @JsonProperty("sortColumnHandles") List<RaptorColumnHandle> sortColumnHandles,
             @JsonProperty("sortOrders") List<SortOrder> sortOrders)
     {
@@ -55,7 +53,7 @@ public class RaptorInsertTableHandle
         this.tableId = tableId;
         this.columnHandles = ImmutableList.copyOf(checkNotNull(columnHandles, "columnHandles is null"));
         this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
-        this.externalBatchId = externalBatchId;
+        this.externalBatchId = checkNotNull(externalBatchId, "externalBatchId is null");
 
         this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
         this.sortColumnHandles = ImmutableList.copyOf(checkNotNull(sortColumnHandles, "sortColumnHandles is null"));
@@ -85,9 +83,8 @@ public class RaptorInsertTableHandle
         return columnTypes;
     }
 
-    @Nullable
     @JsonProperty
-    public String getExternalBatchId()
+    public Optional<String> getExternalBatchId()
     {
         return externalBatchId;
     }

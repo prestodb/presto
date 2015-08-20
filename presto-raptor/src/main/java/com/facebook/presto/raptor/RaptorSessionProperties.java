@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
 
@@ -45,8 +46,8 @@ public class RaptorSessionProperties
         return sessionProperties;
     }
 
-    public static String getExternalBatchId(ConnectorSession session)
+    public static Optional<String> getExternalBatchId(ConnectorSession session)
     {
-        return session.getProperty(EXTERNAL_BATCH_ID, String.class);
+        return Optional.ofNullable(session.getProperty(EXTERNAL_BATCH_ID, String.class));
     }
 }

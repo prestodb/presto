@@ -147,15 +147,12 @@ public class RaptorMetadata
             }
         }
 
-        if (sampleWeightColumnHandle != null) {
-            sampleWeightColumnHandle = new RaptorColumnHandle(connectorId, SAMPLE_WEIGHT_COLUMN_NAME, sampleWeightColumnHandle.getColumnId(), BIGINT);
-        }
         return new RaptorTableHandle(
                 connectorId,
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 table.getTableId(),
-                sampleWeightColumnHandle);
+                Optional.ofNullable(sampleWeightColumnHandle));
     }
 
     @Override
@@ -196,7 +193,7 @@ public class RaptorMetadata
     @Override
     public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getSampleWeightColumnHandle();
+        return checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getSampleWeightColumnHandle().orElse(null);
     }
 
     @Override
@@ -319,7 +316,7 @@ public class RaptorMetadata
                 tableMetadata.getTable().getTableName(),
                 columnHandles.build(),
                 columnTypes.build(),
-                sampleWeightColumnHandle,
+                Optional.ofNullable(sampleWeightColumnHandle),
                 sortColumnHandles,
                 nCopies(sortColumnHandles.size(), ASC_NULLS_FIRST),
                 temporalColumnHandle);
@@ -405,7 +402,7 @@ public class RaptorMetadata
             columnTypes.add(column.getDataType());
         }
 
-        String externalBatchId = getExternalBatchId(session);
+        Optional<String> externalBatchId = getExternalBatchId(session);
         List<RaptorColumnHandle> sortColumnHandles = getSortColumnHandles(tableId);
         return new RaptorInsertTableHandle(connectorId,
                 tableId,
@@ -431,7 +428,7 @@ public class RaptorMetadata
     {
         RaptorInsertTableHandle handle = checkType(insertHandle, RaptorInsertTableHandle.class, "insertHandle");
         long tableId = handle.getTableId();
-        Optional<String> externalBatchId = Optional.ofNullable(handle.getExternalBatchId());
+        Optional<String> externalBatchId = handle.getExternalBatchId();
         List<ColumnInfo> columns = handle.getColumnHandles().stream().map(ColumnInfo::fromHandle).collect(toList());
 
         shardManager.commitShards(tableId, columns, parseFragments(fragments), externalBatchId);
