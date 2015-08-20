@@ -38,6 +38,7 @@ if ! check_if_correct_java_version "$JAVA8_HOME" && ! check_if_correct_java_vers
       /usr/lib/jvm/java-8-oracle* \
       /usr/java/jdk1.8* \
       /usr/java/jre1.8* \
+      /usr/jdk64/jdk1.8* \
       /usr/lib/jvm/default-java \
       /usr/java/default ; do
       if [ -e "$candidate"/bin/java ]; then
