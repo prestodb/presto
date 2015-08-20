@@ -17,9 +17,8 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import javax.annotation.Nullable;
-
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.raptor.util.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.raptor.util.MetadataUtil.checkTableName;
@@ -33,8 +32,7 @@ public final class RaptorTableHandle
     private final String schemaName;
     private final String tableName;
     private final long tableId;
-    @Nullable
-    private final RaptorColumnHandle sampleWeightColumnHandle;
+    private final Optional<RaptorColumnHandle> sampleWeightColumnHandle;
 
     @JsonCreator
     public RaptorTableHandle(
@@ -42,7 +40,7 @@ public final class RaptorTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableId") long tableId,
-            @JsonProperty("sampleWeightColumnHandle") @Nullable RaptorColumnHandle sampleWeightColumnHandle)
+            @JsonProperty("sampleWeightColumnHandle") Optional<RaptorColumnHandle> sampleWeightColumnHandle)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.schemaName = checkSchemaName(schemaName);
@@ -51,7 +49,7 @@ public final class RaptorTableHandle
         checkArgument(tableId > 0, "tableId must be greater than zero");
         this.tableId = tableId;
 
-        this.sampleWeightColumnHandle = sampleWeightColumnHandle;
+        this.sampleWeightColumnHandle = checkNotNull(sampleWeightColumnHandle, "sampleWeightColumnHandle is null");
     }
 
     @JsonProperty
@@ -78,9 +76,8 @@ public final class RaptorTableHandle
         return tableId;
     }
 
-    @Nullable
     @JsonProperty
-    public RaptorColumnHandle getSampleWeightColumnHandle()
+    public Optional<RaptorColumnHandle> getSampleWeightColumnHandle()
     {
         return sampleWeightColumnHandle;
     }

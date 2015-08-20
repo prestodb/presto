@@ -61,7 +61,7 @@ public class RaptorPageSinkProvider
                 shardInfoCodec,
                 toColumnIds(handle.getColumnHandles()),
                 handle.getColumnTypes(),
-                optionalColumnId(handle.getSampleWeightColumnHandle()),
+                handle.getSampleWeightColumnHandle().map(RaptorColumnHandle::getColumnId),
                 toColumnIds(handle.getSortColumnHandles()),
                 handle.getSortOrders(),
                 maxBufferSize);
@@ -86,10 +86,5 @@ public class RaptorPageSinkProvider
     private static List<Long> toColumnIds(List<RaptorColumnHandle> columnHandles)
     {
         return columnHandles.stream().map(RaptorColumnHandle::getColumnId).collect(toList());
-    }
-
-    private static Optional<Long> optionalColumnId(RaptorColumnHandle handle)
-    {
-        return Optional.ofNullable(handle).map(RaptorColumnHandle::getColumnId);
     }
 }
