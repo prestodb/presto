@@ -22,8 +22,8 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.createDoubleArbitraryBlock;
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.createDoubleSequenceBlock;
+import static com.facebook.presto.block.BlockAssertions.createDoubleSequenceBlock;
+import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class TestRegrInterceptAggregation
@@ -32,7 +32,7 @@ public class TestRegrInterceptAggregation
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        return new Block[] {createDoubleSequenceBlock(start, length), createDoubleSequenceBlock(start + 2, length)};
+        return new Block[] {createDoubleSequenceBlock(start, start + length), createDoubleSequenceBlock(start + 2, start + 2 + length)};
     }
 
     @Override
@@ -63,11 +63,11 @@ public class TestRegrInterceptAggregation
     @Test
     public void testNonTrivialResult()
     {
-        testNonTrivialAggregation(new double[] {1, 2, 3, 4, 5}, new double[] {1, 4, 9, 16, 25});
-        testNonTrivialAggregation(new double[] {1, 4, 9, 16, 25}, new double[] {1, 2, 3, 4, 5});
+        testNonTrivialAggregation(new Double[] {1.0, 2.0, 3.0, 4.0, 5.0}, new Double[] {1.0, 4.0, 9.0, 16.0, 25.0});
+        testNonTrivialAggregation(new Double[] {1.0, 4.0, 9.0, 16.0, 25.0}, new Double[] {1.0, 2.0, 3.0, 4.0, 5.0});
     }
 
-    private void testNonTrivialAggregation(double[] y, double[] x)
+    private void testNonTrivialAggregation(Double[] y, Double[] x)
     {
         SimpleRegression regression = new SimpleRegression();
         for (int i = 0; i < x.length; i++) {
@@ -89,6 +89,6 @@ public class TestRegrInterceptAggregation
                 // required by checkstyle
                 return super.hashCode();
             }
-        }, createDoubleArbitraryBlock(y), createDoubleArbitraryBlock(x));
+        }, createDoublesBlock(y), createDoublesBlock(x));
     }
 }
