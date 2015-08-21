@@ -31,9 +31,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.IDBI;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -67,6 +70,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -88,7 +92,7 @@ public class ShardCompactionManager
     private final AtomicBoolean shutdown = new AtomicBoolean();
 
     // Tracks shards that are scheduled for compaction so that we do not schedule them more than once
-    private final Set<Long> shardsBeingCompacted = newConcurrentHashSet();
+    private final Set<Long> shardsInProgress = newConcurrentHashSet();
     private final BlockingQueue<CompactionSet> compactionQueue = new LinkedBlockingQueue<>();
 
     private final MetadataDao metadataDao;
@@ -100,6 +104,9 @@ public class ShardCompactionManager
     private final DataSize maxShardSize;
     private final long maxShardRows;
     private final IDBI dbi;
+
+    private final CounterStat compactionSuccessCount = new CounterStat();
+    private final CounterStat compactionFailureCount = new CounterStat();
 
     @Inject
     public ShardCompactionManager(@ForMetadata IDBI dbi, NodeManager nodeManager, ShardManager shardManager, ShardCompactor compactor, StorageManagerConfig config)
@@ -138,8 +145,14 @@ public class ShardCompactionManager
         checkArgument(maxShardRows > 0, "maxShardRows must be > 0");
         this.maxShardRows = maxShardRows;
 
-        checkArgument(compactionThreads > 0, "compactionThreads must be > 0");
-        this.compactionService = newFixedThreadPool(compactionThreads, daemonThreadsNamed("shard-compactor-%s"));
+        this.compactionEnabled = compactionEnabled;
+        if (compactionEnabled) {
+            checkArgument(compactionThreads > 0, "compactionThreads must be > 0");
+            this.compactionService = newFixedThreadPool(compactionThreads, daemonThreadsNamed("shard-compactor-%s"));
+        }
+        else {
+            this.compactionService = null;
+        }
     }
 
     @PostConstruct
@@ -187,7 +200,7 @@ public class ShardCompactionManager
             Set<ShardMetadata> shardMetadata = shardManager.getNodeTableShards(currentNodeIdentifier, tableId);
             Set<ShardMetadata> shards = shardMetadata.stream()
                     .filter(this::needsCompaction)
-                    .filter(shard -> !shardsBeingCompacted.contains(shard.getShardId()))
+                    .filter(shard -> !shardsInProgress.contains(shard.getShardId()))
                     .collect(toSet());
             if (shards.size() <= 1) {
                 continue;
@@ -273,7 +286,7 @@ public class ShardCompactionManager
 
             compactionSet.getShardsToCompact().stream()
                     .map(ShardMetadata::getShardId)
-                    .forEach(shardsBeingCompacted::add);
+                    .forEach(shardsInProgress::add);
 
             compactionQueue.add(compactionSet);
         }
@@ -300,7 +313,16 @@ public class ShardCompactionManager
             while (!Thread.currentThread().isInterrupted() && !shutdown.get()) {
                 try {
                     CompactionSet compactionSet = compactionQueue.take();
-                    compactionService.submit(new CompactionJob(compactionSet));
+                    runAsync(new CompactionJob(compactionSet), compactionService)
+                            .whenComplete((none, throwable) -> {
+                                if (throwable == null) {
+                                    compactionSuccessCount.update(1);
+                                }
+                                else {
+                                    log.warn(throwable, "Error in compaction");
+                                    compactionFailureCount.update(1);
+                                }
+                            });
                 }
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -329,13 +351,13 @@ public class ShardCompactionManager
                 TableMetadata tableMetadata = getTableMetadata(compactionSet.getTableId());
                 List<ShardInfo> newShards = performCompaction(shardUuids, tableMetadata);
                 shardManager.replaceShardIds(tableMetadata.getTableId(), tableMetadata.getColumns(), shardIds, newShards);
-                shardsBeingCompacted.removeAll(shardIds);
+                shardsInProgress.removeAll(shardIds);
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);
             }
             finally {
-                shardsBeingCompacted.removeAll(shardIds);
+                shardsInProgress.removeAll(shardIds);
             }
         }
 
@@ -362,5 +384,25 @@ public class ShardCompactionManager
                 .collect(toList());
         return new TableMetadata(tableId, columns, sortColumnIds);
 
+    }
+
+    @Managed
+    public int getShardsInProgress()
+    {
+        return shardsInProgress.size();
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getCompactionSuccessCount()
+    {
+        return compactionSuccessCount;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getCompactionFailureCount()
+    {
+        return compactionFailureCount;
     }
 }
