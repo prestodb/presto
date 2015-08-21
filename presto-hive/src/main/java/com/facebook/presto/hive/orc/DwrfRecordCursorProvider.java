@@ -26,7 +26,6 @@ import com.facebook.presto.hive.HiveRecordCursorProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 import org.apache.hadoop.conf.Configuration;
@@ -49,7 +48,6 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
-import static com.google.common.collect.Iterables.all;
 
 public class DwrfRecordCursorProvider
         implements HiveRecordCursorProvider
@@ -74,7 +72,8 @@ public class DwrfRecordCursorProvider
         }
 
         StructObjectInspector rowInspector = getTableObjectInspector(schema);
-        if (!all(rowInspector.getAllStructFieldRefs(), isSupportedDwrfType())) {
+        if (rowInspector.getAllStructFieldRefs()
+                .stream().anyMatch(field -> hasDateType(field.getFieldObjectInspector()))) {
             throw new IllegalArgumentException("DWRF does not support DATE type");
         }
 
@@ -99,18 +98,6 @@ public class DwrfRecordCursorProvider
                 columns,
                 hiveStorageTimeZone,
                 typeManager));
-    }
-
-    private static Predicate<StructField> isSupportedDwrfType()
-    {
-        return new Predicate<StructField>()
-        {
-            @Override
-            public boolean apply(StructField hiveColumnHandle)
-            {
-                return !hasDateType(hiveColumnHandle.getFieldObjectInspector());
-            }
-        };
     }
 
     private static boolean[] findIncludedColumns(List<Type> types, List<HiveColumnHandle> columns)
