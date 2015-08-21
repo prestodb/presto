@@ -760,6 +760,15 @@ public class TestAnalyzer
         assertFails(INVALID_LITERAL, "SELECT TIMESTAMP '2012-10-31 01:00:00 PT'");
     }
 
+    @Test
+    public void testInvalidDelete()
+            throws Exception
+    {
+        assertFails(MISSING_TABLE, "DELETE FROM foo");
+        assertFails(NOT_SUPPORTED, "DELETE FROM v1");
+        assertFails(NOT_SUPPORTED, "DELETE FROM v1 WHERE a = 1");
+    }
+
     @BeforeMethod(alwaysRun = true)
     public void setup()
             throws Exception

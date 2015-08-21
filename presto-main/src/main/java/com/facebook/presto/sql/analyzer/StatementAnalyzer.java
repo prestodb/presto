@@ -392,6 +392,11 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitDelete(Delete node, AnalysisContext context)
     {
+        QualifiedTableName tableName = MetadataUtil.createQualifiedTableName(session, node.getTable().getName());
+        if (metadata.getView(session, tableName).isPresent()) {
+            throw new SemanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
+        }
+
         analysis.setUpdateType("DELETE");
 
         analysis.setDelete(node);
