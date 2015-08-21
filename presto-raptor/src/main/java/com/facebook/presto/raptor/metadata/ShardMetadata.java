@@ -24,6 +24,7 @@ import java.util.OptionalLong;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
+import static com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -109,15 +110,20 @@ public class ShardMetadata
     @Override
     public String toString()
     {
-        return toStringHelper(this)
+        ToStringHelper stringHelper = toStringHelper(this)
                 .add("shardId", shardId)
                 .add("shardUuid", shardUuid)
                 .add("rowCount", rowCount)
                 .add("compressedSize", DataSize.succinctBytes(compressedSize))
-                .add("uncompressedSize", DataSize.succinctBytes(uncompressedSize))
-                .add("rangeStart", rangeStart)
-                .add("rangeEnd", rangeEnd)
-                .toString();
+                .add("uncompressedSize", DataSize.succinctBytes(uncompressedSize));
+
+        if (rangeStart.isPresent()) {
+            stringHelper.add("rangeStart", rangeStart.getAsLong());
+        }
+        if (rangeEnd.isPresent()) {
+            stringHelper.add("rangeEnd", rangeEnd.getAsLong());
+        }
+        return stringHelper.toString();
     }
 
     @Override
