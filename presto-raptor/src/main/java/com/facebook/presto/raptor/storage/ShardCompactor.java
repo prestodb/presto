@@ -163,6 +163,9 @@ public final class ShardCompactor
             Page page = null;
             while (isNullOrEmptyPage(page) && !pageSource.isFinished()) {
                 page = pageSource.getNextPage();
+                if (page != null) {
+                    page.assureLoaded();
+                }
             }
             return page;
         }
@@ -184,6 +187,10 @@ public final class ShardCompactor
         {
             if (!hasNext()) {
                 return 1;
+            }
+
+            if (!other.hasNext()) {
+                return -1;
             }
 
             for (int i = 0; i < sortIndexes.size(); i++) {
