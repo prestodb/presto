@@ -21,9 +21,12 @@ import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.airlift.stats.DistributionStat;
+import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -44,6 +47,11 @@ public final class ShardCompactor
 {
     private final StorageManager storageManager;
 
+    private final DistributionStat inputShardsPerCompaction = new DistributionStat();
+    private final DistributionStat outputShardsPerCompaction = new DistributionStat();
+    private final DistributionStat compactionLatencyMillis = new DistributionStat();
+    private final DistributionStat sortedCompactionLatencyMillis = new DistributionStat();
+
     @Inject
     public ShardCompactor(StorageManager storageManager)
     {
@@ -53,6 +61,7 @@ public final class ShardCompactor
     public List<ShardInfo> compact(Set<UUID> uuids, List<ColumnInfo> columns)
             throws IOException
     {
+        long start = System.nanoTime();
         List<Long> columnIds = columns.stream().map(ColumnInfo::getColumnId).collect(toList());
         List<Type> columnTypes = columns.stream().map(ColumnInfo::getType).collect(toList());
 
@@ -71,12 +80,21 @@ public final class ShardCompactor
                 }
             }
         }
-        return storagePageSink.commit();
+        List<ShardInfo> shardInfos = storagePageSink.commit();
+
+        inputShardsPerCompaction.add(uuids.size());
+        outputShardsPerCompaction.add(shardInfos.size());
+        compactionLatencyMillis.add(Duration.nanosSince(start).toMillis());
+
+        return shardInfos;
     }
 
     public List<ShardInfo> compactSorted(Set<UUID> uuids, List<ColumnInfo> columns, List<Long> sortColumnIds, List<SortOrder> sortOrders)
+            throws IOException
     {
         checkArgument(sortColumnIds.size() == sortOrders.size(), "sortColumnIds and sortOrders must be of the same size");
+
+        long start = System.nanoTime();
         List<Long> columnIds = columns.stream().map(ColumnInfo::getColumnId).collect(toList());
         List<Type> columnTypes = columns.stream().map(ColumnInfo::getType).collect(toList());
 
@@ -108,10 +126,13 @@ public final class ShardCompactor
                 rowSources.add(rowSource);
             }
             outputPageSink.flush();
-            return outputPageSink.commit();
-        }
-        catch (IOException exception) {
-            throw Throwables.propagate(exception);
+            List<ShardInfo> shardInfos = outputPageSink.commit();
+
+            inputShardsPerCompaction.add(uuids.size());
+            outputShardsPerCompaction.add(shardInfos.size());
+            sortedCompactionLatencyMillis.add(Duration.nanosSince(start).toMillis());
+
+            return shardInfos;
         }
         finally {
             outputPageSink.flush();
@@ -235,5 +256,33 @@ public final class ShardCompactor
     private static boolean isNullOrEmptyPage(Page nextPage)
     {
         return nextPage == null || nextPage.getPositionCount() == 0;
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getInputShardsPerCompaction()
+    {
+        return inputShardsPerCompaction;
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getOutputShardsPerCompaction()
+    {
+        return outputShardsPerCompaction;
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getCompactionLatencyMillis()
+    {
+        return compactionLatencyMillis;
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getSortedCompactionLatencyMillis()
+    {
+        return sortedCompactionLatencyMillis;
     }
 }
