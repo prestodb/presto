@@ -18,6 +18,8 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SerializableNativeValue;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.LongDecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
@@ -59,10 +61,15 @@ import org.joda.time.format.ISODateTimeFormat;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -84,6 +91,7 @@ import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
@@ -91,12 +99,15 @@ import static com.google.common.collect.Lists.transform;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.Double.parseDouble;
+import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
+import static java.math.BigDecimal.ROUND_UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getTableMetadata;
 import static org.apache.hadoop.hive.metastore.Warehouse.makePartName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
+import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_IDS_CONF_STR;
@@ -112,6 +123,12 @@ public final class HiveUtil
 
     private static final DateTimeFormatter HIVE_DATE_PARSER = ISODateTimeFormat.date().withZoneUTC();
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
+
+    private static final Pattern SUPPORTED_DECIMAL_TYPE = Pattern.compile(DECIMAL_TYPE_NAME + "\\((\\d+),(\\d+)\\)");
+    private static final int DECIMAL_PRECISION_GROUP = 1;
+    private static final int DECIMAL_SCALE_GROUP = 2;
+
+    private static final String BIG_DECIMAL_POSTFIX = "BD";
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
@@ -195,7 +212,7 @@ public final class HiveUtil
     {
         // CDH uses different names for Parquet
         if ("parquet.hive.DeprecatedParquetInputFormat".equals(inputFormatName) ||
-            "parquet.hive.MapredParquetInputFormat".equals(inputFormatName)) {
+                "parquet.hive.MapredParquetInputFormat".equals(inputFormatName)) {
             return MapredParquetInputFormat.class;
         }
 
@@ -344,9 +361,31 @@ public final class HiveUtil
 
     public static SerializableNativeValue parsePartitionValue(String partitionName, String value, HiveType hiveType, DateTimeZone timeZone)
     {
-        try {
-            boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
+        boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
 
+        Optional<DecimalType> decimalType = getDecimalType(hiveType);
+        if (decimalType.isPresent()) {
+            if (decimalType.get().isShort()) {
+                if (isNull) {
+                    return new SerializableNativeValue(Long.class, null);
+                }
+                if (value.isEmpty()) {
+                    return new SerializableNativeValue(Long.class, 0L);
+                }
+                return new SerializableNativeValue(Long.class, shortDecimalPartitionKey(value, decimalType.get(), partitionName));
+            }
+            else {
+                if (isNull) {
+                    return new SerializableNativeValue(Slice.class, null);
+                }
+                if (value.isEmpty()) {
+                    return new SerializableNativeValue(Slice.class, LongDecimalType.unscaledValueToSlice(BigInteger.ZERO));
+                }
+                return new SerializableNativeValue(Slice.class, longDecimalPartitionKey(value, decimalType.get(), partitionName));
+            }
+        }
+
+        try {
             if (HIVE_BOOLEAN.equals(hiveType)) {
                 if (isNull) {
                     return new SerializableNativeValue(Boolean.class, null);
@@ -426,6 +465,24 @@ public final class HiveUtil
         return new String(Base64.getDecoder().decode(data), UTF_8);
     }
 
+    public static Optional<DecimalType> getDecimalType(HiveType hiveType)
+    {
+        return getDecimalType(hiveType.getHiveTypeName());
+    }
+
+    public static Optional<DecimalType> getDecimalType(String hiveTypeName)
+    {
+        Matcher matcher = SUPPORTED_DECIMAL_TYPE.matcher(hiveTypeName);
+        if (matcher.matches()) {
+            int precision = parseInt(matcher.group(DECIMAL_PRECISION_GROUP));
+            int scale = parseInt(matcher.group(DECIMAL_SCALE_GROUP));
+            return Optional.of(createDecimalType(precision, scale));
+        }
+        else {
+            return Optional.empty();
+        }
+    }
+
     public static boolean isArrayType(Type type)
     {
         return type.getTypeSignature().getBase().equals(StandardTypes.ARRAY);
@@ -500,6 +557,35 @@ public final class HiveUtil
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for TIMESTAMP partition key: %s", value, name));
+        }
+    }
+
+    public static long shortDecimalPartitionKey(String value, DecimalType type, String name)
+    {
+        return decimalPartitionKey(value, type, name).unscaledValue().longValue();
+    }
+
+    public static Slice longDecimalPartitionKey(String value, DecimalType type, String name)
+    {
+        return LongDecimalType.unscaledValueToSlice(decimalPartitionKey(value, type, name).unscaledValue());
+    }
+
+    private static BigDecimal decimalPartitionKey(String value, DecimalType type, String name)
+    {
+        try {
+            if (value.endsWith(BIG_DECIMAL_POSTFIX)) {
+                value = value.substring(0, value.length() - BIG_DECIMAL_POSTFIX.length());
+            }
+
+            BigDecimal decimal = new BigDecimal(value);
+            decimal = decimal.setScale(type.getScale(), ROUND_UNNECESSARY);
+            if (decimal.precision() > type.getPrecision()) {
+                throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, type.toString(), name));
+            }
+            return decimal;
+        }
+        catch (NumberFormatException e) {
+            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, type.toString(), name));
         }
     }
 
