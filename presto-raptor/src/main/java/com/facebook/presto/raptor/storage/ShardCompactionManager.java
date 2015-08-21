@@ -196,11 +196,11 @@ public class ShardCompactionManager
             Long temporalColumnId = metadataDao.getTemporalColumnId(tableId);
             CompactionSetCreator compactionSetCreator;
             if (temporalColumnId == null) {
-                compactionSetCreator = new FileCompactionSetCreator(maxShardSize);
+                compactionSetCreator = new FileCompactionSetCreator(maxShardSize, maxShardRows);
             }
             else {
                 Type type = metadataDao.getTableColumn(tableId, temporalColumnId).getDataType();
-                compactionSetCreator = new TemporalCompactionSetCreator(maxShardSize, type);
+                compactionSetCreator = new TemporalCompactionSetCreator(maxShardSize, maxShardRows, type);
                 shards = filterShardsWithTemporalMetadata(shardMetadata, tableId, temporalColumnId);
             }
             addToCompactionQueue(compactionSetCreator, tableId, shards);

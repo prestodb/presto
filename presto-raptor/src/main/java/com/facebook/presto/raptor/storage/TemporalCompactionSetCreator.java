@@ -38,13 +38,17 @@ public class TemporalCompactionSetCreator
 {
     private final long maxShardSizeBytes;
     private final Type type;
+    private final long maxShardRows;
 
-    public TemporalCompactionSetCreator(DataSize maxShardSize, Type type)
+    public TemporalCompactionSetCreator(DataSize maxShardSize, long maxShardRows, Type type)
     {
         requireNonNull(maxShardSize, "maxShardSize is null");
         checkArgument(type.equals(DATE) || type.equals(TIMESTAMP), "type must be timestamp or date");
 
         this.maxShardSizeBytes = maxShardSize.toBytes();
+
+        checkArgument(maxShardRows > 0, "maxShardRows must be > 0");
+        this.maxShardRows = maxShardRows;
         this.type = requireNonNull(type, "type is null");
     }
 
@@ -66,17 +70,21 @@ public class TemporalCompactionSetCreator
                     .collect(toList());
 
             long consumedBytes = 0;
+            long consumedRows = 0;
             ImmutableSet.Builder<ShardMetadata> shardsToCompact = ImmutableSet.builder();
 
             for (ShardMetadata shard : shards) {
-                if ((consumedBytes + shard.getUncompressedSize()) > maxShardSizeBytes) {
+                if (((consumedBytes + shard.getUncompressedSize()) > maxShardSizeBytes) ||
+                        (consumedRows + shard.getRowCount() > maxShardRows)) {
                     // Finalize this compaction set, and start a new one for the rest of the shards
                     compactionSets.add(new CompactionSet(tableId, shardsToCompact.build()));
                     shardsToCompact = ImmutableSet.builder();
                     consumedBytes = 0;
+                    consumedRows = 0;
                 }
                 shardsToCompact.add(shard);
                 consumedBytes += shard.getUncompressedSize();
+                consumedRows += shard.getRowCount();
             }
             if (!shardsToCompact.build().isEmpty()) {
                 // create compaction set for the remaining shards of this day

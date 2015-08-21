@@ -35,11 +35,13 @@ import static org.testng.Assert.assertEquals;
 
 public class TestCompactionSetCreator
 {
+    private static final long MAX_SHARD_ROWS = 10_000;
+
     @Test
     public void testNonTemporalCompactionSetSimple()
             throws Exception
     {
-        CompactionSetCreator compactionSetCreator = new FileCompactionSetCreator(new DataSize(1, KILOBYTE));
+        CompactionSetCreator compactionSetCreator = new FileCompactionSetCreator(new DataSize(1, KILOBYTE), MAX_SHARD_ROWS);
 
         // compact into one shard
         Set<ShardMetadata> inputShards = ImmutableSet.of(
@@ -56,7 +58,7 @@ public class TestCompactionSetCreator
     public void testNonTemporalCompactionSet()
             throws Exception
     {
-        CompactionSetCreator compactionSetCreator = new FileCompactionSetCreator(new DataSize(100, BYTE));
+        CompactionSetCreator compactionSetCreator = new FileCompactionSetCreator(new DataSize(100, BYTE), MAX_SHARD_ROWS);
         long tableId = 1L;
 
         // compact into two shards
@@ -78,7 +80,7 @@ public class TestCompactionSetCreator
     public void testTemporalCompactionNoCompactionAcrossDays()
             throws Exception
     {
-        CompactionSetCreator compactionSetCreator = new TemporalCompactionSetCreator(new DataSize(100, BYTE), TIMESTAMP);
+        CompactionSetCreator compactionSetCreator = new TemporalCompactionSetCreator(new DataSize(100, BYTE), MAX_SHARD_ROWS, TIMESTAMP);
         long tableId = 1L;
         long day1 = Duration.ofDays(Duration.ofMillis(System.currentTimeMillis()).toDays()).toMillis();
         long day2 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 1).toMillis();
@@ -101,7 +103,7 @@ public class TestCompactionSetCreator
     public void testTemporalCompactionSpanningDays()
             throws Exception
     {
-        CompactionSetCreator compactionSetCreator = new TemporalCompactionSetCreator(new DataSize(100, BYTE), TIMESTAMP);
+        CompactionSetCreator compactionSetCreator = new TemporalCompactionSetCreator(new DataSize(100, BYTE), MAX_SHARD_ROWS, TIMESTAMP);
         long tableId = 1L;
         long day1 = Duration.ofDays(Duration.ofMillis(System.currentTimeMillis()).toDays()).toMillis();
         long day2 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 1).toMillis();
@@ -130,7 +132,7 @@ public class TestCompactionSetCreator
     public void testTemporalCompactionDate()
             throws Exception
     {
-        CompactionSetCreator compactionSetCreator = new TemporalCompactionSetCreator(new DataSize(100, BYTE), DATE);
+        CompactionSetCreator compactionSetCreator = new TemporalCompactionSetCreator(new DataSize(100, BYTE), MAX_SHARD_ROWS, DATE);
         long tableId = 1L;
         long day1 = Duration.ofMillis(System.currentTimeMillis()).toDays();
         long day2 = day1 + 1;
