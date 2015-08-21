@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
@@ -90,6 +91,8 @@ public class ExchangeClient
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
+    private final SystemMemoryUsageListener systemMemoryUsageListener;
+
     public ExchangeClient(
             BlockEncodingSerde blockEncodingSerde,
             DataSize maxBufferedBytes,
@@ -99,6 +102,19 @@ public class ExchangeClient
             HttpClient httpClient,
             ScheduledExecutorService executor)
     {
+        this(blockEncodingSerde, maxBufferedBytes, maxResponseSize, concurrentRequestMultiplier, minErrorDuration, httpClient, executor, deltaMemoryInBytes -> { });
+    }
+
+    public ExchangeClient(
+            BlockEncodingSerde blockEncodingSerde,
+            DataSize maxBufferedBytes,
+            DataSize maxResponseSize,
+            int concurrentRequestMultiplier,
+            Duration minErrorDuration,
+            HttpClient httpClient,
+            ScheduledExecutorService executor,
+            SystemMemoryUsageListener systemMemoryUsageListener)
+    {
         this.blockEncodingSerde = blockEncodingSerde;
         this.maxBufferedBytes = maxBufferedBytes.toBytes();
         this.maxResponseSize = maxResponseSize;
@@ -106,6 +122,7 @@ public class ExchangeClient
         this.minErrorDuration = minErrorDuration;
         this.httpClient = httpClient;
         this.executor = executor;
+        this.systemMemoryUsageListener = systemMemoryUsageListener;
     }
 
     public synchronized ExchangeClientStatus getStatus()
@@ -198,6 +215,7 @@ public class ExchangeClient
         if (page != null) {
             synchronized (this) {
                 bufferBytes -= page.getSizeInBytes();
+                systemMemoryUsageListener.updateSystemMemoryUsage(-page.getSizeInBytes());
             }
             if (!closed.get() && pageBuffer.peek() == NO_MORE_PAGES) {
                 closed.set(true);
@@ -220,6 +238,7 @@ public class ExchangeClient
             closeQuietly(client);
         }
         pageBuffer.clear();
+        systemMemoryUsageListener.updateSystemMemoryUsage(-bufferBytes);
         bufferBytes = 0;
         if (pageBuffer.peekLast() != NO_MORE_PAGES) {
             checkState(pageBuffer.add(NO_MORE_PAGES), "Could not add no more pages marker");
@@ -304,6 +323,7 @@ public class ExchangeClient
         notifyBlockedCallers();
 
         bufferBytes += page.getSizeInBytes();
+        systemMemoryUsageListener.updateSystemMemoryUsage(page.getSizeInBytes());
         successfulRequests++;
 
         // AVG_n = AVG_(n-1) * (n-1)/n + VALUE_n / n

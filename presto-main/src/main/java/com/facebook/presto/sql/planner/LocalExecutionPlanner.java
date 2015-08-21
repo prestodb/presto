@@ -24,7 +24,7 @@ import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFacto
 import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.DeleteOperator.DeleteOperatorFactory;
 import com.facebook.presto.operator.DriverFactory;
-import com.facebook.presto.operator.ExchangeClient;
+import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
@@ -149,7 +149,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskAggregationConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskHashBuildConcurrency;
@@ -192,7 +191,7 @@ public class LocalExecutionPlanner
     private final PageSourceProvider pageSourceProvider;
     private final IndexManager indexManager;
     private final PageSinkManager pageSinkManager;
-    private final Supplier<ExchangeClient> exchangeClientSupplier;
+    private final ExchangeClientSupplier exchangeClientSupplier;
     private final ExpressionCompiler compiler;
     private final boolean interpreterEnabled;
     private final DataSize maxIndexMemorySize;
@@ -206,7 +205,7 @@ public class LocalExecutionPlanner
             PageSourceProvider pageSourceProvider,
             IndexManager indexManager,
             PageSinkManager pageSinkManager,
-            Supplier<ExchangeClient> exchangeClientSupplier,
+            ExchangeClientSupplier exchangeClientSupplier,
             ExpressionCompiler compiler,
             IndexJoinLookupStats indexJoinLookupStats,
             CompilerConfig compilerConfig,

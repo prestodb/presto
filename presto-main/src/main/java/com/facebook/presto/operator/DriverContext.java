@@ -75,6 +75,7 @@ public class DriverContext
     private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
 
     private final AtomicLong memoryReservation = new AtomicLong();
+    private final AtomicLong systemMemoryReservation = new AtomicLong();
 
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
     private final boolean partitioned;
@@ -200,6 +201,14 @@ public class DriverContext
         return future;
     }
 
+    public ListenableFuture<?> reserveSystemMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        ListenableFuture<?> future = pipelineContext.reserveSystemMemory(bytes);
+        systemMemoryReservation.getAndAdd(bytes);
+        return future;
+    }
+
     public boolean tryReserveMemory(long bytes)
     {
         if (pipelineContext.tryReserveMemory(bytes)) {
@@ -215,6 +224,14 @@ public class DriverContext
         checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
         pipelineContext.freeMemory(bytes);
         memoryReservation.getAndAdd(-bytes);
+    }
+
+    public void freeSystemMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(bytes <= systemMemoryReservation.get(), "tried to free more memory than is reserved");
+        pipelineContext.freeSystemMemory(bytes);
+        systemMemoryReservation.getAndAdd(-bytes);
     }
 
     public void moreMemoryAvailable()
@@ -351,6 +368,7 @@ public class DriverContext
                 queuedTime.convertToMostSuccinctTimeUnit(),
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
+                new DataSize(systemMemoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
