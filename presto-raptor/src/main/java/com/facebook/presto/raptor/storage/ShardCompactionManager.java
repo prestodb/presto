@@ -82,6 +82,7 @@ public class ShardCompactionManager
 {
     private static final double FILL_FACTOR = 0.75;
     private static final Logger log = Logger.get(ShardCompactionManager.class);
+    private static final int MAX_PENDING_COMPACTIONS = 500;
 
     private final ScheduledExecutorService compactionDiscoveryService = newScheduledThreadPool(1, daemonThreadsNamed("shard-compaction-discovery"));
     private final ExecutorService compactionDriverService = newFixedThreadPool(1, daemonThreadsNamed("shard-compaction-driver"));
@@ -196,12 +197,17 @@ public class ShardCompactionManager
 
     private void discoverShards()
     {
+        if (shardsInProgress.size() >= MAX_PENDING_COMPACTIONS) {
+            return;
+        }
+
         for (long tableId : metadataDao.listTableIds()) {
             Set<ShardMetadata> shardMetadata = shardManager.getNodeTableShards(currentNodeIdentifier, tableId);
             Set<ShardMetadata> shards = shardMetadata.stream()
                     .filter(this::needsCompaction)
                     .filter(shard -> !shardsInProgress.contains(shard.getShardId()))
                     .collect(toSet());
+
             if (shards.size() <= 1) {
                 continue;
             }
@@ -351,7 +357,6 @@ public class ShardCompactionManager
                 TableMetadata tableMetadata = getTableMetadata(compactionSet.getTableId());
                 List<ShardInfo> newShards = performCompaction(shardUuids, tableMetadata);
                 shardManager.replaceShardIds(tableMetadata.getTableId(), tableMetadata.getColumns(), shardIds, newShards);
-                shardsInProgress.removeAll(shardIds);
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);
