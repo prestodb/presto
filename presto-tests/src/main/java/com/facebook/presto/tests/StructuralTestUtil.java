@@ -17,9 +17,13 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.LongDecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
@@ -87,5 +91,29 @@ public final class StructuralTestUtil
             appendToBlockBuilder(parameterTypes.get(i), values[i], blockBuilder);
         }
         return blockBuilder.build();
+    }
+
+    public static Block decimalArrayBlockOf(DecimalType type, BigDecimal decimal)
+    {
+        if (type.isShort()) {
+            long longDecimal = decimal.unscaledValue().longValue();
+            return arrayBlockOf(type, longDecimal);
+        }
+        else {
+            Slice sliceDecimal = LongDecimalType.unscaledValueToSlice(decimal.unscaledValue());
+            return arrayBlockOf(type, sliceDecimal);
+        }
+    }
+
+    public static Block decimalMapBlockOf(DecimalType type, BigDecimal decimal)
+    {
+        if (type.isShort()) {
+            long longDecimal = decimal.unscaledValue().longValue();
+            return mapBlockOf(type, type, longDecimal, longDecimal);
+        }
+        else {
+            Slice sliceDecimal = LongDecimalType.unscaledValueToSlice(decimal.unscaledValue());
+            return mapBlockOf(type, type, sliceDecimal, sliceDecimal);
+        }
     }
 }
