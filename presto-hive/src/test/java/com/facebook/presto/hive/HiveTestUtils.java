@@ -22,12 +22,15 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.LongDecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static com.facebook.presto.type.TypeUtils.appendToBlockBuilder;
@@ -65,6 +68,18 @@ public final class HiveTestUtils
         return types.build();
     }
 
+    public static Slice decimalArraySliceOf(DecimalType type, BigDecimal decimal)
+    {
+        if (type.isShort()) {
+            long longDecimal = decimal.unscaledValue().longValue();
+            return arraySliceOf(type, longDecimal);
+        }
+        else {
+            Slice sliceDecimal = LongDecimalType.unscaledValueToSlice(decimal.unscaledValue());
+            return arraySliceOf(type, sliceDecimal);
+        }
+    }
+
     public static Slice arraySliceOf(Type elementType, Object... values)
     {
         BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1024);
@@ -72,6 +87,18 @@ public final class HiveTestUtils
             appendToBlockBuilder(elementType, value, blockBuilder);
         }
         return buildStructuralSlice(blockBuilder);
+    }
+
+    public static Slice decimalMapSliceOf(DecimalType type, BigDecimal decimal)
+    {
+        if (type.isShort()) {
+            long longDecimal = decimal.unscaledValue().longValue();
+            return mapSliceOf(type, type, longDecimal, longDecimal);
+        }
+        else {
+            Slice sliceDecimal = LongDecimalType.unscaledValueToSlice(decimal.unscaledValue());
+            return mapSliceOf(type, type, sliceDecimal, sliceDecimal);
+        }
     }
 
     public static Slice mapSliceOf(Type keyType, Type valueType, Object key, Object value)

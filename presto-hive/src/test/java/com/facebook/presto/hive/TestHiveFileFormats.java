@@ -324,7 +324,7 @@ public class TestHiveFileFormats
             public boolean apply(TestColumn testColumn)
             {
                 ObjectInspector objectInspector = testColumn.getObjectInspector();
-                return !hasType(objectInspector, PrimitiveCategory.DATE);
+                return !hasType(objectInspector, PrimitiveCategory.DATE) && !hasType(objectInspector, PrimitiveCategory.DECIMAL);
             }
 
         }));
@@ -355,7 +355,7 @@ public class TestHiveFileFormats
             public boolean apply(TestColumn testColumn)
             {
                 ObjectInspector objectInspector = testColumn.getObjectInspector();
-                return !hasType(objectInspector, PrimitiveCategory.DATE);
+                return !hasType(objectInspector, PrimitiveCategory.DATE) && !hasType(objectInspector, PrimitiveCategory.DECIMAL);
             }
 
         }));

@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SerializableNativeValue;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -61,8 +62,11 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
@@ -87,6 +91,7 @@ import static com.facebook.presto.hive.HiveType.getType;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
@@ -94,12 +99,14 @@ import static com.google.common.collect.Lists.transform;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.Double.parseDouble;
+import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getTableMetadata;
 import static org.apache.hadoop.hive.metastore.Warehouse.makePartName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
+import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_IDS_CONF_STR;
@@ -114,6 +121,10 @@ public final class HiveUtil
 
     private static final DateTimeFormatter HIVE_DATE_PARSER = ISODateTimeFormat.date().withZoneUTC();
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
+
+    private static final Pattern SUPPORTED_DECIMAL_TYPE = Pattern.compile(DECIMAL_TYPE_NAME + "\\((\\d+),(\\d+)\\)");
+    private static final int DECIMAL_PRECISION_GROUP = 1;
+    private static final int DECIMAL_SCALE_GROUP = 2;
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
@@ -428,6 +439,23 @@ public final class HiveUtil
         data = data.substring(VIEW_PREFIX.length());
         data = data.substring(0, data.length() - VIEW_SUFFIX.length());
         return new String(Base64.getDecoder().decode(data), UTF_8);
+    }
+
+    public static Optional<DecimalType> getDecimalType(HiveType hiveType) {
+        return getDecimalType(hiveType.getHiveTypeName());
+    }
+
+    public static Optional<DecimalType> getDecimalType(String hiveTypeName)
+    {
+        Matcher matcher = SUPPORTED_DECIMAL_TYPE.matcher(hiveTypeName);
+        if (matcher.matches()) {
+            int precision = parseInt(matcher.group(DECIMAL_PRECISION_GROUP));
+            int scale = parseInt(matcher.group(DECIMAL_SCALE_GROUP));
+            return Optional.of(createDecimalType(precision, scale));
+        }
+        else {
+            return Optional.empty();
+        }
     }
 
     public static boolean isArrayType(Type type)

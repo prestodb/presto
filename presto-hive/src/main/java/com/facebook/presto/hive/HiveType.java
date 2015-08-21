@@ -17,6 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TimestampType;
@@ -41,8 +42,10 @@ import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.hive.HiveUtil.getDecimalType;
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
 import static com.facebook.presto.hive.HiveUtil.isMapType;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
@@ -51,6 +54,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -130,7 +134,7 @@ public final class HiveType
     public static HiveType getHiveType(String hiveTypeName)
     {
         HiveType hiveType = new HiveType(hiveTypeName);
-        if (!isStructuralType(hiveType) && !SUPPORTED_HIVE_TYPES.contains(hiveType)) {
+        if (!isStructuralType(hiveType) && !SUPPORTED_HIVE_TYPES.contains(hiveType) && !getDecimalType(hiveType).isPresent()) {
             return null;
         }
         return hiveType;
@@ -180,6 +184,10 @@ public final class HiveType
             HiveType hiveValueType = toHiveType(type.getTypeParameters().get(1));
             return new HiveType(format("map<%s,%s>", hiveKeyType.getHiveTypeName(), hiveValueType.getHiveTypeName()));
         }
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            return new HiveType(format("decimal(%s,%s)", decimalType.getPrecision(), decimalType.getScale()));
+        }
         throw new PrestoException(NOT_SUPPORTED, "unsupported type: " + type);
     }
 
@@ -216,6 +224,11 @@ public final class HiveType
 
     public static Type getType(String hiveType)
     {
+        Optional<DecimalType> decimalType = getDecimalType(hiveType);
+        if (decimalType.isPresent()) {
+            return decimalType.get();
+        }
+
         switch (hiveType) {
             case BOOLEAN_TYPE_NAME:
                 return BOOLEAN;
@@ -245,8 +258,7 @@ public final class HiveType
     {
         switch (fieldInspector.getCategory()) {
             case PRIMITIVE:
-                PrimitiveObjectInspector.PrimitiveCategory primitiveCategory = ((PrimitiveObjectInspector) fieldInspector).getPrimitiveCategory();
-                return getPrimitiveType(primitiveCategory);
+                return getPrimitiveType(((PrimitiveObjectInspector) fieldInspector));
             case MAP:
                 MapObjectInspector mapObjectInspector = checkType(fieldInspector, MapObjectInspector.class, "fieldInspector");
                 Type keyType = getType(mapObjectInspector.getMapKeyObjectInspector(), typeManager);
@@ -280,9 +292,9 @@ public final class HiveType
         }
     }
 
-    private static Type getPrimitiveType(PrimitiveObjectInspector.PrimitiveCategory primitiveCategory)
+    public static Type getPrimitiveType(PrimitiveObjectInspector primitiveObjectInspector)
     {
-        switch (primitiveCategory) {
+        switch (primitiveObjectInspector.getPrimitiveCategory()) {
             case BOOLEAN:
                 return BOOLEAN;
             case BYTE:
@@ -305,6 +317,8 @@ public final class HiveType
                 return TIMESTAMP;
             case BINARY:
                 return VARBINARY;
+            case DECIMAL:
+                return createDecimalType(primitiveObjectInspector.precision(), primitiveObjectInspector.scale());
             default:
                 return null;
         }

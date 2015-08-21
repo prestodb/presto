@@ -20,6 +20,7 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.HiveUtil;
 import com.facebook.presto.hive.util.Types;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
@@ -30,6 +31,7 @@ import org.apache.hadoop.hive.ql.io.orc.RecordReader;
 import org.apache.hadoop.hive.serde2.io.ByteWritable;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.DoubleWritable;
+import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
 import org.apache.hadoop.hive.serde2.io.TimestampWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -66,8 +68,10 @@ import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.hive.util.DecimalUtils.getLongDecimalValue;
+import static com.facebook.presto.hive.util.DecimalUtils.getShortDecimalValue;
 import static com.facebook.presto.hive.util.SerDeUtils.getBlockSlice;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -442,6 +446,30 @@ public class OrcHiveRecordCursor
         }
     }
 
+    private void parseDecimalColumn(int column)
+    {
+        // don't include column number in message because it causes boxing which is expensive here
+        checkArgument(!isPartitionColumn[column], "Column is a partition key");
+
+        loaded[column] = true;
+        nulls[column] = false;
+
+        Object object = getFieldValue(row, hiveColumnIndexes[column]);
+        if (object == null) {
+            nulls[column] = true;
+            return;
+        }
+
+        HiveDecimalWritable writable = (HiveDecimalWritable) object;
+        DecimalType columnType = (DecimalType) types[column];
+        if (columnType.isShort()) {
+            longs[column] = getShortDecimalValue(writable, columnType.getScale());
+        }
+        else {
+            slices[column] = getLongDecimalValue(writable, columnType.getScale());
+        }
+    }
+
     @Override
     public boolean isNull(int fieldId)
     {
@@ -472,6 +500,9 @@ public class OrcHiveRecordCursor
         }
         else if (types[column].equals(DATE)) {
             parseLongColumn(column);
+        }
+        else if (types[column] instanceof DecimalType) {
+            parseDecimalColumn(column);
         }
         else {
             throw new UnsupportedOperationException("Unsupported column type: " + types[column]);

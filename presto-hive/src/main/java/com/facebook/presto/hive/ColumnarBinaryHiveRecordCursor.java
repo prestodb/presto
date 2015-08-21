@@ -14,6 +14,9 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.LongDecimalType;
+import com.facebook.presto.spi.type.ShortDecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
@@ -23,6 +26,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefWritable;
+import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.TimestampWritable;
 import org.apache.hadoop.hive.serde2.lazy.ByteArrayRef;
 import org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryFactory;
@@ -56,12 +60,15 @@ import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
+import static com.facebook.presto.hive.util.DecimalUtils.getLongDecimalValue;
+import static com.facebook.presto.hive.util.DecimalUtils.getShortDecimalValue;
 import static com.facebook.presto.hive.util.SerDeUtils.getBlockSlice;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -103,6 +110,8 @@ class ColumnarBinaryHiveRecordCursor<K>
     private final long totalBytes;
     private long completedBytes;
     private boolean closed;
+
+    private final HiveDecimalWritable decimalWritable = new HiveDecimalWritable();
 
     private static final byte HIVE_EMPTY_STRING_BYTE = (byte) 0xbf;
 
@@ -319,9 +328,9 @@ class ColumnarBinaryHiveRecordCursor<K>
     {
         checkState(!closed, "Cursor is closed");
 
-        if (!types[fieldId].equals(BIGINT) && !types[fieldId].equals(DATE) && !types[fieldId].equals(TIMESTAMP)) {
+        if (!types[fieldId].equals(BIGINT) && !types[fieldId].equals(DATE) && !types[fieldId].equals(TIMESTAMP) && !(types[fieldId] instanceof ShortDecimalType)) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
-            throw new IllegalArgumentException(format("Expected field to be %s, %s or %s , actual %s (field %s)", BIGINT, DATE, TIMESTAMP, types[fieldId], fieldId));
+            throw new IllegalArgumentException(format("Expected field to be %s, %s, %s or %s , actual %s (field %s)", BIGINT, DATE, TIMESTAMP, DECIMAL, types[fieldId], fieldId));
         }
         if (!loaded[fieldId]) {
             parseLongColumn(fieldId);
@@ -492,9 +501,9 @@ class ColumnarBinaryHiveRecordCursor<K>
         checkState(!closed, "Cursor is closed");
 
         Type type = types[fieldId];
-        if (!type.equals(VARCHAR) && !type.equals(VARBINARY) && !isStructuralType(hiveTypes[fieldId])) {
+        if (!type.equals(VARCHAR) && !type.equals(VARBINARY) && !isStructuralType(hiveTypes[fieldId]) && !(type instanceof LongDecimalType)) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
-            throw new IllegalArgumentException(format("Expected field to be VARCHAR or VARBINARY, actual %s (field %s)", type, fieldId));
+            throw new IllegalArgumentException(format("Expected field to be VARCHAR, VARBINARY or DECIMAL, actual %s (field %s)", type, fieldId));
         }
 
         if (!loaded[fieldId]) {
@@ -560,6 +569,54 @@ class ColumnarBinaryHiveRecordCursor<K>
         }
     }
 
+    private void parseDecimalColumn(int column)
+    {
+        // don't include column number in message because it causes boxing which is expensive here
+        checkArgument(!isPartitionColumn[column], "Column is a partition key");
+
+        loaded[column] = true;
+
+        if (hiveColumnIndexes[column] >= value.size()) {
+            // this partition may contain fewer fields than what's declared in the schema
+            // this happens when additional columns are added to the hive table after a partition has been created
+            nulls[column] = true;
+        }
+        else {
+            BytesRefWritable fieldData = value.unCheckedGet(hiveColumnIndexes[column]);
+
+            byte[] bytes;
+            try {
+                bytes = fieldData.getData();
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+
+            int start = fieldData.getStart();
+            int length = fieldData.getLength();
+
+            parseDecimalColumn(column, bytes, start, length);
+        }
+    }
+
+    private void parseDecimalColumn(int column, byte[] bytes, int start, int length)
+    {
+        if (length == 0) {
+            nulls[column] = true;
+        }
+        else {
+            nulls[column] = false;
+            decimalWritable.setFromBytes(bytes, start, length);
+            DecimalType columnType = (DecimalType) types[column];
+            if (columnType.isShort()) {
+                longs[column] = getShortDecimalValue(decimalWritable, columnType.getScale());
+            }
+            else {
+                slices[column] = getLongDecimalValue(decimalWritable, columnType.getScale());
+            }
+        }
+    }
+
     @Override
     public boolean isNull(int fieldId)
     {
@@ -591,6 +648,9 @@ class ColumnarBinaryHiveRecordCursor<K>
         }
         else if (TIMESTAMP.equals(type)) {
             parseLongColumn(column);
+        }
+        else if (type instanceof DecimalType) {
+            parseDecimalColumn(column);
         }
         else {
             throw new UnsupportedOperationException("Unsupported column type: " + type);

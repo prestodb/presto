@@ -14,6 +14,9 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.LongDecimalType;
+import com.facebook.presto.spi.type.ShortDecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
@@ -30,6 +33,7 @@ import org.apache.hadoop.mapred.RecordReader;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +60,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -66,6 +71,7 @@ import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.math.BigDecimal.ROUND_HALF_UP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 class ColumnarTextHiveRecordCursor<K>
@@ -314,9 +320,9 @@ class ColumnarTextHiveRecordCursor<K>
     {
         checkState(!closed, "Cursor is closed");
 
-        if (!types[fieldId].equals(BIGINT) && !types[fieldId].equals(DATE) && !types[fieldId].equals(TIMESTAMP)) {
+        if (!types[fieldId].equals(BIGINT) && !types[fieldId].equals(DATE) && !types[fieldId].equals(TIMESTAMP) && !(types[fieldId] instanceof ShortDecimalType)) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
-            throw new IllegalArgumentException(String.format("Expected field to be %s, %s or %s , actual %s (field %s)", BIGINT, DATE, TIMESTAMP, types[fieldId], fieldId));
+            throw new IllegalArgumentException(String.format("Expected field to be %s, %s, %s or %s , actual %s (field %s)", BIGINT, DATE, TIMESTAMP, DECIMAL, types[fieldId], fieldId));
         }
 
         if (!loaded[fieldId]) {
@@ -502,6 +508,62 @@ class ColumnarTextHiveRecordCursor<K>
         nulls[column] = wasNull;
     }
 
+    private void parseDecimalColumn(int column)
+    {
+        // don't include column number in message because it causes boxing which is expensive here
+        checkArgument(!isPartitionColumn[column], "Column is a partition key");
+
+        loaded[column] = true;
+
+        if (hiveColumnIndexes[column] >= value.size()) {
+            // this partition may contain fewer fields than what's declared in the schema
+            // this happens when additional columns are added to the hive table after a partition has been created
+            nulls[column] = true;
+        }
+        else {
+            BytesRefWritable fieldData = value.unCheckedGet(hiveColumnIndexes[column]);
+
+            byte[] bytes;
+            try {
+                bytes = fieldData.getData();
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+
+            int start = fieldData.getStart();
+            int length = fieldData.getLength();
+
+            parseDecimalColumn(column, bytes, start, length);
+        }
+    }
+
+    private void parseDecimalColumn(int column, byte[] bytes, int start, int length)
+    {
+        boolean wasNull;
+        if (length == 0 || (length == "\\N".length() && bytes[start] == '\\' && bytes[start + 1] == 'N')) {
+            wasNull = true;
+        }
+        else {
+            DecimalType columnType = (DecimalType) types[column];
+            BigDecimal decimal = new BigDecimal(new String(bytes, start, length, UTF_8));
+
+            checkState(decimal.scale() <= columnType.getScale(), "Read decimal value scale larger than column scale");
+            decimal = decimal.setScale(columnType.getScale(), ROUND_HALF_UP);
+            checkState(decimal.precision() <= columnType.getPrecision(), "Read decimal precision larger than column precision");
+
+            if (columnType.isShort()) {
+                longs[column] = decimal.unscaledValue().longValue();
+            }
+            else {
+                slices[column] = LongDecimalType.unscaledValueToSlice(decimal.unscaledValue());
+            }
+
+            wasNull = false;
+        }
+        nulls[column] = wasNull;
+    }
+
     @Override
     public boolean isNull(int fieldId)
     {
@@ -533,6 +595,9 @@ class ColumnarTextHiveRecordCursor<K>
         }
         else if (type.equals(TIMESTAMP)) {
             parseLongColumn(column);
+        }
+        else if (type instanceof DecimalType) {
+            parseDecimalColumn(column);
         }
         else {
             throw new UnsupportedOperationException("Unsupported column type: " + type);
