@@ -33,6 +33,7 @@ import org.apache.hadoop.io.Text;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
@@ -91,6 +92,10 @@ public final class OrcFileRewriter
         long uncompressedSize = 0;
 
         while (true) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedIOException();
+            }
+
             row = rowsToDelete.nextClearBit(row);
             if (row >= inputRowCount) {
                 return new OrcFileInfo(rowCount, uncompressedSize);
