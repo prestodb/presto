@@ -20,10 +20,11 @@ import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.stream.DoubleStream;
 
+import static com.facebook.presto.block.BlockAssertions.createDoubleSequenceBlock;
+import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.constructDoublePrimitiveArray;
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.createDoubleArbitraryBlock;
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.createDoubleSequenceBlock;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class TestCorrelationAggregation
@@ -32,7 +33,7 @@ public class TestCorrelationAggregation
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        return new Block[] {createDoubleSequenceBlock(start, length), createDoubleSequenceBlock(start + 2, length)};
+        return new Block[] {createDoubleSequenceBlock(start, start + length), createDoubleSequenceBlock(start + 2, start + 2 + length)};
     }
 
     @Override
@@ -60,8 +61,8 @@ public class TestCorrelationAggregation
     @Test
     public void testDivisionByZero()
     {
-        testAggregation(null, createDoubleArbitraryBlock(2, 2, 2, 2, 2), createDoubleArbitraryBlock(1, 4, 9, 16, 25));
-        testAggregation(null, createDoubleArbitraryBlock(1, 4, 9, 16, 25), createDoubleArbitraryBlock(2, 2, 2, 2, 2));
+        testAggregation(null, createDoublesBlock(2.0, 2.0, 2.0, 2.0, 2.0), createDoublesBlock(1.0, 4.0, 9.0, 16.0, 25.0));
+        testAggregation(null, createDoublesBlock(1.0, 4.0, 9.0, 16.0, 25.0), createDoublesBlock(2.0, 2.0, 2.0, 2.0, 2.0));
     }
 
     @Test
@@ -76,6 +77,11 @@ public class TestCorrelationAggregation
         PearsonsCorrelation corr = new PearsonsCorrelation();
         double expected = corr.correlation(x, y);
         checkArgument(Double.isFinite(expected) && expected != 0.0 && expected != 1.0, "Expected result is trivial");
-        testAggregation(expected, createDoubleArbitraryBlock(y), createDoubleArbitraryBlock(x));
+        testAggregation(expected, createDoublesBlock(box(y)), createDoublesBlock(box(x)));
+    }
+
+    private Double[] box(double[] values)
+    {
+        return DoubleStream.of(values).boxed().toArray(Double[]::new);
     }
 }

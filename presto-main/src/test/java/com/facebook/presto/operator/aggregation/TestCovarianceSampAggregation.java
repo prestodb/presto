@@ -21,8 +21,8 @@ import org.testng.Assert;
 
 import java.util.List;
 
+import static com.facebook.presto.block.BlockAssertions.createDoubleSequenceBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.constructDoublePrimitiveArray;
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.createDoubleSequenceBlock;
 
 public class TestCovarianceSampAggregation
         extends AbstractTestAggregationFunction
@@ -30,7 +30,7 @@ public class TestCovarianceSampAggregation
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        return new Block[]{createDoubleSequenceBlock(start, length), createDoubleSequenceBlock(start + 5, length)};
+        return new Block[]{createDoubleSequenceBlock(start, start + length), createDoubleSequenceBlock(start + 5, start + 5 + length)};
     }
 
     @Override
