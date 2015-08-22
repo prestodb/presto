@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -110,11 +111,13 @@ public class TableWriterOperator
     private final ConnectorPageSink pageSink;
     private final Optional<Integer> sampleWeightChannel;
     private final List<Integer> inputChannels;
+    private final SystemMemoryUsageListener systemMemoryUsageListener;
 
     private State state = State.RUNNING;
     private long rowCount;
     private boolean committed;
     private boolean closed;
+    private long bufferBytes;
 
     public TableWriterOperator(OperatorContext operatorContext,
             ConnectorPageSink pageSink,
@@ -125,6 +128,7 @@ public class TableWriterOperator
         this.pageSink = checkNotNull(pageSink, "pageSink is null");
         this.sampleWeightChannel = checkNotNull(sampleWeightChannel, "sampleWeightChannel is null");
         this.inputChannels = checkNotNull(inputChannels, "inputChannels is null");
+        this.systemMemoryUsageListener = new SystemMemoryUpdater(this.operatorContext);
     }
 
     @Override
@@ -175,6 +179,8 @@ public class TableWriterOperator
         }
         pageSink.appendPage(new Page(blocks), sampleWeightBlock);
         rowCount += page.getPositionCount();
+        systemMemoryUsageListener.updateSystemMemoryUsage(pageSink.getDeltaMemory() - bufferBytes);
+        bufferBytes = pageSink.getDeltaMemory();
     }
 
     @Override
@@ -187,6 +193,8 @@ public class TableWriterOperator
 
         Collection<Slice> fragments = pageSink.commit();
         committed = true;
+        systemMemoryUsageListener.updateSystemMemoryUsage(pageSink.getDeltaMemory() - bufferBytes);
+        bufferBytes = pageSink.getDeltaMemory();
 
         PageBuilder page = new PageBuilder(TYPES);
         BlockBuilder rowsBuilder = page.getBlockBuilder(0);
@@ -216,6 +224,8 @@ public class TableWriterOperator
             if (!committed) {
                 pageSink.rollback();
             }
+            systemMemoryUsageListener.updateSystemMemoryUsage(-bufferBytes);
+            bufferBytes = 0;
         }
     }
 }

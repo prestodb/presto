@@ -33,4 +33,6 @@ public interface StoragePageSink
     List<ShardInfo> commit();
 
     void rollback();
+
+    long getDeltaMemory();
 }

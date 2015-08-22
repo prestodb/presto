@@ -56,6 +56,12 @@ public class BlackHolePageSinkProvider
         }
 
         @Override
+        public long getDeltaMemory()
+        {
+            return 0;
+        }
+
+        @Override
         public void rollback()
         {
         }

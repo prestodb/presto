@@ -168,6 +168,12 @@ public class CassandraRecordSink
         return columnTypes;
     }
 
+    @Override
+    public long getDeltaMemory()
+    {
+        return 0;
+    }
+
     private void append(Object value)
     {
         checkState(field != -1, "not in record");

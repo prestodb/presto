@@ -69,6 +69,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
@@ -244,7 +245,7 @@ public class OrcStorageManager
     @Override
     public PageBuffer createPageBuffer()
     {
-        return new PageBuffer(maxBufferSize.toBytes(), Integer.MAX_VALUE);
+        return new PageBuffer(maxBufferSize.toBytes(), Integer.MAX_VALUE, new AtomicLong());
     }
 
     @Override
@@ -516,6 +517,17 @@ public class OrcStorageManager
             if (writer != null) {
                 writer.close();
                 writer = null;
+            }
+        }
+
+        @Override
+        public long getDeltaMemory()
+        {
+            if (writer != null) {
+                return writer.getDeltaMemory();
+            }
+            else {
+                return 0;
             }
         }
 

@@ -40,6 +40,12 @@ public class RecordPageSink
     }
 
     @Override
+    public long getDeltaMemory()
+    {
+        return recordSink.getDeltaMemory();
+    }
+
+    @Override
     public void rollback()
     {
         recordSink.rollback();
