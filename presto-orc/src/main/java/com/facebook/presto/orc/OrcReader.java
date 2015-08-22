@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
@@ -56,8 +57,16 @@ public class OrcReader
     public OrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader)
             throws IOException
     {
+        this(orcDataSource, metadataReader, new AtomicLong());
+    }
+
+    // This is based on the Apache Hive ORC code
+    public OrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader, AtomicLong deltaMemory)
+            throws IOException
+    {
         this.orcDataSource = checkNotNull(orcDataSource, "orcDataSource is null");
         this.metadataReader = checkNotNull(metadataReader, "metadataReader is null");
+        checkNotNull(deltaMemory, "deltaMemory is null");
 
         //
         // Read the file tail:
@@ -118,14 +127,16 @@ public class OrcReader
             completeFooterSlice = Slices.wrappedBuffer(buffer, buffer.length - completeFooterSize, completeFooterSize);
         }
 
+        deltaMemory.getAndAdd(buffer.length);
+
         // read metadata
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
-        InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), compressionKind, bufferSize);
+        InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), compressionKind, bufferSize, deltaMemory);
         this.metadata = metadataReader.readMetadata(metadataInputStream);
 
         // read footer
         Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
-        InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), compressionKind, bufferSize);
+        InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), compressionKind, bufferSize, deltaMemory);
         this.footer = metadataReader.readFooter(footerInputStream);
     }
 
@@ -183,7 +194,42 @@ public class OrcReader
                 bufferSize,
                 footer.getRowsInRowGroup(),
                 checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null"),
-                metadataReader);
+                metadataReader,
+                new AtomicLong());
+    }
+
+    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AtomicLong deltaMemory)
+            throws IOException
+    {
+        return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, deltaMemory);
+    }
+
+    public OrcRecordReader createRecordReader(
+            Map<Integer, Type> includedColumns,
+            OrcPredicate predicate,
+            long offset,
+            long length,
+            DateTimeZone hiveStorageTimeZone,
+            AtomicLong deltaMemory)
+            throws IOException
+    {
+        return new OrcRecordReader(
+                checkNotNull(includedColumns, "includedColumns is null"),
+                checkNotNull(predicate, "predicate is null"),
+                footer.getNumberOfRows(),
+                footer.getStripes(),
+                footer.getFileStats(),
+                metadata.getStripeStatsList(),
+                orcDataSource,
+                offset,
+                length,
+                footer.getTypes(),
+                compressionKind,
+                bufferSize,
+                footer.getRowsInRowGroup(),
+                checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null"),
+                metadataReader,
+                deltaMemory);
     }
 
     /**
