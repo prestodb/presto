@@ -30,6 +30,7 @@ import static java.util.Objects.requireNonNull;
 public class QualifiedName
 {
     private final List<String> parts;
+    private final List<String> originalParts;
 
     public static QualifiedName of(String first, String... rest)
     {
@@ -47,11 +48,17 @@ public class QualifiedName
         requireNonNull(parts, "parts is null");
         checkArgument(!isEmpty(parts), "parts is empty");
         this.parts = ImmutableList.copyOf(transform(parts, part -> part.toLowerCase(ENGLISH)));
+        this.originalParts = ImmutableList.copyOf(parts);
     }
 
     public List<String> getParts()
     {
         return parts;
+    }
+
+    public List<String> getOriginalParts()
+    {
+        return originalParts;
     }
 
     @Override

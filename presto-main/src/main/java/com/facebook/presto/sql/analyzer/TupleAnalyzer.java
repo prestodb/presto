@@ -132,6 +132,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.getLast;
 import static java.util.Objects.requireNonNull;
 
 public class TupleAnalyzer
@@ -900,7 +901,8 @@ public class TupleAnalyzer
 
                 Optional<String> alias = column.getAlias();
                 if (!alias.isPresent() && column.getExpression() instanceof QualifiedNameReference) {
-                    alias = Optional.of(((QualifiedNameReference) column.getExpression()).getName().getSuffix());
+                    QualifiedName name = ((QualifiedNameReference) column.getExpression()).getName();
+                    alias = Optional.of(getLast(name.getOriginalParts()));
                 }
 
                 outputFields.add(Field.newUnqualified(alias, analysis.getType(column.getExpression()))); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
