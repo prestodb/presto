@@ -710,6 +710,13 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testDeleteView()
+            throws Exception
+    {
+        assertFails(NOT_SUPPORTED, "DELETE FROM v1 WHERE a=1");
+    }
+
+    @Test
     public void testStaleView()
             throws Exception
     {
