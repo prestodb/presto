@@ -150,10 +150,8 @@ public class ClusterMemoryManager
                         maxMemory = bytesUsed;
                     }
                 }
-                for (QueryExecution queryExecution : queries) {
-                    if (queryExecution.getQueryId().equals(biggestQuery.getQueryId())) {
-                        queryExecution.setMemoryPool(new VersionedMemoryPoolId(RESERVED_POOL, version));
-                    }
+                if (biggestQuery != null) {
+                    biggestQuery.setMemoryPool(new VersionedMemoryPoolId(RESERVED_POOL, version));
                 }
             }
         }
