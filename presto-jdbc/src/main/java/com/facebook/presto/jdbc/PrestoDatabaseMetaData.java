@@ -42,14 +42,14 @@ public class PrestoDatabaseMetaData
     public boolean allProceduresAreCallable()
             throws SQLException
     {
-        return true;
+        return false;
     }
 
     @Override
     public boolean allTablesAreSelectable()
             throws SQLException
     {
-        return true;
+        return false;
     }
 
     @Override
@@ -77,32 +77,28 @@ public class PrestoDatabaseMetaData
     public boolean nullsAreSortedHigh()
             throws SQLException
     {
-        // TODO: determine null sort order
-        throw new NotImplementedException("DatabaseMetaData", "nullsAreSortedHigh");
+        return false;
     }
 
     @Override
     public boolean nullsAreSortedLow()
             throws SQLException
     {
-        // TODO: determine null sort order
-        throw new NotImplementedException("DatabaseMetaData", "nullsAreSortedLow");
+        return false;
     }
 
     @Override
     public boolean nullsAreSortedAtStart()
             throws SQLException
     {
-        // TODO: determine null sort order
-        throw new NotImplementedException("DatabaseMetaData", "nullsAreSortedAtStart");
+        return false;
     }
 
     @Override
     public boolean nullsAreSortedAtEnd()
             throws SQLException
     {
-        // TODO: determine null sort order
-        throw new NotImplementedException("DatabaseMetaData", "nullsAreSortedAtEnd");
+        return true;
     }
 
     @Override
@@ -196,7 +192,8 @@ public class PrestoDatabaseMetaData
     public boolean supportsMixedCaseQuotedIdentifiers()
             throws SQLException
     {
-        return true;
+        // TODO: support quoted identifiers properly
+        return false;
     }
 
     @Override
@@ -210,14 +207,16 @@ public class PrestoDatabaseMetaData
     public boolean storesLowerCaseQuotedIdentifiers()
             throws SQLException
     {
-        return false;
+        // TODO: support quoted identifiers properly
+        return true;
     }
 
     @Override
     public boolean storesMixedCaseQuotedIdentifiers()
             throws SQLException
     {
-        return true;
+        // TODO: support quoted identifiers properly
+        return false;
     }
 
     @Override
@@ -331,7 +330,6 @@ public class PrestoDatabaseMetaData
     public boolean supportsDifferentTableCorrelationNames()
             throws SQLException
     {
-        // TODO: verify this
         return false;
     }
 
@@ -346,7 +344,6 @@ public class PrestoDatabaseMetaData
     public boolean supportsOrderByUnrelated()
             throws SQLException
     {
-        // TODO: verify this
         return true;
     }
 
@@ -464,8 +461,7 @@ public class PrestoDatabaseMetaData
     public boolean supportsFullOuterJoins()
             throws SQLException
     {
-        // TODO: support full outer joins
-        return false;
+        return true;
     }
 
     @Override
@@ -629,8 +625,7 @@ public class PrestoDatabaseMetaData
     public boolean supportsSubqueriesInIns()
             throws SQLException
     {
-        // TODO: support subqueries in IN clauses
-        return false;
+        return true;
     }
 
     @Override
@@ -653,23 +648,21 @@ public class PrestoDatabaseMetaData
     public boolean supportsUnion()
             throws SQLException
     {
-        // TODO: support UNION
-        return false;
+        return true;
     }
 
     @Override
     public boolean supportsUnionAll()
             throws SQLException
     {
-        // TODO: support UNION ALL
-        return false;
+        return true;
     }
 
     @Override
     public boolean supportsOpenCursorsAcrossCommit()
             throws SQLException
     {
-        return true;
+        return false;
     }
 
     @Override
@@ -683,14 +676,14 @@ public class PrestoDatabaseMetaData
     public boolean supportsOpenStatementsAcrossCommit()
             throws SQLException
     {
-        return true;
+        return false;
     }
 
     @Override
     public boolean supportsOpenStatementsAcrossRollback()
             throws SQLException
     {
-        return true;
+        return false;
     }
 
     @Override
