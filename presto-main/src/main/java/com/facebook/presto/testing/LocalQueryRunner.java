@@ -145,6 +145,7 @@ public class LocalQueryRunner
     private final InMemoryNodeManager nodeManager;
     private final TypeRegistry typeRegistry;
     private final MetadataManager metadata;
+    private final TestingAccessControlManager accessControl;
     private final SplitManager splitManager;
     private final BlockEncodingSerde blockEncodingSerde;
     private final PageSourceManager pageSourceManager;
@@ -179,12 +180,14 @@ public class LocalQueryRunner
                 blockEncodingSerde,
                 new SessionPropertyManager(),
                 new TablePropertyManager());
+        this.accessControl = new TestingAccessControlManager();
         this.pageSourceManager = new PageSourceManager();
 
         this.compiler = new ExpressionCompiler(metadata);
 
         this.connectorManager = new ConnectorManager(
                 metadata,
+                accessControl,
                 splitManager,
                 pageSourceManager,
                 indexManager,
@@ -203,7 +206,7 @@ public class LocalQueryRunner
 
         // rewrite session to use managed SessionPropertyMetadata
         this.defaultSession = new Session(
-                defaultSession.getUser(),
+                defaultSession.getIdentity(),
                 defaultSession.getSource(),
                 defaultSession.getCatalog(),
                 defaultSession.getSchema(),
@@ -218,7 +221,7 @@ public class LocalQueryRunner
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask())
-                .put(CreateView.class, new CreateViewTask(jsonCodec(ViewDefinition.class), sqlParser, new FeaturesConfig()))
+                .put(CreateView.class, new CreateViewTask(jsonCodec(ViewDefinition.class), sqlParser, accessControl, new FeaturesConfig()))
                 .put(DropTable.class, new DropTableTask())
                 .put(DropView.class, new DropViewTask())
                 .put(RenameColumn.class, new RenameColumnTask())
@@ -255,6 +258,12 @@ public class LocalQueryRunner
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    @Override
+    public TestingAccessControlManager getAccessControl()
+    {
+        return accessControl;
     }
 
     public ExecutorService getExecutor()
@@ -424,8 +433,14 @@ public class LocalQueryRunner
                 .setOptimizeHashGeneration(true);
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, sqlParser, indexManager, featuresConfig, true);
 
-        QueryExplainer queryExplainer = new QueryExplainer(planOptimizersFactory.get(), metadata, sqlParser, dataDefinitionTask, featuresConfig.isExperimentalSyntaxEnabled());
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
+        QueryExplainer queryExplainer = new QueryExplainer(
+                planOptimizersFactory.get(),
+                metadata,
+                accessControl,
+                sqlParser,
+                dataDefinitionTask,
+                featuresConfig.isExperimentalSyntaxEnabled());
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
 
         Analysis analysis = analyzer.analyze(statement);
         Plan plan = new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator, metadata).plan(analysis);

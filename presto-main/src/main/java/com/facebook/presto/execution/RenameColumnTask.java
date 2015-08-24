@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.RenameColumn;
@@ -40,7 +41,7 @@ public class RenameColumnTask
     }
 
     @Override
-    public void execute(RenameColumn statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
+    public void execute(RenameColumn statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
         QualifiedTableName tableName = createQualifiedTableName(session, statement.getTable());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);

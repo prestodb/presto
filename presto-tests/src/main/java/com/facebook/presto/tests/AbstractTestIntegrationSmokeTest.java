@@ -21,8 +21,16 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_TABLE;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
+import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
@@ -178,6 +186,29 @@ public abstract class AbstractTestIntegrationSmokeTest
         // some connectors don't support dates, so test with both options
         if (!actualColumns.equals(getExpectedTableDescription(true))) {
             assertEquals(actualColumns, getExpectedTableDescription(false));
+        }
+    }
+
+    @Test
+    public void testNonQueryAccessControl()
+            throws Exception
+    {
+        assertAccessDenied("SET SESSION " + QUERY_MAX_MEMORY + " = '10MB'",
+                "Cannot set system session property "  + QUERY_MAX_MEMORY,
+                privilege(QUERY_MAX_MEMORY, SET_SESSION));
+
+        assertAccessDenied("CREATE TABLE foo (pk bigint)", "Cannot create table .*.foo.*", privilege("foo", CREATE_TABLE));
+        assertAccessDenied("DROP TABLE orders", "Cannot drop table .*.orders.*", privilege("orders", DROP_TABLE));
+        assertAccessDenied("ALTER TABLE orders RENAME TO foo", "Cannot rename table .*.orders.* to .*.foo.*", privilege("orders", RENAME_TABLE));
+        assertAccessDenied("CREATE VIEW foo as SELECT * FROM orders", "Cannot create view .*.foo.*", privilege("foo", CREATE_VIEW));
+        // todo add DROP VIEW test... not all connectors have view support
+
+        try {
+            assertAccessDenied("SELECT 1", "Principal .* cannot become user " + getSession().getUser() + ".*", privilege(getSession().getUser(), SET_USER));
+        }
+        catch (RuntimeException e) {
+            // There is no clean exception message for authorization failure.  We simply get a 403
+            assertTrue(e.getMessage().matches(".*statusCode=403.*"));
         }
     }
 

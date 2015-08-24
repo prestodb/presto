@@ -17,10 +17,12 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ParametricType;
 import com.facebook.presto.type.TypeRegistry;
@@ -76,6 +78,7 @@ public class PluginManager
     private final Injector injector;
     private final ConnectorManager connectorManager;
     private final Metadata metadata;
+    private final AccessControlManager accessControlManager;
     private final BlockEncodingManager blockEncodingManager;
     private final TypeRegistry typeRegistry;
     private final ArtifactResolver resolver;
@@ -93,6 +96,7 @@ public class PluginManager
             ConnectorManager connectorManager,
             ConfigurationFactory configurationFactory,
             Metadata metadata,
+            AccessControlManager accessControlManager,
             BlockEncodingManager blockEncodingManager,
             TypeRegistry typeRegistry)
     {
@@ -120,6 +124,7 @@ public class PluginManager
 
         this.connectorManager = checkNotNull(connectorManager, "connectorManager is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
+        this.accessControlManager = checkNotNull(accessControlManager, "accessControlManager is null");
         this.blockEncodingManager = checkNotNull(blockEncodingManager, "blockEncodingManager is null");
         this.typeRegistry = checkNotNull(typeRegistry, "typeRegistry is null");
     }
@@ -207,6 +212,11 @@ public class PluginManager
         for (FunctionFactory functionFactory : plugin.getServices(FunctionFactory.class)) {
             log.info("Registering functions from %s", functionFactory.getClass().getName());
             metadata.addFunctions(functionFactory.listFunctions());
+        }
+
+        for (SystemAccessControl accessControl : plugin.getServices(SystemAccessControl.class)) {
+            log.info("Registering system access control %s", accessControl.getClass().getName());
+            accessControlManager.addSystemAccessControl(accessControl);
         }
     }
 

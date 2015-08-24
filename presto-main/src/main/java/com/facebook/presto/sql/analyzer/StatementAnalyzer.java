@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
@@ -121,18 +123,20 @@ class StatementAnalyzer
     private final Optional<QueryExplainer> queryExplainer;
     private final boolean experimentalSyntaxEnabled;
     private final SqlParser sqlParser;
+    private final AccessControl accessControl;
 
     public StatementAnalyzer(
             Analysis analysis,
             Metadata metadata,
             SqlParser sqlParser,
-            Session session,
+            AccessControl accessControl, Session session,
             boolean experimentalSyntaxEnabled,
             Optional<QueryExplainer> queryExplainer)
     {
         this.analysis = checkNotNull(analysis, "analysis is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
+        this.accessControl = checkNotNull(accessControl, "accessControl is null");
         this.session = checkNotNull(session, "session is null");
         this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
         this.queryExplainer = checkNotNull(queryExplainer, "queryExplainer is null");
@@ -374,6 +378,7 @@ class StatementAnalyzer
         if (!targetTableHandle.isPresent()) {
             throw new SemanticException(MISSING_TABLE, insert, "Table '%s' does not exist", targetTable);
         }
+        accessControl.checkCanInsertIntoTable(session.getIdentity(), targetTable);
         analysis.setInsertTarget(targetTableHandle.get());
 
         List<ColumnMetadata> columns = metadata.getTableMetadata(session, targetTableHandle.get()).getColumns();
@@ -405,9 +410,12 @@ class StatementAnalyzer
 
         analysis.setDelete(node);
 
-        TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata, sqlParser, experimentalSyntaxEnabled);
+        // Tuple analyzer checks for select permissions but DELETE has a separate permission, so disable access checks
+        TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata, sqlParser, new AllowAllAccessControl(), experimentalSyntaxEnabled);
         TupleDescriptor descriptor = analyzer.process(node.getTable(), context);
         node.getWhere().ifPresent(where -> analyzer.analyzeWhere(node, descriptor, context, where));
+
+        accessControl.checkCanDeleteFromTable(session.getIdentity(), tableName);
 
         return new TupleDescriptor(Field.newUnqualified("rows", BIGINT));
     }
@@ -432,6 +440,7 @@ class StatementAnalyzer
         if (targetTableHandle.isPresent()) {
             throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
         }
+        accessControl.checkCanCreateTable(session.getIdentity(), targetTable);
 
         // analyze the query that creates the table
         TupleDescriptor descriptor = process(node.getQuery(), context);
@@ -448,6 +457,9 @@ class StatementAnalyzer
 
         // analyze the query that creates the view
         TupleDescriptor descriptor = process(node.getQuery(), context);
+
+        QualifiedTableName viewName = MetadataUtil.createQualifiedTableName(session, node.getName());
+        accessControl.checkCanCreateView(session.getIdentity(), viewName);
 
         validateColumnNames(node, descriptor);
 
@@ -534,7 +546,7 @@ class StatementAnalyzer
 
         analyzeWith(node, context);
 
-        TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata, sqlParser, experimentalSyntaxEnabled);
+        TupleAnalyzer analyzer = new TupleAnalyzer(analysis, session, metadata, sqlParser, accessControl, experimentalSyntaxEnabled);
         TupleDescriptor descriptor = analyzer.process(node.getQueryBody(), context);
         analyzeOrderBy(node, descriptor, context);
 
@@ -610,7 +622,7 @@ class StatementAnalyzer
                     orderByField = new FieldOrExpression(expression);
                     ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
                             metadata,
-                            sqlParser,
+                            accessControl, sqlParser,
                             tupleDescriptor,
                             analysis,
                             experimentalSyntaxEnabled,

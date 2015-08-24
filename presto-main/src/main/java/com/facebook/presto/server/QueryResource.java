@@ -19,6 +19,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.security.AccessControl;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -52,12 +53,14 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 public class QueryResource
 {
     private final QueryManager queryManager;
+    private final AccessControl accessControl;
     private final SessionPropertyManager sessionPropertyManager;
 
     @Inject
-    public QueryResource(QueryManager queryManager, SessionPropertyManager sessionPropertyManager)
+    public QueryResource(QueryManager queryManager, AccessControl accessControl, SessionPropertyManager sessionPropertyManager)
     {
         this.queryManager = checkNotNull(queryManager, "queryManager is null");
+        this.accessControl = checkNotNull(accessControl, "accessControl is null");
         this.sessionPropertyManager = checkNotNull(sessionPropertyManager, "sessionPropertyManager is null");
     }
 
@@ -100,7 +103,7 @@ public class QueryResource
     {
         assertRequest(!isNullOrEmpty(statement), "SQL statement is empty");
 
-        Session session = createSessionForRequest(servletRequest, sessionPropertyManager);
+        Session session = createSessionForRequest(servletRequest, accessControl, sessionPropertyManager);
 
         QueryInfo queryInfo = queryManager.createQuery(session, statement);
         URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryInfo.getQueryId().toString()).build();

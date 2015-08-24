@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
@@ -32,15 +33,22 @@ public class Analyzer
 {
     private final Metadata metadata;
     private final SqlParser sqlParser;
+    private final AccessControl accessControl;
     private final Session session;
     private final Optional<QueryExplainer> queryExplainer;
     private final boolean experimentalSyntaxEnabled;
 
-    public Analyzer(Session session, Metadata metadata, SqlParser sqlParser, Optional<QueryExplainer> queryExplainer, boolean experimentalSyntaxEnabled)
+    public Analyzer(Session session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            AccessControl accessControl,
+            Optional<QueryExplainer> queryExplainer,
+            boolean experimentalSyntaxEnabled)
     {
         this.session = checkNotNull(session, "session is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
+        this.accessControl = checkNotNull(accessControl, "accessControl is null");
         this.queryExplainer = checkNotNull(queryExplainer, "query explainer is null");
         this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
     }
@@ -48,7 +56,7 @@ public class Analyzer
     public Analysis analyze(Statement statement)
     {
         Analysis analysis = new Analysis();
-        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, session, experimentalSyntaxEnabled, queryExplainer);
+        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled, queryExplainer);
         TupleDescriptor outputDescriptor = analyzer.process(statement, new AnalysisContext());
         analysis.setOutputDescriptor(outputDescriptor);
         return analysis;

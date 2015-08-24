@@ -11,27 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.spi.security;
 
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.type.TimeZoneKey;
+import java.security.Principal;
 
-import java.util.Locale;
-
-public interface ConnectorSession
+public interface SystemAccessControl
 {
-    default String getUser()
-    {
-        return getIdentity().getUser();
-    }
+    /**
+     * Check if the principal is allowed to be the specified user.
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanSetUser(Principal principal, String userName);
 
-    Identity getIdentity();
-
-    TimeZoneKey getTimeZoneKey();
-
-    Locale getLocale();
-
-    long getStartTime();
-
-    <T> T getProperty(String name, Class<T> type);
+    /**
+     * Check if identity is allowed to set the specified system property.
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanSetSystemSessionProperty(Identity identity, String propertyName);
 }

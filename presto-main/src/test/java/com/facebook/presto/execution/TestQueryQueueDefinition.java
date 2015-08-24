@@ -14,8 +14,11 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.testing.TestingSession;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
 
@@ -25,7 +28,7 @@ public class TestQueryQueueDefinition
     public void testNameExpansion()
     {
         Session session = TestingSession.testSessionBuilder()
-                .setUser("bob")
+                .setIdentity(new Identity("bob", Optional.empty()))
                 .setSource("the-internet")
                 .build();
 

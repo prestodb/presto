@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.security.DenyAllAccessControl;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
@@ -986,7 +988,7 @@ public class ExpressionAnalyzer
         return analyzeExpressions(session, metadata, sqlParser, new TupleDescriptor(fields), expressions);
     }
 
-    public static ExpressionAnalysis analyzeExpressionsWithInputs(
+    private static ExpressionAnalysis analyzeExpressionsWithInputs(
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
@@ -1009,7 +1011,9 @@ public class ExpressionAnalyzer
             TupleDescriptor tupleDescriptor,
             Iterable<? extends Expression> expressions)
     {
-        ExpressionAnalyzer analyzer = create(new Analysis(), session, metadata, sqlParser, false);
+        // expressions at this point can not have sub queries so deny all access checks
+        // in the future, we will need a full access controller here to verify access to functions
+        ExpressionAnalyzer analyzer = create(new Analysis(), session, metadata, sqlParser, new DenyAllAccessControl(), false);
         for (Expression expression : expressions) {
             analyzer.analyze(expression, tupleDescriptor, new AnalysisContext());
         }
@@ -1023,6 +1027,7 @@ public class ExpressionAnalyzer
     public static ExpressionAnalysis analyzeExpression(
             Session session,
             Metadata metadata,
+            AccessControl accessControl,
             SqlParser sqlParser,
             TupleDescriptor tupleDescriptor,
             Analysis analysis,
@@ -1030,7 +1035,7 @@ public class ExpressionAnalyzer
             AnalysisContext context,
             Expression expression)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, approximateQueriesEnabled);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, approximateQueriesEnabled);
         analyzer.analyze(expression, tupleDescriptor, context);
 
         IdentityHashMap<Expression, Type> expressionTypes = analyzer.getExpressionTypes();
@@ -1051,12 +1056,18 @@ public class ExpressionAnalyzer
         return new ExpressionAnalysis(expressionTypes, expressionCoercions, subqueryInPredicates);
     }
 
-    public static ExpressionAnalyzer create(Analysis analysis, Session session, Metadata metadata, SqlParser sqlParser, boolean experimentalSyntaxEnabled)
+    public static ExpressionAnalyzer create(
+            Analysis analysis,
+            Session session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            AccessControl accessControl,
+            boolean experimentalSyntaxEnabled)
     {
         return new ExpressionAnalyzer(
                 metadata.getFunctionRegistry(),
                 metadata.getTypeManager(),
-                node -> new StatementAnalyzer(analysis, metadata, sqlParser, session, experimentalSyntaxEnabled, Optional.empty()),
+                node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled, Optional.empty()),
                 session);
     }
     public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session)

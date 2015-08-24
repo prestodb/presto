@@ -17,10 +17,12 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ViewDefinition;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateView;
@@ -45,13 +47,19 @@ public class CreateViewTask
 {
     private final JsonCodec<ViewDefinition> codec;
     private final SqlParser sqlParser;
+    private final AccessControl accessControl;
     private final boolean experimentalSyntaxEnabled;
 
     @Inject
-    public CreateViewTask(JsonCodec<ViewDefinition> codec, SqlParser sqlParser, FeaturesConfig featuresConfig)
+    public CreateViewTask(
+            JsonCodec<ViewDefinition> codec,
+            SqlParser sqlParser,
+            AccessControl accessControl,
+            FeaturesConfig featuresConfig)
     {
         this.codec = checkNotNull(codec, "codec is null");
         this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
+        this.accessControl = checkNotNull(accessControl, "accessControl is null");
         checkNotNull(featuresConfig, "featuresConfig is null");
         this.experimentalSyntaxEnabled = featuresConfig.isExperimentalSyntaxEnabled();
     }
@@ -69,9 +77,11 @@ public class CreateViewTask
     }
 
     @Override
-    public void execute(CreateView statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
+    public void execute(CreateView statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
         QualifiedTableName name = createQualifiedTableName(session, statement.getName());
+
+        accessControl.checkCanCreateView(session.getIdentity(), name);
 
         String sql = getFormattedSql(statement);
 
@@ -89,7 +99,7 @@ public class CreateViewTask
 
     private Analysis analyzeStatement(Statement statement, Session session, Metadata metadata)
     {
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.empty(), experimentalSyntaxEnabled);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.<QueryExplainer>empty(), experimentalSyntaxEnabled);
         return analyzer.analyze(statement);
     }
 
