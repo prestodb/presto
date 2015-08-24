@@ -81,7 +81,7 @@ public class FixedPageSource
     }
 
     @Override
-    public long getDeltaMemory()
+    public long getUsedMemoryBytes()
     {
         return 0;
     }

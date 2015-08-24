@@ -27,6 +27,7 @@ import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SystemMemoryUsage;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -46,7 +47,6 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
@@ -100,7 +100,7 @@ public class OrcPageSource
     private int batchId;
     private boolean closed;
 
-    private AtomicLong deltaMemory;
+    private SystemMemoryUsage usedMemoryBytes;
 
     public OrcPageSource(
             OrcRecordReader recordReader,
@@ -109,7 +109,7 @@ public class OrcPageSource
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            AtomicLong deltaMemory)
+            SystemMemoryUsage usedMemoryBytes)
     {
         this.recordReader = checkNotNull(recordReader, "recordReader is null");
         this.orcDataSource = checkNotNull(orcDataSource, "orcDataSource is null");
@@ -211,7 +211,7 @@ public class OrcPageSource
         types = typesBuilder.build();
         columnNames = namesBuilder.build();
 
-        this.deltaMemory = checkNotNull(deltaMemory, "deltaMemory is null");
+        this.usedMemoryBytes = checkNotNull(usedMemoryBytes, "usedMemoryBytes is null");
     }
 
     @Override
@@ -321,9 +321,9 @@ public class OrcPageSource
     }
 
     @Override
-    public long getDeltaMemory()
+    public long getUsedMemoryBytes()
     {
-        return deltaMemory.get();
+        return usedMemoryBytes.get();
     }
 
     protected void closeWithSuppression(Throwable throwable)

@@ -24,6 +24,7 @@ import com.facebook.presto.orc.metadata.StripeStatistics;
 import com.facebook.presto.orc.reader.StreamReader;
 import com.facebook.presto.orc.reader.StreamReaders;
 import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.spi.SystemMemoryUsage;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,7 +40,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -86,7 +86,7 @@ public class OrcRecordReader
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
             MetadataReader metadataReader,
-            AtomicLong deltaMemory)
+            SystemMemoryUsage usedMemoryBytes)
             throws IOException
     {
         checkNotNull(includedColumns, "includedColumns is null");
@@ -155,7 +155,7 @@ public class OrcRecordReader
                 .mapToLong(StripeInformation::getNumberOfRows)
                 .sum();
 
-        checkNotNull(deltaMemory, "deltaMemory is null");
+        checkNotNull(usedMemoryBytes, "usedMemoryBytes is null");
 
         stripeReader = new StripeReader(
                 orcDataSource,
@@ -166,7 +166,7 @@ public class OrcRecordReader
                 rowsInRowGroup,
                 predicate,
                 metadataReader,
-                deltaMemory);
+                usedMemoryBytes);
 
         streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build());
     }

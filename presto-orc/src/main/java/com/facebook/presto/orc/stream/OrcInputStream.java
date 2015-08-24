@@ -15,6 +15,7 @@ package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.spi.SystemMemoryUsage;
 import com.google.common.base.MoreObjects;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.FixedLengthSliceInput;
@@ -25,7 +26,6 @@ import org.iq80.snappy.Snappy;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
@@ -54,9 +54,9 @@ public final class OrcInputStream
 
     private byte[] buffer;
 
-    private final AtomicLong deltaMemory;
+    private final SystemMemoryUsage usedMemoryBytes;
 
-    public OrcInputStream(String source, FixedLengthSliceInput sliceInput, CompressionKind compressionKind, int bufferSize, AtomicLong deltaMemory)
+    public OrcInputStream(String source, FixedLengthSliceInput sliceInput, CompressionKind compressionKind, int bufferSize, SystemMemoryUsage usedMemoryBytes)
     {
         this.source = checkNotNull(source, "source is null");
 
@@ -64,7 +64,7 @@ public final class OrcInputStream
 
         this.compressionKind = checkNotNull(compressionKind, "compressionKind is null");
         this.maxBufferSize = bufferSize;
-        this.deltaMemory = checkNotNull(deltaMemory, "deltaMemory is null");
+        this.usedMemoryBytes = checkNotNull(usedMemoryBytes, "usedMemoryBytes is null");
 
         if (compressionKind == UNCOMPRESSED) {
             this.current = sliceInput;
@@ -82,7 +82,7 @@ public final class OrcInputStream
             throws IOException
     {
         current = null;
-        deltaMemory.getAndAdd(-buffer.length);
+        usedMemoryBytes.add(-buffer.length);
     }
 
     @Override
@@ -302,6 +302,6 @@ public final class OrcInputStream
                 buffer = new byte[Math.min(size, maxBufferSize)];
             }
         }
-        deltaMemory.getAndAdd(buffer.length - oldBufferSize);
+        usedMemoryBytes.add(buffer.length - oldBufferSize);
     }
 }

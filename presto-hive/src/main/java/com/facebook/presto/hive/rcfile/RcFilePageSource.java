@@ -350,17 +350,14 @@ public class RcFilePageSource
     }
 
     @Override
-    public long getDeltaMemory()
+    public long getUsedMemoryBytes()
     {
-        long deltaMemory = 0;
         try {
-            deltaMemory = recordReader.getCurrentKeyBufferObj().getSize();
+            return recordReader.getCurrentKeyBufferObj().getSize();
         }
         catch (IOException e) {
-            closeWithSuppression(e);
-            throw new PrestoException(NOT_SUPPORTED, e);
+            return 0;
         }
-        return deltaMemory;
     }
 
     private void closeWithSuppression(Throwable throwable)

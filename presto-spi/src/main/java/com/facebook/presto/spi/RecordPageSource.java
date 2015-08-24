@@ -137,7 +137,7 @@ public class RecordPageSource
     }
 
     @Override
-    public long getDeltaMemory()
+    public long getUsedMemoryBytes()
     {
         return 0;
     }

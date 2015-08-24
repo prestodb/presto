@@ -33,6 +33,7 @@ import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -40,7 +41,7 @@ import static org.testng.Assert.assertTrue;
 @Test
 public class TestTableScanOperator
 {
-    private static final List<Type> TYPES = ImmutableList.<Type>of(VARCHAR);
+    private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
     private static final Page PAGE = createSequencePage(TYPES, 10, 100);
 
     private ExecutorService executor;
@@ -66,7 +67,7 @@ public class TestTableScanOperator
     }
 
     @Test
-    public void testTableWrite()
+    public void testTableScan()
             throws Exception
     {
         DriverContext driverContext = getDriverContext();
@@ -79,8 +80,8 @@ public class TestTableScanOperator
 
         assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
 
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
+        assertTrue(operator.isFinished());
+        assertFalse(operator.needsInput());
         assertNull(operator.getOutput());
         long systemMemoryAfterFirstPage = operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes();
         assertTrue(systemMemoryAfterFirstPage > 0);
@@ -102,8 +103,8 @@ public class TestTableScanOperator
 
         operator.close();
 
-        assertEquals(operator.isFinished(), true);
-        assertEquals(operator.needsInput(), false);
+        assertTrue(operator.isFinished());
+        assertFalse(operator.needsInput());
         assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
     }
 
@@ -123,7 +124,7 @@ public class TestTableScanOperator
         }
 
         @Override
-        public long getDeltaMemory()
+        public long getUsedMemoryBytes()
         {
             return 120;
         }
@@ -134,9 +135,7 @@ public class TestTableScanOperator
             if (startOutput) {
                 return PAGE;
             }
-            else {
-                return null;
-            }
+            return null;
         }
 
         @Override

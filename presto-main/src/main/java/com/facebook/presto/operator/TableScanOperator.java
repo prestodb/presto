@@ -260,8 +260,9 @@ public class TableScanOperator
         }
 
         Page page = source.getNextPage();
-        systemMemoryUsageListener.updateSystemMemoryUsage(source.getDeltaMemory() - bufferBytes);
-        bufferBytes = source.getDeltaMemory();
+        long usedMemoryBytes = source.getUsedMemoryBytes();
+        systemMemoryUsageListener.updateSystemMemoryUsage(usedMemoryBytes - bufferBytes);
+        bufferBytes = usedMemoryBytes;
 
         if (page != null) {
             // assure the page is in memory before handing to another operator

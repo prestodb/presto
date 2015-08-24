@@ -134,11 +134,11 @@ public class DeleteOperator
         checkState(state == State.RUNNING, "Operator is %s", state);
 
         Block rowIds = page.getBlock(rowIdChannel);
-        UpdatablePageSource updatablePageSource = pageSource();
-        updatablePageSource.deleteRows(rowIds);
+        pageSource().deleteRows(rowIds);
         rowCount += rowIds.getPositionCount();
-        systemMemoryUsageListener.updateSystemMemoryUsage(updatablePageSource.getDeltaMemory() - bufferBytes);
-        bufferBytes = updatablePageSource.getDeltaMemory();
+        long usedMemoryBytes = pageSource().getUsedMemoryBytes();
+        systemMemoryUsageListener.updateSystemMemoryUsage(usedMemoryBytes - bufferBytes);
+        bufferBytes = usedMemoryBytes;
     }
 
     @Override
@@ -149,11 +149,11 @@ public class DeleteOperator
         }
         state = State.FINISHED;
 
-        UpdatablePageSource updatablePageSource = pageSource();
-        Collection<Slice> fragments = updatablePageSource.commit();
+        Collection<Slice> fragments = pageSource().commit();
         committed = true;
-        systemMemoryUsageListener.updateSystemMemoryUsage(updatablePageSource.getDeltaMemory() - bufferBytes);
-        bufferBytes = updatablePageSource.getDeltaMemory();
+        long usedMemoryBytes = pageSource().getUsedMemoryBytes();
+        systemMemoryUsageListener.updateSystemMemoryUsage(usedMemoryBytes - bufferBytes);
+        bufferBytes = usedMemoryBytes;
 
         PageBuilder page = new PageBuilder(TYPES);
         BlockBuilder rowsBuilder = page.getBlockBuilder(0);

@@ -19,6 +19,7 @@ import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
+import com.facebook.presto.spi.SystemMemoryUsage;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -77,7 +78,7 @@ final class OrcTestingUtil
     public static OrcRecordReader createRecordReader(OrcReader orcReader, Map<Integer, Type> includedColumns)
             throws IOException
     {
-        return orcReader.createRecordReader(includedColumns, OrcPredicate.TRUE, DateTimeZone.UTC);
+        return orcReader.createRecordReader(includedColumns, OrcPredicate.TRUE, DateTimeZone.UTC, new SystemMemoryUsage());
     }
 
     public static byte[] octets(int... values)

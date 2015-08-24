@@ -22,6 +22,7 @@ import com.facebook.presto.orc.SingleObjectVector;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SystemMemoryUsage;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -35,12 +36,13 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.conf.HiveConf;
 
 import java.io.IOException;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.orc.Vector.MAX_VECTOR_LENGTH;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
@@ -90,7 +92,8 @@ public class OrcPageSource
     private int batchId;
     private boolean closed;
 
-    private AtomicLong deltaMemory;
+    private SystemMemoryUsage usedMemoryBytes;
+    private boolean commited;
 
     public OrcPageSource(
             ShardRewriter shardRewriter,
@@ -99,7 +102,7 @@ public class OrcPageSource
             List<Long> columnIds,
             List<Type> columnTypes,
             List<Integer> columnIndexes,
-            AtomicLong deltaMemory)
+            SystemMemoryUsage usedMemoryBytes)
     {
         this.shardRewriter = checkNotNull(shardRewriter, "shardRewriter is null");
         this.recordReader = checkNotNull(recordReader, "recordReader is null");
@@ -124,7 +127,7 @@ public class OrcPageSource
             }
         }
 
-        this.deltaMemory = checkNotNull(deltaMemory, "deltaMemory is null");
+        this.usedMemoryBytes = checkNotNull(usedMemoryBytes, "usedMemoryBytes is null");
     }
 
     @Override
@@ -239,13 +242,19 @@ public class OrcPageSource
     @Override
     public Collection<Slice> commit()
     {
+        commited = true;
         return shardRewriter.rewrite(rowsToDelete);
     }
 
     @Override
-    public long getDeltaMemory()
+    public long getUsedMemoryBytes()
     {
-        return deltaMemory.get();
+        if (commited) {
+            return usedMemoryBytes.getAndAdd(-HiveConf.getIntVar(new Configuration(), HiveConf.ConfVars.HIVE_ORC_DEFAULT_BUFFER_SIZE));
+        }
+        else {
+            return usedMemoryBytes.get();
+        }
     }
 
     private void closeWithSuppression(Throwable throwable)

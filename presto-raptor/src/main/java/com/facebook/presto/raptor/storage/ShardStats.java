@@ -22,6 +22,7 @@ import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.raptor.metadata.ColumnStats;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SystemMemoryUsage;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
@@ -68,7 +69,7 @@ public final class ShardStats
             throws IOException
     {
         int columnIndex = columnIndex(orcReader.getColumnNames(), columnId);
-        OrcRecordReader reader = orcReader.createRecordReader(ImmutableMap.of(columnIndex, type), OrcPredicate.TRUE, UTC);
+        OrcRecordReader reader = orcReader.createRecordReader(ImmutableMap.of(columnIndex, type), OrcPredicate.TRUE, UTC, new SystemMemoryUsage());
 
         if (type.equals(BooleanType.BOOLEAN)) {
             return indexBoolean(reader, columnIndex, columnId);

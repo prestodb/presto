@@ -27,6 +27,7 @@ import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SystemMemoryUsage;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -47,7 +48,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
@@ -149,17 +149,17 @@ public class OrcPageSourceFactory
 
         OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build());
 
-        AtomicLong deltaMemory = new AtomicLong();
+        SystemMemoryUsage usedMemoryBytes = new SystemMemoryUsage();
 
         try {
-            OrcReader reader = new OrcReader(orcDataSource, metadataReader, deltaMemory);
+            OrcReader reader = new OrcReader(orcDataSource, metadataReader, usedMemoryBytes);
             OrcRecordReader recordReader = reader.createRecordReader(
                     includedColumns.build(),
                     predicate,
                     start,
                     length,
                     hiveStorageTimeZone,
-                    deltaMemory);
+                    usedMemoryBytes);
 
             return new OrcPageSource(
                     recordReader,
@@ -168,7 +168,7 @@ public class OrcPageSourceFactory
                     columns,
                     hiveStorageTimeZone,
                     typeManager,
-                    deltaMemory);
+                    usedMemoryBytes);
         }
         catch (Exception e) {
             try {

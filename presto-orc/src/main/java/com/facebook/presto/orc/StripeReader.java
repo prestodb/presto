@@ -33,6 +33,7 @@ import com.facebook.presto.orc.stream.StreamSources;
 import com.facebook.presto.orc.stream.ValueStream;
 import com.facebook.presto.orc.stream.ValueStreamSource;
 import com.facebook.presto.orc.stream.ValueStreams;
+import com.facebook.presto.spi.SystemMemoryUsage;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -50,7 +51,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.orc.checkpoint.Checkpoints.getDictionaryStreamCheckpoint;
 import static com.facebook.presto.orc.checkpoint.Checkpoints.getStreamCheckpoints;
@@ -74,7 +74,7 @@ public class StripeReader
     private final int rowsInRowGroup;
     private final OrcPredicate predicate;
     private final MetadataReader metadataReader;
-    private final AtomicLong deltaMemory;
+    private final SystemMemoryUsage usedMemoryBytes;
 
     public StripeReader(OrcDataSource orcDataSource,
             CompressionKind compressionKind,
@@ -84,7 +84,7 @@ public class StripeReader
             int rowsInRowGroup,
             OrcPredicate predicate,
             MetadataReader metadataReader,
-            AtomicLong deltaMemory)
+            SystemMemoryUsage usedMemoryBytes)
     {
         this.orcDataSource = checkNotNull(orcDataSource, "orcDataSource is null");
         this.compressionKind = checkNotNull(compressionKind, "compressionKind is null");
@@ -94,7 +94,7 @@ public class StripeReader
         this.rowsInRowGroup = rowsInRowGroup;
         this.predicate = checkNotNull(predicate, "predicate is null");
         this.metadataReader = checkNotNull(metadataReader, "metadataReader is null");
-        this.deltaMemory = checkNotNull(deltaMemory, "deltaMemory is null");
+        this.usedMemoryBytes = checkNotNull(usedMemoryBytes, "usedMemoryBytes is null");
     }
 
     public Stripe readStripe(StripeInformation stripe)
@@ -217,7 +217,7 @@ public class StripeReader
         String sourceName = orcDataSource.toString();
         ImmutableMap.Builder<StreamId, OrcInputStream> streamsBuilder = ImmutableMap.builder();
         for (Entry<StreamId, FixedLengthSliceInput> entry : streamsData.entrySet()) {
-            streamsBuilder.put(entry.getKey(), new OrcInputStream(sourceName, entry.getValue(), compressionKind, bufferSize, deltaMemory));
+            streamsBuilder.put(entry.getKey(), new OrcInputStream(sourceName, entry.getValue(), compressionKind, bufferSize, usedMemoryBytes));
         }
         return streamsBuilder.build();
     }
@@ -321,7 +321,7 @@ public class StripeReader
         // read the footer
         byte[] tailBuffer = new byte[tailLength];
         orcDataSource.readFully(offset, tailBuffer);
-        InputStream inputStream = new OrcInputStream(orcDataSource.toString(), Slices.wrappedBuffer(tailBuffer).getInput(), compressionKind, bufferSize, deltaMemory);
+        InputStream inputStream = new OrcInputStream(orcDataSource.toString(), Slices.wrappedBuffer(tailBuffer).getInput(), compressionKind, bufferSize, usedMemoryBytes);
         return metadataReader.readStripeFooter(types, inputStream);
     }
 
