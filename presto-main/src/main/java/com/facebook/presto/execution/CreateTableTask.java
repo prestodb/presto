@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.type.Type;
@@ -53,7 +54,7 @@ public class CreateTableTask
     }
 
     @Override
-    public void execute(CreateTable statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
+    public void execute(CreateTable statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
@@ -74,6 +75,8 @@ public class CreateTableTask
             }
             columns.add(new ColumnMetadata(element.getName(), type, false));
         }
+
+        accessControl.checkCanCreateTable(session.getIdentity(), tableName);
 
         Map<String, Object> properties = metadata.getTablePropertyManager().getTableProperties(
                 tableName.getCatalogName(),

@@ -15,6 +15,7 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.base.MoreObjects;
@@ -24,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
@@ -41,7 +43,7 @@ public class TestingConnectorSession
             ImmutableList.of(),
             ImmutableMap.of());
 
-    private final String user;
+    private final Identity identity;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
     private final long startTime;
@@ -56,7 +58,7 @@ public class TestingConnectorSession
             List<PropertyMetadata<?>> propertyMetadatas,
             Map<String, Object> propertyValues)
     {
-        this.user = requireNonNull(user, "user is null");
+        this.identity = new Identity(requireNonNull(user, "user is null"), Optional.empty());
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.startTime = startTime;
@@ -70,9 +72,9 @@ public class TestingConnectorSession
     }
 
     @Override
-    public String getUser()
+    public Identity getIdentity()
     {
-        return user;
+        return identity;
     }
 
     @Override
@@ -111,7 +113,7 @@ public class TestingConnectorSession
     public String toString()
     {
         return MoreObjects.toStringHelper(this)
-                .add("user", user)
+                .add("user", getUser())
                 .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)
                 .add("startTime", startTime)

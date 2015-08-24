@@ -149,7 +149,7 @@ public class MockHttpServletRequest
     @Override
     public Principal getUserPrincipal()
     {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     @Override

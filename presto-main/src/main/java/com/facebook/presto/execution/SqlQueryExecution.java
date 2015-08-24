@@ -17,6 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.SqlQueryScheduler;
@@ -73,6 +74,7 @@ public final class SqlQueryExecution
 
     private final Statement statement;
     private final Metadata metadata;
+    private final AccessControl accessControl;
     private final SqlParser sqlParser;
     private final SplitManager splitManager;
     private final NodeScheduler nodeScheduler;
@@ -97,6 +99,7 @@ public final class SqlQueryExecution
             URI self,
             Statement statement,
             Metadata metadata,
+            AccessControl accessControl,
             SqlParser sqlParser,
             SplitManager splitManager,
             NodeScheduler nodeScheduler,
@@ -114,6 +117,7 @@ public final class SqlQueryExecution
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryId)) {
             this.statement = checkNotNull(statement, "statement is null");
             this.metadata = checkNotNull(metadata, "metadata is null");
+            this.accessControl = checkNotNull(accessControl, "accessControl is null");
             this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
             this.splitManager = checkNotNull(splitManager, "splitManager is null");
             this.nodeScheduler = checkNotNull(nodeScheduler, "nodeScheduler is null");
@@ -252,7 +256,7 @@ public final class SqlQueryExecution
         long analysisStart = System.nanoTime();
 
         // analyze query
-        Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, Optional.of(queryExplainer), experimentalSyntaxEnabled);
+        Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, accessControl, Optional.of(queryExplainer), experimentalSyntaxEnabled);
         Analysis analysis = analyzer.analyze(statement);
 
         stateMachine.setUpdateType(analysis.getUpdateType());
@@ -439,6 +443,7 @@ public final class SqlQueryExecution
         private final int scheduleSplitBatchSize;
         private final boolean experimentalSyntaxEnabled;
         private final Metadata metadata;
+        private final AccessControl accessControl;
         private final SqlParser sqlParser;
         private final SplitManager splitManager;
         private final NodeScheduler nodeScheduler;
@@ -454,6 +459,7 @@ public final class SqlQueryExecution
         SqlQueryExecutionFactory(QueryManagerConfig config,
                 FeaturesConfig featuresConfig,
                 Metadata metadata,
+                AccessControl accessControl,
                 SqlParser sqlParser,
                 LocationFactory locationFactory,
                 SplitManager splitManager,
@@ -468,6 +474,7 @@ public final class SqlQueryExecution
             checkNotNull(config, "config is null");
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
             this.metadata = checkNotNull(metadata, "metadata is null");
+            this.accessControl = checkNotNull(accessControl, "accessControl is null");
             this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.splitManager = checkNotNull(splitManager, "splitManager is null");
@@ -497,6 +504,7 @@ public final class SqlQueryExecution
                     locationFactory.createQueryLocation(queryId),
                     statement,
                     metadata,
+                    accessControl,
                     sqlParser,
                     splitManager,
                     nodeScheduler,

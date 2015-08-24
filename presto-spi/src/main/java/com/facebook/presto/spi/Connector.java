@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.security.ConnectorAccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
 
 import java.util.List;
@@ -91,6 +92,14 @@ public interface Connector
     default List<PropertyMetadata<?>> getTableProperties()
     {
         return emptyList();
+    }
+
+    /**
+     * @throws UnsupportedOperationException if this connector does not have an access control
+     */
+    default ConnectorAccessControl getAccessControl()
+    {
+        throw new UnsupportedOperationException();
     }
 
     /**

@@ -114,7 +114,7 @@ public class InformationSchemaPageSourceProvider
         Map<String, SerializableNativeValue> filters = split.getFilters();
 
         Session session = Session.builder(metadata.getSessionPropertyManager())
-                .setUser(connectorSession.getUser())
+                .setIdentity(connectorSession.getIdentity())
                 .setSource("information_schema")
                 .setCatalog("") // default catalog is not be used
                 .setSchema("") // default schema is not be used

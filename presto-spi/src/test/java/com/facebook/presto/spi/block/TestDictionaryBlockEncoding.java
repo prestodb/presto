@@ -15,6 +15,7 @@ package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.DynamicSliceOutput;
@@ -23,6 +24,7 @@ import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.Locale;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
@@ -36,9 +38,9 @@ public class TestDictionaryBlockEncoding
     private static final ConnectorSession SESSION = new ConnectorSession()
     {
         @Override
-        public String getUser()
+        public Identity getIdentity()
         {
-            return "user";
+            return new Identity("user", Optional.empty());
         }
 
         @Override

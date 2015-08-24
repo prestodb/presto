@@ -15,9 +15,11 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SetSession;
 
 import static com.facebook.presto.metadata.SessionPropertyManager.evaluatePropertyValue;
@@ -34,22 +36,30 @@ public class SetSessionTask
     }
 
     @Override
-    public void execute(SetSession statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
+    public void execute(SetSession statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
-        if (statement.getName().getParts().size() > 2) {
-            throw new SemanticException(INVALID_SESSION_PROPERTY, statement, "Invalid session property '%s'", statement.getName());
+        QualifiedName propertyName = statement.getName();
+        if (propertyName.getParts().size() > 2) {
+            throw new SemanticException(INVALID_SESSION_PROPERTY, statement, "Invalid session property '%s'", propertyName);
         }
-        String name = statement.getName().toString();
 
-        PropertyMetadata<?> propertyMetadata = metadata.getSessionPropertyManager().getSessionPropertyMetadata(name);
+        PropertyMetadata<?> propertyMetadata = metadata.getSessionPropertyManager().getSessionPropertyMetadata(propertyName.toString());
+
+        if (propertyName.getParts().size() == 1) {
+            accessControl.checkCanSetSystemSessionProperty(session.getIdentity(), propertyName.getParts().get(0));
+        }
+        else if (propertyName.getParts().size() == 2) {
+            accessControl.checkCanSetCatalogSessionProperty(session.getIdentity(), propertyName.getParts().get(0), propertyName.getParts().get(1));
+        }
+
         Type type = propertyMetadata.getSqlType();
 
         Object objectValue = evaluatePropertyValue(statement.getValue(), type, session, metadata);
         String value = serializeSessionProperty(type, objectValue);
 
         // verify the SQL value can be decoded by the property
-        metadata.getSessionPropertyManager().decodeProperty(name, value, propertyMetadata.getJavaType());
+        metadata.getSessionPropertyManager().decodeProperty(propertyName.toString(), value, propertyMetadata.getJavaType());
 
-        stateMachine.addSetSessionProperties(name, value);
+        stateMachine.addSetSessionProperties(propertyName.toString(), value);
     }
 }

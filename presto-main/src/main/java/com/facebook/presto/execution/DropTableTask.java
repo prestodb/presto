@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropTable;
 
@@ -35,7 +36,7 @@ public class DropTableTask
     }
 
     @Override
-    public void execute(DropTable statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
+    public void execute(DropTable statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
         QualifiedTableName tableName = createQualifiedTableName(session, statement.getTableName());
 
@@ -46,6 +47,8 @@ public class DropTableTask
             }
             return;
         }
+
+        accessControl.checkCanDropTable(session.getIdentity(), tableName);
 
         metadata.dropTable(session, tableHandle.get());
     }

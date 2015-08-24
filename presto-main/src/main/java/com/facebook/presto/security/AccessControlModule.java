@@ -11,22 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.security;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.SqlFormatter;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.sql.tree.Statement;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 
-public interface DataDefinitionTask<T extends Statement>
+public class AccessControlModule
+    implements Module
 {
-    String getName();
-
-    void execute(T statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine);
-
-    default String explain(T statement)
+    @Override
+    public void configure(Binder binder)
     {
-        return SqlFormatter.formatSql(statement);
+        binder.bind(AccessControlManager.class).in(Scopes.SINGLETON);
+        binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
     }
 }

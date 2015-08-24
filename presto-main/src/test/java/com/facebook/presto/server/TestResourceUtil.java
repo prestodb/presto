@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.security.AllowAllAccessControl;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -56,7 +57,7 @@ public class TestResourceUtil
                         .build(),
                 "testRemote");
 
-        Session session = createSessionForRequest(request, new SessionPropertyManager());
+        Session session = createSessionForRequest(request, new AllowAllAccessControl(), new SessionPropertyManager());
 
         assertEquals(session.getUser(), "testUser");
         assertEquals(session.getSource().get(), "testSource");

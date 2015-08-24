@@ -23,6 +23,7 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.testing.TestingAccessControlManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
@@ -121,6 +122,12 @@ public final class StandaloneQueryRunner
     public Metadata getMetadata()
     {
         return server.getMetadata();
+    }
+
+    @Override
+    public TestingAccessControlManager getAccessControl()
+    {
+        return server.getAccessControl();
     }
 
     public TestingPrestoServer getServer()

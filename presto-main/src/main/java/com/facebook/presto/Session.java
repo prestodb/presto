@@ -16,6 +16,7 @@ package com.facebook.presto;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -36,7 +37,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class Session
 {
-    private final String user;
+    private final Identity identity;
     private final Optional<String> source;
     private final String catalog;
     private final String schema;
@@ -50,7 +51,7 @@ public final class Session
     private final SessionPropertyManager sessionPropertyManager;
 
     public Session(
-            String user,
+            Identity identity,
             Optional<String> source,
             String catalog,
             String schema,
@@ -63,7 +64,7 @@ public final class Session
             Map<String, Map<String, String>> catalogProperties,
             SessionPropertyManager sessionPropertyManager)
     {
-        this.user = requireNonNull(user, "user is null");
+        this.identity = identity;
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -84,7 +85,12 @@ public final class Session
 
     public String getUser()
     {
-        return user;
+        return identity.getUser();
+    }
+
+    public Identity getIdentity()
+    {
+        return identity;
     }
 
     public Optional<String> getSource()
@@ -156,7 +162,7 @@ public final class Session
         systemProperties.put(key, value);
 
         return new Session(
-                user,
+                identity,
                 source,
                 catalog,
                 schema,
@@ -188,7 +194,7 @@ public final class Session
         catalogProperties.put(catalog, properties);
 
         return new Session(
-                user,
+                identity,
                 source,
                 catalog,
                 schema,
@@ -204,14 +210,14 @@ public final class Session
 
     public ConnectorSession toConnectorSession()
     {
-        return new FullConnectorSession(user, timeZoneKey, locale, startTime);
+        return new FullConnectorSession(identity, timeZoneKey, locale, startTime);
     }
 
     public ConnectorSession toConnectorSession(String catalog)
     {
         checkNotNull(catalog, "catalog is null");
         return new FullConnectorSession(
-                user,
+                identity,
                 timeZoneKey,
                 locale,
                 startTime,
@@ -233,7 +239,7 @@ public final class Session
 
         return new ClientSession(
                 checkNotNull(server, "server is null"),
-                user,
+                identity.getUser(),
                 source.orElse(null),
                 catalog,
                 schema,
@@ -246,7 +252,7 @@ public final class Session
     public SessionRepresentation toSessionRepresentation()
     {
         return new SessionRepresentation(
-                user,
+                identity.getUser(),
                 source,
                 catalog,
                 schema,
@@ -263,7 +269,7 @@ public final class Session
     public String toString()
     {
         return toStringHelper(this)
-                .add("user", user)
+                .add("user", getUser())
                 .add("source", source)
                 .add("catalog", catalog)
                 .add("schema", schema)
@@ -282,7 +288,7 @@ public final class Session
 
     public static class SessionBuilder
     {
-        private String user;
+        private Identity identity;
         private String source;
         private String catalog;
         private String schema;
@@ -342,9 +348,9 @@ public final class Session
             return this;
         }
 
-        public SessionBuilder setUser(String user)
+        public SessionBuilder setIdentity(Identity identity)
         {
-            this.user = user;
+            this.identity = identity;
             return this;
         }
 
@@ -380,7 +386,7 @@ public final class Session
         public Session build()
         {
             return new Session(
-                    user,
+                    identity,
                     Optional.ofNullable(source),
                     catalog,
                     schema,

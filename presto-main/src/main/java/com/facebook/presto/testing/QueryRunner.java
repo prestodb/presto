@@ -36,6 +36,8 @@ public interface QueryRunner
 
     Metadata getMetadata();
 
+    TestingAccessControlManager getAccessControl();
+
     MaterializedResult execute(@Language("SQL") String sql);
 
     MaterializedResult execute(Session session, @Language("SQL") String sql);

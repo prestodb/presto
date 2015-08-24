@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.google.common.collect.ImmutableList;
@@ -65,7 +66,7 @@ public class TestResetSessionTask
         Session session = TEST_SESSION.withSystemProperty("foo", "bar").withCatalogProperty("catalog", "baz", "blah");
 
         QueryStateMachine stateMachine = new QueryStateMachine(new QueryId("query"), "reset foo", session, URI.create("fake://uri"), executor);
-        new ResetSessionTask().execute(new ResetSession(QualifiedName.of("catalog", "baz")), session, metadata, stateMachine);
+        new ResetSessionTask().execute(new ResetSession(QualifiedName.of("catalog", "baz")), session, metadata, new AllowAllAccessControl(), stateMachine);
 
         Set<String> sessionProperties = stateMachine.getResetSessionProperties();
         assertEquals(sessionProperties, ImmutableSet.of("catalog.baz"));

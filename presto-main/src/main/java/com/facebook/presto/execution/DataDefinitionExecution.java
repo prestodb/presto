@@ -18,6 +18,7 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Throwables;
 import io.airlift.units.Duration;
@@ -38,6 +39,7 @@ public class DataDefinitionExecution<T extends Statement>
     private final T statement;
     private final Session session;
     private final Metadata metadata;
+    private final AccessControl accessControl;
     private final QueryStateMachine stateMachine;
 
     private DataDefinitionExecution(
@@ -45,12 +47,14 @@ public class DataDefinitionExecution<T extends Statement>
             T statement,
             Session session,
             Metadata metadata,
+            AccessControl accessControl,
             QueryStateMachine stateMachine)
     {
         this.task = checkNotNull(task, "task is null");
         this.statement = checkNotNull(statement, "statement is null");
         this.session = checkNotNull(session, "session is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
+        this.accessControl = checkNotNull(accessControl, "accessControl is null");
         this.stateMachine = checkNotNull(stateMachine, "stateMachine is null");
     }
 
@@ -88,7 +92,7 @@ public class DataDefinitionExecution<T extends Statement>
                 return;
             }
 
-            task.execute(statement, session, metadata, stateMachine);
+            task.execute(statement, session, metadata, accessControl, stateMachine);
 
             stateMachine.transitionToFinished();
         }
@@ -160,6 +164,7 @@ public class DataDefinitionExecution<T extends Statement>
     {
         private final LocationFactory locationFactory;
         private final Metadata metadata;
+        private final AccessControl accessControl;
         private final ExecutorService executor;
         private final Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks;
 
@@ -167,11 +172,13 @@ public class DataDefinitionExecution<T extends Statement>
         public DataDefinitionExecutionFactory(
                 LocationFactory locationFactory,
                 MetadataManager metadata,
+                AccessControl accessControl,
                 @ForQueryExecution ExecutorService executor,
                 Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks)
         {
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.metadata = checkNotNull(metadata, "metadata is null");
+            this.accessControl = checkNotNull(accessControl, "accessControl is null");
             this.executor = checkNotNull(executor, "executor is null");
             this.tasks = checkNotNull(tasks, "tasks is null");
         }
@@ -200,7 +207,7 @@ public class DataDefinitionExecution<T extends Statement>
             DataDefinitionTask<Statement> task = getTask(statement);
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
             stateMachine.setUpdateType(task.getName());
-            return new DataDefinitionExecution<>(task, statement, session, metadata, stateMachine);
+            return new DataDefinitionExecution<>(task, statement, session, metadata, accessControl, stateMachine);
         }
 
         @SuppressWarnings("unchecked")

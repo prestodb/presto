@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedTableName;
@@ -792,6 +794,7 @@ public class TestAnalyzer
         metadata.addConnectorMetadata("tpch", "tpch", new TestingMetadata());
         metadata.addConnectorMetadata("c2", "c2", new TestingMetadata());
         metadata.addConnectorMetadata("c3", "c3", new TestingMetadata());
+        AccessControl accessControl = new AllowAllAccessControl();
 
         SchemaTableName table1 = new SchemaTableName("default", "t1");
         metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
@@ -852,6 +855,7 @@ public class TestAnalyzer
                         .build(),
                 metadata,
                 SQL_PARSER,
+                accessControl,
                 Optional.empty(),
                 true);
 
@@ -862,6 +866,7 @@ public class TestAnalyzer
                         .build(),
                 metadata,
                 SQL_PARSER,
+                accessControl,
                 Optional.empty(),
                 false);
     }

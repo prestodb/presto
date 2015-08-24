@@ -14,6 +14,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
@@ -29,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 public class FullConnectorSession
         implements ConnectorSession
 {
-    private final String user;
+    private final Identity identity;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
     private final long startTime;
@@ -38,12 +39,12 @@ public class FullConnectorSession
     private final SessionPropertyManager sessionPropertyManager;
 
     public FullConnectorSession(
-            String user,
+            Identity identity,
             TimeZoneKey timeZoneKey,
             Locale locale,
             long startTime)
     {
-        this.user = requireNonNull(user, "user is null");
+        this.identity = requireNonNull(identity, "identity is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.startTime = startTime;
@@ -54,7 +55,7 @@ public class FullConnectorSession
     }
 
     public FullConnectorSession(
-            String user,
+            Identity identity,
             TimeZoneKey timeZoneKey,
             Locale locale,
             long startTime,
@@ -62,7 +63,7 @@ public class FullConnectorSession
             String catalog,
             SessionPropertyManager sessionPropertyManager)
     {
-        this.user = requireNonNull(user, "user is null");
+        this.identity = requireNonNull(identity, "identity is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.startTime = startTime;
@@ -73,9 +74,9 @@ public class FullConnectorSession
     }
 
     @Override
-    public String getUser()
+    public Identity getIdentity()
     {
-        return user;
+        return identity;
     }
 
     @Override
@@ -111,7 +112,7 @@ public class FullConnectorSession
     {
         return toStringHelper(this)
                 .omitNullValues()
-                .add("user", user)
+                .add("user", getUser())
                 .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)
                 .add("startTime", startTime)

@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -75,7 +76,7 @@ public class TestSetSessionTask
             throws Exception
     {
         QueryStateMachine stateMachine = new QueryStateMachine(new QueryId("query"), "set foo.bar = 'baz'", TEST_SESSION, URI.create("fake://uri"), executor);
-        new SetSessionTask().execute(new SetSession(QualifiedName.of("foo", "bar"), expression), TEST_SESSION, metadata, stateMachine);
+        new SetSessionTask().execute(new SetSession(QualifiedName.of("foo", "bar"), expression), TEST_SESSION, metadata, new AllowAllAccessControl(), stateMachine);
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();
         assertEquals(sessionProperties, ImmutableMap.of("foo.bar", expectedValue));
