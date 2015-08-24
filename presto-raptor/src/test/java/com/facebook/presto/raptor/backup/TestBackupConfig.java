@@ -32,7 +32,8 @@ public class TestBackupConfig
     {
         assertRecordedDefaults(recordDefaults(BackupConfig.class)
                 .setProvider(null)
-                .setTimeout(new Duration(1, MINUTES)));
+                .setTimeout(new Duration(1, MINUTES))
+                .setBackupThreads(5));
     }
 
     @Test
@@ -41,11 +42,13 @@ public class TestBackupConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("backup.provider", "file")
                 .put("backup.timeout", "42s")
+                .put("backup.threads", "3")
                 .build();
 
         BackupConfig expected = new BackupConfig()
                 .setProvider("file")
-                .setTimeout(new Duration(42, SECONDS));
+                .setTimeout(new Duration(42, SECONDS))
+                .setBackupThreads(3);
 
         assertFullMapping(properties, expected);
     }

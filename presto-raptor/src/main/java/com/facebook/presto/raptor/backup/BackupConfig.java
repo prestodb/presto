@@ -20,6 +20,7 @@ import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
 
 import javax.annotation.Nullable;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -28,6 +29,7 @@ public class BackupConfig
 {
     private Duration timeout = new Duration(1, MINUTES);
     private String provider;
+    private int backupThreads = 5;
 
     @NotNull
     @MinDuration("1s")
@@ -56,6 +58,19 @@ public class BackupConfig
     public BackupConfig setProvider(String provider)
     {
         this.provider = provider;
+        return this;
+    }
+
+    @Min(1)
+    public int getBackupThreads()
+    {
+        return backupThreads;
+    }
+
+    @Config("backup.threads")
+    public BackupConfig setBackupThreads(int backupThreads)
+    {
+        this.backupThreads = backupThreads;
         return this;
     }
 }

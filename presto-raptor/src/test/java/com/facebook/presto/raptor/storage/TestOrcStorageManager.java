@@ -19,6 +19,7 @@ import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.backup.FileBackupStore;
 import com.facebook.presto.raptor.metadata.ColumnStats;
@@ -489,6 +490,7 @@ public class TestOrcStorageManager
                 ORC_MAX_MERGE_DISTANCE,
                 ORC_MAX_READ_SIZE,
                 ORC_STREAM_BUFFER_SIZE,
+                new BackupManager(backupStore, 1),
                 recoveryManager,
                 new TypeRegistry(),
                 CONNECTOR_ID,
