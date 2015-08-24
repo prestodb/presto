@@ -80,7 +80,7 @@ public class TestTableScanOperator
 
         assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
 
-        assertTrue(operator.isFinished());
+        assertFalse(operator.isFinished());
         assertFalse(operator.needsInput());
         assertNull(operator.getOutput());
         long systemMemoryAfterFirstPage = operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes();
