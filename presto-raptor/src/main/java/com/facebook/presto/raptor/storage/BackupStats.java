@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import io.airlift.stats.CounterStat;
 import io.airlift.stats.DistributionStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -24,11 +25,15 @@ import javax.annotation.concurrent.ThreadSafe;
 import static com.facebook.presto.raptor.storage.ShardRecoveryManager.dataRate;
 
 @ThreadSafe
-public class StorageManagerStats
+public class BackupStats
 {
     private final DistributionStat copyToBackupBytesPerSecond = new DistributionStat();
     private final DistributionStat copyToBackupShardSizeBytes = new DistributionStat();
     private final DistributionStat copyToBackupTimeInMilliSeconds = new DistributionStat();
+    private final DistributionStat queuedTimeMilliSeconds = new DistributionStat();
+
+    private final CounterStat backupSuccess = new CounterStat();
+    private final CounterStat backupFailure = new CounterStat();
 
     public void addCopyShardDataRate(DataSize size, Duration duration)
     {
@@ -36,6 +41,21 @@ public class StorageManagerStats
         copyToBackupBytesPerSecond.add(Math.round(rate.toBytes()));
         copyToBackupShardSizeBytes.add(size.toBytes());
         copyToBackupTimeInMilliSeconds.add(duration.toMillis());
+    }
+
+    public void addQueuedTime(Duration queuedTime)
+    {
+        queuedTimeMilliSeconds.add(queuedTime.toMillis());
+    }
+
+    public void incrementBackupSuccess()
+    {
+        backupSuccess.update(1);
+    }
+
+    public void incrementBackupFailure()
+    {
+        backupFailure.update(1);
     }
 
     @Managed
@@ -57,5 +77,26 @@ public class StorageManagerStats
     public DistributionStat getCopyToBackupTimeInMilliSeconds()
     {
         return copyToBackupTimeInMilliSeconds;
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getQueuedTimeMilliSeconds()
+    {
+        return queuedTimeMilliSeconds;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getBackupSuccess()
+    {
+        return backupSuccess;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getBackupFailure()
+    {
+        return backupFailure;
     }
 }
