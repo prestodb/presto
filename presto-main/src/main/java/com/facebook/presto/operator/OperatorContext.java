@@ -208,11 +208,6 @@ public class OperatorContext
         return memoryFuture.get();
     }
 
-    public DataSize getMaxMemorySize()
-    {
-        return driverContext.getMaxMemorySize();
-    }
-
     public DataSize getOperatorPreAllocatedMemory()
     {
         return driverContext.getOperatorPreAllocatedMemory();
@@ -254,7 +249,7 @@ public class OperatorContext
         long newReservation = memoryReservation.addAndGet(bytes);
         if (newReservation > maxMemoryReservation) {
             memoryReservation.getAndAdd(-bytes);
-            throw new ExceededMemoryLimitException(getMaxMemorySize());
+            throw new ExceededMemoryLimitException(new DataSize(maxMemoryReservation, BYTE));
         }
     }
 

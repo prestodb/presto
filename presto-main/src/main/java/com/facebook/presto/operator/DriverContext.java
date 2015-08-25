@@ -94,7 +94,7 @@ public class DriverContext
 
     public OperatorContext addOperatorContext(int operatorId, String operatorType)
     {
-        return addOperatorContext(operatorId, operatorType, pipelineContext.getMaxMemorySize().toBytes());
+        return addOperatorContext(operatorId, operatorType, Long.MAX_VALUE);
     }
 
     public OperatorContext addOperatorContext(int operatorId, String operatorType, long maxMemoryReservation)
@@ -182,11 +182,6 @@ public class DriverContext
     public boolean isDone()
     {
         return finished.get() || pipelineContext.isDone();
-    }
-
-    public DataSize getMaxMemorySize()
-    {
-        return pipelineContext.getMaxMemorySize();
     }
 
     public DataSize getOperatorPreAllocatedMemory()
