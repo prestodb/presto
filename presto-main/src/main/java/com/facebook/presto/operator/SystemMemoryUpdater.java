@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.SystemMemoryUsageListener;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class SystemMemoryUpdater
@@ -36,5 +37,17 @@ public class SystemMemoryUpdater
         else {
             operatorContext.freeSystemMemory(-deltaMemoryInBytes);
         }
+    }
+
+    public void reserveSystemMemroryUsage(long memoryBytesToReserve)
+    {
+        checkArgument(memoryBytesToReserve >= 0, "memoryBytesToReserve is negative");
+        operatorContext.reserveSystemMemory(memoryBytesToReserve);
+    }
+
+    public void freeSystemMemroryUsage(long memoryBytesToFree)
+    {
+        checkArgument(memoryBytesToFree >= 0, "memoryBytesToFree is negative");
+        operatorContext.freeSystemMemory(memoryBytesToFree);
     }
 }

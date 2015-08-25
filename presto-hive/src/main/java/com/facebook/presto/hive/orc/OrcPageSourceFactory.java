@@ -149,17 +149,17 @@ public class OrcPageSourceFactory
 
         OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build());
 
-        SystemMemoryUsage usedMemoryBytes = new SystemMemoryUsage();
+        SystemMemoryUsage systemMemoryUsage = new SystemMemoryUsage();
 
         try {
-            OrcReader reader = new OrcReader(orcDataSource, metadataReader, usedMemoryBytes);
+            OrcReader reader = new OrcReader(orcDataSource, metadataReader, systemMemoryUsage);
             OrcRecordReader recordReader = reader.createRecordReader(
                     includedColumns.build(),
                     predicate,
                     start,
                     length,
                     hiveStorageTimeZone,
-                    usedMemoryBytes);
+                    systemMemoryUsage);
 
             return new OrcPageSource(
                     recordReader,
@@ -168,7 +168,7 @@ public class OrcPageSourceFactory
                     columns,
                     hiveStorageTimeZone,
                     typeManager,
-                    usedMemoryBytes);
+                    systemMemoryUsage);
         }
         catch (Exception e) {
             try {

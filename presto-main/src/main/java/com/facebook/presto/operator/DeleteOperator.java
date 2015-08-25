@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.UpdatablePageSource;
@@ -79,7 +78,7 @@ public class DeleteOperator
 
     private final OperatorContext operatorContext;
     private final int rowIdChannel;
-    private final SystemMemoryUsageListener systemMemoryUsageListener;
+    private final SystemMemoryUpdater systemMemoryUsageListener;
 
     private State state = State.RUNNING;
     private long rowCount;
@@ -136,9 +135,9 @@ public class DeleteOperator
         Block rowIds = page.getBlock(rowIdChannel);
         pageSource().deleteRows(rowIds);
         rowCount += rowIds.getPositionCount();
-        long usedMemoryBytes = pageSource().getUsedMemoryBytes();
-        systemMemoryUsageListener.updateSystemMemoryUsage(usedMemoryBytes - bufferBytes);
-        bufferBytes = usedMemoryBytes;
+        long systemMemoryUsage = pageSource().getSystemMemoryUsage();
+        systemMemoryUsageListener.reserveSystemMemroryUsage(systemMemoryUsage - bufferBytes);
+        bufferBytes = systemMemoryUsage;
     }
 
     @Override
@@ -151,9 +150,10 @@ public class DeleteOperator
 
         Collection<Slice> fragments = pageSource().commit();
         committed = true;
-        long usedMemoryBytes = pageSource().getUsedMemoryBytes();
-        systemMemoryUsageListener.updateSystemMemoryUsage(usedMemoryBytes - bufferBytes);
-        bufferBytes = usedMemoryBytes;
+        long systemMemoryUsage = pageSource().getSystemMemoryUsage();
+
+        systemMemoryUsageListener.reserveSystemMemroryUsage(systemMemoryUsage - bufferBytes);
+        bufferBytes = systemMemoryUsage;
 
         PageBuilder page = new PageBuilder(TYPES);
         BlockBuilder rowsBuilder = page.getBlockBuilder(0);
@@ -180,11 +180,11 @@ public class DeleteOperator
     {
         if (!closed) {
             closed = true;
+            systemMemoryUsageListener.freeSystemMemroryUsage(bufferBytes);
+            bufferBytes = 0;
             if (!committed) {
                 pageSource.get().ifPresent(UpdatablePageSource::rollback);
             }
-            systemMemoryUsageListener.updateSystemMemoryUsage(-bufferBytes);
-            bufferBytes = 0;
         }
     }
 

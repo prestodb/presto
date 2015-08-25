@@ -79,10 +79,4 @@ public class FixedPageSource
         completedBytes += page.getSizeInBytes();
         return page;
     }
-
-    @Override
-    public long getUsedMemoryBytes()
-    {
-        return 0;
-    }
 }

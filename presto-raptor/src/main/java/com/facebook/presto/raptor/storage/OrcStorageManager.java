@@ -50,7 +50,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -175,10 +174,10 @@ public class OrcStorageManager
     {
         OrcDataSource dataSource = openShard(shardUuid);
 
-        SystemMemoryUsage usedMemoryBytes = new SystemMemoryUsage();
+        SystemMemoryUsage systemMemoryUsage = new SystemMemoryUsage();
 
         try {
-            OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader(), usedMemoryBytes);
+            OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader(), systemMemoryUsage);
 
             Map<Long, Integer> indexMap = columnIdIndex(reader.getColumnNames());
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
@@ -202,11 +201,11 @@ public class OrcStorageManager
 
             OrcPredicate predicate = getPredicate(effectivePredicate, indexMap);
 
-            OrcRecordReader recordReader = reader.createRecordReader(includedColumns.build(), predicate, UTC, usedMemoryBytes);
+            OrcRecordReader recordReader = reader.createRecordReader(includedColumns.build(), predicate, UTC, systemMemoryUsage);
 
-            ShardRewriter shardRewriter = rowsToDelete -> rewriteShard(shardUuid, rowsToDelete, usedMemoryBytes);
+            ShardRewriter shardRewriter = rowsToDelete -> rewriteShard(shardUuid, rowsToDelete, systemMemoryUsage);
 
-            return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build(), usedMemoryBytes);
+            return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build(), systemMemoryUsage);
         }
         catch (IOException | RuntimeException e) {
             try {
@@ -300,15 +299,15 @@ public class OrcStorageManager
         return backupStore.isPresent() && backupStore.get().shardSize(shardUuid).isPresent();
     }
 
-    private ShardInfo createShardInfo(UUID shardUuid, File file, Set<String> nodes, long rowCount, long uncompressedSize, SystemMemoryUsage usedMemoryBytes)
+    private ShardInfo createShardInfo(UUID shardUuid, File file, Set<String> nodes, long rowCount, long uncompressedSize, SystemMemoryUsage systemMemoryUsage)
     {
-        return new ShardInfo(shardUuid, nodes, computeShardStats(file, usedMemoryBytes), rowCount, file.length(), uncompressedSize);
+        return new ShardInfo(shardUuid, nodes, computeShardStats(file, systemMemoryUsage), rowCount, file.length(), uncompressedSize);
     }
 
-    private List<ColumnStats> computeShardStats(File file, SystemMemoryUsage usedMemoryBytes)
+    private List<ColumnStats> computeShardStats(File file, SystemMemoryUsage systemMemoryUsage)
     {
         try (OrcDataSource dataSource = new FileOrcDataSource(file, orcMaxMergeDistance, orcMaxReadSize, orcStreamBufferSize)) {
-            OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader(), usedMemoryBytes);
+            OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader(), systemMemoryUsage);
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
             for (ColumnInfo info : getColumnInfo(reader)) {
@@ -321,7 +320,7 @@ public class OrcStorageManager
         }
     }
 
-    private Collection<Slice> rewriteShard(UUID shardUuid, BitSet rowsToDelete, SystemMemoryUsage usedMemoryBytes)
+    private Collection<Slice> rewriteShard(UUID shardUuid, BitSet rowsToDelete, SystemMemoryUsage systemMemoryUsage)
     {
         if (rowsToDelete.isEmpty()) {
             return ImmutableList.of();
@@ -333,7 +332,7 @@ public class OrcStorageManager
 
         OrcFileInfo info = rewriteFile(input, output, rowsToDelete);
         long rowCount = info.getRowCount();
-        usedMemoryBytes.add(HiveConf.getIntVar(new Configuration(), HiveConf.ConfVars.HIVE_ORC_DEFAULT_BUFFER_SIZE));
+        systemMemoryUsage.add(HiveConf.getIntVar(OrcFileRewriter.CONFIGURATION, HiveConf.ConfVars.HIVE_ORC_DEFAULT_BUFFER_SIZE));
 
         if (rowCount == 0) {
             return shardDelta(shardUuid, Optional.empty());
@@ -342,7 +341,7 @@ public class OrcStorageManager
         Set<String> nodes = ImmutableSet.of(nodeId);
         long uncompressedSize = info.getUncompressedSize();
 
-        ShardInfo shard = createShardInfo(newShardUuid, output, nodes, rowCount, uncompressedSize, usedMemoryBytes);
+        ShardInfo shard = createShardInfo(newShardUuid, output, nodes, rowCount, uncompressedSize, systemMemoryUsage);
 
         writeShard(newShardUuid);
 

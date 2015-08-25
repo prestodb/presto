@@ -54,7 +54,10 @@ public interface ConnectorPageSource
      *
      * @return the system memory used so far in table read
      */
-    long getUsedMemoryBytes();
+    default long getSystemMemoryUsage()
+    {
+        return 0;
+    }
 
     /**
      * Immediately finishes this page source.  Presto will always call this method.

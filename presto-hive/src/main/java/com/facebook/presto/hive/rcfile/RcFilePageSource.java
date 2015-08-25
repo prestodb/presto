@@ -350,7 +350,7 @@ public class RcFilePageSource
     }
 
     @Override
-    public long getUsedMemoryBytes()
+    public long getSystemMemoryUsage()
     {
         try {
             return recordReader.getCurrentKeyBufferObj().getSize();

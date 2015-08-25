@@ -13,10 +13,15 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
@@ -74,17 +79,23 @@ public class TestTableScanOperator
 
         OperatorContext context = driverContext.addOperatorContext(0, TableScanOperator.class.getSimpleName());
 
-        ConnectorPageSource pageSource = new MockConnectorPageSource();
+        MockPageSourceProvider pageSourceProvider = new MockPageSourceProvider();
 
-        Operator operator = new TableScanOperator(context, new PlanNodeId("0"), pageSource, TYPES, ImmutableList.<ColumnHandle>of());
+        Operator operator = new TableScanOperator(context, new PlanNodeId("0"), pageSourceProvider, TYPES, ImmutableList.<ColumnHandle>of());
 
         assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
+
+        if (operator instanceof TableScanOperator) {
+            ((TableScanOperator) operator).addSplit(new Split("foo", new MockSplit()));
+        }
 
         assertFalse(operator.isFinished());
         assertFalse(operator.needsInput());
         assertNull(operator.getOutput());
         long systemMemoryAfterFirstPage = operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes();
         assertTrue(systemMemoryAfterFirstPage > 0);
+
+        ConnectorPageSource pageSource = pageSourceProvider.getConnectorPageSource();
 
         if (pageSource instanceof MockConnectorPageSource) {
             ((MockConnectorPageSource) pageSource).startOutput();
@@ -108,6 +119,23 @@ public class TestTableScanOperator
         assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
     }
 
+    private class MockPageSourceProvider
+            implements PageSourceProvider
+    {
+        private ConnectorPageSource connectorPageSource;
+
+        public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
+        {
+            connectorPageSource = new MockConnectorPageSource();
+            return connectorPageSource;
+        }
+
+        public ConnectorPageSource getConnectorPageSource()
+        {
+            return connectorPageSource;
+        }
+    }
+
     private class MockConnectorPageSource
             implements ConnectorPageSource
     {
@@ -124,7 +152,7 @@ public class TestTableScanOperator
         }
 
         @Override
-        public long getUsedMemoryBytes()
+        public long getSystemMemoryUsage()
         {
             return 120;
         }
@@ -165,6 +193,28 @@ public class TestTableScanOperator
         @Override
         public void close()
         {
+        }
+    }
+
+    private static class MockSplit
+            implements ConnectorSplit
+    {
+        @Override
+        public boolean isRemotelyAccessible()
+        {
+            return false;
+        }
+
+        @Override
+        public List<HostAddress> getAddresses()
+        {
+            return ImmutableList.of();
+        }
+
+        @Override
+        public Object getInfo()
+        {
+            return null;
         }
     }
 }

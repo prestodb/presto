@@ -135,10 +135,4 @@ public class RecordPageSource
 
         return page;
     }
-
-    @Override
-    public long getUsedMemoryBytes()
-    {
-        return 0;
-    }
 }

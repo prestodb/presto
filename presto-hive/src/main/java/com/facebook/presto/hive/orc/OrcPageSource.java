@@ -100,7 +100,7 @@ public class OrcPageSource
     private int batchId;
     private boolean closed;
 
-    private SystemMemoryUsage usedMemoryBytes;
+    private SystemMemoryUsage systemMemoryUsage;
 
     public OrcPageSource(
             OrcRecordReader recordReader,
@@ -109,7 +109,7 @@ public class OrcPageSource
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            SystemMemoryUsage usedMemoryBytes)
+            SystemMemoryUsage systemMemoryUsage)
     {
         this.recordReader = checkNotNull(recordReader, "recordReader is null");
         this.orcDataSource = checkNotNull(orcDataSource, "orcDataSource is null");
@@ -211,7 +211,7 @@ public class OrcPageSource
         types = typesBuilder.build();
         columnNames = namesBuilder.build();
 
-        this.usedMemoryBytes = checkNotNull(usedMemoryBytes, "usedMemoryBytes is null");
+        this.systemMemoryUsage = checkNotNull(systemMemoryUsage, "systemMemoryUsage is null");
     }
 
     @Override
@@ -321,9 +321,9 @@ public class OrcPageSource
     }
 
     @Override
-    public long getUsedMemoryBytes()
+    public long getSystemMemoryUsage()
     {
-        return usedMemoryBytes.get();
+        return systemMemoryUsage.get();
     }
 
     protected void closeWithSuppression(Throwable throwable)

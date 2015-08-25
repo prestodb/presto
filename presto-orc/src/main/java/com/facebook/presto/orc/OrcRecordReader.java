@@ -86,7 +86,7 @@ public class OrcRecordReader
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
             MetadataReader metadataReader,
-            SystemMemoryUsage usedMemoryBytes)
+            SystemMemoryUsage systemMemoryUsage)
             throws IOException
     {
         checkNotNull(includedColumns, "includedColumns is null");
@@ -155,7 +155,7 @@ public class OrcRecordReader
                 .mapToLong(StripeInformation::getNumberOfRows)
                 .sum();
 
-        checkNotNull(usedMemoryBytes, "usedMemoryBytes is null");
+        checkNotNull(systemMemoryUsage, "systemMemoryUsage is null");
 
         stripeReader = new StripeReader(
                 orcDataSource,
@@ -166,7 +166,7 @@ public class OrcRecordReader
                 rowsInRowGroup,
                 predicate,
                 metadataReader,
-                usedMemoryBytes);
+                systemMemoryUsage);
 
         streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build());
     }

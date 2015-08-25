@@ -60,12 +60,12 @@ public class OrcReader
         this(orcDataSource, metadataReader, new SystemMemoryUsage());
     }
 
-    public OrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader, SystemMemoryUsage usedMemoryBytes)
+    public OrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader, SystemMemoryUsage systemMemoryUsage)
             throws IOException
     {
         this.orcDataSource = checkNotNull(orcDataSource, "orcDataSource is null");
         this.metadataReader = checkNotNull(metadataReader, "metadataReader is null");
-        checkNotNull(usedMemoryBytes, "usedMemoryBytes is null");
+        checkNotNull(systemMemoryUsage, "systemMemoryUsage is null");
 
         //
         // Read the file tail:
@@ -126,16 +126,16 @@ public class OrcReader
             completeFooterSlice = Slices.wrappedBuffer(buffer, buffer.length - completeFooterSize, completeFooterSize);
         }
 
-        usedMemoryBytes.add(buffer.length);
+        systemMemoryUsage.add(buffer.length);
 
         // read metadata
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
-        InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), compressionKind, bufferSize, usedMemoryBytes);
+        InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), compressionKind, bufferSize, systemMemoryUsage);
         this.metadata = metadataReader.readMetadata(metadataInputStream);
 
         // read footer
         Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
-        InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), compressionKind, bufferSize, usedMemoryBytes);
+        InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), compressionKind, bufferSize, systemMemoryUsage);
         this.footer = metadataReader.readFooter(footerInputStream);
     }
 
@@ -164,10 +164,10 @@ public class OrcReader
         return bufferSize;
     }
 
-    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, SystemMemoryUsage usedMemoryBytes)
+    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, SystemMemoryUsage systemMemoryUsage)
             throws IOException
     {
-        return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, usedMemoryBytes);
+        return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage);
     }
 
     public OrcRecordReader createRecordReader(
@@ -176,7 +176,7 @@ public class OrcReader
             long offset,
             long length,
             DateTimeZone hiveStorageTimeZone,
-            SystemMemoryUsage usedMemoryBytes)
+            SystemMemoryUsage systemMemoryUsage)
             throws IOException
     {
         return new OrcRecordReader(
@@ -195,7 +195,7 @@ public class OrcReader
                 footer.getRowsInRowGroup(),
                 checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null"),
                 metadataReader,
-                usedMemoryBytes);
+                systemMemoryUsage);
     }
 
     /**

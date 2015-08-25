@@ -54,9 +54,9 @@ public final class OrcInputStream
 
     private byte[] buffer;
 
-    private final SystemMemoryUsage usedMemoryBytes;
+    private final SystemMemoryUsage systemMemoryUsage;
 
-    public OrcInputStream(String source, FixedLengthSliceInput sliceInput, CompressionKind compressionKind, int bufferSize, SystemMemoryUsage usedMemoryBytes)
+    public OrcInputStream(String source, FixedLengthSliceInput sliceInput, CompressionKind compressionKind, int bufferSize, SystemMemoryUsage systemMemoryUsage)
     {
         this.source = checkNotNull(source, "source is null");
 
@@ -64,7 +64,7 @@ public final class OrcInputStream
 
         this.compressionKind = checkNotNull(compressionKind, "compressionKind is null");
         this.maxBufferSize = bufferSize;
-        this.usedMemoryBytes = checkNotNull(usedMemoryBytes, "usedMemoryBytes is null");
+        this.systemMemoryUsage = checkNotNull(systemMemoryUsage, "systemMemoryUsage is null");
 
         if (compressionKind == UNCOMPRESSED) {
             this.current = sliceInput;
@@ -82,7 +82,7 @@ public final class OrcInputStream
             throws IOException
     {
         current = null;
-        usedMemoryBytes.add(-buffer.length);
+        systemMemoryUsage.add(-buffer.length);
     }
 
     @Override
@@ -302,6 +302,6 @@ public final class OrcInputStream
                 buffer = new byte[Math.min(size, maxBufferSize)];
             }
         }
-        usedMemoryBytes.add(buffer.length - oldBufferSize);
+        systemMemoryUsage.add(buffer.length - oldBufferSize);
     }
 }

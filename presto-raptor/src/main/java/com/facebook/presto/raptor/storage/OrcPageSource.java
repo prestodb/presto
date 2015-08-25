@@ -36,7 +36,6 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.conf.HiveConf;
 
 import java.io.IOException;
@@ -87,12 +86,13 @@ public class OrcPageSource
     private final Block[] constantBlocks;
     private final int[] columnIndexes;
 
+    private final SystemMemoryUsage systemMemoryUsage;
+
     private long completedBytes;
 
     private int batchId;
     private boolean closed;
 
-    private SystemMemoryUsage usedMemoryBytes;
     private boolean commited;
 
     public OrcPageSource(
@@ -102,7 +102,7 @@ public class OrcPageSource
             List<Long> columnIds,
             List<Type> columnTypes,
             List<Integer> columnIndexes,
-            SystemMemoryUsage usedMemoryBytes)
+            SystemMemoryUsage systemMemoryUsage)
     {
         this.shardRewriter = checkNotNull(shardRewriter, "shardRewriter is null");
         this.recordReader = checkNotNull(recordReader, "recordReader is null");
@@ -127,7 +127,7 @@ public class OrcPageSource
             }
         }
 
-        this.usedMemoryBytes = checkNotNull(usedMemoryBytes, "usedMemoryBytes is null");
+        this.systemMemoryUsage = checkNotNull(systemMemoryUsage, "usedMemoryBytes is null");
     }
 
     @Override
@@ -247,13 +247,13 @@ public class OrcPageSource
     }
 
     @Override
-    public long getUsedMemoryBytes()
+    public long getSystemMemoryUsage()
     {
         if (commited) {
-            return usedMemoryBytes.getAndAdd(-HiveConf.getIntVar(new Configuration(), HiveConf.ConfVars.HIVE_ORC_DEFAULT_BUFFER_SIZE));
+            return systemMemoryUsage.getAndAdd(-HiveConf.getIntVar(OrcFileRewriter.CONFIGURATION, HiveConf.ConfVars.HIVE_ORC_DEFAULT_BUFFER_SIZE));
         }
         else {
-            return usedMemoryBytes.get();
+            return systemMemoryUsage.get();
         }
     }
 
