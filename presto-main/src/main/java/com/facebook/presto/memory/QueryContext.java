@@ -16,7 +16,6 @@ package com.facebook.presto.memory;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -29,7 +28,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_MEMORY_LIMIT;
+import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -63,7 +62,7 @@ public class QueryContext
         checkArgument(bytes >= 0, "bytes is negative");
 
         if (reserved + bytes > maxMemory) {
-            throw new PrestoException(EXCEEDED_MEMORY_LIMIT, "Query exceeded local memory limit of " + new DataSize(maxMemory, DataSize.Unit.BYTE).convertToMostSuccinctDataSize());
+            throw exceededLocalLimit(new DataSize(maxMemory, DataSize.Unit.BYTE).convertToMostSuccinctDataSize());
         }
         ListenableFuture<?> future = memoryPool.reserve(bytes);
         reserved += bytes;
@@ -138,9 +137,9 @@ public class QueryContext
         });
     }
 
-    public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, DataSize maxTaskMemory, DataSize operatorPreAllocatedMemory, boolean verboseStats, boolean cpuTimerEnabled)
+    public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, DataSize operatorPreAllocatedMemory, boolean verboseStats, boolean cpuTimerEnabled)
     {
-        TaskContext taskContext = new TaskContext(this, taskStateMachine, executor, session, maxTaskMemory, operatorPreAllocatedMemory, verboseStats, cpuTimerEnabled);
+        TaskContext taskContext = new TaskContext(this, taskStateMachine, executor, session, operatorPreAllocatedMemory, verboseStats, cpuTimerEnabled);
         taskContexts.add(taskContext);
         return taskContext;
     }

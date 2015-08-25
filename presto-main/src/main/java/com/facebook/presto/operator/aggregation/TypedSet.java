@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -21,6 +20,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.IntBigArray;
 import io.airlift.units.DataSize;
 
+import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -130,7 +130,7 @@ public class TypedSet
     {
         elementType.appendTo(block, position, elementBlock);
         if (elementBlock.getSizeInBytes() > FOUR_MEGABYTES) {
-            throw new ExceededMemoryLimitException(new DataSize(4, MEGABYTE));
+            throw exceededLocalLimit(new DataSize(4, MEGABYTE));
         }
         blockPositionByHash.set(hashPosition, elementBlock.getPositionCount() - 1);
 

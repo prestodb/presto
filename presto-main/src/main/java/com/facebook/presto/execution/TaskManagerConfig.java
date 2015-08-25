@@ -28,12 +28,11 @@ import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
-@DefunctConfig("experimental.big-query-max-task-memory")
+@DefunctConfig({"experimental.big-query-max-task-memory", "task.max-memory"})
 public class TaskManagerConfig
 {
     private boolean verboseStats;
     private boolean taskCpuTimerEnabled = true;
-    private DataSize maxTaskMemoryUsage = new DataSize(256, Unit.MEGABYTE);
     private DataSize maxPartialAggregationMemoryUsage = new DataSize(16, Unit.MEGABYTE);
     private DataSize operatorPreAllocatedMemory = new DataSize(16, Unit.MEGABYTE);
     private DataSize maxTaskIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
@@ -98,19 +97,6 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxPartialAggregationMemoryUsage(DataSize maxPartialAggregationMemoryUsage)
     {
         this.maxPartialAggregationMemoryUsage = maxPartialAggregationMemoryUsage;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getMaxTaskMemoryUsage()
-    {
-        return maxTaskMemoryUsage;
-    }
-
-    @Config("task.max-memory")
-    public TaskManagerConfig setMaxTaskMemoryUsage(DataSize maxTaskMemoryUsage)
-    {
-        this.maxTaskMemoryUsage = maxTaskMemoryUsage;
         return this;
     }
 
