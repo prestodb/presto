@@ -31,7 +31,6 @@ public class MemoryPool
 {
     private final MemoryPoolId id;
     private final long maxBytes;
-    private final boolean enableBlocking;
 
     @GuardedBy("this")
     private long freeBytes;
@@ -40,12 +39,11 @@ public class MemoryPool
     @GuardedBy("this")
     private SettableFuture<?> future;
 
-    public MemoryPool(MemoryPoolId id, DataSize size, boolean enableBlocking)
+    public MemoryPool(MemoryPoolId id, DataSize size)
     {
         this.id = requireNonNull(id, "name is null");
         requireNonNull(size, "size is null");
         maxBytes = size.toBytes();
-        this.enableBlocking = enableBlocking;
         freeBytes = size.toBytes();
     }
 
@@ -71,9 +69,7 @@ public class MemoryPool
                 future = SettableFuture.create();
             }
             checkState(!future.isDone(), "future is already completed");
-            if (enableBlocking) {
-                return future;
-            }
+            return future;
         }
         return NOT_BLOCKED;
     }
@@ -123,7 +119,6 @@ public class MemoryPool
         return MoreObjects.toStringHelper(this)
                 .add("id", id)
                 .add("maxBytes", maxBytes)
-                .add("enableBlocking", enableBlocking)
                 .add("freeBytes", freeBytes)
                 .add("future", future)
                 .toString();

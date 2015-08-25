@@ -115,7 +115,6 @@ public class SqlTaskManager
 
         this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
         DataSize maxQueryMemoryPerNode = memoryManagerConfig.getMaxQueryMemoryPerNode();
-        boolean clusterMemoryManagerEnabled = memoryManagerConfig.isClusterMemoryManagerEnabled();
 
         queryContexts = CacheBuilder.newBuilder().weakValues().build(new CacheLoader<QueryId, QueryContext>()
         {
@@ -123,7 +122,7 @@ public class SqlTaskManager
             public QueryContext load(QueryId key)
                     throws Exception
             {
-                return new QueryContext(clusterMemoryManagerEnabled, maxQueryMemoryPerNode, localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL), localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL), taskNotificationExecutor);
+                return new QueryContext(maxQueryMemoryPerNode, localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL), localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL), taskNotificationExecutor);
             }
         });
 
