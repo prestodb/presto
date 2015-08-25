@@ -102,7 +102,6 @@ public class TestOrcStorageManager
     private static final String CONNECTOR_ID = "test";
     private static final int DELETION_THREADS = 2;
     private static final Duration SHARD_RECOVERY_TIMEOUT = new Duration(30, TimeUnit.SECONDS);
-    private static final DataSize MAX_BUFFER_SIZE = new DataSize(256, MEGABYTE);
     private static final int MAX_SHARD_ROWS = 100;
     private static final DataSize MAX_FILE_SIZE = new DataSize(1, MEGABYTE);
     private static final Duration MISSING_SHARD_DISCOVERY = new Duration(5, TimeUnit.MINUTES);
@@ -496,8 +495,7 @@ public class TestOrcStorageManager
                 DELETION_THREADS,
                 SHARD_RECOVERY_TIMEOUT,
                 maxShardRows,
-                maxFileSize,
-                MAX_BUFFER_SIZE);
+                maxFileSize);
     }
 
     private static void assertColumnStats(List<ColumnStats> list, long columnId, Object min, Object max)

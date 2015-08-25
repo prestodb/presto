@@ -31,7 +31,6 @@ import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.storage.OrcFileRewriter.OrcFileInfo;
 import com.facebook.presto.raptor.util.CurrentNodeId;
-import com.facebook.presto.raptor.util.PageBuffer;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
@@ -110,7 +109,6 @@ public class OrcStorageManager
     private final Duration recoveryTimeout;
     private final long maxShardRows;
     private final DataSize maxShardSize;
-    private final DataSize maxBufferSize;
     private final StorageManagerStats stats;
     private final TypeManager typeManager;
     private final ExecutorService deletionExecutor;
@@ -139,8 +137,7 @@ public class OrcStorageManager
                 config.getDeletionThreads(),
                 config.getShardRecoveryTimeout(),
                 config.getMaxShardRows(),
-                config.getMaxShardSize(),
-                config.getMaxBufferSize());
+                config.getMaxShardSize());
     }
 
     public OrcStorageManager(
@@ -157,8 +154,7 @@ public class OrcStorageManager
             int deletionThreads,
             Duration shardRecoveryTimeout,
             long maxShardRows,
-            DataSize maxShardSize,
-            DataSize maxBufferSize)
+            DataSize maxShardSize)
     {
         this.nodeId = checkNotNull(nodeId, "nodeId is null");
         this.storageService = checkNotNull(storageService, "storageService is null");
@@ -174,7 +170,6 @@ public class OrcStorageManager
         checkArgument(maxShardRows > 0, "maxShardRows must be > 0");
         this.maxShardRows = min(maxShardRows, MAX_ROWS);
         this.maxShardSize = checkNotNull(maxShardSize, "maxShardSize is null");
-        this.maxBufferSize = checkNotNull(maxBufferSize, "maxBufferSize is null");
         this.stats = new StorageManagerStats();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.deletionExecutor = newFixedThreadPool(deletionThreads, daemonThreadsNamed("raptor-delete-" + connectorId + "-%s"));
@@ -253,23 +248,11 @@ public class OrcStorageManager
             throw new PrestoException(RAPTOR_ERROR, "Failed to move shard file", e);
         }
 
-        if (isBackupAvailable()) {
+        if (backupStore.isPresent()) {
             long start = System.nanoTime();
             backupStore.get().backupShard(shardUuid, storageFile);
             stats.addCopyShardDataRate(new DataSize(storageFile.length(), BYTE), nanosSince(start));
         }
-    }
-
-    @Override
-    public PageBuffer createPageBuffer()
-    {
-        return new PageBuffer(maxBufferSize.toBytes(), Integer.MAX_VALUE);
-    }
-
-    @Override
-    public boolean isBackupAvailable()
-    {
-        return backupStore.isPresent();
     }
 
     @Managed
