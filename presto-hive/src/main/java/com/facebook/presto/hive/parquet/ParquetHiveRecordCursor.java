@@ -32,6 +32,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
+import org.joda.time.DateTimeZone;
 import parquet.column.Dictionary;
 import parquet.hadoop.ParquetFileReader;
 import parquet.hadoop.ParquetInputSplit;
@@ -61,6 +62,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
+import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.buildParquetPredicate;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.predicateMatches;
@@ -71,6 +73,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -118,6 +121,7 @@ public class ParquetHiveRecordCursor
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
+            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             boolean predicatePushdownEnabled,
             TupleDomain<HiveColumnHandle> effectivePredicate)
@@ -127,6 +131,7 @@ public class ParquetHiveRecordCursor
         requireNonNull(splitSchema, "splitSchema is null");
         requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(columns, "columns is null");
+        requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
 
         this.totalBytes = length;
 
@@ -181,6 +186,9 @@ public class ParquetHiveRecordCursor
                 }
                 else if (type.equals(VARCHAR)) {
                     slices[columnIndex] = wrappedBuffer(bytes);
+                }
+                else if (type.equals(TIMESTAMP)) {
+                    longs[columnIndex] = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, columnName);
                 }
                 else {
                     throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for partition key: %s", type.getDisplayName(), columnName));
@@ -592,7 +600,12 @@ public class ParquetHiveRecordCursor
         public void addBinary(Binary value)
         {
             nulls[fieldIndex] = false;
-            slices[fieldIndex] = wrappedBuffer(value.getBytes());
+            if (types[fieldIndex] == TIMESTAMP) {
+                longs[fieldIndex] = ParquetTimestampUtils.getTimestampMillis(value);
+            }
+            else {
+                slices[fieldIndex] = wrappedBuffer(value.getBytes());
+            }
         }
 
         @Override
@@ -664,7 +677,7 @@ public class ParquetHiveRecordCursor
     private static BlockConverter createConverter(Type prestoType, String columnName, parquet.schema.Type parquetType)
     {
         if (parquetType.isPrimitive()) {
-            return new ParquetPrimitiveConverter();
+            return new ParquetPrimitiveConverter(prestoType);
         }
 
         return createGroupConverter(prestoType, columnName, parquetType);
@@ -1117,8 +1130,14 @@ public class ParquetHiveRecordCursor
             extends PrimitiveConverter
             implements BlockConverter
     {
+        private final Type type;
         private BlockBuilder builder;
         private boolean wroteValue;
+
+        public ParquetPrimitiveConverter(Type type)
+        {
+            this.type = type;
+        }
 
         @Override
         public void beforeValue(BlockBuilder builder)
@@ -1189,7 +1208,12 @@ public class ParquetHiveRecordCursor
         @Override
         public void addBinary(Binary value)
         {
-            VARBINARY.writeSlice(builder, wrappedBuffer(value.getBytes()));
+            if (type == TIMESTAMP) {
+                builder.writeLong(ParquetTimestampUtils.getTimestampMillis(value)).closeEntry();
+            }
+            else {
+                VARBINARY.writeSlice(builder, wrappedBuffer(value.getBytes()));
+            }
             wroteValue = true;
         }
 

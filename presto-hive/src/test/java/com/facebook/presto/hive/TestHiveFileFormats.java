@@ -322,14 +322,11 @@ public class TestHiveFileFormats
     {
         // Write of complex hive data to Parquet is broken
         // TODO: empty arrays or maps with null keys don't seem to work
-        // Parquet does not support DATE, TIMESTAMP or BINARY
+        // Parquet does not support DATE
         return TEST_COLUMNS.stream()
                 .filter(column -> !ImmutableSet.of("t_complex", "t_array_empty", "t_map_null_key")
                         .contains(column.getName()))
-                .filter(column -> !hasType(
-                        column.getObjectInspector(),
-                        PrimitiveCategory.DATE,
-                        PrimitiveCategory.TIMESTAMP))
+                .filter(column -> !hasType(column.getObjectInspector(), PrimitiveCategory.DATE))
                 .collect(toList());
     }
 

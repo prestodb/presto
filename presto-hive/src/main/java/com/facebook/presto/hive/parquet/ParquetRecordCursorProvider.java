@@ -97,6 +97,7 @@ public class ParquetRecordCursorProvider
                 partitionKeys,
                 columns,
                 useParquetColumnNames,
+                hiveStorageTimeZone,
                 typeManager,
                 isParquetPredicatePushdownEnabled(session),
                 effectivePredicate
@@ -107,8 +108,7 @@ public class ParquetRecordCursorProvider
     {
         return columnHandle -> {
             HiveType hiveType = columnHandle.getHiveType();
-            return !hiveType.equals(HiveType.HIVE_TIMESTAMP) &&
-                    !hiveType.equals(HiveType.HIVE_DATE);
+            return !hiveType.equals(HiveType.HIVE_DATE);
         };
     }
 }
