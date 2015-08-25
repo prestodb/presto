@@ -42,6 +42,7 @@ import javax.management.MBeanServer;
 import java.lang.management.ManagementFactory;
 import java.util.Map;
 
+import static com.facebook.presto.hive.ConditionalModule.installModuleIf;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -82,6 +83,10 @@ public class HiveConnectorFactory
                     new MBeanModule(),
                     new JsonModule(),
                     new HiveClientModule(connectorId, metastore, typeManager),
+                    installModuleIf(
+                            SecurityConfig.class,
+                            security -> "none".equalsIgnoreCase(security.getSecuritySystem()),
+                            new NoSecurityModule()),
                     binder -> {
                         MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
