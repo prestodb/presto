@@ -17,13 +17,14 @@ import com.facebook.presto.spi.block.Block;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 
 public interface UpdatablePageSource
         extends ConnectorPageSource
 {
     void deleteRows(Block rowIds);
 
-    Collection<Slice> commit();
+    CompletableFuture<Collection<Slice>> commit();
 
     default void rollback() {}
 }

@@ -86,6 +86,7 @@ import static io.airlift.units.Duration.nanosSince;
 import static java.lang.Math.min;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class OrcStorageManager
@@ -199,7 +200,7 @@ public class OrcStorageManager
 
             OrcRecordReader recordReader = reader.createRecordReader(includedColumns.build(), predicate, UTC);
 
-            ShardRewriter shardRewriter = rowsToDelete -> rewriteShard(shardUuid, rowsToDelete);
+            ShardRewriter shardRewriter = rowsToDelete -> completedFuture(rewriteShard(shardUuid, rowsToDelete));
 
             return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build());
         }

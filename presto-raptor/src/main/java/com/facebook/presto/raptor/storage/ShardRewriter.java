@@ -17,8 +17,9 @@ import io.airlift.slice.Slice;
 
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 
 public interface ShardRewriter
 {
-    Collection<Slice> rewrite(BitSet rowsToDelete);
+    CompletableFuture<Collection<Slice>> rewrite(BitSet rowsToDelete);
 }
