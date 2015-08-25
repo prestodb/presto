@@ -28,6 +28,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
+import org.joda.time.DateTimeZone;
 import parquet.column.Dictionary;
 import parquet.hadoop.ParquetFileReader;
 import parquet.hadoop.ParquetInputSplit;
@@ -57,12 +58,14 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
+import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -110,6 +113,7 @@ class ParquetHiveRecordCursor
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
+            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
     {
         checkNotNull(path, "path is null");
@@ -117,6 +121,7 @@ class ParquetHiveRecordCursor
         checkNotNull(splitSchema, "splitSchema is null");
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(columns, "columns is null");
+        checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
 
         this.totalBytes = length;
 
@@ -173,6 +178,9 @@ class ParquetHiveRecordCursor
                 }
                 else if (type.equals(VARCHAR)) {
                     slices[columnIndex] = Slices.wrappedBuffer(bytes);
+                }
+                else if (type.equals(TIMESTAMP)) {
+                    longs[columnIndex] = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, name);
                 }
                 else {
                     throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for partition key: %s", type.getDisplayName(), name));
@@ -588,7 +596,12 @@ class ParquetHiveRecordCursor
         public void addBinary(Binary value)
         {
             nulls[fieldIndex] = false;
-            slices[fieldIndex] = Slices.wrappedBuffer(value.getBytes());
+            if (types[fieldIndex] == TIMESTAMP) {
+                longs[fieldIndex] = ParquetTimestampUtils.getTimestampMillis(value);
+            }
+            else {
+                slices[fieldIndex] = Slices.wrappedBuffer(value.getBytes());
+            }
         }
 
         @Override
@@ -660,7 +673,7 @@ class ParquetHiveRecordCursor
     private static BlockConverter createConverter(Type prestoType, String columnName, parquet.schema.Type type)
     {
         if (type.isPrimitive()) {
-            return new ParquetPrimitiveConverter();
+            return new ParquetPrimitiveConverter(prestoType);
         }
         else if (type.getOriginalType() == LIST) {
             return new ParquetListConverter(prestoType, columnName, type.asGroupType());
@@ -1116,11 +1129,13 @@ class ParquetHiveRecordCursor
             extends PrimitiveConverter
             implements BlockConverter
     {
+        private final Type type;
         private BlockBuilder builder;
         private boolean wroteValue;
 
-        public ParquetPrimitiveConverter()
+        public ParquetPrimitiveConverter(Type type)
         {
+            this.type = type;
         }
 
         @Override
@@ -1192,7 +1207,12 @@ class ParquetHiveRecordCursor
         @Override
         public void addBinary(Binary value)
         {
-            VARBINARY.writeSlice(builder, Slices.wrappedBuffer(value.getBytes()));
+            if (type == TIMESTAMP) {
+                builder.writeLong(ParquetTimestampUtils.getTimestampMillis(value)).closeEntry();
+            }
+            else {
+                VARBINARY.writeSlice(builder, Slices.wrappedBuffer(value.getBytes()));
+            }
             wroteValue = true;
         }
 

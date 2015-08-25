@@ -82,7 +82,7 @@ SELECT * FROM presto_test_types_textfile
 ;
 
 
--- Parquet is missing TIMESTAMP and BINARY, and for some reason
+-- Parquet is missing BINARY, and for some reason
 -- fails when trying to use complex nested types.
 CREATE TABLE presto_test_types_parquet (
   t_string STRING
@@ -93,6 +93,7 @@ CREATE TABLE presto_test_types_parquet (
 , t_float FLOAT
 , t_double DOUBLE
 , t_boolean BOOLEAN
+, t_timestamp TIMESTAMP
 , t_map MAP<STRING, STRING>
 , t_array_string ARRAY<STRING>
 , t_array_struct ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>
@@ -110,6 +111,7 @@ SELECT
 , t_float
 , t_double
 , t_boolean
+, t_timestamp
 , t_map
 , t_array_string
 , t_array_struct
@@ -122,4 +124,4 @@ ALTER TABLE presto_test_types_sequencefile ADD COLUMNS (new_column INT);
 ALTER TABLE presto_test_types_rctext ADD COLUMNS (new_column INT);
 ALTER TABLE presto_test_types_rcbinary ADD COLUMNS (new_column INT);
 ALTER TABLE presto_test_types_orc ADD COLUMNS (new_column INT);
-ALTER TABLE presto_test_types_parquet ADD COLUMNS (new_column INT);
+  ALTER TABLE presto_test_types_parquet ADD COLUMNS (new_column INT);
