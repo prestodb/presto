@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.orc.Vector.MAX_VECTOR_LENGTH;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
@@ -231,7 +232,7 @@ public class OrcPageSource
     }
 
     @Override
-    public Collection<Slice> commit()
+    public CompletableFuture<Collection<Slice>> commit()
     {
         return shardRewriter.rewrite(rowsToDelete);
     }

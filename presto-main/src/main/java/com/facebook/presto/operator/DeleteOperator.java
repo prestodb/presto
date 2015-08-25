@@ -20,17 +20,21 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 
 public class DeleteOperator
         implements Operator
@@ -81,8 +85,8 @@ public class DeleteOperator
 
     private State state = State.RUNNING;
     private long rowCount;
-    private boolean committed;
     private boolean closed;
+    private CompletableFuture<Collection<Slice>> commitFuture;
     private Supplier<Optional<UpdatablePageSource>> pageSource = Optional::empty;
 
     public DeleteOperator(OperatorContext operatorContext, int rowIdChannel)
@@ -108,6 +112,8 @@ public class DeleteOperator
     {
         if (state == State.RUNNING) {
             state = State.FINISHING;
+            commitFuture = pageSource().commit();
+            checkNotNull(commitFuture, "commitFuture is null");
         }
     }
 
@@ -135,15 +141,24 @@ public class DeleteOperator
     }
 
     @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        if (commitFuture == null) {
+            return NOT_BLOCKED;
+        }
+
+        return toListenableFuture(commitFuture);
+    }
+
+    @Override
     public Page getOutput()
     {
-        if (state != State.FINISHING) {
+        if ((state != State.FINISHING) || !commitFuture.isDone()) {
             return null;
         }
         state = State.FINISHED;
 
-        Collection<Slice> fragments = pageSource().commit();
-        committed = true;
+        Collection<Slice> fragments = getFutureValue(commitFuture);
 
         PageBuilder page = new PageBuilder(TYPES);
         BlockBuilder rowsBuilder = page.getBlockBuilder(0);
@@ -170,7 +185,10 @@ public class DeleteOperator
     {
         if (!closed) {
             closed = true;
-            if (!committed) {
+            if (commitFuture != null) {
+                commitFuture.cancel(true);
+            }
+            else {
                 pageSource.get().ifPresent(UpdatablePageSource::rollback);
             }
         }
