@@ -323,7 +323,7 @@ public class OrcPageSource
     @Override
     public long getSystemMemoryUsage()
     {
-        return systemMemoryUsage.get();
+        return systemMemoryUsage.getUsedBytes();
     }
 
     protected void closeWithSuppression(Throwable throwable)

@@ -17,7 +17,7 @@ public class SystemMemoryUsage
 {
     long usedBytes;
 
-    public long get()
+    public long getUsedBytes()
     {
         return usedBytes;
     }
@@ -27,10 +27,20 @@ public class SystemMemoryUsage
         usedBytes += bytes;
     }
 
-    public long getAndAdd(long bytes)
+    public long getUsedBytesAndAdd(long bytes)
     {
         long lastUsedBytes = usedBytes;
         add(bytes);
         return lastUsedBytes;
+    }
+
+    public void setUsedBytes(long usedBytes)
+    {
+        this.usedBytes = usedBytes;
+    }
+
+    public void freeUsage()
+    {
+        usedBytes = 0;
     }
 }

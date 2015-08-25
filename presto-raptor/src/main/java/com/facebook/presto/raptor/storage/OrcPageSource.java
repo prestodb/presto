@@ -250,10 +250,10 @@ public class OrcPageSource
     public long getSystemMemoryUsage()
     {
         if (commited) {
-            return systemMemoryUsage.getAndAdd(-HiveConf.getIntVar(OrcFileRewriter.CONFIGURATION, HiveConf.ConfVars.HIVE_ORC_DEFAULT_BUFFER_SIZE));
+            return systemMemoryUsage.getUsedBytesAndAdd(-HiveConf.getIntVar(OrcFileRewriter.CONFIGURATION, HiveConf.ConfVars.HIVE_ORC_DEFAULT_BUFFER_SIZE));
         }
         else {
-            return systemMemoryUsage.get();
+            return systemMemoryUsage.getUsedBytes();
         }
     }
 
