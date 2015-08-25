@@ -27,6 +27,7 @@ import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorPageSourcePro
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSinkProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.security.ConnectorAccessControl;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
@@ -91,6 +92,10 @@ public class HiveConnectorFactory
                             SecurityConfig.class,
                             security -> "read-only".equalsIgnoreCase(security.getSecuritySystem()),
                             new ReadOnlySecurityModule()),
+                    installModuleIf(
+                            SecurityConfig.class,
+                            security -> "sql-standard".equalsIgnoreCase(security.getSecuritySystem()),
+                            new SqlStandardSecurityModule()),
                     binder -> {
                         MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
@@ -112,6 +117,7 @@ public class HiveConnectorFactory
             ConnectorHandleResolver handleResolver = injector.getInstance(ConnectorHandleResolver.class);
             HiveSessionProperties hiveSessionProperties = injector.getInstance(HiveSessionProperties.class);
             HiveTableProperties hiveTableProperties = injector.getInstance(HiveTableProperties.class);
+            ConnectorAccessControl accessControl = injector.getInstance(ConnectorAccessControl.class);
 
             return new HiveConnector(
                     lifeCycleManager,
@@ -122,7 +128,8 @@ public class HiveConnectorFactory
                     new ClassLoaderSafeConnectorHandleResolver(handleResolver, classLoader),
                     ImmutableSet.of(),
                     hiveSessionProperties.getSessionProperties(),
-                    hiveTableProperties.getTableProperties());
+                    hiveTableProperties.getTableProperties(),
+                    accessControl);
         }
         catch (Exception e) {
             throw Throwables.propagate(e);

@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.PrincipalType;
+import org.jetbrains.annotations.NotNull;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
@@ -66,8 +68,8 @@ public final class HiveQueryRunner
 
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
             InMemoryHiveMetastore metastore = new InMemoryHiveMetastore(baseDir);
-            metastore.createDatabase(new Database("tpch", null, new File(baseDir, "tpch").toURI().toString(), null));
-            metastore.createDatabase(new Database("tpch_sampled", null, new File(baseDir, "tpch_sampled").toURI().toString(), null));
+            metastore.createDatabase(createDatabaseMetastoreObject(baseDir, "tpch"));
+            metastore.createDatabase(createDatabaseMetastoreObject(baseDir, "tpch_sampled"));
 
             queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, metastore));
             Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
@@ -75,6 +77,7 @@ public final class HiveQueryRunner
                     .put("hive.allow-drop-table", "true")
                     .put("hive.allow-rename-table", "true")
                     .put("hive.time-zone", TIME_ZONE.getID())
+                    .put("hive.security", "sql-standard")
                     .build();
             queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
 
@@ -87,6 +90,15 @@ public final class HiveQueryRunner
             queryRunner.close();
             throw e;
         }
+    }
+
+    @NotNull
+    private static Database createDatabaseMetastoreObject(File baseDir, String name)
+    {
+        Database database = new Database(name, null, new File(baseDir, name).toURI().toString(), null);
+        database.setOwnerName("public");
+        database.setOwnerType(PrincipalType.ROLE);
+        return database;
     }
 
     public static Session createSession()
