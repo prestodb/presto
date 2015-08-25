@@ -21,9 +21,15 @@ import org.weakref.jmx.Managed;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+
+import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
+import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
 
 public interface HiveMetastore
 {
+    String DEFAULT_DATABASE_NAME = "default";
+
     void createTable(Table table);
 
     void dropTable(String databaseName, String tableName);
@@ -48,4 +54,41 @@ public interface HiveMetastore
     Optional<Map<String, Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames);
 
     Optional<Table> getTable(String databaseName, String tableName);
+
+    Set<String> getRoles(String user);
+
+    Set<HivePrivilege> getDatabasePrivileges(String user, String databaseName);
+
+    Set<HivePrivilege> getTablePrivileges(String user, String databaseName, String tableName);
+
+    default boolean isDatabaseOwner(String user, String databaseName)
+    {
+        // all users are "owners" of the default database
+        if (DEFAULT_DATABASE_NAME.equalsIgnoreCase(databaseName)) {
+            return true;
+        }
+
+        Optional<Database> databaseMetadata = getDatabase(databaseName);
+        if (!databaseMetadata.isPresent()) {
+            return false;
+        }
+
+        Database database = databaseMetadata.get();
+
+        // a database can be owned by a user or role
+        if (database.getOwnerType() == USER && user.equals(database.getOwnerName())) {
+            return true;
+        }
+        if (database.getOwnerType() == ROLE && getRoles(user).contains(database.getOwnerName())) {
+            return true;
+        }
+        return false;
+    }
+
+    default boolean isTableOwner(String user, String databaseName, String tableName)
+    {
+        // a table can only be owned by a user
+        Optional<Table> table = getTable(databaseName, tableName);
+        return table.isPresent() && user.equals(table.get().getOwner());
+    }
 }

@@ -45,6 +45,9 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
+import org.apache.hadoop.hive.metastore.api.PrincipalType;
+import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -366,6 +369,12 @@ public class HiveMetadata
         table.setPartitionKeys(partitionKeys.build());
         table.setSd(sd);
 
+        PrivilegeGrantInfo allPrivileges = new PrivilegeGrantInfo("all", 0, tableMetadata.getOwner(), PrincipalType.USER, true);
+        table.setPrivileges(new PrincipalPrivilegeSet(
+                ImmutableMap.of(tableMetadata.getOwner(), ImmutableList.of(allPrivileges)),
+                ImmutableMap.of(),
+                ImmutableMap.of()));
+
         metastore.createTable(table);
     }
 
@@ -522,6 +531,12 @@ public class HiveMetadata
         table.setPartitionKeys(ImmutableList.<FieldSchema>of());
         table.setSd(sd);
 
+        PrivilegeGrantInfo allPrivileges = new PrivilegeGrantInfo("all", 0, handle.getTableOwner(), PrincipalType.USER, true);
+        table.setPrivileges(new PrincipalPrivilegeSet(
+                ImmutableMap.of(handle.getTableOwner(), ImmutableList.of(allPrivileges)),
+                ImmutableMap.of(),
+                ImmutableMap.of()));
+
         metastore.createTable(table);
     }
 
@@ -660,6 +675,12 @@ public class HiveMetadata
         table.setViewOriginalText(encodeViewData(viewData));
         table.setViewExpandedText("/* Presto View */");
         table.setSd(sd);
+
+        PrivilegeGrantInfo allPrivileges = new PrivilegeGrantInfo("all", 0, session.getUser(), PrincipalType.USER, true);
+        table.setPrivileges(new PrincipalPrivilegeSet(
+                ImmutableMap.of(session.getUser(), ImmutableList.of(allPrivileges)),
+                ImmutableMap.of(),
+                ImmutableMap.of()));
 
         try {
             metastore.createTable(table);
