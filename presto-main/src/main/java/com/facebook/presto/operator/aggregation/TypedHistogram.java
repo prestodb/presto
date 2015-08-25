@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -25,6 +24,7 @@ import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 
+import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.type.TypeUtils.expectedValueSize;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -133,7 +133,6 @@ public class TypedHistogram
         }
 
         addNewGroup(hashPosition, position, block, count);
-        return;
     }
 
     private void addNewGroup(int hashPosition, int position, Block block, long count)
@@ -148,10 +147,8 @@ public class TypedHistogram
         }
 
         if (getEstimatedSize() > FOUR_MEGABYTES) {
-            throw new ExceededMemoryLimitException(new DataSize(4, MEGABYTE));
+            throw exceededLocalLimit(new DataSize(4, MEGABYTE));
         }
-
-        return;
     }
 
     private void rehash(int size)

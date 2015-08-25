@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
@@ -52,7 +51,6 @@ public class TaskContext
     private final Executor executor;
     private final Session session;
 
-    private final long maxMemory;
     private final DataSize operatorPreAllocatedMemory;
 
     private final AtomicLong memoryReservation = new AtomicLong();
@@ -76,7 +74,6 @@ public class TaskContext
             TaskStateMachine taskStateMachine,
             Executor executor,
             Session session,
-            DataSize maxMemory,
             DataSize operatorPreAllocatedMemory,
             boolean verboseStats,
             boolean cpuTimerEnabled)
@@ -85,7 +82,6 @@ public class TaskContext
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
         this.executor = checkNotNull(executor, "executor is null");
         this.session = session;
-        this.maxMemory = checkNotNull(maxMemory, "maxMemory is null").toBytes();
         this.operatorPreAllocatedMemory = checkNotNull(operatorPreAllocatedMemory, "operatorPreAllocatedMemory is null");
 
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
@@ -155,9 +151,6 @@ public class TaskContext
     {
         checkArgument(bytes >= 0, "bytes is negative");
 
-        if (memoryReservation.get() + bytes > maxMemory) {
-            throw new ExceededMemoryLimitException(new DataSize(maxMemory, BYTE).convertToMostSuccinctDataSize());
-        }
         ListenableFuture<?> future = queryContext.reserveMemory(bytes);
         memoryReservation.getAndAdd(bytes);
         return future;
@@ -175,9 +168,6 @@ public class TaskContext
     {
         checkArgument(bytes >= 0, "bytes is negative");
 
-        if (memoryReservation.get() + bytes > maxMemory) {
-            return false;
-        }
         if (queryContext.tryReserveMemory(bytes)) {
             memoryReservation.getAndAdd(bytes);
             return true;

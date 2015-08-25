@@ -55,7 +55,7 @@ public class TestMemoryPools
 
         QueryContext queryContext = new QueryContext(new DataSize(10, MEGABYTE), pool, systemPool, localQueryRunner.getExecutor());
         LocalQueryRunner.MaterializedOutputFactory outputFactory = new LocalQueryRunner.MaterializedOutputFactory();
-        TaskContext taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), session, new DataSize(10, MEGABYTE), new DataSize(0, BYTE));
+        TaskContext taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), session, new DataSize(0, BYTE));
         Driver driver = Iterables.getOnlyElement(localQueryRunner.createDrivers("SELECT COUNT(*), clerk FROM orders GROUP BY clerk", outputFactory, taskContext));
 
         // run driver, until it blocks

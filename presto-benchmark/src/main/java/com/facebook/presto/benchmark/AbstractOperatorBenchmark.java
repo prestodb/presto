@@ -110,7 +110,6 @@ public abstract class AbstractOperatorBenchmark
         TaskContext taskContext = new QueryContext(new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, executor)
                 .addTaskContext(new TaskStateMachine(new TaskId("query", "stage", "task"), executor),
                         session,
-                        new DataSize(256, MEGABYTE),
                         new DataSize(1, MEGABYTE),
                         false,
                         false);
