@@ -109,7 +109,7 @@ public class ByteCodeVisitor<T>
     // Block
     //
 
-    public T visitBlock(ByteCodeNode parent, Block block)
+    public T visitBlock(ByteCodeNode parent, ByteCodeBlock block)
     {
         return visitNode(parent, block);
     }

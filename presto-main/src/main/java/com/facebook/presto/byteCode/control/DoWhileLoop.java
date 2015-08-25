@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.byteCode.control;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.MethodGenerationContext;
@@ -29,8 +29,8 @@ public class DoWhileLoop
         implements FlowControl
 {
     private final String comment;
-    private final Block body = new Block();
-    private final Block condition = new Block();
+    private final ByteCodeBlock body = new ByteCodeBlock();
+    private final ByteCodeBlock condition = new ByteCodeBlock();
 
     private final LabelNode beginLabel = new LabelNode("begin");
     private final LabelNode continueLabel = new LabelNode("continue");
@@ -62,7 +62,7 @@ public class DoWhileLoop
         return endLabel;
     }
 
-    public Block body()
+    public ByteCodeBlock body()
     {
         return body;
     }
@@ -74,7 +74,7 @@ public class DoWhileLoop
         return this;
     }
 
-    public Block condition()
+    public ByteCodeBlock condition()
     {
         return condition;
     }
@@ -91,13 +91,13 @@ public class DoWhileLoop
     {
         checkState(!condition.isEmpty(), "DoWhileLoop does not have a condition set");
 
-        Block block = new Block()
+        ByteCodeBlock block = new ByteCodeBlock()
                 .visitLabel(beginLabel)
-                .append(new Block()
+                .append(new ByteCodeBlock()
                         .setDescription("body")
                         .append(body))
                 .visitLabel(continueLabel)
-                .append(new Block()
+                .append(new ByteCodeBlock()
                         .setDescription("condition")
                         .append(condition))
                 .ifFalseGoto(endLabel)

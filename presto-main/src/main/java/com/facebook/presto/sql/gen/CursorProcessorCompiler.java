@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
@@ -90,25 +90,25 @@ public class CursorProcessorCompiler
         LabelNode done = new LabelNode("done");
         ForLoop forLoop = new ForLoop()
                 .initialize(NOP)
-                .condition(new Block()
+                .condition(new ByteCodeBlock()
                                 .comment("completedPositions < count")
                                 .getVariable(completedPositionsVariable)
                                 .getVariable(count)
                                 .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class)
                 )
-                .update(new Block()
+                .update(new ByteCodeBlock()
                                 .comment("completedPositions++")
                                 .incrementVariable(completedPositionsVariable, (byte) 1)
                 );
 
-        Block forLoopBody = new Block()
+        ByteCodeBlock forLoopBody = new ByteCodeBlock()
                 .comment("if (pageBuilder.isFull()) break;")
-                .append(new Block()
+                .append(new ByteCodeBlock()
                         .getVariable(pageBuilder)
                         .invokeVirtual(PageBuilder.class, "isFull", boolean.class)
                         .ifTrueGoto(done))
                 .comment("if (!cursor.advanceNextPosition()) break;")
-                .append(new Block()
+                .append(new ByteCodeBlock()
                         .getVariable(cursor)
                         .invokeInterface(RecordCursor.class, "advanceNextPosition", boolean.class)
                         .ifFalseGoto(done));
@@ -200,7 +200,7 @@ public class CursorProcessorCompiler
         Scope scope = method.getScope();
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
-        Block body = method.getBody()
+        ByteCodeBlock body = method.getBody()
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false);
 

@@ -156,7 +156,7 @@ public class DumpByteCodeVisitor
     }
 
     @Override
-    public Void visitBlock(ByteCodeNode parent, Block block)
+    public Void visitBlock(ByteCodeNode parent, ByteCodeBlock block)
     {
         // only indent if we have a block description or more than one child node
         boolean indented;
@@ -183,11 +183,11 @@ public class DumpByteCodeVisitor
         return null;
     }
 
-    private void visitBlockContents(Block block)
+    private void visitBlockContents(ByteCodeBlock block)
     {
         for (ByteCodeNode node : block.getChildNodes()) {
-            if (node instanceof Block) {
-                Block childBlock = (Block) node;
+            if (node instanceof ByteCodeBlock) {
+                ByteCodeBlock childBlock = (ByteCodeBlock) node;
                 if (childBlock.getDescription() != null) {
                     visitBlock(block, childBlock);
                 }

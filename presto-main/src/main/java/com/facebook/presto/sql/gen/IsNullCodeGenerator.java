@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.metadata.Signature;
@@ -44,7 +44,7 @@ public class IsNullCodeGenerator
 
         // evaluate the expression, pop the produced value, and load the null flag
         Variable wasNull = generatorContext.wasNull();
-        Block block = new Block()
+        ByteCodeBlock block = new ByteCodeBlock()
                 .comment("is null")
                 .append(value)
                 .pop(argument.getType().getJavaType())

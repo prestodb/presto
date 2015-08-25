@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
@@ -82,7 +82,7 @@ public class SwitchCodeGenerator
         RowExpression last = arguments.get(arguments.size() - 1);
         if (last instanceof CallExpression && ((CallExpression) last).getSignature().getName().equals("WHEN")) {
             whenClauses = arguments.subList(1, arguments.size());
-            elseValue = new Block()
+            elseValue = new ByteCodeBlock()
                     .append(generatorContext.wasNull().set(constantTrue()))
                     .pushJavaDefault(returnType.getJavaType());
         }
@@ -97,7 +97,7 @@ public class SwitchCodeGenerator
         // evaluate the value and store it in a variable
         LabelNode nullValue = new LabelNode("nullCondition");
         Variable tempVariable = scope.createTempVariable(valueType);
-        Block block = new Block()
+        ByteCodeBlock block = new ByteCodeBlock()
                 .append(valueBytecode)
                 .append(ByteCodeUtils.ifWasNullClearPopAndGoto(scope, nullValue, void.class, valueType))
                 .putVariable(tempVariable);
@@ -105,7 +105,7 @@ public class SwitchCodeGenerator
         ByteCodeNode getTempVariableNode = VariableInstruction.loadVariable(tempVariable);
 
         // build the statements
-        elseValue = new Block().visitLabel(nullValue).append(elseValue);
+        elseValue = new ByteCodeBlock().visitLabel(nullValue).append(elseValue);
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
         for (RowExpression clause : Lists.reverse(whenClauses)) {
             Preconditions.checkArgument(clause instanceof CallExpression && ((CallExpression) clause).getSignature().getName().equals("WHEN"));
@@ -125,7 +125,7 @@ public class SwitchCodeGenerator
                     equalsFunction,
                     ImmutableList.of(generatorContext.generate(operand), getTempVariableNode));
 
-            Block condition = new Block()
+            ByteCodeBlock condition = new ByteCodeBlock()
                     .append(equalsCall)
                     .append(generatorContext.wasNull().set(constantFalse()));
 

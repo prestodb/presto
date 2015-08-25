@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.byteCode.control;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.MethodGenerationContext;
@@ -29,9 +29,9 @@ public class IfStatement
         implements FlowControl
 {
     private final String comment;
-    private final Block condition = new Block();
-    private final Block ifTrue = new Block();
-    private final Block ifFalse = new Block();
+    private final ByteCodeBlock condition = new ByteCodeBlock();
+    private final ByteCodeBlock ifTrue = new ByteCodeBlock();
+    private final ByteCodeBlock ifFalse = new ByteCodeBlock();
 
     private final LabelNode falseLabel = new LabelNode("false");
     private final LabelNode outLabel = new LabelNode("out");
@@ -52,7 +52,7 @@ public class IfStatement
         return comment;
     }
 
-    public Block condition()
+    public ByteCodeBlock condition()
     {
         return condition;
     }
@@ -64,7 +64,7 @@ public class IfStatement
         return this;
     }
 
-    public Block ifTrue()
+    public ByteCodeBlock ifTrue()
     {
         return ifTrue;
     }
@@ -76,7 +76,7 @@ public class IfStatement
         return this;
     }
 
-    public Block ifFalse()
+    public ByteCodeBlock ifFalse()
     {
         return ifFalse;
     }
@@ -94,16 +94,16 @@ public class IfStatement
         checkState(!condition.isEmpty(), "IfStatement does not have a condition set");
         checkState(!ifTrue.isEmpty() || !ifFalse.isEmpty(), "IfStatement does not have a true or false block set");
 
-        Block block = new Block();
+        ByteCodeBlock block = new ByteCodeBlock();
 
         // if !condition goto false;
-        block.append(new Block()
+        block.append(new ByteCodeBlock()
                 .setDescription("condition")
                 .append(condition));
         block.ifFalseGoto(falseLabel);
 
         if (!ifTrue.isEmpty()) {
-            block.append(new Block()
+            block.append(new ByteCodeBlock()
                     .setDescription("ifTrue")
                     .append(ifTrue));
         }
@@ -113,7 +113,7 @@ public class IfStatement
             block.gotoLabel(outLabel);
 
             block.visitLabel(falseLabel);
-            block.append(new Block()
+            block.append(new ByteCodeBlock()
                     .setDescription("ifFalse")
                     .append(ifFalse));
             block.visitLabel(outLabel);

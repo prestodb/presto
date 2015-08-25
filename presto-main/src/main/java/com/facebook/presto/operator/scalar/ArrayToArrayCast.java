@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.Parameter;
@@ -109,7 +110,7 @@ public class ArrayToArrayCast
                 value);
 
         Scope scope = method.getScope();
-        com.facebook.presto.byteCode.Block body = method.getBody();
+        ByteCodeBlock body = method.getBody();
 
         Variable wasNull = scope.declareVariable(boolean.class, "wasNull");
         body.append(wasNull.set(constantBoolean(false)));

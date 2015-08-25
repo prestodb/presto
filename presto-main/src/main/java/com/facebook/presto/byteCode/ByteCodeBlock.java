@@ -54,7 +54,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 @SuppressWarnings("UnusedDeclaration")
 @NotThreadSafe
-public class Block
+public class ByteCodeBlock
         implements ByteCodeNode
 {
     private final List<ByteCodeNode> nodes = new ArrayList<>();
@@ -67,7 +67,7 @@ public class Block
         return description;
     }
 
-    public Block setDescription(String description)
+    public ByteCodeBlock setDescription(String description)
     {
         this.description = description;
         return this;
@@ -79,19 +79,19 @@ public class Block
         return ImmutableList.copyOf(nodes);
     }
 
-    public Block append(ByteCodeNode node)
+    public ByteCodeBlock append(ByteCodeNode node)
     {
         nodes.add(node);
         return this;
     }
 
-    public Block comment(String comment)
+    public ByteCodeBlock comment(String comment)
     {
         nodes.add(new Comment(comment));
         return this;
     }
 
-    public Block comment(String comment, Object... args)
+    public ByteCodeBlock comment(String comment, Object... args)
     {
         nodes.add(new Comment(String.format(comment, args)));
         return this;
@@ -102,65 +102,65 @@ public class Block
         return nodes.isEmpty();
     }
 
-    public Block visitLabel(LabelNode label)
+    public ByteCodeBlock visitLabel(LabelNode label)
     {
         nodes.add(label);
         return this;
     }
 
-    public Block gotoLabel(LabelNode label)
+    public ByteCodeBlock gotoLabel(LabelNode label)
     {
         nodes.add(JumpInstruction.jump(label));
         return this;
     }
 
-    public Block ifFalseGoto(LabelNode label)
+    public ByteCodeBlock ifFalseGoto(LabelNode label)
     {
         return ifZeroGoto(label);
     }
 
-    public Block ifTrueGoto(LabelNode label)
+    public ByteCodeBlock ifTrueGoto(LabelNode label)
     {
         return ifNotZeroGoto(label);
     }
 
-    public Block ifZeroGoto(LabelNode label)
+    public ByteCodeBlock ifZeroGoto(LabelNode label)
     {
         nodes.add(JumpInstruction.jumpIfEqualZero(label));
         return this;
     }
 
-    public Block ifNotZeroGoto(LabelNode label)
+    public ByteCodeBlock ifNotZeroGoto(LabelNode label)
     {
         nodes.add(JumpInstruction.jumpIfNotEqualZero(label));
         return this;
     }
 
-    public Block ifNullGoto(LabelNode label)
+    public ByteCodeBlock ifNullGoto(LabelNode label)
     {
         nodes.add(JumpInstruction.jumpIfNull(label));
         return this;
     }
 
-    public Block ifNotNullGoto(LabelNode label)
+    public ByteCodeBlock ifNotNullGoto(LabelNode label)
     {
         nodes.add(JumpInstruction.jumpIfNotNull(label));
         return this;
     }
 
-    public Block intAdd()
+    public ByteCodeBlock intAdd()
     {
         nodes.add(OpCode.IADD);
         return this;
     }
 
-    public Block longAdd()
+    public ByteCodeBlock longAdd()
     {
         nodes.add(OpCode.LADD);
         return this;
     }
 
-    public Block longCompare()
+    public ByteCodeBlock longCompare()
     {
         nodes.add(OpCode.LCMP);
         return this;
@@ -169,7 +169,7 @@ public class Block
     /**
      * Compare two doubles. If either is NaN comparison is -1.
      */
-    public Block doubleCompareNanLess()
+    public ByteCodeBlock doubleCompareNanLess()
     {
         nodes.add(OpCode.DCMPL);
         return this;
@@ -178,307 +178,307 @@ public class Block
     /**
      * Compare two doubles. If either is NaN comparison is 1.
      */
-    public Block doubleCompareNanGreater()
+    public ByteCodeBlock doubleCompareNanGreater()
     {
         nodes.add(OpCode.DCMPG);
         return this;
     }
 
-    public Block intLeftShift()
+    public ByteCodeBlock intLeftShift()
     {
         nodes.add(OpCode.ISHL);
         return this;
     }
 
-    public Block intRightShift()
+    public ByteCodeBlock intRightShift()
     {
         nodes.add(OpCode.ISHR);
         return this;
     }
 
-    public Block longLeftShift()
+    public ByteCodeBlock longLeftShift()
     {
         nodes.add(OpCode.LSHL);
         return this;
     }
 
-    public Block longRightShift()
+    public ByteCodeBlock longRightShift()
     {
         nodes.add(OpCode.LSHR);
         return this;
     }
 
-    public Block unsignedIntRightShift()
+    public ByteCodeBlock unsignedIntRightShift()
     {
         nodes.add(OpCode.IUSHR);
         return this;
     }
 
-    public Block unsignedLongRightShift()
+    public ByteCodeBlock unsignedLongRightShift()
     {
         nodes.add(OpCode.LUSHR);
         return this;
     }
 
-    public Block intBitAnd()
+    public ByteCodeBlock intBitAnd()
     {
         nodes.add(OpCode.IAND);
         return this;
     }
 
-    public Block intBitOr()
+    public ByteCodeBlock intBitOr()
     {
         nodes.add(OpCode.IOR);
         return this;
     }
 
-    public Block intBitXor()
+    public ByteCodeBlock intBitXor()
     {
         nodes.add(OpCode.IXOR);
         return this;
     }
 
-    public Block longBitAnd()
+    public ByteCodeBlock longBitAnd()
     {
         nodes.add(OpCode.LAND);
         return this;
     }
 
-    public Block longBitOr()
+    public ByteCodeBlock longBitOr()
     {
         nodes.add(OpCode.LOR);
         return this;
     }
 
-    public Block longBitXor()
+    public ByteCodeBlock longBitXor()
     {
         nodes.add(OpCode.LXOR);
         return this;
     }
 
-    public Block intNegate()
+    public ByteCodeBlock intNegate()
     {
         nodes.add(OpCode.INEG);
         return this;
     }
 
-    public Block intToLong()
+    public ByteCodeBlock intToLong()
     {
         nodes.add(OpCode.I2L);
         return this;
     }
 
-    public Block longNegate()
+    public ByteCodeBlock longNegate()
     {
         nodes.add(OpCode.LNEG);
         return this;
     }
 
-    public Block longToInt()
+    public ByteCodeBlock longToInt()
     {
         nodes.add(OpCode.L2I);
         return this;
     }
 
-    public Block isInstanceOf(Class<?> type)
+    public ByteCodeBlock isInstanceOf(Class<?> type)
     {
         nodes.add(instanceOf(type));
         return this;
     }
 
-    public Block isInstanceOf(ParameterizedType type)
+    public ByteCodeBlock isInstanceOf(ParameterizedType type)
     {
         nodes.add(instanceOf(type));
         return this;
     }
 
-    public Block checkCast(Class<?> type)
+    public ByteCodeBlock checkCast(Class<?> type)
     {
         nodes.add(cast(type));
         return this;
     }
 
-    public Block checkCast(ParameterizedType type)
+    public ByteCodeBlock checkCast(ParameterizedType type)
     {
         nodes.add(cast(type));
         return this;
     }
 
-    public Block invokeStatic(Method method)
+    public ByteCodeBlock invokeStatic(Method method)
     {
         nodes.add(InvokeInstruction.invokeStatic(method));
         return this;
     }
 
-    public Block invokeStatic(MethodDefinition method)
+    public ByteCodeBlock invokeStatic(MethodDefinition method)
     {
         nodes.add(InvokeInstruction.invokeStatic(method));
         return this;
     }
 
-    public Block invokeStatic(Class<?> type, String name, Class<?> returnType, Class<?>... parameterTypes)
+    public ByteCodeBlock invokeStatic(Class<?> type, String name, Class<?> returnType, Class<?>... parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeStatic(type, name, returnType, parameterTypes));
         return this;
     }
 
-    public Block invokeStatic(Class<?> type, String name, Class<?> returnType, Iterable<Class<?>> parameterTypes)
+    public ByteCodeBlock invokeStatic(Class<?> type, String name, Class<?> returnType, Iterable<Class<?>> parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeStatic(type, name, returnType, parameterTypes));
         return this;
     }
 
-    public Block invokeStatic(ParameterizedType type, String name, ParameterizedType returnType, ParameterizedType... parameterTypes)
+    public ByteCodeBlock invokeStatic(ParameterizedType type, String name, ParameterizedType returnType, ParameterizedType... parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeStatic(type, name, returnType, parameterTypes));
         return this;
     }
 
-    public Block invokeStatic(ParameterizedType type, String name, ParameterizedType returnType, Iterable<ParameterizedType> parameterTypes)
+    public ByteCodeBlock invokeStatic(ParameterizedType type, String name, ParameterizedType returnType, Iterable<ParameterizedType> parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeStatic(type, name, returnType, parameterTypes));
         return this;
     }
 
-    public Block invokeVirtual(Method method)
+    public ByteCodeBlock invokeVirtual(Method method)
     {
         nodes.add(InvokeInstruction.invokeVirtual(method));
         return this;
     }
 
-    public Block invokeVirtual(MethodDefinition method)
+    public ByteCodeBlock invokeVirtual(MethodDefinition method)
     {
         nodes.add(InvokeInstruction.invokeVirtual(method));
         return this;
     }
 
-    public Block invokeVirtual(Class<?> type, String name, Class<?> returnType, Class<?>... parameterTypes)
+    public ByteCodeBlock invokeVirtual(Class<?> type, String name, Class<?> returnType, Class<?>... parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeVirtual(type, name, returnType, parameterTypes));
         return this;
     }
 
-    public Block invokeVirtual(Class<?> type, String name, Class<?> returnType, Iterable<Class<?>> parameterTypes)
+    public ByteCodeBlock invokeVirtual(Class<?> type, String name, Class<?> returnType, Iterable<Class<?>> parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeVirtual(type, name, returnType, parameterTypes));
         return this;
     }
 
-    public Block invokeVirtual(ParameterizedType type, String name, ParameterizedType returnType, ParameterizedType... parameterTypes)
+    public ByteCodeBlock invokeVirtual(ParameterizedType type, String name, ParameterizedType returnType, ParameterizedType... parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeVirtual(type, name, returnType, parameterTypes));
         return this;
     }
 
-    public Block invokeVirtual(ParameterizedType type, String name, ParameterizedType returnType, Iterable<ParameterizedType> parameterTypes)
+    public ByteCodeBlock invokeVirtual(ParameterizedType type, String name, ParameterizedType returnType, Iterable<ParameterizedType> parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeVirtual(type, name, returnType, parameterTypes));
         return this;
     }
 
-    public Block invokeInterface(Method method)
+    public ByteCodeBlock invokeInterface(Method method)
     {
         nodes.add(InvokeInstruction.invokeInterface(method));
         return this;
     }
 
-    public Block invokeInterface(MethodDefinition method)
+    public ByteCodeBlock invokeInterface(MethodDefinition method)
     {
         nodes.add(InvokeInstruction.invokeInterface(method));
         return this;
     }
 
-    public Block invokeInterface(Class<?> type, String name, Class<?> returnType, Class<?>... parameterTypes)
+    public ByteCodeBlock invokeInterface(Class<?> type, String name, Class<?> returnType, Class<?>... parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeInterface(type, name, returnType, parameterTypes));
         return this;
     }
 
-    public Block invokeInterface(Class<?> type, String name, Class<?> returnType, Iterable<Class<?>> parameterTypes)
+    public ByteCodeBlock invokeInterface(Class<?> type, String name, Class<?> returnType, Iterable<Class<?>> parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeInterface(type, name, returnType, parameterTypes));
         return this;
     }
 
-    public Block invokeInterface(ParameterizedType type, String name, ParameterizedType returnType, ParameterizedType... parameterTypes)
+    public ByteCodeBlock invokeInterface(ParameterizedType type, String name, ParameterizedType returnType, ParameterizedType... parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeInterface(type, name, returnType, parameterTypes));
         return this;
     }
 
-    public Block invokeInterface(ParameterizedType type, String name, ParameterizedType returnType, Iterable<ParameterizedType> parameterTypes)
+    public ByteCodeBlock invokeInterface(ParameterizedType type, String name, ParameterizedType returnType, Iterable<ParameterizedType> parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeInterface(type, name, returnType, parameterTypes));
         return this;
     }
 
-    public Block invokeConstructor(Constructor<?> constructor)
+    public ByteCodeBlock invokeConstructor(Constructor<?> constructor)
     {
         nodes.add(InvokeInstruction.invokeConstructor(constructor));
         return this;
     }
 
-    public Block invokeConstructor(Class<?> type, Class<?>... parameterTypes)
+    public ByteCodeBlock invokeConstructor(Class<?> type, Class<?>... parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeConstructor(type, parameterTypes));
         return this;
     }
 
-    public Block invokeConstructor(Class<?> type, Iterable<Class<?>> parameterTypes)
+    public ByteCodeBlock invokeConstructor(Class<?> type, Iterable<Class<?>> parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeConstructor(type, parameterTypes));
         return this;
     }
 
-    public Block invokeConstructor(ParameterizedType type, ParameterizedType... parameterTypes)
+    public ByteCodeBlock invokeConstructor(ParameterizedType type, ParameterizedType... parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeConstructor(type, parameterTypes));
         return this;
     }
 
-    public Block invokeConstructor(ParameterizedType type, Iterable<ParameterizedType> parameterTypes)
+    public ByteCodeBlock invokeConstructor(ParameterizedType type, Iterable<ParameterizedType> parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeConstructor(type, parameterTypes));
         return this;
     }
 
-    public Block invokeSpecial(Method method)
+    public ByteCodeBlock invokeSpecial(Method method)
     {
         nodes.add(InvokeInstruction.invokeSpecial(method));
         return this;
     }
 
-    public Block invokeSpecial(MethodDefinition method)
+    public ByteCodeBlock invokeSpecial(MethodDefinition method)
     {
         nodes.add(InvokeInstruction.invokeSpecial(method));
         return this;
     }
 
-    public Block invokeSpecial(Class<?> type, String name, Class<?> returnType, Class<?>... parameterTypes)
+    public ByteCodeBlock invokeSpecial(Class<?> type, String name, Class<?> returnType, Class<?>... parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeSpecial(type, name, returnType, parameterTypes));
         return this;
     }
 
-    public Block invokeSpecial(Class<?> type, String name, Class<?> returnType, Iterable<Class<?>> parameterTypes)
+    public ByteCodeBlock invokeSpecial(Class<?> type, String name, Class<?> returnType, Iterable<Class<?>> parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeSpecial(type, name, returnType, parameterTypes));
         return this;
     }
 
-    public Block invokeSpecial(ParameterizedType type, String name, ParameterizedType returnType, ParameterizedType... parameterTypes)
+    public ByteCodeBlock invokeSpecial(ParameterizedType type, String name, ParameterizedType returnType, ParameterizedType... parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeSpecial(type, name, returnType, parameterTypes));
         return this;
     }
 
-    public Block invokeSpecial(ParameterizedType type, String name, ParameterizedType returnType, Iterable<ParameterizedType> parameterTypes)
+    public ByteCodeBlock invokeSpecial(ParameterizedType type, String name, ParameterizedType returnType, Iterable<ParameterizedType> parameterTypes)
     {
         nodes.add(InvokeInstruction.invokeSpecial(type, name, returnType, parameterTypes));
         return this;
     }
 
-    public Block invokeDynamic(String name, MethodType methodType, Method bootstrapMethod, Object... defaultBootstrapArguments)
+    public ByteCodeBlock invokeDynamic(String name, MethodType methodType, Method bootstrapMethod, Object... defaultBootstrapArguments)
     {
         nodes.add(InvokeInstruction.invokeDynamic(name, methodType, bootstrapMethod, defaultBootstrapArguments));
         return this;
@@ -494,7 +494,7 @@ public class Block
         return this;
     }
 
-    public Block ret(Class<?> type)
+    public ByteCodeBlock ret(Class<?> type)
     {
         if (type == long.class) {
             retLong();
@@ -524,79 +524,79 @@ public class Block
         return this;
     }
 
-    public Block ret()
+    public ByteCodeBlock ret()
     {
         nodes.add(OpCode.RETURN);
         return this;
     }
 
-    public Block retObject()
+    public ByteCodeBlock retObject()
     {
         nodes.add(OpCode.ARETURN);
         return this;
     }
 
-    public Block retFloat()
+    public ByteCodeBlock retFloat()
     {
         nodes.add(OpCode.FRETURN);
         return this;
     }
 
-    public Block retDouble()
+    public ByteCodeBlock retDouble()
     {
         nodes.add(OpCode.DRETURN);
         return this;
     }
 
-    public Block retBoolean()
+    public ByteCodeBlock retBoolean()
     {
         nodes.add(OpCode.IRETURN);
         return this;
     }
 
-    public Block retLong()
+    public ByteCodeBlock retLong()
     {
         nodes.add(OpCode.LRETURN);
         return this;
     }
 
-    public Block retInt()
+    public ByteCodeBlock retInt()
     {
         nodes.add(OpCode.IRETURN);
         return this;
     }
 
-    public Block throwObject()
+    public ByteCodeBlock throwObject()
     {
         nodes.add(OpCode.ATHROW);
         return this;
     }
 
-    public Block newObject(Class<?> type)
+    public ByteCodeBlock newObject(Class<?> type)
     {
         nodes.add(TypeInstruction.newObject(type));
         return this;
     }
 
-    public Block newObject(ParameterizedType type)
+    public ByteCodeBlock newObject(ParameterizedType type)
     {
         nodes.add(TypeInstruction.newObject(type));
         return this;
     }
 
-    public Block newArray(Class<?> type)
+    public ByteCodeBlock newArray(Class<?> type)
     {
         nodes.add(TypeInstruction.newObjectArray(type));
         return this;
     }
 
-    public Block dup()
+    public ByteCodeBlock dup()
     {
         nodes.add(OpCode.DUP);
         return this;
     }
 
-    public Block dup(Class<?> type)
+    public ByteCodeBlock dup(Class<?> type)
     {
         if (type == long.class || type == double.class) {
             nodes.add(OpCode.DUP2);
@@ -607,13 +607,13 @@ public class Block
         return this;
     }
 
-    public Block pop()
+    public ByteCodeBlock pop()
     {
         nodes.add(OpCode.POP);
         return this;
     }
 
-    public Block pop(Class<?> type)
+    public ByteCodeBlock pop(Class<?> type)
     {
         if (type == long.class || type == double.class) {
             nodes.add(OpCode.POP2);
@@ -624,7 +624,7 @@ public class Block
         return this;
     }
 
-    public Block pop(ParameterizedType type)
+    public ByteCodeBlock pop(ParameterizedType type)
     {
         Class<?> primitiveType = type.getPrimitiveType();
         if (primitiveType == long.class || primitiveType == double.class) {
@@ -636,7 +636,7 @@ public class Block
         return this;
     }
 
-    public Block swap()
+    public ByteCodeBlock swap()
     {
         nodes.add(OpCode.SWAP);
         return this;
@@ -646,48 +646,48 @@ public class Block
     // Fields (non-static)
     //
 
-    public Block getField(Field field)
+    public ByteCodeBlock getField(Field field)
     {
         return getField(field.getDeclaringClass(), field.getName(), field.getType());
     }
 
-    public Block getField(FieldDefinition field)
+    public ByteCodeBlock getField(FieldDefinition field)
     {
         getField(field.getDeclaringClass().getType(), field.getName(), field.getType());
         return this;
     }
 
-    public Block getField(Class<?> target, String fieldName, Class<?> fieldType)
+    public ByteCodeBlock getField(Class<?> target, String fieldName, Class<?> fieldType)
     {
         getField(type(target), fieldName, type(fieldType));
         return this;
     }
 
-    public Block getField(ParameterizedType target, String fieldName, ParameterizedType fieldType)
+    public ByteCodeBlock getField(ParameterizedType target, String fieldName, ParameterizedType fieldType)
     {
         nodes.add(getFieldInstruction(target, fieldName, fieldType));
         return this;
     }
 
-    public Block putField(Field field)
+    public ByteCodeBlock putField(Field field)
     {
         return putField(field.getDeclaringClass(), field.getName(), field.getType());
     }
 
-    public Block putField(Class<?> target, String fieldName, Class<?> fieldType)
+    public ByteCodeBlock putField(Class<?> target, String fieldName, Class<?> fieldType)
     {
         putField(type(target), fieldName, type(fieldType));
         return this;
     }
 
-    public Block putField(FieldDefinition field)
+    public ByteCodeBlock putField(FieldDefinition field)
     {
         checkArgument(!field.getAccess().contains(STATIC), "Field is static: %s", field);
         putField(field.getDeclaringClass().getType(), field.getName(), field.getType());
         return this;
     }
 
-    public Block putField(ParameterizedType target, String fieldName, ParameterizedType fieldType)
+    public ByteCodeBlock putField(ParameterizedType target, String fieldName, ParameterizedType fieldType)
     {
         nodes.add(putFieldInstruction(target, fieldName, fieldType));
         return this;
@@ -697,51 +697,51 @@ public class Block
     // Static fields
     //
 
-    public Block getStaticField(FieldDefinition field)
+    public ByteCodeBlock getStaticField(FieldDefinition field)
     {
         getStaticField(field.getDeclaringClass().getType(), field.getName(), field.getType());
         return this;
     }
 
-    public Block getStaticField(Field field)
+    public ByteCodeBlock getStaticField(Field field)
     {
         checkArgument(Modifier.isStatic(field.getModifiers()), "Field is not static: %s", field);
         getStaticField(type(field.getDeclaringClass()), field.getName(), type(field.getType()));
         return this;
     }
 
-    public Block getStaticField(Class<?> target, String fieldName, Class<?> fieldType)
+    public ByteCodeBlock getStaticField(Class<?> target, String fieldName, Class<?> fieldType)
     {
         nodes.add(getStaticInstruction(target, fieldName, fieldType));
         return this;
     }
 
-    public Block getStaticField(ParameterizedType target, String fieldName, ParameterizedType fieldType)
+    public ByteCodeBlock getStaticField(ParameterizedType target, String fieldName, ParameterizedType fieldType)
     {
         nodes.add(getStaticInstruction(target, fieldName, fieldType));
         return this;
     }
 
-    public Block getStaticField(ParameterizedType target, FieldDefinition field)
+    public ByteCodeBlock getStaticField(ParameterizedType target, FieldDefinition field)
     {
         nodes.add(getStaticInstruction(target, field.getName(), field.getType()));
         return this;
     }
 
-    public Block putStaticField(FieldDefinition field)
+    public ByteCodeBlock putStaticField(FieldDefinition field)
     {
         putStaticField(field.getDeclaringClass().getType(), field.getName(), field.getType());
         return this;
     }
 
-    public Block putStaticField(ParameterizedType target, FieldDefinition field)
+    public ByteCodeBlock putStaticField(ParameterizedType target, FieldDefinition field)
     {
         checkArgument(field.getAccess().contains(STATIC), "Field is not static: %s", field);
         putStaticField(target, field.getName(), field.getType());
         return this;
     }
 
-    public Block putStaticField(ParameterizedType target, String fieldName, ParameterizedType fieldType)
+    public ByteCodeBlock putStaticField(ParameterizedType target, String fieldName, ParameterizedType fieldType)
     {
         nodes.add(putStaticInstruction(target, fieldName, fieldType));
         return this;
@@ -751,49 +751,49 @@ public class Block
     // Load constants
     //
 
-    public Block pushNull()
+    public ByteCodeBlock pushNull()
     {
         nodes.add(OpCode.ACONST_NULL);
         return this;
     }
 
-    public Block push(Class<?> type)
+    public ByteCodeBlock push(Class<?> type)
     {
         nodes.add(loadClass(type));
         return this;
     }
 
-    public Block push(ParameterizedType type)
+    public ByteCodeBlock push(ParameterizedType type)
     {
         nodes.add(loadClass(type));
         return this;
     }
 
-    public Block push(String value)
+    public ByteCodeBlock push(String value)
     {
         nodes.add(Constant.loadString(value));
         return this;
     }
 
-    public Block push(Number value)
+    public ByteCodeBlock push(Number value)
     {
         nodes.add(loadNumber(value));
         return this;
     }
 
-    public Block push(int value)
+    public ByteCodeBlock push(int value)
     {
         nodes.add(loadInt(value));
         return this;
     }
 
-    public Block push(boolean value)
+    public ByteCodeBlock push(boolean value)
     {
         nodes.add(loadBoolean(value));
         return this;
     }
 
-    public Block pushJavaDefault(Class<?> type)
+    public ByteCodeBlock pushJavaDefault(Class<?> type)
     {
         if (type == void.class) {
             return this;
@@ -813,7 +813,7 @@ public class Block
         return pushNull();
     }
 
-    public Block initializeVariable(Variable variable)
+    public ByteCodeBlock initializeVariable(Variable variable)
     {
         ParameterizedType type = variable.getType();
         if (type.getType().length() == 1) {
@@ -847,61 +847,61 @@ public class Block
         return this;
     }
 
-    public Block getVariable(Variable variable)
+    public ByteCodeBlock getVariable(Variable variable)
     {
         nodes.add(loadVariable(variable));
         return this;
     }
 
-    public Block putVariable(Variable variable)
+    public ByteCodeBlock putVariable(Variable variable)
     {
         nodes.add(storeVariable(variable));
         return this;
     }
 
-    public Block putVariable(Variable variable, Class<?> type)
+    public ByteCodeBlock putVariable(Variable variable, Class<?> type)
     {
         nodes.add(loadClass(type));
         putVariable(variable);
         return this;
     }
 
-    public Block putVariable(Variable variable, ParameterizedType type)
+    public ByteCodeBlock putVariable(Variable variable, ParameterizedType type)
     {
         nodes.add(loadClass(type));
         putVariable(variable);
         return this;
     }
 
-    public Block putVariable(Variable variable, String value)
+    public ByteCodeBlock putVariable(Variable variable, String value)
     {
         nodes.add(Constant.loadString(value));
         putVariable(variable);
         return this;
     }
 
-    public Block putVariable(Variable variable, Number value)
+    public ByteCodeBlock putVariable(Variable variable, Number value)
     {
         nodes.add(loadNumber(value));
         putVariable(variable);
         return this;
     }
 
-    public Block putVariable(Variable variable, int value)
+    public ByteCodeBlock putVariable(Variable variable, int value)
     {
         nodes.add(loadInt(value));
         putVariable(variable);
         return this;
     }
 
-    public Block putVariable(Variable variable, boolean value)
+    public ByteCodeBlock putVariable(Variable variable, boolean value)
     {
         nodes.add(loadBoolean(value));
         putVariable(variable);
         return this;
     }
 
-    public Block incrementVariable(Variable variable, byte increment)
+    public ByteCodeBlock incrementVariable(Variable variable, byte increment)
     {
         String type = variable.getType().getClassName();
         checkArgument(ImmutableList.of("byte", "short", "int").contains(type), "variable must be an byte, short or int, but is %s", type);
@@ -909,19 +909,19 @@ public class Block
         return this;
     }
 
-    public Block getObjectArrayElement()
+    public ByteCodeBlock getObjectArrayElement()
     {
         nodes.add(OpCode.AALOAD);
         return this;
     }
 
-    public Block putObjectArrayElement()
+    public ByteCodeBlock putObjectArrayElement()
     {
         nodes.add(OpCode.AASTORE);
         return this;
     }
 
-    public Block visitLineNumber(int currentLineNumber)
+    public ByteCodeBlock visitLineNumber(int currentLineNumber)
     {
         checkArgument(currentLineNumber >= 0, "currentLineNumber must be positive");
         if (this.currentLineNumber != currentLineNumber) {

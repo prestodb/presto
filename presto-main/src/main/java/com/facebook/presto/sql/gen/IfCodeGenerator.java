@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
@@ -35,7 +35,7 @@ public class IfCodeGenerator
         Preconditions.checkArgument(arguments.size() == 3);
 
         Variable wasNull = context.wasNull();
-        Block condition = new Block()
+        ByteCodeBlock condition = new ByteCodeBlock()
                 .append(context.generate(arguments.get(0)))
                 .comment("... and condition value was not null")
                 .append(wasNull)

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.control.IfStatement;
@@ -44,7 +44,7 @@ public class NullIfCodeGenerator
         LabelNode notMatch = new LabelNode("notMatch");
 
         // push first arg on the stack
-        Block block = new Block()
+        ByteCodeBlock block = new ByteCodeBlock()
                 .comment("check if first arg is null")
                 .append(generatorContext.generate(first))
                 .append(ByteCodeUtils.ifWasNullPopAndGoto(scope, notMatch, void.class));
@@ -61,15 +61,15 @@ public class NullIfCodeGenerator
         ByteCodeNode equalsCall = generatorContext.generateCall(
                 equalsFunction,
                 ImmutableList.of(
-                        cast(generatorContext, new Block().dup(firstType.getJavaType()), firstType, commonType),
+                        cast(generatorContext, new ByteCodeBlock().dup(firstType.getJavaType()), firstType, commonType),
                         cast(generatorContext, generatorContext.generate(second), secondType, commonType)));
 
-        Block conditionBlock = new Block()
+        ByteCodeBlock conditionBlock = new ByteCodeBlock()
                 .append(equalsCall)
                 .append(ByteCodeUtils.ifWasNullClearPopAndGoto(scope, notMatch, void.class, boolean.class));
 
         // if first and second are equal, return null
-        Block trueBlock = new Block()
+        ByteCodeBlock trueBlock = new ByteCodeBlock()
                 .append(generatorContext.wasNull().set(constantTrue()))
                 .pop(first.getType().getJavaType())
                 .pushJavaDefault(first.getType().getJavaType());

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.Scope;
@@ -42,7 +43,7 @@ public class ArrayMapByteCodeExpression
 {
     private static final AtomicLong NEXT_VARIABLE_ID = new AtomicLong();
 
-    private final com.facebook.presto.byteCode.Block body;
+    private final ByteCodeBlock body;
     private final String oneLineDescription;
 
     public ArrayMapByteCodeExpression(
@@ -55,7 +56,7 @@ public class ArrayMapByteCodeExpression
     {
         super(type(Block.class));
 
-        body = new com.facebook.presto.byteCode.Block();
+        body = new ByteCodeBlock();
 
         Variable blockBuilder = scope.declareVariable(BlockBuilder.class, "blockBuilder_" + NEXT_VARIABLE_ID.getAndIncrement());
         body.append(blockBuilder.set(constantType(binder, toType).invoke("createBlockBuilder", BlockBuilder.class, newInstance(BlockBuilderStatus.class), array.invoke("getPositionCount", int.class))));
@@ -67,7 +68,7 @@ public class ArrayMapByteCodeExpression
         // get element, apply function, and write new element to block builder
         SqlTypeByteCodeExpression elementTypeConstant = constantType(binder, fromType);
         SqlTypeByteCodeExpression newElementTypeConstant = constantType(binder, toType);
-        com.facebook.presto.byteCode.Block mapElement = new com.facebook.presto.byteCode.Block()
+        ByteCodeBlock mapElement = new ByteCodeBlock()
                 .append(element.set(elementTypeConstant.getValue(array, position)))
                 .append(newElement.set(mapper.apply(element)))
                 .append(newElementTypeConstant.writeValue(blockBuilder, newElement));

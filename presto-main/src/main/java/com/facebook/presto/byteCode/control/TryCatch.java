@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.byteCode.control;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.MethodGenerationContext;
@@ -71,7 +71,7 @@ public class TryCatch
         LabelNode handler = new LabelNode("handler");
         LabelNode done = new LabelNode("done");
 
-        Block block = new Block();
+        ByteCodeBlock block = new ByteCodeBlock();
 
         // try block
         block.visitLabel(tryStart)

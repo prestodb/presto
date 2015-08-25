@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.metadata.FunctionRegistry;
@@ -117,7 +117,7 @@ public class ByteCodeExpressionVisitor
         Object value = constant.getValue();
         Class<?> javaType = constant.getType().getJavaType();
 
-        Block block = new Block();
+        ByteCodeBlock block = new ByteCodeBlock();
         if (value == null) {
             return block.comment("constant null")
                     .append(scope.getVariable("wasNull").set(constantTrue()))
@@ -151,7 +151,7 @@ public class ByteCodeExpressionVisitor
         // bind constant object directly into the call-site using invoke dynamic
         Binding binding = callSiteBinder.bind(value, constant.getType().getJavaType());
 
-        return new Block()
+        return new ByteCodeBlock()
                 .setDescription("constant " + constant.getType())
                 .comment(constant.toString())
                 .append(loadConstant(binding));

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
@@ -40,7 +40,7 @@ public class CoalesceCodeGenerator
         }
 
         Variable wasNull = generatorContext.wasNull();
-        ByteCodeNode nullValue = new Block()
+        ByteCodeNode nullValue = new ByteCodeBlock()
                 .append(wasNull.set(constantTrue()))
                 .pushJavaDefault(returnType.getJavaType());
 

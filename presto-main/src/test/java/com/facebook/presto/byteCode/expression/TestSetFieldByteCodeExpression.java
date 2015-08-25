@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.byteCode.expression;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
@@ -53,7 +53,7 @@ public class TestSetFieldByteCodeExpression
             ByteCodeExpression setExpression = setX.apply(point);
             assertEquals(setExpression.toString(), "point.x = 42;");
 
-            return new Block()
+            return new ByteCodeBlock()
                     .append(point.set(newInstance(Point.class, constantInt(3), constantInt(7))))
                     .append(setExpression)
                     .append(point.ret());

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
@@ -36,7 +36,7 @@ public class AndCodeGenerator
         Preconditions.checkArgument(arguments.size() == 2);
 
         Variable wasNull = generator.wasNull();
-        Block block = new Block()
+        ByteCodeBlock block = new ByteCodeBlock()
                 .comment("AND")
                 .setDescription("AND");
 

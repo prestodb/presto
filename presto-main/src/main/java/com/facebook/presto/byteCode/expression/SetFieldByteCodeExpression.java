@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.byteCode.expression;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.MethodGenerationContext;
@@ -96,12 +96,12 @@ class SetFieldByteCodeExpression
     public ByteCodeNode getByteCode(MethodGenerationContext generationContext)
     {
         if (instance == null) {
-            return new Block()
+            return new ByteCodeBlock()
                     .append(value.getByteCode(generationContext))
                     .putStaticField(declaringClass, name, fieldType);
         }
 
-        return new Block()
+        return new ByteCodeBlock()
                 .append(instance.getByteCode(generationContext))
                 .append(value.getByteCode(generationContext))
                 .putField(declaringClass, name, fieldType);
