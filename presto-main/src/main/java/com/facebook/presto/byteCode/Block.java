@@ -62,10 +62,6 @@ public class Block
     private String description;
     private int currentLineNumber = -1;
 
-    public Block()
-    {
-    }
-
     public String getDescription()
     {
         return description;
