@@ -23,6 +23,7 @@ import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ColumnStats;
@@ -52,6 +53,7 @@ import io.airlift.units.Duration;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.File;
@@ -66,6 +68,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -81,12 +84,14 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.Math.min;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class OrcStorageManager
@@ -108,6 +113,7 @@ public class OrcStorageManager
     private final DataSize maxBufferSize;
     private final StorageManagerStats stats;
     private final TypeManager typeManager;
+    private final ExecutorService deletionExecutor;
 
     @Inject
     public OrcStorageManager(
@@ -116,6 +122,7 @@ public class OrcStorageManager
             Optional<BackupStore> backupStore,
             JsonCodec<ShardDelta> shardDeltaCodec,
             StorageManagerConfig config,
+            RaptorConnectorId connectorId,
             ShardRecoveryManager recoveryManager,
             TypeManager typeManager)
     {
@@ -128,6 +135,8 @@ public class OrcStorageManager
                 config.getOrcStreamBufferSize(),
                 recoveryManager,
                 typeManager,
+                connectorId.toString(),
+                config.getDeletionThreads(),
                 config.getShardRecoveryTimeout(),
                 config.getMaxShardRows(),
                 config.getMaxShardSize(),
@@ -144,6 +153,8 @@ public class OrcStorageManager
             DataSize orcStreamBufferSize,
             ShardRecoveryManager recoveryManager,
             TypeManager typeManager,
+            String connectorId,
+            int deletionThreads,
             Duration shardRecoveryTimeout,
             long maxShardRows,
             DataSize maxShardSize,
@@ -166,6 +177,13 @@ public class OrcStorageManager
         this.maxBufferSize = checkNotNull(maxBufferSize, "maxBufferSize is null");
         this.stats = new StorageManagerStats();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.deletionExecutor = newFixedThreadPool(deletionThreads, daemonThreadsNamed("raptor-delete-" + connectorId + "-%s"));
+    }
+
+    @PreDestroy
+    public void shutdown()
+    {
+        deletionExecutor.shutdownNow();
     }
 
     @Override
@@ -200,7 +218,7 @@ public class OrcStorageManager
 
             OrcRecordReader recordReader = reader.createRecordReader(includedColumns.build(), predicate, UTC);
 
-            ShardRewriter shardRewriter = rowsToDelete -> completedFuture(rewriteShard(shardUuid, rowsToDelete));
+            ShardRewriter shardRewriter = rowsToDelete -> supplyAsync(() -> rewriteShard(shardUuid, rowsToDelete), deletionExecutor);
 
             return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build());
         }

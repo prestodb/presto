@@ -99,6 +99,8 @@ public class TestOrcStorageManager
     private static final DataSize ORC_MAX_MERGE_DISTANCE = new DataSize(1, MEGABYTE);
     private static final DataSize ORC_MAX_READ_SIZE = new DataSize(1, MEGABYTE);
     private static final DataSize ORC_STREAM_BUFFER_SIZE = new DataSize(1, MEGABYTE);
+    private static final String CONNECTOR_ID = "test";
+    private static final int DELETION_THREADS = 2;
     private static final Duration SHARD_RECOVERY_TIMEOUT = new Duration(30, TimeUnit.SECONDS);
     private static final DataSize MAX_BUFFER_SIZE = new DataSize(256, MEGABYTE);
     private static final int MAX_SHARD_ROWS = 100;
@@ -490,6 +492,8 @@ public class TestOrcStorageManager
                 ORC_STREAM_BUFFER_SIZE,
                 recoveryManager,
                 new TypeRegistry(),
+                CONNECTOR_ID,
+                DELETION_THREADS,
                 SHARD_RECOVERY_TIMEOUT,
                 maxShardRows,
                 maxFileSize,
