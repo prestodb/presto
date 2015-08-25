@@ -95,7 +95,7 @@ public class ClusterMemoryManager
         this.assignmentsRequestJsonCodec = requireNonNull(assignmentsRequestJsonCodec, "assignmentsRequestJsonCodec is null");
         this.maxQueryMemory = config.getMaxQueryMemory();
         this.coordinatorId = queryIdGenerator.getCoordinatorId();
-        this.enabled = config.isClusterMemoryManagerEnabled() && serverConfig.isCoordinator();
+        this.enabled = serverConfig.isCoordinator();
     }
 
     public void process(Iterable<QueryExecution> queries)

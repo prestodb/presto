@@ -23,3 +23,5 @@ General Changes
 ---------------
 
 * Add :func:`multimap_agg` function.
+* Removed ``experimental.cluster-memory-manager-enabled`` config. The cluster
+  memory manager is now always enabled.

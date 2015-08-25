@@ -104,10 +104,10 @@ public abstract class AbstractOperatorBenchmark
                 .setSystemProperties(ImmutableMap.of("optimizer.optimize-hash-generation", "true"))
                 .build();
         ExecutorService executor = localQueryRunner.getExecutor();
-        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE), false);
-        MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE), false);
+        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
+        MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
 
-        TaskContext taskContext = new QueryContext(false, new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, executor)
+        TaskContext taskContext = new QueryContext(new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, executor)
                 .addTaskContext(new TaskStateMachine(new TaskId("query", "stage", "task"), executor),
                         session,
                         new DataSize(256, MEGABYTE),

@@ -48,10 +48,10 @@ public final class LocalMemoryManager
 
         ImmutableMap.Builder<MemoryPoolId, MemoryPool> builder = ImmutableMap.builder();
         checkArgument(config.getMaxQueryMemoryPerNode().toBytes() < maxMemory.toBytes(), format("%s set to %s, but only %s of useable heap available", QUERY_MAX_MEMORY_PER_NODE_CONFIG, config.getMaxQueryMemoryPerNode(), maxMemory));
-        builder.put(RESERVED_POOL, new MemoryPool(RESERVED_POOL, config.getMaxQueryMemoryPerNode(), config.isClusterMemoryManagerEnabled()));
+        builder.put(RESERVED_POOL, new MemoryPool(RESERVED_POOL, config.getMaxQueryMemoryPerNode()));
         DataSize generalPoolSize = new DataSize(Math.max(0, maxMemory.toBytes() - config.getMaxQueryMemoryPerNode().toBytes()), BYTE);
-        builder.put(GENERAL_POOL, new MemoryPool(GENERAL_POOL, generalPoolSize, config.isClusterMemoryManagerEnabled()));
-        builder.put(SYSTEM_POOL, new MemoryPool(SYSTEM_POOL, systemMemoryConfig.getReservedSystemMemory(), config.isClusterMemoryManagerEnabled()));
+        builder.put(GENERAL_POOL, new MemoryPool(GENERAL_POOL, generalPoolSize));
+        builder.put(SYSTEM_POOL, new MemoryPool(SYSTEM_POOL, systemMemoryConfig.getReservedSystemMemory()));
         this.pools = builder.build();
     }
 

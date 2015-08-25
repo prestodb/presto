@@ -37,7 +37,6 @@ import static java.util.Objects.requireNonNull;
 public class QueryContext
 {
     private final long maxMemory;
-    private final boolean enforceLimit;
     private final Executor executor;
     private final List<TaskContext> taskContexts = new CopyOnWriteArrayList<>();
     private final MemoryPool systemMemoryPool;
@@ -51,9 +50,8 @@ public class QueryContext
     @GuardedBy("this")
     private long systemReserved;
 
-    public QueryContext(boolean enforceLimit, DataSize maxMemory, MemoryPool memoryPool, MemoryPool systemMemoryPool, Executor executor)
+    public QueryContext(DataSize maxMemory, MemoryPool memoryPool, MemoryPool systemMemoryPool, Executor executor)
     {
-        this.enforceLimit = enforceLimit;
         this.maxMemory = requireNonNull(maxMemory, "maxMemory is null").toBytes();
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.systemMemoryPool = requireNonNull(systemMemoryPool, "systemMemoryPool is null");
@@ -64,7 +62,7 @@ public class QueryContext
     {
         checkArgument(bytes >= 0, "bytes is negative");
 
-        if (reserved + bytes > maxMemory && enforceLimit) {
+        if (reserved + bytes > maxMemory) {
             throw new PrestoException(EXCEEDED_MEMORY_LIMIT, "Query exceeded local memory limit of " + new DataSize(maxMemory, DataSize.Unit.BYTE).convertToMostSuccinctDataSize());
         }
         ListenableFuture<?> future = memoryPool.reserve(bytes);
@@ -85,7 +83,7 @@ public class QueryContext
     {
         checkArgument(bytes >= 0, "bytes is negative");
 
-        if (reserved + bytes > maxMemory && enforceLimit) {
+        if (reserved + bytes > maxMemory) {
             return false;
         }
         if (memoryPool.tryReserve(bytes)) {
