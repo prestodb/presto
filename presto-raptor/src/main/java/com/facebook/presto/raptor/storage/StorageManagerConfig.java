@@ -29,6 +29,8 @@ import java.io.File;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.Math.max;
+import static java.lang.Runtime.getRuntime;
 
 @DefunctConfig("storage.backup-directory")
 public class StorageManagerConfig
@@ -40,6 +42,7 @@ public class StorageManagerConfig
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxReadSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
+    private int deletionThreads = max(1, getRuntime().availableProcessors() / 2);
     private int recoveryThreads = 10;
     private int compactionThreads = 5;
 
@@ -97,6 +100,20 @@ public class StorageManagerConfig
     public StorageManagerConfig setOrcStreamBufferSize(DataSize orcStreamBufferSize)
     {
         this.orcStreamBufferSize = orcStreamBufferSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getDeletionThreads()
+    {
+        return deletionThreads;
+    }
+
+    @Config("storage.max-deletion-threads")
+    @ConfigDescription("Maximum number of threads to use for deletions")
+    public StorageManagerConfig setDeletionThreads(int deletionThreads)
+    {
+        this.deletionThreads = deletionThreads;
         return this;
     }
 
