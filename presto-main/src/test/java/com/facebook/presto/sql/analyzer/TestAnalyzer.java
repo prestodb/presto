@@ -510,6 +510,14 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testInvalidInsert()
+            throws Exception
+    {
+        assertFails(MISSING_TABLE, "INSERT INTO foo VALUES (1)");
+        assertFails(NOT_SUPPORTED, "INSERT INTO v1 VALUES (1)");
+    }
+
+    @Test
     public void testDuplicateWithQuery()
             throws Exception
     {
