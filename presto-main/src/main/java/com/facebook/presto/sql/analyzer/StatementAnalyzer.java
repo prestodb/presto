@@ -359,13 +359,17 @@ class StatementAnalyzer
     @Override
     protected TupleDescriptor visitInsert(Insert insert, AnalysisContext context)
     {
+        QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, insert.getTarget());
+        if (metadata.getView(session, targetTable).isPresent()) {
+            throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into views is not supported");
+        }
+
         analysis.setUpdateType("INSERT");
 
         // analyze the query that creates the data
         TupleDescriptor descriptor = process(insert.getQuery(), context);
 
         // verify the insert destination columns match the query
-        QualifiedTableName targetTable = MetadataUtil.createQualifiedTableName(session, insert.getTarget());
         Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
         if (!targetTableHandle.isPresent()) {
             throw new SemanticException(MISSING_TABLE, insert, "Table '%s' does not exist", targetTable);
