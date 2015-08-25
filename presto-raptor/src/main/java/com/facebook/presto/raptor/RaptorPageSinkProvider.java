@@ -15,6 +15,7 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.storage.StorageManager;
+import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -22,6 +23,7 @@ import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageSorter;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.DataSize;
 
 import javax.inject.Inject;
 
@@ -38,13 +40,15 @@ public class RaptorPageSinkProvider
     private final StorageManager storageManager;
     private final PageSorter pageSorter;
     private final JsonCodec<ShardInfo> shardInfoCodec;
+    private final DataSize maxBufferSize;
 
     @Inject
-    public RaptorPageSinkProvider(StorageManager storageManager, PageSorter pageSorter, JsonCodec<ShardInfo> shardInfoCodec)
+    public RaptorPageSinkProvider(StorageManager storageManager, PageSorter pageSorter, JsonCodec<ShardInfo> shardInfoCodec, StorageManagerConfig config)
     {
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
         this.pageSorter = checkNotNull(pageSorter, "pageSorter is null");
         this.shardInfoCodec = checkNotNull(shardInfoCodec, "shardInfoCodec is null");
+        this.maxBufferSize = config.getMaxBufferSize();
     }
 
     @Override
@@ -59,7 +63,8 @@ public class RaptorPageSinkProvider
                 handle.getColumnTypes(),
                 optionalColumnId(handle.getSampleWeightColumnHandle()),
                 toColumnIds(handle.getSortColumnHandles()),
-                handle.getSortOrders());
+                handle.getSortOrders(),
+                maxBufferSize);
     }
 
     @Override
@@ -74,7 +79,8 @@ public class RaptorPageSinkProvider
                 handle.getColumnTypes(),
                 Optional.empty(),
                 toColumnIds(handle.getSortColumnHandles()),
-                handle.getSortOrders());
+                handle.getSortOrders(),
+                maxBufferSize);
     }
 
     private static List<Long> toColumnIds(List<RaptorColumnHandle> columnHandles)
