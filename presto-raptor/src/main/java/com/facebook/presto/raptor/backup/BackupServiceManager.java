@@ -11,19 +11,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor.storage;
+package com.facebook.presto.raptor.backup;
 
-import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.TupleDomain;
-import com.facebook.presto.spi.type.Type;
+import com.google.inject.Inject;
 
-import java.util.List;
-import java.util.UUID;
+import java.util.Optional;
 
-public interface StorageManager
+import static java.util.Objects.requireNonNull;
+
+public class BackupServiceManager
+        implements BackupService
 {
-    ConnectorPageSource getPageSource(UUID shardUuid, List<Long> columnIds, List<Type> columnTypes, TupleDomain<RaptorColumnHandle> effectivePredicate);
+    private final Optional<BackupStore> backupStore;
 
-    StoragePageSink createStoragePageSink(List<Long> columnIds, List<Type> columnTypes);
+    @Inject
+    public BackupServiceManager(Optional<BackupStore> backupStore)
+    {
+        this.backupStore = requireNonNull(backupStore, "backupStore is null");
+    }
+
+    @Override
+    public boolean isBackupAvailable()
+    {
+        return backupStore.isPresent();
+    }
 }

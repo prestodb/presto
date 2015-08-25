@@ -28,6 +28,7 @@ import com.google.common.primitives.Ints;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 
 import java.util.Collection;
 import java.util.List;
@@ -60,7 +61,8 @@ public class RaptorPageSink
             List<Type> columnTypes,
             Optional<Long> sampleWeightColumnId,
             List<Long> sortColumnIds,
-            List<SortOrder> sortOrders)
+            List<SortOrder> sortOrders,
+            DataSize maxBufferSize)
     {
         this.pageSorter = checkNotNull(pageSorter, "pageSorter is null");
         this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
@@ -75,7 +77,8 @@ public class RaptorPageSink
         this.sortFields = ImmutableList.copyOf(sortColumnIds.stream().map(columnIds::indexOf).collect(toList()));
         this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
 
-        this.pageBuffer = storageManager.createPageBuffer();
+        // allow only Integer.MAX_VALUE rows to be buffered as that is the max rows we can sort
+        this.pageBuffer = new PageBuffer(maxBufferSize.toBytes(), Integer.MAX_VALUE);
     }
 
     @Override

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import com.google.inject.Scopes;
 import com.google.inject.util.Providers;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -61,6 +62,7 @@ public class BackupModule
                 binder.install(module);
             }
         }
+        binder.bind(BackupService.class).to(BackupServiceManager.class).in(Scopes.SINGLETON);
     }
 
     @Provides
