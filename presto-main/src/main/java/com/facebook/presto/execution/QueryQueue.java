@@ -36,7 +36,7 @@ public class QueryQueue
     QueryQueue(Executor queryExecutor, int maxQueuedQueries, int maxConcurrentQueries)
     {
         checkNotNull(queryExecutor, "queryExecutor is null");
-        checkArgument(maxQueuedQueries > 0, "maxQueuedQueries must be greater than zero");
+        checkArgument(maxQueuedQueries >= 0, "maxQueuedQueries must not be negative");
         checkArgument(maxConcurrentQueries > 0, "maxConcurrentQueries must be greater than zero");
 
         this.maxQueuedQueries = maxQueuedQueries;
