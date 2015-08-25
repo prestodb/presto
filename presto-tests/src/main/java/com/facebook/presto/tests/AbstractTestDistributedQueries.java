@@ -430,6 +430,17 @@ public abstract class AbstractTestDistributedQueries
 
         assertEquals(actual, expected);
 
+        // test SHOW CREATE VIEW
+        String expectedCreateViewSql = format("CREATE VIEW %s.%s.%s AS %s",
+                getSession().getCatalog(), getSession().getSchema(), "meta_test_view", query);
+
+        actual = computeActual("SHOW CREATE VIEW meta_test_view");
+        expected = resultBuilder(getSession(), VARCHAR, VARCHAR)
+                .row("meta_test_view", formatSql(new SqlParser().createStatement(expectedCreateViewSql)))
+                .build();
+
+        assertEquals(actual, expected);
+
         assertQueryTrue("DROP VIEW meta_test_view");
     }
 

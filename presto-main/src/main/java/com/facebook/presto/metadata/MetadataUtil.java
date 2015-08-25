@@ -119,6 +119,11 @@ public final class MetadataUtil
         return new QualifiedTableName(catalogName, schemaName, tableName);
     }
 
+    public static QualifiedName createQualifiedName(QualifiedTableName tableName)
+    {
+        return QualifiedName.of(tableName.getCatalogName(), tableName.getSchemaName(), tableName.getTableName());
+    }
+
     public static class SchemaMetadataBuilder
     {
         public static SchemaMetadataBuilder schemaMetadataBuilder()
