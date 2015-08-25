@@ -146,11 +146,6 @@ public class TaskContext
         return taskStateMachine.getState();
     }
 
-    public DataSize getMaxMemorySize()
-    {
-        return new DataSize(maxMemory, BYTE).convertToMostSuccinctDataSize();
-    }
-
     public DataSize getOperatorPreAllocatedMemory()
     {
         return operatorPreAllocatedMemory;
@@ -161,7 +156,7 @@ public class TaskContext
         checkArgument(bytes >= 0, "bytes is negative");
 
         if (memoryReservation.get() + bytes > maxMemory) {
-            throw new ExceededMemoryLimitException(getMaxMemorySize());
+            throw new ExceededMemoryLimitException(new DataSize(maxMemory, BYTE).convertToMostSuccinctDataSize());
         }
         ListenableFuture<?> future = queryContext.reserveMemory(bytes);
         memoryReservation.getAndAdd(bytes);

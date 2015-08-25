@@ -189,11 +189,6 @@ public class PipelineContext
         return taskContext.isDone();
     }
 
-    public DataSize getMaxMemorySize()
-    {
-        return taskContext.getMaxMemorySize();
-    }
-
     public DataSize getOperatorPreAllocatedMemory()
     {
         return taskContext.getOperatorPreAllocatedMemory();
