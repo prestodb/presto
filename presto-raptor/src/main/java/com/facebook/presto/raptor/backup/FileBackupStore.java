@@ -20,7 +20,10 @@ import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.OptionalLong;
@@ -28,7 +31,6 @@ import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.storage.FileStorageService.getFileSystemPath;
-import static com.facebook.presto.raptor.util.FileUtil.copyFile;
 import static java.nio.file.Files.readAttributes;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -62,7 +64,7 @@ public class FileBackupStore
         createDirectories(backupFile.getParentFile());
 
         try {
-            copyFile(source.toPath(), backupFile.toPath());
+            copyFile(source, backupFile);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to create backup shard file", e);
@@ -73,7 +75,7 @@ public class FileBackupStore
     public void restoreShard(UUID uuid, File target)
     {
         try {
-            copyFile(getBackupFile(uuid).toPath(), target.toPath());
+            copyFile(getBackupFile(uuid), target);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to copy backup shard: " + uuid, e);
@@ -122,6 +124,24 @@ public class FileBackupStore
     {
         if (!dir.mkdirs() && !dir.isDirectory()) {
             throw new PrestoException(RAPTOR_ERROR, "Failed creating directories: " + dir);
+        }
+    }
+
+    private static void copyFile(File source, File target)
+            throws IOException
+    {
+        try (InputStream in = new FileInputStream(source);
+                FileOutputStream out = new FileOutputStream(target)) {
+            byte[] buffer = new byte[128 * 1024];
+            while (true) {
+                int n = in.read(buffer);
+                if (n == -1) {
+                    break;
+                }
+                out.write(buffer, 0, n);
+            }
+            out.flush();
+            out.getFD().sync();
         }
     }
 }
