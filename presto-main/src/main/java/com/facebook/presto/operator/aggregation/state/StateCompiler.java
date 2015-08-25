@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
@@ -23,6 +23,7 @@ import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.CallSiteBinder;
@@ -102,7 +103,7 @@ public class StateCompiler
         if (type.equals(Slice.class)) {
             return SliceBigArray.class;
         }
-        if (type.equals(com.facebook.presto.spi.block.Block.class)) {
+        if (type.equals(Block.class)) {
             return BlockBigArray.class;
         }
         // TODO: support more reference types
@@ -153,7 +154,7 @@ public class StateCompiler
 
     private static void generateGetSerializedType(ClassDefinition definition, List<StateField> fields, CallSiteBinder callSiteBinder)
     {
-        Block body = definition.declareMethod(a(PUBLIC), "getSerializedType", type(Type.class)).getBody();
+        ByteCodeBlock body = definition.declareMethod(a(PUBLIC), "getSerializedType", type(Type.class)).getBody();
 
         Type type;
         if (fields.size() > 1) {
@@ -205,12 +206,12 @@ public class StateCompiler
 
     private static <T> void generateDeserialize(ClassDefinition definition, Class<T> clazz, List<StateField> fields)
     {
-        Parameter block = arg("block", com.facebook.presto.spi.block.Block.class);
+        Parameter block = arg("block", Block.class);
         Parameter index = arg("index", int.class);
         Parameter state = arg("state", Object.class);
         MethodDefinition method = definition.declareMethod(a(PUBLIC), "deserialize", type(void.class), block, index, state);
 
-        Block deserializerBody = method.getBody();
+        ByteCodeBlock deserializerBody = method.getBody();
 
         if (fields.size() == 1) {
             Method setter = getSetter(clazz, fields.get(0));
@@ -237,7 +238,7 @@ public class StateCompiler
         Parameter out = arg("out", BlockBuilder.class);
         MethodDefinition method = definition.declareMethod(a(PUBLIC), "serialize", type(void.class), state, out);
 
-        Block serializerBody = method.getBody();
+        ByteCodeBlock serializerBody = method.getBody();
 
         if (fields.size() == 1) {
             Method getter = getGetter(clazz, fields.get(0));
@@ -450,7 +451,7 @@ public class StateCompiler
 
         // Generate getEstimatedSize
         MethodDefinition getEstimatedSize = definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class));
-        Block body = getEstimatedSize.getBody();
+        ByteCodeBlock body = getEstimatedSize.getBody();
 
         Variable size = getEstimatedSize.getScope().declareVariable(long.class, "size");
 
@@ -534,7 +535,7 @@ public class StateCompiler
     {
         ImmutableList.Builder<StateField> builder = ImmutableList.builder();
         final Set<Class<?>> primitiveClasses = ImmutableSet.<Class<?>>of(byte.class, boolean.class, long.class, double.class);
-        Set<Class<?>> supportedClasses = ImmutableSet.<Class<?>>of(byte.class, boolean.class, long.class, double.class, Slice.class, com.facebook.presto.spi.block.Block.class);
+        Set<Class<?>> supportedClasses = ImmutableSet.<Class<?>>of(byte.class, boolean.class, long.class, double.class, Slice.class, Block.class);
 
         for (Method method : clazz.getMethods()) {
             if (method.getName().equals("getEstimatedSize")) {

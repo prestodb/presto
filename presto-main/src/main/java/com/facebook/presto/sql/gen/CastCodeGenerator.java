@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Signature;
@@ -35,7 +35,7 @@ public class CastCodeGenerator
         RowExpression argument = arguments.get(0);
 
         if (argument.getType().equals(UnknownType.UNKNOWN)) {
-            return new Block()
+            return new ByteCodeBlock()
                     .append(generatorContext.wasNull().set(constantTrue()))
                     .pushJavaDefault(returnType.getJavaType());
         }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
@@ -72,7 +72,7 @@ public final class ByteCodeUtils
     {
         Variable wasNull = scope.getVariable("wasNull");
 
-        Block nullCheck = new Block()
+        ByteCodeBlock nullCheck = new ByteCodeBlock()
                 .setDescription("ifWasNullGoto")
                 .append(wasNull);
 
@@ -82,7 +82,7 @@ public final class ByteCodeUtils
             clearComment = "clear wasNull";
         }
 
-        Block isNull = new Block();
+        ByteCodeBlock isNull = new ByteCodeBlock();
         for (Class<?> parameterType : stackArgsToPop) {
             isNull.pop(parameterType);
         }
@@ -107,7 +107,7 @@ public final class ByteCodeUtils
 
     public static ByteCodeNode boxPrimitive(Class<?> type)
     {
-        Block block = new Block().comment("box primitive");
+        ByteCodeBlock block = new ByteCodeBlock().comment("box primitive");
         if (type == long.class) {
             return block.invokeStatic(Long.class, "valueOf", Long.class, long.class);
         }
@@ -126,7 +126,7 @@ public final class ByteCodeUtils
 
     public static ByteCodeNode unboxPrimitive(Class<?> unboxedType)
     {
-        Block block = new Block().comment("unbox primitive");
+        ByteCodeBlock block = new ByteCodeBlock().comment("unbox primitive");
         if (unboxedType == long.class) {
             return block.invokeVirtual(Long.class, "longValue", long.class);
         }
@@ -163,7 +163,7 @@ public final class ByteCodeUtils
         Class<?> unboxedReturnType = Primitives.unwrap(returnType);
 
         LabelNode end = new LabelNode("end");
-        Block block = new Block()
+        ByteCodeBlock block = new ByteCodeBlock()
                 .setDescription("invoke " + signature);
 
         List<Class<?>> stackTypes = new ArrayList<>();
@@ -196,9 +196,9 @@ public final class ByteCodeUtils
         return block;
     }
 
-    public static Block unboxPrimitiveIfNecessary(Scope scope, Class<?> boxedType)
+    public static ByteCodeBlock unboxPrimitiveIfNecessary(Scope scope, Class<?> boxedType)
     {
-        Block block = new Block();
+        ByteCodeBlock block = new ByteCodeBlock();
         LabelNode end = new LabelNode("end");
         Class<?> unboxedType = Primitives.unwrap(boxedType);
         Variable wasNull = scope.getVariable("wasNull");
@@ -230,7 +230,7 @@ public final class ByteCodeUtils
         if (!Primitives.isWrapperType(type)) {
             return NOP;
         }
-        Block notNull = new Block().comment("box primitive");
+        ByteCodeBlock notNull = new ByteCodeBlock().comment("box primitive");
         Class<?> expectedCurrentStackType;
         if (type == Long.class) {
             notNull.invokeStatic(Long.class, "valueOf", Long.class, long.class);
@@ -253,9 +253,9 @@ public final class ByteCodeUtils
             throw new UnsupportedOperationException("not yet implemented: " + type);
         }
 
-        Block condition = new Block().append(scope.getVariable("wasNull"));
+        ByteCodeBlock condition = new ByteCodeBlock().append(scope.getVariable("wasNull"));
 
-        Block wasNull = new Block()
+        ByteCodeBlock wasNull = new ByteCodeBlock()
                 .pop(expectedCurrentStackType)
                 .pushNull()
                 .checkCast(type);
@@ -279,7 +279,7 @@ public final class ByteCodeUtils
     public static ByteCodeNode generateWrite(CallSiteBinder callSiteBinder, Scope scope, Variable wasNullVariable, Type type)
     {
         if (type.getJavaType() == void.class) {
-            return new Block().comment("output.appendNull();")
+            return new ByteCodeBlock().comment("output.appendNull();")
                     .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
                     .pop();
         }
@@ -299,16 +299,16 @@ public final class ByteCodeUtils
         // TODO: clean up once try_cast is fixed
         Variable tempValue = scope.createTempVariable(valueJavaType);
         Variable tempOutput = scope.createTempVariable(BlockBuilder.class);
-        return new Block()
+        return new ByteCodeBlock()
                 .comment("if (wasNull)")
                 .append(new IfStatement()
                         .condition(wasNullVariable)
-                        .ifTrue(new Block()
+                        .ifTrue(new ByteCodeBlock()
                                 .comment("output.appendNull();")
                                 .pop(valueJavaType)
                                 .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
                                 .pop())
-                        .ifFalse(new Block()
+                        .ifFalse(new ByteCodeBlock()
                                 .comment("%s.%s(output, %s)", type.getTypeSignature(), methodName, valueJavaType.getSimpleName())
                                 .putVariable(tempValue)
                                 .putVariable(tempOutput)

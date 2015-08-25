@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.FieldDefinition;
@@ -34,6 +34,7 @@ import com.facebook.presto.operator.LookupSourceSupplier;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
@@ -159,18 +160,18 @@ public class JoinProbeCompiler
         FieldDefinition positionCountField = classDefinition.declareField(a(PRIVATE, FINAL), "positionCount", int.class);
         List<FieldDefinition> blockFields = new ArrayList<>();
         for (int i = 0; i < types.size(); i++) {
-            FieldDefinition channelField = classDefinition.declareField(a(PRIVATE, FINAL), "block_" + i, com.facebook.presto.spi.block.Block.class);
+            FieldDefinition channelField = classDefinition.declareField(a(PRIVATE, FINAL), "block_" + i, Block.class);
             blockFields.add(channelField);
         }
         List<FieldDefinition> probeBlockFields = new ArrayList<>();
         for (int i = 0; i < probeChannels.size(); i++) {
-            FieldDefinition channelField = classDefinition.declareField(a(PRIVATE, FINAL), "probeBlock_" + i, com.facebook.presto.spi.block.Block.class);
+            FieldDefinition channelField = classDefinition.declareField(a(PRIVATE, FINAL), "probeBlock_" + i, Block.class);
             probeBlockFields.add(channelField);
         }
-        FieldDefinition probeBlocksArrayField = classDefinition.declareField(a(PRIVATE, FINAL), "probeBlocks", com.facebook.presto.spi.block.Block[].class);
+        FieldDefinition probeBlocksArrayField = classDefinition.declareField(a(PRIVATE, FINAL), "probeBlocks", Block[].class);
         FieldDefinition probePageField = classDefinition.declareField(a(PRIVATE, FINAL), "probePage", Page.class);
         FieldDefinition positionField = classDefinition.declareField(a(PRIVATE), "position", int.class);
-        FieldDefinition probeHashBlockField = classDefinition.declareField(a(PRIVATE, FINAL), "probeHashBlock", com.facebook.presto.spi.block.Block.class);
+        FieldDefinition probeHashBlockField = classDefinition.declareField(a(PRIVATE, FINAL), "probeHashBlock", Block.class);
 
         generateConstructor(classDefinition, probeChannels, probeHashChannel, lookupSourceField, blockFields, probeBlockFields, probeBlocksArrayField, probePageField, probeHashBlockField, positionField, positionCountField);
         generateGetChannelCountMethod(classDefinition, blockFields.size());
@@ -200,7 +201,7 @@ public class JoinProbeCompiler
 
         Variable thisVariable = constructorDefinition.getThis();
 
-        Block constructor = constructorDefinition
+        ByteCodeBlock constructor = constructorDefinition
                 .getBody()
                 .comment("super();")
                 .append(thisVariable)
@@ -216,7 +217,7 @@ public class JoinProbeCompiler
         for (int index = 0; index < blockFields.size(); index++) {
             constructor.append(thisVariable.setField(
                     blockFields.get(index),
-                    page.invoke("getBlock", com.facebook.presto.spi.block.Block.class, constantInt(index))));
+                    page.invoke("getBlock", Block.class, constantInt(index))));
         }
 
         constructor.comment("Set probe channel fields");
@@ -230,7 +231,7 @@ public class JoinProbeCompiler
         constructor
                 .append(thisVariable)
                 .push(probeChannelFields.size())
-                .newArray(com.facebook.presto.spi.block.Block.class)
+                .newArray(Block.class)
                 .putField(probeBlocksArrayField);
         for (int index = 0; index < probeChannelFields.size(); index++) {
             constructor
@@ -345,7 +346,7 @@ public class JoinProbeCompiler
                 type(long.class));
 
         Variable thisVariable = method.getThis();
-        Block body = method.getBody()
+        ByteCodeBlock body = method.getBody()
                 .append(new IfStatement()
                         .condition(thisVariable.invoke("currentRowContainsNull", boolean.class))
                         .ifTrue(constantLong(-1).ret()));

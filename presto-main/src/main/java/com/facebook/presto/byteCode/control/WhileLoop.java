@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.byteCode.control;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.MethodGenerationContext;
@@ -29,8 +29,8 @@ public class WhileLoop
         implements FlowControl
 {
     private final String comment;
-    private final Block condition = new Block();
-    private final Block body = new Block();
+    private final ByteCodeBlock condition = new ByteCodeBlock();
+    private final ByteCodeBlock body = new ByteCodeBlock();
 
     private final LabelNode continueLabel = new LabelNode("continue");
     private final LabelNode endLabel = new LabelNode("end");
@@ -61,7 +61,7 @@ public class WhileLoop
         return endLabel;
     }
 
-    public Block condition()
+    public ByteCodeBlock condition()
     {
         return condition;
     }
@@ -73,7 +73,7 @@ public class WhileLoop
         return this;
     }
 
-    public Block body()
+    public ByteCodeBlock body()
     {
         return body;
     }
@@ -90,7 +90,7 @@ public class WhileLoop
     {
         checkState(!condition.isEmpty(), "WhileLoop does not have a condition set");
 
-        Block block = new Block()
+        ByteCodeBlock block = new ByteCodeBlock()
                 .visitLabel(continueLabel)
                 .append(condition)
                 .ifZeroGoto(endLabel)

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
@@ -29,6 +29,7 @@ import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.CallExpression;
@@ -96,12 +97,12 @@ public class PageProcessorCompiler
 
         List<Integer> allInputChannels = getInputChannels(Iterables.concat(projections, ImmutableList.of(filter)));
         for (int channel : allInputChannels) {
-            Variable blockVariable = scope.declareVariable(com.facebook.presto.spi.block.Block.class, "block_" + channel);
+            Variable blockVariable = scope.declareVariable(Block.class, "block_" + channel);
             method.getBody()
                     .comment("Block %s = page.getBlock(%s);", blockVariable.getName(), channel)
                     .getVariable(page)
                     .push(channel)
-                    .invokeVirtual(Page.class, "getBlock", com.facebook.presto.spi.block.Block.class, int.class)
+                    .invokeVirtual(Page.class, "getBlock", Block.class, int.class)
                     .putVariable(blockVariable);
         }
 
@@ -110,17 +111,17 @@ public class PageProcessorCompiler
         //
         LabelNode done = new LabelNode("done");
 
-        Block loopBody = new Block();
+        ByteCodeBlock loopBody = new ByteCodeBlock();
 
         ForLoop loop = new ForLoop()
                 .initialize(NOP)
-                .condition(new Block()
+                .condition(new ByteCodeBlock()
                                 .comment("position < end")
                                 .getVariable(position)
                                 .getVariable(end)
                                 .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class)
                 )
-                .update(new Block()
+                .update(new ByteCodeBlock()
                         .comment("position++")
                         .incrementVariable(position, (byte) 1))
                 .body(loopBody);
@@ -142,7 +143,7 @@ public class PageProcessorCompiler
                         type(boolean.class),
                         ImmutableList.<ParameterizedType>builder()
                                 .add(type(ConnectorSession.class))
-                                .addAll(nCopies(getInputChannels(filter).size(), type(com.facebook.presto.spi.block.Block.class)))
+                                .addAll(nCopies(getInputChannels(filter).size(), type(Block.class)))
                                 .add(type(int.class))
                                 .build());
 
@@ -172,7 +173,7 @@ public class PageProcessorCompiler
                             type(void.class),
                             ImmutableList.<ParameterizedType>builder()
                                     .add(type(ConnectorSession.class))
-                                    .addAll(nCopies(inputChannels.size(), type(com.facebook.presto.spi.block.Block.class)))
+                                    .addAll(nCopies(inputChannels.size(), type(Block.class)))
                                     .add(type(int.class))
                                     .add(type(BlockBuilder.class))
                                     .build());
@@ -250,7 +251,7 @@ public class PageProcessorCompiler
         Scope scope = method.getScope();
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
-        Block body = method.getBody()
+        ByteCodeBlock body = method.getBody()
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false);
 
@@ -283,14 +284,14 @@ public class PageProcessorCompiler
     {
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         for (int channel : inputChannels) {
-            parameters.add(arg("block_" + channel, com.facebook.presto.spi.block.Block.class));
+            parameters.add(arg("block_" + channel, Block.class));
         }
         return parameters.build();
     }
 
     private static ByteCodeNode pushBlockVariables(Scope scope, List<Integer> inputs)
     {
-        Block block = new Block();
+        ByteCodeBlock block = new ByteCodeBlock();
         for (int channel : inputs) {
             block.append(scope.getVariable("block_" + channel));
         }
@@ -318,7 +319,7 @@ public class PageProcessorCompiler
                         .setDescription(format("block_%d.get%s()", field, type))
                         .append(block)
                         .getVariable(positionVariable)
-                        .invokeInterface(com.facebook.presto.spi.block.Block.class, "isNull", boolean.class, int.class);
+                        .invokeInterface(Block.class, "isNull", boolean.class, int.class);
 
                 ifStatement.ifTrue()
                         .putVariable(wasNullVariable, true)
@@ -330,7 +331,7 @@ public class PageProcessorCompiler
                         .append(loadConstant(callSiteBinder.bind(type, Type.class)))
                         .append(block)
                         .getVariable(positionVariable)
-                        .invokeInterface(Type.class, methodName, javaType, com.facebook.presto.spi.block.Block.class, int.class);
+                        .invokeInterface(Type.class, methodName, javaType, Block.class, int.class);
 
                 return ifStatement;
             }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.MethodDefinition;
@@ -141,7 +141,7 @@ public abstract class AbstractGreatestLeast
                 parameters);
 
         Scope scope = method.getScope();
-        Block body = method.getBody();
+        ByteCodeBlock body = method.getBody();
 
         CallSiteBinder binder = new CallSiteBinder();
 
@@ -158,7 +158,7 @@ public abstract class AbstractGreatestLeast
 
         for (int i = 1; i < javaTypes.size(); i++) {
             body.append(new IfStatement()
-                    .condition(new Block()
+                    .condition(new ByteCodeBlock()
                             .append(parameters.get(i))
                             .append(value)
                             .append(invoke(binder.bind(compareMethod), "compare")))

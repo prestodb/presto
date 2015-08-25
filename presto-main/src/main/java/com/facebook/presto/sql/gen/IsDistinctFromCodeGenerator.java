@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
@@ -55,14 +55,14 @@ public class IsDistinctFromCodeGenerator
                 .getCallSiteBinder()
                 .bind(operator.getMethodHandle());
 
-        ByteCodeNode equalsCall = new Block()
+        ByteCodeNode equalsCall = new ByteCodeBlock()
                 .comment("equals(%s, %s)", leftType, rightType)
                 .append(invoke(binding, operator.getSignature()));
 
         ByteCodeNode neitherSideIsNull;
         if (leftType instanceof UnknownType || rightType instanceof UnknownType) {
             // the generated block should be unreachable. However, a boolean need to be pushed to balance the stack
-            neitherSideIsNull = new Block()
+            neitherSideIsNull = new ByteCodeBlock()
                     .comment("unreachable code")
                     .push(false);
         }
@@ -70,18 +70,18 @@ public class IsDistinctFromCodeGenerator
             // This code assumes that argument and return type are not @Nullable.
             // It is not the case for UnknownType, and introduces Verification Error.
             // And it is hard to imagine that making it work with @Nullable will be useful in any other cases;
-            neitherSideIsNull = new Block()
+            neitherSideIsNull = new ByteCodeBlock()
                     .append(equalsCall)
                     .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class);
         }
 
-        Block block = new Block()
+        ByteCodeBlock block = new ByteCodeBlock()
                 .comment("IS DISTINCT FROM")
                 .comment("left")
                 .append(generatorContext.generate(left))
                 .append(new IfStatement()
                         .condition(wasNull)
-                        .ifTrue(new Block()
+                        .ifTrue(new ByteCodeBlock()
                                 .pop(leftType.getJavaType())
                                 .append(wasNull.set(constantFalse()))
                                 .comment("right is not null")
@@ -89,12 +89,12 @@ public class IsDistinctFromCodeGenerator
                                 .pop(rightType.getJavaType())
                                 .append(wasNull)
                                 .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class))
-                        .ifFalse(new Block()
+                        .ifFalse(new ByteCodeBlock()
                                 .comment("right")
                                 .append(generatorContext.generate(right))
                                 .append(new IfStatement()
                                         .condition(wasNull)
-                                        .ifTrue(new Block()
+                                        .ifTrue(new ByteCodeBlock()
                                                 .pop(leftType.getJavaType())
                                                 .pop(rightType.getJavaType())
                                                 .push(true))

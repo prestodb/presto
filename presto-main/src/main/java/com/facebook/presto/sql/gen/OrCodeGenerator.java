@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
@@ -36,7 +36,7 @@ public class OrCodeGenerator
         Preconditions.checkArgument(arguments.size() == 2);
 
         Variable wasNull = generator.wasNull();
-        Block block = new Block()
+        ByteCodeBlock block = new ByteCodeBlock()
                 .comment("OR")
                 .setDescription("OR");
 
@@ -49,14 +49,14 @@ public class OrCodeGenerator
                 .condition(wasNull);
 
         LabelNode end = new LabelNode("end");
-        ifLeftIsNull.ifTrue(new Block()
+        ifLeftIsNull.ifTrue(new ByteCodeBlock()
                 .comment("clear the null flag, pop left value off stack, and push left null flag on the stack (true)")
                 .append(wasNull.set(constantFalse()))
                 .pop(arguments.get(0).getType().getJavaType()) // discard left value
                 .push(true));
 
         LabelNode leftIsFalse = new LabelNode("leftIsFalse");
-        ifLeftIsNull.ifFalse(new Block()
+        ifLeftIsNull.ifFalse(new ByteCodeBlock()
                 .comment("if left is true, push true, and goto end")
                 .ifFalseGoto(leftIsFalse)
                 .push(true)

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.byteCode.control;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.MethodGenerationContext;
@@ -29,10 +29,10 @@ public class ForLoop
         implements FlowControl
 {
     private final String comment;
-    private final Block initialize = new Block();
-    private final Block condition = new Block();
-    private final Block update = new Block();
-    private final Block body = new Block();
+    private final ByteCodeBlock initialize = new ByteCodeBlock();
+    private final ByteCodeBlock condition = new ByteCodeBlock();
+    private final ByteCodeBlock update = new ByteCodeBlock();
+    private final ByteCodeBlock body = new ByteCodeBlock();
 
     private final LabelNode beginLabel = new LabelNode("beginLabel");
     private final LabelNode continueLabel = new LabelNode("continue");
@@ -64,7 +64,7 @@ public class ForLoop
         return endLabel;
     }
 
-    public Block initialize()
+    public ByteCodeBlock initialize()
     {
         return initialize;
     }
@@ -76,7 +76,7 @@ public class ForLoop
         return this;
     }
 
-    public Block condition()
+    public ByteCodeBlock condition()
     {
         return condition;
     }
@@ -88,7 +88,7 @@ public class ForLoop
         return this;
     }
 
-    public Block update()
+    public ByteCodeBlock update()
     {
         return update;
     }
@@ -100,7 +100,7 @@ public class ForLoop
         return this;
     }
 
-    public Block body()
+    public ByteCodeBlock body()
     {
         return body;
     }
@@ -117,24 +117,24 @@ public class ForLoop
     {
         checkState(!condition.isEmpty(), "ForLoop does not have a condition set");
 
-        Block block = new Block();
+        ByteCodeBlock block = new ByteCodeBlock();
 
-        block.append(new Block()
+        block.append(new ByteCodeBlock()
                 .setDescription("initialize")
                 .append(initialize));
 
         block.visitLabel(beginLabel)
-                .append(new Block()
+                .append(new ByteCodeBlock()
                         .setDescription("condition")
                         .append(condition))
                 .ifFalseGoto(endLabel);
 
-        block.append(new Block()
+        block.append(new ByteCodeBlock()
                 .setDescription("body")
                 .append(body));
 
         block.visitLabel(continueLabel)
-                .append(new Block()
+                .append(new ByteCodeBlock()
                         .setDescription("update")
                         .append(update))
                 .gotoLabel(beginLabel)

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.byteCode.Block;
+import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.byteCode.MethodDefinition;
@@ -122,7 +122,7 @@ public final class ConcatFunction
 
         MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "concat", type(Slice.class), parameters);
         Scope scope = method.getScope();
-        Block body = method.getBody();
+        ByteCodeBlock body = method.getBody();
 
         Variable length = scope.declareVariable(int.class, "length");
         body.append(length.set(constantInt(0)));
