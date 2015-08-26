@@ -32,6 +32,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.LazyFixedWidthBlock;
 import com.facebook.presto.spi.block.LazySliceArrayBlock;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.LongDecimalType;
 import com.facebook.presto.spi.type.ShortDecimalType;
@@ -53,6 +54,8 @@ import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
+import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
 import static com.facebook.presto.orc.Vector.MAX_VECTOR_LENGTH;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -188,6 +191,18 @@ public class OrcPageSource
                     long value = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         TIMESTAMP.writeLong(blockBuilder, value);
+                    }
+                }
+                else if (type instanceof ShortDecimalType) {
+                    long value = shortDecimalPartitionKey(partitionKey.getValue(), (DecimalType) type, name);
+                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
+                        type.writeLong(blockBuilder, value);
+                    }
+                }
+                else if (type instanceof LongDecimalType) {
+                    Slice value = longDecimalPartitionKey(partitionKey.getValue(), (DecimalType) type, name);
+                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
+                        type.writeSlice(blockBuilder, value);
                     }
                 }
                 else {
