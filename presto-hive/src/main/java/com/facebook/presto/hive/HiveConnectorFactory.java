@@ -87,6 +87,10 @@ public class HiveConnectorFactory
                             SecurityConfig.class,
                             security -> "none".equalsIgnoreCase(security.getSecuritySystem()),
                             new NoSecurityModule()),
+                    installModuleIf(
+                            SecurityConfig.class,
+                            security -> "read-only".equalsIgnoreCase(security.getSecuritySystem()),
+                            new ReadOnlySecurityModule()),
                     binder -> {
                         MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
