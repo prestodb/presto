@@ -414,5 +414,11 @@ public class TaskExecutorSimulator
 
             return Futures.immediateCheckedFuture(null);
         }
+
+        @Override
+        public String getInfo()
+        {
+            return "simulation-split";
+        }
     }
 }

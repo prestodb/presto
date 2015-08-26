@@ -588,6 +588,12 @@ public class SqlTaskExecution
         }
 
         @Override
+        public String getInfo()
+        {
+            return (partitionedSplit == null) ? "" : partitionedSplit.getSplit().getInfo().toString();
+        }
+
+        @Override
         public void close()
         {
             Driver driver;
