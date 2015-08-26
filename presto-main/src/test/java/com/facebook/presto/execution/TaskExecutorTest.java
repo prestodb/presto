@@ -191,6 +191,12 @@ public class TaskExecutorTest
         }
 
         @Override
+        public String getInfo()
+        {
+            return "testing-split";
+        }
+
+        @Override
         public boolean isFinished()
         {
             boolean isFinished = completedPhases.get() >= requiredPhases;
