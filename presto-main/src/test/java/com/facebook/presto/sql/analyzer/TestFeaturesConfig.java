@@ -35,7 +35,8 @@ public class TestFeaturesConfig
                 .setRedistributeWrites(true)
                 .setOptimizeMetadataQueries(false)
                 .setOptimizeHashGeneration(false)
-                .setOptimizeSingleDistinct(true));
+                .setOptimizeSingleDistinct(true)
+                .setOptimizeJoinedAggregations(false));
     }
 
     @Test
@@ -49,6 +50,7 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-hash-generation", "true")
                 .put("optimizer.optimize-single-distinct", "false")
+                .put("optimizer.optimize-joined-aggregations", "true")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental-syntax-enabled", "true")
@@ -58,6 +60,7 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-hash-generation", "true")
                 .put("optimizer.optimize-single-distinct", "false")
+                .put("optimizer.optimize-joined-aggregations", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -67,7 +70,8 @@ public class TestFeaturesConfig
                 .setRedistributeWrites(false)
                 .setOptimizeMetadataQueries(true)
                 .setOptimizeHashGeneration(true)
-                .setOptimizeSingleDistinct(false);
+                .setOptimizeSingleDistinct(false)
+                .setOptimizeJoinedAggregations(true);
 
         assertFullMapping(properties, expected);
         assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);

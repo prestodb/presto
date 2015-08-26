@@ -301,7 +301,7 @@ public class HashGenerationOptimizer
         return new ProjectNode(idAllocator.getNextId(), source, outputSymbols.build());
     }
 
-    private static Expression getHashExpression(List<Symbol> partitioningSymbols)
+    public static Expression getHashExpression(List<Symbol> partitioningSymbols)
     {
         Expression hashExpression = new LongLiteral(String.valueOf(INITIAL_HASH_VALUE));
         for (Symbol symbol : partitioningSymbols) {
