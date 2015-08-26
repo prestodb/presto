@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 import parquet.io.api.Binary;
 
 import java.sql.Timestamp;
+
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 
 public class TestParquetTimestampUtils
 {
@@ -30,11 +33,24 @@ public class TestParquetTimestampUtils
         assertTimestampCorrect("2015-12-31 23:59:59.999999999");
     }
 
+    @Test
+    public void testInvalidBinaryLength()
+    {
+        try {
+            byte[] invalidLengthBinaryTimestamp = new byte[8];
+            ParquetTimestampUtils.getTimestampMillis(Binary.fromByteArray(invalidLengthBinaryTimestamp));
+        }
+        catch (PrestoException e) {
+            Assert.assertEquals(e.getErrorCode(), HIVE_BAD_DATA.toErrorCode());
+            Assert.assertEquals(e.getMessage(), "Parquet timestamp must be 12 bytes long, actual 8");
+        }
+    }
+
     private void assertTimestampCorrect(String timestampString)
     {
         Timestamp timestamp = Timestamp.valueOf(timestampString);
         Binary timestampBytes = NanoTimeUtils.getNanoTime(timestamp, false).toBinary();
         long decodedTimestampMillis = ParquetTimestampUtils.getTimestampMillis(timestampBytes);
-        Assert.assertEquals(timestamp.getTime(), decodedTimestampMillis);
+        Assert.assertEquals(decodedTimestampMillis, timestamp.getTime());
     }
 }

@@ -148,12 +148,6 @@
             <scope>runtime</scope>
         </dependency>
 
-        <dependency>
-            <groupId>org.jodd</groupId>
-            <artifactId>jodd-core</artifactId>
-            <version>3.6.6</version>
-        </dependency>
-
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
