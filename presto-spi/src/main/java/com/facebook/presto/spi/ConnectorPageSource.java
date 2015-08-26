@@ -49,6 +49,17 @@ public interface ConnectorPageSource
     Page getNextPage();
 
     /**
+     * Get the total memory that needs to be reserved in the system memory pool.
+     * This memory should include any buffers, etc. that are used for reading data.
+     *
+     * @return the system memory used so far in table read
+     */
+    default long getSystemMemoryUsage()
+    {
+        return 0;
+    }
+
+    /**
      * Immediately finishes this page source.  Presto will always call this method.
      */
     @Override

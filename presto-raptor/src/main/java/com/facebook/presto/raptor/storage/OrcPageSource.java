@@ -22,6 +22,7 @@ import com.facebook.presto.orc.SingleObjectVector;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SystemMemoryUsage;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -35,6 +36,7 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
+import org.apache.hadoop.hive.conf.HiveConf;
 
 import java.io.IOException;
 import java.util.BitSet;
@@ -84,10 +86,14 @@ public class OrcPageSource
     private final Block[] constantBlocks;
     private final int[] columnIndexes;
 
+    private final SystemMemoryUsage systemMemoryUsage;
+
     private long completedBytes;
 
     private int batchId;
     private boolean closed;
+
+    private boolean commited;
 
     public OrcPageSource(
             ShardRewriter shardRewriter,
@@ -95,7 +101,8 @@ public class OrcPageSource
             OrcDataSource orcDataSource,
             List<Long> columnIds,
             List<Type> columnTypes,
-            List<Integer> columnIndexes)
+            List<Integer> columnIndexes,
+            SystemMemoryUsage systemMemoryUsage)
     {
         this.shardRewriter = checkNotNull(shardRewriter, "shardRewriter is null");
         this.recordReader = checkNotNull(recordReader, "recordReader is null");
@@ -119,6 +126,8 @@ public class OrcPageSource
                 constantBlocks[i] = buildNullBlock(columnTypes.get(i));
             }
         }
+
+        this.systemMemoryUsage = checkNotNull(systemMemoryUsage, "usedMemoryBytes is null");
     }
 
     @Override
@@ -233,7 +242,19 @@ public class OrcPageSource
     @Override
     public Collection<Slice> commit()
     {
+        commited = true;
         return shardRewriter.rewrite(rowsToDelete);
+    }
+
+    @Override
+    public long getSystemMemoryUsage()
+    {
+        if (commited) {
+            return systemMemoryUsage.getUsedBytesAndAdd(-HiveConf.getIntVar(OrcFileRewriter.CONFIGURATION, HiveConf.ConfVars.HIVE_ORC_DEFAULT_BUFFER_SIZE));
+        }
+        else {
+            return systemMemoryUsage.getUsedBytes();
+        }
     }
 
     private void closeWithSuppression(Throwable throwable)

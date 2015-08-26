@@ -49,7 +49,7 @@ import static org.apache.hadoop.hive.ql.io.orc.OrcUtil.getFieldValue;
 
 public final class OrcFileRewriter
 {
-    private static final Configuration CONFIGURATION = new Configuration();
+    public static final Configuration CONFIGURATION = new Configuration();
 
     private OrcFileRewriter() {}
 

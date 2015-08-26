@@ -100,6 +100,7 @@ public class TableScanOperator
     private final List<Type> types;
     private final List<ColumnHandle> columns;
     private final SettableFuture<?> blocked = SettableFuture.create();
+    private final SystemMemoryUpdater systemMemoryUsageListener;
 
     private Split split;
     private ConnectorPageSource source;
@@ -108,6 +109,7 @@ public class TableScanOperator
 
     private long completedBytes;
     private long readTimeNanos;
+    private long bufferBytes;
 
     public TableScanOperator(
             OperatorContext operatorContext,
@@ -121,6 +123,7 @@ public class TableScanOperator
         this.types = checkNotNull(types, "types is null");
         this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceManager is null");
         this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
+        this.systemMemoryUsageListener = new SystemMemoryUpdater(this.operatorContext);
     }
 
     @Override
@@ -197,6 +200,9 @@ public class TableScanOperator
                 throw Throwables.propagate(e);
             }
         }
+
+        systemMemoryUsageListener.freeSystemMemroryUsage(bufferBytes);
+        bufferBytes = 0;
     }
 
     @Override
@@ -237,6 +243,11 @@ public class TableScanOperator
         }
 
         Page page = source.getNextPage();
+        long systemMemoryUsage = source.getSystemMemoryUsage();
+
+        systemMemoryUsageListener.reserveSystemMemroryUsage(systemMemoryUsage - bufferBytes);
+        bufferBytes = systemMemoryUsage;
+
         if (page != null) {
             // assure the page is in memory before handing to another operator
             page.assureLoaded();

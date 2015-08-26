@@ -27,6 +27,7 @@ import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SystemMemoryUsage;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -99,13 +100,16 @@ public class OrcPageSource
     private int batchId;
     private boolean closed;
 
+    private SystemMemoryUsage systemMemoryUsage;
+
     public OrcPageSource(
             OrcRecordReader recordReader,
             OrcDataSource orcDataSource,
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            SystemMemoryUsage systemMemoryUsage)
     {
         this.recordReader = checkNotNull(recordReader, "recordReader is null");
         this.orcDataSource = checkNotNull(orcDataSource, "orcDataSource is null");
@@ -206,6 +210,8 @@ public class OrcPageSource
         }
         types = typesBuilder.build();
         columnNames = namesBuilder.build();
+
+        this.systemMemoryUsage = checkNotNull(systemMemoryUsage, "systemMemoryUsage is null");
     }
 
     @Override
@@ -312,6 +318,12 @@ public class OrcPageSource
                 .add("columnNames", columnNames)
                 .add("types", types)
                 .toString();
+    }
+
+    @Override
+    public long getSystemMemoryUsage()
+    {
+        return systemMemoryUsage.getUsedBytes();
     }
 
     protected void closeWithSuppression(Throwable throwable)

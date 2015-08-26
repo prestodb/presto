@@ -19,6 +19,7 @@ import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.PostScript;
 import com.facebook.presto.orc.stream.OrcInputStream;
+import com.facebook.presto.spi.SystemMemoryUsage;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.primitives.Ints;
@@ -56,8 +57,15 @@ public class OrcReader
     public OrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader)
             throws IOException
     {
+        this(orcDataSource, metadataReader, new SystemMemoryUsage());
+    }
+
+    public OrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader, SystemMemoryUsage systemMemoryUsage)
+            throws IOException
+    {
         this.orcDataSource = checkNotNull(orcDataSource, "orcDataSource is null");
         this.metadataReader = checkNotNull(metadataReader, "metadataReader is null");
+        checkNotNull(systemMemoryUsage, "systemMemoryUsage is null");
 
         //
         // Read the file tail:
@@ -118,14 +126,16 @@ public class OrcReader
             completeFooterSlice = Slices.wrappedBuffer(buffer, buffer.length - completeFooterSize, completeFooterSize);
         }
 
+        systemMemoryUsage.add(buffer.length);
+
         // read metadata
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
-        InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), compressionKind, bufferSize);
+        InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), compressionKind, bufferSize, systemMemoryUsage);
         this.metadata = metadataReader.readMetadata(metadataInputStream);
 
         // read footer
         Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
-        InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), compressionKind, bufferSize);
+        InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), compressionKind, bufferSize, systemMemoryUsage);
         this.footer = metadataReader.readFooter(footerInputStream);
     }
 
@@ -154,10 +164,10 @@ public class OrcReader
         return bufferSize;
     }
 
-    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone)
+    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, SystemMemoryUsage systemMemoryUsage)
             throws IOException
     {
-        return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone);
+        return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage);
     }
 
     public OrcRecordReader createRecordReader(
@@ -165,7 +175,8 @@ public class OrcReader
             OrcPredicate predicate,
             long offset,
             long length,
-            DateTimeZone hiveStorageTimeZone)
+            DateTimeZone hiveStorageTimeZone,
+            SystemMemoryUsage systemMemoryUsage)
             throws IOException
     {
         return new OrcRecordReader(
@@ -183,7 +194,8 @@ public class OrcReader
                 bufferSize,
                 footer.getRowsInRowGroup(),
                 checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null"),
-                metadataReader);
+                metadataReader,
+                systemMemoryUsage);
     }
 
     /**

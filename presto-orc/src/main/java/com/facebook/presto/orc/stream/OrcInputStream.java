@@ -15,6 +15,7 @@ package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.spi.SystemMemoryUsage;
 import com.google.common.base.MoreObjects;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.FixedLengthSliceInput;
@@ -53,7 +54,9 @@ public final class OrcInputStream
 
     private byte[] buffer;
 
-    public OrcInputStream(String source, FixedLengthSliceInput sliceInput, CompressionKind compressionKind, int bufferSize)
+    private final SystemMemoryUsage systemMemoryUsage;
+
+    public OrcInputStream(String source, FixedLengthSliceInput sliceInput, CompressionKind compressionKind, int bufferSize, SystemMemoryUsage systemMemoryUsage)
     {
         this.source = checkNotNull(source, "source is null");
 
@@ -61,6 +64,7 @@ public final class OrcInputStream
 
         this.compressionKind = checkNotNull(compressionKind, "compressionKind is null");
         this.maxBufferSize = bufferSize;
+        this.systemMemoryUsage = checkNotNull(systemMemoryUsage, "systemMemoryUsage is null");
 
         if (compressionKind == UNCOMPRESSED) {
             this.current = sliceInput;
@@ -78,6 +82,7 @@ public final class OrcInputStream
             throws IOException
     {
         current = null;
+        systemMemoryUsage.add(-buffer.length);
     }
 
     @Override
@@ -287,13 +292,16 @@ public final class OrcInputStream
 
     private void allocateOrGrowBuffer(int size, boolean copyExistingData)
     {
+        int oldBufferSize = 0;
         if (buffer == null || buffer.length < size) {
             if (copyExistingData && buffer != null) {
+                oldBufferSize = buffer.length;
                 buffer = Arrays.copyOfRange(buffer, 0, Math.min(size, maxBufferSize));
             }
             else {
                 buffer = new byte[Math.min(size, maxBufferSize)];
             }
         }
+        systemMemoryUsage.add(buffer.length - oldBufferSize);
     }
 }

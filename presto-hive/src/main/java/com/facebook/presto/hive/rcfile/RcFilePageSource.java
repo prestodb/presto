@@ -349,6 +349,17 @@ public class RcFilePageSource
                 .toString();
     }
 
+    @Override
+    public long getSystemMemoryUsage()
+    {
+        try {
+            return recordReader.getCurrentKeyBufferObj().getSize();
+        }
+        catch (IOException e) {
+            return 0;
+        }
+    }
+
     private void closeWithSuppression(Throwable throwable)
     {
         checkNotNull(throwable, "throwable is null");
