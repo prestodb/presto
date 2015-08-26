@@ -62,8 +62,7 @@ public final class DiscoveryNodeManager
     @GuardedBy("this")
     private long lastUpdateTimestamp;
 
-    @GuardedBy("this")
-    private PrestoNode currentNode;
+    private final PrestoNode currentNode;
 
     @GuardedBy("this")
     private Set<Node> coordinators;
@@ -75,12 +74,16 @@ public final class DiscoveryNodeManager
         this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");
         this.failureDetector = checkNotNull(failureDetector, "failureDetector is null");
         this.expectedNodeVersion = checkNotNull(expectedNodeVersion, "expectedNodeVersion is null");
-
-        refreshNodes();
+        this.currentNode = refreshNodesInternal();
     }
 
     @Override
-    public synchronized void refreshNodes()
+    public void refreshNodes()
+    {
+        refreshNodesInternal();
+    }
+
+    private synchronized PrestoNode refreshNodesInternal()
     {
         lastUpdateTimestamp = System.nanoTime();
 
@@ -90,8 +93,7 @@ public final class DiscoveryNodeManager
                 .filter(service -> !failureDetector.getFailed().contains(service))
                 .collect(toImmutableSet());
 
-        // reset current node
-        currentNode = null;
+        PrestoNode currentNode = null;
 
         ImmutableSet.Builder<Node> activeNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<Node> inactiveNodesBuilder = ImmutableSet.builder();
@@ -139,12 +141,13 @@ public final class DiscoveryNodeManager
         coordinators = coordinatorsBuilder.build();
 
         checkState(currentNode != null, "INVARIANT: current node not returned from service selector");
+        return currentNode;
     }
 
     private synchronized void refreshIfNecessary()
     {
         if (Duration.nanosSince(lastUpdateTimestamp).compareTo(MAX_AGE) > 0) {
-            refreshNodes();
+            refreshNodesInternal();
         }
     }
 
@@ -174,9 +177,8 @@ public final class DiscoveryNodeManager
     }
 
     @Override
-    public synchronized Node getCurrentNode()
+    public Node getCurrentNode()
     {
-        refreshIfNecessary();
         return currentNode;
     }
 
