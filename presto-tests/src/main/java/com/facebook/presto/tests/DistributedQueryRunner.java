@@ -14,6 +14,8 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
@@ -76,13 +78,12 @@ public class DistributedQueryRunner
             log.info("Created TestingDiscoveryServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
-            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, extraProperties));
-            servers.add(coordinator);
-
             for (int i = 1; i < workersCount; i++) {
                 TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, extraProperties));
                 servers.add(worker);
             }
+            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, extraProperties));
+            servers.add(coordinator);
             this.servers = servers.build();
         }
         catch (Exception e) {
@@ -262,11 +263,22 @@ public class DistributedQueryRunner
     @Override
     public final void close()
     {
+        cancelAllQueries();
         try {
             closer.close();
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
+        }
+    }
+
+    private void cancelAllQueries()
+    {
+        QueryManager queryManager = coordinator.getQueryManager();
+        for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {
+            if (!queryInfo.getState().isDone()) {
+                queryManager.cancelQuery(queryInfo.getQueryId());
+            }
         }
     }
 }
