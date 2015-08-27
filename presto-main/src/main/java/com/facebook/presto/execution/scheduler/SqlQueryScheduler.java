@@ -303,6 +303,9 @@ public class SqlQueryScheduler
                 // wait for a state change and then schedule again
                 if (!blockedStages.isEmpty()) {
                     tryGetFutureValue(firstCompletedFuture(blockedStages), 100, MILLISECONDS);
+                    for (CompletableFuture<?> blockedStage : blockedStages) {
+                        blockedStage.cancel(true);
+                    }
                 }
             }
         }
