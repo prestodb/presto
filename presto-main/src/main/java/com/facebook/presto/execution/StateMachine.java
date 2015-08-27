@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
@@ -25,6 +24,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -245,7 +245,7 @@ public class StateMachine<T>
                 return CompletableFuture.completedFuture(state);
             }
 
-            return futureStateChange.get().getUnmodifiableFutureStateChange();
+            return futureStateChange.get().getListener();
         }
     }
 
@@ -333,17 +333,31 @@ public class StateMachine<T>
 
     private static class FutureStateChange<T>
     {
-        private final CompletableFuture<T> futureStateChange = new CompletableFuture<>();
-        private final CompletableFuture<T> unmodifiableFutureStateChange = MoreFutures.unmodifiableFuture(futureStateChange);
+        // Use a separate future for each listener so canceled listeners can be removed
+        private final Set<CompletableFuture<T>> listeners = new HashSet<>();
 
-        public CompletableFuture<T> getUnmodifiableFutureStateChange()
+        public synchronized CompletableFuture<T> getListener()
         {
-            return unmodifiableFutureStateChange;
+            CompletableFuture<T> listener = new CompletableFuture<>();
+            listeners.add(listener);
+
+            // remove the listener when the future completes
+            listener.whenComplete((t, throwable) -> listeners.remove(listener));
+
+            return listener;
         }
 
         public void complete(T newState)
         {
-            futureStateChange.complete(newState);
+            Set<CompletableFuture<T>> futures;
+            synchronized (this) {
+                futures = ImmutableSet.copyOf(listeners);
+                listeners.clear();
+            }
+
+            for (CompletableFuture<T> future : futures) {
+                future.complete(newState);
+            }
         }
     }
 }
