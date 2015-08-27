@@ -6,6 +6,10 @@ CREATE TABLE presto_test_types_textfile (
 , t_bigint BIGINT
 , t_float FLOAT
 , t_double DOUBLE
+, t_decimal_precision_8 DECIMAL(8,4)
+, t_decimal_precision_17 DECIMAL(17,8)
+, t_decimal_precision_18 DECIMAL(18,8)
+, t_decimal_precision_38 DECIMAL(38,16)
 , t_boolean BOOLEAN
 , t_timestamp TIMESTAMP
 , t_binary BINARY
@@ -29,6 +33,10 @@ SELECT
 , 4 + n + CASE WHEN n % 13 = 0 THEN NULL ELSE 0 END
 , 5.1 + n
 , 6.2 + n
+, 1000.0001BD + CAST(n AS DECIMAL)
+, 100000000.00000001BD + CAST(n AS DECIMAL)
+, 1000000000.00000001BD + CAST(n AS DECIMAL)
+, 1000000000000000000000.0000000000000001BD + CAST(n AS DECIMAL)
 , CASE n % 3 WHEN 0 THEN false WHEN 1 THEN true ELSE NULL END
 , CASE WHEN n % 17 = 0 THEN NULL ELSE '2011-05-06 07:08:09.1234567' END
 , CASE WHEN n % 23 = 0 THEN NULL ELSE CAST('test binary' AS BINARY) END
@@ -92,6 +100,10 @@ CREATE TABLE presto_test_types_parquet (
 , t_bigint BIGINT
 , t_float FLOAT
 , t_double DOUBLE
+, t_decimal_precision_8 DECIMAL(8,4)
+, t_decimal_precision_17 DECIMAL(17,8)
+, t_decimal_precision_18 DECIMAL(18,8)
+, t_decimal_precision_38 DECIMAL(38,16)
 , t_boolean BOOLEAN
 , t_map MAP<STRING, STRING>
 , t_array_string ARRAY<STRING>
@@ -109,6 +121,10 @@ SELECT
 , t_bigint
 , t_float
 , t_double
+, t_decimal_precision_8
+, t_decimal_precision_17
+, t_decimal_precision_18
+, t_decimal_precision_38
 , t_boolean
 , t_map
 , t_array_string

@@ -46,7 +46,10 @@ import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.ViewNotFoundException;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.LongDecimalType;
 import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -74,6 +77,8 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -100,11 +105,13 @@ import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
@@ -168,6 +175,8 @@ public abstract class AbstractTestHiveClient
     protected ColumnHandle dsColumn;
     protected ColumnHandle fileFormatColumn;
     protected ColumnHandle dummyColumn;
+    protected ColumnHandle dummyShortDecimalColumn;
+    protected ColumnHandle dummyLongDecimalColumn;
     protected ColumnHandle intColumn;
     protected ColumnHandle invalidColumnHandle;
 
@@ -229,44 +238,56 @@ public abstract class AbstractTestHiveClient
         dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);
         fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", 1, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);
         dummyColumn = new HiveColumnHandle(connectorId, "dummy", 2, HIVE_INT, parseTypeSignature(StandardTypes.BIGINT), -1, true);
+        Type shortDecimalColumnType = createDecimalType(17, 10);
+        Type longDecimalColumnType = createDecimalType(38, 20);
+        dummyShortDecimalColumn = new HiveColumnHandle(connectorId, "dummy_decimal_short", 3, toHiveType(shortDecimalColumnType), shortDecimalColumnType.getTypeSignature(), -1, true);
+        dummyLongDecimalColumn = new HiveColumnHandle(connectorId, "dummy_decimal_long", 4, toHiveType(longDecimalColumnType), longDecimalColumnType.getTypeSignature(), -1, true);
         intColumn = new HiveColumnHandle(connectorId, "t_int", 0, HIVE_INT, parseTypeSignature(StandardTypes.BIGINT), -1, true);
         invalidColumnHandle = new HiveColumnHandle(connectorId, INVALID_COLUMN, 0, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), 0, false);
 
         partitions = ImmutableSet.<ConnectorPartition>builder()
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
-                        "ds=2012-12-29/file_format=textfile/dummy=1",
+                        "ds=2012-12-29/file_format=textfile/dummy=1/dummy_decimal_short=1.1/dummy_decimal_long=1.11111111111111111111BD",
                         ImmutableMap.<ColumnHandle, SerializableNativeValue>builder()
                                 .put(dsColumn, new SerializableNativeValue(Slice.class, utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, new SerializableNativeValue(Slice.class, utf8Slice("textfile")))
                                 .put(dummyColumn, new SerializableNativeValue(Long.class, 1L))
+                                .put(dummyShortDecimalColumn, new SerializableNativeValue(Long.class, 11000000000L))
+                                .put(dummyLongDecimalColumn, new SerializableNativeValue(Slice.class, LongDecimalType.unscaledValueToSlice(new BigInteger("111111111111111111111"))))
                                 .build(),
                         Optional.empty()))
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
-                        "ds=2012-12-29/file_format=sequencefile/dummy=2",
+                        "ds=2012-12-29/file_format=sequencefile/dummy=2/dummy_decimal_short=2.2/dummy_decimal_long=2.22222222222222222222BD",
                         ImmutableMap.<ColumnHandle, SerializableNativeValue>builder()
                                 .put(dsColumn, new SerializableNativeValue(Slice.class, utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, new SerializableNativeValue(Slice.class, utf8Slice("sequencefile")))
                                 .put(dummyColumn, new SerializableNativeValue(Long.class, 2L))
+                                .put(dummyShortDecimalColumn, new SerializableNativeValue(Long.class, 22000000000L))
+                                .put(dummyLongDecimalColumn, new SerializableNativeValue(Slice.class, LongDecimalType.unscaledValueToSlice(new BigInteger("222222222222222222222"))))
                                 .build(),
                         Optional.empty()))
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
-                        "ds=2012-12-29/file_format=rctext/dummy=3",
+                        "ds=2012-12-29/file_format=rctext/dummy=3/dummy_decimal_short=3.3/dummy_decimal_long=3.33333333333333333333BD",
                         ImmutableMap.<ColumnHandle, SerializableNativeValue>builder()
                                 .put(dsColumn, new SerializableNativeValue(Slice.class, utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, new SerializableNativeValue(Slice.class, utf8Slice("rctext")))
                                 .put(dummyColumn, new SerializableNativeValue(Long.class, 3L))
+                                .put(dummyShortDecimalColumn, new SerializableNativeValue(Long.class, 33000000000L))
+                                .put(dummyLongDecimalColumn, new SerializableNativeValue(Slice.class, LongDecimalType.unscaledValueToSlice(new BigInteger("333333333333333333333"))))
                                 .build(),
                         Optional.empty()))
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
-                        "ds=2012-12-29/file_format=rcbinary/dummy=4",
+                        "ds=2012-12-29/file_format=rcbinary/dummy=4/dummy_decimal_short=4.4/dummy_decimal_long=4.44444444444444444444BD",
                         ImmutableMap.<ColumnHandle, SerializableNativeValue>builder()
                                 .put(dsColumn, new SerializableNativeValue(Slice.class, utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, new SerializableNativeValue(Slice.class, utf8Slice("rcbinary")))
                                 .put(dummyColumn, new SerializableNativeValue(Long.class, 4L))
+                                .put(dummyShortDecimalColumn, new SerializableNativeValue(Long.class, 44000000000L))
+                                .put(dummyLongDecimalColumn, new SerializableNativeValue(Slice.class, LongDecimalType.unscaledValueToSlice(new BigInteger("444444444444444444444"))))
                                 .build(),
                         Optional.empty()))
                 .build();
@@ -1546,6 +1567,13 @@ public abstract class AbstractTestHiveClient
                 assertEquals((Double) row.getField(columnIndex.get("t_float")), 5.1 + rowNumber, 0.001);
                 assertEquals(row.getField(columnIndex.get("t_double")), 6.2 + rowNumber);
 
+                // DECIMALS
+                BigDecimal rowNumberBig = new BigDecimal(rowNumber);
+                assertEquals(row.getField(columnIndex.get("t_decimal_precision_8")), sqlDecimal(new BigDecimal("1000.0001").add(rowNumberBig)));
+                assertEquals(row.getField(columnIndex.get("t_decimal_precision_17")), sqlDecimal(new BigDecimal("100000000.00000001").add(rowNumberBig)));
+                assertEquals(row.getField(columnIndex.get("t_decimal_precision_18")), sqlDecimal(new BigDecimal("1000000000.00000001").add(rowNumberBig)));
+                assertEquals(row.getField(columnIndex.get("t_decimal_precision_38")), sqlDecimal(new BigDecimal("1000000000000000000000.0000000000000001").add(rowNumberBig)));
+
                 // BOOLEAN
                 index = columnIndex.get("t_boolean");
                 if ((rowNumber % 3) == 2) {
@@ -1797,6 +1825,9 @@ public abstract class AbstractTestHiveClient
                 else if (column.getType() instanceof MapType) {
                     assertInstanceOf(value, Map.class);
                 }
+                else if (column.getType() instanceof DecimalType) {
+                    assertInstanceOf(value, SqlDecimal.class);
+                }
                 else {
                     fail("Unknown primitive type " + columnIndex);
                 }
@@ -1810,6 +1841,11 @@ public abstract class AbstractTestHiveClient
         ColumnMetadata column = map.get(name);
         assertEquals(column.getType(), type, name);
         assertEquals(column.isPartitionKey(), partitionKey, name);
+    }
+
+    private static SqlDecimal sqlDecimal(BigDecimal value)
+    {
+        return new SqlDecimal(value.unscaledValue(), value.precision(), value.scale());
     }
 
     protected static ImmutableMap<String, Integer> indexColumns(List<ColumnHandle> columnHandles)

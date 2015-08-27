@@ -13,10 +13,12 @@ CREATE TABLE presto_test_partition_format (
   t_bigint BIGINT,
   t_float FLOAT,
   t_double DOUBLE,
-  t_boolean BOOLEAN
+  t_boolean BOOLEAN,
+  t_decimal_short DECIMAL(17, 10),
+  t_decimal_long DECIMAL(38, 20)
 )
 COMMENT 'Presto test data'
-PARTITIONED BY (ds STRING, file_format STRING, dummy INT)
+PARTITIONED BY (ds STRING, file_format STRING, dummy INT, dummy_decimal_short DECIMAL(17,10), dummy_decimal_long DECIMAL(38,20))
 TBLPROPERTIES ('RETENTION'='-1')
 ;
 
@@ -53,7 +55,9 @@ CREATE TABLE presto_test_bucketed_by_string_int (
   t_bigint BIGINT,
   t_float FLOAT,
   t_double DOUBLE,
-  t_boolean BOOLEAN
+  t_boolean BOOLEAN,
+  t_decimal_short DECIMAL(17, 10),
+  t_decimal_long DECIMAL(38, 20)
 )
 COMMENT 'Presto test bucketed table'
 PARTITIONED BY (ds STRING)
@@ -70,7 +74,9 @@ CREATE TABLE presto_test_bucketed_by_bigint_boolean (
   t_bigint BIGINT,
   t_float FLOAT,
   t_double DOUBLE,
-  t_boolean BOOLEAN
+  t_boolean BOOLEAN,
+  t_decimal_short DECIMAL(17, 10),
+  t_decimal_long DECIMAL(38, 20)
 )
 COMMENT 'Presto test bucketed table'
 PARTITIONED BY (ds STRING)
@@ -87,7 +93,9 @@ CREATE TABLE presto_test_bucketed_by_double_float (
   t_bigint BIGINT,
   t_float FLOAT,
   t_double DOUBLE,
-  t_boolean BOOLEAN
+  t_boolean BOOLEAN,
+  t_decimal_short DECIMAL(17, 10),
+  t_decimal_long DECIMAL(38, 20)
 )
 COMMENT 'Presto test bucketed table'
 PARTITIONED BY (ds STRING)
@@ -144,7 +152,9 @@ CREATE TABLE tmp_presto_test (
   t_bigint BIGINT,
   t_float FLOAT,
   t_double DOUBLE,
-  t_boolean BOOLEAN
+  t_boolean BOOLEAN,
+  t_decimal_short DECIMAL(17, 10),
+  t_decimal_long DECIMAL(38, 20)
 )
 ;
 INSERT INTO TABLE tmp_presto_test
@@ -157,35 +167,37 @@ SELECT
 , 5.1 + n
 , 6.2 + n
 , CASE n % 3 WHEN 0 THEN false WHEN 1 THEN true ELSE NULL END
+, 7.3 + n
+, 8.4 + n
 FROM presto_test_sequence
 LIMIT 100
 ;
 
 ALTER TABLE presto_test_partition_format SET FILEFORMAT TEXTFILE;
 ALTER TABLE presto_test_partition_format SET SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe';
-ALTER TABLE presto_test_partition_format ADD PARTITION (ds='2012-12-29', file_format='textfile', dummy=1);
-INSERT INTO TABLE presto_test_partition_format PARTITION (ds='2012-12-29', file_format='textfile', dummy=1)
+ALTER TABLE presto_test_partition_format ADD PARTITION (ds='2012-12-29', file_format='textfile', dummy=1, dummy_decimal_short=1.1, dummy_decimal_long=1.11111111111111111111BD);
+INSERT INTO TABLE presto_test_partition_format PARTITION (ds='2012-12-29', file_format='textfile', dummy=1, dummy_decimal_short=1.1, dummy_decimal_long=1.11111111111111111111BD)
 SELECT * FROM tmp_presto_test
 ;
 
 ALTER TABLE presto_test_partition_format SET FILEFORMAT SEQUENCEFILE;
 ALTER TABLE presto_test_partition_format SET SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe';
-ALTER TABLE presto_test_partition_format ADD PARTITION (ds='2012-12-29', file_format='sequencefile', dummy=2);
-INSERT INTO TABLE presto_test_partition_format PARTITION (ds='2012-12-29', file_format='sequencefile', dummy=2)
+ALTER TABLE presto_test_partition_format ADD PARTITION (ds='2012-12-29', file_format='sequencefile', dummy=2, dummy_decimal_short=2.2, dummy_decimal_long=2.22222222222222222222BD);
+INSERT INTO TABLE presto_test_partition_format PARTITION (ds='2012-12-29', file_format='sequencefile', dummy=2, dummy_decimal_short=2.2, dummy_decimal_long=2.22222222222222222222BD)
 SELECT * FROM tmp_presto_test
 ;
 
 ALTER TABLE presto_test_partition_format SET FILEFORMAT RCFILE;
 ALTER TABLE presto_test_partition_format SET SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe';
-ALTER TABLE presto_test_partition_format ADD PARTITION (ds='2012-12-29', file_format='rctext', dummy=3);
-INSERT INTO TABLE presto_test_partition_format PARTITION (ds='2012-12-29', file_format='rctext', dummy=3)
+ALTER TABLE presto_test_partition_format ADD PARTITION (ds='2012-12-29', file_format='rctext', dummy=3, dummy_decimal_short=3.3, dummy_decimal_long=3.33333333333333333333BD);
+INSERT INTO TABLE presto_test_partition_format PARTITION (ds='2012-12-29', file_format='rctext', dummy=3, dummy_decimal_short=3.3, dummy_decimal_long=3.33333333333333333333BD)
 SELECT * FROM tmp_presto_test
 ;
 
 ALTER TABLE presto_test_partition_format SET FILEFORMAT RCFILE;
 ALTER TABLE presto_test_partition_format SET SERDE 'org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe';
-ALTER TABLE presto_test_partition_format ADD PARTITION (ds='2012-12-29', file_format='rcbinary', dummy=4);
-INSERT INTO TABLE presto_test_partition_format PARTITION (ds='2012-12-29', file_format='rcbinary', dummy=4)
+ALTER TABLE presto_test_partition_format ADD PARTITION (ds='2012-12-29', file_format='rcbinary', dummy=4, dummy_decimal_short=4.4, dummy_decimal_long=4.44444444444444444444BD);
+INSERT INTO TABLE presto_test_partition_format PARTITION (ds='2012-12-29', file_format='rcbinary', dummy=4, dummy_decimal_short=4.4, dummy_decimal_long=4.44444444444444444444BD)
 SELECT * FROM tmp_presto_test
 ;
 
@@ -207,19 +219,19 @@ SET hive.enforce.bucketing = true;
 
 INSERT OVERWRITE TABLE presto_test_bucketed_by_string_int
 PARTITION (ds='2012-12-29')
-SELECT t_string, t_tinyint, t_smallint, t_int, t_bigint, t_float, t_double, t_boolean
+SELECT t_string, t_tinyint, t_smallint, t_int, t_bigint, t_float, t_double, t_boolean, t_decimal_short, t_decimal_long
 FROM tmp_presto_test
 ;
 
 INSERT OVERWRITE TABLE presto_test_bucketed_by_bigint_boolean
 PARTITION (ds='2012-12-29')
-SELECT t_string, t_tinyint, t_smallint, t_int, t_bigint, t_float, t_double, t_boolean
+SELECT t_string, t_tinyint, t_smallint, t_int, t_bigint, t_float, t_double, t_boolean, t_decimal_short, t_decimal_long
 FROM tmp_presto_test
 ;
 
 INSERT OVERWRITE TABLE presto_test_bucketed_by_double_float
 PARTITION (ds='2012-12-29')
-SELECT t_string, t_tinyint, t_smallint, t_int, t_bigint, t_float, t_double, t_boolean
+SELECT t_string, t_tinyint, t_smallint, t_int, t_bigint, t_float, t_double, t_boolean, t_decimal_short, t_decimal_long
 FROM tmp_presto_test
 ;
 
