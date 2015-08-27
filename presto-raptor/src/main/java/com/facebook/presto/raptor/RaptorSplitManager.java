@@ -194,7 +194,7 @@ public class RaptorSplitManager
                 addresses = ImmutableList.of(node.getHostAndPort());
             }
 
-            return new RaptorSplit(shardId, addresses, effectivePredicate);
+            return new RaptorSplit(connectorId, shardId, addresses, effectivePredicate);
         }
     }
 }

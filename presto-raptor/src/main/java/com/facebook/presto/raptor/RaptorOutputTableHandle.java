@@ -30,6 +30,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class RaptorOutputTableHandle
         implements ConnectorOutputTableHandle
 {
+    private final String connectorId;
     private final String schemaName;
     private final String tableName;
     private final List<RaptorColumnHandle> columnHandles;
@@ -41,6 +42,7 @@ public class RaptorOutputTableHandle
 
     @JsonCreator
     public RaptorOutputTableHandle(
+            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnHandles") List<RaptorColumnHandle> columnHandles,
@@ -50,6 +52,7 @@ public class RaptorOutputTableHandle
             @JsonProperty("sortOrders") List<SortOrder> sortOrders,
             @JsonProperty("temporalColumnHandle") Optional<RaptorColumnHandle> temporalColumnHandle)
     {
+        this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.schemaName = checkSchemaName(schemaName);
         this.tableName = checkTableName(tableName);
         this.columnHandles = ImmutableList.copyOf(checkNotNull(columnHandles, "columnHandles is null"));
@@ -58,6 +61,12 @@ public class RaptorOutputTableHandle
         this.sortOrders = checkNotNull(sortOrders, "sortOrders is null");
         this.sortColumnHandles = checkNotNull(sortColumnHandles, "sortColumnHandles is null");
         this.temporalColumnHandle = checkNotNull(temporalColumnHandle, "temporalColumnHandle is null");
+    }
+
+    @JsonProperty
+    public String getConnectorId()
+    {
+        return connectorId;
     }
 
     @JsonProperty

@@ -24,7 +24,7 @@ import javax.inject.Inject;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class    RaptorHandleResolver
+public class RaptorHandleResolver
         implements ConnectorHandleResolver
 {
     private final String connectorId;
@@ -52,13 +52,15 @@ public class    RaptorHandleResolver
     @Override
     public boolean canHandle(ConnectorSplit split)
     {
-        return split instanceof RaptorSplit;
+        return (split instanceof RaptorSplit) &&
+                ((RaptorSplit) split).getConnectorId().equals(connectorId);
     }
 
     @Override
     public boolean canHandle(ConnectorOutputTableHandle tableHandle)
     {
-        return tableHandle instanceof RaptorOutputTableHandle;
+        return (tableHandle instanceof RaptorOutputTableHandle) &&
+                ((RaptorOutputTableHandle) tableHandle).getConnectorId().equals(connectorId);
     }
 
     @Override
