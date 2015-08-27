@@ -312,6 +312,7 @@ public class RaptorMetadata
         }
 
         return new RaptorOutputTableHandle(
+                connectorId,
                 tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
                 columnHandles.build(),

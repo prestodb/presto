@@ -29,20 +29,23 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class RaptorSplit
         implements ConnectorSplit
 {
+    private final String connectorId;
     private final UUID shardUuid;
     private final List<HostAddress> addresses;
     private final TupleDomain<RaptorColumnHandle> effectivePredicate;
 
     @JsonCreator
     public RaptorSplit(
+            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("shardUuid") UUID shardUuid,
             @JsonProperty("effectivePredicate") TupleDomain<RaptorColumnHandle> effectivePredicate)
     {
-        this(shardUuid, ImmutableList.of(), effectivePredicate);
+        this(connectorId, shardUuid, ImmutableList.of(), effectivePredicate);
     }
 
-    public RaptorSplit(UUID shardUuid, List<HostAddress> addresses, TupleDomain<RaptorColumnHandle> effectivePredicate)
+    public RaptorSplit(String connectorId, UUID shardUuid, List<HostAddress> addresses, TupleDomain<RaptorColumnHandle> effectivePredicate)
     {
+        this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
         this.addresses = ImmutableList.copyOf(checkNotNull(addresses, "addresses is null"));
         this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
@@ -58,6 +61,12 @@ public class RaptorSplit
     public List<HostAddress> getAddresses()
     {
         return addresses;
+    }
+
+    @JsonProperty
+    public String getConnectorId()
+    {
+        return connectorId;
     }
 
     @JsonProperty
