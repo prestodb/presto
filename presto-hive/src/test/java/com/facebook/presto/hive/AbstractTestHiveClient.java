@@ -58,7 +58,10 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.LongDecimalType;
 import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -94,6 +97,8 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -127,11 +132,13 @@ import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
@@ -251,6 +258,8 @@ public abstract class AbstractTestHiveClient
     protected ColumnHandle dsColumn;
     protected ColumnHandle fileFormatColumn;
     protected ColumnHandle dummyColumn;
+    protected ColumnHandle dummyShortDecimalColumn;
+    protected ColumnHandle dummyLongDecimalColumn;
     protected ColumnHandle intColumn;
     protected ColumnHandle invalidColumnHandle;
 
@@ -337,41 +346,54 @@ public abstract class AbstractTestHiveClient
         insertTableDestination = new SchemaTableName(database, "presto_insert_destination");
         insertTablePartitionedDestination = new SchemaTableName(database, "presto_insert_destination_partitioned");
 
+        Type shortDecimalColumnType = createDecimalType(17, 10);
+        Type longDecimalColumnType = createDecimalType(38, 20);
+        dummyShortDecimalColumn = new HiveColumnHandle(connectorId, "dummy_decimal_short", toHiveType(shortDecimalColumnType), shortDecimalColumnType.getTypeSignature(), -1, true);
+        dummyLongDecimalColumn = new HiveColumnHandle(connectorId, "dummy_decimal_long", toHiveType(longDecimalColumnType), longDecimalColumnType.getTypeSignature(), -1, true);
+
         List<HivePartition> partitions = ImmutableList.<HivePartition>builder()
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
-                        "ds=2012-12-29/file_format=textfile/dummy=1",
+                        "ds=2012-12-29/file_format=textfile/dummy=1/dummy_decimal_short=1.1/dummy_decimal_long=1.11111111111111111111BD",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(VARCHAR, utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(VARCHAR, utf8Slice("textfile")))
                                 .put(dummyColumn, NullableValue.of(BIGINT, 1L))
+                                .put(dummyShortDecimalColumn, NullableValue.of(shortDecimalColumnType, 11000000000L))
+                                .put(dummyLongDecimalColumn, NullableValue.of(longDecimalColumnType, longDecimal("111111111111111111111")))
                                 .build(),
                         Optional.empty()))
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
-                        "ds=2012-12-29/file_format=sequencefile/dummy=2",
+                        "ds=2012-12-29/file_format=sequencefile/dummy=2/dummy_decimal_short=2.2/dummy_decimal_long=2.22222222222222222222BD",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(VARCHAR, utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(VARCHAR, utf8Slice("sequencefile")))
                                 .put(dummyColumn, NullableValue.of(BIGINT, 2L))
+                                .put(dummyShortDecimalColumn, NullableValue.of(shortDecimalColumnType, 22000000000L))
+                                .put(dummyLongDecimalColumn, NullableValue.of(longDecimalColumnType, longDecimal("222222222222222222222")))
                                 .build(),
                         Optional.empty()))
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
-                        "ds=2012-12-29/file_format=rctext/dummy=3",
+                        "ds=2012-12-29/file_format=rctext/dummy=3/dummy_decimal_short=3.3/dummy_decimal_long=3.33333333333333333333BD",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(VARCHAR, utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(VARCHAR, utf8Slice("rctext")))
                                 .put(dummyColumn, NullableValue.of(BIGINT, 3L))
+                                .put(dummyShortDecimalColumn, NullableValue.of(shortDecimalColumnType, 33000000000L))
+                                .put(dummyLongDecimalColumn, NullableValue.of(longDecimalColumnType, longDecimal("333333333333333333333")))
                                 .build(),
                         Optional.empty()))
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
-                        "ds=2012-12-29/file_format=rcbinary/dummy=4",
+                        "ds=2012-12-29/file_format=rcbinary/dummy=4/dummy_decimal_short=4.4/dummy_decimal_long=4.44444444444444444444BD",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(VARCHAR, utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(VARCHAR, utf8Slice("rcbinary")))
                                 .put(dummyColumn, NullableValue.of(BIGINT, 4L))
+                                .put(dummyShortDecimalColumn, NullableValue.of(shortDecimalColumnType, 44000000000L))
+                                .put(dummyLongDecimalColumn, NullableValue.of(longDecimalColumnType, longDecimal("444444444444444444444")))
                                 .build(),
                         Optional.empty()))
                 .build();
@@ -383,25 +405,35 @@ public abstract class AbstractTestHiveClient
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("2012-12-29"))), false),
                         fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("textfile")), Range.equal(VARCHAR, utf8Slice("sequencefile")), Range.equal(VARCHAR, utf8Slice("rctext")), Range.equal(VARCHAR, utf8Slice("rcbinary"))), false),
-                        dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L), Range.equal(BIGINT, 4L)), false))),
+                        dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L), Range.equal(BIGINT, 4L)), false),
+                        dummyShortDecimalColumn, Domain.create(ValueSet.ofRanges(Range.equal(shortDecimalColumnType, 11000000000L), Range.equal(shortDecimalColumnType, 22000000000L), Range.equal(shortDecimalColumnType, 33000000000L), Range.equal(shortDecimalColumnType, 44000000000L)), false),
+                        dummyLongDecimalColumn, Domain.create(ValueSet.ofRanges(Range.equal(longDecimalColumnType, longDecimal("111111111111111111111")), Range.equal(longDecimalColumnType, longDecimal("222222222222222222222")), Range.equal(longDecimalColumnType, longDecimal("333333333333333333333")), Range.equal(longDecimalColumnType, longDecimal("444444444444444444444"))), false))),
                 Optional.empty(),
                 Optional.of(ImmutableList.of(
                         TupleDomain.withColumnDomains(ImmutableMap.of(
                                 dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("2012-12-29"))), false),
                                 fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("textfile"))), false),
-                                dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), false))),
+                                dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), false),
+                                dummyShortDecimalColumn, Domain.create(ValueSet.ofRanges(Range.equal(shortDecimalColumnType, 11000000000L)), false),
+                                dummyLongDecimalColumn, Domain.create(ValueSet.ofRanges(Range.equal(longDecimalColumnType, longDecimal("111111111111111111111"))), false))),
                         TupleDomain.withColumnDomains(ImmutableMap.of(
                                 dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("2012-12-29"))), false),
                                 fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("sequencefile"))), false),
-                                dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 2L)), false))),
+                                dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 2L)), false),
+                                dummyShortDecimalColumn, Domain.create(ValueSet.ofRanges(Range.equal(shortDecimalColumnType, 22000000000L)), false),
+                                dummyLongDecimalColumn, Domain.create(ValueSet.ofRanges(Range.equal(longDecimalColumnType, longDecimal("222222222222222222222"))), false))),
                         TupleDomain.withColumnDomains(ImmutableMap.of(
                                 dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("2012-12-29"))), false),
                                 fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("rctext"))), false),
-                                dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 3L)), false))),
+                                dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 3L)), false),
+                                dummyShortDecimalColumn, Domain.create(ValueSet.ofRanges(Range.equal(shortDecimalColumnType, 33000000000L)), false),
+                                dummyLongDecimalColumn, Domain.create(ValueSet.ofRanges(Range.equal(longDecimalColumnType, longDecimal("333333333333333333333"))), false))),
                         TupleDomain.withColumnDomains(ImmutableMap.of(
                                 dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("2012-12-29"))), false),
                                 fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("rcbinary"))), false),
-                                dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 4L)), false)))
+                                dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 4L)), false),
+                                dummyShortDecimalColumn, Domain.create(ValueSet.ofRanges(Range.equal(shortDecimalColumnType, 44000000000L)), false),
+                                dummyLongDecimalColumn, Domain.create(ValueSet.ofRanges(Range.equal(longDecimalColumnType, longDecimal("444444444444444444444"))), false)))
                 )),
                 ImmutableList.of());
         List<HivePartition> unpartitionedPartitions = ImmutableList.of(new HivePartition(tableUnpartitioned, TupleDomain.all()));
@@ -2105,6 +2137,45 @@ public abstract class AbstractTestHiveClient
                 assertEquals((Double) row.getField(columnIndex.get("t_float")), 5.1 + rowNumber, 0.001);
                 assertEquals(row.getField(columnIndex.get("t_double")), 6.2 + rowNumber);
 
+                // DECIMAL
+                BigDecimal rowNumberBig = new BigDecimal(rowNumber);
+                index = columnIndex.get("t_decimal_precision_8");
+                if (index != null) {
+                    if ((rowNumber % 43) == 0) {
+                        assertNull(row.getField(index));
+                    }
+                    else {
+                        assertEquals(row.getField(index), sqlDecimal(new BigDecimal("1000.0001").add(rowNumberBig)));
+                    }
+                }
+                index = columnIndex.get("t_decimal_precision_17");
+                if (index != null) {
+                    if ((rowNumber % 47) == 0) {
+                        assertNull(row.getField(index));
+                    }
+                    else {
+                        assertEquals(row.getField(index), sqlDecimal(new BigDecimal("100000000.00000001").add(rowNumberBig)));
+                    }
+                }
+                index = columnIndex.get("t_decimal_precision_18");
+                if (index != null) {
+                    if ((rowNumber % 49) == 0) {
+                        assertNull(row.getField(index));
+                    }
+                    else {
+                        assertEquals(row.getField(index), sqlDecimal(new BigDecimal("1000000000.00000001").add(rowNumberBig)));
+                    }
+                }
+                index = columnIndex.get("t_decimal_precision_38");
+                if (index != null) {
+                    if ((rowNumber % 51) == 0) {
+                        assertNull(row.getField(index));
+                    }
+                    else {
+                        assertEquals(row.getField(index), sqlDecimal(new BigDecimal("1000000000000000000000.0000000000000001").add(rowNumberBig)));
+                    }
+                }
+
                 // BOOLEAN
                 index = columnIndex.get("t_boolean");
                 if ((rowNumber % 3) == 2) {
@@ -2425,6 +2496,9 @@ public abstract class AbstractTestHiveClient
                 else if (column.getType() instanceof MapType) {
                     assertInstanceOf(value, Map.class);
                 }
+                else if (column.getType() instanceof DecimalType) {
+                    assertInstanceOf(value, SqlDecimal.class);
+                }
                 else {
                     fail("Unknown primitive type " + columnIndex);
                 }
@@ -2438,6 +2512,16 @@ public abstract class AbstractTestHiveClient
         ColumnMetadata column = map.get(name);
         assertEquals(column.getType(), type, name);
         assertEquals(column.isPartitionKey(), partitionKey, name);
+    }
+
+    private static SqlDecimal sqlDecimal(BigDecimal value)
+    {
+        return new SqlDecimal(value.unscaledValue(), value.precision(), value.scale());
+    }
+
+    private static Slice longDecimal(String value)
+    {
+        return LongDecimalType.unscaledValueToSlice(new BigInteger(value));
     }
 
     protected static ImmutableMap<String, Integer> indexColumns(List<ColumnHandle> columnHandles)
