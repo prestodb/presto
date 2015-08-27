@@ -31,7 +31,7 @@ import com.google.common.collect.Iterables;
 
 import java.util.Map;
 
-/**
+/*
  * Major HACK alert!!!
  *
  * This logic should be invoked on query start, not during planning. At that point, the token
@@ -108,16 +108,14 @@ public class BeginTableWrite
             if (node instanceof TableWriterNode) {
                 return ((TableWriterNode) node).getTarget();
             }
-            else if (node instanceof DeleteNode) {
+            if (node instanceof DeleteNode) {
                 return ((DeleteNode) node).getTarget();
             }
-            else if (node instanceof ExchangeNode) {
+            if (node instanceof ExchangeNode) {
                 PlanNode source = Iterables.getOnlyElement(node.getSources());
                 return getTarget(source);
             }
-            else {
-                throw new IllegalArgumentException("Invalid child for TableCommitNode: " + node.getClass().getSimpleName());
-            }
+            throw new IllegalArgumentException("Invalid child for TableCommitNode: " + node.getClass().getSimpleName());
         }
 
         private TableWriterNode.WriterTarget createWriterTarget(TableWriterNode.WriterTarget target)
@@ -130,7 +128,7 @@ public class BeginTableWrite
                 TableWriterNode.InsertReference insert = (TableWriterNode.InsertReference) target;
                 return new TableWriterNode.InsertHandle(metadata.beginInsert(session, insert.getHandle()));
             }
-            throw new AssertionError("Unhandled target type: " + target.getClass().getName());
+            throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }
     }
 }
