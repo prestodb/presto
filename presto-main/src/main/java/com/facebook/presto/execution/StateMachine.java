@@ -245,7 +245,7 @@ public class StateMachine<T>
                 return CompletableFuture.completedFuture(state);
             }
 
-            return futureStateChange.get().getListener();
+            return futureStateChange.get().createNewListener();
         }
     }
 
@@ -336,7 +336,7 @@ public class StateMachine<T>
         // Use a separate future for each listener so canceled listeners can be removed
         private final Set<CompletableFuture<T>> listeners = new HashSet<>();
 
-        public synchronized CompletableFuture<T> getListener()
+        public synchronized CompletableFuture<T> createNewListener()
         {
             CompletableFuture<T> listener = new CompletableFuture<>();
             listeners.add(listener);

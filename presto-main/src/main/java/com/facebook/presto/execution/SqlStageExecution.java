@@ -261,9 +261,12 @@ public final class SqlStageExecution
         if (allTasks.isEmpty()) {
             return completedFuture(null);
         }
-        return firstCompletedFuture(allTasks.stream()
+
+        List<CompletableFuture<TaskInfo>> stateChangeFutures = allTasks.stream()
                 .map(task -> task.getStateChange(task.getTaskInfo()))
-                .collect(toImmutableList()));
+                .collect(toImmutableList());
+
+        return firstCompletedFuture(stateChangeFutures, true);
     }
 
     public synchronized RemoteTask scheduleTask(Node node)

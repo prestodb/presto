@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static java.util.Objects.requireNonNull;
 
 public class SourcePartitionedScheduler
@@ -86,7 +87,9 @@ public class SourcePartitionedScheduler
             }
 
             if (!batchFuture.isDone()) {
-                return new ScheduleResult(false, ImmutableSet.of(), batchFuture);
+                // wrap batch future in unmodifiable future so cancellation is not propagated
+                CompletableFuture<List<Split>> blocked = unmodifiableFuture(batchFuture);
+                return new ScheduleResult(false, ImmutableSet.of(), blocked);
             }
             pendingSplits = ImmutableSet.copyOf(getFutureValue(batchFuture));
             batchFuture = null;
