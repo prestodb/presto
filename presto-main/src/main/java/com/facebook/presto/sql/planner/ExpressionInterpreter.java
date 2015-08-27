@@ -335,29 +335,72 @@ public class ExpressionInterpreter
         @Override
         protected Object visitSearchedCaseExpression(SearchedCaseExpression node, Object context)
         {
-            Expression resultClause = node.getDefaultValue().orElse(null);
+            RuntimeException exception = null;
+            List<WhenClause> whenClauses = new ArrayList<>();
+
             for (WhenClause whenClause : node.getWhenClauses()) {
-                Object value = process(whenClause.getOperand(), context);
-                if (value instanceof Expression) {
-                    // TODO: optimize this case
-                    return node;
+                Object clauseOperand = null;
+                Object clauseResult;
+
+                boolean processOperand = false;
+                try {
+                    clauseOperand = process(whenClause.getOperand(), context);
+                    processOperand = true;
+                    clauseResult = process(whenClause.getResult(), context);
                 }
+                catch (RuntimeException e) {
+                    // HACK
+                    // Certain operations like 0 / 0 or likeExpression may throw exceptions.
+                    // If the whenClause throws an exception, it may or may not be actually evaluated
+                    // so add it to the result
+                    if (!processOperand || processOperand && !(clauseOperand instanceof Expression)) {
+                        exception = e;
+                    }
+                    whenClauses.add(whenClause);
+                    continue;
+                }
+                if (clauseOperand instanceof Expression) {
+                    whenClauses.add(new WhenClause(
+                            toExpression(clauseOperand, expressionTypes.get(whenClause.getOperand())),
+                            toExpression(clauseResult, expressionTypes.get(whenClause.getResult()))));
+                }
+                else if (Boolean.TRUE.equals(clauseOperand)) {
+                    if (whenClauses.isEmpty()) {
+                        return clauseResult;
+                    }
 
-                if (Boolean.TRUE.equals(value)) {
-                    resultClause = whenClause.getResult();
-                    break;
+                    // we we have only one when clause and we saw an exception, throw it here
+                    if (exception != null && whenClauses.size() == 1) {
+                        throw exception;
+                    }
+
+                    Expression result = toExpression(clauseResult, expressionTypes.get(whenClause.getResult()));
+                    return new SearchedCaseExpression(whenClauses, Optional.ofNullable(result));
                 }
             }
 
-            if (resultClause == null) {
-                return null;
+            // we we have only one when clause and we saw an exception, throw it here
+            if (exception != null && whenClauses.size() == 1) {
+                throw exception;
             }
 
-            Object result = process(resultClause, context);
-            if (result instanceof Expression) {
-                return node;
+            Expression finalResult = node.getDefaultValue().orElse(null);
+            Object result;
+            try {
+                result = process(finalResult, context);
             }
-            return result;
+            catch (RuntimeException e) {
+                if (whenClauses.isEmpty()) {
+                    throw e;
+                }
+                return new SearchedCaseExpression(whenClauses, node.getDefaultValue());
+            }
+
+            if (whenClauses.isEmpty()) {
+                return result;
+            }
+            Expression resultExpression = (result == null) ? null : toExpression(result, expressionTypes.get(finalResult));
+            return new SearchedCaseExpression(whenClauses, Optional.ofNullable(resultExpression));
         }
 
         @Override

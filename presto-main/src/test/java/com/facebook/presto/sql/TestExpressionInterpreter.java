@@ -571,6 +571,38 @@ public class TestExpressionInterpreter
                         "when unbound_long = 1234 then 33 " +
                         "else 1 " +
                         "end");
+
+        assertOptimizedEquals("case " +
+                "when unbound_long = 1 then false " +
+                "when 'foo' = 'foo' then true " +
+                "else bound_boolean " +
+                "end",
+                "" +
+                        "case " +
+                        "when unbound_long = 1 then false " +
+                        "else true " +
+                        "end");
+
+        assertOptimizedEquals("case when bound_long = 1 then 1 " +
+                "when bound_date = date '2014-01-01' then 2 " +
+                "when bound_long = 1234 then 3 " +
+                "when bound_string = 'hello' then 4 " +
+                "else 0 " +
+                "end",
+                "3");
+
+        assertOptimizedEquals("case " +
+                "when unbound_long = 1 then false " +
+                "when 'foo' = 'foo' then true " +
+                "else true " +
+                "end",
+                "" +
+                        "case " +
+                        "when unbound_long = 1 then false " +
+                        "else true " +
+                        "end");
+
+        assertOptimizedEquals("case when null then 1 else 2 end", "2");
     }
 
     @Test
