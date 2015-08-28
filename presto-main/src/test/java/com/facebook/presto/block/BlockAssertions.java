@@ -17,6 +17,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.ArrayType;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -234,6 +235,23 @@ public final class BlockAssertions
 
         for (int i = start; i < end; i++) {
             DOUBLE.writeDouble(builder, (double) i);
+        }
+
+        return builder.build();
+    }
+
+    public static Block createArrayBigintBlock(Iterable<? extends Iterable<Long>> values)
+    {
+        ArrayType arrayType = new ArrayType(BIGINT);
+        BlockBuilder builder = arrayType.createBlockBuilder(new BlockBuilderStatus(), 100);
+
+        for (Iterable<Long> value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                arrayType.writeObject(builder, createLongsBlock(value));
+            }
         }
 
         return builder.build();

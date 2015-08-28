@@ -23,6 +23,7 @@ General Changes
 ---------------
 
 * Add :func:`multimap_agg` function.
+* Add :func:`checksum` function.
 * Removed ``experimental.cluster-memory-manager-enabled`` config. The cluster
   memory manager is now always enabled.
 * Removed ``task.max-memory`` config.

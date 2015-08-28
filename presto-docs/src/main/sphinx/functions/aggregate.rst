@@ -33,6 +33,10 @@ General Aggregate Functions
 
     Returns ``TRUE`` if any input value is ``TRUE``, otherwise ``FALSE``.
 
+.. function:: checksum(x) -> varbinary
+
+    Returns an order-insensitive checksum of the given values.
+
 .. function:: count(*) -> bigint
 
     Returns the number of input rows.
