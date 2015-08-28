@@ -59,6 +59,11 @@ public class Pager
         }
     }
 
+    public boolean isNullPager()
+    {
+        return process == null;
+    }
+
     @Override
     public void write(int b)
             throws IOException
