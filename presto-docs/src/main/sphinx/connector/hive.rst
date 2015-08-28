@@ -138,3 +138,11 @@ Hive, this table can be described in Presto::
 This table can then be queried in Presto::
 
     SELECT * FROM hive.web.page_view;
+
+Before running any ``CREATE TABLE`` or ``CREATE TABLE ... AS`` statements
+for Hive tables in Presto, make sure either to connect to Presto as the
+``hive`` user or to add the following to ``jvm.config`` on all of the nodes:
+``-DHADOOP_USER_NAME=hive``. If not, the HDFS permissions will not be correct.
+If you run into HDFS permissions problems on ``CREATE TABLE ... AS``, try
+removing ``/tmp/presto-*`` on HDFS, adding the above configuration variable
+to ``jvm.config``, then restarting all of the Presto servers.
