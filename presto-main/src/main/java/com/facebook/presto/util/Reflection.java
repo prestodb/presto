@@ -55,4 +55,14 @@ public final class Reflection
             throw new PrestoException(INTERNAL_ERROR, e);
         }
     }
+
+    public static MethodHandle methodHandle(Method method)
+    {
+        try {
+            return MethodHandles.lookup().unreflect(method);
+        }
+        catch (IllegalAccessException e) {
+            throw new PrestoException(INTERNAL_ERROR, e);
+        }
+    }
 }

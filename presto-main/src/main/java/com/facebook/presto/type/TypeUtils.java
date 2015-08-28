@@ -117,10 +117,15 @@ public final class TypeUtils
         return type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
     }
 
+    public static Type resolveType(TypeSignature typeName, TypeManager typeManager)
+    {
+        return checkNotNull(typeManager.getType(typeName), "Type '%s' not found", typeName);
+    }
+
     public static List<Type> resolveTypes(List<TypeSignature> typeNames, TypeManager typeManager)
     {
         return typeNames.stream()
-                .map((TypeSignature type) -> checkNotNull(typeManager.getType(type), "Type '%s' not found", type))
+                .map((TypeSignature type) -> resolveType(type, typeManager))
                 .collect(toImmutableList());
     }
 
@@ -322,7 +327,7 @@ public final class TypeUtils
         return TypeCalculation.calculateLiteralValue(typeLiteralCalculation.getCalculation(), inputs);
     }
 
-    public static Map<String, OptionalLong> extractCalculationInputs(TypeSignature typeSignature, TypeSignature actualType)
+    public static Map<String, OptionalLong> extractLiteralParameters(TypeSignature typeSignature, TypeSignature actualType)
     {
         if (!typeSignature.isCalculated()) {
             return emptyMap();
@@ -332,7 +337,7 @@ public final class TypeUtils
             TypeSignature parameter = typeSignature.getParameters().get(index);
             if (parameter.isCalculated()) {
                 TypeSignature actualParameter = actualType.getParameters().get(index);
-                inputs.putAll(extractCalculationInputs(parameter, actualParameter));
+                inputs.putAll(extractLiteralParameters(parameter, actualParameter));
             }
         }
         for (int index = 0; index < typeSignature.getLiteralParameters().size(); index++) {

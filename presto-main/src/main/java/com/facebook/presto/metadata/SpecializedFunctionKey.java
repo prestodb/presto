@@ -32,7 +32,7 @@ public class SpecializedFunctionKey
     {
         this.function = checkNotNull(function, "function is null");
         this.boundTypeParameters = checkNotNull(boundTypeParameters, "boundTypeParameters is null");
-        this.parameterTypes = parameterTypes;
+        this.parameterTypes = checkNotNull(parameterTypes, "parameterTypes is null");
     }
 
     public ParametricFunction getFunction()

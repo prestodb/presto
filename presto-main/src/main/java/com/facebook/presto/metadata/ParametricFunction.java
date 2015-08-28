@@ -42,4 +42,9 @@ public interface ParametricFunction
 
     // TODO: This should really return an object with just the MethodHandle/InternalAggregation...etc. However, due to the magic literal hack this is not possible
     FunctionInfo specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry);
+
+    static ParametricFunctionBuilder builder(Class<?> clazz)
+    {
+        return new ParametricFunctionBuilder(clazz);
+    }
 }
