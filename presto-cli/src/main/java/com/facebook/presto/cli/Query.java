@@ -190,11 +190,13 @@ public class Query
     private void pageOutput(OutputFormat format, List<String> fieldNames)
             throws IOException
     {
-        // ignore the user pressing ctrl-C while in the pager
-        ignoreUserInterrupt.set(true);
-
-        try (Writer writer = createWriter(Pager.create());
+        try (Pager pager = Pager.create();
+                Writer writer = createWriter(pager);
                 OutputHandler handler = createOutputHandler(format, writer, fieldNames)) {
+            if (!pager.isNullPager()) {
+                // ignore the user pressing ctrl-C while in the pager
+                ignoreUserInterrupt.set(true);
+            }
             handler.processRows(client);
         }
     }
