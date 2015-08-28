@@ -120,10 +120,10 @@ public abstract class DecimalType
 
     private static List<TypeSignatureParameter> buildPrecisionScaleList(int precision, int scale)
     {
-        List<TypeSignatureParameter> typeParameters = new ArrayList<>();
-        typeParameters.add(TypeSignatureParameter.of(precision));
-        typeParameters.add(TypeSignatureParameter.of(scale));
-        return unmodifiableList(typeParameters);
+        List<TypeSignatureParameter> literalArguments = new ArrayList<>();
+        literalArguments.add(TypeSignatureParameter.of((long) precision));
+        literalArguments.add(TypeSignatureParameter.of((long) scale));
+        return unmodifiableList(literalArguments);
     }
 
     public static String toString(String unscaledValueString, int precision, int scale)
