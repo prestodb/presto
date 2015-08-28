@@ -749,6 +749,13 @@ public class TestExpressionInterpreter
     }
 
     @Test
+    public void testCoalesce()
+            throws Exception
+    {
+        assertOptimizedEquals("coalesce(2 * 3 * unbound_long, 1 - 1, null)", "coalesce(6 * unbound_long, 0)");
+    }
+
+    @Test
     public void testLike()
             throws Exception
     {

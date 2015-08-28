@@ -441,19 +441,31 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCoalesceExpression(CoalesceExpression node, Object context)
         {
+            ImmutableList.Builder<Expression> builder = ImmutableList.builder();
             for (Expression expression : node.getOperands()) {
-                Object value = process(expression, context);
+                try {
+                    Object value = process(expression, context);
 
-                if (value instanceof Expression) {
-                    // TODO: optimize this case
-                    return node;
+                    if (value instanceof Expression) {
+                        builder.add(toExpression(value, expressionTypes.get(expression)));
+                    }
+                    else if (value != null) {
+                        return value;
+                    }
                 }
-
-                if (value != null) {
-                    return value;
+                catch (PrestoException e) {
+                    builder.add(expression);
                 }
             }
-            return null;
+
+            List<Expression> expressions = builder.build();
+            if (expressions.isEmpty()) {
+                return null;
+            }
+            if (expressions.size() == 1) {
+                return expressions.get(0);
+            }
+            return new CoalesceExpression(expressions);
         }
 
         @Override
