@@ -215,6 +215,7 @@ import static com.facebook.presto.type.DecimalOperators.DECIMAL_MODULUS_OPERATOR
 import static com.facebook.presto.type.DecimalOperators.DECIMAL_MULTIPLY_OPERATOR;
 import static com.facebook.presto.type.DecimalOperators.DECIMAL_NEGATION_OPERATOR;
 import static com.facebook.presto.type.DecimalOperators.DECIMAL_SUBTRACT_OPERATOR;
+import static com.facebook.presto.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.RegexpType.REGEXP;
@@ -376,6 +377,7 @@ public class FunctionRegistry
                 .functions(MAX_AGGREGATION, MIN_AGGREGATION)
                 .function(COUNT_COLUMN)
                 .functions(ROW_HASH_CODE, ROW_TO_JSON, ROW_EQUAL, ROW_NOT_EQUAL)
+                .function(DECIMAL_TO_DECIMAL_CAST)
                 .function(TRY_CAST);
 
         if (experimentalSyntaxEnabled) {
