@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
@@ -47,7 +48,7 @@ public class RowHashCodeOperator
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = types.get("T");
         TypeSignature typeSignature = type.getTypeSignature();

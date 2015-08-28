@@ -23,11 +23,13 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
@@ -73,7 +75,7 @@ public final class ArrayPositionFunction
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = types.get("E");
         MethodHandle equalMethodHandle = functionRegistry.resolveOperator(OperatorType.EQUAL, ImmutableList.of(type, type)).getMethodHandle();

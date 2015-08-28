@@ -27,6 +27,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.gen.ArrayGeneratorUtils;
 import com.facebook.presto.sql.gen.ArrayMapByteCodeExpression;
 import com.facebook.presto.sql.gen.CallSiteBinder;
@@ -38,6 +39,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
@@ -70,9 +72,9 @@ public class ArrayToArrayCast
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        checkArgument(arity == 1, "Expected arity to be 1");
+        checkArgument(parameterTypes.size() == 1, "Expected arity to be 1");
         Type fromType = types.get("F");
         Type toType = types.get("T");
 

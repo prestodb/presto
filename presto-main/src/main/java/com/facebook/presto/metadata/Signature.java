@@ -41,6 +41,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.any;
 
 public final class Signature
 {
@@ -164,20 +165,28 @@ public final class Signature
 
     public Signature resolveCalculatedTypes(List<TypeSignature> parameterTypes)
     {
-        if (!returnType.isCalculated()) {
+        if (isReturnTypeOrAnyArgumentTypeCalculated()) {
             return this;
         }
 
-        Map<String, OptionalLong> inputs = new HashMap<>();
+        Map<String, OptionalLong> inputs = bindLiteralParameters(parameterTypes);
+        TypeSignature calculatedReturnType = TypeUtils.resolveCalculatedType(returnType, inputs);
+        return new Signature(name, calculatedReturnType, parameterTypes);
+    }
+
+    public Map<String, OptionalLong> bindLiteralParameters(List<TypeSignature> parameterTypes)
+    {
+        Map<String, OptionalLong> boundParameters = new HashMap<>();
+
         for (int index = 0; index < argumentTypes.size(); index++) {
             TypeSignature argument = argumentTypes.get(index);
             if (argument.isCalculated()) {
                 TypeSignature actualParameter = parameterTypes.get(index);
-                inputs.putAll(TypeUtils.extractCalculationInputs(argument, actualParameter));
+                boundParameters.putAll(TypeUtils.extractCalculationInputs(argument, actualParameter));
             }
         }
-        TypeSignature calculatedReturnType = TypeUtils.resolveCalculatedType(returnType, inputs);
-        return new Signature(name, calculatedReturnType, parameterTypes);
+
+        return boundParameters;
     }
 
     @Override
@@ -259,6 +268,11 @@ public final class Signature
         checkState(boundParameters.keySet().equals(parameters.keySet()), "%s matched arguments %s, but type parameters %s are still unbound", this, types, Sets.difference(parameters.keySet(), boundParameters.keySet()));
 
         return boundParameters;
+    }
+
+    private boolean isReturnTypeOrAnyArgumentTypeCalculated()
+    {
+        return !returnType.isCalculated() && !any(argumentTypes, TypeSignature::isCalculated);
     }
 
     private static boolean matchArguments(

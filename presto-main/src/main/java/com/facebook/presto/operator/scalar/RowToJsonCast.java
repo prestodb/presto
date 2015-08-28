@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
@@ -34,6 +35,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
@@ -56,9 +58,9 @@ public class RowToJsonCast
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        checkArgument(arity == 1, "Expected arity to be 1");
+        checkArgument(parameterTypes.size() == 1, "Expected arity to be 1");
         Type type = types.get("T");
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(type);
         return operatorInfo(OperatorType.CAST, parseTypeSignature(StandardTypes.JSON), ImmutableList.of(type.getTypeSignature()), methodHandle, false, ImmutableList.of(false));

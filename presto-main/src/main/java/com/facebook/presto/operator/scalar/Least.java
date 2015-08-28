@@ -31,6 +31,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.CompilerOperations;
 import com.facebook.presto.sql.gen.CompilerUtils;
@@ -92,13 +93,13 @@ public final class Least
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = types.get("E");
         checkArgument(type.isOrderable(), "Type must be orderable");
 
         ImmutableList.Builder<Class<?>> builder = ImmutableList.builder();
-        for (int i = 0; i < arity; i++) {
+        for (int i = 0; i < parameterTypes.size(); i++) {
             builder.add(type.getJavaType());
         }
         ImmutableList<Class<?>> stackTypes = builder.build();
@@ -107,7 +108,7 @@ public final class Least
         MethodHandle methodHandle = methodHandle(clazz, "least", stackTypes.toArray(new Class<?>[stackTypes.size()]));
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(stackTypes.size(), false));
 
-        Signature specializedSignature = internalFunction(SIGNATURE.getName(), type.getTypeSignature(), Collections.nCopies(arity, type.getTypeSignature()));
+        Signature specializedSignature = internalFunction(SIGNATURE.getName(), type.getTypeSignature(), Collections.nCopies(parameterTypes.size(), type.getTypeSignature()));
         return new FunctionInfo(specializedSignature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, nullableParameters);
     }
 

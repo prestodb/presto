@@ -78,7 +78,7 @@ public final class ArrayRemoveFunction
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         checkArgument(types.size() == 1, format("%s expects only one argument", FUNCTION_NAME));
         Type type = types.get("E");
