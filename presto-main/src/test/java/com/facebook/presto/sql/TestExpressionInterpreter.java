@@ -578,7 +578,7 @@ public class TestExpressionInterpreter
             throws Exception
     {
         assertOptimizedEquals("case 1 " +
-                "when 1 then 33 " +
+                "when 1 then 32 + 1 " +
                 "when 1 then 34 " +
                 "end",
                 "33");
@@ -690,6 +690,33 @@ public class TestExpressionInterpreter
                         "when unbound_long then 0 " +
                         "when unbound_long2 then 2 " +
                         "else 3 " +
+                        "end");
+
+        assertOptimizedEquals("case true " +
+                "when unbound_long = 1 then 1 " +
+                "when 0 / 0 = 0 then 2 " +
+                "else 33 end",
+                "" +
+                        "case true " +
+                        "when unbound_long = 1 then 1 " +
+                        "when 0 / 0 = 0 then 2 else 33 " +
+                        "end");
+
+        assertOptimizedEquals("case bound_long " +
+                "when 123 * 10 + unbound_long then 1 = 1 " +
+                "else 1 = 2 " +
+                "end",
+                "" +
+                        "case bound_long when 1230 + unbound_long then true " +
+                        "else false " +
+                        "end");
+
+        assertOptimizedEquals("case bound_long " +
+                "when unbound_long then 2+2 " +
+                "end",
+                "" +
+                        "case bound_long " +
+                        "when unbound_long then 4 " +
                         "end");
     }
 
@@ -816,6 +843,7 @@ public class TestExpressionInterpreter
         assertOptimizedEqualsSelf("case unbound_long when 1 then 1 when 0 / 0 then 2 end");
         assertOptimizedEqualsSelf("case unbound_boolean when true then 1 else 0 / 0 end");
         assertOptimizedEqualsSelf("case unbound_boolean when true then 0 / 0 else 1 end");
+        assertOptimizedEqualsSelf("case bound_long when unbound_long then 1 when 0 / 0 then 2 else 1 end");
         assertOptimizedEqualsSelf("case when unbound_boolean then 1 when 0 / 0 = 0 then 2 end");
         assertOptimizedEqualsSelf("case when unbound_boolean then 1 else 0 / 0  end");
         assertOptimizedEqualsSelf("case when unbound_boolean then 0 / 0 else 1 end");

@@ -371,27 +371,71 @@ public class ExpressionInterpreter
                 return node;
             }
 
+            RuntimeException exception = null;
             List<WhenClause> whenClauses = new ArrayList<>();
-            Expression defaultClause = node.getDefaultValue().orElse(null);
+
             for (WhenClause whenClause : node.getWhenClauses()) {
-                Object value = process(whenClause.getOperand(), context);
-                if (value != null) {
-                    if (value instanceof Expression) {
-                        whenClauses.add(whenClause);
+                Object clauseOperand = null;
+                Object clauseResult;
+                boolean processOperand = false;
+                try {
+                    clauseOperand = process(whenClause.getOperand(), context);
+                    processOperand = true;
+                    clauseResult = process(whenClause.getResult(), context);
+                }
+                catch (RuntimeException e) {
+                    // HACK
+                    // Certain operations like 0 / 0 or likeExpression may throw exceptions.
+                    // If the whenClause throws an exception, it may or may not be actually evaluated
+                    // so add it to the result
+                    if (!processOperand || processOperand && !(clauseOperand instanceof Expression)) {
+                        exception = e;
                     }
-                    else if ((Boolean) invokeOperator(OperatorType.EQUAL, types(node.getOperand(), whenClause.getOperand()), ImmutableList.of(operand, value))) {
-                        defaultClause = whenClause.getResult();
-                        break;
+                    whenClauses.add(whenClause);
+                    continue;
+                }
+                if (clauseOperand instanceof Expression) {
+                    whenClauses.add(new WhenClause(
+                            toExpression(clauseOperand, expressionTypes.get(whenClause.getOperand())),
+                            toExpression(clauseResult, expressionTypes.get(whenClause.getResult()))));
+                }
+                else if (clauseOperand != null && (Boolean) invokeOperator(OperatorType.EQUAL, types(node.getOperand(), whenClause.getOperand()), ImmutableList.of(operand, clauseOperand))) {
+                    if (whenClauses.isEmpty()) {
+                        return clauseResult;
                     }
+
+                    // we we have only one when clause and we saw an exception, throw it here
+                    if (exception != null && whenClauses.size() == 1) {
+                        throw exception;
+                    }
+
+                    Expression result = toExpression(clauseResult, expressionTypes.get(whenClause.getResult()));
+                    return new SimpleCaseExpression(node.getOperand(), whenClauses, Optional.ofNullable(result));
                 }
             }
 
+            // we we have only one when clause and we saw an exception, throw it here
+            if (exception != null && whenClauses.size() == 1) {
+                throw exception;
+            }
+
+            Expression finalResult = node.getDefaultValue().orElse(null);
+            Object result;
+            try {
+                result = process(finalResult, context);
+            }
+            catch (RuntimeException e) {
+                if (whenClauses.isEmpty()) {
+                    throw e;
+                }
+                return new SimpleCaseExpression(node.getOperand(), whenClauses, node.getDefaultValue());
+            }
+
             if (whenClauses.isEmpty()) {
-                return defaultClause == null ? null : process(defaultClause, context);
+                return result;
             }
-            else {
-                return new SimpleCaseExpression(node.getOperand(), whenClauses, Optional.ofNullable(defaultClause));
-            }
+            Expression resultExpression = (result == null) ? null : toExpression(result, expressionTypes.get(finalResult));
+            return new SimpleCaseExpression(node.getOperand(), whenClauses, Optional.ofNullable(resultExpression));
         }
 
         @Override
