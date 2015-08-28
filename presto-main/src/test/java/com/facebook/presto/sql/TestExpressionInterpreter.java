@@ -24,9 +24,14 @@ import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolResolver;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LikePredicate;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -578,7 +583,7 @@ public class TestExpressionInterpreter
             throws Exception
     {
         assertOptimizedEquals("case 1 " +
-                "when 1 then 33 " +
+                "when 1 then 32 + 1 " +
                 "when 1 then 34 " +
                 "end",
                 "33");
@@ -690,6 +695,67 @@ public class TestExpressionInterpreter
                         "when unbound_long then 0 " +
                         "when unbound_long2 then 2 " +
                         "else 3 " +
+                        "end");
+
+        assertOptimizedEquals("case true " +
+                "when unbound_long = 1 then 1 " +
+                "when 0 / 0 = 0 then 2 " +
+                "else 33 end",
+                "" +
+                        "case true " +
+                        "when unbound_long = 1 then 1 " +
+                        "when 0 / 0 = 0 then 2 else 33 " +
+                        "end");
+
+        assertOptimizedEquals("case bound_long " +
+                "when 123 * 10 + unbound_long then 1 = 1 " +
+                "else 1 = 2 " +
+                "end",
+                "" +
+                        "case bound_long when 1230 + unbound_long then true " +
+                        "else false " +
+                        "end");
+
+        assertOptimizedEquals("case bound_long " +
+                "when unbound_long then 2 + 2 " +
+                "end",
+                "" +
+                        "case bound_long " +
+                        "when unbound_long then 4 " +
+                        "end");
+
+        assertOptimizedEquals("case bound_long " +
+                "when unbound_long then 2 + 2 " +
+                "when 1 then null " +
+                "when 2 then null " +
+                "end",
+                "" +
+                        "case bound_long " +
+                        "when unbound_long then 4 " +
+                        "end");
+
+        assertOptimizedMatches("case 1 " +
+                "when unbound_long then 1 " +
+                "when 0 / 0 then 2 " +
+                "else 1 " +
+                "end",
+                "" +
+                        "case 1 " +
+                        "when unbound_long then 1 " +
+                        "when cast(fail() AS bigint) then 2 " +
+                        "else 1 " +
+                        "end");
+
+        assertOptimizedMatches("case 1 " +
+                "when 0 / 0 then 1 " +
+                "when 0 / 0 then 2 " +
+                "else 1 " +
+                "end",
+                "" +
+                        "case 1 " +
+                        "when cast(fail() as bigint) then 1 " +
+                        "when cast(fail() as bigint) then 2 " +
+                        "else 1 " +
                         "end");
     }
 
@@ -813,9 +879,16 @@ public class TestExpressionInterpreter
     {
         assertOptimizedEquals("if(unbound_boolean, 1, 0 / 0)", "CASE WHEN unbound_boolean THEN 1 ELSE 0 / 0 END");
         assertOptimizedEquals("if(unbound_boolean, 0 / 0, 1)", "CASE WHEN unbound_boolean THEN 0 / 0 ELSE 1 END");
-        assertOptimizedEqualsSelf("case unbound_long when 1 then 1 when 0 / 0 then 2 end");
-        assertOptimizedEqualsSelf("case unbound_boolean when true then 1 else 0 / 0 end");
-        assertOptimizedEqualsSelf("case unbound_boolean when true then 0 / 0 else 1 end");
+
+        assertOptimizedMatches("CASE unbound_long WHEN 1 THEN 1 WHEN 0 / 0 THEN 2 END",
+                "CASE unbound_long WHEN 1 THEN 1 WHEN cast(fail() as bigint) THEN 2 END");
+
+        assertOptimizedMatches("CASE unbound_boolean WHEN true THEN 1 ELSE 0 / 0 END",
+                "CASE unbound_boolean WHEN true THEN 1 ELSE cast(fail() as bigint) END");
+
+        assertOptimizedMatches("CASE bound_long WHEN unbound_long THEN 1 WHEN 0 / 0 THEN 2 ELSE 1 END",
+                "CASE 1234 WHEN unbound_long THEN 1 WHEN cast(fail() as bigint) THEN 2 ELSE 1 END");
+
         assertOptimizedEqualsSelf("case when unbound_boolean then 1 when 0 / 0 = 0 then 2 end");
         assertOptimizedEqualsSelf("case when unbound_boolean then 1 else 0 / 0  end");
         assertOptimizedEqualsSelf("case when unbound_boolean then 0 / 0 else 1 end");
@@ -914,6 +987,16 @@ public class TestExpressionInterpreter
         assertEquals(optimize(expression), SQL_PARSER.createExpression(expression));
     }
 
+    private static void assertOptimizedMatches(@Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        // replaces FunctionCalls to FailureFunction by fail()
+        Object actualOptimized = optimize(actual);
+        if (actualOptimized instanceof Expression) {
+            actualOptimized = ExpressionTreeRewriter.rewriteWith(new FailedFunctionRewriter(), (Expression) actualOptimized);
+        }
+        assertEquals(actualOptimized, SQL_PARSER.createExpression(expected));
+    }
+
     private static Object optimize(@Language("SQL") String expression)
     {
         assertRoundTrip(expression);
@@ -970,5 +1053,18 @@ public class TestExpressionInterpreter
         ExpressionInterpreter interpreter = expressionInterpreter(expression, METADATA, TEST_SESSION, expressionTypes);
 
         return interpreter.evaluate((RecordCursor) null);
+    }
+
+    private static class FailedFunctionRewriter
+            extends ExpressionRewriter<Object>
+    {
+        @Override
+        public Expression rewriteFunctionCall(FunctionCall node, Object context, ExpressionTreeRewriter<Object> treeRewriter)
+        {
+            if (node.getName().equals(QualifiedName.of("fail"))) {
+                return new FunctionCall(QualifiedName.of("fail"), ImmutableList.of());
+            }
+            return node;
+        }
     }
 }
