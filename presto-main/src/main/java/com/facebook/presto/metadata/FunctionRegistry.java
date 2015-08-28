@@ -79,6 +79,7 @@ import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.ColorOperators;
 import com.facebook.presto.type.DateOperators;
 import com.facebook.presto.type.DateTimeOperators;
+import com.facebook.presto.type.DecimalOperators;
 import com.facebook.presto.type.DoubleOperators;
 import com.facebook.presto.type.HyperLogLogOperators;
 import com.facebook.presto.type.IntervalDayTimeOperators;
@@ -208,6 +209,9 @@ import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_DOUBLE_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_VARCHAR_CAST;
 import static com.facebook.presto.type.DecimalCasts.DOUBLE_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.VARCHAR_TO_DECIMAL_CAST;
+import static com.facebook.presto.type.DecimalOperators.DECIMAL_DIVIDE_OPERATOR;
+import static com.facebook.presto.type.DecimalOperators.DECIMAL_MODULUS_OPERATOR;
+import static com.facebook.presto.type.DecimalOperators.DECIMAL_MULTIPLY_OPERATOR;
 import static com.facebook.presto.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -352,6 +356,7 @@ public class FunctionRegistry
                 .scalar(CombineHashFunction.class)
                 .scalar(JsonOperators.class)
                 .scalar(FailureFunction.class)
+                .scalar(DecimalOperators.class)
                 .functions(IDENTITY_CAST, CAST_FROM_UNKNOWN)
                 .functions(ARRAY_CONTAINS, ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
                 .functions(ARRAY_MIN, ARRAY_MAX)
@@ -362,6 +367,7 @@ public class FunctionRegistry
                 .functions(MAP_CONSTRUCTOR, MAP_CARDINALITY, MAP_SUBSCRIPT, MAP_TO_JSON, JSON_TO_MAP, MAP_KEYS, MAP_VALUES)
                 .functions(MAP_AGG, MULTIMAP_AGG)
                 .functions(DECIMAL_TO_VARCHAR_CAST, BOOLEAN_TO_DECIMAL_CAST, DECIMAL_TO_BIGINT_CAST, DOUBLE_TO_DECIMAL_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_BOOLEAN_CAST, BIGINT_TO_DECIMAL_CAST, VARCHAR_TO_DECIMAL_CAST)
+                .functions(DECIMAL_MULTIPLY_OPERATOR, DECIMAL_DIVIDE_OPERATOR, DECIMAL_MODULUS_OPERATOR)
                 .function(HISTOGRAM)
                 .function(CHECKSUM_AGGREGATION)
                 .function(VARCHAR_TO_VARCHAR_CAST)
