@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
@@ -66,13 +67,19 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.LikeFunctions;
+import com.facebook.presto.util.Failures;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.airlift.joni.Regex;
+import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import org.jetbrains.annotations.NotNull;
+
+import javax.ws.rs.HEAD;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -97,6 +104,7 @@ import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.any;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public class ExpressionInterpreter
 {
@@ -360,38 +368,72 @@ public class ExpressionInterpreter
             return result;
         }
 
+        private Object processWithExceptionHandling(Expression expression, Object context)
+        {
+            if (expression == null) {
+                return null;
+            }
+
+            try {
+                return process(expression, context);
+            }
+            catch (RuntimeException e) {
+                // HACK
+                // Certain operations like 0 / 0 or likeExpression may throw exceptions.
+                // Wrap them a FunctionCall that will throw the exception if the expression is actually executed
+                return createFailureFunction(e, type(expression));
+            }
+        }
+
         @Override
         protected Object visitSimpleCaseExpression(SimpleCaseExpression node, Object context)
         {
-            Object operand = process(node.getOperand(), context);
+            Object operand = processWithExceptionHandling(node.getOperand(), context);
+            Type operandType = type(node.getOperand());
+
+            // evaluate defaultClause
+            Expression defaultClause = node.getDefaultValue().orElse(null);
+            Object defaultResult = processWithExceptionHandling(defaultClause, context);
+
+            // if operand is null, return defaultValue
             if (operand == null) {
-                return node.getDefaultValue().map(defaultValue -> process(defaultValue, context)).orElse(null);
-            }
-            else if (operand instanceof Expression) {
-                return node;
+                return defaultResult;
             }
 
             List<WhenClause> whenClauses = new ArrayList<>();
-            Expression defaultClause = node.getDefaultValue().orElse(null);
             for (WhenClause whenClause : node.getWhenClauses()) {
-                Object value = process(whenClause.getOperand(), context);
-                if (value != null) {
-                    if (value instanceof Expression) {
-                        whenClauses.add(whenClause);
-                    }
-                    else if ((Boolean) invokeOperator(OperatorType.EQUAL, types(node.getOperand(), whenClause.getOperand()), ImmutableList.of(operand, value))) {
-                        defaultClause = whenClause.getResult();
-                        break;
-                    }
+                Object whenOperand = processWithExceptionHandling(whenClause.getOperand(), context);
+                Object result = processWithExceptionHandling(whenClause.getResult(), context);
+
+                if (whenOperand instanceof Expression || operand instanceof Expression) {
+                    // cannot fully evaluate, add updated whenClause
+                    whenClauses.add(new WhenClause(
+                            toExpression(whenOperand, type(whenClause.getOperand())),
+                            toExpression(result, type(whenClause.getResult()))));
+                }
+                else if (whenOperand != null && isEqual(operand, operandType, whenOperand, type(whenClause.getOperand()))) {
+                    // condition is true, use this as defaultResult
+                    defaultResult = result;
+                    break;
                 }
             }
 
             if (whenClauses.isEmpty()) {
-                return defaultClause == null ? null : process(defaultClause, context);
+                return defaultResult;
             }
-            else {
-                return new SimpleCaseExpression(node.getOperand(), whenClauses, Optional.ofNullable(defaultClause));
-            }
+
+            Expression defaultExpression = (defaultResult == null) ? null : toExpression(defaultResult, type(node));
+            return new SimpleCaseExpression(toExpression(operand, type(node.getOperand())), whenClauses, Optional.ofNullable(defaultExpression));
+        }
+
+        private boolean isEqual(Object operand1, Type type1, Object operand2, Type type2)
+        {
+            return (Boolean) invokeOperator(OperatorType.EQUAL, ImmutableList.of(type1, type2), ImmutableList.of(operand1, operand2));
+        }
+
+        private Type type(Expression expression)
+        {
+            return expressionTypes.get(expression);
         }
 
         @Override
@@ -965,6 +1007,19 @@ public class ExpressionInterpreter
             }
             throw Throwables.propagate(throwable);
         }
+    }
+
+    @VisibleForTesting
+    @NotNull
+    public static Expression createFailureFunction(RuntimeException exception, Type type)
+    {
+        requireNonNull(exception, "Exception is null");
+
+        String failureInfo = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(exception).toFailureInfo());
+        FunctionCall jsonParse = new FunctionCall(QualifiedName.of("json_parse"), ImmutableList.of(new StringLiteral(failureInfo)));
+        FunctionCall failureFunction = new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(jsonParse));
+
+        return new Cast(failureFunction, type.getTypeSignature().toString());
     }
 
     private static boolean isNullLiteral(Expression entry)

@@ -95,6 +95,8 @@ public final class LiteralInterpreter
 
     public static Expression toExpression(Object object, Type type)
     {
+        checkNotNull(type, "type is null");
+
         if (object instanceof Expression) {
             return (Expression) object;
         }
