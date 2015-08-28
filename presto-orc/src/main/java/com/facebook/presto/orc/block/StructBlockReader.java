@@ -19,6 +19,7 @@ import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
@@ -45,8 +46,10 @@ public class StructBlockReader
     @Nullable
     private BooleanStream presentStream;
 
-    public StructBlockReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone)
+    public StructBlockReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone, Type type)
     {
+        checkNotNull(type, "type is null");
+
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
         this.checkForNulls = checkForNulls;
 
@@ -54,7 +57,7 @@ public class StructBlockReader
         this.structFields = new BlockReader[nestedStreams.size()];
         for (int i = 0; i < nestedStreams.size(); i++) {
             StreamDescriptor nestedStream = nestedStreams.get(i);
-            this.structFields[i] = createBlockReader(nestedStream, true, hiveStorageTimeZone);
+            this.structFields[i] = createBlockReader(nestedStream, true, hiveStorageTimeZone, type.getTypeParameters().get(i));
         }
     }
 

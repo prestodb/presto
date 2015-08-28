@@ -33,6 +33,8 @@ import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.LazyFixedWidthBlock;
 import com.facebook.presto.spi.block.LazySliceArrayBlock;
 import com.facebook.presto.spi.type.FixedWidthType;
+import com.facebook.presto.spi.type.LongDecimalType;
+import com.facebook.presto.spi.type.ShortDecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
@@ -260,6 +262,12 @@ public class OrcPageSource
                     blocks[fieldId] = new LazyFixedWidthBlock(DOUBLE.getFixedSize(), batchSize, new LazyDoubleBlockLoader(hiveColumnIndexes[fieldId], batchSize));
                 }
                 else if (VARCHAR.equals(type) || VARBINARY.equals(type) || isStructuralType[fieldId]) {
+                    blocks[fieldId] = new LazySliceArrayBlock(batchSize, new LazySliceBlockLoader(hiveColumnIndexes[fieldId], batchSize));
+                }
+                else if (type instanceof ShortDecimalType) {
+                    blocks[fieldId] = new LazyFixedWidthBlock(((FixedWidthType) type).getFixedSize(), batchSize, new LazyLongBlockLoader(hiveColumnIndexes[fieldId], batchSize));
+                }
+                else if (type instanceof LongDecimalType) {
                     blocks[fieldId] = new LazySliceArrayBlock(batchSize, new LazySliceBlockLoader(hiveColumnIndexes[fieldId], batchSize));
                 }
                 else {

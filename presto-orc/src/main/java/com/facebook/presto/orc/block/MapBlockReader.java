@@ -21,6 +21,7 @@ import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -53,13 +54,15 @@ public class MapBlockReader
     @Nullable
     private LongStream lengthStream;
 
-    public MapBlockReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone)
+    public MapBlockReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone, Type type)
     {
+        checkNotNull(type, "type is null");
+
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
         this.checkForNulls = checkForNulls;
 
-        keyReader = createBlockReader(streamDescriptor.getNestedStreams().get(0), true, hiveStorageTimeZone);
-        valueReader = createBlockReader(streamDescriptor.getNestedStreams().get(1), true, hiveStorageTimeZone);
+        keyReader = createBlockReader(streamDescriptor.getNestedStreams().get(0), true, hiveStorageTimeZone, type.getTypeParameters().get(0));
+        valueReader = createBlockReader(streamDescriptor.getNestedStreams().get(1), true, hiveStorageTimeZone, type.getTypeParameters().get(1));
     }
 
     @Override

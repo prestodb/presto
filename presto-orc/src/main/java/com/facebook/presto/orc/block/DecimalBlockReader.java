@@ -16,83 +16,77 @@ package com.facebook.presto.orc.block;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
+import com.facebook.presto.orc.reader.DecimalStreamReader;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.orc.stream.UnboundedIntegerStream;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import org.joda.time.DateTimeZone;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.LongDecimalType;
 
 import javax.annotation.Nullable;
+
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.List;
 
-import static com.facebook.presto.orc.block.BlockReaders.createBlockReader;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
+import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class ListBlockReader
+public class DecimalBlockReader
         implements BlockReader
 {
-    private final DynamicSliceOutput out = new DynamicSliceOutput(1024);
-
     private final StreamDescriptor streamDescriptor;
-    private final boolean checkForNulls;
-
-    private final BlockReader elementReader;
+    private final DecimalType type;
 
     @Nullable
     private BooleanStream presentStream;
-
     @Nullable
-    private LongStream lengthStream;
+    private UnboundedIntegerStream unboundedIntegerStream;
+    @Nullable
+    private LongStream scaleStream;
 
-    public ListBlockReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone, Type type)
+    public DecimalBlockReader(StreamDescriptor streamDescriptor, DecimalType type)
     {
-        checkNotNull(type, "type is null");
-
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-        this.checkForNulls = checkForNulls;
-
-        elementReader = createBlockReader(streamDescriptor.getNestedStreams().get(0), true, hiveStorageTimeZone, type.getTypeParameters().get(0));
+        this.type = checkNotNull(type, "type is null");
     }
 
     @Override
     public boolean readNextValueInto(BlockBuilder builder, boolean skipNull)
             throws IOException
     {
-        out.reset();
-
         if (presentStream != null && !presentStream.nextBit()) {
             if (!skipNull) {
-                checkNotNull(builder, "parent builder is null").appendNull();
+                builder.appendNull();
                 return true;
             }
             return false;
         }
 
-        if (lengthStream == null) {
-            throw new OrcCorruptionException("Value is not null but length stream is not present");
+        if (unboundedIntegerStream == null) {
+            throw new OrcCorruptionException("Value is not null but unbounded integer stream is not present");
+        }
+        if (scaleStream == null) {
+            throw new OrcCorruptionException("Value is not null but scale stream is not present");
         }
 
-        long length = lengthStream.next();
-        BlockBuilder currentBuilder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), Ints.checkedCast(length));
-        for (int i = 0; i < length; i++) {
-            elementReader.readNextValueInto(currentBuilder, false);
+        long scale = scaleStream.next();
+        if (type.isShort()) {
+            long unboundedInteger = unboundedIntegerStream.nextLong();
+            unboundedInteger = DecimalStreamReader.rescale(unboundedInteger, (int) scale, type.getScale());
+            type.writeLong(builder, unboundedInteger);
+        }
+        else {
+            BigInteger unboundedInteger = unboundedIntegerStream.nextBigInteger();
+            unboundedInteger = DecimalStreamReader.rescale(unboundedInteger, (int) scale, type.getScale());
+            type.writeSlice(builder, LongDecimalType.unscaledValueToSlice(unboundedInteger));
         }
 
-        currentBuilder.getEncoding().writeBlock(out, currentBuilder.build());
-
-        if (builder != null) {
-            VARBINARY.writeSlice(builder, out.copySlice());
-        }
         return true;
     }
 
@@ -109,12 +103,16 @@ public class ListBlockReader
             return;
         }
 
-        if (lengthStream == null) {
-            throw new OrcCorruptionException("Value is not null but length stream is not present");
+        if (unboundedIntegerStream == null) {
+            throw new OrcCorruptionException("Value is not null but unbounded integer stream is not present");
+        }
+        if (scaleStream == null) {
+            throw new OrcCorruptionException("Value is not null but scale stream is not present");
         }
 
-        long elementSkipSize = lengthStream.sum(skipSize);
-        elementReader.skip(Ints.checkedCast(elementSkipSize));
+        // skip non-null values
+        unboundedIntegerStream.skip(skipSize);
+        scaleStream.skip(skipSize);
     }
 
     @Override
@@ -122,27 +120,17 @@ public class ListBlockReader
             throws IOException
     {
         presentStream = null;
-        lengthStream = null;
-
-        elementReader.openStripe(dictionaryStreamSources, encoding);
+        unboundedIntegerStream = null;
+        scaleStream = null;
     }
 
     @Override
     public void openRowGroup(StreamSources dataStreamSources)
             throws IOException
     {
-        if (checkForNulls) {
-            presentStream = dataStreamSources.getStreamSource(streamDescriptor, PRESENT, BooleanStream.class).openStream();
-        }
-        lengthStream = dataStreamSources.getStreamSource(streamDescriptor, LENGTH, LongStream.class).openStream();
-
-        elementReader.openRowGroup(dataStreamSources);
-    }
-
-    @Override
-    public Slice toSlice()
-    {
-        return out.copySlice();
+        presentStream = dataStreamSources.getStreamSource(streamDescriptor, PRESENT, BooleanStream.class).openStream();
+        unboundedIntegerStream = dataStreamSources.getStreamSource(streamDescriptor, DATA, UnboundedIntegerStream.class).openStream();
+        scaleStream = dataStreamSources.getStreamSource(streamDescriptor, SECONDARY, LongStream.class).openStream();
     }
 
     @Override

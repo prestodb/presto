@@ -14,6 +14,7 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ContiguousSet;
@@ -21,6 +22,9 @@ import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import com.google.common.primitives.Shorts;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -61,6 +65,25 @@ import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestOrcReader
 {
+    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_2 =
+            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(2, 1));
+    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_4 =
+            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(4, 2));
+    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_8 =
+            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(8, 4));
+    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_17 =
+            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(17, 8));
+    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_18 =
+            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(18, 8));
+    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_38 =
+            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(38, 16));
+
+    private static final DecimalType DECIMAL_TYPE_PRECISION_2 = DecimalType.createDecimalType(2, 1);
+    private static final DecimalType DECIMAL_TYPE_PRECISION_4 = DecimalType.createDecimalType(4, 2);
+    private static final DecimalType DECIMAL_TYPE_PRECISION_17 = DecimalType.createDecimalType(17, 4);
+    private static final DecimalType DECIMAL_TYPE_PRECISION_18 = DecimalType.createDecimalType(18, 8);
+    private static final DecimalType DECIMAL_TYPE_PRECISION_38 = DecimalType.createDecimalType(38, 16);
+
     private final OrcTester tester;
 
     public AbstractTestOrcReader(OrcTester tester)
@@ -177,6 +200,18 @@ public abstract class AbstractTestOrcReader
             throws Exception
     {
         tester.testRoundTrip(javaDoubleObjectInspector, doubleSequence(0, 0.1, 30_000), DOUBLE);
+    }
+
+    @Test
+    public void testDecimalSequence()
+            throws Exception
+    {
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_2, decimalSequqnce("0.0", "0.1", 30), DECIMAL_TYPE_PRECISION_2);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_4, decimalSequqnce("00.00", "00.01", 30_00), DECIMAL_TYPE_PRECISION_4);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_8, decimalSequqnce("0000.0000", "0000.0100", 30_000), DECIMAL_TYPE_PRECISION_4);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_17, decimalSequqnce("000000000.00000000", "000000000.01000000", 30_000), DECIMAL_TYPE_PRECISION_17);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_18, decimalSequqnce("0000000000.00000000", "0000000000.01000000", 30_000), DECIMAL_TYPE_PRECISION_18);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_38, decimalSequqnce("0.0000000000000000", "0.0100000000000000", 30_000), DECIMAL_TYPE_PRECISION_38);
     }
 
     @Test
@@ -359,6 +394,25 @@ public abstract class AbstractTestOrcReader
                 }
                 item++;
                 return previous + step;
+            }
+        };
+    }
+
+    private static Iterable<HiveDecimal> decimalSequqnce(String start, String step, int items)
+    {
+        HiveDecimal hiveStep = HiveDecimal.create(step);
+        return () -> new AbstractSequentialIterator<HiveDecimal>(HiveDecimal.create(start))
+        {
+            private int item;
+
+            @Override
+            protected HiveDecimal computeNext(HiveDecimal previous)
+            {
+                if (item >= items) {
+                    return null;
+                }
+                item++;
+                return previous.add(hiveStep);
             }
         };
     }

@@ -21,6 +21,7 @@ import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nonnull;
@@ -62,10 +63,10 @@ public class BlockStreamReader
 
     private List<ColumnEncoding> encoding;
 
-    public BlockStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+    public BlockStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, Type type)
     {
         this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-        this.blockReader = createBlockReader(streamDescriptor, false, hiveStorageTimeZone);
+        this.blockReader = createBlockReader(streamDescriptor, false, hiveStorageTimeZone, type);
     }
 
     @Override

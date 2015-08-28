@@ -18,6 +18,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
@@ -72,6 +73,8 @@ public final class TestingOrcPredicate
                 return new BasicOrcPredicate<>(expectedValues, Object.class);
             case STRING:
                 return new StringOrcPredicate(expectedValues);
+            case DECIMAL:
+                return new DecimalOrcPredicate(expectedValues);
             default:
                 throw new IllegalArgumentException("Unsupported types " + primitiveCategory);
         }
@@ -205,9 +208,17 @@ public final class TestingOrcPredicate
                 if (!columnStatistics.getDoubleStatistics().getMax().equals(Ordering.natural().nullsFirst().max(chunk))) {
                     return false;
                 }
-
             }
             return true;
+        }
+    }
+
+    private static class DecimalOrcPredicate
+            extends BasicOrcPredicate<HiveDecimal>
+    {
+        public DecimalOrcPredicate(Iterable<?> expectedValues)
+        {
+            super(expectedValues, HiveDecimal.class);
         }
     }
 

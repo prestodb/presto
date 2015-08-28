@@ -22,6 +22,9 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import com.facebook.presto.spi.type.AbstractVariableWidthType;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.LongDecimalType;
+import com.facebook.presto.spi.type.ShortDecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Function;
@@ -37,6 +40,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
@@ -62,6 +66,7 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -315,6 +320,10 @@ public class OrcTester
                     // DWRF doesn't support dates
                     return;
                 }
+                if (hasType(objectInspector, PrimitiveCategory.DECIMAL)) {
+                    // DWRF doesn't support decimals
+                    return;
+                }
                 metadataReader = new DwrfMetadataReader();
             }
             else {
@@ -351,7 +360,7 @@ public class OrcTester
         assertEquals(recordReader.getReaderPosition(), 0);
         assertEquals(recordReader.getFilePosition(), 0);
 
-        Vector vector = createResultsVector(objectInspector);
+        Vector vector = createResultsVector(objectInspector, type);
 
         boolean isFirst = true;
         int rowsProcessed = 0;
@@ -371,8 +380,15 @@ public class OrcTester
                 for (int i = 0; i < batchSize; i++) {
                     assertTrue(iterator.hasNext());
                     Object expected = iterator.next();
-
                     Object actual = objectVector.vector[i];
+
+                    if (type instanceof ShortDecimalType && actual != null) {
+                        actual = HiveDecimal.create(BigInteger.valueOf((Long) actual), ((DecimalType) type).getScale());
+                    }
+                    else if (type instanceof LongDecimalType && actual != null) {
+                        actual = HiveDecimal.create(LongDecimalType.unscaledValueToBigInteger((Slice) actual), ((DecimalType) type).getScale());
+                    }
+
                     if (actual instanceof Slice) {
                         actual = decodeSlice(type, (Slice) actual);
                     }
@@ -393,7 +409,7 @@ public class OrcTester
         recordReader.close();
     }
 
-    private static Vector createResultsVector(ObjectInspector objectInspector)
+    private static Vector createResultsVector(ObjectInspector objectInspector, Type type)
     {
         if (!(objectInspector instanceof PrimitiveObjectInspector)) {
             return new SliceVector(MAX_VECTOR_LENGTH);
@@ -418,6 +434,14 @@ public class OrcTester
             case BINARY:
             case STRING:
                 return new SliceVector(MAX_VECTOR_LENGTH);
+            case DECIMAL:
+                DecimalType decimalType = (DecimalType) type;
+                if (decimalType.isShort()) {
+                    return new LongVector(MAX_VECTOR_LENGTH);
+                }
+                else {
+                    return new SliceVector(MAX_VECTOR_LENGTH);
+                }
             default:
                 throw new IllegalArgumentException("Unsupported types " + primitiveCategory);
         }
@@ -547,7 +571,8 @@ public class OrcTester
                 Text.class,
                 compressionCodec != NONE,
                 createTableProperties("test", columnObjectInspector.getTypeName()),
-                () -> { }
+                () -> {
+                }
         );
     }
 
@@ -710,6 +735,14 @@ public class OrcTester
         if (block.isNull(position)) {
             return null;
         }
+
+        if (type instanceof ShortDecimalType) {
+            return HiveDecimal.create(BigInteger.valueOf(type.getLong(block, position)), ((DecimalType) type).getScale());
+        }
+        else if (type instanceof LongDecimalType) {
+            return HiveDecimal.create(LongDecimalType.unscaledValueToBigInteger(type.getSlice(block, position)), ((DecimalType) type).getScale());
+        }
+
         Class<?> javaType = type.getJavaType();
         if (javaType == boolean.class) {
             return type.getBoolean(block, position);
