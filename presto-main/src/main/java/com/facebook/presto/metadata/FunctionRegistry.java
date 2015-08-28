@@ -200,6 +200,14 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
+import static com.facebook.presto.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
+import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
+import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BOOLEAN_CAST;
+import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_DOUBLE_CAST;
+import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_VARCHAR_CAST;
+import static com.facebook.presto.type.DecimalCasts.DOUBLE_TO_DECIMAL_CAST;
+import static com.facebook.presto.type.DecimalCasts.VARCHAR_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
@@ -352,6 +360,7 @@ public class FunctionRegistry
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_ELEMENT_AT_FUNCTION, ARRAY_CARDINALITY, ARRAY_POSITION, ARRAY_SORT_FUNCTION, ARRAY_INTERSECT_FUNCTION, ARRAY_TO_JSON, JSON_TO_ARRAY, ARRAY_DISTINCT_FUNCTION, ARRAY_REMOVE_FUNCTION, ARRAY_SLICE_FUNCTION)
                 .functions(MAP_CONSTRUCTOR, MAP_CARDINALITY, MAP_SUBSCRIPT, MAP_TO_JSON, JSON_TO_MAP, MAP_KEYS, MAP_VALUES)
                 .functions(MAP_AGG, MULTIMAP_AGG)
+                .functions(DECIMAL_TO_VARCHAR_CAST, BOOLEAN_TO_DECIMAL_CAST, DECIMAL_TO_BIGINT_CAST, DOUBLE_TO_DECIMAL_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_BOOLEAN_CAST, BIGINT_TO_DECIMAL_CAST, VARCHAR_TO_DECIMAL_CAST)
                 .function(HISTOGRAM)
                 .function(CHECKSUM_AGGREGATION)
                 .function(VARCHAR_TO_VARCHAR_CAST)
@@ -809,41 +818,41 @@ public class FunctionRegistry
         return OperatorType.valueOf(mangledName.substring(OPERATOR_PREFIX.length()));
     }
 
-private static class FunctionMap
-{
-    private final Multimap<QualifiedName, SqlFunction> functions;
-
-    public FunctionMap()
+    private static class FunctionMap
     {
-        functions = ImmutableListMultimap.of();
-    }
+        private final Multimap<QualifiedName, SqlFunction> functions;
 
-    public FunctionMap(FunctionMap map, Iterable<? extends SqlFunction> functions)
-    {
-        this.functions = ImmutableListMultimap.<QualifiedName, SqlFunction>builder()
-                .putAll(map.functions)
-                .putAll(Multimaps.index(functions, function -> QualifiedName.of(function.getSignature().getName())))
-                .build();
+        public FunctionMap()
+        {
+            functions = ImmutableListMultimap.of();
+        }
 
-        // Make sure all functions with the same name are aggregations or none of them are
-        for (Map.Entry<QualifiedName, Collection<SqlFunction>> entry : this.functions.asMap().entrySet()) {
-            Collection<SqlFunction> values = entry.getValue();
-            long aggregations = values.stream()
-                    .map(function -> function.getSignature().getKind())
-                    .filter(kind -> kind == AGGREGATE || kind == APPROXIMATE_AGGREGATE)
-                    .count();
-            checkState(aggregations == 0 || aggregations == values.size(), "'%s' is both an aggregation and a scalar function", entry.getKey());
+        public FunctionMap(FunctionMap map, Iterable<? extends SqlFunction> functions)
+        {
+            this.functions = ImmutableListMultimap.<QualifiedName, SqlFunction>builder()
+                    .putAll(map.functions)
+                    .putAll(Multimaps.index(functions, function -> QualifiedName.of(function.getSignature().getName())))
+                    .build();
+
+            // Make sure all functions with the same name are aggregations or none of them are
+            for (Map.Entry<QualifiedName, Collection<SqlFunction>> entry : this.functions.asMap().entrySet()) {
+                Collection<SqlFunction> values = entry.getValue();
+                long aggregations = values.stream()
+                        .map(function -> function.getSignature().getKind())
+                        .filter(kind -> kind == AGGREGATE || kind == APPROXIMATE_AGGREGATE)
+                        .count();
+                checkState(aggregations == 0 || aggregations == values.size(), "'%s' is both an aggregation and a scalar function", entry.getKey());
+            }
+        }
+
+        public List<SqlFunction> list()
+        {
+            return ImmutableList.copyOf(functions.values());
+        }
+
+        public Collection<SqlFunction> get(QualifiedName name)
+        {
+            return functions.get(name);
         }
     }
-
-    public List<SqlFunction> list()
-    {
-        return ImmutableList.copyOf(functions.values());
-    }
-
-    public Collection<SqlFunction> get(QualifiedName name)
-    {
-        return functions.get(name);
-    }
-}
 }
