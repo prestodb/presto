@@ -19,7 +19,6 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
@@ -45,7 +44,7 @@ public class TestPolymorphicScalarFunction
             .kind(SCALAR)
             .returnType("bigint")
             .argumentTypes("varchar(x)")
-            .literalParameters(ImmutableSet.of("x"))
+            .literalParameters("x")
             .build();
     private static final int INPUT_VARCHAR_LENGTH = 10;
     private static final String INPUT_VARCHAR_SIGNATURE = "varchar(" + INPUT_VARCHAR_LENGTH + ")";
@@ -125,7 +124,7 @@ public class TestPolymorphicScalarFunction
                 .kind(SCALAR)
                 .returnType("varchar(x)")
                 .argumentTypes("varchar(x)")
-                .literalParameters(ImmutableSet.of("x"))
+                .literalParameters("x")
                 .build();
 
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
@@ -168,7 +167,7 @@ public class TestPolymorphicScalarFunction
                 .kind(SCALAR)
                 .returnType("varchar(x)")
                 .argumentTypes("varchar(x)")
-                .literalParameters(ImmutableSet.of("x"))
+                .literalParameters("x")
                 .build();
 
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
