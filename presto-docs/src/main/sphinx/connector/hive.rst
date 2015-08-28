@@ -80,17 +80,23 @@ Property Name                                      Description                  
                                                    machines running Presto. Only specify this if
                                                    absolutely necessary to access HDFS.
 
-``hive.storage-format``                            The default file format used when creating new tables        ``RCBINARY``
+``hive.storage-format``                            The default file format used when creating new tables. The   ``RCBINARY``
+                                                   default value is ``RCBINARY``.
 
 ``hive.force-local-scheduling``                    Force splits to be scheduled on the same node as the Hadoop  ``true``
                                                    DataNode process serving the split data.  This is useful for
                                                    installations where Presto is collocated with every
-                                                   DataNode.
+                                                   DataNode. The default value is ``false``.
+
+``hive.allow-drop-table``                          Allows the Hive connector to drop tables. The default value  ``true``
+                                                   is ``false``.
+
+``hive.allow-rename-table``                        Allows the Hive connector to rename tables. The default      ``true``
+                                                   value is ``false``.
 ================================================== ============================================================ ==========
 
 Querying Hive Tables
 --------------------
-
 The following table is an example Hive table from the `Hive Tutorial`_.
 It can be created in Hive (not in Presto) using the following
 Hive ``CREATE TABLE`` command:
