@@ -70,22 +70,28 @@ Configuration Properties
 ------------------------
 
 ================================================== ============================================================ ==========
-Property Name                                      Description                                                  Example
+Property Name                                      Description                                                  Default
 ================================================== ============================================================ ==========
-``hive.metastore.uri``                             The URI of the Hive Metastore to connect to using            ``thrift://192.0.2.3:9083``
+``hive.metastore.uri``                             The URI of the Hive Metastore to connect to using
                                                    the Thrift protocol. This property is required.
+                                                   Example: ``thrift://192.0.2.3:9083``
 
-``hive.config.resources``                          An optional comma-separated list of HDFS                     ``/etc/hdfs-site.xml``
+``hive.config.resources``                          An optional comma-separated list of HDFS
                                                    configuration files. These files must exist on the
                                                    machines running Presto. Only specify this if
                                                    absolutely necessary to access HDFS.
+                                                   Example: ``/etc/hdfs-site.xml``
 
-``hive.storage-format``                            The default file format used when creating new tables        ``RCBINARY``
+``hive.storage-format``                            The default file format used when creating new tables.       ``RCBINARY``
 
-``hive.force-local-scheduling``                    Force splits to be scheduled on the same node as the Hadoop  ``true``
+``hive.force-local-scheduling``                    Force splits to be scheduled on the same node as the Hadoop  ``false``
                                                    DataNode process serving the split data.  This is useful for
                                                    installations where Presto is collocated with every
                                                    DataNode.
+
+``hive.allow-drop-table``                          Allow the Hive connector to drop tables.                     ``false``
+
+``hive.allow-rename-table``                        Allow the Hive connector to rename tables.                   ``false``
 ================================================== ============================================================ ==========
 
 Querying Hive Tables
