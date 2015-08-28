@@ -269,6 +269,7 @@ public class OperatorContext
         long newReservation = memoryReservation.addAndGet(bytes);
         if (newReservation > maxMemoryReservation) {
             memoryReservation.getAndAdd(-bytes);
+            driverContext.freeMemory(bytes);
             return false;
         }
         return true;
