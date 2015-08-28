@@ -42,6 +42,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.any;
 import static java.util.Objects.requireNonNull;
 
 public final class Signature
@@ -98,7 +99,7 @@ public final class Signature
         this(name, type, returnType, ImmutableList.copyOf(argumentTypes));
     }
 
-    public static Signature internalOperator(OperatorType operator, Type returnType, List<? extends  Type> argumentTypes)
+    public static Signature internalOperator(OperatorType operator, Type returnType, List<? extends Type> argumentTypes)
     {
         return internalScalarFunction(mangleOperatorName(operator.name()), returnType.getTypeSignature(), argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList()));
     }
@@ -171,20 +172,27 @@ public final class Signature
 
     public Signature resolveCalculatedTypes(List<TypeSignature> parameterTypes)
     {
-        if (!returnType.isCalculated() && argumentTypes.stream().noneMatch(TypeSignature::isCalculated)) {
+        if (isReturnTypeOrAnyArgumentTypeCalculated()) {
             return this;
         }
 
-        Map<String, OptionalLong> inputs = new HashMap<>();
+        Map<String, OptionalLong> inputs = bindLiteralParameters(parameterTypes);
+        TypeSignature calculatedReturnType = TypeUtils.resolveCalculatedType(returnType, inputs);
+        return new Signature(name, type, calculatedReturnType, parameterTypes);
+    }
+
+    public Map<String, OptionalLong> bindLiteralParameters(List<TypeSignature> parameterTypes)
+    {
+        Map<String, OptionalLong> boundParameters = new HashMap<>();
+
         for (int index = 0; index < argumentTypes.size(); index++) {
             TypeSignature argument = argumentTypes.get(index);
             if (argument.isCalculated()) {
                 TypeSignature actualParameter = parameterTypes.get(index);
-                inputs.putAll(TypeUtils.extractCalculationInputs(argument, actualParameter));
+                boundParameters.putAll(TypeUtils.extractCalculationInputs(argument, actualParameter));
             }
         }
-        TypeSignature calculatedReturnType = TypeUtils.resolveCalculatedType(returnType, inputs);
-        return new Signature(name, type, calculatedReturnType, parameterTypes);
+        return boundParameters;
     }
 
     @Override
@@ -266,6 +274,11 @@ public final class Signature
         checkState(boundParameters.keySet().equals(parameters.keySet()), "%s matched arguments %s, but type parameters %s are still unbound", this, types, Sets.difference(parameters.keySet(), boundParameters.keySet()));
 
         return boundParameters;
+    }
+
+    private boolean isReturnTypeOrAnyArgumentTypeCalculated()
+    {
+        return !returnType.isCalculated() && !any(argumentTypes, TypeSignature::isCalculated);
     }
 
     private static boolean matchArguments(

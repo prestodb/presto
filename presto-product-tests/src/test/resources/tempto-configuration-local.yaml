@@ -1,0 +1,9 @@
+databases:
+  hive:
+    host: hadoop-master
+    #host: 172.17.0.1
+    jdbc_jar: /Users/losipiuk/workspace/presto-hive-jdbc/target/hive-apache-jdbc-0.13.1-1-SNAPSHOT.jar
+    #jdbc_jar: /Users/losipiuk/workspace/presto-hive-apache/hive-apache-jdbc/target/hive-apache-jdbc-0-13-1-0.15-SNAPSHOT.jar
+
+  presto:
+    host: localhost

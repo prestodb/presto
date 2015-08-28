@@ -15,7 +15,9 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 
+import java.util.List;
 import java.util.Map;
 
 public interface ParametricFunction
@@ -29,5 +31,5 @@ public interface ParametricFunction
     String getDescription();
 
     // TODO: This should really return an object with just the MethodHandle/InternalAggregation...etc. However, due to the magic literal hack this is not possible
-    FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry);
+    FunctionInfo specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry);
 }

@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.RowType;
 import com.facebook.presto.util.Reflection;
 import com.google.common.collect.ImmutableList;
@@ -27,6 +28,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -105,7 +107,7 @@ public class RowFieldReference
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         requireNonNull(methodHandle, "methodHandle is null");
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false));

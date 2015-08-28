@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.ParametricOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -26,6 +27,7 @@ import io.airlift.slice.Slices;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
@@ -49,9 +51,9 @@ public class VarcharToVarcharCast
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        checkArgument(arity == 1, "Expected arity to be 1");
+        checkArgument(parameterTypes.size() == 1, "Expected arity to be 1");
         VarcharType fromType = (VarcharType) types.get("F");
         VarcharType toType = (VarcharType) types.get("T");
 
