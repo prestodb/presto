@@ -221,18 +221,15 @@ public class NodeScheduler
                 queuedSplitCountByNode.put(nodeId, queuedSplitCountByNode.getOrDefault(nodeId, 0) + task.getQueuedPartitionedSplitCount());
             }
 
-            ResettableRandomizedIterator<Node> randomCandidates = null;
-            if (!locationAwareScheduling) {
-                randomCandidates = randomizedNodes();
-            }
-
+            ResettableRandomizedIterator<Node> randomCandidates = randomizedNodes();
             for (Split split : splits) {
+                randomCandidates.reset();
+
                 List<Node> candidateNodes;
                 if (locationAwareScheduling || !split.isRemotelyAccessible()) {
-                    candidateNodes = selectCandidateNodes(nodeMap.get().get(), split);
+                    candidateNodes = selectCandidateNodes(nodeMap.get().get(), split, randomCandidates);
                 }
                 else {
-                    randomCandidates.reset();
                     candidateNodes = selectNodes(minCandidates, randomCandidates);
                 }
                 checkCondition(!candidateNodes.isEmpty(), NO_NODES_AVAILABLE, "No nodes available to run query");
@@ -283,7 +280,7 @@ public class NodeScheduler
             return new ResettableRandomizedIterator<>(nodes);
         }
 
-        private List<Node> selectCandidateNodes(NodeMap nodeMap, Split split)
+        private List<Node> selectCandidateNodes(NodeMap nodeMap, Split split, ResettableRandomizedIterator<Node> randomizedIterator)
         {
             Set<Node> chosen = new LinkedHashSet<>(minCandidates);
             String coordinatorIdentifier = nodeManager.getCurrentNode().getNodeIdentifier();
@@ -344,7 +341,6 @@ public class NodeScheduler
             // add some random nodes if below the minimum count
             if (split.isRemotelyAccessible()) {
                 if (chosen.size() < minCandidates) {
-                    ResettableRandomizedIterator<Node> randomizedIterator = randomizedNodes();
                     while (randomizedIterator.hasNext()) {
                         Node node = randomizedIterator.next();
                         if (chosen.add(node)) {
