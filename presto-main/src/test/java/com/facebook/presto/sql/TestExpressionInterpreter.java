@@ -571,6 +571,38 @@ public class TestExpressionInterpreter
                         "when unbound_long = 1234 then 33 " +
                         "else 1 " +
                         "end");
+
+        assertOptimizedEquals("case " +
+                "when unbound_long = 1 then false " +
+                "when 'foo' = 'foo' then true " +
+                "else bound_boolean " +
+                "end",
+                "" +
+                        "case " +
+                        "when unbound_long = 1 then false " +
+                        "else true " +
+                        "end");
+
+        assertOptimizedEquals("case when bound_long = 1 then 1 " +
+                "when bound_date = date '2014-01-01' then 2 " +
+                "when bound_long = 1234 then 3 " +
+                "when bound_string = 'hello' then 4 " +
+                "else 0 " +
+                "end",
+                "3");
+
+        assertOptimizedEquals("case " +
+                "when unbound_long = 1 then false " +
+                "when 'foo' = 'foo' then true " +
+                "else true " +
+                "end",
+                "" +
+                        "case " +
+                        "when unbound_long = 1 then false " +
+                        "else true " +
+                        "end");
+
+        assertOptimizedEquals("case when null then 1 else 2 end", "2");
     }
 
     @Test
@@ -578,7 +610,7 @@ public class TestExpressionInterpreter
             throws Exception
     {
         assertOptimizedEquals("case 1 " +
-                "when 1 then 33 " +
+                "when 1 then 32 + 1 " +
                 "when 1 then 34 " +
                 "end",
                 "33");
@@ -691,6 +723,33 @@ public class TestExpressionInterpreter
                         "when unbound_long2 then 2 " +
                         "else 3 " +
                         "end");
+
+        assertOptimizedEquals("case true " +
+                "when unbound_long = 1 then 1 " +
+                "when 0 / 0 = 0 then 2 " +
+                "else 33 end",
+                "" +
+                        "case true " +
+                        "when unbound_long = 1 then 1 " +
+                        "when 0 / 0 = 0 then 2 else 33 " +
+                        "end");
+
+        assertOptimizedEquals("case bound_long " +
+                "when 123 * 10 + unbound_long then 1 = 1 " +
+                "else 1 = 2 " +
+                "end",
+                "" +
+                        "case bound_long when 1230 + unbound_long then true " +
+                        "else false " +
+                        "end");
+
+        assertOptimizedEquals("case bound_long " +
+                "when unbound_long then 2+2 " +
+                "end",
+                "" +
+                        "case bound_long " +
+                        "when unbound_long then 4 " +
+                        "end");
     }
 
     @Test
@@ -719,6 +778,13 @@ public class TestExpressionInterpreter
 
         // todo optimize case statement
         assertOptimizedEquals("IF(unbound_boolean, 1 + 2, 3 + 4)", "CASE WHEN unbound_boolean THEN (1 + 2) ELSE (3 + 4) END");
+    }
+
+    @Test
+    public void testCoalesce()
+            throws Exception
+    {
+        assertOptimizedEquals("coalesce(2 * 3 * unbound_long, 1 - 1, null)", "coalesce(6 * unbound_long, 0)");
     }
 
     @Test
@@ -816,6 +882,7 @@ public class TestExpressionInterpreter
         assertOptimizedEqualsSelf("case unbound_long when 1 then 1 when 0 / 0 then 2 end");
         assertOptimizedEqualsSelf("case unbound_boolean when true then 1 else 0 / 0 end");
         assertOptimizedEqualsSelf("case unbound_boolean when true then 0 / 0 else 1 end");
+        assertOptimizedEqualsSelf("case bound_long when unbound_long then 1 when 0 / 0 then 2 else 1 end");
         assertOptimizedEqualsSelf("case when unbound_boolean then 1 when 0 / 0 = 0 then 2 end");
         assertOptimizedEqualsSelf("case when unbound_boolean then 1 else 0 / 0  end");
         assertOptimizedEqualsSelf("case when unbound_boolean then 0 / 0 else 1 end");
