@@ -41,6 +41,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.Duration.nanosSince;
@@ -60,6 +63,8 @@ public class DistributedQueryRunner
     private final Closer closer = Closer.create();
 
     private final TestingPrestoClient prestoClient;
+
+    private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     public DistributedQueryRunner(Session defaultSession, int workersCount)
             throws Exception
@@ -239,25 +244,59 @@ public class DistributedQueryRunner
     @Override
     public List<QualifiedTableName> listTables(Session session, String catalog, String schema)
     {
-        return prestoClient.listTables(session, catalog, schema);
+        lock.readLock().lock();
+        try {
+            return prestoClient.listTables(session, catalog, schema);
+        }
+        finally {
+            lock.readLock().unlock();
+        }
+
     }
 
     @Override
     public boolean tableExists(Session session, String table)
     {
-        return prestoClient.tableExists(session, table);
+        lock.readLock().lock();
+        try {
+            return prestoClient.tableExists(session, table);
+        }
+        finally {
+            lock.readLock().unlock();
+        }
+
     }
 
     @Override
     public MaterializedResult execute(@Language("SQL") String sql)
     {
-        return prestoClient.execute(sql);
+        lock.readLock().lock();
+        try {
+            return prestoClient.execute(sql);
+        }
+        finally {
+            lock.readLock().unlock();
+        }
+
     }
 
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
-        return prestoClient.execute(session, sql);
+        lock.readLock().lock();
+        try {
+            return prestoClient.execute(session, sql);
+        }
+        finally {
+            lock.readLock().unlock();
+        }
+
+    }
+
+    @Override
+    public Lock getExclusiveLock()
+    {
+        return lock.writeLock();
     }
 
     @Override

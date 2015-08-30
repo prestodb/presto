@@ -22,6 +22,7 @@ import org.intellij.lang.annotations.Language;
 import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.Lock;
 
 public interface QueryRunner
         extends Closeable
@@ -46,4 +47,6 @@ public interface QueryRunner
     void installPlugin(Plugin plugin);
 
     void createCatalog(String catalogName, String connectorName, Map<String, String> properties);
+
+    Lock getExclusiveLock();
 }
