@@ -70,7 +70,7 @@ public class ByteCodeExpressionVisitor
                     generator = new IfCodeGenerator();
                     break;
                 case NULL_IF:
-                    generator = new NullIfCodeGenerator();
+                    generator = new NullIfCodeGenerator(registry);
                     break;
                 case SWITCH:
                     // (SWITCH <expr> (WHEN <expr> <expr>) (WHEN <expr> <expr>) <expr>)

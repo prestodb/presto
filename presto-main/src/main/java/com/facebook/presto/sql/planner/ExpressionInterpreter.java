@@ -629,7 +629,7 @@ public class ExpressionInterpreter
                 return new NullIfExpression(toExpression(first, firstType), toExpression(second, secondType));
             }
 
-            Type commonType = FunctionRegistry.getCommonSuperType(firstType, secondType).get();
+            Type commonType = metadata.getFunctionRegistry().getCommonSuperType(firstType, secondType).get();
 
             FunctionInfo firstCast = metadata.getFunctionRegistry().getCoercion(firstType, commonType);
             FunctionInfo secondCast = metadata.getFunctionRegistry().getCoercion(secondType, commonType);

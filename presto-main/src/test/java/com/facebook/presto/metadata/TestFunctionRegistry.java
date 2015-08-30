@@ -26,13 +26,26 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
 import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.metadata.FunctionRegistry.unmangleOperator;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.JsonPathType.JSON_PATH;
+import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
+import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.collect.Lists.transform;
 import static org.testng.Assert.assertEquals;
@@ -130,6 +143,29 @@ public class TestFunctionRegistry
         assertTrue(names.contains("stddev"), "Expected function names " + names + " to contain 'stddev'");
         assertTrue(names.contains("rank"), "Expected function names " + names + " to contain 'rank'");
         assertFalse(names.contains("like"), "Expected function names " + names + " not to contain 'like'");
+    }
+
+    @Test
+    public void testCanCoerce()
+    {
+        assertTrue(canCoerce(BIGINT, BIGINT));
+
+        assertTrue(canCoerce(UNKNOWN, BIGINT));
+        assertFalse(canCoerce(BIGINT, UNKNOWN));
+
+        assertTrue(canCoerce(BIGINT, DOUBLE));
+        assertTrue(canCoerce(DATE, TIMESTAMP));
+        assertTrue(canCoerce(DATE, TIMESTAMP_WITH_TIME_ZONE));
+        assertTrue(canCoerce(TIME, TIME_WITH_TIME_ZONE));
+        assertTrue(canCoerce(TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE));
+        assertTrue(canCoerce(VARCHAR, REGEXP));
+        assertTrue(canCoerce(VARCHAR, LIKE_PATTERN));
+        assertTrue(canCoerce(VARCHAR, JSON_PATH));
+
+        assertFalse(canCoerce(DOUBLE, BIGINT));
+        assertFalse(canCoerce(TIMESTAMP, TIME_WITH_TIME_ZONE));
+        assertFalse(canCoerce(TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP));
+        assertFalse(canCoerce(VARBINARY, VARCHAR));
     }
 
     public static final class ScalarSum

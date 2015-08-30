@@ -15,7 +15,6 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
@@ -92,7 +91,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -388,7 +386,7 @@ public class TupleAnalyzer
             }
             for (int i = 0; i < descriptor.getVisibleFields().size(); i++) {
                 Type descFieldType = descriptor.getFieldByIndex(i).getType();
-                Optional<Type> commonSuperType = FunctionRegistry.getCommonSuperType(outputFieldTypes[i], descFieldType);
+                Optional<Type> commonSuperType = metadata.getFunctionRegistry().getCommonSuperType(outputFieldTypes[i], descFieldType);
                 if (!commonSuperType.isPresent()) {
                     throw new SemanticException(TYPE_MISMATCH,
                                                 node,
@@ -562,7 +560,7 @@ public class TupleAnalyzer
     {
         Type leftType = analysis.getType(leftExpression);
         Type rightType = analysis.getType(rightExpression);
-        Optional<Type> superType = FunctionRegistry.getCommonSuperType(leftType, rightType);
+        Optional<Type> superType = metadata.getFunctionRegistry().getCommonSuperType(leftType, rightType);
         if (!superType.isPresent()) {
             throw new SemanticException(TYPE_MISMATCH, node, "Join criteria has incompatible types: %s, %s", leftType.getDisplayName(), rightType.getDisplayName());
         }
@@ -597,7 +595,7 @@ public class TupleAnalyzer
                 Type fieldType = rowType.get(i);
                 Type superType = fieldTypes.get(i);
 
-                Optional<Type> commonSuperType = getCommonSuperType(fieldType, superType);
+                Optional<Type> commonSuperType = metadata.getFunctionRegistry().getCommonSuperType(fieldType, superType);
                 if (!commonSuperType.isPresent()) {
                     throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
                             node,
