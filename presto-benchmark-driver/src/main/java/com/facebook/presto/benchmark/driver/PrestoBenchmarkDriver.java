@@ -16,8 +16,8 @@ package com.facebook.presto.benchmark.driver;
 import com.facebook.presto.client.ClientSession;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import io.airlift.command.Command;
-import io.airlift.command.HelpOption;
+import io.airlift.airline.Command;
+import io.airlift.airline.HelpOption;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.io.ByteStreams.nullOutputStream;
-import static io.airlift.command.SingleCommand.singleCommand;
+import static io.airlift.airline.SingleCommand.singleCommand;
 import static java.util.function.Function.identity;
 
 @Command(name = "presto-benchmark", description = "Presto benchmark driver")

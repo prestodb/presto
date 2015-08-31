@@ -15,14 +15,14 @@ package com.facebook.presto.server.testing;
 
 import com.facebook.presto.server.testing.TestingPrestoServerLauncherOptions.Catalog;
 import com.facebook.presto.spi.Plugin;
-import io.airlift.command.Command;
-import io.airlift.command.Help;
-import io.airlift.command.HelpOption;
-import io.airlift.command.model.CommandMetadata;
+import io.airlift.airline.Command;
+import io.airlift.airline.Help;
+import io.airlift.airline.HelpOption;
+import io.airlift.airline.model.CommandMetadata;
 
 import javax.inject.Inject;
 
-import static io.airlift.command.SingleCommand.singleCommand;
+import static io.airlift.airline.SingleCommand.singleCommand;
 
 @Command(name = "testing_presto_server", description = "Testing Presto Server Launcher")
 public class TestingPrestoServerLauncher
