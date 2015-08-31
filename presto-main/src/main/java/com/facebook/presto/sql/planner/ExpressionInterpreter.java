@@ -88,6 +88,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
@@ -439,19 +440,24 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCoalesceExpression(CoalesceExpression node, Object context)
         {
-            for (Expression expression : node.getOperands()) {
-                Object value = process(expression, context);
+            Type type = type(node);
+            List<Object> values = node.getOperands().stream()
+                    .map(value -> processWithExceptionHandling(value, context))
+                    .filter(value -> value != null)
+                    .collect(Collectors.toList());
 
-                if (value instanceof Expression) {
-                    // TODO: optimize this case
-                    return node;
-                }
-
-                if (value != null) {
-                    return value;
-                }
+            if ((!values.isEmpty() && !(values.get(0) instanceof Expression)) || values.size() == 1) {
+                return values.get(0);
             }
-            return null;
+
+            List<Expression> expressions = values.stream()
+                    .map(value -> toExpression(value, type))
+                    .collect(Collectors.toList());
+
+            if (expressions.isEmpty()) {
+                return null;
+            }
+            return new CoalesceExpression(expressions);
         }
 
         @Override
