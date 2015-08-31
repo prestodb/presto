@@ -738,6 +738,15 @@ public class TestExpressionInterpreter
     }
 
     @Test
+    public void testCoalesce()
+            throws Exception
+    {
+        assertOptimizedEquals("coalesce(2 * 3 * unbound_long, 1 - 1, null)", "coalesce(6 * unbound_long, 0)");
+        assertOptimizedMatches("coalesce(0 / 0 > 1, unbound_boolean, 0 / 0 = 0)",
+                "coalesce(cast(fail() as boolean), unbound_boolean, cast(fail() as boolean))");
+    }
+
+    @Test
     public void testIf()
             throws Exception
     {
@@ -870,7 +879,6 @@ public class TestExpressionInterpreter
         assertOptimizedEqualsSelf("case when unbound_boolean then 1 when 0 / 0 = 0 then 2 end");
         assertOptimizedEqualsSelf("case when unbound_boolean then 1 else 0 / 0  end");
         assertOptimizedEqualsSelf("case when unbound_boolean then 0 / 0 else 1 end");
-        assertOptimizedEqualsSelf("coalesce(unbound_boolean, 0 / 0 = 0)");
     }
 
     @Test

@@ -449,19 +449,29 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCoalesceExpression(CoalesceExpression node, Object context)
         {
+            List<Expression> expressions = new ArrayList<>();
             for (Expression expression : node.getOperands()) {
-                Object value = process(expression, context);
+                Object value = processWithExceptionHandling(expression, context);
 
                 if (value instanceof Expression) {
-                    // TODO: optimize this case
-                    return node;
+                    expressions.add(toExpression(value, type(expression)));
                 }
-
-                if (value != null) {
-                    return value;
+                else if (value != null) {
+                    if (expressions.isEmpty()) {
+                        return value;
+                    }
+                    expressions.add(toExpression(value, type(expression)));
+                    break;
                 }
             }
-            return null;
+
+            if (expressions.isEmpty()) {
+                return null;
+            }
+            if (expressions.size() == 1) {
+                return expressions.get(0);
+            }
+            return new CoalesceExpression(expressions);
         }
 
         @Override
