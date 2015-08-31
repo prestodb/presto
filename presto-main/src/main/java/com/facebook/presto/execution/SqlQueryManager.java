@@ -386,7 +386,7 @@ public class SqlQueryManager
 
         for (QueryExecution runningQuery : runningQueries) {
             Duration queryMaxRuntime = SystemSessionProperties.getQueryMaxRuntime(runningQuery.getSession());
-            DateTime executionStartTime = runningQuery.getQueryInfo().getQueryStats().getExecutionStartTime();
+            DateTime executionStartTime = runningQuery.getQueryInfo().getQueryStats().getCreateTime();
             if (executionStartTime.plus(queryMaxRuntime.toMillis()).isBeforeNow()) {
                 runningQuery.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRuntime));
             }
