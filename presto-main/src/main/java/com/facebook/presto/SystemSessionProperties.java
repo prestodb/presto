@@ -42,7 +42,7 @@ public final class SystemSessionProperties
     public static final String TASK_HASH_BUILD_CONCURRENCY = "task_hash_build_concurrency";
     public static final String TASK_AGGREGATION_CONCURRENCY = "task_aggregation_concurrency";
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
-    public static final String QUERY_MAX_RUNTIME = "query_max_runtime";
+    public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -111,7 +111,7 @@ public final class SystemSessionProperties
                         taskManagerConfig.getTaskDefaultConcurrency(),
                         false),
                 new PropertyMetadata<>(
-                        QUERY_MAX_RUNTIME,
+                        QUERY_MAX_RUN_TIME,
                         "Maximum runtime of a query",
                         VARCHAR,
                         Duration.class,
@@ -185,7 +185,7 @@ public final class SystemSessionProperties
 
     public static Duration getQueryMaxRuntime(Session session)
     {
-        return session.getProperty(QUERY_MAX_RUNTIME, Duration.class);
+        return session.getProperty(QUERY_MAX_RUN_TIME, Duration.class);
     }
 
     private static <T> T getPropertyOr(Session session, String propertyName, String defaultPropertyName, Class<T> type)

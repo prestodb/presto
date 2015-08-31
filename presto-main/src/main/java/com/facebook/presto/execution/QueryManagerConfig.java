@@ -200,7 +200,7 @@ public class QueryManagerConfig
         return queryMaxRuntime;
     }
 
-    @Config("query.max-runtime")
+    @Config("query.max-run-time")
     public QueryManagerConfig setQueryMaxRuntime(Duration queryMaxRuntime)
     {
         this.queryMaxRuntime = queryMaxRuntime;

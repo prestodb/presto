@@ -148,7 +148,7 @@ public class SqlQueryManager
                 }
 
                 try {
-                    enforceQueryMaxRuntimeLimits();
+                    enforceQueryMaxRunTimeLimits();
                 }
                 catch (Throwable e) {
                     log.warn(e, "Error enforcing query timeout limits");
@@ -378,7 +378,7 @@ public class SqlQueryManager
     /**
      * Enforce timeout at the query level
      */
-    public void enforceQueryMaxRuntimeLimits()
+    public void enforceQueryMaxRunTimeLimits()
     {
         Iterable<QueryExecution> runningQueries = queries.values().stream()
                 .filter(query -> query.getQueryInfo().getState() == RUNNING)
