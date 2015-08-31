@@ -116,7 +116,8 @@ public class TestRaptorSplitManager
                 .map(ColumnInfo::fromHandle)
                 .collect(toList());
 
-        shardManager.commitShards(tableId, columns, shards, Optional.empty());
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
 
         raptorSplitManager = new RaptorSplitManager(connectorId, nodeManager, shardManager, false);
     }

@@ -83,4 +83,12 @@ public interface SchemaDao
             "  successful BOOLEAN NOT NULL\n" +
             ")")
     void createTableExternalBatches();
+
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS transactions (\n" +
+            "  transaction_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
+            "  successful BOOLEAN,\n" +
+            "  start_time DATETIME NOT NULL,\n" +
+            "  end_time DATETIME\n" +
+            ")")
+    void createTableTransactions();
 }

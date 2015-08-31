@@ -88,7 +88,8 @@ public class TestShardCompactionDiscovery
                 .add(shardInfo(UUID.randomUUID(), "node1"))
                 .add(shardInfo(UUID.randomUUID(), "node1"))
                 .build();
-        shardManager.commitShards(tableId, columns, nonTimeRangeShards, Optional.empty());
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, nonTimeRangeShards, Optional.empty());
 
         Set<ShardInfo> timeRangeShards = ImmutableSet.<ShardInfo>builder()
                 .add(shardInfo(
@@ -104,7 +105,8 @@ public class TestShardCompactionDiscovery
                         "node1",
                         ImmutableList.of(new ColumnStats(1, 1, 10), new ColumnStats(2, 1, 10))))
                 .build();
-        shardManager.commitShards(tableId, columns, timeRangeShards, Optional.empty());
+        transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, timeRangeShards, Optional.empty());
 
         StorageManager storageManager = newProxy(StorageManager.class, (proxy, method, args) -> {
             throw new UnsupportedOperationException();

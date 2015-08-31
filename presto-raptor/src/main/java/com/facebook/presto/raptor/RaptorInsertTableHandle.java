@@ -30,6 +30,7 @@ public class RaptorInsertTableHandle
         implements ConnectorInsertTableHandle
 {
     private final String connectorId;
+    private final long transactionId;
     private final long tableId;
     private final List<RaptorColumnHandle> columnHandles;
     private final List<Type> columnTypes;
@@ -40,6 +41,7 @@ public class RaptorInsertTableHandle
     @JsonCreator
     public RaptorInsertTableHandle(
             @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("transactionId") long transactionId,
             @JsonProperty("tableId") long tableId,
             @JsonProperty("columnHandles") List<RaptorColumnHandle> columnHandles,
             @JsonProperty("columnTypes") List<Type> columnTypes,
@@ -50,6 +52,7 @@ public class RaptorInsertTableHandle
         checkArgument(tableId > 0, "tableId must be greater than zero");
 
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.transactionId = transactionId;
         this.tableId = tableId;
         this.columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
@@ -63,6 +66,12 @@ public class RaptorInsertTableHandle
     public String getConnectorId()
     {
         return connectorId;
+    }
+
+    @JsonProperty
+    public long getTransactionId()
+    {
+        return transactionId;
     }
 
     @JsonProperty

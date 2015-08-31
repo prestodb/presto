@@ -184,7 +184,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void commitShards(long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Optional<String> externalBatchId)
+    public void commitShards(long transactionId, long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Optional<String> externalBatchId)
     {
         // attempt to fail up front with a proper exception
         if (externalBatchId.isPresent() && dao.externalBatchExists(externalBatchId.get())) {
@@ -195,22 +195,21 @@ public class DatabaseShardManager
 
         runTransaction(dbi, (handle, status) -> {
             ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+            commitTransaction(dao, transactionId);
+            externalBatchId.ifPresent(dao::insertExternalBatch);
 
             insertShardsAndIndex(tableId, columns, shards, nodeIds, handle);
-
-            if (externalBatchId.isPresent()) {
-                dao.insertExternalBatch(externalBatchId.get());
-            }
             return null;
         });
     }
 
     @Override
-    public void replaceShardUuids(long tableId, List<ColumnInfo> columns, Set<UUID> oldShardUuids, Collection<ShardInfo> newShards)
+    public void replaceShardUuids(long transactionId, long tableId, List<ColumnInfo> columns, Set<UUID> oldShardUuids, Collection<ShardInfo> newShards)
     {
         Map<String, Integer> nodeIds = toNodeIdMap(newShards);
 
         runTransaction(dbi, (handle, status) -> {
+            commitTransaction(handle.attach(ShardManagerDao.class), transactionId);
             for (List<ShardInfo> shards : partition(newShards, 1000)) {
                 insertShardsAndIndex(tableId, columns, shards, nodeIds, handle);
             }
@@ -378,8 +377,24 @@ public class DatabaseShardManager
                     })
                     .build();
         }
-        catch (DBIException e) {
-            throw metadataError(e);
+    }
+
+    @Override
+    public long beginTransaction()
+    {
+        return dao.insertTransaction();
+    }
+
+    @Override
+    public void rollbackTransaction(long transactionId)
+    {
+        dao.finalizeTransaction(transactionId, false);
+    }
+
+    private static void commitTransaction(ShardManagerDao dao, long transactionId)
+    {
+        if (dao.finalizeTransaction(transactionId, true) != 1) {
+            throw new PrestoException(TRANSACTION_CONFLICT, "Transaction commit failed. Please retry the operation.");
         }
     }
 
