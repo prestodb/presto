@@ -15,7 +15,7 @@
 package com.facebook.presto.server.testing;
 
 import com.google.common.base.Splitter;
-import io.airlift.command.Option;
+import io.airlift.airline.Option;
 
 import java.util.ArrayList;
 import java.util.List;

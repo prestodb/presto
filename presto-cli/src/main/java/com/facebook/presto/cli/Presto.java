@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cli;
 
-import static io.airlift.command.SingleCommand.singleCommand;
+import static io.airlift.airline.SingleCommand.singleCommand;
 
 public final class Presto
 {

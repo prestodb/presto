@@ -17,7 +17,7 @@ import com.facebook.presto.client.ClientSession;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
-import io.airlift.command.Option;
+import io.airlift.airline.Option;
 import io.airlift.http.client.spnego.KerberosConfig;
 
 import java.io.File;

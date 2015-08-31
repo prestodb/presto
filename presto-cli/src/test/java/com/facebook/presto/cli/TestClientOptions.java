@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.airlift.command.SingleCommand.singleCommand;
+import static io.airlift.airline.SingleCommand.singleCommand;
 import static org.testng.Assert.assertEquals;
 
 public class TestClientOptions
