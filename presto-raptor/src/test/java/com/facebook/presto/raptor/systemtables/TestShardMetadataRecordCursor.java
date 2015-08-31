@@ -109,7 +109,10 @@ public class TestShardMetadataRecordCursor
         ShardInfo shardInfo3 = new ShardInfo(uuid3, ImmutableSet.of("node3"), ImmutableList.of(), 3, 30, 300);
         List<ShardInfo> shards = ImmutableList.of(shardInfo1, shardInfo2, shardInfo3);
 
+        long transactionId = shardManager.beginTransaction();
+
         shardManager.commitShards(
+                transactionId,
                 tableId,
                 ImmutableList.of(
                         new ColumnInfo(1, BIGINT),

@@ -52,6 +52,7 @@ public final class SchemaDaoUtil
         dao.createTableShards();
         dao.createTableShardNodes();
         dao.createTableExternalBatches();
+        dao.createTableTransactions();
     }
 
     private static void sleep(Duration duration)

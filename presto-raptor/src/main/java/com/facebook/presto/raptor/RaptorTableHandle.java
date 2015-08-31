@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.raptor.util.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.raptor.util.MetadataUtil.checkTableName;
@@ -32,6 +33,7 @@ public final class RaptorTableHandle
     private final String schemaName;
     private final String tableName;
     private final long tableId;
+    private final OptionalLong transactionId;
     private final Optional<RaptorColumnHandle> sampleWeightColumnHandle;
 
     @JsonCreator
@@ -40,6 +42,7 @@ public final class RaptorTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableId") long tableId,
+            @JsonProperty("transactionId") OptionalLong transactionId,
             @JsonProperty("sampleWeightColumnHandle") Optional<RaptorColumnHandle> sampleWeightColumnHandle)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
@@ -50,6 +53,7 @@ public final class RaptorTableHandle
         this.tableId = tableId;
 
         this.sampleWeightColumnHandle = requireNonNull(sampleWeightColumnHandle, "sampleWeightColumnHandle is null");
+        this.transactionId = requireNonNull(transactionId, "transactionId is null");
     }
 
     @JsonProperty
@@ -74,6 +78,12 @@ public final class RaptorTableHandle
     public long getTableId()
     {
         return tableId;
+    }
+
+    @JsonProperty
+    public OptionalLong getTransactionId()
+    {
+        return transactionId;
     }
 
     @JsonProperty

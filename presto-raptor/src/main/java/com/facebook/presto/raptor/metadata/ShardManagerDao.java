@@ -109,4 +109,17 @@ public interface ShardManagerDao
             "FROM external_batches\n" +
             "WHERE external_batch_id = :externalBatchId")
     boolean externalBatchExists(@Bind("externalBatchId") String externalBatchId);
+
+    @SqlUpdate("INSERT INTO transactions (start_time) VALUES (CURRENT_TIMESTAMP)")
+    @GetGeneratedKeys
+    long insertTransaction();
+
+    @SqlUpdate("UPDATE transactions SET\n" +
+            "  successful = :successful\n" +
+            ", end_time = CURRENT_TIMESTAMP\n" +
+            "WHERE transaction_id = :transactionId\n" +
+            "  AND successful IS NULL")
+    int finalizeTransaction(
+            @Bind("transactionId") long transactionId,
+            @Bind("successful") boolean successful);
 }

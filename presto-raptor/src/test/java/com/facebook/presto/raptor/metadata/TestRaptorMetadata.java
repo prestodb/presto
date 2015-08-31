@@ -17,42 +17,52 @@ import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
+import com.facebook.presto.raptor.RaptorSessionProperties;
 import com.facebook.presto.raptor.RaptorTableHandle;
+import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
+import io.airlift.slice.Slice;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
+import org.skife.jdbi.v2.util.BooleanMapper;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.raptor.RaptorTableProperties.ORDERING_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.TEMPORAL_COLUMN_PROPERTY;
+import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -64,9 +74,12 @@ public class TestRaptorMetadata
     private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
     private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
     private static final SchemaTableName DEFAULT_TEST_ORDERS = new SchemaTableName("test", "orders");
+    private static final ConnectorSession SESSION = new TestingConnectorSession(
+            new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties());
 
     private DBI dbi;
     private Handle dummyHandle;
+    private ShardManager shardManager;
     private ConnectorMetadata metadata;
 
     @BeforeMethod
@@ -77,7 +90,8 @@ public class TestRaptorMetadata
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
         dummyHandle = dbi.open();
-        metadata = new RaptorMetadata(new RaptorConnectorId("raptor"), dbi, new DatabaseShardManager(dbi), SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
+        shardManager = new DatabaseShardManager(dbi);
+        metadata = new RaptorMetadata(new RaptorConnectorId("raptor"), dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
     }
 
     @AfterMethod
@@ -351,6 +365,152 @@ public class TestRaptorMetadata
         metadata.createView(SESSION, test, "bbb", true);
 
         assertEquals(metadata.getViews(SESSION, test.toSchemaTablePrefix()).get(test).getViewData(), "bbb");
+    }
+
+    @Test
+    public void testTransactionSelect()
+            throws Exception
+    {
+        metadata.createTable(SESSION, getOrdersTable());
+
+        // reads do not create a transaction
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        assertInstanceOf(tableHandle, RaptorTableHandle.class);
+        assertFalse(((RaptorTableHandle) tableHandle).getTransactionId().isPresent());
+    }
+
+    @Test
+    public void testTransactionTableWrite()
+            throws Exception
+    {
+        // start table creation
+        long transactionId = 1;
+        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, getOrdersTable());
+
+        // transaction is in progress
+        assertTrue(transactionExists(transactionId));
+        assertNull(transactionSuccessful(transactionId));
+
+        // commit table creation
+        metadata.commitCreateTable(SESSION, outputHandle, ImmutableList.of());
+        assertTrue(transactionExists(transactionId));
+        assertTrue(transactionSuccessful(transactionId));
+    }
+
+    @Test
+    public void testTransactionInsert()
+            throws Exception
+    {
+        // creating a table allocates a transaction
+        long transactionId = 1;
+        metadata.createTable(SESSION, getOrdersTable());
+        assertTrue(transactionSuccessful(transactionId));
+
+        // start insert
+        transactionId++;
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        ConnectorInsertTableHandle insertHandle = metadata.beginInsert(SESSION, tableHandle);
+
+        // transaction is in progress
+        assertTrue(transactionExists(transactionId));
+        assertNull(transactionSuccessful(transactionId));
+
+        // commit insert
+        metadata.commitInsert(SESSION, insertHandle, ImmutableList.<Slice>of());
+        assertTrue(transactionExists(transactionId));
+        assertTrue(transactionSuccessful(transactionId));
+    }
+
+    @Test
+    public void testTransactionDelete()
+            throws Exception
+    {
+        // creating a table allocates a transaction
+        long transactionId = 1;
+        metadata.createTable(SESSION, getOrdersTable());
+        assertTrue(transactionSuccessful(transactionId));
+
+        // start delete
+        transactionId++;
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        tableHandle = metadata.beginDelete(SESSION, tableHandle);
+
+        // verify transaction is assigned for deletion handle
+        assertInstanceOf(tableHandle, RaptorTableHandle.class);
+        RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
+        assertEquals(raptorTableHandle.getTableId(), 1);
+        assertEquals(raptorTableHandle.getTransactionId(), OptionalLong.of(transactionId));
+
+        // transaction is in progress
+        assertTrue(transactionExists(transactionId));
+        assertNull(transactionSuccessful(transactionId));
+
+        // rollback delete
+        metadata.rollbackDelete(SESSION, tableHandle);
+        assertTrue(transactionExists(transactionId));
+        assertFalse(transactionSuccessful(transactionId));
+
+        // start another delete
+        transactionId++;
+        tableHandle = metadata.beginDelete(SESSION, tableHandle);
+
+        // transaction is in progress
+        assertTrue(transactionExists(transactionId));
+        assertNull(transactionSuccessful(transactionId));
+
+        // commit delete
+        metadata.commitDelete(SESSION, tableHandle, ImmutableList.of());
+        assertTrue(transactionExists(transactionId));
+        assertTrue(transactionSuccessful(transactionId));
+    }
+
+    @Test
+    public void testTransactionAbort()
+            throws Exception
+    {
+        // start table creation
+        long transactionId = 1;
+        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, getOrdersTable());
+
+        // transaction is in progress
+        assertTrue(transactionExists(transactionId));
+        assertNull(transactionSuccessful(transactionId));
+
+        // force transaction to abort
+        shardManager.rollbackTransaction(transactionId);
+        assertTrue(transactionExists(transactionId));
+        assertFalse(transactionSuccessful(transactionId));
+
+        // commit table creation
+        try {
+            metadata.commitCreateTable(SESSION, outputHandle, ImmutableList.of());
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
+        }
+    }
+
+    private boolean transactionExists(long transactionId)
+    {
+        try (Handle handle = dbi.open()) {
+            return handle
+                    .createQuery("SELECT count(*) FROM transactions WHERE transaction_id = ?")
+                    .bind(0, transactionId)
+                    .map(BooleanMapper.FIRST)
+                    .first();
+        }
+    }
+
+    private Boolean transactionSuccessful(long transactionId)
+    {
+        try (Handle handle = dbi.open()) {
+            return (Boolean) handle
+                    .createQuery("SELECT successful FROM transactions WHERE transaction_id = ?")
+                    .bind(0, transactionId)
+                    .first()
+                    .get("successful");
+        }
     }
 
     private static ConnectorTableMetadata getOrdersTable()

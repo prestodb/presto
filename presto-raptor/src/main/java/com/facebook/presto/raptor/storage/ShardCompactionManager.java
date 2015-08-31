@@ -385,9 +385,22 @@ public class ShardCompactionManager
         private void compactShards(long tableId, Set<UUID> shardUuids)
                 throws IOException
         {
+            long transactionId = shardManager.beginTransaction();
+            try {
+                compactShards(transactionId, tableId, shardUuids);
+            }
+            catch (Throwable e) {
+                shardManager.rollbackTransaction(transactionId);
+                throw e;
+            }
+        }
+
+        private void compactShards(long transactionId, long tableId, Set<UUID> shardUuids)
+                throws IOException
+        {
             TableMetadata metadata = getTableMetadata(tableId);
             List<ShardInfo> newShards = performCompaction(shardUuids, metadata);
-            shardManager.replaceShardUuids(tableId, metadata.getColumns(), shardUuids, newShards);
+            shardManager.replaceShardUuids(transactionId, tableId, metadata.getColumns(), shardUuids, newShards);
         }
 
         private List<ShardInfo> performCompaction(Set<UUID> shardUuids, TableMetadata tableMetadata)
