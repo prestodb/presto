@@ -23,8 +23,10 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.tree.ExplainType;
+import com.facebook.presto.sql.tree.ExplainType.Type;
 import com.facebook.presto.sql.tree.Statement;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,59 +35,69 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class QueryExplainer
 {
-    private final Session session;
     private final List<PlanOptimizer> planOptimizers;
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final boolean experimentalSyntaxEnabled;
 
+    @Inject
     public QueryExplainer(
-            Session session,
+            List<PlanOptimizer> planOptimizers,
+            Metadata metadata,
+            SqlParser sqlParser,
+            FeaturesConfig featuresConfig)
+    {
+        this(planOptimizers,
+                metadata,
+                sqlParser,
+                featuresConfig.isExperimentalSyntaxEnabled());
+    }
+
+    public QueryExplainer(
             List<PlanOptimizer> planOptimizers,
             Metadata metadata,
             SqlParser sqlParser,
             boolean experimentalSyntaxEnabled)
     {
-        this.session = checkNotNull(session, "session is null");
         this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
         this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
     }
 
-    public String getPlan(Statement statement, ExplainType.Type planType)
+    public String getPlan(Session session, Statement statement, Type planType)
     {
         switch (planType) {
             case LOGICAL:
-                Plan plan = getLogicalPlan(statement);
+                Plan plan = getLogicalPlan(session, statement);
                 return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, session);
             case DISTRIBUTED:
-                SubPlan subPlan = getDistributedPlan(statement);
+                SubPlan subPlan = getDistributedPlan(session, statement);
                 return PlanPrinter.textDistributedPlan(subPlan, metadata, session);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
 
-    public String getGraphvizPlan(Statement statement, ExplainType.Type planType)
+    public String getGraphvizPlan(Session session, Statement statement, Type planType)
     {
         switch (planType) {
             case LOGICAL:
-                Plan plan = getLogicalPlan(statement);
+                Plan plan = getLogicalPlan(session, statement);
                 return PlanPrinter.graphvizLogicalPlan(plan.getRoot(), plan.getTypes());
             case DISTRIBUTED:
-                SubPlan subPlan = getDistributedPlan(statement);
+                SubPlan subPlan = getDistributedPlan(session, statement);
                 return PlanPrinter.graphvizDistributedPlan(subPlan);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
 
-    public String getJsonPlan(Statement statement)
+    public String getJsonPlan(Session session, Statement statement)
     {
-        Plan plan = getLogicalPlan(statement);
+        Plan plan = getLogicalPlan(session, statement);
         return PlanPrinter.getJsonPlanSource(plan.getRoot(), metadata, null);
     }
 
-    private Plan getLogicalPlan(Statement statement)
+    private Plan getLogicalPlan(Session session, Statement statement)
     {
         // analyze statement
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.of(this), experimentalSyntaxEnabled);
@@ -98,7 +110,7 @@ public class QueryExplainer
         return logicalPlanner.plan(analysis);
     }
 
-    private SubPlan getDistributedPlan(Statement statement)
+    private SubPlan getDistributedPlan(Session session, Statement statement)
     {
         // analyze statement
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.of(this), experimentalSyntaxEnabled);
