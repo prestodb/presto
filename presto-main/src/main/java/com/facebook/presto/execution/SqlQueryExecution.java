@@ -108,6 +108,7 @@ public final class SqlQueryExecution
             boolean experimentalSyntaxEnabled,
             ExecutorService queryExecutor,
             NodeTaskMap nodeTaskMap,
+            QueryExplainer queryExplainer,
             ExecutionPolicy executionPolicy)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryId)) {
@@ -123,6 +124,7 @@ public final class SqlQueryExecution
             this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
             this.session = checkNotNull(session, "session is null");
             this.executionPolicy = checkNotNull(executionPolicy, "executionPolicy is null");
+            this.queryExplainer = checkNotNull(queryExplainer, "queryExplainer is null");
 
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
@@ -154,8 +156,6 @@ public final class SqlQueryExecution
             });
 
             this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(checkNotNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
-
-            this.queryExplainer = new QueryExplainer(session, planOptimizers, metadata, sqlParser, experimentalSyntaxEnabled);
         }
     }
 
@@ -444,6 +444,7 @@ public final class SqlQueryExecution
         private final NodeScheduler nodeScheduler;
         private final List<PlanOptimizer> planOptimizers;
         private final RemoteTaskFactory remoteTaskFactory;
+        private final QueryExplainer queryExplainer;
         private final LocationFactory locationFactory;
         private final ExecutorService executor;
         private final NodeTaskMap nodeTaskMap;
@@ -461,6 +462,7 @@ public final class SqlQueryExecution
                 RemoteTaskFactory remoteTaskFactory,
                 @ForQueryExecution ExecutorService executor,
                 NodeTaskMap nodeTaskMap,
+                QueryExplainer queryExplainer,
                 Map<String, ExecutionPolicy> executionPolicies)
         {
             checkNotNull(config, "config is null");
@@ -476,6 +478,7 @@ public final class SqlQueryExecution
             this.experimentalSyntaxEnabled = featuresConfig.isExperimentalSyntaxEnabled();
             this.executor = checkNotNull(executor, "executor is null");
             this.nodeTaskMap = checkNotNull(nodeTaskMap, "nodeTaskMap is null");
+            this.queryExplainer = checkNotNull(queryExplainer, "queryExplainer is null");
 
             this.executionPolicies = checkNotNull(executionPolicies, "schedulerPolicies is null");
         }
@@ -505,6 +508,7 @@ public final class SqlQueryExecution
                     experimentalSyntaxEnabled,
                     executor,
                     nodeTaskMap,
+                    queryExplainer,
                     executionPolicy);
 
             return queryExecution;

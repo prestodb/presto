@@ -146,13 +146,13 @@ public abstract class AbstractTestQueryFramework
     public String getExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return explainer.getPlan(sqlParser.createStatement(query), planType);
+        return explainer.getPlan(queryRunner.getDefaultSession(), sqlParser.createStatement(query), planType);
     }
 
     public String getGraphvizExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return explainer.getGraphvizPlan(sqlParser.createStatement(query), planType);
+        return explainer.getGraphvizPlan(queryRunner.getDefaultSession(), sqlParser.createStatement(query), planType);
     }
 
     private QueryExplainer getQueryExplainer()
@@ -161,7 +161,7 @@ public abstract class AbstractTestQueryFramework
         FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true).setOptimizeHashGeneration(true);
         boolean forceSingleNode = queryRunner.getNodeCount() == 1;
         List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, sqlParser, new IndexManager(), featuresConfig, forceSingleNode).get();
-        return new QueryExplainer(queryRunner.getDefaultSession(),
+        return new QueryExplainer(
                 optimizers,
                 metadata,
                 sqlParser,
