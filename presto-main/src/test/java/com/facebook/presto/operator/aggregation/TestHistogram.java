@@ -116,6 +116,27 @@ public class TestHistogram
     }
 
     @Test
+    public void testWithNulls()
+            throws Exception
+    {
+        MapType mapType = new MapType(BIGINT, BIGINT);
+        InternalAggregationFunction aggregationFunction = metadata.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), StandardTypes.BIGINT)).getAggregationFunction();
+        assertAggregation(
+                aggregationFunction,
+                1.0,
+                ImmutableMap.of(1L, 1L, 2L, 1L),
+                new Page(createLongsBlock(2L, null, 1L)));
+
+        mapType = new MapType(BIGINT, BIGINT);
+        aggregationFunction = metadata.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), StandardTypes.BIGINT)).getAggregationFunction();
+        assertAggregation(
+                aggregationFunction,
+                1.0,
+                null,
+                new Page(createLongsBlock((Long) null)));
+    }
+
+    @Test
     public void testArrayHistograms()
             throws Exception
     {
