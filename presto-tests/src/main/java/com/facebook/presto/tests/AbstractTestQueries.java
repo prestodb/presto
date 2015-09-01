@@ -3350,6 +3350,9 @@ public abstract class AbstractTestQueries
         catch (SemanticException e) {
             assertTrue(e.getCode() == MISSING_SCHEMA);
         }
+        catch (RuntimeException e) {
+            assertEquals(e.getMessage(), "Schema 'unknown' does not exist");
+        }
     }
 
     @Test
