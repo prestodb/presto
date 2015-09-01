@@ -108,6 +108,7 @@ public class HttpRemoteTask
         implements RemoteTask
 {
     private static final Logger log = Logger.get(HttpRemoteTask.class);
+    private static final Duration MAX_CLEANUP_RETRY_TIME = new Duration(2, TimeUnit.MINUTES);
 
     private final TaskId taskId;
 
@@ -460,31 +461,7 @@ public class HttpRemoteTask
             Request request = prepareDelete()
                     .setUri(uriBuilderFrom(uri).addParameter("abort", "false").addParameter("summarize").build())
                     .build();
-            Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()
-            {
-                @Override
-                public void onSuccess(StatusResponse result)
-                {
-                    // assume any response is good enough
-                }
-
-                @Override
-                public void onFailure(Throwable t)
-                {
-                    if (t instanceof RejectedExecutionException) {
-                        // client has been shutdown
-                        return;
-                    }
-
-                    // reschedule
-                    if (Duration.nanosSince(start).compareTo(new Duration(2, TimeUnit.MINUTES)) < 0) {
-                        Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), this, executor);
-                    }
-                    else {
-                        logError(t, "Unable to cancel task at %s", request.getUri());
-                    }
-                }
-            }, executor);
+            scheduleAsyncCleanupRequest(start, request, "cancel");
         }
     }
 
@@ -523,32 +500,38 @@ public class HttpRemoteTask
             Request request = prepareDelete()
                     .setUri(uriBuilderFrom(uri).addParameter("summarize").build())
                     .build();
-            Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()
-            {
-                @Override
-                public void onSuccess(StatusResponse result)
-                {
-                    // assume any response is good enough
-                }
-
-                @Override
-                public void onFailure(Throwable t)
-                {
-                    if (t instanceof RejectedExecutionException) {
-                        // client has been shutdown
-                        return;
-                    }
-
-                    // reschedule
-                    if (Duration.nanosSince(start).compareTo(new Duration(2, TimeUnit.MINUTES)) < 0) {
-                        Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), this, executor);
-                    }
-                    else {
-                        logError(t, "Unable to abort task at %s", request.getUri());
-                    }
-                }
-            }, executor);
+            scheduleAsyncCleanupRequest(start, request, "abort");
         }
+    }
+
+    private void scheduleAsyncCleanupRequest(long start, Request request, String action)
+    {
+        Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()
+        {
+            @Override
+            public void onSuccess(StatusResponse result)
+            {
+                // assume any response is good enough
+            }
+
+            @Override
+            public void onFailure(Throwable t)
+            {
+                if (t instanceof RejectedExecutionException) {
+                    // client has been shutdown
+                    return;
+                }
+
+                // reschedule
+                // todo this need a retry rate limit
+                if (Duration.nanosSince(start).compareTo(MAX_CLEANUP_RETRY_TIME) < 0) {
+                    Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), this, executor);
+                }
+                else {
+                    logError(t, "Unable to %s task at %s", action, request.getUri());
+                }
+            }
+        }, executor);
     }
 
     /**
