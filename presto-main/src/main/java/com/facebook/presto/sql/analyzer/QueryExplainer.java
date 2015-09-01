@@ -24,6 +24,10 @@ import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.ExplainType;
+import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.Statement;
 
 import java.util.List;
@@ -55,6 +59,10 @@ public class QueryExplainer
 
     public String getPlan(Statement statement, ExplainType.Type planType)
     {
+        if (isDataDefinitionStatement(statement)) {
+            return statement.toString();
+        }
+
         switch (planType) {
             case LOGICAL:
                 Plan plan = getLogicalPlan(statement);
@@ -111,5 +119,13 @@ public class QueryExplainer
         Plan plan = logicalPlanner.plan(analysis);
 
         return new PlanFragmenter().createSubPlans(plan);
+    }
+
+    private boolean isDataDefinitionStatement(Statement statement)
+    {
+        return (statement instanceof CreateTable) ||
+                (statement instanceof RenameTable) ||
+                (statement instanceof DropTable) ||
+                (statement instanceof DropView);
     }
 }
