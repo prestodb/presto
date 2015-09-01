@@ -46,7 +46,7 @@ import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.RateLimiter;
+import com.google.common.util.concurrent.ListenableFutureTask;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
@@ -78,6 +78,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -103,6 +104,8 @@ import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class HttpRemoteTask
         implements RemoteTask
@@ -155,7 +158,7 @@ public class HttpRemoteTask
             OutputBuffers outputBuffers,
             HttpClient httpClient,
             Executor executor,
-            int maxConsecutiveErrorCount,
+            ScheduledExecutorService errorScheduledExecutor,
             Duration minErrorDuration,
             Duration refreshMaxWait,
             JsonCodec<TaskInfo> taskInfoCodec,
@@ -182,8 +185,8 @@ public class HttpRemoteTask
             this.executor = executor;
             this.taskInfoCodec = taskInfoCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
-            this.updateErrorTracker = new RequestErrorTracker(taskId, location, maxConsecutiveErrorCount, minErrorDuration);
-            this.getErrorTracker = new RequestErrorTracker(taskId, location, maxConsecutiveErrorCount, minErrorDuration);
+            this.updateErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, errorScheduledExecutor);
+            this.getErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, errorScheduledExecutor);
 
             for (Entry<PlanNodeId, Split> entry : checkNotNull(initialSplits, "initialSplits is null").entries()) {
                 ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getValue());
@@ -385,7 +388,7 @@ public class HttpRemoteTask
         }
 
         // if we have an old request outstanding, cancel it
-        if (currentRequest != null && Duration.nanosSince(currentRequestStartNanos).compareTo(new Duration(2, TimeUnit.SECONDS)) >= 0) {
+        if (currentRequest != null && Duration.nanosSince(currentRequestStartNanos).compareTo(new Duration(2, SECONDS)) >= 0) {
             needsUpdate.set(true);
             currentRequest.cancel(true);
             currentRequest = null;
@@ -397,7 +400,12 @@ public class HttpRemoteTask
             return;
         }
 
-        updateErrorTracker.acquireRequestPermit();
+        // if throttled due to error, asynchronously wait for timeout and try again
+        ListenableFuture<?> errorRateLimit = updateErrorTracker.acquireRequestPermit();
+        if (!errorRateLimit.isDone()) {
+            errorRateLimit.addListener(this::scheduleUpdate, executor);
+            return;
+        }
 
         List<TaskSource> sources = getSources();
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(session.toSessionRepresentation(),
@@ -821,35 +829,35 @@ public class HttpRemoteTask
     {
         private final TaskId taskId;
         private final URI taskUri;
-        private final int maxConsecutiveErrorCount;
-        private final Duration minErrorDuration;
+        private final ScheduledExecutorService scheduledExecutor;
+        private final Backoff backoff;
 
-        private final RateLimiter errorRequestRateLimiter = RateLimiter.create(0.1);
-
-        private final AtomicLong lastSuccessfulRequest = new AtomicLong(System.nanoTime());
-        private final AtomicLong errorCount = new AtomicLong();
         private final Queue<Throwable> errorsSinceLastSuccess = new ConcurrentLinkedQueue<>();
 
-        public RequestErrorTracker(TaskId taskId, URI taskUri, int maxConsecutiveErrorCount, Duration minErrorDuration)
+        public RequestErrorTracker(TaskId taskId, URI taskUri, Duration minErrorDuration, ScheduledExecutorService scheduledExecutor)
         {
             this.taskId = taskId;
             this.taskUri = taskUri;
-            this.maxConsecutiveErrorCount = maxConsecutiveErrorCount;
-            this.minErrorDuration = minErrorDuration;
+            this.scheduledExecutor = scheduledExecutor;
+            this.backoff = new Backoff(minErrorDuration);
         }
 
-        public void acquireRequestPermit()
+        public ListenableFuture<?> acquireRequestPermit()
         {
-            // don't update too fast in the face of errors
-            if (errorCount.get() > 0) {
-                errorRequestRateLimiter.acquire();
+            long delayNanos = backoff.getBackoffDelayNanos();
+
+            if (delayNanos == 0) {
+                return Futures.immediateFuture(null);
             }
+
+            ListenableFutureTask<Object> futureTask = ListenableFutureTask.create(() -> null);
+            scheduledExecutor.schedule(futureTask, delayNanos, NANOSECONDS);
+            return futureTask;
         }
 
         public void requestSucceeded()
         {
-            lastSuccessfulRequest.set(System.nanoTime());
-            errorCount.set(0);
+            backoff.success();
             errorsSinceLastSuccess.clear();
         }
 
@@ -880,16 +888,14 @@ public class HttpRemoteTask
             }
 
             // fail the task, if we have more than X failures in a row and more than Y seconds have passed since the last request
-            long errorCount = this.errorCount.incrementAndGet();
-            Duration timeSinceLastSuccess = Duration.nanosSince(lastSuccessfulRequest.get());
-            if (errorCount > maxConsecutiveErrorCount && timeSinceLastSuccess.compareTo(minErrorDuration) > 0) {
+            if (backoff.failure()) {
                 // it is weird to mark the task failed locally and then cancel the remote task, but there is no way to tell a remote task that it is failed
                 PrestoException exception = new PrestoException(TOO_MANY_REQUESTS_FAILED,
                         format("%s (%s - %s failures, time since last success %s)",
                                 WORKER_NODE_ERROR,
                                 taskUri,
-                                errorCount,
-                                timeSinceLastSuccess.convertTo(TimeUnit.SECONDS)));
+                                backoff.getFailureCount(),
+                                backoff.getTimeSinceLastSuccess().convertTo(SECONDS)));
                 errorsSinceLastSuccess.forEach(exception::addSuppressed);
                 throw exception;
             }

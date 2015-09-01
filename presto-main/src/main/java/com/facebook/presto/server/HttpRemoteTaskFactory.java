@@ -40,10 +40,12 @@ import org.weakref.jmx.Nested;
 import javax.inject.Inject;
 
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class HttpRemoteTaskFactory
         implements RemoteTaskFactory
@@ -52,11 +54,11 @@ public class HttpRemoteTaskFactory
     private final LocationFactory locationFactory;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
-    private final int maxConsecutiveErrorCount;
     private final Duration minErrorDuration;
     private final Duration taskInfoRefreshMaxWait;
     private final ExecutorService executor;
     private final ThreadPoolExecutorMBean executorMBean;
+    private final ScheduledExecutorService errorScheduledExecutor;
 
     @Inject
     public HttpRemoteTaskFactory(QueryManagerConfig config,
@@ -70,12 +72,13 @@ public class HttpRemoteTaskFactory
         this.locationFactory = locationFactory;
         this.taskInfoCodec = taskInfoCodec;
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
-        this.maxConsecutiveErrorCount = config.getRemoteTaskMaxConsecutiveErrorCount();
         this.minErrorDuration = config.getRemoteTaskMinErrorDuration();
         this.taskInfoRefreshMaxWait = taskConfig.getInfoRefreshMaxWait();
         ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
         this.executor = ExecutorServiceAdapter.from(new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads()));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
+
+        this.errorScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("remote-task-error-delay-%s"));
     }
 
     @Managed
@@ -102,7 +105,7 @@ public class HttpRemoteTaskFactory
                 outputBuffers,
                 httpClient,
                 executor,
-                maxConsecutiveErrorCount,
+                errorScheduledExecutor,
                 minErrorDuration,
                 taskInfoRefreshMaxWait,
                 taskInfoCodec,
