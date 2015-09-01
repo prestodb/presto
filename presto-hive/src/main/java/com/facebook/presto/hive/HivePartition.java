@@ -13,12 +13,18 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.shaded.com.google.common.collect.ImmutableList;
+import com.facebook.presto.hive.HivePartition.JsonMapSerializationUtil.JsonSerializableMapEntry;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.TupleDomain;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -50,7 +56,19 @@ public class HivePartition
         this(tableName, effectivePredicate, UNPARTITIONED_ID, ImmutableMap.of(), bucket);
     }
 
-    public HivePartition(SchemaTableName tableName,
+    @JsonCreator
+    public HivePartition(
+            @JsonProperty("tableName") SchemaTableName tableName,
+            @JsonProperty("effectivePredicate") TupleDomain<HiveColumnHandle> effectivePredicate,
+            @JsonProperty("partitionId") String partitionId,
+            @JsonProperty("keysEntries") List<JsonSerializableMapEntry<ColumnHandle, SerializableNativeValue>> keysEntries,
+            @JsonProperty("bucket") Optional<HiveBucket> bucket)
+    {
+        this(tableName, effectivePredicate, partitionId, JsonMapSerializationUtil.toMap(keysEntries), bucket);
+    }
+
+    public HivePartition(
+            SchemaTableName tableName,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             String partitionId,
             Map<ColumnHandle, SerializableNativeValue> keys,
@@ -63,31 +81,43 @@ public class HivePartition
         this.bucket = checkNotNull(bucket, "bucket number is null");
     }
 
+    @JsonProperty
     public SchemaTableName getTableName()
     {
         return tableName;
     }
 
+    @JsonProperty
     public TupleDomain<HiveColumnHandle> getEffectivePredicate()
     {
         return effectivePredicate;
     }
 
+    @JsonProperty
     public String getPartitionId()
     {
         return partitionId;
     }
 
+    @JsonIgnore
     public TupleDomain<ColumnHandle> getTupleDomain()
     {
         return TupleDomain.withNullableFixedValues(keys);
     }
 
+    @JsonIgnore
     public Map<ColumnHandle, SerializableNativeValue> getKeys()
     {
         return keys;
     }
 
+    @JsonProperty
+    public List<JsonSerializableMapEntry<ColumnHandle, SerializableNativeValue>> getKeysEntries()
+    {
+        return JsonMapSerializationUtil.toEntries(keys);
+    }
+
+    @JsonProperty
     public Optional<HiveBucket> getBucket()
     {
         return bucket;
@@ -116,5 +146,61 @@ public class HivePartition
     public String toString()
     {
         return tableName + ":" + partitionId;
+    }
+
+    /**
+     * This helper class makes it easy to serialize/deserialize map objects in JSON.
+     */
+    public static final class JsonMapSerializationUtil<K, V>
+    {
+        private JsonMapSerializationUtil()
+        {
+        }
+
+        public static <K, V> List<JsonSerializableMapEntry<K, V>> toEntries(Map<K, V> map)
+        {
+            ImmutableList.Builder<JsonSerializableMapEntry<K, V>> builder = ImmutableList.builder();
+
+            for (Map.Entry<K, V> entry : map.entrySet()) {
+                builder.add(new JsonSerializableMapEntry<>(entry.getKey(), entry.getValue()));
+            }
+
+            return builder.build();
+        }
+
+        public static <K, V> Map<K, V> toMap(List<JsonSerializableMapEntry<K, V>> entries)
+        {
+            ImmutableMap.Builder<K, V> builder = ImmutableMap.builder();
+            for (JsonSerializableMapEntry<K, V> entry : entries) {
+                builder.put(entry.getKey(), entry.getValue());
+            }
+            return builder.build();
+        }
+
+        public static class JsonSerializableMapEntry<K, V>
+        {
+            private final K key;
+            private final V value;
+
+            public JsonSerializableMapEntry(
+                    @JsonProperty("k") K key,
+                    @JsonProperty("v") V value)
+            {
+                this.key = key;
+                this.value = value;
+            }
+
+            @JsonProperty("k")
+            public K getKey()
+            {
+                return key;
+            }
+
+            @JsonProperty("v")
+            public V getValue()
+            {
+                return value;
+            }
+        }
     }
 }

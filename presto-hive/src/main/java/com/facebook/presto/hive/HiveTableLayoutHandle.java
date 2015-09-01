@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
@@ -31,13 +30,9 @@ public final class HiveTableLayoutHandle
     private final List<HivePartition> partitions;
 
     @JsonCreator
-    public HiveTableLayoutHandle(@JsonProperty("clientId") String clientId)
-    {
-        this.clientId = requireNonNull(clientId, "clientId is null");
-        this.partitions = null;
-    }
-
-    public HiveTableLayoutHandle(String clientId, List<HivePartition> partitions)
+    public HiveTableLayoutHandle(
+            @JsonProperty("clientId") String clientId,
+            @JsonProperty("partitions") List<HivePartition> partitions)
     {
         this.clientId = requireNonNull(clientId, "clientId is null");
         this.partitions = requireNonNull(partitions, "partitions is null");
@@ -49,7 +44,7 @@ public final class HiveTableLayoutHandle
         return clientId;
     }
 
-    @JsonIgnore
+    @JsonProperty
     public List<HivePartition> getPartitions()
     {
         checkState(partitions != null, "Partitions dropped by serialization");
