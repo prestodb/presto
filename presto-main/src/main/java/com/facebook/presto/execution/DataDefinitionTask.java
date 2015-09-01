@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
 
 public interface DataDefinitionTask<T extends Statement>
@@ -22,4 +23,9 @@ public interface DataDefinitionTask<T extends Statement>
     String getName();
 
     void execute(T statement, Session session, Metadata metadata, QueryStateMachine stateMachine);
+
+    default String explain(T statement)
+    {
+        return SqlFormatter.formatSql(statement);
+    }
 }

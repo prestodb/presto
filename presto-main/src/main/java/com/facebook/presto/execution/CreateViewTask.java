@@ -21,7 +21,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateView;
@@ -46,15 +45,13 @@ public class CreateViewTask
 {
     private final JsonCodec<ViewDefinition> codec;
     private final SqlParser sqlParser;
-    private final QueryExplainer explainer;
     private final boolean experimentalSyntaxEnabled;
 
     @Inject
-    public CreateViewTask(JsonCodec<ViewDefinition> codec, SqlParser sqlParser, QueryExplainer explainer, FeaturesConfig featuresConfig)
+    public CreateViewTask(JsonCodec<ViewDefinition> codec, SqlParser sqlParser, FeaturesConfig featuresConfig)
     {
         this.codec = checkNotNull(codec, "codec is null");
         this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
-        this.explainer = checkNotNull(explainer, "explainer is null");
         checkNotNull(featuresConfig, "featuresConfig is null");
         this.experimentalSyntaxEnabled = featuresConfig.isExperimentalSyntaxEnabled();
     }
@@ -63,6 +60,12 @@ public class CreateViewTask
     public String getName()
     {
         return "CREATE VIEW";
+    }
+
+    @Override
+    public String explain(CreateView statement)
+    {
+        return "CREATE VIEW " + statement.getName();
     }
 
     @Override
@@ -86,7 +89,7 @@ public class CreateViewTask
 
     private Analysis analyzeStatement(Statement statement, Session session, Metadata metadata)
     {
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.of(explainer), experimentalSyntaxEnabled);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.empty(), experimentalSyntaxEnabled);
         return analyzer.analyze(statement);
     }
 

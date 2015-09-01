@@ -3289,6 +3289,31 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExplainDdl()
+    {
+        assertExplainDdl("CREATE TABLE foo (pk bigint)", "CREATE TABLE foo");
+        assertExplainDdl("CREATE VIEW foo AS SELECT * FROM orders", "CREATE VIEW foo");
+        assertExplainDdl("DROP TABLE orders");
+        assertExplainDdl("DROP VIEW view");
+        assertExplainDdl("ALTER TABLE orders RENAME TO new_name");
+        assertExplainDdl("ALTER TABLE orders RENAME COLUMN orderkey TO new_column_name");
+        assertExplainDdl("SET SESSION foo = 'bar'");
+        assertExplainDdl("RESET SESSION foo");
+    }
+
+    private void assertExplainDdl(String query)
+    {
+        assertExplainDdl(query, query);
+    }
+
+    private void assertExplainDdl(String query, String expected)
+    {
+        MaterializedResult result = computeActual("EXPLAIN " + query);
+        String actual = Iterables.getOnlyElement(transform(result.getMaterializedRows(), onlyColumnGetter()));
+        assertEquals(actual, expected);
+    }
+
+    @Test
     public void testShowCatalogs()
             throws Exception
     {

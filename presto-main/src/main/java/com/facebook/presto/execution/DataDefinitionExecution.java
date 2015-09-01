@@ -176,6 +176,13 @@ public class DataDefinitionExecution<T extends Statement>
             this.tasks = checkNotNull(tasks, "tasks is null");
         }
 
+        public String explain(Statement statement)
+        {
+            DataDefinitionTask<Statement> task = getTask(statement);
+            checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
+            return task.explain(statement);
+        }
+
         @Override
         public DataDefinitionExecution<?> createQueryExecution(
                 QueryId queryId,
