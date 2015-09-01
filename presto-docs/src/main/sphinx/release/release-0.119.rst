@@ -2,6 +2,11 @@
 Release 0.119
 =============
 
+General Changes
+---------------
+
+* Fix restoring interrupt status in ``StatementClient``.
+
 CLI Changes
 -----------
 

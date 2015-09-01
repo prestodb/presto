@@ -222,8 +222,12 @@ public class StatementClient
                     MILLISECONDS.sleep(attempts * 100);
                 }
                 catch (InterruptedException e) {
-                    close();
-                    Thread.currentThread().isInterrupted();
+                    try {
+                        close();
+                    }
+                    finally {
+                        Thread.currentThread().interrupt();
+                    }
                     throw new RuntimeException("StatementClient thread was interrupted");
                 }
             }
