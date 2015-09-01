@@ -80,17 +80,23 @@ Property Name                                      Description                  
                                                    machines running Presto. Only specify this if
                                                    absolutely necessary to access HDFS.
 
-``hive.storage-format``                            The default file format used when creating new tables        ``RCBINARY``
+``hive.storage-format``                            The default file format used when creating new tables. The   ``RCBINARY``
+                                                   default value is ``RCBINARY``.
 
 ``hive.force-local-scheduling``                    Force splits to be scheduled on the same node as the Hadoop  ``true``
                                                    DataNode process serving the split data.  This is useful for
                                                    installations where Presto is collocated with every
-                                                   DataNode.
+                                                   DataNode. The default value is ``false``.
+
+``hive.allow-drop-table``                          Allows the Hive connector to drop tables. The default value  ``true``
+                                                   is ``false``.
+
+``hive.allow-rename-table``                        Allows the Hive connector to rename tables. The default      ``true``
+                                                   value is ``false``.
 ================================================== ============================================================ ==========
 
 Querying Hive Tables
 --------------------
-
 The following table is an example Hive table from the `Hive Tutorial`_.
 It can be created in Hive (not in Presto) using the following
 Hive ``CREATE TABLE`` command:
@@ -132,3 +138,11 @@ Hive, this table can be described in Presto::
 This table can then be queried in Presto::
 
     SELECT * FROM hive.web.page_view;
+
+Before running any ``CREATE TABLE`` or ``CREATE TABLE ... AS`` statements
+for Hive tables in Presto, make sure either to connect to Presto as the
+``hive`` user or to add the following to ``jvm.config`` on all of the nodes:
+``-DHADOOP_USER_NAME=hive``. If not, the HDFS permissions will not be correct.
+If you run into HDFS permissions problems on ``CREATE TABLE ... AS``, try
+removing ``/tmp/presto-*`` on HDFS, adding the above configuration variable
+to ``jvm.config``, then restarting all of the Presto servers.
