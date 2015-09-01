@@ -99,6 +99,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELAT
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
@@ -160,7 +161,9 @@ class StatementAnalyzer
             schemaName = schema.get().getSuffix();
         }
 
-        // TODO: throw SemanticException if schema does not exist
+        if (!metadata.listSchemaNames(session, catalogName).contains(schemaName)) {
+            throw new SemanticException(MISSING_SCHEMA, showTables, "Schema '%s' does not exist", schemaName);
+        }
 
         Expression predicate = equal(nameReference("table_schema"), new StringLiteral(schemaName));
 
