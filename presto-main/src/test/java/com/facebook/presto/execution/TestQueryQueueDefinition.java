@@ -39,6 +39,13 @@ public class TestQueryQueueDefinition
         assertEquals(definition.getExpandedTemplate(session), "global");
     }
 
+    @Test
+    public void testZeroMaxQueuedQueries()
+    {
+        QueryQueueDefinition definition =  new QueryQueueDefinition("zero-max-queued", 1, 0);
+        assertEquals(definition.getMaxQueued(), 0);
+    }
+
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = ".*Unsupported template parameter: \\$\\{FOO\\}.*")
     public void testInvalidTemplate()
     {

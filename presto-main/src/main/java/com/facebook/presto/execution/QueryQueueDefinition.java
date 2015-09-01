@@ -38,7 +38,7 @@ public class QueryQueueDefinition
             checkArgument(group.equals("USER") || group.equals("SOURCE"), "Unsupported template parameter: ${%s}", group);
         }
         checkArgument(maxConcurrent > 0, "maxConcurrent must be positive");
-        checkArgument(maxQueued > 0, "maxQueued must be positive");
+        checkArgument(maxQueued >= 0, "maxQueued must not be negative");
         this.maxConcurrent = maxConcurrent;
         this.maxQueued = maxQueued;
     }
