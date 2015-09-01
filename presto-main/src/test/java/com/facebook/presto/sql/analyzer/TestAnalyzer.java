@@ -227,6 +227,14 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testInvalidSchema()
+            throws Exception
+    {
+        assertFails(MISSING_SCHEMA, "SHOW TABLES FROM NONEXISTENT_SCHEMA");
+        assertFails(MISSING_SCHEMA, "SHOW TABLES IN NONEXISTENT_SCHEMA LIKE '%'");
+    }
+
+    @Test
     public void testNonAggregate()
             throws Exception
     {
