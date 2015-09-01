@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LogicalPlanner;
@@ -25,10 +26,12 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.ExplainType.Type;
 import com.facebook.presto.sql.tree.Statement;
+import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -39,17 +42,20 @@ public class QueryExplainer
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final boolean experimentalSyntaxEnabled;
+    private final Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
 
     @Inject
     public QueryExplainer(
             List<PlanOptimizer> planOptimizers,
             Metadata metadata,
             SqlParser sqlParser,
+            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask,
             FeaturesConfig featuresConfig)
     {
         this(planOptimizers,
                 metadata,
                 sqlParser,
+                dataDefinitionTask,
                 featuresConfig.isExperimentalSyntaxEnabled());
     }
 
@@ -57,16 +63,23 @@ public class QueryExplainer
             List<PlanOptimizer> planOptimizers,
             Metadata metadata,
             SqlParser sqlParser,
+            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask,
             boolean experimentalSyntaxEnabled)
     {
         this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
         this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
+        this.dataDefinitionTask = ImmutableMap.copyOf(checkNotNull(dataDefinitionTask, "dataDefinitionTask is null"));
     }
 
     public String getPlan(Session session, Statement statement, Type planType)
     {
+        DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
+        if (task != null) {
+            return explainTask(statement, task);
+        }
+
         switch (planType) {
             case LOGICAL:
                 Plan plan = getLogicalPlan(session, statement);
@@ -78,8 +91,19 @@ public class QueryExplainer
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
 
+    private static <T extends Statement> String explainTask(Statement statement, DataDefinitionTask<T> task)
+    {
+        return task.explain((T) statement);
+    }
+
     public String getGraphvizPlan(Session session, Statement statement, Type planType)
     {
+        DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
+        if (task != null) {
+            // todo format as graphviz
+            return explainTask(statement, task);
+        }
+
         switch (planType) {
             case LOGICAL:
                 Plan plan = getLogicalPlan(session, statement);
@@ -93,6 +117,11 @@ public class QueryExplainer
 
     public String getJsonPlan(Session session, Statement statement)
     {
+        DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
+        if (task != null) {
+            return "{}";
+        }
+
         Plan plan = getLogicalPlan(session, statement);
         return PlanPrinter.getJsonPlanSource(plan.getRoot(), metadata, null);
     }

@@ -47,6 +47,12 @@ public class CreateTableTask
     }
 
     @Override
+    public String explain(CreateTable statement)
+    {
+        return "CREATE TABLE " + statement.getName();
+    }
+
+    @Override
     public void execute(CreateTable statement, Session session, Metadata metadata, QueryStateMachine stateMachine)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");

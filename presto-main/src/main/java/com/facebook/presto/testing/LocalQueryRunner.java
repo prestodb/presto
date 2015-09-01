@@ -22,6 +22,15 @@ import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.NodeSystemTable;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.connector.system.TablePropertiesSystemTable;
+import com.facebook.presto.execution.CreateTableTask;
+import com.facebook.presto.execution.CreateViewTask;
+import com.facebook.presto.execution.DataDefinitionTask;
+import com.facebook.presto.execution.DropTableTask;
+import com.facebook.presto.execution.DropViewTask;
+import com.facebook.presto.execution.RenameColumnTask;
+import com.facebook.presto.execution.RenameTableTask;
+import com.facebook.presto.execution.ResetSessionTask;
+import com.facebook.presto.execution.SetSessionTask;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.HandleResolver;
@@ -36,6 +45,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.metadata.TablePropertyManager;
+import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
@@ -86,6 +96,14 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.RenameColumn;
+import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.TypeUtils;
@@ -111,6 +129,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class LocalQueryRunner
@@ -131,6 +150,7 @@ public class LocalQueryRunner
 
     private final ExpressionCompiler compiler;
     private final ConnectorManager connectorManager;
+    private final ImmutableMap<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
 
     private boolean printPlan;
 
@@ -190,6 +210,17 @@ public class LocalQueryRunner
                 defaultSession.getSystemProperties(),
                 defaultSession.getCatalogProperties(),
                 metadata.getSessionPropertyManager());
+
+        dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
+                .put(CreateTable.class, new CreateTableTask())
+                .put(CreateView.class, new CreateViewTask(jsonCodec(ViewDefinition.class), sqlParser, new FeaturesConfig()))
+                .put(DropTable.class, new DropTableTask())
+                .put(DropView.class, new DropViewTask())
+                .put(RenameColumn.class, new RenameColumnTask())
+                .put(RenameTable.class, new RenameTableTask())
+                .put(ResetSession.class, new ResetSessionTask())
+                .put(SetSession.class, new SetSessionTask())
+                .build();
     }
 
     @Override
@@ -361,7 +392,7 @@ public class LocalQueryRunner
                 .setOptimizeHashGeneration(true);
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, sqlParser, indexManager, featuresConfig, true);
 
-        QueryExplainer queryExplainer = new QueryExplainer(planOptimizersFactory.get(), metadata, sqlParser, featuresConfig.isExperimentalSyntaxEnabled());
+        QueryExplainer queryExplainer = new QueryExplainer(planOptimizersFactory.get(), metadata, sqlParser, dataDefinitionTask, featuresConfig.isExperimentalSyntaxEnabled());
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
 
         Analysis analysis = analyzer.analyze(statement);

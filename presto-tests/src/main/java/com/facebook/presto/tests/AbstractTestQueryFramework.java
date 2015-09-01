@@ -27,6 +27,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 
@@ -165,6 +166,7 @@ public abstract class AbstractTestQueryFramework
                 optimizers,
                 metadata,
                 sqlParser,
+                ImmutableMap.of(),
                 featuresConfig.isExperimentalSyntaxEnabled());
     }
 }
