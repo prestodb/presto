@@ -19,6 +19,7 @@ import com.facebook.presto.operator.scalar.TestingRowConstructor;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -57,6 +58,7 @@ import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_Z
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -74,6 +76,7 @@ import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueries
         extends AbstractTestQueryFramework
@@ -3370,9 +3373,16 @@ public abstract class AbstractTestQueries
         tableNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
         assertTrue(tableNames.containsAll(expectedTables));
 
-        result = computeActual("SHOW TABLES FROM UNKNOWN");
-        tableNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertEquals(tableNames, ImmutableSet.of());
+        try {
+            computeActual("SHOW TABLES FROM UNKNOWN");
+            fail("Showing tables in an unknown schema should fail");
+        }
+        catch (SemanticException e) {
+            assertTrue(e.getCode() == MISSING_SCHEMA);
+        }
+        catch (RuntimeException e) {
+            assertEquals(e.getMessage(), "Schema 'unknown' does not exist");
+        }
     }
 
     @Test
