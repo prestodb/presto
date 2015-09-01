@@ -25,7 +25,6 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -245,14 +244,6 @@ public final class SqlStageExecution
         return tasks.values().stream()
                 .flatMap(Set::stream)
                 .collect(toImmutableList());
-    }
-
-    @VisibleForTesting
-    synchronized List<RemoteTask> getTasks(Node node)
-    {
-        requireNonNull(node, "node is null");
-
-        return ImmutableList.copyOf(tasks.getOrDefault(node, ImmutableSet.of()));
     }
 
     public synchronized CompletableFuture<?> getTaskStateChange()
