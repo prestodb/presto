@@ -72,8 +72,8 @@ public class TestMemoryManager
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("task.verbose-stats", "true")
                 .put("task.operator-pre-allocated-memory", "0B")
-                .put("query.kill-on-out-of-memory-delay", "5s")
-                .put("query.kill-on-out-of-memory", "true")
+                .put("query.low-memory-killer.delay", "5s")
+                .put("query.low-memory-killer.enabled", "true")
                 .build();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {

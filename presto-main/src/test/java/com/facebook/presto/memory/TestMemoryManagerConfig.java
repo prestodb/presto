@@ -43,8 +43,8 @@ public class TestMemoryManagerConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("query.kill-on-out-of-memory", "true")
-                .put("query.kill-on-out-of-memory-delay", "20s")
+                .put("query.low-memory-killer.enabled", "true")
+                .put("query.low-memory-killer.delay", "20s")
                 .put("query.max-memory", "2GB")
                 .put("query.max-memory-per-node", "2GB")
                 .build();

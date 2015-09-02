@@ -14,6 +14,7 @@
 package com.facebook.presto.memory;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -39,7 +40,8 @@ public class MemoryManagerConfig
         return killOnOutOfMemory;
     }
 
-    @Config("query.kill-on-out-of-memory")
+    @Config("query.low-memory-killer.enabled")
+    @ConfigDescription("Enable low memory killer")
     public MemoryManagerConfig setKillOnOutOfMemory(boolean killOnOutOfMemory)
     {
         this.killOnOutOfMemory = killOnOutOfMemory;
@@ -53,7 +55,8 @@ public class MemoryManagerConfig
         return killOnOutOfMemoryDelay;
     }
 
-    @Config("query.kill-on-out-of-memory-delay")
+    @Config("query.low-memory-killer.delay")
+    @ConfigDescription("Delay between cluster running low on memory and invoking killer")
     public MemoryManagerConfig setKillOnOutOfMemoryDelay(Duration killOnOutOfMemoryDelay)
     {
         this.killOnOutOfMemoryDelay = killOnOutOfMemoryDelay;
