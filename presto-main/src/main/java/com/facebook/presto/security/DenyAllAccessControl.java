@@ -24,6 +24,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
@@ -56,6 +57,12 @@ public class DenyAllAccessControl
     public void checkCanRenameTable(Identity identity, QualifiedTableName tableName, QualifiedTableName newTableName)
     {
         denyRenameTable(tableName.toString(), newTableName.toString());
+    }
+
+    @Override
+    public void checkCanRenameColumn(Identity identity, QualifiedTableName tableName)
+    {
+        denyRenameColumn(tableName.toString());
     }
 
     @Override

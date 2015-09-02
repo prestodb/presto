@@ -45,6 +45,12 @@ public interface AccessControl
     void checkCanRenameTable(Identity identity, QualifiedTableName tableName, QualifiedTableName newTableName);
 
     /**
+     * Check if identity is allowed to rename a column in the specified table.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanRenameColumn(Identity identity, QualifiedTableName tableName);
+
+    /**
      * Check if identity is allowed to select from the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
