@@ -18,10 +18,13 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.Set;
 
+import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
@@ -148,6 +151,32 @@ public class TestArbitraryAggregation
                         new String[] {"a", "a"}));
     }
 
+    @Test
+    public void testNullArray()
+            throws Exception
+    {
+        InternalAggregationFunction arrayAgg = metadata.getExactFunction(new Signature("arbitrary", "array<bigint>", "array<bigint>")).getAggregationFunction();
+        assertAggregation(
+                arrayAgg,
+                1.0,
+                null,
+                createPage(
+                        Arrays.asList(null, null, null, null)));
+    }
+
+    @Test
+    public void testValidArray()
+            throws Exception
+    {
+        InternalAggregationFunction arrayAgg = metadata.getExactFunction(new Signature("arbitrary", "array<bigint>", "array<bigint>")).getAggregationFunction();
+        assertAggregation(
+                arrayAgg,
+                1.0,
+                ImmutableList.of(23L, 45L),
+                createPage(
+                        ImmutableList.of(ImmutableList.of(23L, 45L), ImmutableList.of(23L, 45L), ImmutableList.of(23L, 45L), ImmutableList.of(23L, 45L))));
+    }
+
     private static Page createPage(Boolean[] values)
     {
         return new Page(createBooleansBlock(values));
@@ -166,5 +195,10 @@ public class TestArbitraryAggregation
     private static Page createPage(String[] values)
     {
         return new Page(createStringsBlock(values));
+    }
+
+    private static Page createPage(Iterable<? extends Iterable<Long>> values)
+    {
+        return new Page(createArrayBigintBlock(values));
     }
 }

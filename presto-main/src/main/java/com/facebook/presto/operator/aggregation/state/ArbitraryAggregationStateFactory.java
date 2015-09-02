@@ -14,23 +14,15 @@
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.BlockBigArray;
 
 public class ArbitraryAggregationStateFactory
         implements AccumulatorStateFactory<ArbitraryAggregationState>
 {
-    private final Type valueType;
-
-    public ArbitraryAggregationStateFactory(Type valueType)
-    {
-        this.valueType = valueType;
-    }
-
     @Override
     public ArbitraryAggregationState createSingleState()
     {
-        return new SingleArbitraryAggregationState(valueType);
+        return new SingleArbitraryAggregationState();
     }
 
     @Override
@@ -42,7 +34,7 @@ public class ArbitraryAggregationStateFactory
     @Override
     public ArbitraryAggregationState createGroupedState()
     {
-        return new GroupedArbitraryAggregationState(valueType);
+        return new GroupedArbitraryAggregationState();
     }
 
     @Override
@@ -55,13 +47,7 @@ public class ArbitraryAggregationStateFactory
             extends AbstractGroupedAccumulatorState
             implements ArbitraryAggregationState
     {
-        private final Type valueType;
         private final BlockBigArray values = new BlockBigArray();
-
-        public GroupedArbitraryAggregationState(Type valueType)
-        {
-            this.valueType = valueType;
-        }
 
         @Override
         public void ensureCapacity(long size)
@@ -73,12 +59,6 @@ public class ArbitraryAggregationStateFactory
         public long getEstimatedSize()
         {
             return values.sizeOf();
-        }
-
-        @Override
-        public Type getType()
-        {
-            return valueType;
         }
 
         @Override
@@ -97,13 +77,7 @@ public class ArbitraryAggregationStateFactory
     public static class SingleArbitraryAggregationState
             implements ArbitraryAggregationState
     {
-        private final Type valueType;
         private Block value;
-
-        public SingleArbitraryAggregationState(Type valueType)
-        {
-            this.valueType = valueType;
-        }
 
         @Override
         public long getEstimatedSize()
@@ -114,12 +88,6 @@ public class ArbitraryAggregationStateFactory
             else {
                 return 0L;
             }
-        }
-
-        @Override
-        public Type getType()
-        {
-            return valueType;
         }
 
         @Override
