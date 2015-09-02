@@ -32,6 +32,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.Symbol;
@@ -40,7 +41,6 @@ import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
@@ -75,11 +75,9 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.RowType;
-import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
@@ -128,6 +126,7 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -292,7 +291,7 @@ public class TupleAnalyzer
             throw new SemanticException(NOT_SUPPORTED, relation, "STRATIFY ON is not yet implemented");
         }
 
-        if (!DependencyExtractor.extract(relation.getSamplePercentage()).isEmpty()) {
+        if (!DependencyExtractor.extractNames(relation.getSamplePercentage()).isEmpty()) {
             throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
         }
 
@@ -530,8 +529,8 @@ public class TupleAnalyzer
                 }
 
                 ComparisonExpression comparison = (ComparisonExpression) conjunct;
-                Set<QualifiedName> firstDependencies = DependencyExtractor.extract(comparison.getLeft());
-                Set<QualifiedName> secondDependencies = DependencyExtractor.extract(comparison.getRight());
+                Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(comparison.getLeft());
+                Set<QualifiedName> secondDependencies = DependencyExtractor.extractNames(comparison.getRight());
 
                 Expression leftExpression;
                 Expression rightExpression;
@@ -595,7 +594,7 @@ public class TupleAnalyzer
                     }
                     return ImmutableList.of(type);
                 })
-                .collect(ImmutableCollectors.toImmutableSet());
+                .collect(toImmutableSet());
 
         // determine common super type of the rows
         List<Type> fieldTypes = new ArrayList<>(rowTypes.iterator().next());
@@ -1144,29 +1143,5 @@ public class TupleAnalyzer
                 experimentalSyntaxEnabled,
                 context,
                 expression);
-    }
-
-    public static class DependencyExtractor
-    {
-        public static Set<QualifiedName> extract(Expression expression)
-        {
-            ImmutableSet.Builder<QualifiedName> builder = ImmutableSet.builder();
-
-            Visitor visitor = new Visitor();
-            visitor.process(expression, builder);
-
-            return builder.build();
-        }
-
-        private static class Visitor
-                extends DefaultExpressionTraversalVisitor<Void, ImmutableSet.Builder<QualifiedName>>
-        {
-            @Override
-            protected Void visitQualifiedNameReference(QualifiedNameReference node, ImmutableSet.Builder<QualifiedName> builder)
-            {
-                builder.add(node.getName());
-                return null;
-            }
-        }
     }
 }
