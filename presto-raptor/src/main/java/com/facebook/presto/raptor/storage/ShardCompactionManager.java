@@ -170,7 +170,7 @@ public class ShardCompactionManager
             startDiscovery();
         }
 
-        if (compactionStarted.getAndSet(true)) {
+        if (!compactionStarted.getAndSet(true)) {
             compactionDriverService.submit(new ShardCompactionDriver());
         }
     }
