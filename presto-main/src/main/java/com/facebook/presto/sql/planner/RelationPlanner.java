@@ -25,7 +25,6 @@ import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.analyzer.TupleAnalyzer;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -238,8 +237,8 @@ class RelationPlanner
                 if (comparison.getType() != EQUAL && node.getType() != INNER) {
                     throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins only supported for inner join: %s", conjunct);
                 }
-                Set<QualifiedName> firstDependencies = TupleAnalyzer.DependencyExtractor.extract(comparison.getLeft());
-                Set<QualifiedName> secondDependencies = TupleAnalyzer.DependencyExtractor.extract(comparison.getRight());
+                Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(comparison.getLeft());
+                Set<QualifiedName> secondDependencies = DependencyExtractor.extractNames(comparison.getRight());
 
                 Expression leftExpression;
                 Expression rightExpression;
