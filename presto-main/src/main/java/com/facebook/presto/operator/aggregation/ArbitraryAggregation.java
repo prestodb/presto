@@ -44,7 +44,7 @@ public class ArbitraryAggregation
 {
     public static final ArbitraryAggregation ARBITRARY_AGGREGATION = new ArbitraryAggregation();
     private static final String NAME = "arbitrary";
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ArbitraryAggregation.class, "output", ArbitraryAggregationState.class, BlockBuilder.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ArbitraryAggregation.class, "output", Type.class, ArbitraryAggregationState.class, BlockBuilder.class);
     private static final MethodHandle INPUT_FUNCTION = methodHandle(ArbitraryAggregation.class, "input", ArbitraryAggregationState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(ArbitraryAggregation.class, "combine", ArbitraryAggregationState.class, ArbitraryAggregationState.class);
     private static final Signature SIGNATURE = new Signature(NAME, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("T"), false, false);
@@ -74,12 +74,12 @@ public class ArbitraryAggregation
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(ArbitraryAggregation.class.getClassLoader());
 
-        ArbitraryAggregationStateSerializer stateSerializer = new ArbitraryAggregationStateSerializer();
+        ArbitraryAggregationStateSerializer stateSerializer = new ArbitraryAggregationStateSerializer(valueType);
         Type intermediateType = stateSerializer.getSerializedType();
 
         List<Type> inputTypes = ImmutableList.of(valueType);
 
-        ArbitraryAggregationStateFactory stateFactory = new ArbitraryAggregationStateFactory(valueType);
+        ArbitraryAggregationStateFactory stateFactory = new ArbitraryAggregationStateFactory();
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(NAME, valueType, inputTypes),
                 createInputParameterMetadata(valueType),
@@ -87,7 +87,7 @@ public class ArbitraryAggregation
                 null,
                 null,
                 COMBINE_FUNCTION,
-                OUTPUT_FUNCTION,
+                OUTPUT_FUNCTION.bindTo(valueType),
                 ArbitraryAggregationState.class,
                 stateSerializer,
                 stateFactory,
@@ -117,13 +117,13 @@ public class ArbitraryAggregation
         }
     }
 
-    public static void output(ArbitraryAggregationState state, BlockBuilder out)
+    public static void output(Type type, ArbitraryAggregationState state, BlockBuilder out)
     {
         if (state.getValue() == null) {
             out.appendNull();
         }
         else {
-            state.getType().appendTo(state.getValue(), 0, out);
+            type.appendTo(state.getValue(), 0, out);
         }
     }
 }
