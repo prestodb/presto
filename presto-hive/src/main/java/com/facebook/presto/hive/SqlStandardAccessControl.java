@@ -25,6 +25,7 @@ import javax.inject.Inject;
 import java.util.Set;
 
 import static com.facebook.presto.hive.metastore.HivePrivilege.DELETE;
+import static com.facebook.presto.hive.metastore.HivePrivilege.GRANT;
 import static com.facebook.presto.hive.metastore.HivePrivilege.INSERT;
 import static com.facebook.presto.hive.metastore.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.HivePrivilege.SELECT;
@@ -144,6 +145,22 @@ public class SqlStandardAccessControl
     }
 
     @Override
+    public void checkCanCreateViewWithSelectFromTable(Identity identity, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(identity, tableName, SELECT, GRANT)) {
+            denySelectTable(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanCreateViewWithSelectFromView(Identity identity, SchemaTableName viewName)
+    {
+        if (!checkTablePermission(identity, viewName, SELECT, GRANT)) {
+            denySelectView(viewName.toString());
+        }
+    }
+
+    @Override
     public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
     {
         if (!metastore.getRoles(identity.getUser()).contains(ADMIN_ROLE_NAME)) {
@@ -157,13 +174,13 @@ public class SqlStandardAccessControl
         return privilegeSet.containsAll(ImmutableSet.copyOf(requiredPrivileges));
     }
 
-    private boolean checkTablePermission(Identity identity, SchemaTableName tableName, HivePrivilege requiredPrivilege)
+    private boolean checkTablePermission(Identity identity, SchemaTableName tableName, HivePrivilege... requiredPrivileges)
     {
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
             return true;
         }
 
         Set<HivePrivilege> privilegeSet = metastore.getTablePrivileges(identity.getUser(), tableName.getSchemaName(), tableName.getTableName());
-        return privilegeSet.contains(requiredPrivilege);
+        return privilegeSet.containsAll(ImmutableSet.copyOf(requiredPrivileges));
     }
 }

@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.security.ViewAccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
@@ -459,7 +460,15 @@ class StatementAnalyzer
         analysis.setUpdateType("CREATE VIEW");
 
         // analyze the query that creates the view
-        TupleDescriptor descriptor = process(node.getQuery(), context);
+        StatementAnalyzer analyzer = new StatementAnalyzer(
+                analysis,
+                metadata,
+                sqlParser,
+                new ViewAccessControl(accessControl),
+                session,
+                experimentalSyntaxEnabled,
+                queryExplainer);
+        TupleDescriptor descriptor = analyzer.process(node.getQuery(), new AnalysisContext());
 
         QualifiedTableName viewName = MetadataUtil.createQualifiedTableName(session, node.getName());
         accessControl.checkCanCreateView(session.getIdentity(), viewName);

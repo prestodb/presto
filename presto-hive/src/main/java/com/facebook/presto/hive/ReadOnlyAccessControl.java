@@ -90,6 +90,18 @@ public class ReadOnlyAccessControl
     }
 
     @Override
+    public void checkCanCreateViewWithSelectFromTable(Identity identity, SchemaTableName tableName)
+    {
+        // allow
+    }
+
+    @Override
+    public void checkCanCreateViewWithSelectFromView(Identity identity, SchemaTableName viewName)
+    {
+        // allow
+    }
+
+    @Override
     public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
     {
         // allow

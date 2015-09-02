@@ -22,6 +22,7 @@ import java.security.Principal;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
@@ -39,6 +40,8 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySetSyst
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_TABLE;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_VIEW;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_VIEW;
@@ -56,9 +59,14 @@ public class TestingAccessControlManager
 {
     private final Set<TestingPrivilege> denyPrivileges = new HashSet<>();
 
-    public static TestingPrivilege privilege(String name, TestingPrivilegeType type)
+    public static TestingPrivilege privilege(String entityName, TestingPrivilegeType type)
     {
-        return new TestingPrivilege(name, type);
+        return new TestingPrivilege(Optional.empty(), entityName, type);
+    }
+
+    public static TestingPrivilege privilege(String userName, String entityName, TestingPrivilegeType type)
+    {
+        return new TestingPrivilege(Optional.of(userName), entityName, type);
     }
 
     public void deny(TestingPrivilege... deniedPrivileges)
@@ -74,43 +82,51 @@ public class TestingAccessControlManager
     @Override
     public void checkCanSetUser(Principal principal, String userName)
     {
-        if (shouldDenyPrivilege(userName, SET_USER)) {
+        if (shouldDenyPrivilege(userName, userName, SET_USER)) {
             denySetUser(principal, userName);
         }
-        super.checkCanSetUser(principal, userName);
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanSetUser(principal, userName);
+        }
     }
 
     @Override
     public void checkCanCreateTable(Identity identity, QualifiedTableName tableName)
     {
-        if (shouldDenyPrivilege(tableName.getTableName(), CREATE_TABLE)) {
+        if (shouldDenyPrivilege(identity.getUser(), tableName.getTableName(), CREATE_TABLE)) {
             denyCreateTable(tableName.toString());
         }
-        super.checkCanCreateTable(identity, tableName);
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanCreateTable(identity, tableName);
+        }
     }
 
     @Override
     public void checkCanDropTable(Identity identity, QualifiedTableName tableName)
     {
-        if (shouldDenyPrivilege(tableName.getTableName(), DROP_TABLE)) {
+        if (shouldDenyPrivilege(identity.getUser(), tableName.getTableName(), DROP_TABLE)) {
             denyDropTable(tableName.toString());
         }
-        super.checkCanDropTable(identity, tableName);
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanDropTable(identity, tableName);
+        }
     }
 
     @Override
     public void checkCanRenameTable(Identity identity, QualifiedTableName tableName, QualifiedTableName newTableName)
     {
-        if (shouldDenyPrivilege(tableName.getTableName(), RENAME_TABLE)) {
+        if (shouldDenyPrivilege(identity.getUser(), tableName.getTableName(), RENAME_TABLE)) {
             denyRenameTable(tableName.toString(), newTableName.toString());
         }
-        super.checkCanRenameTable(identity, tableName, newTableName);
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanRenameTable(identity, tableName, newTableName);
+        }
     }
 
     @Override
     public void checkCanRenameColumn(Identity identity, QualifiedTableName tableName)
     {
-        if (shouldDenyPrivilege(tableName.getTableName(), RENAME_COLUMN)) {
+        if (shouldDenyPrivilege(identity.getUser(), tableName.getTableName(), RENAME_COLUMN)) {
             denyRenameColumn(tableName.toString());
         }
         super.checkCanRenameColumn(identity, tableName);
@@ -119,78 +135,122 @@ public class TestingAccessControlManager
     @Override
     public void checkCanSelectFromTable(Identity identity, QualifiedTableName tableName)
     {
-        if (shouldDenyPrivilege(tableName.getTableName(), SELECT_TABLE)) {
+        if (shouldDenyPrivilege(identity.getUser(), tableName.getTableName(), SELECT_TABLE)) {
             denySelectTable(tableName.toString());
         }
-        super.checkCanSelectFromTable(identity, tableName);
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanSelectFromTable(identity, tableName);
+        }
     }
 
     @Override
     public void checkCanInsertIntoTable(Identity identity, QualifiedTableName tableName)
     {
-        if (shouldDenyPrivilege(tableName.getTableName(), INSERT_TABLE)) {
+        if (shouldDenyPrivilege(identity.getUser(), tableName.getTableName(), INSERT_TABLE)) {
             denyInsertTable(tableName.toString());
         }
-        super.checkCanInsertIntoTable(identity, tableName);
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanInsertIntoTable(identity, tableName);
+        }
     }
 
     @Override
     public void checkCanDeleteFromTable(Identity identity, QualifiedTableName tableName)
     {
-        if (shouldDenyPrivilege(tableName.getTableName(), DELETE_TABLE)) {
+        if (shouldDenyPrivilege(identity.getUser(), tableName.getTableName(), DELETE_TABLE)) {
             denyDeleteTable(tableName.toString());
         }
-        super.checkCanDeleteFromTable(identity, tableName);
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanDeleteFromTable(identity, tableName);
+        }
     }
 
     @Override
     public void checkCanCreateView(Identity identity, QualifiedTableName viewName)
     {
-        if (shouldDenyPrivilege(viewName.getTableName(), CREATE_VIEW)) {
+        if (shouldDenyPrivilege(identity.getUser(), viewName.getTableName(), CREATE_VIEW)) {
             denyCreateView(viewName.toString());
         }
-        super.checkCanCreateView(identity, viewName);
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanCreateView(identity, viewName);
+        }
     }
 
     @Override
     public void checkCanDropView(Identity identity, QualifiedTableName viewName)
     {
-        if (shouldDenyPrivilege(viewName.getTableName(), DROP_VIEW)) {
+        if (shouldDenyPrivilege(identity.getUser(), viewName.getTableName(), DROP_VIEW)) {
             denyDropView(viewName.toString());
         }
-        super.checkCanDropView(identity, viewName);
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanDropView(identity, viewName);
+        }
     }
 
     @Override
     public void checkCanSelectFromView(Identity identity, QualifiedTableName viewName)
     {
-        if (shouldDenyPrivilege(viewName.getTableName(), SELECT_VIEW)) {
+        if (shouldDenyPrivilege(identity.getUser(), viewName.getTableName(), SELECT_VIEW)) {
             denySelectView(viewName.toString());
         }
-        super.checkCanSelectFromView(identity, viewName);
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanSelectFromView(identity, viewName);
+        }
     }
 
     @Override
     public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
     {
-        if (shouldDenyPrivilege(propertyName, SET_SESSION)) {
+        if (shouldDenyPrivilege(identity.getUser(), propertyName, SET_SESSION)) {
             denySetSystemSessionProperty(propertyName);
         }
-        super.checkCanSetSystemSessionProperty(identity, propertyName);
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanSetSystemSessionProperty(identity, propertyName);
+        }
+    }
+
+    @Override
+    public void checkCanCreateViewWithSelectFromTable(Identity identity, QualifiedTableName tableName)
+    {
+        if (shouldDenyPrivilege(identity.getUser(), tableName.getTableName(), CREATE_VIEW_WITH_SELECT_TABLE)) {
+            denySelectTable(tableName.toString());
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanCreateViewWithSelectFromTable(identity, tableName);
+        }
+    }
+
+    @Override
+    public void checkCanCreateViewWithSelectFromView(Identity identity, QualifiedTableName viewName)
+    {
+        if (shouldDenyPrivilege(identity.getUser(), viewName.getTableName(), CREATE_VIEW_WITH_SELECT_VIEW)) {
+            denySelectView(viewName.toString());
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanCreateViewWithSelectFromView(identity, viewName);
+        }
     }
 
     @Override
     public void checkCanSetCatalogSessionProperty(Identity identity, String catalogName, String propertyName)
     {
-        if (shouldDenyPrivilege(catalogName + "." + propertyName, SET_SESSION)) {
+        if (shouldDenyPrivilege(identity.getUser(), catalogName + "." + propertyName, SET_SESSION)) {
             denySetCatalogSessionProperty(catalogName, propertyName);
         }
-        super.checkCanSetCatalogSessionProperty(identity, catalogName, propertyName);
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanSetCatalogSessionProperty(identity, catalogName, propertyName);
+        }
     }
 
-    private boolean shouldDenyPrivilege(String entityName, TestingPrivilegeType type)
+    private boolean shouldDenyPrivilege(String userName, String entityName, TestingPrivilegeType type)
     {
-        return denyPrivileges.contains(privilege(entityName, type));
+        TestingPrivilege testPrivilege = privilege(userName, entityName, type);
+        for (TestingPrivilege denyPrivilege : denyPrivileges) {
+            if (denyPrivilege.matches(testPrivilege)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public enum TestingPrivilegeType
@@ -198,18 +258,28 @@ public class TestingAccessControlManager
         SET_USER,
         CREATE_TABLE, DROP_TABLE, RENAME_TABLE, RENAME_COLUMN, SELECT_TABLE, INSERT_TABLE, DELETE_TABLE,
         CREATE_VIEW, DROP_VIEW, SELECT_VIEW,
+        CREATE_VIEW_WITH_SELECT_TABLE, CREATE_VIEW_WITH_SELECT_VIEW,
         SET_SESSION
     }
 
     public static class TestingPrivilege
     {
-        private final String name;
+        private final Optional<String> userName;
+        private final String entityName;
         private final TestingPrivilegeType type;
 
-        private TestingPrivilege(String name, TestingPrivilegeType type)
+        private TestingPrivilege(Optional<String> userName, String entityName, TestingPrivilegeType type)
         {
-            this.name = requireNonNull(name, "name is null");
+            this.userName = requireNonNull(userName, "userName is null");
+            this.entityName = requireNonNull(entityName, "entityName is null");
             this.type = requireNonNull(type, "type is null");
+        }
+
+        public boolean matches(TestingPrivilege testPrivilege)
+        {
+            return userName.map(name -> testPrivilege.userName.get().equals(name)).orElse(true) &&
+                    entityName.equals(testPrivilege.entityName) &&
+                    type == testPrivilege.type;
         }
 
         @Override
@@ -222,21 +292,22 @@ public class TestingAccessControlManager
                 return false;
             }
             TestingPrivilege that = (TestingPrivilege) o;
-            return Objects.equals(name, that.name) &&
+            return Objects.equals(entityName, that.entityName) &&
                     Objects.equals(type, that.type);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(name, type);
+            return Objects.hash(entityName, type);
         }
 
         @Override
         public String toString()
         {
             return MoreObjects.toStringHelper(this)
-                    .add("name", name)
+                    .add("userName", userName)
+                    .add("entityName", entityName)
                     .add("type", type)
                     .toString();
         }

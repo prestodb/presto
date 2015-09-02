@@ -182,6 +182,30 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanCreateViewWithSelectFromTable(Identity identity, QualifiedTableName tableName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+
+        ConnectorAccessControl accessControl = catalogAccessControl.get(tableName.getCatalogName());
+        if (accessControl != null) {
+            accessControl.checkCanCreateViewWithSelectFromTable(identity, tableName.asSchemaTableName());
+        }
+    }
+
+    @Override
+    public void checkCanCreateViewWithSelectFromView(Identity identity, QualifiedTableName viewName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(viewName, "viewName is null");
+
+        ConnectorAccessControl accessControl = catalogAccessControl.get(viewName.getCatalogName());
+        if (accessControl != null) {
+            accessControl.checkCanCreateViewWithSelectFromView(identity, viewName.asSchemaTableName());
+        }
+    }
+
+    @Override
     public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
     {
         requireNonNull(identity, "identity is null");
