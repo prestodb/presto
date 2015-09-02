@@ -59,6 +59,11 @@ public class NoAccessControl
     }
 
     @Override
+    public void checkCanRenameColumn(Identity identity, SchemaTableName tableName)
+    {
+    }
+
+    @Override
     public void checkCanSelectFromTable(Identity identity, SchemaTableName tableName)
     {
     }

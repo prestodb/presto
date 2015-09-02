@@ -98,6 +98,18 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanRenameColumn(Identity identity, QualifiedTableName tableName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+
+        ConnectorAccessControl accessControl = catalogAccessControl.get(tableName.getCatalogName());
+        if (accessControl != null) {
+            accessControl.checkCanRenameColumn(identity, tableName.asSchemaTableName());
+        }
+    }
+
+    @Override
     public void checkCanSelectFromTable(Identity identity, QualifiedTableName tableName)
     {
         requireNonNull(identity, "identity is null");

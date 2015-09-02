@@ -30,6 +30,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
@@ -42,6 +43,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_VIEW;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_VIEW;
@@ -103,6 +105,15 @@ public class TestingAccessControlManager
             denyRenameTable(tableName.toString(), newTableName.toString());
         }
         super.checkCanRenameTable(identity, tableName, newTableName);
+    }
+
+    @Override
+    public void checkCanRenameColumn(Identity identity, QualifiedTableName tableName)
+    {
+        if (shouldDenyPrivilege(tableName.getTableName(), RENAME_COLUMN)) {
+            denyRenameColumn(tableName.toString());
+        }
+        super.checkCanRenameColumn(identity, tableName);
     }
 
     @Override
@@ -185,7 +196,7 @@ public class TestingAccessControlManager
     public enum TestingPrivilegeType
     {
         SET_USER,
-        CREATE_TABLE, DROP_TABLE, RENAME_TABLE, SELECT_TABLE, INSERT_TABLE, DELETE_TABLE,
+        CREATE_TABLE, DROP_TABLE, RENAME_TABLE, RENAME_COLUMN, SELECT_TABLE, INSERT_TABLE, DELETE_TABLE,
         CREATE_VIEW, DROP_VIEW, SELECT_VIEW,
         SET_SESSION
     }

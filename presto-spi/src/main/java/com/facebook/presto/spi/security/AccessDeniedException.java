@@ -68,6 +68,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename table from %s to %s%s", tableName, newTableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyRenameColumn(String tableName)
+    {
+        denyRenameColumn(tableName, null);
+    }
+
+    public static void denyRenameColumn(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot rename a column in table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denySelectTable(String tableName)
     {
         denySelectTable(tableName, null);
