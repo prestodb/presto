@@ -87,6 +87,18 @@ public interface AccessControl
     void checkCanSelectFromView(Identity identity, QualifiedTableName viewName);
 
     /**
+     * Check if identity is allowed to create a view that selects from the specified table.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanCreateViewWithSelectFromTable(Identity identity, QualifiedTableName tableName);
+
+    /**
+     * Check if identity is allowed to create a view that selects from the specified view.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanCreateViewWithSelectFromView(Identity identity, QualifiedTableName viewName);
+
+    /**
      * Check if identity is allowed to set the specified system property.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */

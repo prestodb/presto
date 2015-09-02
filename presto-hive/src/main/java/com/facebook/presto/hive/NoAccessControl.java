@@ -94,6 +94,16 @@ public class NoAccessControl
     }
 
     @Override
+    public void checkCanCreateViewWithSelectFromTable(Identity identity, SchemaTableName tableName)
+    {
+    }
+
+    @Override
+    public void checkCanCreateViewWithSelectFromView(Identity identity, SchemaTableName viewName)
+    {
+    }
+
+    @Override
     public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
     {
     }

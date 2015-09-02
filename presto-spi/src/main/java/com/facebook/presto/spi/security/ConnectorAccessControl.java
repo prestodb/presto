@@ -78,6 +78,18 @@ public interface ConnectorAccessControl
     void checkCanSelectFromView(Identity identity, SchemaTableName viewName);
 
     /**
+     * Check if identity is allowed to create a view that selects from the specified table in this catalog.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanCreateViewWithSelectFromTable(Identity identity, SchemaTableName tableName);
+
+    /**
+     * Check if identity is allowed to create a view that selects from the specified view in this catalog.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanCreateViewWithSelectFromView(Identity identity, SchemaTableName viewName);
+
+    /**
      * Check if identity is allowed to set the specified property in this catalog.
      * @throws AccessDeniedException if not allowed
      */

@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
@@ -23,9 +22,12 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
+import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.security.ViewAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -218,7 +220,7 @@ public class TupleAnalyzer
             analysis.registerNamedQuery(table, query);
 
             accessControl.checkCanSelectFromView(session.getIdentity(), name);
-            TupleDescriptor descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), table);
+            TupleDescriptor descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
 
             if (isViewStale(view.getColumns(), descriptor.getVisibleFields())) {
                 throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
@@ -1078,12 +1080,23 @@ public class TupleAnalyzer
         }
     }
 
-    private TupleDescriptor analyzeView(Query query, QualifiedTableName name, String catalog, String schema, Table node)
+    private TupleDescriptor analyzeView(Query query, QualifiedTableName name, String catalog, String schema, Optional<String> owner, Table node)
     {
         try {
-            // todo use view owner access context
+            // run view as view owner if set; otherwise, run as session user
+            Identity identity;
+            AccessControl viewAccessControl;
+            if (owner.isPresent()) {
+                identity = new Identity(owner.get(), Optional.empty());
+                viewAccessControl = new ViewAccessControl(accessControl);
+            }
+            else {
+                identity = session.getIdentity();
+                viewAccessControl = accessControl;
+            }
+
             Session viewSession = Session.builder(metadata.getSessionPropertyManager())
-                    .setIdentity(session.getIdentity())
+                    .setIdentity(identity)
                     .setSource(session.getSource().orElse(null))
                     .setCatalog(catalog)
                     .setSchema(schema)
@@ -1094,7 +1107,7 @@ public class TupleAnalyzer
                     .setStartTime(session.getStartTime())
                     .build();
 
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, viewSession, experimentalSyntaxEnabled, Optional.empty());
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, experimentalSyntaxEnabled, Optional.empty());
             return analyzer.process(query, new AnalysisContext());
         }
         catch (RuntimeException e) {
