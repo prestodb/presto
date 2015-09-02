@@ -117,7 +117,8 @@ public class TestShardCompactionDiscovery
                 new Duration(1, TimeUnit.HOURS),
                 new DataSize(1, DataSize.Unit.MEGABYTE),
                 100,
-                10);
+                10,
+                true);
 
         Set<ShardMetadata> shardMetadata = shardManager.getNodeTableShards("node1", 1);
         Set<ShardMetadata> temporalMetadata = shardCompactionManager.filterShardsWithTemporalMetadata(shardMetadata, 1, 1);

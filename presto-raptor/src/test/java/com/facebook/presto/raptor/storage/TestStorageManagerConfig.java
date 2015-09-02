@@ -51,10 +51,10 @@ public class TestStorageManagerConfig
                 .setCompactionInterval(new Duration(1, HOURS))
                 .setRecoveryThreads(10)
                 .setCompactionThreads(5)
+                .setCompactionEnabled(true)
                 .setMaxShardRows(1_000_000)
                 .setMaxShardSize(new DataSize(256, MEGABYTE))
                 .setMaxBufferSize(new DataSize(256, MEGABYTE)));
-
     }
 
     @Test
@@ -68,6 +68,7 @@ public class TestStorageManagerConfig
                 .put("storage.max-deletion-threads", "999")
                 .put("storage.shard-recovery-timeout", "1m")
                 .put("storage.missing-shard-discovery-interval", "4m")
+                .put("storage.compaction-enabled", "false")
                 .put("storage.compaction-interval", "4h")
                 .put("storage.max-recovery-threads", "12")
                 .put("storage.max-compaction-threads", "12")
@@ -84,6 +85,7 @@ public class TestStorageManagerConfig
                 .setDeletionThreads(999)
                 .setShardRecoveryTimeout(new Duration(1, MINUTES))
                 .setMissingShardDiscoveryInterval(new Duration(4, MINUTES))
+                .setCompactionEnabled(false)
                 .setCompactionInterval(new Duration(4, HOURS))
                 .setRecoveryThreads(12)
                 .setCompactionThreads(12)
