@@ -79,8 +79,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import org.jetbrains.annotations.NotNull;
 
-import javax.ws.rs.HEAD;
-
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -344,29 +342,32 @@ public class ExpressionInterpreter
         @Override
         protected Object visitSearchedCaseExpression(SearchedCaseExpression node, Object context)
         {
-            Expression resultClause = node.getDefaultValue().orElse(null);
-            for (WhenClause whenClause : node.getWhenClauses()) {
-                Object value = process(whenClause.getOperand(), context);
-                if (value instanceof Expression) {
-                    // TODO: optimize this case
-                    return node;
-                }
+            Object defaultResult = processWithExceptionHandling(node.getDefaultValue().orElse(null), context);
 
-                if (Boolean.TRUE.equals(value)) {
-                    resultClause = whenClause.getResult();
+            List<WhenClause> whenClauses = new ArrayList<>();
+            for (WhenClause whenClause : node.getWhenClauses()) {
+                Object whenOperand = processWithExceptionHandling(whenClause.getOperand(), context);
+                Object result = processWithExceptionHandling(whenClause.getResult(), context);
+
+                if (whenOperand instanceof Expression) {
+                    // cannot fully evaluate, add updated whenClause
+                    whenClauses.add(new WhenClause(
+                            toExpression(whenOperand, type(whenClause.getOperand())),
+                            toExpression(result, type(whenClause.getResult()))));
+                }
+                else if (Boolean.TRUE.equals(whenOperand)) {
+                    // condition is true, use this as defaultResult
+                    defaultResult = result;
                     break;
                 }
             }
 
-            if (resultClause == null) {
-                return null;
+            if (whenClauses.isEmpty()) {
+                return defaultResult;
             }
 
-            Object result = process(resultClause, context);
-            if (result instanceof Expression) {
-                return node;
-            }
-            return result;
+            Expression resultExpression = (defaultResult == null) ? null : toExpression(defaultResult, type(node));
+            return new SearchedCaseExpression(whenClauses, Optional.ofNullable(resultExpression));
         }
 
         private Object processWithExceptionHandling(Expression expression, Object context)

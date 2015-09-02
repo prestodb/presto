@@ -576,6 +576,11 @@ public class TestExpressionInterpreter
                         "when unbound_long = 1234 then 33 " +
                         "else 1 " +
                         "end");
+
+        assertOptimizedMatches("case when 0 / 0 = 0 then 1 end",
+                "case when cast(fail() as boolean) then 1 end");
+
+        assertOptimizedMatches("if(false, 1, 0 / 0)", "cast(fail() as bigint)");
     }
 
     @Test
@@ -900,9 +905,14 @@ public class TestExpressionInterpreter
         assertOptimizedMatches("CASE bound_long WHEN unbound_long THEN 1 WHEN 0 / 0 THEN 2 ELSE 1 END",
                 "CASE 1234 WHEN unbound_long THEN 1 WHEN cast(fail() as bigint) THEN 2 ELSE 1 END");
 
-        assertOptimizedEqualsSelf("case when unbound_boolean then 1 when 0 / 0 = 0 then 2 end");
-        assertOptimizedEqualsSelf("case when unbound_boolean then 1 else 0 / 0  end");
-        assertOptimizedEqualsSelf("case when unbound_boolean then 0 / 0 else 1 end");
+        assertOptimizedMatches("case when unbound_boolean then 1 when 0 / 0 = 0 then 2 end",
+                "case when unbound_boolean then 1 when cast(fail() as boolean) then 2 end");
+
+        assertOptimizedMatches("case when unbound_boolean then 1 else 0 / 0  end",
+                "case when unbound_boolean then 1 else cast(fail() as bigint) end");
+
+        assertOptimizedMatches("case when unbound_boolean then 0 / 0 else 1 end",
+                "case when unbound_boolean then cast(fail() as bigint) else 1 end");
     }
 
     @Test(expectedExceptions = PrestoException.class)
@@ -910,20 +920,6 @@ public class TestExpressionInterpreter
             throws Exception
     {
         optimize("0 / 0");
-    }
-
-    @Test(expectedExceptions = PrestoException.class)
-    public void testOptimizeConstantIfDivideByZero()
-            throws Exception
-    {
-        optimize("if(false, 1, 0 / 0)");
-    }
-
-    @Test(expectedExceptions = PrestoException.class)
-    public void testOptimizeConstantSearchedCaseDivideByZero()
-            throws Exception
-    {
-        optimize("case when 0 / 0 = 0 then 1 end");
     }
 
     @Test(expectedExceptions = PrestoException.class)
