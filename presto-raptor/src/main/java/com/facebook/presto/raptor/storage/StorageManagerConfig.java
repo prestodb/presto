@@ -38,6 +38,7 @@ public class StorageManagerConfig
     private File dataDirectory;
     private Duration shardRecoveryTimeout = new Duration(30, TimeUnit.SECONDS);
     private Duration missingShardDiscoveryInterval = new Duration(5, TimeUnit.MINUTES);
+    private boolean compactionEnabled = true;
     private Duration compactionInterval = new Duration(1, TimeUnit.HOURS);
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxReadSize = new DataSize(8, MEGABYTE);
@@ -225,6 +226,18 @@ public class StorageManagerConfig
     public StorageManagerConfig setMaxBufferSize(DataSize maxBufferSize)
     {
         this.maxBufferSize = maxBufferSize;
+        return this;
+    }
+
+    public boolean isCompactionEnabled()
+    {
+        return compactionEnabled;
+    }
+
+    @Config("storage.compaction-enabled")
+    public StorageManagerConfig setCompactionEnabled(boolean compactionEnabled)
+    {
+        this.compactionEnabled = compactionEnabled;
         return this;
     }
 }

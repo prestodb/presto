@@ -101,6 +101,7 @@ public class ShardCompactionManager
     private final ShardManager shardManager;
     private final String currentNodeIdentifier;
 
+    private final boolean compactionEnabled;
     private final Duration compactionDiscoveryInterval;
     private final DataSize maxShardSize;
     private final long maxShardRows;
@@ -119,7 +120,8 @@ public class ShardCompactionManager
                 config.getCompactionInterval(),
                 config.getMaxShardSize(),
                 config.getMaxShardRows(),
-                config.getCompactionThreads());
+                config.getCompactionThreads(),
+                config.isCompactionEnabled());
     }
 
     public ShardCompactionManager(
@@ -130,7 +132,8 @@ public class ShardCompactionManager
             Duration compactionDiscoveryInterval,
             DataSize maxShardSize,
             long maxShardRows,
-            int compactionThreads)
+            int compactionThreads,
+            boolean compactionEnabled)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.metadataDao = dbi.onDemand(MetadataDao.class);
@@ -159,6 +162,10 @@ public class ShardCompactionManager
     @PostConstruct
     public void start()
     {
+        if (!compactionEnabled) {
+            return;
+        }
+
         if (!discoveryStarted.getAndSet(true)) {
             startDiscovery();
         }
@@ -171,6 +178,9 @@ public class ShardCompactionManager
     @PreDestroy
     public void shutdown()
     {
+        if (!compactionEnabled) {
+            return;
+        }
         shutdown.set(true);
         compactionDiscoveryService.shutdown();
         compactionDriverService.shutdown();
