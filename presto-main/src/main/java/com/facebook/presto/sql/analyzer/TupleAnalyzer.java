@@ -495,6 +495,7 @@ public class TupleAnalyzer
             // expressionInterpreter/optimizer only understands a subset of expression types
             // TODO: remove this when the new expression tree is implemented
             Expression canonicalized = CanonicalizeExpressions.canonicalizeExpression(expression);
+            analyzer.analyze(canonicalized, output, context);
 
             Object optimizedExpression = expressionOptimizer(canonicalized, metadata, session, analyzer.getExpressionTypes()).optimize(NoOpSymbolResolver.INSTANCE);
 
