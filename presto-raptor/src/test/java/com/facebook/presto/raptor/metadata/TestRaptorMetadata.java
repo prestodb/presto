@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -305,10 +306,10 @@ public class TestRaptorMetadata
         assertEqualsIgnoreOrder(list, ImmutableList.of(test1, test2));
 
         // verify getting data
-        Map<SchemaTableName, String> views = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
+        Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
         assertEquals(views.keySet(), ImmutableSet.of(test1, test2));
-        assertEquals(views.get(test1), "test1");
-        assertEquals(views.get(test2), "test2");
+        assertEquals(views.get(test1).getViewData(), "test1");
+        assertEquals(views.get(test2).getViewData(), "test2");
 
         // drop first view
         metadata.dropView(SESSION, test1);
@@ -349,7 +350,7 @@ public class TestRaptorMetadata
         metadata.createView(SESSION, test, "aaa", true);
         metadata.createView(SESSION, test, "bbb", true);
 
-        assertEquals(metadata.getViews(SESSION, test.toSchemaTablePrefix()).get(test), "bbb");
+        assertEquals(metadata.getViews(SESSION, test.toSchemaTablePrefix()).get(test).getViewData(), "bbb");
     }
 
     private static ConnectorTableMetadata getOrdersTable()
