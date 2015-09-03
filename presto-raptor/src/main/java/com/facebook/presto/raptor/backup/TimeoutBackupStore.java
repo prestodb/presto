@@ -22,7 +22,6 @@ import io.airlift.units.Duration;
 import javax.annotation.PreDestroy;
 
 import java.io.File;
-import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
@@ -76,10 +75,10 @@ public class TimeoutBackupStore
     }
 
     @Override
-    public OptionalLong shardSize(UUID uuid)
+    public boolean shardExists(UUID uuid)
     {
         try {
-            return store.shardSize(uuid);
+            return store.shardExists(uuid);
         }
         catch (UncheckedTimeoutException e) {
             throw new PrestoException(RAPTOR_BACKUP_TIMEOUT, "Shard backup size fetch timed out");
