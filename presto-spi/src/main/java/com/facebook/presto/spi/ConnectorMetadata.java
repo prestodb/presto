@@ -242,7 +242,7 @@ public interface ConnectorMetadata
     /**
      * Gets the view data for views that match the specified table prefix.
      */
-    default Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    default Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
         return emptyMap();
     }

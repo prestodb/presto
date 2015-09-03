@@ -25,6 +25,7 @@ import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
@@ -693,7 +694,7 @@ public class HiveMetadata
     @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
-        String view = getViews(session, viewName.toSchemaTablePrefix()).get(viewName);
+        ConnectorViewDefinition view = getViews(session, viewName.toSchemaTablePrefix()).get(viewName);
         if (view == null) {
             throw new ViewNotFoundException(viewName);
         }
@@ -719,9 +720,9 @@ public class HiveMetadata
     }
 
     @Override
-    public Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        ImmutableMap.Builder<SchemaTableName, String> views = ImmutableMap.builder();
+        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
         List<SchemaTableName> tableNames;
         if (prefix.getTableName() != null) {
             tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
@@ -733,7 +734,10 @@ public class HiveMetadata
         for (SchemaTableName schemaTableName : tableNames) {
             Optional<Table> table = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
             if (table.isPresent() && HiveUtil.isPrestoView(table.get())) {
-                views.put(schemaTableName, decodeViewData(table.get().getViewOriginalText()));
+                views.put(schemaTableName, new ConnectorViewDefinition(
+                        schemaTableName,
+                        Optional.ofNullable(table.get().getOwner()),
+                        decodeViewData(table.get().getViewOriginalText())));
             }
         }
 

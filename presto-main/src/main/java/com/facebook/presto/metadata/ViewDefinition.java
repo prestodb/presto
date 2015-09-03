@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -29,18 +30,21 @@ public final class ViewDefinition
     private final String catalog;
     private final String schema;
     private final List<ViewColumn> columns;
+    private final Optional<String> owner;
 
     @JsonCreator
     public ViewDefinition(
             @JsonProperty("originalSql") String originalSql,
             @JsonProperty("catalog") String catalog,
             @JsonProperty("schema") String schema,
-            @JsonProperty("columns") List<ViewColumn> columns)
+            @JsonProperty("columns") List<ViewColumn> columns,
+            @JsonProperty("owner") Optional<String> owner)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.owner = requireNonNull(owner, "owner is null");
     }
 
     @JsonProperty
@@ -67,6 +71,12 @@ public final class ViewDefinition
         return columns;
     }
 
+    @JsonProperty
+    public Optional<String> getOwner()
+    {
+        return owner;
+    }
+
     @Override
     public String toString()
     {
@@ -75,6 +85,7 @@ public final class ViewDefinition
                 .add("catalog", catalog)
                 .add("schema", schema)
                 .add("columns", columns)
+                .add("owner", owner)
                 .toString();
     }
 

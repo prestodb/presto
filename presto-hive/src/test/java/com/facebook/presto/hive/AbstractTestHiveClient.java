@@ -36,6 +36,7 @@ import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.PrestoException;
@@ -1296,9 +1297,9 @@ public abstract class AbstractTestHiveClient
 
         metadata.createView(SESSION, viewName, viewData, replace);
 
-        Map<SchemaTableName, String> views = metadata.getViews(SESSION, viewName.toSchemaTablePrefix());
+        Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(SESSION, viewName.toSchemaTablePrefix());
         assertEquals(views.size(), 1);
-        assertEquals(views.get(viewName), viewData);
+        assertEquals(views.get(viewName).getViewData(), viewData);
 
         assertTrue(metadata.listViews(SESSION, viewName.getSchemaName()).contains(viewName));
     }

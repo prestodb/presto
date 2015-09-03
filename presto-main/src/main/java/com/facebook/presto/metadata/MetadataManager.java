@@ -29,6 +29,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -455,14 +456,14 @@ public class MetadataManager
             }
 
             // if table and view names overlap, the view wins
-            for (Entry<SchemaTableName, String> entry : metadata.getViews(connectorSession, tablePrefix).entrySet()) {
+            for (Entry<SchemaTableName, ConnectorViewDefinition> entry : metadata.getViews(connectorSession, tablePrefix).entrySet()) {
                 QualifiedTableName tableName = new QualifiedTableName(
                         prefix.getCatalogName(),
                         entry.getKey().getSchemaName(),
                         entry.getKey().getTableName());
 
                 ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-                for (ViewColumn column : deserializeView(entry.getValue()).getColumns()) {
+                for (ViewColumn column : deserializeView(entry.getValue().getViewData()).getColumns()) {
                     columns.add(new ColumnMetadata(column.getName(), column.getType(), false));
                 }
 
@@ -621,12 +622,12 @@ public class MetadataManager
         Map<QualifiedTableName, ViewDefinition> views = new LinkedHashMap<>();
         for (ConnectorMetadataEntry metadata : allConnectorsFor(prefix.getCatalogName())) {
             ConnectorSession connectorSession = session.toConnectorSession(metadata.getCatalog());
-            for (Entry<SchemaTableName, String> entry : metadata.getMetadata().getViews(connectorSession, tablePrefix).entrySet()) {
+            for (Entry<SchemaTableName, ConnectorViewDefinition> entry : metadata.getMetadata().getViews(connectorSession, tablePrefix).entrySet()) {
                 QualifiedTableName viewName = new QualifiedTableName(
                         prefix.getCatalogName(),
                         entry.getKey().getSchemaName(),
                         entry.getKey().getTableName());
-                views.put(viewName, deserializeView(entry.getValue()));
+                views.put(viewName, deserializeView(entry.getValue().getViewData()));
             }
         }
         return ImmutableMap.copyOf(views);
@@ -637,11 +638,13 @@ public class MetadataManager
     {
         ConnectorMetadataEntry entry = getConnectorFor(viewName);
         if (entry != null) {
-            SchemaTablePrefix prefix = viewName.asSchemaTableName().toSchemaTablePrefix();
-            Map<SchemaTableName, String> views = entry.getMetadata().getViews(session.toConnectorSession(entry.getCatalog()), prefix);
-            String view = views.get(viewName.asSchemaTableName());
+            ConnectorMetadata metadata = entry.getMetadata();
+            Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(
+                    session.toConnectorSession(entry.getCatalog()),
+                    viewName.asSchemaTableName().toSchemaTablePrefix());
+            ConnectorViewDefinition view = views.get(viewName.asSchemaTableName());
             if (view != null) {
-                return Optional.of(deserializeView(view));
+                return Optional.of(deserializeView(view.getViewData()));
             }
         }
         return Optional.empty();
