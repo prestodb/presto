@@ -60,6 +60,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -208,7 +209,7 @@ public class TestOrcStorageManager
         assertTrue(file.getParentFile().delete());
         assertFalse(file.exists());
 
-        recoveryManager.restoreFromBackup(shardUuid);
+        recoveryManager.restoreFromBackup(shardUuid, OptionalLong.empty());
 
         try (OrcDataSource dataSource = manager.openShard(shardUuid)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);

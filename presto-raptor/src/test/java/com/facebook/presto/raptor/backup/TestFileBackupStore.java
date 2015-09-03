@@ -61,20 +61,18 @@ public class TestFileBackupStore
         Files.write("hello world", file1, UTF_8);
         UUID uuid1 = randomUUID();
 
-        assertFalse(store.shardSize(uuid1).isPresent());
+        assertFalse(store.shardExists(uuid1));
         store.backupShard(uuid1, file1);
-        assertTrue(store.shardSize(uuid1).isPresent());
-        assertEquals(store.shardSize(uuid1).getAsLong(), file1.length());
+        assertTrue(store.shardExists(uuid1));
 
         // backup second file
         File file2 = new File(temporary, "file2");
         Files.write("bye bye", file2, UTF_8);
         UUID uuid2 = randomUUID();
 
-        assertFalse(store.shardSize(uuid2).isPresent());
+        assertFalse(store.shardExists(uuid2));
         store.backupShard(uuid2, file2);
-        assertTrue(store.shardSize(uuid2).isPresent());
-        assertEquals(store.shardSize(uuid2).getAsLong(), file2.length());
+        assertTrue(store.shardExists(uuid2));
 
         // verify first file
         File restore1 = new File(temporary, "restore1");
@@ -87,6 +85,6 @@ public class TestFileBackupStore
         assertEquals(readAllBytes(file2.toPath()), readAllBytes(restore2.toPath()));
 
         // verify random UUID does not exist
-        assertFalse(store.shardSize(randomUUID()).isPresent());
+        assertFalse(store.shardExists(randomUUID()));
     }
 }

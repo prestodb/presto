@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor.backup;
 
 import java.io.File;
-import java.util.OptionalLong;
 import java.util.UUID;
 
 public interface BackupStore
@@ -36,11 +35,10 @@ public interface BackupStore
     void restoreShard(UUID uuid, File target);
 
     /**
-     * Get the size of a shard in the backup store, if it exists.
-     * This method can be used to check for size and/or existence.
+     * Check if a shard exists in the backup store.
      *
      * @param uuid shard UUID
-     * @return the length of the shard in bytes
+     * @return if the shard exists
      */
-    OptionalLong shardSize(UUID uuid);
+    boolean shardExists(UUID uuid);
 }
