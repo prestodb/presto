@@ -84,6 +84,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Math.min;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
@@ -329,7 +330,7 @@ public class OrcStorageManager
         }
 
         // submit for backup and wait until it finishes
-        MoreFutures.getFutureValue(backupManager.submit(newShardUuid, input));
+        getFutureValue(backupManager.submit(newShardUuid, output));
 
         Set<String> nodes = ImmutableSet.of(nodeId);
         long uncompressedSize = info.getUncompressedSize();
