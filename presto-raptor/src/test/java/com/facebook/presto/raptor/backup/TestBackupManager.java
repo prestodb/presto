@@ -71,7 +71,7 @@ public class TestBackupManager
         }
         futures.forEach(CompletableFuture::join);
         for (UUID uuid : uuids) {
-            assertTrue(store.shardSize(uuid).isPresent());
+            assertTrue(store.shardExists(uuid));
         }
     }
 }
