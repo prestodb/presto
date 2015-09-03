@@ -24,8 +24,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.io.Closeable;
 import java.net.URI;
 import java.util.List;
-import java.util.function.Supplier;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;

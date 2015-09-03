@@ -39,11 +39,11 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.net.InetAddresses.toAddrString;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public enum CassandraType
         implements FullCassandraType

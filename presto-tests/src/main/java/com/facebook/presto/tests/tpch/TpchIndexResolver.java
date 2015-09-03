@@ -14,12 +14,12 @@
 package com.facebook.presto.tests.tpch;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
