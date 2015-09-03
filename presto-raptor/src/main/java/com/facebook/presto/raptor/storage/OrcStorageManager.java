@@ -312,7 +312,8 @@ public class OrcStorageManager
         }
     }
 
-    private Collection<Slice> rewriteShard(UUID shardUuid, BitSet rowsToDelete)
+    @VisibleForTesting
+    Collection<Slice> rewriteShard(UUID shardUuid, BitSet rowsToDelete)
     {
         if (rowsToDelete.isEmpty()) {
             return ImmutableList.of();
