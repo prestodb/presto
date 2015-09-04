@@ -223,6 +223,7 @@ public class TestArrayOperators
         assertFunction("CONTAINS(ARRAY [1, 2, 3], 5)", BOOLEAN, false);
         assertFunction("CONTAINS(ARRAY [1, NULL, 3], 1)", BOOLEAN, true);
         assertFunction("CONTAINS(ARRAY [NULL, 2, 3], 1)", BOOLEAN, null);
+        assertFunction("CONTAINS(ARRAY [NULL, 2, 3], NULL)", BOOLEAN, null);
         assertFunction("CONTAINS(ARRAY [1, 2.0, 3], 3.0)", BOOLEAN, true);
         assertFunction("CONTAINS(ARRAY [1.0, 2.5, 3.0], 2.2)", BOOLEAN, false);
         assertFunction("CONTAINS(ARRAY ['puppies', 'kittens'], 'kittens')", BOOLEAN, true);
