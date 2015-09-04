@@ -30,6 +30,7 @@ public final class PrestoHeaders
     public static final String PRESTO_MAX_SIZE = "X-Presto-Max-Size";
     public static final String PRESTO_PAGE_TOKEN = "X-Presto-Page-Sequence-Id";
     public static final String PRESTO_PAGE_NEXT_TOKEN = "X-Presto-Page-End-Sequence-Id";
+    public static final String PRESTO_BUFFER_COMPLETE = "X-Presto-Buffer-Complete";
 
     private PrestoHeaders() {}
 }

@@ -55,6 +55,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.SequencePageBuilder.createSequencePage;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
@@ -362,6 +363,11 @@ public class TestExchangeOperator
         public Response apply(Request request)
         {
             ImmutableList<String> parts = ImmutableList.copyOf(Splitter.on("/").omitEmptyStrings().split(request.getUri().getPath()));
+            if (request.getMethod().equals("DELETE")) {
+                assertEquals(parts.size(), 1);
+                return new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(), new byte[0]);
+            }
+
             assertEquals(parts.size(), 2);
             String taskId = parts.get(0);
             int pageToken = Integer.parseInt(parts.get(1));
@@ -371,19 +377,22 @@ public class TestExchangeOperator
 
             TaskBuffer taskBuffer = taskBuffers.getUnchecked(taskId);
             Page page = taskBuffer.getPage(pageToken);
+            headers.put(CONTENT_TYPE, PRESTO_PAGES);
             if (page != null) {
-                headers.put(CONTENT_TYPE, PRESTO_PAGES);
                 headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
+                headers.put(PRESTO_BUFFER_COMPLETE, String.valueOf(false));
                 DynamicSliceOutput output = new DynamicSliceOutput(256);
                 PagesSerde.writePages(blockEncodingSerde, output, page);
                 return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
             }
             else if (taskBuffer.isFinished()) {
                 headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
-                return new TestingResponse(HttpStatus.GONE, headers.build(), new byte[0]);
+                headers.put(PRESTO_BUFFER_COMPLETE, String.valueOf(true));
+                return new TestingResponse(HttpStatus.OK, headers.build(), new byte[0]);
             }
             else {
                 headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
+                headers.put(PRESTO_BUFFER_COMPLETE, String.valueOf(false));
                 return new TestingResponse(HttpStatus.NO_CONTENT, headers.build(), new byte[0]);
             }
         }

@@ -30,6 +30,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -40,6 +41,7 @@ import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.execution.BufferResult.emptyResults;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.PlanFragment.NullPartitioning.HASH;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -222,6 +224,9 @@ public class TestSharedBuffer
                 createPage(13)));
         assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 8, 6, 8, 14, 0);
         assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 14, sizeOfPages(10), NO_WAIT), emptyResults(14, true));
+
+        // finish first queue
+        sharedBuffer.abort(FIRST);
         assertQueueClosed(sharedBuffer, FIRST, 14);
         assertQueueState(sharedBuffer, SECOND, DEFAULT_PARTITION, 4, 10, 4, 14, 0);
         assertFalse(sharedBuffer.isFinished());
@@ -233,6 +238,7 @@ public class TestSharedBuffer
                 createPage(13)));
         assertQueueState(sharedBuffer, SECOND, DEFAULT_PARTITION, 4, 10, 4, 14, 0);
         assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, SECOND, 14, sizeOfPages(10), NO_WAIT), emptyResults(14, true));
+        sharedBuffer.abort(SECOND);
         assertQueueClosed(sharedBuffer, FIRST, 14);
         assertQueueClosed(sharedBuffer, SECOND, 14);
         assertFinished(sharedBuffer);
@@ -392,6 +398,8 @@ public class TestSharedBuffer
         assertFalse(sharedBuffer.isFinished());
         sharedBuffer.setNoMorePages();
         assertQueueState(sharedBuffer, FIRST, firstPartition, 10, 4, 10, 14, 0);
+        assertQueueState(sharedBuffer, SECOND, secondPartition, 0, 10, 0, 10, 0);
+        sharedBuffer.abort(SECOND);
         assertQueueClosed(sharedBuffer, SECOND, 10);
 
         // not fully finished until all pages are consumed
@@ -415,6 +423,7 @@ public class TestSharedBuffer
         assertQueueState(sharedBuffer, FIRST, firstPartition, 8, 6, 8, 14, 0);
         // acknowledge all pages from the first partition, should transition to finished state
         assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 14, sizeOfPages(10), NO_WAIT), emptyResults(14, true));
+        sharedBuffer.abort(FIRST);
         assertQueueClosed(sharedBuffer, FIRST, 14);
         assertFinished(sharedBuffer);
     }
@@ -625,6 +634,12 @@ public class TestSharedBuffer
         // finish while queues are empty
         sharedBuffer.setNoMorePages();
 
+        assertQueueState(sharedBuffer, FIRST, 0, 0, 0, 0, 0, 0);
+        assertQueueState(sharedBuffer, SECOND, 0, 0, 0, 0, 0, 0);
+
+        sharedBuffer.abort(FIRST);
+        sharedBuffer.abort(SECOND);
+
         assertQueueClosed(sharedBuffer, FIRST, 0);
         assertQueueClosed(sharedBuffer, SECOND, 0);
     }
@@ -687,6 +702,8 @@ public class TestSharedBuffer
 
         // finish the buffer
         sharedBuffer.setNoMorePages();
+        assertQueueState(sharedBuffer, QUEUE, 0, 0, 1, 1, 1, 0);
+        sharedBuffer.abort(QUEUE);
         assertQueueClosed(sharedBuffer, QUEUE, 1);
 
         // verify the future completed
@@ -731,6 +748,8 @@ public class TestSharedBuffer
         assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, QUEUE, 1, sizeOfPages(100), NO_WAIT),
                 bufferResult(1, createPage(1), createPage(2), createPage(3), createPage(4), createPage(5)));
         assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, QUEUE, 6, sizeOfPages(100), NO_WAIT), emptyResults(6, true));
+
+        sharedBuffer.abort(QUEUE);
 
         // verify finished
         assertFinished(sharedBuffer);
@@ -785,7 +804,7 @@ public class TestSharedBuffer
             addPage(sharedBuffer, createPage(i));
         }
 
-        // enqueue the addition two pages more pages
+        // add two pages to the buffer queue
         ListenableFuture<?> firstEnqueuePage = enqueuePage(sharedBuffer, createPage(5));
         ListenableFuture<?> secondEnqueuePage = enqueuePage(sharedBuffer, createPage(6));
 
@@ -803,6 +822,43 @@ public class TestSharedBuffer
 
         // verify the second future was completed
         assertTrue(secondEnqueuePage.isDone());
+    }
+
+    @Test
+    public void testBufferCompletion()
+            throws Exception
+    {
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(5));
+        sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS
+                .withBuffer(QUEUE, new UnpartitionedPagePartitionFunction())
+                .withNoMoreBufferIds());
+
+        assertFalse(sharedBuffer.isFinished());
+
+        // fill the buffer
+        List<Page> pages = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            Page page = createPage(i);
+            addPage(sharedBuffer, page);
+            pages.add(page);
+        }
+
+        sharedBuffer.setNoMorePages();
+
+        // get and acknowledge 5 pages
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, QUEUE, 0, sizeOfPages(5), MAX_WAIT), bufferResult(0, pages));
+
+        // buffer is not finished
+        assertFalse(sharedBuffer.isFinished());
+
+        // there are no more pages and no more buffers, but buffer is not finished because it didn't receive an acknowledgement yet
+        assertFalse(sharedBuffer.isFinished());
+
+        // ask the buffer to finish
+        sharedBuffer.abort(QUEUE);
+
+        // verify that the buffer is finished
+        assertTrue(sharedBuffer.isFinished());
     }
 
     private static ListenableFuture<?> enqueuePage(SharedBuffer sharedBuffer, Page page)
@@ -865,11 +921,7 @@ public class TestSharedBuffer
         }
     }
 
-//<<<<<<< HEAD
     private static void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)
-//=======
-//    private static void assertBufferResultEquals(BufferResult actual, BufferResult expected)
-//>>>>>>> Use async http responses for task communication
     {
         assertEquals(actual.getPages().size(), expected.getPages().size());
         assertEquals(actual.getToken(), expected.getToken());
@@ -879,12 +931,18 @@ public class TestSharedBuffer
             assertEquals(actualPage.getChannelCount(), expectedPage.getChannelCount());
             PageAssertions.assertPageEquals(types, actualPage, expectedPage);
         }
-        assertEquals(actual.isBufferClosed(), expected.isBufferClosed());
+        assertEquals(actual.isBufferComplete(), expected.isBufferComplete());
     }
 
     public static BufferResult bufferResult(long token, Page firstPage, Page... otherPages)
     {
         List<Page> pages = ImmutableList.<Page>builder().add(firstPage).add(otherPages).build();
+        return bufferResult(token, pages);
+    }
+
+    public static BufferResult bufferResult(long token, List<Page> pages)
+    {
+        checkArgument(!pages.isEmpty(), "pages is empty");
         return new BufferResult(token, token + pages.size(), false, pages);
     }
 }

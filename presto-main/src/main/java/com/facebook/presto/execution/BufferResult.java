@@ -24,21 +24,21 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class BufferResult
 {
-    public static BufferResult emptyResults(long token, boolean bufferClosed)
+    public static BufferResult emptyResults(long token, boolean bufferComplete)
     {
-        return new BufferResult(token, token, bufferClosed, ImmutableList.<Page>of());
+        return new BufferResult(token, token, bufferComplete, ImmutableList.<Page>of());
     }
 
     private final long token;
     private final long nextToken;
-    private final boolean bufferClosed;
+    private final boolean bufferComplete;
     private final List<Page> pages;
 
-    public BufferResult(long token, long nextToken, boolean bufferClosed, List<Page> pages)
+    public BufferResult(long token, long nextToken, boolean bufferComplete, List<Page> pages)
     {
         this.token = token;
         this.nextToken = nextToken;
-        this.bufferClosed = bufferClosed;
+        this.bufferComplete = bufferComplete;
         this.pages = ImmutableList.copyOf(checkNotNull(pages, "pages is null"));
     }
 
@@ -52,9 +52,9 @@ public class BufferResult
         return nextToken;
     }
 
-    public boolean isBufferClosed()
+    public boolean isBufferComplete()
     {
-        return bufferClosed;
+        return bufferComplete;
     }
 
     public List<Page> getPages()
@@ -84,14 +84,14 @@ public class BufferResult
         BufferResult that = (BufferResult) o;
         return Objects.equals(token, that.token) &&
                 Objects.equals(nextToken, that.nextToken) &&
-                Objects.equals(bufferClosed, that.bufferClosed) &&
+                Objects.equals(bufferComplete, that.bufferComplete) &&
                 Objects.equals(pages, that.pages);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(token, nextToken, bufferClosed, pages);
+        return Objects.hash(token, nextToken, bufferComplete, pages);
     }
 
     @Override
@@ -100,7 +100,7 @@ public class BufferResult
         return toStringHelper(this)
                 .add("token", token)
                 .add("nextToken", nextToken)
-                .add("bufferClosed", bufferClosed)
+                .add("bufferComplete", bufferComplete)
                 .add("pages", pages)
                 .toString();
     }

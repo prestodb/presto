@@ -117,13 +117,17 @@ public class TestSqlTaskManager
             assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
             BufferResult results = sqlTaskManager.getTaskResults(taskId, OUT, 0, new DataSize(1, Unit.MEGABYTE)).get();
-            assertEquals(results.isBufferClosed(), false);
+            assertEquals(results.isBufferComplete(), false);
             assertEquals(results.getPages().size(), 1);
             assertEquals(results.getPages().get(0).getPositionCount(), 1);
 
             results = sqlTaskManager.getTaskResults(taskId, OUT, results.getToken() + results.getPages().size(), new DataSize(1, Unit.MEGABYTE)).get();
-            assertEquals(results.isBufferClosed(), true);
+            assertEquals(results.isBufferComplete(), true);
             assertEquals(results.getPages().size(), 0);
+
+            // complete the task by calling abort on it
+            TaskInfo info = sqlTaskManager.abortTaskResults(taskId, OUT);
+            assertEquals(info.getOutputBuffers().getState(), SharedBuffer.BufferState.FINISHED);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId, taskInfo.getState()).get(1, TimeUnit.SECONDS);
             assertEquals(taskInfo.getState(), TaskState.FINISHED);

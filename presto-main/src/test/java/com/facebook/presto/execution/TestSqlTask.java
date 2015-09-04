@@ -60,7 +60,7 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-@Test
+@Test(singleThreaded = true)
 public class TestSqlTask
 {
     public static final TaskId OUT = new TaskId("query", "stage", "out");
@@ -75,7 +75,7 @@ public class TestSqlTask
         taskExecutor = new TaskExecutor(8, 16);
         taskExecutor.start();
 
-        taskNotificationExecutor = newScheduledThreadPool(5, threadsNamed("task-notification-%s"));
+        taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
 
         LocalExecutionPlanner planner = createTestingPlanner();
 
@@ -136,16 +136,21 @@ public class TestSqlTask
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
         BufferResult results = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE)).get();
-        assertEquals(results.isBufferClosed(), false);
+        assertEquals(results.isBufferComplete(), false);
         assertEquals(results.getPages().size(), 1);
         assertEquals(results.getPages().get(0).getPositionCount(), 1);
 
         results = sqlTask.getTaskResults(OUT, results.getToken() + results.getPages().size(), new DataSize(1, MEGABYTE)).get();
-        assertEquals(results.isBufferClosed(), true);
+        assertEquals(results.isBufferComplete(), true);
         assertEquals(results.getPages().size(), 0);
+
+        // complete the task by calling abort on it
+        TaskInfo info = sqlTask.abortTaskResults(OUT);
+        assertEquals(info.getOutputBuffers().getState(), BufferState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo(taskInfo.getState()).get(1, SECONDS);
         assertEquals(taskInfo.getState(), TaskState.FINISHED);
+
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getState(), TaskState.FINISHED);
     }
@@ -212,18 +217,22 @@ public class TestSqlTask
         CompletableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
         assertFalse(bufferResult.isDone());
 
-        // finish the task by closing the sources (no splits will ever be added)
+        // close the sources (no splits will ever be added)
         updateTask(sqlTask, ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.<ScheduledSplit>of(), true)), outputBuffers);
-        assertEquals(sqlTask.getTaskInfo().getState(), TaskState.FINISHED);
+
+        // finish the task by calling abort on it
+        TaskInfo taskInfo = sqlTask.abortTaskResults(OUT);
 
         // buffer will be closed by cancel event (wait for event to fire)
-        assertTrue(bufferResult.get(1, SECONDS).isBufferClosed());
+        assertTrue(bufferResult.get(1, SECONDS).isBufferComplete());
         assertEquals(sqlTask.getTaskInfo().getOutputBuffers().getState(), BufferState.FINISHED);
+        taskInfo = sqlTask.getTaskInfo(taskInfo.getState()).get(1, SECONDS);
+        assertEquals(taskInfo.getState(), TaskState.FINISHED);
 
         // verify the buffer is closed
         bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
         assertTrue(bufferResult.isDone());
-        assertTrue(bufferResult.get().isBufferClosed());
+        assertTrue(bufferResult.get().isBufferComplete());
     }
 
     @Test
@@ -241,11 +250,11 @@ public class TestSqlTask
         assertEquals(sqlTask.getTaskInfo().getState(), TaskState.CANCELED);
 
         // buffer will be closed by cancel event.. the event is async so wait a bit for event to propagate
-        assertTrue(bufferResult.get(1, SECONDS).isBufferClosed());
+        assertTrue(bufferResult.get(1, SECONDS).isBufferComplete());
 
         bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
         assertTrue(bufferResult.isDone());
-        assertTrue(bufferResult.get().isBufferClosed());
+        assertTrue(bufferResult.get().isBufferComplete());
     }
 
     @Test
@@ -265,7 +274,7 @@ public class TestSqlTask
 
         // buffer will not be closed by fail event.  event is async so wait a bit for event to fire
         try {
-            assertTrue(bufferResult.get(1, SECONDS).isBufferClosed());
+            assertTrue(bufferResult.get(1, SECONDS).isBufferComplete());
             fail("expected TimeoutException");
         }
         catch (TimeoutException expected) {
