@@ -19,7 +19,7 @@ import com.facebook.presto.spi.PageBuilder;
 
 import javax.annotation.concurrent.Immutable;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class IndexSnapshot
@@ -30,8 +30,8 @@ public class IndexSnapshot
 
     public IndexSnapshot(LookupSource values, LookupSource missingKeys)
     {
-        this.values = checkNotNull(values, "values is null");
-        this.missingKeys = checkNotNull(missingKeys, "missingKeys is null");
+        this.values = requireNonNull(values, "values is null");
+        this.missingKeys = requireNonNull(missingKeys, "missingKeys is null");
     }
 
     @Override

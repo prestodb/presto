@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class Stripe
 {
@@ -32,9 +32,9 @@ public class Stripe
     public Stripe(long rowCount, List<ColumnEncoding> columnEncodings, List<RowGroup> rowGroups, StreamSources dictionaryStreamSources)
     {
         this.rowCount = rowCount;
-        this.columnEncodings = checkNotNull(columnEncodings, "columnEncodings is null");
-        this.rowGroups = ImmutableList.copyOf(checkNotNull(rowGroups, "rowGroups is null"));
-        this.dictionaryStreamSources = checkNotNull(dictionaryStreamSources, "dictionaryStreamSources is null");
+        this.columnEncodings = requireNonNull(columnEncodings, "columnEncodings is null");
+        this.rowGroups = ImmutableList.copyOf(requireNonNull(rowGroups, "rowGroups is null"));
+        this.dictionaryStreamSources = requireNonNull(dictionaryStreamSources, "dictionaryStreamSources is null");
     }
 
     public long getRowCount()

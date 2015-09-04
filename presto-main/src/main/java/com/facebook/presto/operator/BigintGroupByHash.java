@@ -30,9 +30,9 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
+import static java.util.Objects.requireNonNull;
 
 public class BigintGroupByHash
         implements GroupByHash
@@ -66,7 +66,7 @@ public class BigintGroupByHash
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
         this.hashChannel = hashChannel;
-        this.maskChannel = checkNotNull(maskChannel, "maskChannel is null").orElse(-1);
+        this.maskChannel = requireNonNull(maskChannel, "maskChannel is null").orElse(-1);
         this.outputRawHash = outputRawHash;
 
         int hashSize = arraySize(expectedSize, FILL_RATIO);

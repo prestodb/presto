@@ -34,8 +34,8 @@ import java.io.IOException;
 import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.Objects.requireNonNull;
 
 public final class RaptorBenchmarkQueryRunner
 {
@@ -48,7 +48,7 @@ public final class RaptorBenchmarkQueryRunner
     public static void main(String[] args)
             throws IOException
     {
-        String outputDirectory = checkNotNull(System.getProperty("outputDirectory"), "Must specify -DoutputDirectory=...");
+        String outputDirectory = requireNonNull(System.getProperty("outputDirectory"), "Must specify -DoutputDirectory=...");
         try (LocalQueryRunner localQueryRunner = createLocalQueryRunner()) {
             new BenchmarkSuite(localQueryRunner, outputDirectory).runAllBenchmarks();
         }

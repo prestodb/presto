@@ -36,10 +36,10 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -58,7 +58,7 @@ public abstract class AbstractOperatorBenchmark
             int measuredIterations)
     {
         super(benchmarkName, warmupIterations, measuredIterations);
-        this.localQueryRunner = checkNotNull(localQueryRunner, "localQueryRunner is null");
+        this.localQueryRunner = requireNonNull(localQueryRunner, "localQueryRunner is null");
     }
 
     protected OperatorFactory createTableScanOperator(int operatorId, String tableName, String... columnNames)

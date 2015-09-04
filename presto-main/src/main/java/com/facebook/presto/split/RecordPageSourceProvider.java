@@ -23,7 +23,7 @@ import com.facebook.presto.spi.RecordPageSource;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RecordPageSourceProvider
         implements ConnectorPageSourceProvider
@@ -32,7 +32,7 @@ public class RecordPageSourceProvider
 
     public RecordPageSourceProvider(ConnectorRecordSetProvider recordSetProvider)
     {
-        this.recordSetProvider = checkNotNull(recordSetProvider, "recordSetProvider is null");
+        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
     }
 
     @Override

@@ -18,7 +18,7 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.tests.tpch.TpchIndexedData.IndexedTable;
 import com.google.common.base.Function;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 class TpchConnectorIndex
         implements ConnectorIndex
@@ -29,9 +29,9 @@ class TpchConnectorIndex
 
     public TpchConnectorIndex(Function<RecordSet, RecordSet> keyFormatter, Function<RecordSet, RecordSet> outputFormatter, IndexedTable indexedTable)
     {
-        this.keyFormatter = checkNotNull(keyFormatter, "keyFormatter is null");
-        this.outputFormatter = checkNotNull(outputFormatter, "outputFormatter is null");
-        this.indexedTable = checkNotNull(indexedTable, "indexedTable is null");
+        this.keyFormatter = requireNonNull(keyFormatter, "keyFormatter is null");
+        this.outputFormatter = requireNonNull(outputFormatter, "outputFormatter is null");
+        this.indexedTable = requireNonNull(indexedTable, "indexedTable is null");
     }
 
     @Override

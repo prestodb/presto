@@ -34,7 +34,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HiveFileIterator
         extends AbstractIterator<LocatedFileStatus>
@@ -62,15 +62,15 @@ public class HiveFileIterator
             List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate)
     {
-        this.partitionName = checkNotNull(partitionName, "partitionName is null");
-        this.inputFormat = checkNotNull(inputFormat, "inputFormat is null");
-        this.schema = checkNotNull(schema, "schema is null");
-        this.partitionKeys = checkNotNull(partitionKeys, "partitionKeys is null");
-        this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
-        this.path = checkNotNull(path, "path is null");
-        this.fileSystem = checkNotNull(fileSystem, "fileSystem is null");
-        this.directoryLister = checkNotNull(directoryLister, "directoryLister is null");
-        this.namenodeStats = checkNotNull(namenodeStats, "namenodeStats is null");
+        this.partitionName = requireNonNull(partitionName, "partitionName is null");
+        this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
+        this.schema = requireNonNull(schema, "schema is null");
+        this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
+        this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
+        this.path = requireNonNull(path, "path is null");
+        this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
+        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
+        this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
     }
 
     @Override

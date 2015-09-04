@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SymbolToInputRewriter
         extends ExpressionRewriter<Void>
@@ -32,7 +32,7 @@ public class SymbolToInputRewriter
 
     public SymbolToInputRewriter(Map<Symbol, Integer> symbolToChannelMapping)
     {
-        checkNotNull(symbolToChannelMapping, "symbolToChannelMapping is null");
+        requireNonNull(symbolToChannelMapping, "symbolToChannelMapping is null");
         this.symbolToChannelMapping = ImmutableMap.copyOf(symbolToChannelMapping);
     }
 

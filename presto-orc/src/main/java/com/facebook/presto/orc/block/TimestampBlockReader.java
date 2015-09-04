@@ -34,7 +34,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
 import static com.facebook.presto.orc.reader.TimestampStreamReader.decodeTimestamp;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TimestampBlockReader
         implements BlockReader
@@ -54,8 +54,8 @@ public class TimestampBlockReader
 
     public TimestampBlockReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
     {
-        this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-        this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / 1000;
+        this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / 1000;
     }
 
     @Override

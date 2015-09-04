@@ -22,8 +22,8 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class DriverFactory
         implements Closeable
@@ -40,8 +40,8 @@ public class DriverFactory
         this(inputDriver,
                 outputDriver,
                 ImmutableList.<OperatorFactory>builder()
-                        .add(checkNotNull(firstOperatorFactory, "firstOperatorFactory is null"))
-                        .add(checkNotNull(otherOperatorFactories, "otherOperatorFactories is null"))
+                        .add(requireNonNull(firstOperatorFactory, "firstOperatorFactory is null"))
+                        .add(requireNonNull(otherOperatorFactories, "otherOperatorFactories is null"))
                         .build(),
                 1);
     }
@@ -55,7 +55,7 @@ public class DriverFactory
     {
         this.inputDriver = inputDriver;
         this.outputDriver = outputDriver;
-        this.operatorFactories = ImmutableList.copyOf(checkNotNull(operatorFactories, "operatorFactories is null"));
+        this.operatorFactories = ImmutableList.copyOf(requireNonNull(operatorFactories, "operatorFactories is null"));
         checkArgument(!operatorFactories.isEmpty(), "There must be at least one operator");
         this.driverInstances = driverInstances;
 
@@ -87,7 +87,7 @@ public class DriverFactory
     public synchronized Driver createDriver(DriverContext driverContext)
     {
         checkState(!closed, "DriverFactory is already closed");
-        checkNotNull(driverContext, "driverContext is null");
+        requireNonNull(driverContext, "driverContext is null");
         ImmutableList.Builder<Operator> operators = ImmutableList.builder();
         for (OperatorFactory operatorFactory : operatorFactories) {
             Operator operator = operatorFactory.createOperator(driverContext);

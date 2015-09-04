@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -48,7 +47,7 @@ public class FieldSetFilteringRecordSet
 
         ImmutableList.Builder<Set<Field>> fieldSetsBuilder = ImmutableList.builder();
         List<Type> columnTypes = delegate.getColumnTypes();
-        for (Set<Integer> fieldSet : checkNotNull(fieldSets, "fieldSets is null")) {
+        for (Set<Integer> fieldSet : requireNonNull(fieldSets, "fieldSets is null")) {
             ImmutableSet.Builder<Field> fieldSetBuilder = ImmutableSet.builder();
             for (int field : fieldSet) {
                 fieldSetBuilder.add(new Field(

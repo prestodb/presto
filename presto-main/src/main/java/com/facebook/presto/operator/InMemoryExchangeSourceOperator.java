@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -90,8 +89,8 @@ public class InMemoryExchangeSourceOperator
 
     public InMemoryExchangeSourceOperator(OperatorContext operatorContext, InMemoryExchange exchange, int bufferIndex)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.exchange = checkNotNull(exchange, "exchange is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.exchange = requireNonNull(exchange, "exchange is null");
         checkArgument(bufferIndex < exchange.getBufferCount());
         this.bufferIndex = bufferIndex;
     }

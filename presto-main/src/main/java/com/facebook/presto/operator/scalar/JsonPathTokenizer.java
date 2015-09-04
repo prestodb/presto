@@ -17,9 +17,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.AbstractIterator;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Character.isLetterOrDigit;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class JsonPathTokenizer
         extends AbstractIterator<String>
@@ -35,7 +35,7 @@ public class JsonPathTokenizer
 
     public JsonPathTokenizer(String path)
     {
-        this.path = checkNotNull(path, "path is null");
+        this.path = requireNonNull(path, "path is null");
 
         if (path.isEmpty()) {
             throw invalidJsonPath();

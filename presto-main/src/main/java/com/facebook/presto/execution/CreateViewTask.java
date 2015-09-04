@@ -40,7 +40,7 @@ import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class CreateViewTask
         implements DataDefinitionTask<CreateView>
@@ -57,10 +57,10 @@ public class CreateViewTask
             AccessControl accessControl,
             FeaturesConfig featuresConfig)
     {
-        this.codec = checkNotNull(codec, "codec is null");
-        this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
-        this.accessControl = checkNotNull(accessControl, "accessControl is null");
-        checkNotNull(featuresConfig, "featuresConfig is null");
+        this.codec = requireNonNull(codec, "codec is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        requireNonNull(featuresConfig, "featuresConfig is null");
         this.experimentalSyntaxEnabled = featuresConfig.isExperimentalSyntaxEnabled();
     }
 

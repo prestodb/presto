@@ -40,7 +40,6 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.failResult;
 import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.passResult;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareGet;
@@ -48,6 +47,7 @@ import static io.airlift.http.client.StringResponseHandler.createStringResponseH
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class BenchmarkQueryRunner
@@ -79,7 +79,7 @@ public class BenchmarkQueryRunner
 
         this.queryResultsCodec = jsonCodec(QueryResults.class);
 
-        checkNotNull(socksProxy, "socksProxy is null");
+        requireNonNull(socksProxy, "socksProxy is null");
         HttpClientConfig httpClientConfig = new HttpClientConfig();
         if (socksProxy.isPresent()) {
             httpClientConfig.setSocksProxy(socksProxy.get());
@@ -87,7 +87,7 @@ public class BenchmarkQueryRunner
 
         this.httpClient = new JettyHttpClient(httpClientConfig.setConnectTimeout(new Duration(10, TimeUnit.SECONDS)));
 
-        nodes = getAllNodes(checkNotNull(serverUri, "serverUri is null"));
+        nodes = getAllNodes(requireNonNull(serverUri, "serverUri is null"));
     }
 
     @SuppressWarnings("AssignmentToForLoopParameter")

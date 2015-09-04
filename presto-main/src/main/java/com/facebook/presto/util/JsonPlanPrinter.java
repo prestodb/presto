@@ -52,7 +52,7 @@ import io.airlift.json.JsonCodec;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class JsonPlanPrinter
 {
@@ -61,8 +61,8 @@ public final class JsonPlanPrinter
 
     private JsonPlanPrinter(PlanNode plan, Metadata metadata, Session session)
     {
-        checkNotNull(plan, "plan is null");
-        checkNotNull(metadata, "metadata is null");
+        requireNonNull(plan, "plan is null");
+        requireNonNull(metadata, "metadata is null");
         SourceVisitor visitor = new SourceVisitor(metadata, session);
         plan.accept(visitor, null);
     }
@@ -87,7 +87,7 @@ public final class JsonPlanPrinter
         public SourceVisitor(Metadata metadata, Session session)
         {
             this.session = session;
-            this.metadata = checkNotNull(metadata);
+            this.metadata = requireNonNull(metadata);
         }
 
         @Override

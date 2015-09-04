@@ -19,7 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.primitives.Longs;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ScheduledSplit
 {
@@ -30,7 +30,7 @@ public class ScheduledSplit
     public ScheduledSplit(@JsonProperty("sequenceId") long sequenceId, @JsonProperty("split") Split split)
     {
         this.sequenceId = sequenceId;
-        this.split = checkNotNull(split, "split is null");
+        this.split = requireNonNull(split, "split is null");
     }
 
     @JsonProperty

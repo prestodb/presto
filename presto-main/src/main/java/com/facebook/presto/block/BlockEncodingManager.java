@@ -35,8 +35,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public final class BlockEncodingManager
         implements BlockEncodingSerde
@@ -54,7 +54,7 @@ public final class BlockEncodingManager
     {
         // This function should be called from Guice and tests only
 
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
 
         // always add the built-in BlockEncodingFactories
         addBlockEncodingFactory(VariableWidthBlockEncoding.FACTORY);
@@ -65,14 +65,14 @@ public final class BlockEncodingManager
         addBlockEncodingFactory(ArrayBlockEncoding.FACTORY);
         addBlockEncodingFactory(InterleavedBlockEncoding.FACTORY);
 
-        for (BlockEncodingFactory<?> factory : checkNotNull(blockEncodingFactories, "blockEncodingFactories is null")) {
+        for (BlockEncodingFactory<?> factory : requireNonNull(blockEncodingFactories, "blockEncodingFactories is null")) {
             addBlockEncodingFactory(factory);
         }
     }
 
     public void addBlockEncodingFactory(BlockEncodingFactory<?> blockEncoding)
     {
-        checkNotNull(blockEncoding, "blockEncoding is null");
+        requireNonNull(blockEncoding, "blockEncoding is null");
         BlockEncodingFactory<?> existingEntry = blockEncodings.putIfAbsent(blockEncoding.getName(), blockEncoding);
         checkArgument(existingEntry == null, "Encoding %s is already registered", blockEncoding.getName());
     }

@@ -24,7 +24,7 @@ import org.apache.hadoop.mapred.JobConf;
 import javax.inject.Inject;
 
 import static com.facebook.presto.hive.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 
 public class HiveRecordSinkProvider
@@ -35,7 +35,7 @@ public class HiveRecordSinkProvider
     @Inject
     public HiveRecordSinkProvider(HdfsEnvironment hdfsEnvironment)
     {
-        this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     @Override

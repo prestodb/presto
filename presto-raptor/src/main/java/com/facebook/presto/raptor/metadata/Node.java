@@ -19,7 +19,7 @@ import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class Node
 {
@@ -29,7 +29,7 @@ public class Node
     public Node(int nodeId, String nodeIdentifier)
     {
         this.nodeId = nodeId;
-        this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null");
+        this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null");
     }
 
     public int getNodeId()

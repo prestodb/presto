@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class PostScript
 {
@@ -30,10 +30,10 @@ public class PostScript
 
     public PostScript(List<Integer> version, long footerLength, long metadataLength, CompressionKind compression, long compressionBlockSize)
     {
-        this.version = ImmutableList.copyOf(checkNotNull(version, "version is null"));
+        this.version = ImmutableList.copyOf(requireNonNull(version, "version is null"));
         this.footerLength = footerLength;
         this.metadataLength = metadataLength;
-        this.compression = checkNotNull(compression, "compressionKind is null");
+        this.compression = requireNonNull(compression, "compressionKind is null");
         this.compressionBlockSize = compressionBlockSize;
     }
 

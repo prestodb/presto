@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class Select
         extends Node
@@ -29,7 +29,7 @@ public class Select
     public Select(boolean distinct, List<SelectItem> selectItems)
     {
         this.distinct = distinct;
-        this.selectItems = ImmutableList.copyOf(checkNotNull(selectItems, "selectItems"));
+        this.selectItems = ImmutableList.copyOf(requireNonNull(selectItems, "selectItems"));
     }
 
     public boolean isDistinct()

@@ -32,7 +32,6 @@ import java.util.TimeZone;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Objects.requireNonNull;
 
 public final class Session
@@ -155,8 +154,8 @@ public final class Session
 
     public Session withSystemProperty(String key, String value)
     {
-        checkNotNull(key, "key is null");
-        checkNotNull(value, "value is null");
+        requireNonNull(key, "key is null");
+        requireNonNull(value, "value is null");
 
         Map<String, String> systemProperties = new LinkedHashMap<>(this.systemProperties);
         systemProperties.put(key, value);
@@ -178,9 +177,9 @@ public final class Session
 
     public Session withCatalogProperty(String catalog, String key, String value)
     {
-        checkNotNull(catalog, "catalog is null");
-        checkNotNull(key, "key is null");
-        checkNotNull(value, "value is null");
+        requireNonNull(catalog, "catalog is null");
+        requireNonNull(key, "key is null");
+        requireNonNull(value, "value is null");
 
         Map<String, Map<String, String>> catalogProperties = new LinkedHashMap<>(this.catalogProperties);
         Map<String, String> properties = catalogProperties.get(catalog);
@@ -215,7 +214,7 @@ public final class Session
 
     public ConnectorSession toConnectorSession(String catalog)
     {
-        checkNotNull(catalog, "catalog is null");
+        requireNonNull(catalog, "catalog is null");
         return new FullConnectorSession(
                 identity,
                 timeZoneKey,
@@ -238,7 +237,7 @@ public final class Session
         }
 
         return new ClientSession(
-                checkNotNull(server, "server is null"),
+                requireNonNull(server, "server is null"),
                 identity.getUser(),
                 source.orElse(null),
                 catalog,
@@ -303,7 +302,7 @@ public final class Session
 
         private SessionBuilder(SessionPropertyManager sessionPropertyManager)
         {
-            this.sessionPropertyManager = checkNotNull(sessionPropertyManager, "sessionPropertyManager is null");
+            this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         }
 
         public SessionBuilder setCatalog(String catalog)
@@ -376,7 +375,7 @@ public final class Session
          */
         public SessionBuilder setCatalogProperties(String catalog, Map<String, String> properties)
         {
-            checkNotNull(catalog, "catalog is null");
+            requireNonNull(catalog, "catalog is null");
             checkArgument(!catalog.isEmpty(), "catalog is empty");
 
             catalogProperties.put(catalog, ImmutableMap.copyOf(properties));

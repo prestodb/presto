@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class BufferInfo
 {
@@ -42,9 +42,9 @@ public class BufferInfo
         checkArgument(bufferedPages >= 0, "bufferedPages must be >= 0");
         checkArgument(pagesSent >= 0, "pagesSent must be >= 0");
 
-        this.bufferId = checkNotNull(bufferId, "bufferId is null");
+        this.bufferId = requireNonNull(bufferId, "bufferId is null");
         this.pagesSent = pagesSent;
-        this.pageBufferInfo = checkNotNull(pageBufferInfo, "pageBufferInfo is null");
+        this.pageBufferInfo = requireNonNull(pageBufferInfo, "pageBufferInfo is null");
         this.finished = finished;
         this.bufferedPages = bufferedPages;
     }

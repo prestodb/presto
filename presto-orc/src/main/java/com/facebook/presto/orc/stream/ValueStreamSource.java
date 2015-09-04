@@ -19,7 +19,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ValueStreamSource<S extends ValueStream<?>> implements StreamSource<S>
 {
@@ -27,7 +27,7 @@ public class ValueStreamSource<S extends ValueStream<?>> implements StreamSource
 
     public ValueStreamSource(S stream)
     {
-        this.stream = checkNotNull(stream, "stream is null");
+        this.stream = requireNonNull(stream, "stream is null");
     }
 
     @Override

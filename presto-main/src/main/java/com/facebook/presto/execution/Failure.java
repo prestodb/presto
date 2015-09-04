@@ -17,7 +17,7 @@ import com.facebook.presto.spi.ErrorCode;
 
 import javax.annotation.Nullable;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class Failure
         extends RuntimeException
@@ -28,7 +28,7 @@ public class Failure
     Failure(String type, String message, @Nullable ErrorCode errorCode, Failure cause)
     {
         super(message, cause, true, true);
-        this.type = checkNotNull(type, "type is null");
+        this.type = requireNonNull(type, "type is null");
         this.errorCode = errorCode;
     }
 

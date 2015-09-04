@@ -51,8 +51,8 @@ import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public final class TypeRegistry
@@ -69,7 +69,7 @@ public final class TypeRegistry
     @Inject
     public TypeRegistry(Set<Type> types)
     {
-        checkNotNull(types, "types is null");
+        requireNonNull(types, "types is null");
 
         // Manually register UNKNOWN type without a verifyTypeClass call since it is a special type that can not be used by functions
         this.types.put(UNKNOWN.getTypeSignature(), UNKNOWN);
@@ -160,6 +160,6 @@ public final class TypeRegistry
 
     public static void verifyTypeClass(Type type)
     {
-        checkNotNull(type, "type is null");
+        requireNonNull(type, "type is null");
     }
 }

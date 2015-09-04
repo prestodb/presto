@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Presto plugin to use Apache Kafka as a data source.
@@ -45,25 +45,25 @@ public class KafkaPlugin
     @Override
     public synchronized void setOptionalConfig(Map<String, String> optionalConfig)
     {
-        this.optionalConfig = ImmutableMap.copyOf(checkNotNull(optionalConfig, "optionalConfig is null"));
+        this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
     }
 
     @Inject
     public synchronized void setTypeManager(TypeManager typeManager)
     {
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Inject
     public synchronized void setNodeManager(NodeManager nodeManager)
     {
-        this.nodeManager = checkNotNull(nodeManager, "node is null");
+        this.nodeManager = requireNonNull(nodeManager, "node is null");
     }
 
     @VisibleForTesting
     public synchronized void setTableDescriptionSupplier(Supplier<Map<SchemaTableName, KafkaTopicDescription>> tableDescriptionSupplier)
     {
-        this.tableDescriptionSupplier = Optional.of(checkNotNull(tableDescriptionSupplier, "tableDescriptionSupplier is null"));
+        this.tableDescriptionSupplier = Optional.of(requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null"));
     }
 
     @Override

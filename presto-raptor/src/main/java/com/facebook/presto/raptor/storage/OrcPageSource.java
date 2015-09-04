@@ -60,7 +60,6 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.wrappedBooleanArray;
 import static io.airlift.slice.Slices.wrappedDoubleArray;
@@ -68,6 +67,7 @@ import static io.airlift.slice.Slices.wrappedIntArray;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.util.Objects.requireNonNull;
 
 public class OrcPageSource
         implements UpdatablePageSource
@@ -104,9 +104,9 @@ public class OrcPageSource
             List<Integer> columnIndexes,
             UUID shardUuid)
     {
-        this.shardRewriter = checkNotNull(shardRewriter, "shardRewriter is null");
-        this.recordReader = checkNotNull(recordReader, "recordReader is null");
-        this.orcDataSource = checkNotNull(orcDataSource, "orcDataSource is null");
+        this.shardRewriter = requireNonNull(shardRewriter, "shardRewriter is null");
+        this.recordReader = requireNonNull(recordReader, "recordReader is null");
+        this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
 
         this.rowsToDelete = new BitSet(Ints.checkedCast(recordReader.getFileRowCount()));
 
@@ -120,7 +120,7 @@ public class OrcPageSource
         this.constantBlocks = new Block[size];
         this.columnIndexes = new int[size];
 
-        checkNotNull(shardUuid, "shardUuid is null");
+        requireNonNull(shardUuid, "shardUuid is null");
 
         for (int i = 0; i < size; i++) {
             this.columnIndexes[i] = columnIndexes.get(i);
@@ -253,7 +253,7 @@ public class OrcPageSource
 
     private void closeWithSuppression(Throwable throwable)
     {
-        checkNotNull(throwable, "throwable is null");
+        requireNonNull(throwable, "throwable is null");
         try {
             close();
         }

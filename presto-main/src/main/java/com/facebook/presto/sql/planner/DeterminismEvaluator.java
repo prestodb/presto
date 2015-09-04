@@ -17,9 +17,10 @@ import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.base.Preconditions;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * Determines whether a given Expression is deterministic
@@ -30,7 +31,7 @@ public final class DeterminismEvaluator
 
     public static boolean isDeterministic(Expression expression)
     {
-        Preconditions.checkNotNull(expression, "expression is null");
+        requireNonNull(expression, "expression is null");
 
         AtomicBoolean deterministic = new AtomicBoolean(true);
         new Visitor().process(expression, deterministic);

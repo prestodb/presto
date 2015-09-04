@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * This class is based on io.airlift.concurrent.BoundedExecutor
@@ -54,8 +54,8 @@ public class PrioritizedFifoExecutor<T extends Runnable>
     {
         checkArgument(maxThreads > 0, "maxThreads must be greater than zero");
 
-        this.taskComparator = checkNotNull(taskComparator, "taskComparator is null");
-        this.executorService = checkNotNull(coreExecutor, "coreExecutor is null");
+        this.taskComparator = requireNonNull(taskComparator, "taskComparator is null");
+        this.executorService = requireNonNull(coreExecutor, "coreExecutor is null");
         this.maxThreads = maxThreads;
         this.queue = new PriorityBlockingQueue<>(maxThreads);
     }
@@ -96,10 +96,10 @@ public class PrioritizedFifoExecutor<T extends Runnable>
 
         public FifoRunnableTask(T task, long sequenceNumber, Comparator<T> taskComparator)
         {
-            super(checkNotNull(task, "task is null"), null);
+            super(requireNonNull(task, "task is null"), null);
             this.task = task;
             this.sequenceNumber = sequenceNumber;
-            this.taskComparator = checkNotNull(taskComparator, "taskComparator is null");
+            this.taskComparator = requireNonNull(taskComparator, "taskComparator is null");
         }
 
         @Override

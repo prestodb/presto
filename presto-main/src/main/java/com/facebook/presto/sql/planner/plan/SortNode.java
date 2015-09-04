@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Objects.requireNonNull;
+
 public class SortNode
         extends PlanNode
 {
@@ -39,8 +41,8 @@ public class SortNode
     {
         super(id);
 
-        Preconditions.checkNotNull(source, "source is null");
-        Preconditions.checkNotNull(orderBy, "orderBy is null");
+        requireNonNull(source, "source is null");
+        requireNonNull(orderBy, "orderBy is null");
         Preconditions.checkArgument(!orderBy.isEmpty(), "orderBy is empty");
         Preconditions.checkArgument(orderings.size() == orderBy.size(), "orderBy and orderings sizes don't match");
 

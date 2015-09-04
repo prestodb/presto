@@ -19,8 +19,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class InMemoryExchangeSinkOperator
         implements Operator
@@ -31,8 +31,8 @@ public class InMemoryExchangeSinkOperator
 
     InMemoryExchangeSinkOperator(OperatorContext operatorContext, InMemoryExchange inMemoryExchange)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.inMemoryExchange = checkNotNull(inMemoryExchange, "inMemoryExchange is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.inMemoryExchange = requireNonNull(inMemoryExchange, "inMemoryExchange is null");
     }
 
     @Override
@@ -84,7 +84,7 @@ public class InMemoryExchangeSinkOperator
     @Override
     public void addInput(Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(!finished, "Already finished");
         inMemoryExchange.addPage(page);
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());

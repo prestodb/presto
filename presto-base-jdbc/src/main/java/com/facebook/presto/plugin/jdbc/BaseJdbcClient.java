@@ -62,12 +62,12 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.fromProperties;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class BaseJdbcClient
         implements JdbcClient
@@ -95,11 +95,11 @@ public class BaseJdbcClient
 
     public BaseJdbcClient(JdbcConnectorId connectorId, BaseJdbcConfig config, String identifierQuote, Driver driver)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
-        this.identifierQuote = checkNotNull(identifierQuote, "identifierQuote is null");
-        this.driver = checkNotNull(driver, "driver is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
+        this.driver = requireNonNull(driver, "driver is null");
 
-        checkNotNull(config, "config is null");
+        requireNonNull(config, "config is null");
         connectionUrl = config.getConnectionUrl();
 
         connectionProperties = new Properties();

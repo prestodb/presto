@@ -93,10 +93,10 @@ import static com.facebook.presto.sql.planner.LocalExecutionPlanner.toTypes;
 import static com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions.canonicalizeExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -165,7 +165,7 @@ public final class FunctionAssertions
 
     public FunctionAssertions(Session session)
     {
-        this.session = checkNotNull(session, "session is null");
+        this.session = requireNonNull(session, "session is null");
         runner = new LocalQueryRunner(session);
         metadata = runner.getMetadata();
         compiler = new ExpressionCompiler(metadata);
@@ -239,7 +239,7 @@ public final class FunctionAssertions
 
     private List<Object> executeProjectionWithAll(String projection, Type expectedType, Session session, ExpressionCompiler compiler)
     {
-        checkNotNull(projection, "projection is null");
+        requireNonNull(projection, "projection is null");
 
         Expression projectionExpression = createExpression(projection, metadata, SYMBOL_TYPES);
 
@@ -339,7 +339,7 @@ public final class FunctionAssertions
 
     private List<Boolean> executeFilterWithAll(String filter, Session session, boolean executeWithNoInputColumns, ExpressionCompiler compiler)
     {
-        checkNotNull(filter, "filter is null");
+        requireNonNull(filter, "filter is null");
 
         Expression filterExpression = createExpression(filter, metadata, SYMBOL_TYPES);
 

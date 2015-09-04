@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public class StringLiteral
         extends Literal
@@ -27,7 +27,7 @@ public class StringLiteral
 
     public StringLiteral(String value)
     {
-        Preconditions.checkNotNull(value, "value is null");
+        requireNonNull(value, "value is null");
         this.value = value;
         this.slice = Slices.wrappedBuffer(value.getBytes(UTF_8));
     }

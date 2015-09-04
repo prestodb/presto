@@ -22,7 +22,7 @@ import com.facebook.presto.spi.RecordSink;
 import javax.inject.Inject;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class CassandraConnectorRecordSinkProvider
         implements ConnectorRecordSinkProvider
@@ -32,13 +32,13 @@ public class CassandraConnectorRecordSinkProvider
     @Inject
     public CassandraConnectorRecordSinkProvider(CassandraSession cassandraSession)
     {
-        this.cassandraSession = checkNotNull(cassandraSession, "cassandraSession is null");
+        this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
     }
 
     @Override
     public RecordSink getRecordSink(ConnectorSession session, ConnectorOutputTableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
+        requireNonNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof CassandraOutputTableHandle, "tableHandle is not an instance of CassandraOutputTableHandle");
         CassandraOutputTableHandle handle = (CassandraOutputTableHandle) tableHandle;
 

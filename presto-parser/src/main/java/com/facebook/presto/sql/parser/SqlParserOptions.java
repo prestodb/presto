@@ -17,7 +17,7 @@ import com.google.common.collect.Iterables;
 
 import java.util.EnumSet;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SqlParserOptions
 {
@@ -37,7 +37,7 @@ public class SqlParserOptions
     public SqlParserOptions allowIdentifierSymbol(IdentifierSymbol... identifierSymbols)
     {
         for (IdentifierSymbol identifierSymbol : identifierSymbols) {
-            allowedIdentifierSymbols.add(checkNotNull(identifierSymbol, "identifierSymbol is null"));
+            allowedIdentifierSymbols.add(requireNonNull(identifierSymbol, "identifierSymbol is null"));
         }
         return this;
     }

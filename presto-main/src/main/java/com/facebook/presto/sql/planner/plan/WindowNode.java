@@ -33,8 +33,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.concat;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class WindowNode
@@ -67,16 +67,16 @@ public class WindowNode
     {
         super(id);
 
-        checkNotNull(source, "source is null");
-        checkNotNull(partitionBy, "partitionBy is null");
-        checkNotNull(orderBy, "orderBy is null");
+        requireNonNull(source, "source is null");
+        requireNonNull(partitionBy, "partitionBy is null");
+        requireNonNull(orderBy, "orderBy is null");
         checkArgument(orderings.size() == orderBy.size(), "orderBy and orderings sizes don't match");
         checkArgument(orderings.keySet().containsAll(orderBy), "Every orderBy symbol must have an ordering direction");
-        checkNotNull(frame, "frame is null");
-        checkNotNull(windowFunctions, "windowFunctions is null");
-        checkNotNull(signatures, "signatures is null");
+        requireNonNull(frame, "frame is null");
+        requireNonNull(windowFunctions, "windowFunctions is null");
+        requireNonNull(signatures, "signatures is null");
         checkArgument(windowFunctions.keySet().equals(signatures.keySet()), "windowFunctions does not match signatures");
-        checkNotNull(hashSymbol, "hashSymbol is null");
+        requireNonNull(hashSymbol, "hashSymbol is null");
         checkArgument(partitionBy.containsAll(prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
         checkArgument(preSortedOrderPrefix <= orderBy.size(), "Cannot have sorted more symbols than those requested");
         checkArgument(preSortedOrderPrefix == 0 || ImmutableSet.copyOf(prePartitionedInputs).equals(ImmutableSet.copyOf(partitionBy)), "preSortedOrderPrefix can only be greater than zero if all partition symbols are pre-partitioned");
@@ -188,11 +188,11 @@ public class WindowNode
                 @JsonProperty("endType") FrameBound.Type endType,
                 @JsonProperty("endValue") Optional<Symbol> endValue)
         {
-            this.startType = checkNotNull(startType, "startType is null");
-            this.startValue = checkNotNull(startValue, "startValue is null");
-            this.endType = checkNotNull(endType, "endType is null");
-            this.endValue = checkNotNull(endValue, "endValue is null");
-            this.type = checkNotNull(type, "type is null");
+            this.startType = requireNonNull(startType, "startType is null");
+            this.startValue = requireNonNull(startValue, "startValue is null");
+            this.endType = requireNonNull(endType, "endType is null");
+            this.endValue = requireNonNull(endValue, "endValue is null");
+            this.type = requireNonNull(type, "type is null");
         }
 
         @JsonProperty

@@ -23,6 +23,8 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
+import static java.util.Objects.requireNonNull;
+
 @Immutable
 public class OutputNode
         extends PlanNode
@@ -39,8 +41,8 @@ public class OutputNode
     {
         super(id);
 
-        Preconditions.checkNotNull(source, "source is null");
-        Preconditions.checkNotNull(columnNames, "columnNames is null");
+        requireNonNull(source, "source is null");
+        requireNonNull(columnNames, "columnNames is null");
         Preconditions.checkArgument(columnNames.size() == outputs.size(), "columnNames and assignments sizes don't match");
 
         this.source = source;

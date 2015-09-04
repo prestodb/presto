@@ -24,8 +24,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class DistinctLimitOperator
         implements Operator
@@ -43,12 +43,12 @@ public class DistinctLimitOperator
         public DistinctLimitOperatorFactory(int operatorId, List<? extends Type> types, List<Integer> distinctChannels, long limit, Optional<Integer> hashChannel)
         {
             this.operatorId = operatorId;
-            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-            this.distinctChannels = checkNotNull(distinctChannels, "distinctChannels is null");
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.distinctChannels = requireNonNull(distinctChannels, "distinctChannels is null");
 
             checkArgument(limit >= 0, "limit must be at least zero");
             this.limit = limit;
-            this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
+            this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
         }
 
         @Override
@@ -86,11 +86,11 @@ public class DistinctLimitOperator
 
     public DistinctLimitOperator(OperatorContext operatorContext, List<Type> types, List<Integer> distinctChannels, long limit, Optional<Integer> hashChannel)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        checkNotNull(distinctChannels, "distinctChannels is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        requireNonNull(distinctChannels, "distinctChannels is null");
         checkArgument(limit >= 0, "limit must be at least zero");
-        checkNotNull(hashChannel, "hashChannel is null");
+        requireNonNull(hashChannel, "hashChannel is null");
 
         ImmutableList.Builder<Type> distinctTypes = ImmutableList.builder();
         for (int channel : distinctChannels) {

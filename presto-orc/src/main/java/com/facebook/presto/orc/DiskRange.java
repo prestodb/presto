@@ -19,7 +19,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class DiskRange
 {
@@ -62,7 +62,7 @@ public final class DiskRange
      */
     public DiskRange span(DiskRange otherDiskRange)
     {
-        checkNotNull(otherDiskRange, "otherDiskRange is null");
+        requireNonNull(otherDiskRange, "otherDiskRange is null");
         long start = Math.min(this.offset, otherDiskRange.getOffset());
         long end = Math.max(getEnd(), otherDiskRange.getEnd());
         return new DiskRange(start, Ints.checkedCast(end - start));

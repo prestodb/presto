@@ -29,8 +29,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class IndexSnapshotBuilder
 {
@@ -56,11 +56,11 @@ public class IndexSnapshotBuilder
             DataSize maxMemoryInBytes,
             int expectedPositions)
     {
-        checkNotNull(outputTypes, "outputTypes is null");
-        checkNotNull(keyOutputChannels, "keyOutputChannels is null");
-        checkNotNull(keyOutputHashChannel, "keyOutputHashChannel is null");
-        checkNotNull(driverContext, "driverContext is null");
-        checkNotNull(maxMemoryInBytes, "maxMemoryInBytes is null");
+        requireNonNull(outputTypes, "outputTypes is null");
+        requireNonNull(keyOutputChannels, "keyOutputChannels is null");
+        requireNonNull(keyOutputHashChannel, "keyOutputHashChannel is null");
+        requireNonNull(driverContext, "driverContext is null");
+        requireNonNull(maxMemoryInBytes, "maxMemoryInBytes is null");
         checkArgument(expectedPositions > 0, "expectedPositions must be greater than zero");
 
         this.outputTypes = ImmutableList.copyOf(outputTypes);

@@ -62,9 +62,9 @@ import static com.facebook.presto.util.DateTimeUtils.parseTime;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public final class LiteralInterpreter
 {
@@ -80,8 +80,8 @@ public final class LiteralInterpreter
 
     public static List<Expression> toExpressions(List<?> objects, List<? extends Type> types)
     {
-        checkNotNull(objects, "objects is null");
-        checkNotNull(types, "types is null");
+        requireNonNull(objects, "objects is null");
+        requireNonNull(types, "types is null");
         checkArgument(objects.size() == types.size(), "objects and types do not have the same size");
 
         ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
@@ -95,7 +95,7 @@ public final class LiteralInterpreter
 
     public static Expression toExpression(Object object, Type type)
     {
-        checkNotNull(type, "type is null");
+        requireNonNull(type, "type is null");
 
         if (object instanceof Expression) {
             return (Expression) object;

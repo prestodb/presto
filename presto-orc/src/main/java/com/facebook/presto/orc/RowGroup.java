@@ -16,7 +16,7 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.stream.StreamSources;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RowGroup
 {
@@ -30,7 +30,7 @@ public class RowGroup
         this.groupId = groupId;
         this.rowOffset = rowOffset;
         this.rowCount = rowCount;
-        this.streamSources = checkNotNull(streamSources, "streamSources is null");
+        this.streamSources = requireNonNull(streamSources, "streamSources is null");
     }
 
     public int getGroupId()

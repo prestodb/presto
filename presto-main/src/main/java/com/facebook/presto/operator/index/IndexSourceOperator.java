@@ -36,8 +36,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class IndexSourceOperator
         implements SourceOperator
@@ -60,10 +60,10 @@ public class IndexSourceOperator
                 Function<RecordSet, RecordSet> probeKeyNormalizer)
         {
             this.operatorId = operatorId;
-            this.sourceId = checkNotNull(sourceId, "sourceId is null");
-            this.index = checkNotNull(index, "index is null");
-            this.types = checkNotNull(types, "types is null");
-            this.probeKeyNormalizer = checkNotNull(probeKeyNormalizer, "probeKeyNormalizer is null");
+            this.sourceId = requireNonNull(sourceId, "sourceId is null");
+            this.index = requireNonNull(index, "index is null");
+            this.types = requireNonNull(types, "types is null");
+            this.probeKeyNormalizer = requireNonNull(probeKeyNormalizer, "probeKeyNormalizer is null");
         }
 
         @Override
@@ -113,11 +113,11 @@ public class IndexSourceOperator
             List<Type> types,
             Function<RecordSet, RecordSet> probeKeyNormalizer)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.planNodeId = checkNotNull(planNodeId, "planNodeId is null");
-        this.index = checkNotNull(index, "index is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.probeKeyNormalizer = checkNotNull(probeKeyNormalizer, "probeKeyNormalizer is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+        this.index = requireNonNull(index, "index is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.probeKeyNormalizer = requireNonNull(probeKeyNormalizer, "probeKeyNormalizer is null");
     }
 
     @Override
@@ -135,7 +135,7 @@ public class IndexSourceOperator
     @Override
     public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
-        checkNotNull(split, "split is null");
+        requireNonNull(split, "split is null");
         checkType(split.getConnectorSplit(), IndexSplit.class, "connectorSplit");
         checkState(source == null, "Index source split already set");
 

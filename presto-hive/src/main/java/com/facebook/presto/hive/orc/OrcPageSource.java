@@ -68,7 +68,6 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.slice.Slices.wrappedBooleanArray;
@@ -79,6 +78,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public class OrcPageSource
         implements ConnectorPageSource
@@ -107,12 +107,12 @@ public class OrcPageSource
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
     {
-        this.recordReader = checkNotNull(recordReader, "recordReader is null");
-        this.orcDataSource = checkNotNull(orcDataSource, "orcDataSource is null");
+        this.recordReader = requireNonNull(recordReader, "recordReader is null");
+        this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
 
-        Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(checkNotNull(partitionKeys, "partitionKeys is null"), HivePartitionKey::getName);
+        Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(requireNonNull(partitionKeys, "partitionKeys is null"), HivePartitionKey::getName);
 
-        int size = checkNotNull(columns, "columns is null").size();
+        int size = requireNonNull(columns, "columns is null").size();
 
         this.isStructuralType = new boolean[size];
 
@@ -316,7 +316,7 @@ public class OrcPageSource
 
     protected void closeWithSuppression(Throwable throwable)
     {
-        checkNotNull(throwable, "throwable is null");
+        requireNonNull(throwable, "throwable is null");
         try {
             close();
         }

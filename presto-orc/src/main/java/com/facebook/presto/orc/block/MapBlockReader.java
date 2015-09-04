@@ -32,7 +32,7 @@ import static com.facebook.presto.orc.block.BlockReaders.createBlockReader;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class MapBlockReader
         implements BlockReader
@@ -50,7 +50,7 @@ public class MapBlockReader
 
     public MapBlockReader(StreamDescriptor streamDescriptor, boolean checkForNulls, DateTimeZone hiveStorageTimeZone)
     {
-        this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
+        this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.checkForNulls = checkForNulls;
 
         keyReader = createBlockReader(streamDescriptor.getNestedStreams().get(0), true, hiveStorageTimeZone);
@@ -63,7 +63,7 @@ public class MapBlockReader
     {
         if (presentStream != null && !presentStream.nextBit()) {
             if (!skipNull) {
-                checkNotNull(builder, "parent builder is null").appendNull();
+                requireNonNull(builder, "parent builder is null").appendNull();
                 return true;
             }
             return false;

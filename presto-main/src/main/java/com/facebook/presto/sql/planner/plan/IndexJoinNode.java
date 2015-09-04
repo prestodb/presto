@@ -23,7 +23,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class IndexJoinNode
@@ -47,12 +47,12 @@ public class IndexJoinNode
             @JsonProperty("indexHashSymbol") Optional<Symbol> indexHashSymbol)
     {
         super(id);
-        this.type = checkNotNull(type, "type is null");
-        this.probeSource = checkNotNull(probeSource, "probeSource is null");
-        this.indexSource = checkNotNull(indexSource, "indexSource is null");
-        this.criteria = ImmutableList.copyOf(checkNotNull(criteria, "criteria is null"));
-        this.probeHashSymbol = checkNotNull(probeHashSymbol, "probeHashSymbol is null");
-        this.indexHashSymbol = checkNotNull(indexHashSymbol, "indexHashSymbol is null");
+        this.type = requireNonNull(type, "type is null");
+        this.probeSource = requireNonNull(probeSource, "probeSource is null");
+        this.indexSource = requireNonNull(indexSource, "indexSource is null");
+        this.criteria = ImmutableList.copyOf(requireNonNull(criteria, "criteria is null"));
+        this.probeHashSymbol = requireNonNull(probeHashSymbol, "probeHashSymbol is null");
+        this.indexHashSymbol = requireNonNull(indexHashSymbol, "indexHashSymbol is null");
     }
 
     public enum Type
@@ -138,8 +138,8 @@ public class IndexJoinNode
         @JsonCreator
         public EquiJoinClause(@JsonProperty("probe") Symbol probe, @JsonProperty("index") Symbol index)
         {
-            this.probe = checkNotNull(probe, "probe is null");
-            this.index = checkNotNull(index, "index is null");
+            this.probe = requireNonNull(probe, "probe is null");
+            this.index = requireNonNull(index, "index is null");
         }
 
         @JsonProperty("probe")

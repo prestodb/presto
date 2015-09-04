@@ -24,9 +24,9 @@ import java.util.List;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.primitives.Primitives.wrap;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 class CastByteCodeExpression
         extends ByteCodeExpression
@@ -37,7 +37,7 @@ class CastByteCodeExpression
     {
         super(type);
 
-        this.instance = checkNotNull(instance, "instance is null");
+        this.instance = requireNonNull(instance, "instance is null");
 
         checkArgument(type.getPrimitiveType() != void.class, "Type %s can not be cast to %s", instance.getType(), type);
 

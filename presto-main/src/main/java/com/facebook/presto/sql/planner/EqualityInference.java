@@ -43,10 +43,10 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Makes equality based inferences to rewrite Expressions and generate equality sets in terms of specified symbol scopes
@@ -305,9 +305,9 @@ public class EqualityInference
 
         public EqualityPartition(Iterable<Expression> scopeEqualities, Iterable<Expression> scopeComplementEqualities, Iterable<Expression> scopeStraddlingEqualities)
         {
-            this.scopeEqualities = ImmutableList.copyOf(checkNotNull(scopeEqualities, "scopeEqualities is null"));
-            this.scopeComplementEqualities = ImmutableList.copyOf(checkNotNull(scopeComplementEqualities, "scopeComplementEqualities is null"));
-            this.scopeStraddlingEqualities = ImmutableList.copyOf(checkNotNull(scopeStraddlingEqualities, "scopeStraddlingEqualities is null"));
+            this.scopeEqualities = ImmutableList.copyOf(requireNonNull(scopeEqualities, "scopeEqualities is null"));
+            this.scopeComplementEqualities = ImmutableList.copyOf(requireNonNull(scopeComplementEqualities, "scopeComplementEqualities is null"));
+            this.scopeStraddlingEqualities = ImmutableList.copyOf(requireNonNull(scopeStraddlingEqualities, "scopeStraddlingEqualities is null"));
         }
 
         public List<Expression> getScopeEqualities()

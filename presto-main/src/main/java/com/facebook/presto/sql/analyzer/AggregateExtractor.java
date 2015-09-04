@@ -16,10 +16,11 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+
+import static java.util.Objects.requireNonNull;
 
 public class AggregateExtractor
         extends DefaultExpressionTraversalVisitor<Void, Void>
@@ -30,7 +31,7 @@ public class AggregateExtractor
 
     public AggregateExtractor(Metadata metadata)
     {
-        Preconditions.checkNotNull(metadata, "metadata is null");
+        requireNonNull(metadata, "metadata is null");
 
         this.metadata = metadata;
     }

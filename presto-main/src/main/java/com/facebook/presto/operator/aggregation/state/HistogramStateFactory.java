@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation.state;
 import com.facebook.presto.operator.aggregation.TypedHistogram;
 import com.facebook.presto.util.array.ObjectBigArray;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HistogramStateFactory
         implements AccumulatorStateFactory<HistogramState>
@@ -67,7 +67,7 @@ public class HistogramStateFactory
         @Override
         public void set(TypedHistogram value)
         {
-            checkNotNull(value, "value is null");
+            requireNonNull(value, "value is null");
 
             TypedHistogram previous = get();
             if (previous != null) {

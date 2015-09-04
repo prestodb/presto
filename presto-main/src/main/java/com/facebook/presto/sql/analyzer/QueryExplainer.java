@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class QueryExplainer
 {
@@ -71,12 +71,12 @@ public class QueryExplainer
             Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask,
             boolean experimentalSyntaxEnabled)
     {
-        this.planOptimizers = checkNotNull(planOptimizers, "planOptimizers is null");
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.accessControl = checkNotNull(accessControl, "accessControl is null");
-        this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
+        this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
-        this.dataDefinitionTask = ImmutableMap.copyOf(checkNotNull(dataDefinitionTask, "dataDefinitionTask is null"));
+        this.dataDefinitionTask = ImmutableMap.copyOf(requireNonNull(dataDefinitionTask, "dataDefinitionTask is null"));
     }
 
     public String getPlan(Session session, Statement statement, Type planType)

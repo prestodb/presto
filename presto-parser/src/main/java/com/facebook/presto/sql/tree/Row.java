@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class Row
         extends Expression
@@ -27,7 +27,7 @@ public final class Row
 
     public Row(List<Expression> items)
     {
-        checkNotNull(items, "items is null");
+        requireNonNull(items, "items is null");
         this.items = ImmutableList.copyOf(items);
     }
 

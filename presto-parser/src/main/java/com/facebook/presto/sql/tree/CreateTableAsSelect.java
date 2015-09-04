@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class CreateTableAsSelect
         extends Statement
@@ -30,9 +30,9 @@ public class CreateTableAsSelect
 
     public CreateTableAsSelect(QualifiedName name, Query query, Map<String, Expression> properties)
     {
-        this.name = checkNotNull(name, "name is null");
-        this.query = checkNotNull(query, "query is null");
-        this.properties = ImmutableMap.copyOf(checkNotNull(properties, "properties is null"));
+        this.name = requireNonNull(name, "name is null");
+        this.query = requireNonNull(query, "query is null");
+        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
     }
 
     public QualifiedName getName()

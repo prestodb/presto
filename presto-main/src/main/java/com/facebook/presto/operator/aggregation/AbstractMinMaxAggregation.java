@@ -49,7 +49,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.util.Reflection.methodHandle;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMinMaxAggregation
         extends ParametricAggregation
@@ -74,8 +74,8 @@ public abstract class AbstractMinMaxAggregation
 
     protected AbstractMinMaxAggregation(String name, OperatorType operatorType)
     {
-        checkNotNull(name);
-        checkNotNull(operatorType);
+        requireNonNull(name);
+        requireNonNull(operatorType);
         this.name = name;
         this.operatorType = operatorType;
         this.signature = new Signature(name, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("E"), false, false);

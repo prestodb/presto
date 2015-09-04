@@ -23,7 +23,7 @@ import java.util.UUID;
 
 import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ShardNode
 {
@@ -32,8 +32,8 @@ public class ShardNode
 
     public ShardNode(UUID shardUuid, String nodeIdentifier)
     {
-        this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
-        this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null");
+        this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
+        this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null");
     }
 
     public UUID getShardUuid()

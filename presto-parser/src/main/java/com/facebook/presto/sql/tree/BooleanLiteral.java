@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import java.util.Objects;
 
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class BooleanLiteral
         extends Literal
@@ -29,7 +30,7 @@ public class BooleanLiteral
 
     public BooleanLiteral(String value)
     {
-        Preconditions.checkNotNull(value, "value is null");
+        requireNonNull(value, "value is null");
         Preconditions.checkArgument(value.toLowerCase(ENGLISH).equals("true") || value.toLowerCase(ENGLISH).equals("false"));
 
         this.value = value.toLowerCase(ENGLISH).equals("true");

@@ -14,7 +14,7 @@
 package com.facebook.presto.orc.metadata;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ColumnEncoding
 {
@@ -32,7 +32,7 @@ public class ColumnEncoding
 
     public ColumnEncoding(ColumnEncodingKind columnEncodingKind, int dictionarySize)
     {
-        this.columnEncodingKind = checkNotNull(columnEncodingKind, "columnEncodingKind is null");
+        this.columnEncodingKind = requireNonNull(columnEncodingKind, "columnEncodingKind is null");
         this.dictionarySize = dictionarySize;
     }
 

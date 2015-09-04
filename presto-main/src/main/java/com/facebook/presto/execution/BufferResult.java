@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class BufferResult
 {
@@ -39,7 +39,7 @@ public class BufferResult
         this.token = token;
         this.nextToken = nextToken;
         this.bufferComplete = bufferComplete;
-        this.pages = ImmutableList.copyOf(checkNotNull(pages, "pages is null"));
+        this.pages = ImmutableList.copyOf(requireNonNull(pages, "pages is null"));
     }
 
     public long getToken()

@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Represents a kafka specific {@link ConnectorSplit}. Each split is mapped to a segment file on disk (based off the segment offset start() and end() values) so that
@@ -55,14 +55,14 @@ public class KafkaSplit
             @JsonProperty("end") long end,
             @JsonProperty("nodes") List<HostAddress> nodes)
     {
-        this.connectorId = checkNotNull(connectorId, "connector id is null");
-        this.topicName = checkNotNull(topicName, "topicName is null");
-        this.keyDataFormat = checkNotNull(keyDataFormat, "dataFormat is null");
-        this.messageDataFormat = checkNotNull(messageDataFormat, "messageDataFormat is null");
+        this.connectorId = requireNonNull(connectorId, "connector id is null");
+        this.topicName = requireNonNull(topicName, "topicName is null");
+        this.keyDataFormat = requireNonNull(keyDataFormat, "dataFormat is null");
+        this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
         this.partitionId = partitionId;
         this.start = start;
         this.end = end;
-        this.nodes = ImmutableList.copyOf(checkNotNull(nodes, "addresses is null"));
+        this.nodes = ImmutableList.copyOf(requireNonNull(nodes, "addresses is null"));
     }
 
     @JsonProperty

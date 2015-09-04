@@ -36,8 +36,8 @@ import java.util.Properties;
 import java.util.Set;
 
 import static com.facebook.presto.hive.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.Objects.requireNonNull;
 
 public class HivePageSourceProvider
         implements ConnectorPageSourceProvider
@@ -57,12 +57,12 @@ public class HivePageSourceProvider
             Set<HivePageSourceFactory> pageSourceFactories,
             TypeManager typeManager)
     {
-        checkNotNull(hiveClientConfig, "hiveClientConfig is null");
+        requireNonNull(hiveClientConfig, "hiveClientConfig is null");
         this.hiveStorageTimeZone = hiveClientConfig.getDateTimeZone();
-        this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.cursorProviders = ImmutableSet.copyOf(checkNotNull(cursorProviders, "cursorProviders is null"));
-        this.pageSourceFactories = ImmutableSet.copyOf(checkNotNull(pageSourceFactories, "pageSourceFactories is null"));
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.cursorProviders = ImmutableSet.copyOf(requireNonNull(cursorProviders, "cursorProviders is null"));
+        this.pageSourceFactories = ImmutableSet.copyOf(requireNonNull(pageSourceFactories, "pageSourceFactories is null"));
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override

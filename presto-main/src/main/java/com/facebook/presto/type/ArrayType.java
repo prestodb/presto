@@ -31,7 +31,7 @@ import java.util.Objects;
 
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ArrayType
         extends AbstractType
@@ -42,7 +42,7 @@ public class ArrayType
     public ArrayType(Type elementType)
     {
         super(parameterizedTypeName("array", elementType.getTypeSignature()), Block.class);
-        this.elementType = checkNotNull(elementType, "elementType is null");
+        this.elementType = requireNonNull(elementType, "elementType is null");
     }
 
     public Type getElementType()

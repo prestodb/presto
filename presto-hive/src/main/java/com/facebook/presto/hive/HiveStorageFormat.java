@@ -29,7 +29,7 @@ import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.mapred.SequenceFileInputFormat;
 import org.apache.hadoop.mapred.TextInputFormat;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public enum HiveStorageFormat
 {
@@ -61,9 +61,9 @@ public enum HiveStorageFormat
 
     HiveStorageFormat(String serde, String inputFormat, String outputFormat)
     {
-        this.serde = checkNotNull(serde, "serde is null");
-        this.inputFormat = checkNotNull(inputFormat, "inputFormat is null");
-        this.outputFormat = checkNotNull(outputFormat, "outputFormat is null");
+        this.serde = requireNonNull(serde, "serde is null");
+        this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
+        this.outputFormat = requireNonNull(outputFormat, "outputFormat is null");
     }
 
     public String getSerDe()

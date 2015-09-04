@@ -27,8 +27,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public final class MetadataUtil
 {
@@ -90,7 +91,9 @@ public final class MetadataUtil
 
     public static String checkLowerCase(String value, String name)
     {
-        checkNotNull(value, "%s is null", name);
+        if (value == null) {
+            throw new NullPointerException(format("%s is null", name));
+        }
         checkArgument(value.equals(value.toLowerCase(ENGLISH)), "%s is not lowercase", name);
         return value;
     }
@@ -107,8 +110,8 @@ public final class MetadataUtil
 
     public static QualifiedTableName createQualifiedTableName(Session session, QualifiedName name)
     {
-        checkNotNull(session, "session is null");
-        checkNotNull(name, "name is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(name, "name is null");
         checkArgument(name.getParts().size() <= 3, "Too many dots in table name: %s", name);
 
         List<String> parts = Lists.reverse(name.getParts());

@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Groups the field descriptions for message or key.
@@ -35,8 +35,8 @@ public class KafkaTopicFieldGroup
             @JsonProperty("dataFormat") String dataFormat,
             @JsonProperty("fields") List<KafkaTopicFieldDescription> fields)
     {
-        this.dataFormat = checkNotNull(dataFormat, "dataFormat is null");
-        this.fields = ImmutableList.copyOf(checkNotNull(fields, "fields is null"));
+        this.dataFormat = requireNonNull(dataFormat, "dataFormat is null");
+        this.fields = ImmutableList.copyOf(requireNonNull(fields, "fields is null"));
     }
 
     @JsonProperty

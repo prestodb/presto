@@ -19,7 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Provides a ThreadLocal cache with a maximum cache size per thread.
@@ -67,7 +67,7 @@ public abstract class ThreadLocalCache<K, V>
         }
 
         value = load(key);
-        checkNotNull(value, "value must not be null");
+        requireNonNull(value, "value must not be null");
         map.put(key, value);
         return value;
     }

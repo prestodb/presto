@@ -38,8 +38,8 @@ import static com.facebook.presto.byteCode.OpCode.INVOKESTATIC;
 import static com.facebook.presto.byteCode.OpCode.INVOKEVIRTUAL;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.Objects.requireNonNull;
 
 @SuppressWarnings("UnusedDeclaration")
 public class InvokeInstruction
@@ -431,7 +431,7 @@ public class InvokeInstruction
     private static void checkUnqualifiedName(String name)
     {
         // JVM Specification 4.2.2 Unqualified Names
-        checkNotNull(name, "name is null");
+        requireNonNull(name, "name is null");
         checkArgument(!name.isEmpty(), "name is empty");
         if (name.equals("<init>") || name.equals("<clinit>")) {
             return;

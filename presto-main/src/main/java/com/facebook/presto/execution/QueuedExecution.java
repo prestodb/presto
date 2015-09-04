@@ -22,7 +22,7 @@ import io.airlift.concurrent.SetThreadName;
 import java.util.List;
 import java.util.concurrent.Executor;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class QueuedExecution
 {
@@ -41,11 +41,11 @@ public class QueuedExecution
 
     private QueuedExecution(QueryExecution queryExecution, List<QueryQueue> nextQueues, Executor executor, SqlQueryManagerStats stats, ListenableFuture<?> listenableFuture)
     {
-        this.queryExecution = checkNotNull(queryExecution, "queryExecution is null");
-        this.nextQueues = ImmutableList.copyOf(checkNotNull(nextQueues, "nextQueues is null"));
-        this.executor = checkNotNull(executor, "executor is null");
-        this.stats = checkNotNull(stats, "stats is null");
-        this.listenableFuture = checkNotNull(listenableFuture, "listenableFuture is null");
+        this.queryExecution = requireNonNull(queryExecution, "queryExecution is null");
+        this.nextQueues = ImmutableList.copyOf(requireNonNull(nextQueues, "nextQueues is null"));
+        this.executor = requireNonNull(executor, "executor is null");
+        this.stats = requireNonNull(stats, "stats is null");
+        this.listenableFuture = requireNonNull(listenableFuture, "listenableFuture is null");
     }
 
     public ListenableFuture<?> getCompletionFuture()

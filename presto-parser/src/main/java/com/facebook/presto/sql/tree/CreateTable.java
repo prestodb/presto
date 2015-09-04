@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class CreateTable
         extends Statement
@@ -33,10 +33,10 @@ public class CreateTable
 
     public CreateTable(QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties)
     {
-        this.name = checkNotNull(name, "table is null");
-        this.elements = ImmutableList.copyOf(checkNotNull(elements, "elements is null"));
+        this.name = requireNonNull(name, "table is null");
+        this.elements = ImmutableList.copyOf(requireNonNull(elements, "elements is null"));
         this.notExists = notExists;
-        this.properties = ImmutableMap.copyOf(checkNotNull(properties, "properties is null"));
+        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
     }
 
     public QualifiedName getName()

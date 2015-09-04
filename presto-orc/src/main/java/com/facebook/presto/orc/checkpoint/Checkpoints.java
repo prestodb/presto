@@ -46,9 +46,9 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.equalTo;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public final class Checkpoints
 {
@@ -400,8 +400,8 @@ public final class Checkpoints
         private ColumnPositionsList(int column, OrcTypeKind columnType, List<Integer> positionsList)
         {
             this.column = column;
-            this.columnType = checkNotNull(columnType, "columnType is null");
-            this.positionsList = ImmutableList.copyOf(checkNotNull(positionsList, "positionsList is null"));
+            this.columnType = requireNonNull(columnType, "columnType is null");
+            this.positionsList = ImmutableList.copyOf(requireNonNull(positionsList, "positionsList is null"));
         }
 
         public int getIndex()

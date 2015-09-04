@@ -20,8 +20,8 @@ import io.airlift.slice.Slice;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkElementIndex;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;
+import static java.util.Objects.requireNonNull;
 
 public class WindowIndex
 {
@@ -31,7 +31,7 @@ public class WindowIndex
 
     public WindowIndex(PagesIndex pagesIndex, int start, int end)
     {
-        checkNotNull(pagesIndex, "pagesIndex is null");
+        requireNonNull(pagesIndex, "pagesIndex is null");
         checkPositionIndex(start, pagesIndex.getPositionCount(), "start");
         checkPositionIndex(end, pagesIndex.getPositionCount(), "end");
         checkArgument(start < end, "start must be before end");

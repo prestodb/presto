@@ -33,7 +33,6 @@ import static com.facebook.presto.byteCode.instruction.Constant.loadLong;
 import static com.facebook.presto.byteCode.instruction.Constant.loadNull;
 import static com.facebook.presto.byteCode.instruction.Constant.loadString;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 
@@ -212,7 +211,7 @@ public final class ByteCodeExpressions
 
     public static ByteCodeExpression newInstance(Class<?> returnType, ByteCodeExpression... parameters)
     {
-        return newInstance(type(returnType), ImmutableList.copyOf(checkNotNull(parameters, "parameters is null")));
+        return newInstance(type(returnType), ImmutableList.copyOf(requireNonNull(parameters, "parameters is null")));
     }
 
     public static ByteCodeExpression newInstance(Class<?> returnType, Iterable<? extends ByteCodeExpression> parameters)
@@ -222,14 +221,14 @@ public final class ByteCodeExpressions
 
     public static ByteCodeExpression newInstance(ParameterizedType returnType, ByteCodeExpression... parameters)
     {
-        checkNotNull(parameters, "parameters is null");
+        requireNonNull(parameters, "parameters is null");
 
         return newInstance(returnType, ImmutableList.copyOf(parameters));
     }
 
     public static ByteCodeExpression newInstance(ParameterizedType returnType, Iterable<? extends ByteCodeExpression> parameters)
     {
-        checkNotNull(parameters, "parameters is null");
+        requireNonNull(parameters, "parameters is null");
 
         return newInstance(
                 returnType,
@@ -239,12 +238,12 @@ public final class ByteCodeExpressions
 
     public static ByteCodeExpression newInstance(Class<?> returnType, Iterable<? extends Class<?>> parameterTypes, ByteCodeExpression... parameters)
     {
-        return newInstance(type(returnType), transform(parameterTypes, ParameterizedType::type), ImmutableList.copyOf(checkNotNull(parameters, "parameters is null")));
+        return newInstance(type(returnType), transform(parameterTypes, ParameterizedType::type), ImmutableList.copyOf(requireNonNull(parameters, "parameters is null")));
     }
 
     public static ByteCodeExpression newInstance(ParameterizedType returnType, Iterable<ParameterizedType> parameterTypes, ByteCodeExpression... parameters)
     {
-        return newInstance(returnType, parameterTypes, ImmutableList.copyOf(checkNotNull(parameters, "parameters is null")));
+        return newInstance(returnType, parameterTypes, ImmutableList.copyOf(requireNonNull(parameters, "parameters is null")));
     }
 
     public static ByteCodeExpression newInstance(
@@ -261,7 +260,7 @@ public final class ByteCodeExpressions
 
     public static ByteCodeExpression invokeStatic(Method method,  ByteCodeExpression... parameters)
     {
-        return invokeStatic(method, ImmutableList.copyOf(checkNotNull(parameters, "parameters is null")));
+        return invokeStatic(method, ImmutableList.copyOf(requireNonNull(parameters, "parameters is null")));
     }
 
     public static ByteCodeExpression invokeStatic(Method method,  Iterable<? extends ByteCodeExpression> parameters)
@@ -271,7 +270,7 @@ public final class ByteCodeExpressions
 
     public static ByteCodeExpression invokeStatic(Class<?> methodTargetType, String methodName, Class<?> returnType, ByteCodeExpression... parameters)
     {
-        return invokeStatic(methodTargetType, methodName, returnType, ImmutableList.copyOf(checkNotNull(parameters, "parameters is null")));
+        return invokeStatic(methodTargetType, methodName, returnType, ImmutableList.copyOf(requireNonNull(parameters, "parameters is null")));
     }
 
     public static ByteCodeExpression invokeStatic(
@@ -280,9 +279,9 @@ public final class ByteCodeExpressions
             Class<?> returnType,
             Iterable<? extends ByteCodeExpression> parameters)
     {
-        checkNotNull(methodTargetType, "methodTargetType is null");
-        checkNotNull(returnType, "returnType is null");
-        checkNotNull(parameters, "parameters is null");
+        requireNonNull(methodTargetType, "methodTargetType is null");
+        requireNonNull(returnType, "returnType is null");
+        requireNonNull(parameters, "parameters is null");
 
         return invokeStatic(
                 type(methodTargetType),
@@ -299,10 +298,10 @@ public final class ByteCodeExpressions
             Iterable<? extends Class<?>> parameterTypes,
             ByteCodeExpression... parameters)
     {
-        checkNotNull(methodTargetType, "methodTargetType is null");
-        checkNotNull(returnType, "returnType is null");
-        checkNotNull(parameterTypes, "parameterTypes is null");
-        checkNotNull(parameters, "parameters is null");
+        requireNonNull(methodTargetType, "methodTargetType is null");
+        requireNonNull(returnType, "returnType is null");
+        requireNonNull(parameterTypes, "parameterTypes is null");
+        requireNonNull(parameters, "parameters is null");
 
         return invokeStatic(
                 type(methodTargetType),
@@ -319,7 +318,7 @@ public final class ByteCodeExpressions
             Iterable<ParameterizedType> parameterTypes,
             ByteCodeExpression... parameters)
     {
-        return invokeStatic(methodTargetType, methodName, returnType, parameterTypes, ImmutableList.copyOf(checkNotNull(parameters, "parameters is null")));
+        return invokeStatic(methodTargetType, methodName, returnType, parameterTypes, ImmutableList.copyOf(requireNonNull(parameters, "parameters is null")));
     }
 
     public static ByteCodeExpression invokeStatic(
@@ -349,7 +348,7 @@ public final class ByteCodeExpressions
             Class<?> returnType,
             ByteCodeExpression... parameters)
     {
-        return invokeDynamic(bootstrapMethod, bootstrapArgs, methodName, returnType, ImmutableList.copyOf(checkNotNull(parameters, "parameters is null")));
+        return invokeDynamic(bootstrapMethod, bootstrapArgs, methodName, returnType, ImmutableList.copyOf(requireNonNull(parameters, "parameters is null")));
     }
 
     public static ByteCodeExpression invokeDynamic(
@@ -359,8 +358,8 @@ public final class ByteCodeExpressions
             Class<?> returnType,
             Iterable<? extends ByteCodeExpression> parameters)
     {
-        checkNotNull(returnType, "returnType is null");
-        checkNotNull(parameters, "parameters is null");
+        requireNonNull(returnType, "returnType is null");
+        requireNonNull(parameters, "parameters is null");
 
         return invokeDynamic(
                 bootstrapMethod,
@@ -378,7 +377,7 @@ public final class ByteCodeExpressions
             ParameterizedType returnType,
             ByteCodeExpression... parameters)
     {
-        return invokeDynamic(bootstrapMethod, bootstrapArgs, methodName, returnType, ImmutableList.copyOf(checkNotNull(parameters, "parameters is null")));
+        return invokeDynamic(bootstrapMethod, bootstrapArgs, methodName, returnType, ImmutableList.copyOf(requireNonNull(parameters, "parameters is null")));
     }
 
     public static ByteCodeExpression invokeDynamic(
@@ -388,8 +387,8 @@ public final class ByteCodeExpressions
             ParameterizedType returnType,
             Iterable<? extends ByteCodeExpression> parameters)
     {
-        checkNotNull(returnType, "returnType is null");
-        checkNotNull(parameters, "parameters is null");
+        requireNonNull(returnType, "returnType is null");
+        requireNonNull(parameters, "parameters is null");
 
         return invokeDynamic(
                 bootstrapMethod,
@@ -407,8 +406,8 @@ public final class ByteCodeExpressions
             MethodType methodType,
             ByteCodeExpression... parameters)
     {
-        checkNotNull(methodType, "methodType is null");
-        checkNotNull(parameters, "parameters is null");
+        requireNonNull(methodType, "methodType is null");
+        requireNonNull(parameters, "parameters is null");
 
         return invokeDynamic(bootstrapMethod, bootstrapArgs, methodName, methodType, ImmutableList.copyOf(parameters));
     }
@@ -426,7 +425,7 @@ public final class ByteCodeExpressions
                 methodName,
                 type(methodType.returnType()),
                 transform(methodType.parameterList(), ParameterizedType::type),
-                ImmutableList.copyOf(checkNotNull(parameters, "parameters is null")));
+                ImmutableList.copyOf(requireNonNull(parameters, "parameters is null")));
     }
 
     public static ByteCodeExpression invokeDynamic(

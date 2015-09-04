@@ -20,7 +20,6 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.StandardErrorCode.ErrorType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -77,16 +76,16 @@ public class QueryInfo
             @JsonProperty("errorCode") ErrorCode errorCode,
             @JsonProperty("inputs") Set<Input> inputs)
     {
-        Preconditions.checkNotNull(queryId, "queryId is null");
-        Preconditions.checkNotNull(session, "session is null");
-        Preconditions.checkNotNull(state, "state is null");
-        Preconditions.checkNotNull(self, "self is null");
-        Preconditions.checkNotNull(fieldNames, "fieldNames is null");
-        Preconditions.checkNotNull(queryStats, "queryStats is null");
-        Preconditions.checkNotNull(setSessionProperties, "setSessionProperties is null");
-        Preconditions.checkNotNull(resetSessionProperties, "resetSessionProperties is null");
-        Preconditions.checkNotNull(query, "query is null");
-        Preconditions.checkNotNull(inputs, "inputs is null");
+        requireNonNull(queryId, "queryId is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(state, "state is null");
+        requireNonNull(self, "self is null");
+        requireNonNull(fieldNames, "fieldNames is null");
+        requireNonNull(queryStats, "queryStats is null");
+        requireNonNull(setSessionProperties, "setSessionProperties is null");
+        requireNonNull(resetSessionProperties, "resetSessionProperties is null");
+        requireNonNull(query, "query is null");
+        requireNonNull(inputs, "inputs is null");
 
         this.queryId = queryId;
         this.session = session;

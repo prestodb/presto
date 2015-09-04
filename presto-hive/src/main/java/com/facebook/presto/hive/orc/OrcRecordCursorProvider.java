@@ -41,7 +41,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class OrcRecordCursorProvider
         implements HiveRecordCursorProvider
@@ -111,7 +111,7 @@ public class OrcRecordCursorProvider
 
     private static boolean[] findIncludedColumns(List<Type> types, List<HiveColumnHandle> columns)
     {
-        checkNotNull(types, "types is null");
+        requireNonNull(types, "types is null");
         checkArgument(!types.isEmpty(), "types is empty");
 
         boolean[] includes = new boolean[types.size()];

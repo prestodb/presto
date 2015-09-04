@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TupleDomainOrcPredicate<C>
         implements OrcPredicate
@@ -44,8 +44,8 @@ public class TupleDomainOrcPredicate<C>
 
     public TupleDomainOrcPredicate(TupleDomain<C> effectivePredicate, List<ColumnReference<C>> columnReferences)
     {
-        this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
-        this.columnReferences = ImmutableList.copyOf(checkNotNull(columnReferences, "columnReferences is null"));
+        this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
+        this.columnReferences = ImmutableList.copyOf(requireNonNull(columnReferences, "columnReferences is null"));
     }
 
     @Override
@@ -149,10 +149,10 @@ public class TupleDomainOrcPredicate<C>
 
         public ColumnReference(C column, int ordinal, Type type)
         {
-            this.column = checkNotNull(column, "column is null");
+            this.column = requireNonNull(column, "column is null");
             checkArgument(ordinal >= 0, "ordinal is negative");
             this.ordinal = ordinal;
-            this.type = checkNotNull(type, "type is null");
+            this.type = requireNonNull(type, "type is null");
         }
 
         public C getColumn()

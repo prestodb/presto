@@ -24,7 +24,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
         extends AbstractWindowFunctionSupplier
@@ -38,7 +38,7 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
 
     public ReflectionWindowFunctionSupplier(Signature signature, Class<T> type)
     {
-        super(signature, getDescription(checkNotNull(type, "type is null")));
+        super(signature, getDescription(requireNonNull(type, "type is null")));
         try {
             if (signature.getArgumentTypes().isEmpty()) {
                 constructor = type.getConstructor();

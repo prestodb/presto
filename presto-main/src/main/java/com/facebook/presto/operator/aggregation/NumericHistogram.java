@@ -30,8 +30,8 @@ import java.util.PriorityQueue;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class NumericHistogram
 {
@@ -61,7 +61,7 @@ public class NumericHistogram
 
     public NumericHistogram(Slice serialized, int buffer)
     {
-        checkNotNull(serialized, "serialized is null");
+        requireNonNull(serialized, "serialized is null");
         checkArgument(buffer >= 1, "buffer must be >= 1");
 
         SliceInput input = serialized.getInput();

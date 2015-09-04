@@ -43,9 +43,9 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.Objects.requireNonNull;
 
 public class HandTpchQuery1
         extends AbstractSimpleOperatorBenchmark
@@ -161,7 +161,7 @@ public class HandTpchQuery1
 
         public TpchQuery1Operator(OperatorContext operatorContext)
         {
-            this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+            this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
             this.pageBuilder = new PageBuilder(TYPES);
         }
 
@@ -198,7 +198,7 @@ public class HandTpchQuery1
         @Override
         public void addInput(Page page)
         {
-            checkNotNull(page, "page is null");
+            requireNonNull(page, "page is null");
             checkState(!pageBuilder.isFull(), "Output buffer is full");
             checkState(!finishing, "Operator is finished");
 

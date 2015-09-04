@@ -24,8 +24,8 @@ import java.util.Map.Entry;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.util.Objects.requireNonNull;
 
 public class ClientSession
 {
@@ -86,15 +86,15 @@ public class ClientSession
 
     public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, boolean debug)
     {
-        this.server = checkNotNull(server, "server is null");
+        this.server = requireNonNull(server, "server is null");
         this.user = user;
         this.source = source;
         this.catalog = catalog;
         this.schema = schema;
         this.locale = locale;
-        this.timeZoneId = checkNotNull(timeZoneId, "timeZoneId is null");
+        this.timeZoneId = requireNonNull(timeZoneId, "timeZoneId is null");
         this.debug = debug;
-        this.properties = ImmutableMap.copyOf(checkNotNull(properties, "properties is null"));
+        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
 
         // verify the properties are valid
         CharsetEncoder charsetEncoder = US_ASCII.newEncoder();

@@ -23,7 +23,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class PageSourceOperator
         implements Operator, Closeable
@@ -36,9 +36,9 @@ public class PageSourceOperator
 
     public PageSourceOperator(ConnectorPageSource pageSource, List<Type> types, OperatorContext operatorContext)
     {
-        this.pageSource = checkNotNull(pageSource, "pageSource is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.pageSource = requireNonNull(pageSource, "pageSource is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
     }
 
     @Override

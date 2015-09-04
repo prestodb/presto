@@ -46,9 +46,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class ExchangeClient
@@ -129,7 +129,7 @@ public class ExchangeClient
 
     public synchronized void addLocation(URI location)
     {
-        checkNotNull(location, "location is null");
+        requireNonNull(location, "location is null");
         if (locations.contains(location)) {
             return;
         }
@@ -339,7 +339,7 @@ public class ExchangeClient
 
     private synchronized void clientFinished(HttpPageBufferClient client)
     {
-        checkNotNull(client, "client is null");
+        requireNonNull(client, "client is null");
         completedClients.add(client);
         scheduleRequestIfNecessary();
     }
@@ -373,8 +373,8 @@ public class ExchangeClient
         @Override
         public void addPage(HttpPageBufferClient client, Page page)
         {
-            checkNotNull(client, "client is null");
-            checkNotNull(page, "page is null");
+            requireNonNull(client, "client is null");
+            requireNonNull(page, "page is null");
             ExchangeClient.this.addPage(page);
             scheduleRequestIfNecessary();
         }
@@ -382,7 +382,7 @@ public class ExchangeClient
         @Override
         public void requestComplete(HttpPageBufferClient client)
         {
-            checkNotNull(client, "client is null");
+            requireNonNull(client, "client is null");
             ExchangeClient.this.requestComplete(client);
         }
 
@@ -395,8 +395,8 @@ public class ExchangeClient
         @Override
         public void clientFailed(HttpPageBufferClient client, Throwable cause)
         {
-            checkNotNull(client, "client is null");
-            checkNotNull(cause, "cause is null");
+            requireNonNull(client, "client is null");
+            requireNonNull(cause, "cause is null");
             ExchangeClient.this.clientFailed(cause);
         }
     }

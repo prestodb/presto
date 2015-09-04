@@ -24,7 +24,7 @@ import com.facebook.presto.spi.NodeManager;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TpchConnectorFactory
         implements ConnectorFactory
@@ -39,7 +39,7 @@ public class TpchConnectorFactory
 
     public TpchConnectorFactory(NodeManager nodeManager, int defaultSplitsPerNode)
     {
-        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.defaultSplitsPerNode = defaultSplitsPerNode;
     }
 

@@ -20,6 +20,8 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 
+import static java.util.Objects.requireNonNull;
+
 public final class ProjectionFunctions
 {
     private ProjectionFunctions() {}
@@ -37,7 +39,7 @@ public final class ProjectionFunctions
 
         public SingleColumnProjection(Type columnType, int channelIndex)
         {
-            Preconditions.checkNotNull(columnType, "columnType is null");
+            requireNonNull(columnType, "columnType is null");
             Preconditions.checkArgument(channelIndex >= 0, "channelIndex is negative");
 
             this.columnType = columnType;

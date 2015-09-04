@@ -27,7 +27,7 @@ import java.util.List;
 
 import static com.facebook.presto.ml.type.ModelType.MODEL;
 import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class MLPlugin
         implements Plugin
@@ -37,7 +37,7 @@ public class MLPlugin
     @Inject
     public void setTypeManager(TypeManager typeManager)
     {
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override

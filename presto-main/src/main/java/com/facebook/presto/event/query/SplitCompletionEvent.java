@@ -16,7 +16,6 @@ package com.facebook.presto.event.query;
 import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
-import com.google.common.base.Preconditions;
 import io.airlift.event.client.EventField;
 import io.airlift.event.client.EventType;
 import io.airlift.units.DataSize;
@@ -25,6 +24,8 @@ import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 @EventType("SplitCompletion")
@@ -74,11 +75,11 @@ public class SplitCompletionEvent
             @Nullable String failureMessage,
             String splitInfoJson)
     {
-        Preconditions.checkNotNull(queryId, "queryId is null");
-        Preconditions.checkNotNull(stageId, "stageId is null");
-        Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkNotNull(completedDataSize, "completedDataSize is null");
-        Preconditions.checkNotNull(splitInfoJson, "splitInfoJson is null");
+        requireNonNull(queryId, "queryId is null");
+        requireNonNull(stageId, "stageId is null");
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(completedDataSize, "completedDataSize is null");
+        requireNonNull(splitInfoJson, "splitInfoJson is null");
 
         this.queryId = queryId;
         this.stageId = stageId;

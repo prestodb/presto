@@ -25,7 +25,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class HashPagePartitionFunction
         extends PartitionedPagePartitionFunction
@@ -46,9 +46,9 @@ public final class HashPagePartitionFunction
     {
         super(partition, partitionCount);
 
-        checkNotNull(partitioningChannels, "partitioningChannels is null");
+        requireNonNull(partitioningChannels, "partitioningChannels is null");
         checkArgument(!partitioningChannels.isEmpty(), "partitioningChannels is empty");
-        this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
+        this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
         checkArgument(!hashChannel.isPresent() || hashChannel.get() < types.size(), "invalid hashChannel");
         checkArgument(nullPartitioning == NullPartitioning.HASH || partitioningChannels.size() == 1,
                 "size of partitioningChannels is not 1 when nullPartition is REPLICATE.");

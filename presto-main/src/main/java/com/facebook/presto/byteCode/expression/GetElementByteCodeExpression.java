@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 class GetElementByteCodeExpression
         extends ByteCodeExpression
@@ -36,8 +36,8 @@ class GetElementByteCodeExpression
     public GetElementByteCodeExpression(ByteCodeExpression instance, ByteCodeExpression index)
     {
         super(instance.getType().getArrayComponentType());
-        this.instance = checkNotNull(instance, "instance is null");
-        this.index = checkNotNull(index, "index is null");
+        this.instance = requireNonNull(instance, "instance is null");
+        this.index = requireNonNull(index, "index is null");
         checkArgument(index.getType().getPrimitiveType() == int.class, "index must be int type, but is " + index.getType());
         this.arrayLoadInstruction = arrayLoadInstruction(instance.getType().getArrayComponentType());
     }

@@ -20,7 +20,7 @@ import com.facebook.presto.sql.tree.InPredicate;
 import java.util.IdentityHashMap;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ExpressionAnalysis
 {
@@ -33,9 +33,9 @@ public class ExpressionAnalysis
             IdentityHashMap<Expression, Type> expressionCoercions,
             Set<InPredicate> subqueryInPredicates)
     {
-        this.expressionTypes = checkNotNull(expressionTypes, "expressionTypes is null");
-        this.expressionCoercions = checkNotNull(expressionCoercions, "expressionCoercions is null");
-        this.subqueryInPredicates = checkNotNull(subqueryInPredicates, "subqueryInPredicates is null");
+        this.expressionTypes = requireNonNull(expressionTypes, "expressionTypes is null");
+        this.expressionCoercions = requireNonNull(expressionCoercions, "expressionCoercions is null");
+        this.subqueryInPredicates = requireNonNull(subqueryInPredicates, "subqueryInPredicates is null");
     }
 
     public Type getType(Expression expression)

@@ -16,12 +16,13 @@ package com.facebook.presto.benchmark;
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map;
+
+import static java.util.Objects.requireNonNull;
 
 public class JsonBenchmarkResultWriter
         implements BenchmarkResultHook
@@ -30,7 +31,7 @@ public class JsonBenchmarkResultWriter
 
     public JsonBenchmarkResultWriter(OutputStream outputStream)
     {
-        Preconditions.checkNotNull(outputStream, "outputStream is null");
+        requireNonNull(outputStream, "outputStream is null");
         try {
             jsonGenerator = new JsonFactory().createJsonGenerator(outputStream, JsonEncoding.UTF8);
             jsonGenerator.writeStartObject();
@@ -44,7 +45,7 @@ public class JsonBenchmarkResultWriter
     @Override
     public BenchmarkResultHook addResults(Map<String, Long> results)
     {
-        Preconditions.checkNotNull(results, "results is null");
+        requireNonNull(results, "results is null");
         try {
             jsonGenerator.writeStartObject();
             for (Map.Entry<String, Long> entry : results.entrySet()) {

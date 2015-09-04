@@ -25,8 +25,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class DistinctLimitNode
@@ -44,10 +44,10 @@ public class DistinctLimitNode
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
     {
         super(id);
-        this.source = checkNotNull(source, "source is null");
+        this.source = requireNonNull(source, "source is null");
         checkArgument(limit >= 0, "limit must be greater than or equal to zero");
         this.limit = limit;
-        this.hashSymbol = checkNotNull(hashSymbol, "hashSymbol is null");
+        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
     }
 
     @Override

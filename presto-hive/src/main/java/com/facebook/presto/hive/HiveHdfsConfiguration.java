@@ -20,7 +20,7 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HiveHdfsConfiguration
         implements HdfsConfiguration
@@ -47,7 +47,7 @@ public class HiveHdfsConfiguration
     @Inject
     public HiveHdfsConfiguration(HdfsConfigurationUpdater updater)
     {
-        this.updater = checkNotNull(updater, "updater is null");
+        this.updater = requireNonNull(updater, "updater is null");
     }
 
     @Override

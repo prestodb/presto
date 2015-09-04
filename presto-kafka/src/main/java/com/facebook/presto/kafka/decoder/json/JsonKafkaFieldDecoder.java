@@ -32,10 +32,10 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Default field decoder for the JSON format. Supports json format coercions to implicitly convert e.g. string to long values.
@@ -64,8 +64,8 @@ public class JsonKafkaFieldDecoder
     @Override
     public KafkaFieldValueProvider decode(JsonNode value, KafkaColumnHandle columnHandle)
     {
-        checkNotNull(columnHandle, "columnHandle is null");
-        checkNotNull(value, "value is null");
+        requireNonNull(columnHandle, "columnHandle is null");
+        requireNonNull(value, "value is null");
 
         return new JsonKafkaValueProvider(value, columnHandle);
     }

@@ -42,8 +42,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.io.Resources.getResource;
+import static java.util.Objects.requireNonNull;
 
 @Path("/")
 public class QueryExecutionResource
@@ -56,7 +56,7 @@ public class QueryExecutionResource
     @Inject
     public QueryExecutionResource(QueryManager manager)
     {
-        checkNotNull(manager, "manager is null");
+        requireNonNull(manager, "manager is null");
         this.manager = manager;
     }
 

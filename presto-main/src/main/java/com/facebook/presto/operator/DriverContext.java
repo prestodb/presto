@@ -35,11 +35,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -82,8 +82,8 @@ public class DriverContext
 
     public DriverContext(PipelineContext pipelineContext, Executor executor, boolean partitioned)
     {
-        this.pipelineContext = checkNotNull(pipelineContext, "pipelineContext is null");
-        this.executor = checkNotNull(executor, "executor is null");
+        this.pipelineContext = requireNonNull(pipelineContext, "pipelineContext is null");
+        this.executor = requireNonNull(executor, "executor is null");
         this.partitioned = partitioned;
     }
 
@@ -147,7 +147,7 @@ public class DriverContext
 
     public void recordBlocked(ListenableFuture<?> blocked)
     {
-        checkNotNull(blocked, "blocked is null");
+        requireNonNull(blocked, "blocked is null");
 
         BlockedMonitor monitor = new BlockedMonitor();
 
@@ -317,7 +317,7 @@ public class DriverContext
             processedInputDataSize = inputOperator.getOutputDataSize();
             processedInputPositions = inputOperator.getOutputPositions();
 
-            OperatorStats outputOperator = checkNotNull(getLast(operators, null));
+            OperatorStats outputOperator = requireNonNull(getLast(operators, null));
             outputDataSize = outputOperator.getOutputDataSize();
             outputPositions = outputOperator.getOutputPositions();
         }

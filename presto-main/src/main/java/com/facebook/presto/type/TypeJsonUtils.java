@@ -39,8 +39,8 @@ import java.util.Map;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public final class TypeJsonUtils
 {
@@ -129,7 +129,7 @@ public final class TypeJsonUtils
             blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
         }
         else {
-            blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, checkNotNull(sliceValue, "sliceValue is null").length());
+            blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, requireNonNull(sliceValue, "sliceValue is null").length());
         }
 
         if (type.getJavaType() == boolean.class) {
@@ -142,7 +142,7 @@ public final class TypeJsonUtils
             type.writeDouble(blockBuilder, getDoubleValue(parser));
         }
         else if (type.getJavaType() == Slice.class) {
-            type.writeSlice(blockBuilder, checkNotNull(sliceValue, "sliceValue is null"));
+            type.writeSlice(blockBuilder, requireNonNull(sliceValue, "sliceValue is null"));
         }
         return type.getObjectValue(session, blockBuilder.build(), 0);
     }

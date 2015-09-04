@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RaptorInsertTableHandle
         implements ConnectorInsertTableHandle
@@ -49,14 +49,14 @@ public class RaptorInsertTableHandle
     {
         checkArgument(tableId > 0, "tableId must be greater than zero");
 
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.tableId = tableId;
-        this.columnHandles = ImmutableList.copyOf(checkNotNull(columnHandles, "columnHandles is null"));
-        this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
-        this.externalBatchId = checkNotNull(externalBatchId, "externalBatchId is null");
+        this.columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
+        this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
+        this.externalBatchId = requireNonNull(externalBatchId, "externalBatchId is null");
 
-        this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
-        this.sortColumnHandles = ImmutableList.copyOf(checkNotNull(sortColumnHandles, "sortColumnHandles is null"));
+        this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
+        this.sortColumnHandles = ImmutableList.copyOf(requireNonNull(sortColumnHandles, "sortColumnHandles is null"));
     }
 
     @JsonProperty

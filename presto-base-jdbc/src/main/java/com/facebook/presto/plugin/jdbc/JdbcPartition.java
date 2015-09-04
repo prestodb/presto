@@ -18,7 +18,7 @@ import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.TupleDomain;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class JdbcPartition
         implements ConnectorPartition
@@ -28,8 +28,8 @@ public class JdbcPartition
 
     public JdbcPartition(JdbcTableHandle jdbcTableHandle, TupleDomain<ColumnHandle> domain)
     {
-        this.jdbcTableHandle = checkNotNull(jdbcTableHandle, "jdbcTableHandle is null");
-        this.domain = checkNotNull(domain, "domain is null");
+        this.jdbcTableHandle = requireNonNull(jdbcTableHandle, "jdbcTableHandle is null");
+        this.domain = requireNonNull(domain, "domain is null");
     }
 
     @Override

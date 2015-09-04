@@ -30,7 +30,7 @@ import java.util.Map;
 
 import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RowPageBuilder
 {
@@ -51,7 +51,7 @@ public class RowPageBuilder
 
     RowPageBuilder(Iterable<Type> types)
     {
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         ImmutableList.Builder<BlockBuilder> builders = ImmutableList.builder();
         for (Type type : types) {
             builders.add(type.createBlockBuilder(new BlockBuilderStatus(), 1));

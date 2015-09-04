@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class InterpretedHashGenerator
         implements HashGenerator
@@ -35,8 +35,8 @@ public class InterpretedHashGenerator
 
     public InterpretedHashGenerator(List<Type> hashChannelTypes, int[] hashChannels)
     {
-        this.hashChannels = checkNotNull(hashChannels, "hashChannels is null");
-        this.hashChannelTypes = ImmutableList.copyOf(checkNotNull(hashChannelTypes, "hashChannelTypes is null"));
+        this.hashChannels = requireNonNull(hashChannels, "hashChannels is null");
+        this.hashChannelTypes = ImmutableList.copyOf(requireNonNull(hashChannelTypes, "hashChannelTypes is null"));
         checkArgument(hashChannelTypes.size() == hashChannels.length);
     }
 

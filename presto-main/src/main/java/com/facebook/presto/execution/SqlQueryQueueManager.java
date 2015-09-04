@@ -51,8 +51,8 @@ import java.util.regex.Pattern;
 import static com.facebook.presto.execution.QueuedExecution.createQueuedExecution;
 import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class SqlQueryQueueManager
@@ -65,8 +65,8 @@ public class SqlQueryQueueManager
     @Inject
     public SqlQueryQueueManager(QueryManagerConfig config, ObjectMapper mapper, MBeanExporter mbeanExporter)
     {
-        checkNotNull(config, "config is null");
-        this.mbeanExporter = checkNotNull(mbeanExporter, "mbeanExporter is null");
+        requireNonNull(config, "config is null");
+        this.mbeanExporter = requireNonNull(mbeanExporter, "mbeanExporter is null");
 
         ImmutableList.Builder<QueryQueueRule> rules = ImmutableList.builder();
         if (config.getQueueConfigFile() == null) {
@@ -212,8 +212,8 @@ public class SqlQueryQueueManager
 
         private QueueKey(QueryQueueDefinition queue, String name)
         {
-            this.queue = checkNotNull(queue, "queue is null");
-            this.name = checkNotNull(name, "name is null");
+            this.queue = requireNonNull(queue, "queue is null");
+            this.name = requireNonNull(name, "name is null");
         }
 
         public QueryQueueDefinition getQueue()
@@ -258,8 +258,8 @@ public class SqlQueryQueueManager
                 @JsonProperty("queues") Map<String, QueueSpec> queues,
                 @JsonProperty("rules") List<RuleSpec> rules)
         {
-            this.queues = ImmutableMap.copyOf(checkNotNull(queues, "queues is null"));
-            this.rules = ImmutableList.copyOf(checkNotNull(rules, "rules is null"));
+            this.queues = ImmutableMap.copyOf(requireNonNull(queues, "queues is null"));
+            this.rules = ImmutableList.copyOf(requireNonNull(rules, "rules is null"));
         }
 
         public Map<String, QueueSpec> getQueues()

@@ -35,8 +35,8 @@ import java.net.ProxySelector;
 import java.net.URI;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static java.util.Objects.requireNonNull;
 
 class QueryExecutor
         implements Closeable
@@ -46,8 +46,8 @@ class QueryExecutor
 
     private QueryExecutor(String userAgent, JsonCodec<QueryResults> queryResultsCodec, HostAndPort socksProxy)
     {
-        checkNotNull(userAgent, "userAgent is null");
-        checkNotNull(queryResultsCodec, "queryResultsCodec is null");
+        requireNonNull(userAgent, "userAgent is null");
+        requireNonNull(queryResultsCodec, "queryResultsCodec is null");
 
         this.queryInfoCodec = queryResultsCodec;
         this.httpClient = new JettyHttpClient(

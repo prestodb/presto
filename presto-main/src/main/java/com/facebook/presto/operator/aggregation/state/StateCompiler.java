@@ -82,7 +82,7 @@ import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class StateCompiler
 {
@@ -670,10 +670,10 @@ public class StateCompiler
 
         private StateField(String name, Class<?> type, Object initialValue, String getterName)
         {
-            this.name = checkNotNull(name, "name is null");
+            this.name = requireNonNull(name, "name is null");
             checkArgument(!name.isEmpty(), "name is empty");
-            this.type = checkNotNull(type, "type is null");
-            this.getterName = checkNotNull(getterName, "getterName is null");
+            this.type = requireNonNull(type, "type is null");
+            this.getterName = requireNonNull(getterName, "getterName is null");
             this.initialValue = initialValue;
         }
 

@@ -62,7 +62,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.jdbc.ColumnInfo.setTypeInfo;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Throwables.propagate;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.concat;
@@ -132,7 +131,7 @@ public class PrestoResultSet
     PrestoResultSet(StatementClient client)
             throws SQLException
     {
-        this.client = checkNotNull(client, "client is null");
+        this.client = requireNonNull(client, "client is null");
         this.sessionTimeZone = DateTimeZone.forID(client.getTimeZoneId());
         this.queryId = client.current().getId();
 
@@ -1769,7 +1768,7 @@ public class PrestoResultSet
 
         private ResultsPageIterator(StatementClient client)
         {
-            this.client = checkNotNull(client, "client is null");
+            this.client = requireNonNull(client, "client is null");
         }
 
         @Override

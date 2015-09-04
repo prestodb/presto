@@ -16,7 +16,6 @@ package com.facebook.presto.tpch;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -31,6 +30,7 @@ import java.util.List;
 import static com.facebook.presto.tpch.TpchMetadata.getPrestoType;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.Objects.requireNonNull;
 
 public class TpchRecordSet<E extends TpchEntity>
         implements RecordSet
@@ -56,7 +56,7 @@ public class TpchRecordSet<E extends TpchEntity>
 
     public TpchRecordSet(Iterable<E> table, Iterable<TpchColumn<E>> columns)
     {
-        Preconditions.checkNotNull(table, "readerSupplier is null");
+        requireNonNull(table, "readerSupplier is null");
 
         this.table = table;
         this.columns = ImmutableList.copyOf(columns);

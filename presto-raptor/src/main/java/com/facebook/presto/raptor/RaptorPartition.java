@@ -18,7 +18,7 @@ import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.TupleDomain;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RaptorPartition
         implements ConnectorPartition
@@ -29,7 +29,7 @@ public class RaptorPartition
     public RaptorPartition(long tableId, TupleDomain<ColumnHandle> effectivePredicate)
     {
         this.tableId = tableId;
-        this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
+        this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
     }
 
     @Override

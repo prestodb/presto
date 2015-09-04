@@ -45,6 +45,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
+import static java.util.Objects.requireNonNull;
 
 public final class ExpressionUtils
 {
@@ -98,8 +99,8 @@ public final class ExpressionUtils
 
     public static Expression binaryExpression(LogicalBinaryExpression.Type type, Iterable<Expression> expressions)
     {
-        Preconditions.checkNotNull(type, "type is null");
-        Preconditions.checkNotNull(expressions, "expressions is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(expressions, "expressions is null");
         Preconditions.checkArgument(!Iterables.isEmpty(expressions), "expressions is empty");
 
         Iterator<Expression> iterator = expressions.iterator();
@@ -124,7 +125,7 @@ public final class ExpressionUtils
 
     public static Expression combineConjunctsWithDefault(Iterable<Expression> expressions, Expression emptyDefault)
     {
-        Preconditions.checkNotNull(expressions, "expressions is null");
+        requireNonNull(expressions, "expressions is null");
 
         // Flatten all the expressions into their component conjuncts
         expressions = Iterables.concat(Iterables.transform(expressions, ExpressionUtils::extractConjuncts));
@@ -147,7 +148,7 @@ public final class ExpressionUtils
 
     public static Expression combineDisjunctsWithDefault(Iterable<Expression> expressions, Expression emptyDefault)
     {
-        Preconditions.checkNotNull(expressions, "expressions is null");
+        requireNonNull(expressions, "expressions is null");
 
         // Flatten all the expressions into their component disjuncts
         expressions = Iterables.concat(Iterables.transform(expressions, ExpressionUtils::extractDisjuncts));

@@ -51,12 +51,12 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.verifier.QueryResult.State;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.primitives.Doubles.isFinite;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
+import static java.util.Objects.requireNonNull;
 
 public class Validator
 {
@@ -84,13 +84,13 @@ public class Validator
 
     public Validator(VerifierConfig config, QueryPair queryPair)
     {
-        checkNotNull(config, "config is null");
-        this.testUsername = checkNotNull(queryPair.getTest().getUsername(), "test username is null");
-        this.controlUsername = checkNotNull(queryPair.getControl().getUsername(), "control username is null");
+        requireNonNull(config, "config is null");
+        this.testUsername = requireNonNull(queryPair.getTest().getUsername(), "test username is null");
+        this.controlUsername = requireNonNull(queryPair.getControl().getUsername(), "control username is null");
         this.testPassword = queryPair.getTest().getPassword();
         this.controlPassword = queryPair.getControl().getPassword();
-        this.controlGateway = checkNotNull(config.getControlGateway(), "controlGateway is null");
-        this.testGateway = checkNotNull(config.getTestGateway(), "testGateway is null");
+        this.controlGateway = requireNonNull(config.getControlGateway(), "controlGateway is null");
+        this.testGateway = requireNonNull(config.getTestGateway(), "testGateway is null");
         this.controlTimeout = config.getControlTimeout();
         this.testTimeout = config.getTestTimeout();
         this.maxRowCount = config.getMaxRowCount();
@@ -106,7 +106,7 @@ public class Validator
         }
         this.verboseResultsComparison = config.isVerboseResultsComparison();
 
-        this.queryPair = checkNotNull(queryPair, "queryPair is null");
+        this.queryPair = requireNonNull(queryPair, "queryPair is null");
         // Test and Control always have the same session properties.
         this.sessionProperties = queryPair.getTest().getSessionProperties();
     }

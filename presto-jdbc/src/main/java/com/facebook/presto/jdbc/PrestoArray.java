@@ -23,7 +23,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class PrestoArray
         implements Array
@@ -34,9 +34,9 @@ public class PrestoArray
 
     PrestoArray(String elementTypeName, int elementType, List<?> array)
     {
-        this.elementTypeName = checkNotNull(elementTypeName, "elementType is null");
+        this.elementTypeName = requireNonNull(elementTypeName, "elementType is null");
         this.elementType = elementType;
-        this.array = checkNotNull(array, "array is null").toArray();
+        this.array = requireNonNull(array, "array is null").toArray();
     }
 
     @Override

@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class Intersect
         extends SetOperation
@@ -29,7 +29,7 @@ public class Intersect
 
     public Intersect(List<Relation> relations, boolean distinct)
     {
-        Preconditions.checkNotNull(relations, "relations is null");
+        requireNonNull(relations, "relations is null");
 
         this.relations = ImmutableList.copyOf(relations);
         this.distinct = distinct;

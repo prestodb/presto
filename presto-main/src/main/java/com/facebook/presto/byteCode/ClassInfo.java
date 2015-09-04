@@ -41,6 +41,7 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
 
 /**
  * @author Eugene Kuleshov
@@ -76,9 +77,9 @@ public class ClassInfo
 
     public ClassInfo(ClassInfoLoader loader, ParameterizedType type, int access, ParameterizedType superClass, Iterable<ParameterizedType> interfaces, Iterable<MethodNode> methods)
     {
-        Preconditions.checkNotNull(loader, "loader is null");
-        Preconditions.checkNotNull(type, "type is null");
-        Preconditions.checkNotNull(interfaces, "interfaces is null");
+        requireNonNull(loader, "loader is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(interfaces, "interfaces is null");
 
         this.loader = loader;
         this.type = type;

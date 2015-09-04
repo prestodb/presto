@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.facebook.presto.execution.QueryId.validateId;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class StageId
 {
@@ -36,7 +36,7 @@ public class StageId
 
     public StageId(QueryId queryId, String id)
     {
-        this.queryId = checkNotNull(queryId, "queryId is null");
+        this.queryId = requireNonNull(queryId, "queryId is null");
         this.id = validateId(id);
     }
 

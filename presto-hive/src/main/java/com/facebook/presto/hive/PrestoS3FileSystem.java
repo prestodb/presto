@@ -79,7 +79,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.toArray;
@@ -87,6 +86,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
+import static java.util.Objects.requireNonNull;
 import static org.apache.http.HttpStatus.SC_FORBIDDEN;
 import static org.apache.http.HttpStatus.SC_NOT_FOUND;
 import static org.apache.http.HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE;
@@ -137,8 +137,8 @@ public class PrestoS3FileSystem
     public void initialize(URI uri, Configuration conf)
             throws IOException
     {
-        checkNotNull(uri, "uri is null");
-        checkNotNull(conf, "conf is null");
+        requireNonNull(uri, "uri is null");
+        requireNonNull(conf, "conf is null");
         super.initialize(uri, conf);
         setConf(conf);
 
@@ -586,14 +586,14 @@ public class PrestoS3FileSystem
 
         public PrestoS3InputStream(AmazonS3 s3, String host, Path path, int maxAttempts, Duration maxBackoffTime, Duration maxRetryTime)
         {
-            this.s3 = checkNotNull(s3, "s3 is null");
-            this.host = checkNotNull(host, "host is null");
-            this.path = checkNotNull(path, "path is null");
+            this.s3 = requireNonNull(s3, "s3 is null");
+            this.host = requireNonNull(host, "host is null");
+            this.path = requireNonNull(path, "path is null");
 
             checkArgument(maxAttempts >= 0, "maxAttempts cannot be negative");
             this.maxAttempts = maxAttempts;
-            this.maxBackoffTime = checkNotNull(maxBackoffTime, "maxBackoffTime is null");
-            this.maxRetryTime = checkNotNull(maxRetryTime, "maxRetryTime is null");
+            this.maxBackoffTime = requireNonNull(maxBackoffTime, "maxBackoffTime is null");
+            this.maxRetryTime = requireNonNull(maxRetryTime, "maxRetryTime is null");
         }
 
         @Override
@@ -785,13 +785,13 @@ public class PrestoS3FileSystem
         public PrestoS3OutputStream(AmazonS3 s3, TransferManagerConfiguration config, String host, String key, File tempFile)
                 throws IOException
         {
-            super(new BufferedOutputStream(new FileOutputStream(checkNotNull(tempFile, "tempFile is null"))));
+            super(new BufferedOutputStream(new FileOutputStream(requireNonNull(tempFile, "tempFile is null"))));
 
-            transferManager = new TransferManager(checkNotNull(s3, "s3 is null"));
-            transferManager.setConfiguration(checkNotNull(config, "config is null"));
+            transferManager = new TransferManager(requireNonNull(s3, "s3 is null"));
+            transferManager.setConfiguration(requireNonNull(config, "config is null"));
 
-            this.host = checkNotNull(host, "host is null");
-            this.key = checkNotNull(key, "key is null");
+            this.host = requireNonNull(host, "host is null");
+            this.key = requireNonNull(key, "key is null");
             this.tempFile = tempFile;
 
             log.debug("OutputStream for key '%s' using file: %s", key, tempFile);

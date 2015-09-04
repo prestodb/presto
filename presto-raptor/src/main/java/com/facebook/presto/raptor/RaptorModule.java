@@ -30,8 +30,8 @@ import org.skife.jdbi.v2.tweak.ConnectionFactory;
 
 import javax.inject.Singleton;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static java.util.Objects.requireNonNull;
 
 public class RaptorModule
         implements Module
@@ -40,7 +40,7 @@ public class RaptorModule
 
     public RaptorModule(String connectorId)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
     }
 
     @Override

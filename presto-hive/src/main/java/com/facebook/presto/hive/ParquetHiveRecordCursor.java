@@ -66,13 +66,13 @@ import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static parquet.schema.OriginalType.LIST;
 import static parquet.schema.OriginalType.MAP;
@@ -112,11 +112,11 @@ class ParquetHiveRecordCursor
             boolean useParquetColumnNames,
             TypeManager typeManager)
     {
-        checkNotNull(path, "path is null");
+        requireNonNull(path, "path is null");
         checkArgument(length >= 0, "totalBytes is negative");
-        checkNotNull(splitSchema, "splitSchema is null");
-        checkNotNull(partitionKeys, "partitionKeys is null");
-        checkNotNull(columns, "columns is null");
+        requireNonNull(splitSchema, "splitSchema is null");
+        requireNonNull(partitionKeys, "partitionKeys is null");
+        requireNonNull(columns, "columns is null");
 
         this.totalBytes = length;
 
@@ -1117,7 +1117,7 @@ class ParquetHiveRecordCursor
         @Override
         public void beforeValue(BlockBuilder builder)
         {
-            this.builder = checkNotNull(builder, "parent builder is null");
+            this.builder = requireNonNull(builder, "parent builder is null");
             wroteValue = false;
         }
 

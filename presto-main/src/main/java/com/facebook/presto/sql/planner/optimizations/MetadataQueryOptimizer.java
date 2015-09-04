@@ -51,7 +51,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Converts cardinality-insensitive aggregations (max, min, "distinct") over partition keys
@@ -66,7 +66,7 @@ public class MetadataQueryOptimizer
 
     public MetadataQueryOptimizer(Metadata metadata)
     {
-        checkNotNull(metadata, "metadata is null");
+        requireNonNull(metadata, "metadata is null");
 
         this.metadata = metadata;
     }

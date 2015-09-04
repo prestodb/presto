@@ -24,7 +24,7 @@ import javax.inject.Inject;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ExchangeClientFactory
         implements ExchangeClientSupplier
@@ -62,12 +62,12 @@ public class ExchangeClientFactory
             ScheduledExecutorService executor)
     {
         this.blockEncodingSerde = blockEncodingSerde;
-        this.maxBufferedBytes = checkNotNull(maxBufferedBytes, "maxBufferedBytes is null");
+        this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
-        this.minErrorDuration = checkNotNull(minErrorDuration, "minErrorDuration is null");
-        this.httpClient = checkNotNull(httpClient, "httpClient is null");
-        this.maxResponseSize = checkNotNull(maxResponseSize, "maxResponseSize is null");
-        this.executor = checkNotNull(executor, "executor is null");
+        this.minErrorDuration = requireNonNull(minErrorDuration, "minErrorDuration is null");
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.maxResponseSize = requireNonNull(maxResponseSize, "maxResponseSize is null");
+        this.executor = requireNonNull(executor, "executor is null");
 
         checkArgument(maxBufferedBytes.toBytes() > 0, "maxBufferSize must be at least 1 byte: %s", maxBufferedBytes);
         checkArgument(maxResponseSize.toBytes() > 0, "maxResponseSize must be at least 1 byte: %s", maxResponseSize);

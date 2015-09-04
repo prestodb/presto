@@ -21,7 +21,7 @@ import com.facebook.presto.type.ArrayType;
 
 import javax.annotation.Nullable;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ArrayUnnester
         implements Unnester
@@ -36,7 +36,7 @@ public class ArrayUnnester
     public ArrayUnnester(ArrayType arrayType, @Nullable Block arrayBlock)
     {
         this.channelCount = 1;
-        this.elementType = checkNotNull(arrayType, "arrayType is null").getElementType();
+        this.elementType = requireNonNull(arrayType, "arrayType is null").getElementType();
 
         this.arrayBlock = arrayBlock;
         this.positionCount = arrayBlock == null ? 0 : arrayBlock.getPositionCount();

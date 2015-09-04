@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class InternalAggregationFunction
 {
@@ -34,14 +34,14 @@ public final class InternalAggregationFunction
 
     public InternalAggregationFunction(String name, List<Type> parameterTypes, Type intermediateType, Type finalType, boolean decomposable, boolean approximate, AccumulatorFactoryBinder factory)
     {
-        this.name = checkNotNull(name, "name is null");
+        this.name = requireNonNull(name, "name is null");
         checkArgument(!name.isEmpty(), "name is empty");
-        this.parameterTypes = ImmutableList.copyOf(checkNotNull(parameterTypes, "parameterTypes is null"));
-        this.intermediateType = checkNotNull(intermediateType, "intermediateType is null");
-        this.finalType = checkNotNull(finalType, "finalType is null");
+        this.parameterTypes = ImmutableList.copyOf(requireNonNull(parameterTypes, "parameterTypes is null"));
+        this.intermediateType = requireNonNull(intermediateType, "intermediateType is null");
+        this.finalType = requireNonNull(finalType, "finalType is null");
         this.decomposable = decomposable;
         this.approximate = approximate;
-        this.factory = checkNotNull(factory, "factory is null");
+        this.factory = requireNonNull(factory, "factory is null");
     }
 
     public String name()

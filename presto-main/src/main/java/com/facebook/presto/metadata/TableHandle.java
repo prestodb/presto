@@ -19,7 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class TableHandle
 {
@@ -31,8 +31,8 @@ public final class TableHandle
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("connectorHandle") ConnectorTableHandle connectorHandle)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.connectorHandle = checkNotNull(connectorHandle, "connectorHandle is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
     }
 
     @JsonProperty

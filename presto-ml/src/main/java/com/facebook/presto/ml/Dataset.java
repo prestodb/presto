@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class Dataset
 {
@@ -30,9 +30,9 @@ public class Dataset
 
     public Dataset(List<Double> labels, List<FeatureVector> datapoints, Map<Integer, String> labelEnumeration)
     {
-        checkNotNull(datapoints, "datapoints is null");
-        checkNotNull(labels, "labels is null");
-        checkNotNull(labelEnumeration, "labelEnumeration is null");
+        requireNonNull(datapoints, "datapoints is null");
+        requireNonNull(labels, "labels is null");
+        requireNonNull(labelEnumeration, "labelEnumeration is null");
         checkArgument(datapoints.size() == labels.size(), "datapoints and labels have different sizes");
         this.labels = ImmutableList.copyOf(labels);
         this.datapoints = ImmutableList.copyOf(datapoints);

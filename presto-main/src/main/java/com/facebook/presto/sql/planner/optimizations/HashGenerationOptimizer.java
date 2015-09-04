@@ -49,7 +49,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HashGenerationOptimizer
         extends PlanOptimizer
@@ -60,11 +60,11 @@ public class HashGenerationOptimizer
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        checkNotNull(plan, "plan is null");
-        checkNotNull(session, "session is null");
-        checkNotNull(types, "types is null");
-        checkNotNull(symbolAllocator, "symbolAllocator is null");
-        checkNotNull(idAllocator, "idAllocator is null");
+        requireNonNull(plan, "plan is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(types, "types is null");
+        requireNonNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(idAllocator, "idAllocator is null");
         if (SystemSessionProperties.isOptimizeHashGenerationEnabled(session)) {
             return PlanRewriter.rewriteWith(new Rewriter(idAllocator, symbolAllocator), plan, null);
         }
@@ -79,8 +79,8 @@ public class HashGenerationOptimizer
 
         private Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
         {
-            this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
-            this.symbolAllocator = checkNotNull(symbolAllocator, "symbolAllocator is null");
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         }
 
         @Override

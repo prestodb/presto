@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class CassandraRecordSet
@@ -35,11 +35,11 @@ public class CassandraRecordSet
 
     public CassandraRecordSet(CassandraSession cassandraSession, String schema, String cql, List<CassandraColumnHandle> cassandraColumns)
     {
-        this.cassandraSession = checkNotNull(cassandraSession, "cassandraSession is null");
-        this.schema = checkNotNull(schema, "schema is null");
-        this.cql = checkNotNull(cql, "cql is null");
+        this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
+        this.schema = requireNonNull(schema, "schema is null");
+        this.cql = requireNonNull(cql, "cql is null");
 
-        checkNotNull(cassandraColumns, "cassandraColumns is null");
+        requireNonNull(cassandraColumns, "cassandraColumns is null");
         this.cassandraTypes = transformList(cassandraColumns, CassandraColumnHandle::getFullType);
         this.columnTypes = transformList(cassandraColumns, CassandraColumnHandle::getType);
     }

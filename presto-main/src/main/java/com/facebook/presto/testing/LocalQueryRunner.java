@@ -128,11 +128,11 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class LocalQueryRunner
@@ -162,7 +162,7 @@ public class LocalQueryRunner
 
     public LocalQueryRunner(Session defaultSession)
     {
-        checkNotNull(defaultSession, "defaultSession is null");
+        requireNonNull(defaultSession, "defaultSession is null");
         this.executor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-%s"));
 
         this.sqlParser = new SqlParser();
@@ -316,7 +316,7 @@ public class LocalQueryRunner
         @Override
         public OperatorFactory createOutputOperator(int operatorId, List<Type> sourceTypes)
         {
-            checkNotNull(sourceTypes, "sourceType is null");
+            requireNonNull(sourceTypes, "sourceType is null");
 
             return new OperatorFactory()
             {

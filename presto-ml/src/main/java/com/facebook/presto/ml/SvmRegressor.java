@@ -25,7 +25,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 
 import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SvmRegressor
         extends AbstractSvmModel
@@ -61,7 +61,7 @@ public class SvmRegressor
     @Override
     public double regress(FeatureVector features)
     {
-        checkNotNull(model, "model is null");
+        requireNonNull(model, "model is null");
         return svm.svm_predict(model, toSvmNodes(features));
     }
 

@@ -40,7 +40,7 @@ import java.util.UUID;
 
 import static com.facebook.presto.raptor.storage.Row.extractRow;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public final class ShardCompactor
@@ -56,8 +56,8 @@ public final class ShardCompactor
     @Inject
     public ShardCompactor(StorageManager storageManager, ReaderAttributes readerAttributes)
     {
-        this.storageManager = checkNotNull(storageManager, "storageManager is null");
-        this.readerAttributes = checkNotNull(readerAttributes, "readerAttributes is null");
+        this.storageManager = requireNonNull(storageManager, "storageManager is null");
+        this.readerAttributes = requireNonNull(readerAttributes, "readerAttributes is null");
     }
 
     public List<ShardInfo> compact(Set<UUID> uuids, List<ColumnInfo> columns)
@@ -155,10 +155,10 @@ public final class ShardCompactor
 
         public SortedRowSource(ConnectorPageSource pageSource, List<Type> columnTypes, List<Integer> sortIndexes, List<SortOrder> sortOrders)
         {
-            this.pageSource = checkNotNull(pageSource, "pageSource is null");
-            this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
-            this.sortIndexes = ImmutableList.copyOf(checkNotNull(sortIndexes, "sortIndexes is null"));
-            this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
+            this.pageSource = requireNonNull(pageSource, "pageSource is null");
+            this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
+            this.sortIndexes = ImmutableList.copyOf(requireNonNull(sortIndexes, "sortIndexes is null"));
+            this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
 
             currentPage = pageSource.getNextPage();
             currentPosition = 0;

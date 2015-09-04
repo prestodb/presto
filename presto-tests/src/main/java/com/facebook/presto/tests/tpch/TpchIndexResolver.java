@@ -39,12 +39,12 @@ import java.util.Set;
 
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.Objects.requireNonNull;
 
 public class TpchIndexResolver
         implements ConnectorIndexResolver
@@ -54,8 +54,8 @@ public class TpchIndexResolver
 
     public TpchIndexResolver(String connectorId, TpchIndexedData indexedData)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.indexedData = checkNotNull(indexedData, "indexedData is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.indexedData = requireNonNull(indexedData, "indexedData is null");
     }
 
     @Override

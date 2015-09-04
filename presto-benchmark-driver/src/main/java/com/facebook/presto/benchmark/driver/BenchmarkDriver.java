@@ -21,7 +21,7 @@ import java.io.Closeable;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class BenchmarkDriver
         implements Closeable
@@ -40,9 +40,9 @@ public class BenchmarkDriver
             int maxFailures,
             Optional<HostAndPort> socksProxy)
     {
-        this.resultsStore = checkNotNull(resultsStore, "resultsStore is null");
-        this.clientSession = checkNotNull(clientSession, "clientSession is null");
-        this.queries = ImmutableList.copyOf(checkNotNull(queries, "queries is null"));
+        this.resultsStore = requireNonNull(resultsStore, "resultsStore is null");
+        this.clientSession = requireNonNull(clientSession, "clientSession is null");
+        this.queries = ImmutableList.copyOf(requireNonNull(queries, "queries is null"));
 
         queryRunner = new BenchmarkQueryRunner(warm, runs, debug, maxFailures, clientSession.getServer(), socksProxy);
     }

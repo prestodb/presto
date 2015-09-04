@@ -63,8 +63,8 @@ import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class AccumulatorCompiler
 {
@@ -401,7 +401,7 @@ public class AccumulatorCompiler
                     block.getVariable(position);
                     break;
                 case SAMPLE_WEIGHT:
-                    checkNotNull(sampleWeight, "sampleWeight is null");
+                    requireNonNull(sampleWeight, "sampleWeight is null");
                     block.getVariable(sampleWeight);
                     break;
                 case BLOCK_INPUT_CHANNEL:
@@ -671,7 +671,7 @@ public class AccumulatorCompiler
         body.comment("output(state, out)");
         body.append(state);
         if (approximate) {
-            checkNotNull(confidenceField, "confidenceField is null");
+            requireNonNull(confidenceField, "confidenceField is null");
             body.append(thisVariable.getField(confidenceField));
         }
         body.append(out);
@@ -703,7 +703,7 @@ public class AccumulatorCompiler
         body.comment("output(state, out)");
         body.append(state);
         if (approximate) {
-            checkNotNull(confidenceField, "confidenceField is null");
+            requireNonNull(confidenceField, "confidenceField is null");
             body.append(thisVariable.getField(confidenceField));
         }
         body.append(out);

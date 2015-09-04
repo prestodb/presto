@@ -19,9 +19,9 @@ import com.facebook.presto.spi.Node;
 import java.net.URI;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
+import static java.util.Objects.requireNonNull;
 
 /**
  * A node is a server in a cluster than can process queries.
@@ -36,9 +36,9 @@ public class PrestoNode
     public PrestoNode(String nodeIdentifier, URI httpUri, NodeVersion nodeVersion)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
-        this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null or empty");
-        this.httpUri = checkNotNull(httpUri, "httpUri is null");
-        this.nodeVersion = checkNotNull(nodeVersion, "nodeVersion is null");
+        this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
+        this.httpUri = requireNonNull(httpUri, "httpUri is null");
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
     }
 
     @Override

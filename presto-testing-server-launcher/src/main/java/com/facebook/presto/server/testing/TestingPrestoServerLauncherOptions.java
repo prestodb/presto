@@ -20,9 +20,9 @@ import io.airlift.airline.Option;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.copyOf;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 class TestingPrestoServerLauncherOptions
@@ -36,8 +36,8 @@ class TestingPrestoServerLauncherOptions
 
         public Catalog(String catalogName, String connectorName)
         {
-            this.catalogName = checkNotNull(catalogName, "catalogName is null");
-            this.connectorName = checkNotNull(connectorName, "connectorName is null");
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
+            this.connectorName = requireNonNull(connectorName, "connectorName is null");
         }
 
         public String getCatalogName()

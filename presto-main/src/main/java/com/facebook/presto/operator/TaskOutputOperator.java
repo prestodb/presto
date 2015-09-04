@@ -21,8 +21,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class TaskOutputOperator
         implements Operator
@@ -34,7 +34,7 @@ public class TaskOutputOperator
 
         public TaskOutputFactory(SharedBuffer sharedBuffer)
         {
-            this.sharedBuffer = checkNotNull(sharedBuffer, "sharedBuffer is null");
+            this.sharedBuffer = requireNonNull(sharedBuffer, "sharedBuffer is null");
         }
 
         @Override
@@ -53,7 +53,7 @@ public class TaskOutputOperator
         public TaskOutputOperatorFactory(int operatorId, SharedBuffer sharedBuffer)
         {
             this.operatorId = operatorId;
-            this.sharedBuffer = checkNotNull(sharedBuffer, "sharedBuffer is null");
+            this.sharedBuffer = requireNonNull(sharedBuffer, "sharedBuffer is null");
         }
 
         @Override
@@ -82,8 +82,8 @@ public class TaskOutputOperator
 
     public TaskOutputOperator(OperatorContext operatorContext, SharedBuffer sharedBuffer)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.sharedBuffer = checkNotNull(sharedBuffer, "sharedBuffer is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.sharedBuffer = requireNonNull(sharedBuffer, "sharedBuffer is null");
     }
 
     @Override
@@ -135,7 +135,7 @@ public class TaskOutputOperator
     @Override
     public void addInput(Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(blocked == NOT_BLOCKED, "output is already blocked");
         ListenableFuture<?> future = sharedBuffer.enqueue(page);
         if (!future.isDone()) {

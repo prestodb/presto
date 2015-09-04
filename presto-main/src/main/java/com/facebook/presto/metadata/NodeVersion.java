@@ -15,7 +15,7 @@ package com.facebook.presto.metadata;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class NodeVersion
 {
@@ -25,7 +25,7 @@ public class NodeVersion
 
     public NodeVersion(String version)
     {
-        this.version = checkNotNull(version, "version is null");
+        this.version = requireNonNull(version, "version is null");
     }
 
     @Override

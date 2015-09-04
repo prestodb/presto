@@ -29,9 +29,9 @@ import java.util.Locale;
 import java.util.Set;
 
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_CONVERSION_NOT_SUPPORTED;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Default field decoder for raw (byte) columns.
@@ -95,8 +95,8 @@ public class RawKafkaFieldDecoder
     @Override
     public KafkaFieldValueProvider decode(byte[] value, KafkaColumnHandle columnHandle)
     {
-        checkNotNull(columnHandle, "columnHandle is null");
-        checkNotNull(value, "value is null");
+        requireNonNull(columnHandle, "columnHandle is null");
+        requireNonNull(value, "value is null");
 
         String mapping = columnHandle.getMapping();
         FieldType fieldType = columnHandle.getDataFormat() == null ? FieldType.BYTE : FieldType.forString(columnHandle.getDataFormat());
@@ -137,8 +137,8 @@ public class RawKafkaFieldDecoder
 
         public RawKafkaValueProvider(ByteBuffer value, KafkaColumnHandle columnHandle, FieldType fieldType)
         {
-            this.columnHandle = checkNotNull(columnHandle, "columnHandle is null");
-            this.fieldType = checkNotNull(fieldType, "fieldType is null");
+            this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
+            this.fieldType = requireNonNull(fieldType, "fieldType is null");
             this.size = value.limit() - value.position();
             checkState(size >= fieldType.getSize(), "minimum byte size is %s, found %s,", fieldType.getSize(), size);
             this.value = value;

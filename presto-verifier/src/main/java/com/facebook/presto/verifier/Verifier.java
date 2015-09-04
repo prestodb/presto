@@ -26,9 +26,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -44,11 +44,11 @@ public class Verifier
 
     public Verifier(PrintStream out, VerifierConfig config, Set<EventClient> eventClients)
     {
-        checkNotNull(out, "out is null");
-        this.config = checkNotNull(config, "config is null");
-        this.eventClients = checkNotNull(eventClients, "eventClients is null");
-        this.whitelist = checkNotNull(config.getWhitelist(), "whitelist is null");
-        this.blacklist = checkNotNull(config.getBlacklist(), "blacklist is null");
+        requireNonNull(out, "out is null");
+        this.config = requireNonNull(config, "config is null");
+        this.eventClients = requireNonNull(eventClients, "eventClients is null");
+        this.whitelist = requireNonNull(config.getWhitelist(), "whitelist is null");
+        this.blacklist = requireNonNull(config.getBlacklist(), "blacklist is null");
         this.threadCount = config.getThreadCount();
     }
 

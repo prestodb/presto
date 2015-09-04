@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class StripeStatistics
 {
@@ -25,7 +25,7 @@ public class StripeStatistics
 
     public StripeStatistics(List<ColumnStatistics> columnStatistics)
     {
-        this.columnStatistics = ImmutableList.copyOf(checkNotNull(columnStatistics, "columnStatistics is null"));
+        this.columnStatistics = ImmutableList.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
     }
 
     public List<ColumnStatistics> getColumnStatistics()

@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class PrestoStatement
         implements Statement
@@ -38,7 +38,7 @@ public class PrestoStatement
 
     PrestoStatement(PrestoConnection connection)
     {
-        this.connection = new AtomicReference<>(checkNotNull(connection, "connection is null"));
+        this.connection = new AtomicReference<>(requireNonNull(connection, "connection is null"));
     }
 
     @Override

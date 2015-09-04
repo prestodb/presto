@@ -15,7 +15,7 @@ package com.facebook.presto.hive;
 
 import org.apache.hadoop.hive.metastore.api.Partition;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HivePartitionMetadata
 {
@@ -24,8 +24,8 @@ public class HivePartitionMetadata
 
     HivePartitionMetadata(HivePartition hivePartition, Partition partition)
     {
-        this.partition = checkNotNull(partition, "partition is null");
-        this.hivePartition = checkNotNull(hivePartition, "hivePartition is null");
+        this.partition = requireNonNull(partition, "partition is null");
+        this.hivePartition = requireNonNull(hivePartition, "hivePartition is null");
     }
 
     public HivePartition getHivePartition()

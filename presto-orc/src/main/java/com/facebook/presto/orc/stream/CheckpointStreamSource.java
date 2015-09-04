@@ -20,15 +20,15 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class CheckpointStreamSource<S extends ValueStream<C>, C extends StreamCheckpoint>
         implements StreamSource<S>
 {
     public static <S extends ValueStream<C>, C extends StreamCheckpoint> CheckpointStreamSource<S, C> createCheckpointStreamSource(S stream, StreamCheckpoint checkpoint)
     {
-        checkNotNull(stream, "stream is null");
-        checkNotNull(checkpoint, "checkpoint is null");
+        requireNonNull(stream, "stream is null");
+        requireNonNull(checkpoint, "checkpoint is null");
 
         Class<? extends C> checkpointType = stream.getCheckpointType();
         C verifiedCheckpoint = OrcStreamUtils.checkType(checkpoint, checkpointType, "Checkpoint");
@@ -40,8 +40,8 @@ public class CheckpointStreamSource<S extends ValueStream<C>, C extends StreamCh
 
     public CheckpointStreamSource(S stream, C checkpoint)
     {
-        this.stream = checkNotNull(stream, "stream is null");
-        this.checkpoint = checkNotNull(checkpoint, "checkpoint is null");
+        this.stream = requireNonNull(stream, "stream is null");
+        this.checkpoint = requireNonNull(checkpoint, "checkpoint is null");
     }
 
     @Override

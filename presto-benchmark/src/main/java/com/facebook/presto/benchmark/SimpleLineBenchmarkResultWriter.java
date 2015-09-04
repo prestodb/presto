@@ -22,7 +22,7 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SimpleLineBenchmarkResultWriter
         implements BenchmarkResultHook
@@ -31,13 +31,13 @@ public class SimpleLineBenchmarkResultWriter
 
     public SimpleLineBenchmarkResultWriter(OutputStream outputStream)
     {
-        writer = new OutputStreamWriter(checkNotNull(outputStream, "outputStream is null"));
+        writer = new OutputStreamWriter(requireNonNull(outputStream, "outputStream is null"));
     }
 
     @Override
     public BenchmarkResultHook addResults(Map<String, Long> results)
     {
-        checkNotNull(results, "results is null");
+        requireNonNull(results, "results is null");
         try {
             Joiner.on(",").withKeyValueSeparator(":").appendTo(writer, results);
             writer.write('\n');

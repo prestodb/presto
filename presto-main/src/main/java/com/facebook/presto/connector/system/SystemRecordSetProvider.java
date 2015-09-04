@@ -40,9 +40,9 @@ import static com.facebook.presto.spi.TupleDomain.withColumnDomains;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class SystemRecordSetProvider
         implements ConnectorRecordSetProvider
@@ -57,7 +57,7 @@ public class SystemRecordSetProvider
     @Override
     public RecordSet getRecordSet(ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
-        checkNotNull(columns, "columns is null");
+        requireNonNull(columns, "columns is null");
         SystemSplit systemSplit = checkType(split, SystemSplit.class, "split");
         SchemaTableName tableName = systemSplit.getTableHandle().getSchemaTableName();
         SystemTable systemTable = tables.get(tableName);

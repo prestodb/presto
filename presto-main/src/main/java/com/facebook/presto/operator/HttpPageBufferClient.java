@@ -61,7 +61,6 @@ import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.cr
 import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.createPagesResponse;
 import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
@@ -70,6 +69,7 @@ import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public final class HttpPageBufferClient
@@ -153,14 +153,14 @@ public final class HttpPageBufferClient
             ScheduledExecutorService executor,
             Stopwatch errorStopwatch)
     {
-        this.httpClient = checkNotNull(httpClient, "httpClient is null");
-        this.maxResponseSize = checkNotNull(maxResponseSize, "maxResponseSize is null");
-        this.minErrorDuration = checkNotNull(minErrorDuration, "minErrorDuration is null");
-        this.location = checkNotNull(location, "location is null");
-        this.clientCallback = checkNotNull(clientCallback, "clientCallback is null");
-        this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingManager is null");
-        this.executor = checkNotNull(executor, "executor is null");
-        this.errorStopwatch = checkNotNull(errorStopwatch, "errorStopwatch is null").reset();
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.maxResponseSize = requireNonNull(maxResponseSize, "maxResponseSize is null");
+        this.minErrorDuration = requireNonNull(minErrorDuration, "minErrorDuration is null");
+        this.location = requireNonNull(location, "location is null");
+        this.clientCallback = requireNonNull(clientCallback, "clientCallback is null");
+        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingManager is null");
+        this.executor = requireNonNull(executor, "executor is null");
+        this.errorStopwatch = requireNonNull(errorStopwatch, "errorStopwatch is null").reset();
     }
 
     public synchronized PageBufferClientStatus getStatus()

@@ -25,7 +25,7 @@ import java.util.Objects;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HiveColumnHandle
         implements ColumnHandle
@@ -50,14 +50,14 @@ public class HiveColumnHandle
             @JsonProperty("hiveColumnIndex") int hiveColumnIndex,
             @JsonProperty("partitionKey") boolean partitionKey)
     {
-        this.clientId = checkNotNull(clientId, "clientId is null");
-        this.name = checkNotNull(name, "name is null");
+        this.clientId = requireNonNull(clientId, "clientId is null");
+        this.name = requireNonNull(name, "name is null");
         checkArgument(ordinalPosition >= 0, "ordinalPosition is negative");
         this.ordinalPosition = ordinalPosition;
         checkArgument(hiveColumnIndex >= 0 || partitionKey, "hiveColumnIndex is negative");
         this.hiveColumnIndex = hiveColumnIndex;
-        this.hiveType = checkNotNull(hiveType, "hiveType is null");
-        this.typeName = checkNotNull(typeSignature, "type is null");
+        this.hiveType = requireNonNull(hiveType, "hiveType is null");
+        this.typeName = requireNonNull(typeSignature, "type is null");
         this.partitionKey = partitionKey;
     }
 

@@ -52,7 +52,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -98,8 +97,8 @@ public class SqlTaskManager
             TaskManagerConfig config,
             MemoryManagerConfig memoryManagerConfig)
     {
-        checkNotNull(nodeInfo, "nodeInfo is null");
-        checkNotNull(config, "config is null");
+        requireNonNull(nodeInfo, "nodeInfo is null");
+        requireNonNull(config, "config is null");
         infoCacheTime = config.getInfoMaxAge();
         clientTimeout = config.getClientTimeout();
 
@@ -232,7 +231,7 @@ public class SqlTaskManager
     @Override
     public TaskInfo getTaskInfo(TaskId taskId)
     {
-        checkNotNull(taskId, "taskId is null");
+        requireNonNull(taskId, "taskId is null");
 
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
@@ -242,8 +241,8 @@ public class SqlTaskManager
     @Override
     public CompletableFuture<TaskInfo> getTaskInfo(TaskId taskId, TaskState currentState)
     {
-        checkNotNull(taskId, "taskId is null");
-        checkNotNull(currentState, "currentState is null");
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(currentState, "currentState is null");
 
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
@@ -253,11 +252,11 @@ public class SqlTaskManager
     @Override
     public TaskInfo updateTask(Session session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
     {
-        checkNotNull(session, "session is null");
-        checkNotNull(taskId, "taskId is null");
-        checkNotNull(fragment, "fragment is null");
-        checkNotNull(sources, "sources is null");
-        checkNotNull(outputBuffers, "outputBuffers is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(fragment, "fragment is null");
+        requireNonNull(sources, "sources is null");
+        requireNonNull(outputBuffers, "outputBuffers is null");
 
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
@@ -267,10 +266,10 @@ public class SqlTaskManager
     @Override
     public CompletableFuture<BufferResult> getTaskResults(TaskId taskId, TaskId outputName, long startingSequenceId, DataSize maxSize)
     {
-        checkNotNull(taskId, "taskId is null");
-        checkNotNull(outputName, "outputName is null");
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(outputName, "outputName is null");
         Preconditions.checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
-        checkNotNull(maxSize, "maxSize is null");
+        requireNonNull(maxSize, "maxSize is null");
 
         return tasks.getUnchecked(taskId).getTaskResults(outputName, startingSequenceId, maxSize);
     }
@@ -278,8 +277,8 @@ public class SqlTaskManager
     @Override
     public TaskInfo abortTaskResults(TaskId taskId, TaskId outputId)
     {
-        checkNotNull(taskId, "taskId is null");
-        checkNotNull(outputId, "outputId is null");
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(outputId, "outputId is null");
 
         return tasks.getUnchecked(taskId).abortTaskResults(outputId);
     }
@@ -287,7 +286,7 @@ public class SqlTaskManager
     @Override
     public TaskInfo cancelTask(TaskId taskId)
     {
-        checkNotNull(taskId, "taskId is null");
+        requireNonNull(taskId, "taskId is null");
 
         return tasks.getUnchecked(taskId).cancel();
     }
@@ -295,7 +294,7 @@ public class SqlTaskManager
     @Override
     public TaskInfo abortTask(TaskId taskId)
     {
-        checkNotNull(taskId, "taskId is null");
+        requireNonNull(taskId, "taskId is null");
 
         return tasks.getUnchecked(taskId).abort();
     }

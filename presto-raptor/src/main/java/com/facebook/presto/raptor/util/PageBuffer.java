@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class PageBuffer
 {
@@ -41,7 +41,7 @@ public class PageBuffer
 
     public void add(Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         pages.add(page);
         usedMemoryBytes += page.getSizeInBytes();
         rowCount += page.getPositionCount();

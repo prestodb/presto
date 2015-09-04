@@ -23,7 +23,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.presto.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class AsyncHttpExecutionMBean
 {
@@ -32,7 +32,7 @@ public class AsyncHttpExecutionMBean
     @Inject
     public AsyncHttpExecutionMBean(@ForAsyncHttpResponse ScheduledExecutorService executor)
     {
-        checkNotNull(executor, "executor is null");
+        requireNonNull(executor, "executor is null");
         this.executorMBean = new ThreadPoolExecutorMBean(checkType(executor, ThreadPoolExecutor.class, "executor"));
     }
 

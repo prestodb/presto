@@ -34,7 +34,7 @@ import javax.inject.Inject;
 import java.util.EnumSet;
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SqlParser
 {
@@ -57,7 +57,7 @@ public class SqlParser
     @Inject
     public SqlParser(SqlParserOptions options)
     {
-        checkNotNull(options, "options is null");
+        requireNonNull(options, "options is null");
         allowedIdentifierSymbols = EnumSet.copyOf(options.getAllowedIdentifierSymbols());
     }
 

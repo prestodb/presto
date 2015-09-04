@@ -16,7 +16,7 @@ package com.facebook.presto.sql.tree;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class Approximate
         extends Node
@@ -25,7 +25,7 @@ public final class Approximate
 
     public Approximate(String confidence)
     {
-        this.confidence = checkNotNull(confidence, "confidence is null");
+        this.confidence = requireNonNull(confidence, "confidence is null");
     }
 
     public String getConfidence()

@@ -43,7 +43,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class MaterializedResult
         implements Iterable<MaterializedRow>
@@ -62,10 +62,10 @@ public class MaterializedResult
 
     public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types, Map<String, String> setSessionProperties, Set<String> resetSessionProperties)
     {
-        this.rows = ImmutableList.copyOf(checkNotNull(rows, "rows is null"));
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.setSessionProperties = ImmutableMap.copyOf(checkNotNull(setSessionProperties, "setSessionProperties is null"));
-        this.resetSessionProperties = ImmutableSet.copyOf(checkNotNull(resetSessionProperties, "resetSessionProperties is null"));
+        this.rows = ImmutableList.copyOf(requireNonNull(rows, "rows is null"));
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.setSessionProperties = ImmutableMap.copyOf(requireNonNull(setSessionProperties, "setSessionProperties is null"));
+        this.resetSessionProperties = ImmutableSet.copyOf(requireNonNull(resetSessionProperties, "resetSessionProperties is null"));
     }
 
     public int getRowCount()
@@ -276,7 +276,7 @@ public class MaterializedResult
 
         public Builder page(Page page)
         {
-            checkNotNull(page, "page is null");
+            requireNonNull(page, "page is null");
             checkArgument(page.getChannelCount() == types.size(), "Expected a page with %s columns, but got %s columns", types.size(), page.getChannelCount());
 
             for (int position = 0; position < page.getPositionCount(); position++) {

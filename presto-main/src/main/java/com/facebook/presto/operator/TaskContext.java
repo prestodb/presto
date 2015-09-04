@@ -37,7 +37,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
@@ -78,11 +77,11 @@ public class TaskContext
             boolean verboseStats,
             boolean cpuTimerEnabled)
     {
-        this.taskStateMachine = checkNotNull(taskStateMachine, "taskStateMachine is null");
+        this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
-        this.executor = checkNotNull(executor, "executor is null");
+        this.executor = requireNonNull(executor, "executor is null");
         this.session = session;
-        this.operatorPreAllocatedMemory = checkNotNull(operatorPreAllocatedMemory, "operatorPreAllocatedMemory is null");
+        this.operatorPreAllocatedMemory = requireNonNull(operatorPreAllocatedMemory, "operatorPreAllocatedMemory is null");
 
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {

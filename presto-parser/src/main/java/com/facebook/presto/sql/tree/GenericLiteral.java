@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
-
 import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 public final class GenericLiteral
         extends Literal
@@ -25,8 +25,8 @@ public final class GenericLiteral
 
     public GenericLiteral(String type, String value)
     {
-        Preconditions.checkNotNull(type, "type is null");
-        Preconditions.checkNotNull(value, "value is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(value, "value is null");
         this.type = type;
         this.value = value;
     }

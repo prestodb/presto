@@ -36,8 +36,8 @@ import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Extracts values from JSON
@@ -123,7 +123,7 @@ public final class JsonExtract
 
     public static <T> T extract(Slice jsonInput, JsonExtractor<T> jsonExtractor)
     {
-        checkNotNull(jsonInput, "jsonInput is null");
+        requireNonNull(jsonInput, "jsonInput is null");
         try {
             try (JsonParser jsonParser = JSON_FACTORY.createJsonParser(jsonInput.getInput())) {
                 // Initialize by advancing to first token and make sure it exists
@@ -191,8 +191,8 @@ public final class JsonExtract
 
         public ObjectFieldJsonExtractor(String fieldName, JsonExtractor<? extends T> delegate, boolean exceptionOnOutOfBounds)
         {
-            this.fieldName = new SerializedString(checkNotNull(fieldName, "fieldName is null"));
-            this.delegate = checkNotNull(delegate, "delegate is null");
+            this.fieldName = new SerializedString(requireNonNull(fieldName, "fieldName is null"));
+            this.delegate = requireNonNull(delegate, "delegate is null");
             this.exceptionOnOutOfBounds = exceptionOnOutOfBounds;
             this.index = tryParseInt(fieldName, -1);
         }

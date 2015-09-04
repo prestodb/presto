@@ -49,7 +49,7 @@ import javax.inject.Inject;
 
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class DistributedExecutionPlanner
 {
@@ -58,7 +58,7 @@ public class DistributedExecutionPlanner
     @Inject
     public DistributedExecutionPlanner(SplitManager splitManager)
     {
-        this.splitManager = checkNotNull(splitManager, "splitManager is null");
+        this.splitManager = requireNonNull(splitManager, "splitManager is null");
     }
 
     public StageExecutionPlan plan(SubPlan root, Session session)

@@ -21,7 +21,7 @@ import com.facebook.presto.type.MapType;
 
 import javax.annotation.Nullable;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class MapUnnester
         implements Unnester
@@ -37,7 +37,7 @@ public class MapUnnester
     public MapUnnester(MapType mapType, @Nullable Block mapBlock)
     {
         this.channelCount = 2;
-        checkNotNull(mapType, "mapType is null");
+        requireNonNull(mapType, "mapType is null");
         this.keyType = mapType.getKeyType();
         this.valueType = mapType.getValueType();
 

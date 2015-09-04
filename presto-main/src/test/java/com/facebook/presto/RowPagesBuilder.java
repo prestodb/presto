@@ -26,7 +26,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.RowPageBuilder.rowPageBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RowPagesBuilder
 {
@@ -63,7 +63,7 @@ public class RowPagesBuilder
 
     RowPagesBuilder(boolean hashEnabled, Optional<List<Integer>> hashChannels, Iterable<Type> types)
     {
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.hashEnabled = hashEnabled;
         this.hashChannels = hashChannels;
         builder = rowPageBuilder(types);
@@ -72,7 +72,7 @@ public class RowPagesBuilder
     public RowPagesBuilder addSequencePage(int length, int... initialValues)
     {
         checkArgument(length > 0, "length must be at least 1");
-        checkNotNull(initialValues, "initialValues is null");
+        requireNonNull(initialValues, "initialValues is null");
         checkArgument(initialValues.length == types.size(), "Expected %s initialValues, but got %s", types.size(), initialValues.length);
 
         pageBreak();

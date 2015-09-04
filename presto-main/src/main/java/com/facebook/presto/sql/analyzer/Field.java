@@ -15,11 +15,10 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.base.Preconditions;
 
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class Field
 {
@@ -30,34 +29,34 @@ public class Field
 
     public static Field newUnqualified(String name, Type type)
     {
-        Preconditions.checkNotNull(name, "name is null");
-        Preconditions.checkNotNull(type, "type is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(type, "type is null");
 
         return new Field(Optional.empty(), Optional.of(name), type, false);
     }
 
     public static Field newUnqualified(Optional<String> name, Type type)
     {
-        Preconditions.checkNotNull(name, "name is null");
-        Preconditions.checkNotNull(type, "type is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(type, "type is null");
 
         return new Field(Optional.empty(), name, type, false);
     }
 
     public static Field newQualified(QualifiedName relationAlias, Optional<String> name, Type type, boolean hidden)
     {
-        Preconditions.checkNotNull(relationAlias, "relationAlias is null");
-        Preconditions.checkNotNull(name, "name is null");
-        Preconditions.checkNotNull(type, "type is null");
+        requireNonNull(relationAlias, "relationAlias is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(type, "type is null");
 
         return new Field(Optional.of(relationAlias), name, type, hidden);
     }
 
     public Field(Optional<QualifiedName> relationAlias, Optional<String> name, Type type, boolean hidden)
     {
-        checkNotNull(relationAlias, "relationAlias is null");
-        checkNotNull(name, "name is null");
-        checkNotNull(type, "type is null");
+        requireNonNull(relationAlias, "relationAlias is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(type, "type is null");
 
         this.relationAlias = relationAlias;
         this.name = name;

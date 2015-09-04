@@ -18,7 +18,6 @@ import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.spi.ErrorCode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
@@ -30,6 +29,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class ExecutionFailureInfo
@@ -54,9 +54,9 @@ public class ExecutionFailureInfo
             @JsonProperty("errorLocation") @Nullable ErrorLocation errorLocation,
             @JsonProperty("errorCode") @Nullable ErrorCode errorCode)
     {
-        Preconditions.checkNotNull(type, "type is null");
-        Preconditions.checkNotNull(suppressed, "suppressed is null");
-        Preconditions.checkNotNull(stack, "stack is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(suppressed, "suppressed is null");
+        requireNonNull(stack, "stack is null");
 
         this.type = type;
         this.message = message;

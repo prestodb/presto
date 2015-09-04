@@ -47,11 +47,11 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class CassandraMetadata
@@ -71,11 +71,11 @@ public class CassandraMetadata
             JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec,
             CassandraClientConfig config)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
-        this.schemaProvider = checkNotNull(schemaProvider, "schemaProvider is null");
-        this.cassandraSession = checkNotNull(cassandraSession, "cassandraSession is null");
-        this.allowDropTable = checkNotNull(config, "config is null").getAllowDropTable();
-        this.extraColumnMetadataCodec = checkNotNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.schemaProvider = requireNonNull(schemaProvider, "schemaProvider is null");
+        this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
+        this.allowDropTable = requireNonNull(config, "config is null").getAllowDropTable();
+        this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
     }
 
     @Override
@@ -87,7 +87,7 @@ public class CassandraMetadata
     @Override
     public CassandraTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        checkNotNull(tableName, "tableName is null");
+        requireNonNull(tableName, "tableName is null");
         try {
             CassandraTableHandle tableHandle = schemaProvider.getTableHandle(tableName);
             schemaProvider.getTable(tableHandle);
@@ -107,7 +107,7 @@ public class CassandraMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
+        requireNonNull(tableHandle, "tableHandle is null");
         SchemaTableName tableName = getTableName(tableHandle);
         return getTableMetadata(session, tableName);
     }
@@ -173,7 +173,7 @@ public class CassandraMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        checkNotNull(prefix, "prefix is null");
+        requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, prefix)) {
             try {

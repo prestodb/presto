@@ -27,7 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class UnnestNode
@@ -47,16 +47,16 @@ public class UnnestNode
             @JsonProperty("ordinalitySymbol") Optional<Symbol> ordinalitySymbol)
     {
         super(id);
-        this.source = checkNotNull(source, "source is null");
-        this.replicateSymbols = ImmutableList.copyOf(checkNotNull(replicateSymbols, "replicateSymbols is null"));
-        checkNotNull(unnestSymbols, "unnestSymbols is null");
+        this.source = requireNonNull(source, "source is null");
+        this.replicateSymbols = ImmutableList.copyOf(requireNonNull(replicateSymbols, "replicateSymbols is null"));
+        requireNonNull(unnestSymbols, "unnestSymbols is null");
         checkArgument(!unnestSymbols.isEmpty(), "unnestSymbols is empty");
         ImmutableMap.Builder<Symbol, List<Symbol>> builder = ImmutableMap.builder();
         for (Map.Entry<Symbol, List<Symbol>> entry : unnestSymbols.entrySet()) {
             builder.put(entry.getKey(), ImmutableList.copyOf(entry.getValue()));
         }
         this.unnestSymbols = builder.build();
-        this.ordinalitySymbol = checkNotNull(ordinalitySymbol, "ordinalitySymbol is null");
+        this.ordinalitySymbol = requireNonNull(ordinalitySymbol, "ordinalitySymbol is null");
     }
 
     @Override

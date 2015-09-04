@@ -28,8 +28,8 @@ import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.example.Types.checkType;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class ExampleSplitManager
         implements ConnectorSplitManager
@@ -40,8 +40,8 @@ public class ExampleSplitManager
     @Inject
     public ExampleSplitManager(ExampleConnectorId connectorId, ExampleClient exampleClient)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
-        this.exampleClient = checkNotNull(exampleClient, "client is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.exampleClient = requireNonNull(exampleClient, "client is null");
     }
 
     @Override

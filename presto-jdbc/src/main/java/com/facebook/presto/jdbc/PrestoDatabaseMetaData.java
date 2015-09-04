@@ -26,7 +26,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class PrestoDatabaseMetaData
         implements DatabaseMetaData
@@ -35,7 +35,7 @@ public class PrestoDatabaseMetaData
 
     PrestoDatabaseMetaData(PrestoConnection connection)
     {
-        this.connection = checkNotNull(connection, "connection is null");
+        this.connection = requireNonNull(connection, "connection is null");
     }
 
     @Override

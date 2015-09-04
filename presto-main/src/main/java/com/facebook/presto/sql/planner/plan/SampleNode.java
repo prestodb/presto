@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class SampleNode
@@ -72,12 +72,12 @@ public class SampleNode
         checkArgument(sampleRatio >= 0.0, "sample ratio must be greater than or equal to 0");
         checkArgument((sampleRatio <= 1.0) || (sampleType == Type.POISSONIZED), "sample ratio must be less than or equal to 1");
 
-        this.sampleType = checkNotNull(sampleType, "sample type is null");
-        this.source = checkNotNull(source, "source is null");
+        this.sampleType = requireNonNull(sampleType, "sample type is null");
+        this.source = requireNonNull(source, "source is null");
         this.sampleRatio = sampleRatio;
         this.rescaled = rescaled;
         checkArgument(!rescaled || sampleType == Type.POISSONIZED);
-        this.sampleWeightSymbol = checkNotNull(sampleWeightSymbol, "sample weight symbol is null");
+        this.sampleWeightSymbol = requireNonNull(sampleWeightSymbol, "sample weight symbol is null");
         checkArgument(sampleWeightSymbol.isPresent() == (sampleType == Type.POISSONIZED), "sample weight symbol must be used with POISSONIZED sampling");
     }
 

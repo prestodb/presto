@@ -21,8 +21,8 @@ import javax.inject.Inject;
 import java.net.URI;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.Objects.requireNonNull;
 
 public class StaticHiveCluster
         implements HiveCluster
@@ -35,7 +35,7 @@ public class StaticHiveCluster
     {
         URI uri = checkMetastoreUri(config.getMetastoreUri());
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
-        this.clientFactory = checkNotNull(clientFactory, "clientFactory is null");
+        this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
     }
 
     @Override
@@ -51,7 +51,7 @@ public class StaticHiveCluster
 
     private static URI checkMetastoreUri(URI uri)
     {
-        checkNotNull(uri, "metastoreUri is null");
+        requireNonNull(uri, "metastoreUri is null");
         String scheme = uri.getScheme();
         checkArgument(!isNullOrEmpty(scheme), "metastoreUri scheme is missing: %s", uri);
         checkArgument(scheme.equals("thrift"), "metastoreUri scheme must be thrift: %s", uri);

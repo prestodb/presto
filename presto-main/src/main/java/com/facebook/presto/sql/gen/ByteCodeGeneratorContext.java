@@ -23,7 +23,7 @@ import com.facebook.presto.sql.relational.RowExpression;
 import java.util.List;
 
 import static com.facebook.presto.sql.gen.ByteCodeUtils.generateInvocation;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ByteCodeGeneratorContext
 {
@@ -39,10 +39,10 @@ public class ByteCodeGeneratorContext
             CallSiteBinder callSiteBinder,
             FunctionRegistry registry)
     {
-        checkNotNull(byteCodeGenerator, "byteCodeGenerator is null");
-        checkNotNull(scope, "scope is null");
-        checkNotNull(callSiteBinder, "callSiteBinder is null");
-        checkNotNull(registry, "registry is null");
+        requireNonNull(byteCodeGenerator, "byteCodeGenerator is null");
+        requireNonNull(scope, "scope is null");
+        requireNonNull(callSiteBinder, "callSiteBinder is null");
+        requireNonNull(registry, "registry is null");
 
         this.byteCodeGenerator = byteCodeGenerator;
         this.scope = scope;

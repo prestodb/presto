@@ -38,7 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class LimitPushDown
         extends PlanOptimizer
@@ -46,11 +46,11 @@ public class LimitPushDown
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        checkNotNull(plan, "plan is null");
-        checkNotNull(session, "session is null");
-        checkNotNull(types, "types is null");
-        checkNotNull(symbolAllocator, "symbolAllocator is null");
-        checkNotNull(idAllocator, "idAllocator is null");
+        requireNonNull(plan, "plan is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(types, "types is null");
+        requireNonNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(idAllocator, "idAllocator is null");
 
         return PlanRewriter.rewriteWith(new Rewriter(idAllocator), plan, null);
     }
@@ -77,7 +77,7 @@ public class LimitPushDown
 
         private Rewriter(PlanNodeIdAllocator idAllocator)
         {
-            this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         }
 
         @Override

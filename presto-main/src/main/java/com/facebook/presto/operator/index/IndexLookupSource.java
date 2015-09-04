@@ -22,8 +22,8 @@ import it.unimi.dsi.fastutil.longs.LongIterator;
 import javax.annotation.concurrent.NotThreadSafe;
 
 import static com.facebook.presto.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
 public class IndexLookupSource
@@ -34,7 +34,7 @@ public class IndexLookupSource
 
     public IndexLookupSource(IndexLoader indexLoader)
     {
-        this.indexLoader = checkNotNull(indexLoader, "indexLoader is null");
+        this.indexLoader = requireNonNull(indexLoader, "indexLoader is null");
         this.indexedData = indexLoader.getIndexSnapshot();
     }
 

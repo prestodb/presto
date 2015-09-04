@@ -27,8 +27,8 @@ import java.util.List;
 import java.util.PriorityQueue;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Returns the top N rows from the source sorted according to the specified ordering in the keyChannelIndex channel.
@@ -57,15 +57,15 @@ public class TopNOperator
                 boolean partial)
         {
             this.operatorId = operatorId;
-            this.sourceTypes = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+            this.sourceTypes = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.n = n;
             ImmutableList.Builder<Type> sortTypes = ImmutableList.builder();
             for (int channel : sortChannels) {
                 sortTypes.add(types.get(channel));
             }
             this.sortTypes = sortTypes.build();
-            this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
-            this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
+            this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
+            this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
             this.partial = partial;
         }
 
@@ -124,15 +124,15 @@ public class TopNOperator
             List<SortOrder> sortOrders,
             boolean partial)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.types = checkNotNull(types, "types is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.types = requireNonNull(types, "types is null");
 
         checkArgument(n >= 0, "n must be positive");
         this.n = n;
 
-        this.sortTypes = checkNotNull(sortTypes, "sortTypes is null");
-        this.sortChannels = checkNotNull(sortChannels, "sortChannels is null");
-        this.sortOrders = checkNotNull(sortOrders, "sortOrders is null");
+        this.sortTypes = requireNonNull(sortTypes, "sortTypes is null");
+        this.sortChannels = requireNonNull(sortChannels, "sortChannels is null");
+        this.sortOrders = requireNonNull(sortOrders, "sortOrders is null");
 
         this.partial = partial;
 
@@ -177,7 +177,7 @@ public class TopNOperator
     public void addInput(Page page)
     {
         checkState(!finishing, "Operator is already finishing");
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         if (topNBuilder == null) {
             topNBuilder = new TopNBuilder(
                     n,

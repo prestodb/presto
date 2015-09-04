@@ -23,8 +23,8 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class SampleOperator
         implements Operator
@@ -45,7 +45,7 @@ public class SampleOperator
             this.sampleRatio = sampleRatio;
             this.rescaled = rescaled;
             this.types = ImmutableList.<Type>builder()
-                    .addAll(checkNotNull(sourceTypes, "sourceTypes is null"))
+                    .addAll(requireNonNull(sourceTypes, "sourceTypes is null"))
                     .add(BIGINT)
                     .build();
         }
@@ -88,7 +88,7 @@ public class SampleOperator
         //Note: Poissonized Samples can be larger than the original dataset if desired
         checkArgument(sampleRatio > 0, "sample ratio must be strictly positive");
 
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.types = ImmutableList.copyOf(types);
         this.pageBuilder = new PageBuilder(types);
         this.sampleWeightChannel = types.size() - 1;
@@ -130,7 +130,7 @@ public class SampleOperator
     public void addInput(Page page)
     {
         checkState(!finishing, "Operator is already finishing");
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(!pageBuilder.isFull(), "Page buffer is full");
         checkState(this.page == null, "previous page has not been completely processed");
 

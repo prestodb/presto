@@ -49,8 +49,8 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 //
 // NOTE:  As a general strategy the methods should "stage" a change and only
@@ -86,17 +86,17 @@ public class Driver
 
     public Driver(DriverContext driverContext, Operator firstOperator, Operator... otherOperators)
     {
-        this(checkNotNull(driverContext, "driverContext is null"),
+        this(requireNonNull(driverContext, "driverContext is null"),
                 ImmutableList.<Operator>builder()
-                        .add(checkNotNull(firstOperator, "firstOperator is null"))
-                        .add(checkNotNull(otherOperators, "otherOperators is null"))
+                        .add(requireNonNull(firstOperator, "firstOperator is null"))
+                        .add(requireNonNull(otherOperators, "otherOperators is null"))
                         .build());
     }
 
     public Driver(DriverContext driverContext, List<Operator> operators)
     {
-        this.driverContext = checkNotNull(driverContext, "driverContext is null");
-        this.operators = ImmutableList.copyOf(checkNotNull(operators, "operators is null"));
+        this.driverContext = requireNonNull(driverContext, "driverContext is null");
+        this.operators = ImmutableList.copyOf(requireNonNull(operators, "operators is null"));
         checkArgument(!operators.isEmpty(), "There must be at least one operator");
 
         ImmutableMap.Builder<PlanNodeId, SourceOperator> sourceOperators = ImmutableMap.builder();
@@ -290,7 +290,7 @@ public class Driver
     {
         checkLockNotHeld("Can not process for a duration while holding the driver lock");
 
-        checkNotNull(duration, "duration is null");
+        requireNonNull(duration, "duration is null");
 
         long maxRuntime = duration.roundTo(TimeUnit.NANOSECONDS);
 

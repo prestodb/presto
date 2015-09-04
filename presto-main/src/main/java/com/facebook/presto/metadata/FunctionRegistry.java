@@ -196,9 +196,9 @@ import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class FunctionRegistry
@@ -216,8 +216,8 @@ public class FunctionRegistry
 
     public FunctionRegistry(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, boolean experimentalSyntaxEnabled)
     {
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
-        this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingSerde is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
 
         specializedFunctionCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
@@ -407,12 +407,12 @@ public class FunctionRegistry
 
             // lookup the type
             Type type = typeManager.getType(parseTypeSignature(typeName));
-            checkNotNull(type, "Type %s not registered", typeName);
+            requireNonNull(type, format("Type %s not registered", typeName));
 
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
             Type parameterType = typeManager.getType(parameterTypes.get(0));
-            checkNotNull(parameterType, "Type %s not found", parameterTypes.get(0));
+            requireNonNull(parameterType, format("Type %s not found", parameterTypes.get(0)));
 
             MethodHandle methodHandle = null;
             if (parameterType.getJavaType() == type.getJavaType()) {

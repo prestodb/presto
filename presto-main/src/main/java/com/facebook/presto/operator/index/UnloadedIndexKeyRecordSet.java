@@ -36,8 +36,8 @@ import java.util.Set;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class UnloadedIndexKeyRecordSet
         implements RecordSet
@@ -47,9 +47,9 @@ public class UnloadedIndexKeyRecordSet
 
     public UnloadedIndexKeyRecordSet(IndexSnapshot existingSnapshot, Set<Integer> channelsForDistinct, List<Type> types, List<UpdateRequest> requests)
     {
-        checkNotNull(existingSnapshot, "existingSnapshot is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        checkNotNull(requests, "requests is null");
+        requireNonNull(existingSnapshot, "existingSnapshot is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        requireNonNull(requests, "requests is null");
 
         int[] distinctChannels = Ints.toArray(channelsForDistinct);
         int[] normalizedDistinctChannels = new int[distinctChannels.length];
@@ -133,8 +133,8 @@ public class UnloadedIndexKeyRecordSet
 
         public UnloadedIndexKeyRecordCursor(List<Type> types, List<PageAndPositions> pageAndPositions)
         {
-            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-            this.pageAndPositionsIterator = checkNotNull(pageAndPositions, "pageAndPositions is null").iterator();
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.pageAndPositionsIterator = requireNonNull(pageAndPositions, "pageAndPositions is null").iterator();
             this.blocks = new Block[types.size()];
         }
 
@@ -246,8 +246,8 @@ public class UnloadedIndexKeyRecordSet
 
         private PageAndPositions(UpdateRequest updateRequest, IntList positions)
         {
-            this.updateRequest = checkNotNull(updateRequest, "updateRequest is null");
-            this.positions = checkNotNull(positions, "positions is null");
+            this.updateRequest = requireNonNull(updateRequest, "updateRequest is null");
+            this.positions = requireNonNull(positions, "positions is null");
         }
 
         private UpdateRequest getUpdateRequest()

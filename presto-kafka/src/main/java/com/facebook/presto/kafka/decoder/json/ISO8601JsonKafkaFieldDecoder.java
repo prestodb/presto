@@ -25,7 +25,7 @@ import org.joda.time.format.ISODateTimeFormat;
 import java.util.Locale;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * ISO 8601 date format decoder.
@@ -58,8 +58,8 @@ public class ISO8601JsonKafkaFieldDecoder
     @Override
     public KafkaFieldValueProvider decode(JsonNode value, KafkaColumnHandle columnHandle)
     {
-        checkNotNull(columnHandle, "columnHandle is null");
-        checkNotNull(value, "value is null");
+        requireNonNull(columnHandle, "columnHandle is null");
+        requireNonNull(value, "value is null");
 
         return new ISO8601JsonKafkaValueProvider(value, columnHandle);
     }

@@ -18,7 +18,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class QuerySpecification
         extends QueryBody
@@ -40,13 +40,13 @@ public class QuerySpecification
             List<SortItem> orderBy,
             Optional<String> limit)
     {
-        checkNotNull(select, "select is null");
-        checkNotNull(from, "from is null");
-        checkNotNull(where, "where is null");
-        checkNotNull(groupBy, "groupBy is null");
-        checkNotNull(having, "having is null");
-        checkNotNull(orderBy, "orderBy is null");
-        checkNotNull(limit, "limit is null");
+        requireNonNull(select, "select is null");
+        requireNonNull(from, "from is null");
+        requireNonNull(where, "where is null");
+        requireNonNull(groupBy, "groupBy is null");
+        requireNonNull(having, "having is null");
+        requireNonNull(orderBy, "orderBy is null");
+        requireNonNull(limit, "limit is null");
 
         this.select = select;
         this.from = from;

@@ -42,9 +42,9 @@ import java.util.NoSuchElementException;
 
 import static com.facebook.presto.server.ResourceUtil.assertRequest;
 import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Manage queries scheduled on this node
@@ -59,9 +59,9 @@ public class QueryResource
     @Inject
     public QueryResource(QueryManager queryManager, AccessControl accessControl, SessionPropertyManager sessionPropertyManager)
     {
-        this.queryManager = checkNotNull(queryManager, "queryManager is null");
-        this.accessControl = checkNotNull(accessControl, "accessControl is null");
-        this.sessionPropertyManager = checkNotNull(sessionPropertyManager, "sessionPropertyManager is null");
+        this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
     }
 
     @GET
@@ -83,7 +83,7 @@ public class QueryResource
     @Path("{queryId}")
     public Response getQueryInfo(@PathParam("queryId") QueryId queryId)
     {
-        checkNotNull(queryId, "queryId is null");
+        requireNonNull(queryId, "queryId is null");
 
         try {
             QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
@@ -114,7 +114,7 @@ public class QueryResource
     @Path("{queryId}")
     public void cancelQuery(@PathParam("queryId") QueryId queryId)
     {
-        checkNotNull(queryId, "queryId is null");
+        requireNonNull(queryId, "queryId is null");
         queryManager.cancelQuery(queryId);
     }
 
@@ -122,7 +122,7 @@ public class QueryResource
     @Path("stage/{stageId}")
     public void cancelStage(@PathParam("stageId") StageId stageId)
     {
-        checkNotNull(stageId, "stageId is null");
+        requireNonNull(stageId, "stageId is null");
         queryManager.cancelStage(stageId);
     }
 }

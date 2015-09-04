@@ -25,7 +25,7 @@ import io.airlift.slice.Slice;
 import java.io.Closeable;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RecordProjectOperator
         implements Operator, Closeable
@@ -46,8 +46,8 @@ public class RecordProjectOperator
 
     public RecordProjectOperator(OperatorContext operatorContext, List<Type> columnTypes, RecordCursor cursor)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.cursor = checkNotNull(cursor, "cursor is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.cursor = requireNonNull(cursor, "cursor is null");
 
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (Type columnType : columnTypes) {

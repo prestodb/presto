@@ -29,7 +29,7 @@ import java.util.Objects;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TableColumn
 {
@@ -40,9 +40,9 @@ public class TableColumn
 
     public TableColumn(SchemaTableName table, String columnName, Type dataType, long columnId)
     {
-        this.table = checkNotNull(table, "table is null");
-        this.columnName = checkNotNull(columnName, "columnName is null");
-        this.dataType = checkNotNull(dataType, "dataType is null");
+        this.table = requireNonNull(table, "table is null");
+        this.columnName = requireNonNull(columnName, "columnName is null");
+        this.dataType = requireNonNull(dataType, "dataType is null");
         this.columnId = columnId;
     }
 
@@ -115,7 +115,7 @@ public class TableColumn
         @Inject
         public Mapper(TypeManager typeManager)
         {
-            this.typeManager = checkNotNull(typeManager, "typeManager is null");
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
         }
 
         @Override

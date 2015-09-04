@@ -23,7 +23,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class SimpleRange
@@ -36,8 +36,8 @@ public final class SimpleRange
             @JsonProperty("low") Optional<SimpleMarker> low,
             @JsonProperty("high") Optional<SimpleMarker> high)
     {
-        this.low = checkNotNull(low, "low is null");
-        this.high = checkNotNull(high, "high is null");
+        this.low = requireNonNull(low, "low is null");
+        this.high = requireNonNull(high, "high is null");
     }
 
     @JsonProperty
@@ -54,7 +54,7 @@ public final class SimpleRange
 
     public static SimpleRange fromRange(Range range)
     {
-        checkNotNull(range, "range is null");
+        requireNonNull(range, "range is null");
         return new SimpleRange(
                 Optional.ofNullable(SimpleMarker.fromMarker(range.getLow())),
                 Optional.ofNullable(SimpleMarker.fromMarker(range.getHigh())));

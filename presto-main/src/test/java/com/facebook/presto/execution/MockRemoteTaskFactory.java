@@ -58,9 +58,9 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.StateMachine.StateChangeListener;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.toFailures;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.Objects.requireNonNull;
 
 public class MockRemoteTaskFactory
         implements RemoteTaskFactory
@@ -142,7 +142,7 @@ public class MockRemoteTaskFactory
                 Executor executor,
                 Multimap<PlanNodeId, Split> initialSplits)
         {
-            this.taskStateMachine = new TaskStateMachine(checkNotNull(taskId, "taskId is null"), checkNotNull(executor, "executor is null"));
+            this.taskStateMachine = new TaskStateMachine(requireNonNull(taskId, "taskId is null"), requireNonNull(executor, "executor is null"));
 
             MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
             MemoryPool memorySystemPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
@@ -150,9 +150,9 @@ public class MockRemoteTaskFactory
 
             this.location = URI.create("fake://task/" + taskId);
 
-            this.sharedBuffer = new SharedBuffer(taskId, executor, checkNotNull(new DataSize(1, DataSize.Unit.BYTE), "maxBufferSize is null"));
-            this.fragment = checkNotNull(fragment, "fragment is null");
-            this.nodeId = checkNotNull(nodeId, "nodeId is null");
+            this.sharedBuffer = new SharedBuffer(taskId, executor, requireNonNull(new DataSize(1, DataSize.Unit.BYTE), "maxBufferSize is null"));
+            this.fragment = requireNonNull(fragment, "fragment is null");
+            this.nodeId = requireNonNull(nodeId, "nodeId is null");
             splits.putAll(initialSplits);
         }
 
@@ -203,7 +203,7 @@ public class MockRemoteTaskFactory
         @Override
         public void addSplits(PlanNodeId sourceId, Iterable<Split> splits)
         {
-            checkNotNull(splits, "splits is null");
+            requireNonNull(splits, "splits is null");
             for (Split split : splits) {
                 this.splits.put(sourceId, split);
             }

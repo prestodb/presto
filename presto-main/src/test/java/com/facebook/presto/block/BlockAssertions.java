@@ -31,7 +31,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
 public final class BlockAssertions
@@ -75,7 +75,7 @@ public final class BlockAssertions
 
     public static Block createStringsBlock(String... values)
     {
-        checkNotNull(values, "varargs 'values' is null");
+        requireNonNull(values, "varargs 'values' is null");
 
         return createStringsBlock(Arrays.asList(values));
     }
@@ -109,7 +109,7 @@ public final class BlockAssertions
 
     public static Block createBooleansBlock(Boolean... values)
     {
-        checkNotNull(values, "varargs 'values' is null");
+        requireNonNull(values, "varargs 'values' is null");
 
         return createBooleansBlock(Arrays.asList(values));
     }
@@ -154,7 +154,7 @@ public final class BlockAssertions
 
     public static Block createLongsBlock(Long... values)
     {
-        checkNotNull(values, "varargs 'values' is null");
+        requireNonNull(values, "varargs 'values' is null");
 
         return createLongsBlock(Arrays.asList(values));
     }
@@ -208,7 +208,7 @@ public final class BlockAssertions
 
     public static Block createDoublesBlock(Double... values)
     {
-        checkNotNull(values, "varargs 'values' is null");
+        requireNonNull(values, "varargs 'values' is null");
 
         return createDoublesBlock(Arrays.asList(values));
     }

@@ -23,7 +23,7 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HdfsEnvironment
 {
@@ -38,8 +38,8 @@ public class HdfsEnvironment
     @Inject
     public HdfsEnvironment(HdfsConfiguration hdfsConfiguration, HiveClientConfig config)
     {
-        this.hdfsConfiguration = checkNotNull(hdfsConfiguration, "hdfsConfiguration is null");
-        this.verifyChecksum = checkNotNull(config, "config is null").isVerifyChecksum();
+        this.hdfsConfiguration = requireNonNull(hdfsConfiguration, "hdfsConfiguration is null");
+        this.verifyChecksum = requireNonNull(config, "config is null").isVerifyChecksum();
     }
 
     public Configuration getConfiguration(Path path)

@@ -38,7 +38,7 @@ import java.util.Map;
 import static com.facebook.presto.plugin.jdbc.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class JdbcMetadata
         implements ConnectorMetadata
@@ -49,9 +49,9 @@ public class JdbcMetadata
     @Inject
     public JdbcMetadata(JdbcConnectorId connectorId, JdbcClient jdbcClient, JdbcMetadataConfig config)
     {
-        this.jdbcClient = checkNotNull(jdbcClient, "client is null");
+        this.jdbcClient = requireNonNull(jdbcClient, "client is null");
 
-        checkNotNull(config, "config is null");
+        requireNonNull(config, "config is null");
         allowDropTable = config.isAllowDropTable();
     }
 

@@ -19,7 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class TableLayoutHandle
 {
@@ -31,8 +31,8 @@ public final class TableLayoutHandle
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("connectorHandle") ConnectorTableLayoutHandle layout)
     {
-        checkNotNull(connectorId, "connectorId is null");
-        checkNotNull(layout, "layout is null");
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(layout, "layout is null");
 
         this.connectorId = connectorId;
         this.layout = layout;

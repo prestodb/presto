@@ -97,7 +97,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Verify.verify;
@@ -121,18 +120,18 @@ public class ExpressionInterpreter
 
     public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes)
     {
-        checkNotNull(expression, "expression is null");
-        checkNotNull(metadata, "metadata is null");
-        checkNotNull(session, "session is null");
+        requireNonNull(expression, "expression is null");
+        requireNonNull(metadata, "metadata is null");
+        requireNonNull(session, "session is null");
 
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, false);
     }
 
     public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes)
     {
-        checkNotNull(expression, "expression is null");
-        checkNotNull(metadata, "metadata is null");
-        checkNotNull(session, "session is null");
+        requireNonNull(expression, "expression is null");
+        requireNonNull(metadata, "metadata is null");
+        requireNonNull(session, "session is null");
 
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, true);
     }

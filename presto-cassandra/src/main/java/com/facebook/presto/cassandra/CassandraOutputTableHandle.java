@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class CassandraOutputTableHandle
          implements ConnectorOutputTableHandle
@@ -46,13 +46,13 @@ public class CassandraOutputTableHandle
             @JsonProperty("tableOwner") String tableOwner)
     {
         this.sampled = sampled;
-        this.connectorId = checkNotNull(connectorId, "clientId is null");
-        this.schemaName = checkNotNull(schemaName, "schemaName is null");
-        this.tableName = checkNotNull(tableName, "tableName is null");
-        this.tableOwner = checkNotNull(tableOwner, "tableOwner is null");
+        this.connectorId = requireNonNull(connectorId, "clientId is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.tableOwner = requireNonNull(tableOwner, "tableOwner is null");
 
-        checkNotNull(columnNames, "columnNames is null");
-        checkNotNull(columnTypes, "columnTypes is null");
+        requireNonNull(columnNames, "columnNames is null");
+        requireNonNull(columnTypes, "columnTypes is null");
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.columnTypes = ImmutableList.copyOf(columnTypes);

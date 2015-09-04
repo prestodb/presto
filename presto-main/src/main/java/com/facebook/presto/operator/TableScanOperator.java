@@ -32,8 +32,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class TableScanOperator
         implements SourceOperator, Closeable
@@ -56,10 +56,10 @@ public class TableScanOperator
                 Iterable<ColumnHandle> columns)
         {
             this.operatorId = operatorId;
-            this.sourceId = checkNotNull(sourceId, "sourceId is null");
-            this.types = checkNotNull(types, "types is null");
-            this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceManager is null");
-            this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
+            this.sourceId = requireNonNull(sourceId, "sourceId is null");
+            this.types = requireNonNull(types, "types is null");
+            this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceManager is null");
+            this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         }
 
         @Override
@@ -116,11 +116,11 @@ public class TableScanOperator
             List<Type> types,
             Iterable<ColumnHandle> columns)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.planNodeId = checkNotNull(planNodeId, "planNodeId is null");
-        this.types = checkNotNull(types, "types is null");
-        this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceManager is null");
-        this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+        this.types = requireNonNull(types, "types is null");
+        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceManager is null");
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
     }
 
     @Override
@@ -138,7 +138,7 @@ public class TableScanOperator
     @Override
     public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
-        checkNotNull(split, "split is null");
+        requireNonNull(split, "split is null");
         checkState(this.split == null, "Table scan split already set");
 
         if (finished) {

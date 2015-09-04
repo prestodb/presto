@@ -18,8 +18,8 @@ import com.google.inject.Module;
 import io.airlift.configuration.ConfigurationAwareModule;
 import io.airlift.configuration.ConfigurationFactory;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class ConditionalModule
         implements ConfigurationAwareModule
@@ -36,15 +36,15 @@ public class ConditionalModule
 
     private ConditionalModule(Module module, String property, String expectedValue)
     {
-        this.module = checkNotNull(module, "module is null");
-        this.property = checkNotNull(property, "property is null");
-        this.expectedValue = checkNotNull(expectedValue, "expectedValue is null");
+        this.module = requireNonNull(module, "module is null");
+        this.property = requireNonNull(property, "property is null");
+        this.expectedValue = requireNonNull(expectedValue, "expectedValue is null");
     }
 
     @Override
     public void setConfigurationFactory(ConfigurationFactory configurationFactory)
     {
-        this.configurationFactory = checkNotNull(configurationFactory, "configurationFactory is null");
+        this.configurationFactory = requireNonNull(configurationFactory, "configurationFactory is null");
         configurationFactory.consumeProperty(property);
 
         // consume properties if we are not going to install the module

@@ -32,7 +32,7 @@ import java.util.Map.Entry;
 import static com.facebook.presto.orc.OrcDataSourceUtils.getDiskRangeSlice;
 import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractOrcDataSource
         implements OrcDataSource
@@ -46,14 +46,14 @@ public abstract class AbstractOrcDataSource
 
     public AbstractOrcDataSource(String name, long size, DataSize maxMergeDistance, DataSize maxBufferSize, DataSize streamBufferSize)
     {
-        this.name = checkNotNull(name, "name is null");
+        this.name = requireNonNull(name, "name is null");
 
         this.size = size;
         checkArgument(size >= 0, "size is negative");
 
-        this.maxMergeDistance = checkNotNull(maxMergeDistance, "maxMergeDistance is null");
-        this.maxBufferSize = checkNotNull(maxBufferSize, "maxBufferSize is null");
-        this.streamBufferSize = checkNotNull(streamBufferSize, "streamBufferSize is null");
+        this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
+        this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
+        this.streamBufferSize = requireNonNull(streamBufferSize, "streamBufferSize is null");
     }
 
     protected abstract void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
@@ -93,7 +93,7 @@ public abstract class AbstractOrcDataSource
     public final <K> Map<K, FixedLengthSliceInput> readFully(Map<K, DiskRange> diskRanges)
             throws IOException
     {
-        checkNotNull(diskRanges, "diskRanges is null");
+        requireNonNull(diskRanges, "diskRanges is null");
 
         if (diskRanges.isEmpty()) {
             return ImmutableMap.of();

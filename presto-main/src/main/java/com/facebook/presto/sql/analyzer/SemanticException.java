@@ -15,7 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.Node;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SemanticException
         extends RuntimeException
@@ -27,8 +27,8 @@ public class SemanticException
     {
         super(String.format(format, args));
 
-        checkNotNull(code, "code is null");
-        checkNotNull(node, "node is null");
+        requireNonNull(code, "code is null");
+        requireNonNull(node, "node is null");
 
         this.code = code;
         this.node = node;

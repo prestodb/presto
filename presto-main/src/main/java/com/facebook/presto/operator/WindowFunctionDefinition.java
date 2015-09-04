@@ -16,10 +16,11 @@ package com.facebook.presto.operator;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Preconditions;
 
 import java.util.Arrays;
 import java.util.List;
+
+import static java.util.Objects.requireNonNull;
 
 public class WindowFunctionDefinition
 {
@@ -29,18 +30,18 @@ public class WindowFunctionDefinition
 
     public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, List<Integer> inputs)
     {
-        Preconditions.checkNotNull(functionSupplier, "functionSupplier is null");
-        Preconditions.checkNotNull(type, "type is null");
-        Preconditions.checkNotNull(inputs, "inputs is null");
+        requireNonNull(functionSupplier, "functionSupplier is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(inputs, "inputs is null");
 
         return new WindowFunctionDefinition(functionSupplier, type, inputs);
     }
 
     public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, Integer... inputs)
     {
-        Preconditions.checkNotNull(functionSupplier, "functionSupplier is null");
-        Preconditions.checkNotNull(type, "type is null");
-        Preconditions.checkNotNull(inputs, "inputs is null");
+        requireNonNull(functionSupplier, "functionSupplier is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(inputs, "inputs is null");
 
         return window(functionSupplier, type, Arrays.asList(inputs));
     }

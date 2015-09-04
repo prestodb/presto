@@ -41,9 +41,9 @@ import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.util.Collections.unmodifiableSortedMap;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -64,11 +64,11 @@ public abstract class AbstractTestType
 
     protected AbstractTestType(Type type, Class<?> objectValueType, Block testBlock, Block expectedValues)
     {
-        this.type = checkNotNull(type, "type is null");
-        this.objectValueType = checkNotNull(objectValueType, "objectValueType is null");
-        this.testBlock = checkNotNull(testBlock, "testBlock is null");
+        this.type = requireNonNull(type, "type is null");
+        this.objectValueType = requireNonNull(objectValueType, "objectValueType is null");
+        this.testBlock = requireNonNull(testBlock, "testBlock is null");
 
-        checkNotNull(expectedValues, "expectedValues is null");
+        requireNonNull(expectedValues, "expectedValues is null");
         this.expectedStackValues = indexStackValues(type, expectedValues);
         this.expectedObjectValues = indexObjectValues(type, expectedValues);
         this.testBlockWithNulls = createAlternatingNullsBlock(testBlock);

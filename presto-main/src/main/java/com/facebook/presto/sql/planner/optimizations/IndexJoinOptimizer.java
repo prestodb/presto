@@ -57,7 +57,6 @@ import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static java.util.Objects.requireNonNull;
@@ -77,11 +76,11 @@ public class IndexJoinOptimizer
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, com.facebook.presto.spi.type.Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        checkNotNull(plan, "plan is null");
-        checkNotNull(session, "session is null");
-        checkNotNull(types, "types is null");
-        checkNotNull(symbolAllocator, "symbolAllocator is null");
-        checkNotNull(idAllocator, "idAllocator is null");
+        requireNonNull(plan, "plan is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(types, "types is null");
+        requireNonNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(idAllocator, "idAllocator is null");
 
         return PlanRewriter.rewriteWith(new Rewriter(symbolAllocator, idAllocator, indexManager, metadata, session), plan, null);
     }
@@ -211,9 +210,9 @@ public class IndexJoinOptimizer
         private IndexSourceRewriter(IndexManager indexManager, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.symbolAllocator = checkNotNull(symbolAllocator, "symbolAllocator is null");
-            this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
-            this.indexManager = checkNotNull(indexManager, "indexManager is null");
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+            this.indexManager = requireNonNull(indexManager, "indexManager is null");
             this.session = requireNonNull(session, "session is null");
         }
 
@@ -386,8 +385,8 @@ public class IndexJoinOptimizer
             public Context(Set<Symbol> lookupSymbols, AtomicBoolean success)
             {
                 checkArgument(!lookupSymbols.isEmpty(), "lookupSymbols can not be empty");
-                this.lookupSymbols = ImmutableSet.copyOf(checkNotNull(lookupSymbols, "lookupSymbols is null"));
-                this.success = checkNotNull(success, "success is null");
+                this.lookupSymbols = ImmutableSet.copyOf(requireNonNull(lookupSymbols, "lookupSymbols is null"));
+                this.success = requireNonNull(success, "success is null");
             }
 
             public Set<Symbol> getLookupSymbols()

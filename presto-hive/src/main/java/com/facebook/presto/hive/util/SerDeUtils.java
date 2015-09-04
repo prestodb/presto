@@ -54,7 +54,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class SerDeUtils
 {
@@ -62,7 +62,7 @@ public final class SerDeUtils
 
     public static Block getBlockObject(Type type, Object object, ObjectInspector objectInspector)
     {
-        return checkNotNull(serializeObject(type, null, object, objectInspector), "serialized result is null");
+        return requireNonNull(serializeObject(type, null, object, objectInspector), "serialized result is null");
     }
 
     public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector)
@@ -83,7 +83,7 @@ public final class SerDeUtils
 
     private static void serializePrimitive(BlockBuilder builder, Object object, PrimitiveObjectInspector inspector)
     {
-        checkNotNull(builder, "parent builder is null");
+        requireNonNull(builder, "parent builder is null");
 
         if (object == null) {
             builder.appendNull();
@@ -132,7 +132,7 @@ public final class SerDeUtils
     {
         List<?> list = inspector.getList(object);
         if (list == null) {
-            checkNotNull(builder, "parent builder is null").appendNull();
+            requireNonNull(builder, "parent builder is null").appendNull();
             return null;
         }
 
@@ -166,7 +166,7 @@ public final class SerDeUtils
     {
         Map<?, ?> map = inspector.getMap(object);
         if (map == null) {
-            checkNotNull(builder, "parent builder is null").appendNull();
+            requireNonNull(builder, "parent builder is null").appendNull();
             return null;
         }
 
@@ -205,7 +205,7 @@ public final class SerDeUtils
     private static Block serializeStruct(Type type, BlockBuilder builder, Object object, StructObjectInspector inspector)
     {
         if (object == null) {
-            checkNotNull(builder, "parent builder is null").appendNull();
+            requireNonNull(builder, "parent builder is null").appendNull();
             return null;
         }
 

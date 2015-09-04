@@ -23,7 +23,7 @@ import java.util.List;
 
 import static com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class DynamicTupleFilterFactory
 {
@@ -34,11 +34,11 @@ public class DynamicTupleFilterFactory
 
     public DynamicTupleFilterFactory(int filterOperatorId, int[] tupleFilterChannels, int[] outputFilterChannels, List<Type> outputTypes)
     {
-        checkNotNull(tupleFilterChannels, "tupleFilterChannels is null");
+        requireNonNull(tupleFilterChannels, "tupleFilterChannels is null");
         checkArgument(tupleFilterChannels.length > 0, "Must have at least one tupleFilterChannel");
-        checkNotNull(outputFilterChannels, "outputFilterChannels is null");
+        requireNonNull(outputFilterChannels, "outputFilterChannels is null");
         checkArgument(outputFilterChannels.length == tupleFilterChannels.length, "outputFilterChannels must have same length as tupleFilterChannels");
-        checkNotNull(outputTypes, "outputTypes is null");
+        requireNonNull(outputTypes, "outputTypes is null");
         checkArgument(outputTypes.size() >= outputFilterChannels.length, "Must have at least as many output channels as those used for filtering");
 
         this.filterOperatorId = filterOperatorId;

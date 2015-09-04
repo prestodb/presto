@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class QualifiedName
 {
@@ -31,29 +32,29 @@ public class QualifiedName
 
     public static QualifiedName of(QualifiedName prefix, String suffix)
     {
-        Preconditions.checkNotNull(prefix, "prefix is null");
-        Preconditions.checkNotNull(suffix, "suffix is null");
+        requireNonNull(prefix, "prefix is null");
+        requireNonNull(suffix, "suffix is null");
 
         return new QualifiedName(Iterables.concat(prefix.getParts(), ImmutableList.of(suffix)));
     }
 
     public static QualifiedName of(String prefix, QualifiedName suffix)
     {
-        Preconditions.checkNotNull(prefix, "prefix is null");
-        Preconditions.checkNotNull(suffix, "suffix is null");
+        requireNonNull(prefix, "prefix is null");
+        requireNonNull(suffix, "suffix is null");
 
         return QualifiedName.of(Iterables.concat(ImmutableList.of(prefix), suffix.getParts()));
     }
 
     public static QualifiedName of(String first, String... rest)
     {
-        Preconditions.checkNotNull(first, "first is null");
+        requireNonNull(first, "first is null");
         return new QualifiedName(ImmutableList.copyOf(Lists.asList(first, rest)));
     }
 
     public static QualifiedName of(Iterable<String> parts)
     {
-        Preconditions.checkNotNull(parts, "parts is null");
+        requireNonNull(parts, "parts is null");
         Preconditions.checkArgument(!Iterables.isEmpty(parts), "parts is empty");
 
         return new QualifiedName(parts);
@@ -61,7 +62,7 @@ public class QualifiedName
 
     public static QualifiedName parseQualifiedName(String qualifiedName)
     {
-        Preconditions.checkNotNull(qualifiedName, "qualifiedName is null");
+        requireNonNull(qualifiedName, "qualifiedName is null");
 
         return of(Splitter.on('.').split(qualifiedName));
     }
@@ -73,7 +74,7 @@ public class QualifiedName
 
     public QualifiedName(Iterable<String> parts)
     {
-        Preconditions.checkNotNull(parts, "parts");
+        requireNonNull(parts, "parts");
         Preconditions.checkArgument(!Iterables.isEmpty(parts), "parts is empty");
 
         this.parts = ImmutableList.copyOf(Iterables.transform(parts, s -> s.toLowerCase(ENGLISH)));

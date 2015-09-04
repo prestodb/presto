@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TableLayout
 {
@@ -31,8 +31,8 @@ public class TableLayout
 
     public TableLayout(TableLayoutHandle handle, ConnectorTableLayout layout)
     {
-        checkNotNull(handle, "handle is null");
-        checkNotNull(layout, "layout is null");
+        requireNonNull(handle, "handle is null");
+        requireNonNull(layout, "layout is null");
 
         this.handle = handle;
         this.layout = layout;

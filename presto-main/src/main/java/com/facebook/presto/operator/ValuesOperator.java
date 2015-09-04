@@ -21,8 +21,8 @@ import com.google.common.collect.Iterators;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class ValuesOperator
         implements Operator
@@ -38,8 +38,8 @@ public class ValuesOperator
         public ValuesOperatorFactory(int operatorId, List<Type> types, List<Page> pages)
         {
             this.operatorId = operatorId;
-            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-            this.pages = ImmutableList.copyOf(checkNotNull(pages, "pages is null"));
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.pages = ImmutableList.copyOf(requireNonNull(pages, "pages is null"));
         }
 
         @Override
@@ -69,10 +69,10 @@ public class ValuesOperator
 
     public ValuesOperator(OperatorContext operatorContext, List<Type> types, List<Page> pages)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
 
-        checkNotNull(pages, "pages is null");
+        requireNonNull(pages, "pages is null");
 
         this.pages = ImmutableList.copyOf(pages).iterator();
     }

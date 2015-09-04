@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class CassandraClientConfig
@@ -257,7 +257,7 @@ public class CassandraClientConfig
     @Config("cassandra.transport-factory-options")
     public CassandraClientConfig setTransportFactoryOptions(String transportFactoryOptions)
     {
-        checkNotNull(transportFactoryOptions, "transportFactoryOptions is null");
+        requireNonNull(transportFactoryOptions, "transportFactoryOptions is null");
         this.transportFactoryOptions = Splitter.on(',').omitEmptyStrings().trimResults().withKeyValueSeparator("=").split(transportFactoryOptions);
         return this;
     }

@@ -31,10 +31,10 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static java.util.Objects.requireNonNull;
 
 public class DeleteOperator
         implements Operator
@@ -91,7 +91,7 @@ public class DeleteOperator
 
     public DeleteOperator(OperatorContext operatorContext, int rowIdChannel)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.rowIdChannel = rowIdChannel;
     }
 
@@ -113,7 +113,7 @@ public class DeleteOperator
         if (state == State.RUNNING) {
             state = State.FINISHING;
             commitFuture = pageSource().commit();
-            checkNotNull(commitFuture, "commitFuture is null");
+            requireNonNull(commitFuture, "commitFuture is null");
         }
     }
 
@@ -132,7 +132,7 @@ public class DeleteOperator
     @Override
     public void addInput(Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(state == State.RUNNING, "Operator is %s", state);
 
         Block rowIds = page.getBlock(rowIdChannel);
@@ -196,7 +196,7 @@ public class DeleteOperator
 
     public void setPageSource(Supplier<Optional<UpdatablePageSource>> pageSource)
     {
-        this.pageSource = checkNotNull(pageSource, "pageSource is null");
+        this.pageSource = requireNonNull(pageSource, "pageSource is null");
     }
 
     private UpdatablePageSource pageSource()

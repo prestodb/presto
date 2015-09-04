@@ -26,8 +26,8 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class UnnestOperator
         implements Operator
@@ -47,11 +47,11 @@ public class UnnestOperator
         public UnnestOperatorFactory(int operatorId, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality)
         {
             this.operatorId = operatorId;
-            this.replicateChannels = ImmutableList.copyOf(checkNotNull(replicateChannels, "replicateChannels is null"));
-            this.replicateTypes = ImmutableList.copyOf(checkNotNull(replicateTypes, "replicateTypes is null"));
+            this.replicateChannels = ImmutableList.copyOf(requireNonNull(replicateChannels, "replicateChannels is null"));
+            this.replicateTypes = ImmutableList.copyOf(requireNonNull(replicateTypes, "replicateTypes is null"));
             checkArgument(replicateChannels.size() == replicateTypes.size(), "replicateChannels and replicateTypes do not match");
-            this.unnestChannels = ImmutableList.copyOf(checkNotNull(unnestChannels, "unnestChannels is null"));
-            this.unnestTypes = ImmutableList.copyOf(checkNotNull(unnestTypes, "unnestTypes is null"));
+            this.unnestChannels = ImmutableList.copyOf(requireNonNull(unnestChannels, "unnestChannels is null"));
+            this.unnestTypes = ImmutableList.copyOf(requireNonNull(unnestTypes, "unnestTypes is null"));
             checkArgument(unnestChannels.size() == unnestTypes.size(), "unnestChannels and unnestTypes do not match");
             this.withOrdinality = withOrdinality;
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.<Type>builder()
@@ -100,11 +100,11 @@ public class UnnestOperator
 
     public UnnestOperator(OperatorContext operatorContext, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.replicateChannels = ImmutableList.copyOf(checkNotNull(replicateChannels, "replicateChannels is null"));
-        this.replicateTypes = ImmutableList.copyOf(checkNotNull(replicateTypes, "replicateTypes is null"));
-        this.unnestChannels = ImmutableList.copyOf(checkNotNull(unnestChannels, "unnestChannels is null"));
-        this.unnestTypes = ImmutableList.copyOf(checkNotNull(unnestTypes, "unnestTypes is null"));
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.replicateChannels = ImmutableList.copyOf(requireNonNull(replicateChannels, "replicateChannels is null"));
+        this.replicateTypes = ImmutableList.copyOf(requireNonNull(replicateTypes, "replicateTypes is null"));
+        this.unnestChannels = ImmutableList.copyOf(requireNonNull(unnestChannels, "unnestChannels is null"));
+        this.unnestTypes = ImmutableList.copyOf(requireNonNull(unnestTypes, "unnestTypes is null"));
         this.withOrdinality = withOrdinality;
         checkArgument(replicateChannels.size() == replicateTypes.size(), "replicate channels or types has wrong size");
         checkArgument(unnestChannels.size() == unnestTypes.size(), "unnest channels or types has wrong size");
@@ -163,7 +163,7 @@ public class UnnestOperator
     public void addInput(Page page)
     {
         checkState(!finishing, "Operator is already finishing");
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(currentPage == null, "currentPage is not null");
         checkState(!pageBuilder.isFull(), "Page buffer is full");
 

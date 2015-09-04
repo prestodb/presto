@@ -17,7 +17,6 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
 import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.ParameterizedType;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import org.objectweb.asm.MethodVisitor;
@@ -46,6 +45,7 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.instruction.FieldInstruction.getStaticInstruction;
 import static com.facebook.presto.byteCode.instruction.InvokeInstruction.invokeStatic;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 @SuppressWarnings("UnusedDeclaration")
 public abstract class Constant
@@ -108,7 +108,7 @@ public abstract class Constant
 
     public static Constant loadNumber(Number value)
     {
-        Preconditions.checkNotNull(value, "value is null");
+        requireNonNull(value, "value is null");
         if (value instanceof Byte) {
             return loadInt((value).intValue());
         }
@@ -132,19 +132,19 @@ public abstract class Constant
 
     public static Constant loadString(String value)
     {
-        Preconditions.checkNotNull(value, "value is null");
+        requireNonNull(value, "value is null");
         return new StringConstant(value);
     }
 
     public static Constant loadClass(Class<?> value)
     {
-        Preconditions.checkNotNull(value, "value is null");
+        requireNonNull(value, "value is null");
         return new ClassConstant(type(value));
     }
 
     public static Constant loadClass(ParameterizedType value)
     {
-        Preconditions.checkNotNull(value, "value is null");
+        requireNonNull(value, "value is null");
         return new ClassConstant(value);
     }
 

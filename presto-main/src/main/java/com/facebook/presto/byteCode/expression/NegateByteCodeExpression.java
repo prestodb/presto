@@ -23,7 +23,7 @@ import java.util.List;
 
 import static com.facebook.presto.byteCode.expression.ArithmeticByteCodeExpression.getNumericOpCode;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 class NegateByteCodeExpression
         extends ByteCodeExpression
@@ -33,7 +33,7 @@ class NegateByteCodeExpression
 
     NegateByteCodeExpression(ByteCodeExpression value)
     {
-        super(checkNotNull(value, "value is null").getType());
+        super(requireNonNull(value, "value is null").getType());
         this.value = value;
 
         Class<?> type = value.getType().getPrimitiveType();

@@ -55,13 +55,13 @@ import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 
 public class HiveSplitManager
@@ -124,18 +124,18 @@ public class HiveSplitManager
             int maxInitialSplits,
             boolean recursiveDfsWalkerEnabled)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
-        this.metastore = checkNotNull(metastore, "metastore is null");
-        this.namenodeStats = checkNotNull(namenodeStats, "namenodeStats is null");
-        this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.directoryLister = checkNotNull(directoryLister, "directoryLister is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.metastore = requireNonNull(metastore, "metastore is null");
+        this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.executor = new ErrorCodedExecutor(executor);
         checkArgument(maxOutstandingSplits >= 1, "maxOutstandingSplits must be at least 1");
         this.maxOutstandingSplits = maxOutstandingSplits;
         this.minPartitionBatchSize = minPartitionBatchSize;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
-        this.maxSplitSize = checkNotNull(maxSplitSize, "maxSplitSize is null");
-        this.maxInitialSplitSize = checkNotNull(maxInitialSplitSize, "maxInitialSplitSize is null");
+        this.maxSplitSize = requireNonNull(maxSplitSize, "maxSplitSize is null");
+        this.maxInitialSplitSize = requireNonNull(maxInitialSplitSize, "maxInitialSplitSize is null");
         this.maxInitialSplits = maxInitialSplits;
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
     }
@@ -302,7 +302,7 @@ public class HiveSplitManager
 
         private ErrorCodedExecutor(Executor delegate)
         {
-            this.delegate = checkNotNull(delegate, "delegate is null");
+            this.delegate = requireNonNull(delegate, "delegate is null");
         }
 
         @Override

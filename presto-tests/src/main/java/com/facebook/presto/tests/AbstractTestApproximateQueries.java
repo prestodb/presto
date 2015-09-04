@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractTestApproximateQueries
         extends AbstractTestQueries
@@ -34,13 +34,13 @@ public abstract class AbstractTestApproximateQueries
 
     protected AbstractTestApproximateQueries(QueryRunner queryRunner, Session sampledSession)
     {
-        this(queryRunner, Optional.of(checkNotNull(sampledSession, "sampledSession is null")));
+        this(queryRunner, Optional.of(requireNonNull(sampledSession, "sampledSession is null")));
     }
 
     private AbstractTestApproximateQueries(QueryRunner queryRunner, Optional<Session> sampledSession)
     {
         super(queryRunner);
-        this.sampledSession = checkNotNull(sampledSession, "sampledSession is null");
+        this.sampledSession = requireNonNull(sampledSession, "sampledSession is null");
     }
 
     @Test

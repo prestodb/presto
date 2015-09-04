@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class With
         extends Node
@@ -30,7 +30,7 @@ public class With
 
     public With(boolean recursive, List<WithQuery> queries)
     {
-        checkNotNull(queries, "queries is null");
+        requireNonNull(queries, "queries is null");
         checkArgument(!queries.isEmpty(), "queries is empty");
 
         this.recursive = recursive;

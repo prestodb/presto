@@ -39,7 +39,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class QueryMonitor
@@ -54,10 +54,10 @@ public class QueryMonitor
     @Inject
     public QueryMonitor(ObjectMapper objectMapper, EventClient eventClient, NodeInfo nodeInfo, NodeVersion nodeVersion)
     {
-        this.objectMapper = checkNotNull(objectMapper, "objectMapper is null");
-        this.eventClient = checkNotNull(eventClient, "eventClient is null");
-        this.environment = checkNotNull(nodeInfo, "nodeInfo is null").getEnvironment();
-        this.serverVersion = checkNotNull(nodeVersion, "nodeVersion is null").toString();
+        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.eventClient = requireNonNull(eventClient, "eventClient is null");
+        this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
+        this.serverVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
     }
 
     public void createdEvent(QueryInfo queryInfo)

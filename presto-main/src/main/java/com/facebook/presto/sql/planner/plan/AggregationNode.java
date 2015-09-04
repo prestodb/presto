@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class AggregationNode
@@ -67,15 +67,15 @@ public class AggregationNode
         super(id);
 
         this.source = source;
-        this.groupByKeys = ImmutableList.copyOf(checkNotNull(groupByKeys, "groupByKeys is null"));
-        this.aggregations = ImmutableMap.copyOf(checkNotNull(aggregations, "aggregations is null"));
-        this.functions = ImmutableMap.copyOf(checkNotNull(functions, "functions is null"));
-        this.masks = ImmutableMap.copyOf(checkNotNull(masks, "masks is null"));
+        this.groupByKeys = ImmutableList.copyOf(requireNonNull(groupByKeys, "groupByKeys is null"));
+        this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
+        this.functions = ImmutableMap.copyOf(requireNonNull(functions, "functions is null"));
+        this.masks = ImmutableMap.copyOf(requireNonNull(masks, "masks is null"));
         for (Symbol mask : masks.keySet()) {
             checkArgument(aggregations.containsKey(mask), "mask does not match any aggregations");
         }
         this.step = step;
-        this.sampleWeight = checkNotNull(sampleWeight, "sampleWeight is null");
+        this.sampleWeight = requireNonNull(sampleWeight, "sampleWeight is null");
         checkArgument(confidence >= 0 && confidence <= 1, "confidence must be in [0, 1]");
         this.confidence = confidence;
         this.hashSymbol = hashSymbol;

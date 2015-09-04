@@ -16,7 +16,7 @@ package com.facebook.presto.sql.tree;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class JoinOn
         extends JoinCriteria
@@ -25,7 +25,7 @@ public class JoinOn
 
     public JoinOn(Expression expression)
     {
-        this.expression = checkNotNull(expression, "expression is null");
+        this.expression = requireNonNull(expression, "expression is null");
     }
 
     public Expression getExpression()

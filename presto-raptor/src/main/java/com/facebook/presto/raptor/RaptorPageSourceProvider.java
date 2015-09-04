@@ -29,7 +29,7 @@ import java.util.UUID;
 import java.util.function.Function;
 
 import static com.facebook.presto.raptor.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class RaptorPageSourceProvider
@@ -40,7 +40,7 @@ public class RaptorPageSourceProvider
     @Inject
     public RaptorPageSourceProvider(StorageManager storageManager)
     {
-        this.storageManager = checkNotNull(storageManager, "storageManager is null");
+        this.storageManager = requireNonNull(storageManager, "storageManager is null");
     }
 
     @Override

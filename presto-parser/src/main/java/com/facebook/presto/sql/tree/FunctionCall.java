@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class FunctionCall
         extends Expression
@@ -34,9 +34,9 @@ public class FunctionCall
 
     public FunctionCall(QualifiedName name, Optional<Window> window, boolean distinct, List<Expression> arguments)
     {
-        checkNotNull(name, "name is null");
-        checkNotNull(window, "window is null");
-        checkNotNull(arguments, "arguments is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(window, "window is null");
+        requireNonNull(arguments, "arguments is null");
 
         this.name = name;
         this.window = window;

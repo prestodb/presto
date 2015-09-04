@@ -25,7 +25,7 @@ import java.util.Optional;
 import static com.facebook.presto.operator.index.PageBufferOperator.PageBufferOperatorFactory;
 import static com.facebook.presto.operator.index.PagesIndexBuilderOperator.PagesIndexBuilderOperatorFactory;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class IndexBuildDriverFactoryProvider
 {
@@ -37,9 +37,9 @@ public class IndexBuildDriverFactoryProvider
 
     public IndexBuildDriverFactoryProvider(int outputOperatorId, boolean inputDriver, List<OperatorFactory> coreOperatorFactories, Optional<DynamicTupleFilterFactory> dynamicTupleFilterFactory)
     {
-        checkNotNull(coreOperatorFactories, "coreOperatorFactories is null");
+        requireNonNull(coreOperatorFactories, "coreOperatorFactories is null");
         checkArgument(!coreOperatorFactories.isEmpty(), "coreOperatorFactories is empty");
-        checkNotNull(dynamicTupleFilterFactory, "dynamicTupleFilterFactory is null");
+        requireNonNull(dynamicTupleFilterFactory, "dynamicTupleFilterFactory is null");
 
         this.outputOperatorId = outputOperatorId;
         this.inputDriver = inputDriver;

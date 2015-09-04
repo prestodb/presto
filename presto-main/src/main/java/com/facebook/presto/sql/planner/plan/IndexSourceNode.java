@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class IndexSourceNode
         extends PlanNode
@@ -52,12 +52,12 @@ public class IndexSourceNode
             @JsonProperty("effectiveTupleDomain") TupleDomain<ColumnHandle> effectiveTupleDomain)
     {
         super(id);
-        this.indexHandle = checkNotNull(indexHandle, "indexHandle is null");
-        this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
-        this.lookupSymbols = ImmutableSet.copyOf(checkNotNull(lookupSymbols, "lookupSymbols is null"));
-        this.outputSymbols = ImmutableList.copyOf(checkNotNull(outputSymbols, "outputSymbols is null"));
-        this.assignments = ImmutableMap.copyOf(checkNotNull(assignments, "assignments is null"));
-        this.effectiveTupleDomain = checkNotNull(effectiveTupleDomain, "effectiveTupleDomain is null");
+        this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
+        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+        this.lookupSymbols = ImmutableSet.copyOf(requireNonNull(lookupSymbols, "lookupSymbols is null"));
+        this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null"));
+        this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
+        this.effectiveTupleDomain = requireNonNull(effectiveTupleDomain, "effectiveTupleDomain is null");
         checkArgument(!lookupSymbols.isEmpty(), "lookupSymbols is empty");
         checkArgument(!outputSymbols.isEmpty(), "outputSymbols is empty");
         checkArgument(assignments.keySet().containsAll(lookupSymbols), "Assignments do not include all lookup symbols");

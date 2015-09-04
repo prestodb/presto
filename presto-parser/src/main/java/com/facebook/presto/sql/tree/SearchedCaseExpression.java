@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SearchedCaseExpression
         extends Expression
@@ -28,8 +28,8 @@ public class SearchedCaseExpression
 
     public SearchedCaseExpression(List<WhenClause> whenClauses, Optional<Expression> defaultValue)
     {
-        checkNotNull(whenClauses, "whenClauses is null");
-        checkNotNull(defaultValue, "defaultValue is null");
+        requireNonNull(whenClauses, "whenClauses is null");
+        requireNonNull(defaultValue, "defaultValue is null");
         this.whenClauses = ImmutableList.copyOf(whenClauses);
         this.defaultValue = defaultValue;
     }

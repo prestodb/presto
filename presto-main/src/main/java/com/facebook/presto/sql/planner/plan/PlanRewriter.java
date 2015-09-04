@@ -17,7 +17,8 @@ import com.facebook.presto.util.ImmutableCollectors;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public abstract class PlanRewriter<C>
         extends PlanVisitor<PlanRewriter.RewriteContext<C>, PlanNode>
@@ -97,7 +98,7 @@ public abstract class PlanRewriter<C>
         public PlanNode rewrite(PlanNode node, C userContext)
         {
             PlanNode result = node.accept(nodeRewriter, new RewriteContext<>(nodeRewriter, userContext));
-            checkNotNull(result, "nodeRewriter returned null for %s", node.getClass().getName());
+            requireNonNull(result, format("nodeRewriter returned null for %s", node.getClass().getName()));
 
             return result;
         }

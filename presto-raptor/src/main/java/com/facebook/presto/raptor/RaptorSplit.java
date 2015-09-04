@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RaptorSplit
         implements ConnectorSplit
@@ -45,10 +45,10 @@ public class RaptorSplit
 
     public RaptorSplit(String connectorId, UUID shardUuid, List<HostAddress> addresses, TupleDomain<RaptorColumnHandle> effectivePredicate)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
-        this.addresses = ImmutableList.copyOf(checkNotNull(addresses, "addresses is null"));
-        this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
+        this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
+        this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
     }
 
     @Override

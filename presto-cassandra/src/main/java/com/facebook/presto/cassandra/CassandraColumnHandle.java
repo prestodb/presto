@@ -28,7 +28,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class CassandraColumnHandle
         implements ColumnHandle
@@ -57,14 +57,14 @@ public class CassandraColumnHandle
             @JsonProperty("indexed") boolean indexed,
             @JsonProperty("hidden") boolean hidden)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.name = checkNotNull(name, "name is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.name = requireNonNull(name, "name is null");
         checkArgument(ordinalPosition >= 0, "ordinalPosition is negative");
         this.ordinalPosition = ordinalPosition;
-        this.cassandraType = checkNotNull(cassandraType, "cassandraType is null");
+        this.cassandraType = requireNonNull(cassandraType, "cassandraType is null");
         int typeArgsSize = cassandraType.getTypeArgumentSize();
         if (typeArgsSize > 0) {
-            this.typeArguments = checkNotNull(typeArguments, "typeArguments is null");
+            this.typeArguments = requireNonNull(typeArguments, "typeArguments is null");
             checkArgument(typeArguments.size() == typeArgsSize, cassandraType
                     + " must provide " + typeArgsSize + " type arguments");
         }

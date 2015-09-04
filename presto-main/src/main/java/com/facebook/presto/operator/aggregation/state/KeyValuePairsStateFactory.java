@@ -17,7 +17,7 @@ import com.facebook.presto.operator.aggregation.KeyValuePairs;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.ObjectBigArray;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class KeyValuePairsStateFactory
         implements AccumulatorStateFactory<KeyValuePairsState>
@@ -85,7 +85,7 @@ public class KeyValuePairsStateFactory
         @Override
         public void set(KeyValuePairs value)
         {
-            checkNotNull(value, "value is null");
+            requireNonNull(value, "value is null");
 
             KeyValuePairs previous = get();
             if (previous != null) {

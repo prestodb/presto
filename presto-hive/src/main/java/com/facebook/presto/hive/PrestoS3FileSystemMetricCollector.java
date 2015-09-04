@@ -21,7 +21,7 @@ import com.amazonaws.util.TimingInfo;
 import io.airlift.units.Duration;
 
 import static com.amazonaws.util.AWSRequestMetrics.Field;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class PrestoS3FileSystemMetricCollector
@@ -31,7 +31,7 @@ public class PrestoS3FileSystemMetricCollector
 
     public PrestoS3FileSystemMetricCollector(PrestoS3FileSystemStats stats)
     {
-        this.stats = checkNotNull(stats, "stats is null");
+        this.stats = requireNonNull(stats, "stats is null");
     }
 
     @Override

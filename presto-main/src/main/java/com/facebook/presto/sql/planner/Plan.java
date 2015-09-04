@@ -15,9 +15,10 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.google.common.base.Preconditions;
 
 import java.util.Map;
+
+import static java.util.Objects.requireNonNull;
 
 public class Plan
 {
@@ -26,8 +27,8 @@ public class Plan
 
     public Plan(PlanNode root, SymbolAllocator symbolAllocator)
     {
-        Preconditions.checkNotNull(root, "root is null");
-        Preconditions.checkNotNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(root, "root is null");
+        requireNonNull(symbolAllocator, "symbolAllocator is null");
 
         this.root = root;
         this.symbolAllocator = symbolAllocator;

@@ -78,9 +78,9 @@ import static com.facebook.presto.hive.metastore.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.HivePrivilege.parsePrivilege;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -112,18 +112,18 @@ public class CachingHiveMetastore
     @Inject
     public CachingHiveMetastore(HiveCluster hiveCluster, @ForHiveMetastore ExecutorService executor, HiveClientConfig hiveClientConfig)
     {
-        this(checkNotNull(hiveCluster, "hiveCluster is null"),
-                checkNotNull(executor, "executor is null"),
-                checkNotNull(hiveClientConfig, "hiveClientConfig is null").getMetastoreCacheTtl(),
+        this(requireNonNull(hiveCluster, "hiveCluster is null"),
+                requireNonNull(executor, "executor is null"),
+                requireNonNull(hiveClientConfig, "hiveClientConfig is null").getMetastoreCacheTtl(),
                 hiveClientConfig.getMetastoreRefreshInterval());
     }
 
     public CachingHiveMetastore(HiveCluster hiveCluster, ExecutorService executor, Duration cacheTtl, Duration refreshInterval)
     {
-        this.clientProvider = checkNotNull(hiveCluster, "hiveCluster is null");
+        this.clientProvider = requireNonNull(hiveCluster, "hiveCluster is null");
 
-        long expiresAfterWriteMillis = checkNotNull(cacheTtl, "cacheTtl is null").toMillis();
-        long refreshMills = checkNotNull(refreshInterval, "refreshInterval is null").toMillis();
+        long expiresAfterWriteMillis = requireNonNull(cacheTtl, "cacheTtl is null").toMillis();
+        long refreshMills = requireNonNull(refreshInterval, "refreshInterval is null").toMillis();
 
         databaseNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
@@ -657,7 +657,7 @@ public class CachingHiveMetastore
     private Optional<Partition> loadPartitionByName(HivePartitionName partitionName)
             throws Exception
     {
-        checkNotNull(partitionName, "partitionName is null");
+        requireNonNull(partitionName, "partitionName is null");
         try {
             return retry()
                     .stopOn(NoSuchObjectException.class)
@@ -682,7 +682,7 @@ public class CachingHiveMetastore
     private Map<HivePartitionName, Optional<Partition>> loadPartitionsByNames(Iterable<? extends HivePartitionName> partitionNames)
             throws Exception
     {
-        checkNotNull(partitionNames, "partitionNames is null");
+        requireNonNull(partitionNames, "partitionNames is null");
         checkArgument(!Iterables.isEmpty(partitionNames), "partitionNames is empty");
 
         HivePartitionName firstPartition = Iterables.get(partitionNames, 0);
@@ -995,9 +995,9 @@ public class CachingHiveMetastore
 
         public UserTableKey(String user, String table, String database)
         {
-            this.user = checkNotNull(user, "principalName is null");
-            this.table = checkNotNull(table, "table is null");
-            this.database = checkNotNull(database, "database is null");
+            this.user = requireNonNull(user, "principalName is null");
+            this.table = requireNonNull(table, "table is null");
+            this.database = requireNonNull(database, "database is null");
         }
 
         public String getUser()

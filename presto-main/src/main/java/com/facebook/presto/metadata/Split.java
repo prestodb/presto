@@ -21,7 +21,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class Split
 {
@@ -33,8 +33,8 @@ public final class Split
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("connectorSplit") ConnectorSplit connectorSplit)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.connectorSplit = checkNotNull(connectorSplit, "connectorSplit is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.connectorSplit = requireNonNull(connectorSplit, "connectorSplit is null");
     }
 
     @JsonProperty

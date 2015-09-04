@@ -23,7 +23,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public final class Threads
 {
@@ -33,14 +34,16 @@ public final class Threads
 
     public static Executor checkNotSameThreadExecutor(Executor executor, String name)
     {
-        checkNotNull(executor, "%s is null", name);
+        if (executor == null) {
+            throw new NullPointerException(format("%s is null", name));
+        }
         checkArgument(!isSameThreadExecutor(executor), "%s is a same thread executor", name);
         return executor;
     }
 
     public static boolean isSameThreadExecutor(Executor executor)
     {
-        checkNotNull(executor, "executor is null");
+        requireNonNull(executor, "executor is null");
         if (executor.getClass() == GUAVA_SAME_THREAD_EXECUTOR_CLASS) {
             return true;
         }

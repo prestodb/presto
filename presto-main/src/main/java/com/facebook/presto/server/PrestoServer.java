@@ -49,10 +49,10 @@ import java.util.Set;
 
 import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
+import static java.util.Objects.requireNonNull;
 
 public class PrestoServer
         implements Runnable
@@ -71,7 +71,7 @@ public class PrestoServer
 
     public PrestoServer(SqlParserOptions sqlParserOptions)
     {
-        this.sqlParserOptions = checkNotNull(sqlParserOptions, "sqlParserOptions is null");
+        this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
     }
 
     @Override

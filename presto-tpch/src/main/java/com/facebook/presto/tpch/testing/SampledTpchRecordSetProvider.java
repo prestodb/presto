@@ -31,7 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SampledTpchRecordSetProvider
         extends TpchRecordSetProvider
@@ -64,7 +64,7 @@ public class SampledTpchRecordSetProvider
                 // Pick a random column, so that we can figure out how many rows there are
                 TpchSplit tpchSplit = (TpchSplit) split;
                 ColumnHandle column = Iterables.getFirst(metadata.getColumnHandles(session, tpchSplit.getTableHandle()).values(), null);
-                checkNotNull(column, "Could not find any columns");
+                requireNonNull(column, "Could not find any columns");
                 recordSet = new EmptyRecordSet(super.getRecordSet(session, split, ImmutableList.of(column)));
             }
             else {

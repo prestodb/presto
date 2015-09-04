@@ -67,13 +67,13 @@ import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static com.google.common.collect.Iterables.partition;
 import static java.lang.String.format;
 import static java.sql.Statement.RETURN_GENERATED_KEYS;
 import static java.util.Arrays.asList;
 import static java.util.Collections.nCopies;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
 public class DatabaseShardManager
@@ -98,7 +98,7 @@ public class DatabaseShardManager
     @Inject
     public DatabaseShardManager(@ForMetadata IDBI dbi)
     {
-        this.dbi = checkNotNull(dbi, "dbi is null");
+        this.dbi = requireNonNull(dbi, "dbi is null");
         this.dao = dbi.onDemand(ShardManagerDao.class);
 
         // keep retrying if database is unavailable when the server starts

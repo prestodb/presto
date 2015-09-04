@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class GenericAggregationFunctionFactory
         implements FunctionFactory
@@ -40,7 +40,7 @@ public class GenericAggregationFunctionFactory
 
     private GenericAggregationFunctionFactory(List<ParametricFunction> aggregations)
     {
-        this.aggregations = ImmutableList.copyOf(checkNotNull(aggregations, "aggregations is null"));
+        this.aggregations = ImmutableList.copyOf(requireNonNull(aggregations, "aggregations is null"));
     }
 
     @Override

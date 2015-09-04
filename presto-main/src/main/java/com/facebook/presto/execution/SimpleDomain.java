@@ -26,7 +26,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class SimpleDomain
@@ -40,7 +40,7 @@ public final class SimpleDomain
             @JsonProperty("ranges") Optional<List<SimpleRange>> ranges)
     {
         this.nullAllowed = nullAllowed;
-        checkNotNull(ranges, "ranges is null");
+        requireNonNull(ranges, "ranges is null");
         List<SimpleRange> rangesCopy = null;
         if (ranges.isPresent()) {
             rangesCopy = ImmutableList.copyOf(ranges.get());
@@ -62,7 +62,7 @@ public final class SimpleDomain
 
     private static List<SimpleRange> getSimpleRangeList(Domain domain)
     {
-        checkNotNull(domain, "domain is null");
+        requireNonNull(domain, "domain is null");
         if (domain.isAll()) {
             return null;
         }

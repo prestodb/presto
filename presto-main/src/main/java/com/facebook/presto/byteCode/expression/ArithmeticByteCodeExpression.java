@@ -23,14 +23,14 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ArithmeticByteCodeExpression
         extends ByteCodeExpression
 {
     public static ByteCodeExpression createArithmeticByteCodeExpression(OpCode baseOpCode, ByteCodeExpression left, ByteCodeExpression right)
     {
-        checkNotNull(baseOpCode, "baseOpCode is null");
+        requireNonNull(baseOpCode, "baseOpCode is null");
         String name = getName(baseOpCode);
         String infixSymbol = getInfixSymbol(baseOpCode);
 
@@ -155,7 +155,7 @@ public class ArithmeticByteCodeExpression
 
     private static Class<?> getPrimitiveType(ByteCodeExpression expression, String name)
     {
-        checkNotNull(expression, name + " is null");
+        requireNonNull(expression, name + " is null");
         Class<?> leftType = expression.getType().getPrimitiveType();
         checkArgument(leftType != null, name + " is not a primitive");
         checkArgument(leftType != void.class, name + " is void");

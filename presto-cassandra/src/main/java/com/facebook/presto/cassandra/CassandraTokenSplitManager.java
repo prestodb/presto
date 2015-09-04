@@ -34,8 +34,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 import static org.apache.cassandra.dht.Token.TokenFactory;
 
 public class CassandraTokenSplitManager
@@ -48,8 +48,8 @@ public class CassandraTokenSplitManager
     @Inject
     public CassandraTokenSplitManager(CassandraThriftConnectionFactory connectionFactory, @ForCassandra ExecutorService executor, CassandraClientConfig config)
     {
-        this.cassandraThriftClient = new CassandraThriftClient(checkNotNull(connectionFactory, "connectionFactory is null"));
-        this.executor = checkNotNull(executor, "executor is null");
+        this.cassandraThriftClient = new CassandraThriftClient(requireNonNull(connectionFactory, "connectionFactory is null"));
+        this.executor = requireNonNull(executor, "executor is null");
         this.splitSize = config.getSplitSize();
         try {
             this.partitioner = FBUtilities.newPartitioner(config.getPartitioner());
@@ -146,9 +146,9 @@ public class CassandraTokenSplitManager
 
         public TokenSplit(String startToken, String endToken, List<String> hosts)
         {
-            this.startToken = checkNotNull(startToken, "startToken is null");
-            this.endToken = checkNotNull(endToken, "endToken is null");
-            this.hosts = ImmutableList.copyOf(checkNotNull(hosts, "hosts is null"));
+            this.startToken = requireNonNull(startToken, "startToken is null");
+            this.endToken = requireNonNull(endToken, "endToken is null");
+            this.hosts = ImmutableList.copyOf(requireNonNull(hosts, "hosts is null"));
         }
 
         public String getStartToken()

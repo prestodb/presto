@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
-
 import java.util.Objects;
 import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class IntervalLiteral
         extends Literal
@@ -58,10 +58,10 @@ public class IntervalLiteral
 
     public IntervalLiteral(String value, Sign sign, IntervalField startField, Optional<IntervalField> endField)
     {
-        Preconditions.checkNotNull(value, "value is null");
-        Preconditions.checkNotNull(sign, "sign is null");
-        Preconditions.checkNotNull(startField, "startField is null");
-        Preconditions.checkNotNull(endField, "endField is null");
+        requireNonNull(value, "value is null");
+        requireNonNull(sign, "sign is null");
+        requireNonNull(startField, "startField is null");
+        requireNonNull(endField, "endField is null");
 
         this.value = value;
         this.sign = sign;

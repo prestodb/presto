@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class DataDefinitionExecution<T extends Statement>
         implements QueryExecution
@@ -50,12 +50,12 @@ public class DataDefinitionExecution<T extends Statement>
             AccessControl accessControl,
             QueryStateMachine stateMachine)
     {
-        this.task = checkNotNull(task, "task is null");
-        this.statement = checkNotNull(statement, "statement is null");
-        this.session = checkNotNull(session, "session is null");
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.accessControl = checkNotNull(accessControl, "accessControl is null");
-        this.stateMachine = checkNotNull(stateMachine, "stateMachine is null");
+        this.task = requireNonNull(task, "task is null");
+        this.statement = requireNonNull(statement, "statement is null");
+        this.session = requireNonNull(session, "session is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
     }
 
     @Override
@@ -176,11 +176,11 @@ public class DataDefinitionExecution<T extends Statement>
                 @ForQueryExecution ExecutorService executor,
                 Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks)
         {
-            this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
-            this.metadata = checkNotNull(metadata, "metadata is null");
-            this.accessControl = checkNotNull(accessControl, "accessControl is null");
-            this.executor = checkNotNull(executor, "executor is null");
-            this.tasks = checkNotNull(tasks, "tasks is null");
+            this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.accessControl = requireNonNull(accessControl, "accessControl is null");
+            this.executor = requireNonNull(executor, "executor is null");
+            this.tasks = requireNonNull(tasks, "tasks is null");
         }
 
         public String explain(Statement statement)

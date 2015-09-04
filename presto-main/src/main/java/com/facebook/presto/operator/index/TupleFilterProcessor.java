@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Filters out rows that do not match the values from the specified tuple
@@ -39,11 +39,11 @@ public class TupleFilterProcessor
 
     public TupleFilterProcessor(Page tuplePage, List<Type> outputTypes, int[] outputTupleChannels)
     {
-        checkNotNull(tuplePage, "tuplePage is null");
+        requireNonNull(tuplePage, "tuplePage is null");
         checkArgument(tuplePage.getPositionCount() == 1, "tuplePage should only have one position");
         checkArgument(tuplePage.getChannelCount() > 0, "tuplePage must have at least one channel");
-        checkNotNull(outputTypes, "outputTypes is null");
-        checkNotNull(outputTupleChannels, "outputTupleChannels is null");
+        requireNonNull(outputTypes, "outputTypes is null");
+        requireNonNull(outputTupleChannels, "outputTupleChannels is null");
         checkArgument(tuplePage.getChannelCount() == outputTupleChannels.length, "tuplePage and outputTupleChannels have different number of channels");
         checkArgument(outputTypes.size() >= outputTupleChannels.length, "Must have at least as many output channels as those used for filtering");
 

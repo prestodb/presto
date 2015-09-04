@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class TableWriterNode
@@ -55,16 +55,16 @@ public class TableWriterNode
     {
         super(id);
 
-        checkNotNull(columns, "columns is null");
-        checkNotNull(columnNames, "columnNames is null");
+        requireNonNull(columns, "columns is null");
+        requireNonNull(columnNames, "columnNames is null");
         checkArgument(columns.size() == columnNames.size(), "columns and columnNames sizes don't match");
 
-        this.source = checkNotNull(source, "source is null");
-        this.target = checkNotNull(target, "target is null");
+        this.source = requireNonNull(source, "source is null");
+        this.target = requireNonNull(target, "target is null");
         this.columns = ImmutableList.copyOf(columns);
         this.columnNames = ImmutableList.copyOf(columnNames);
-        this.outputs = ImmutableList.copyOf(checkNotNull(outputs, "outputs is null"));
-        this.sampleWeightSymbol = checkNotNull(sampleWeightSymbol, "sampleWeightSymbol is null");
+        this.outputs = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
+        this.sampleWeightSymbol = requireNonNull(sampleWeightSymbol, "sampleWeightSymbol is null");
     }
 
     @JsonProperty
@@ -138,8 +138,8 @@ public class TableWriterNode
 
         public CreateName(String catalog, TableMetadata tableMetadata)
         {
-            this.catalog = checkNotNull(catalog, "catalog is null");
-            this.tableMetadata = checkNotNull(tableMetadata, "tableMetadata is null");
+            this.catalog = requireNonNull(catalog, "catalog is null");
+            this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
         }
 
         public String getCatalog()
@@ -167,7 +167,7 @@ public class TableWriterNode
         @JsonCreator
         public CreateHandle(@JsonProperty("handle") OutputTableHandle handle)
         {
-            this.handle = checkNotNull(handle, "handle is null");
+            this.handle = requireNonNull(handle, "handle is null");
         }
 
         @JsonProperty
@@ -191,7 +191,7 @@ public class TableWriterNode
 
         public InsertReference(TableHandle handle)
         {
-            this.handle = checkNotNull(handle, "handle is null");
+            this.handle = requireNonNull(handle, "handle is null");
         }
 
         public TableHandle getHandle()
@@ -214,7 +214,7 @@ public class TableWriterNode
         @JsonCreator
         public InsertHandle(@JsonProperty("handle") InsertTableHandle handle)
         {
-            this.handle = checkNotNull(handle, "handle is null");
+            this.handle = requireNonNull(handle, "handle is null");
         }
 
         @JsonProperty
@@ -238,7 +238,7 @@ public class TableWriterNode
         @JsonCreator
         public DeleteHandle(@JsonProperty("handle") TableHandle handle)
         {
-            this.handle = checkNotNull(handle, "handle is null");
+            this.handle = requireNonNull(handle, "handle is null");
         }
 
         @JsonProperty

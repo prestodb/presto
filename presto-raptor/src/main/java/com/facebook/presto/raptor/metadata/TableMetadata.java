@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class TableMetadata
 {
@@ -30,8 +30,8 @@ public final class TableMetadata
     public TableMetadata(long tableId, List<ColumnInfo> columns, List<Long> sortColumnIds)
     {
         this.tableId = tableId;
-        this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
-        this.sortColumnIds = ImmutableList.copyOf(checkNotNull(sortColumnIds, "sortColumnIds is null"));
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.sortColumnIds = ImmutableList.copyOf(requireNonNull(sortColumnIds, "sortColumnIds is null"));
     }
 
     public long getTableId()

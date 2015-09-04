@@ -20,7 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ShowPartitions
         extends Statement
@@ -32,10 +32,10 @@ public class ShowPartitions
 
     public ShowPartitions(QualifiedName table, Optional<Expression> where, List<SortItem> orderBy, Optional<String> limit)
     {
-        this.table = checkNotNull(table, "table is null");
-        this.where = checkNotNull(where, "where is null");
-        this.orderBy = ImmutableList.copyOf(checkNotNull(orderBy, "orderBy is null"));
-        this.limit = checkNotNull(limit, "limit is null");
+        this.table = requireNonNull(table, "table is null");
+        this.where = requireNonNull(where, "where is null");
+        this.orderBy = ImmutableList.copyOf(requireNonNull(orderBy, "orderBy is null"));
+        this.limit = requireNonNull(limit, "limit is null");
     }
 
     public QualifiedName getTable()

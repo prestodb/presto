@@ -24,8 +24,8 @@ import java.util.Map.Entry;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public final class OutputBuffers
 {
@@ -43,7 +43,7 @@ public final class OutputBuffers
             @JsonProperty("buffers") Map<TaskId, PagePartitionFunction> buffers)
     {
         this.version = version;
-        this.buffers = ImmutableMap.copyOf(checkNotNull(buffers, "buffers is null"));
+        this.buffers = ImmutableMap.copyOf(requireNonNull(buffers, "buffers is null"));
         this.noMoreBufferIds = noMoreBufferIds;
     }
 
@@ -98,7 +98,7 @@ public final class OutputBuffers
 
     public OutputBuffers withBuffer(TaskId bufferId, PagePartitionFunction pagePartitionFunction)
     {
-        checkNotNull(bufferId, "bufferId is null");
+        requireNonNull(bufferId, "bufferId is null");
 
         if (buffers.containsKey(bufferId)) {
             checkHasBuffer(bufferId, pagePartitionFunction);
@@ -119,7 +119,7 @@ public final class OutputBuffers
 
     public OutputBuffers withBuffers(Map<TaskId, PagePartitionFunction> buffers)
     {
-        checkNotNull(buffers, "buffers is null");
+        requireNonNull(buffers, "buffers is null");
 
         Map<TaskId, PagePartitionFunction> newBuffers = new HashMap<>();
         for (Entry<TaskId, PagePartitionFunction> entry : buffers.entrySet()) {
@@ -151,7 +151,7 @@ public final class OutputBuffers
 
     public OutputBuffers withNoMoreBufferIds()
     {
-        checkNotNull(this, "this is null");
+        requireNonNull(this, "this is null");
         if (noMoreBufferIds) {
             return this;
         }

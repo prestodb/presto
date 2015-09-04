@@ -58,10 +58,10 @@ import java.util.concurrent.atomic.AtomicLongArray;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -121,7 +121,7 @@ public class TaskExecutor
     @Inject
     public TaskExecutor(TaskManagerConfig config)
     {
-        this(checkNotNull(config, "config is null").getMaxWorkerThreads(), config.getMinDrivers());
+        this(requireNonNull(config, "config is null").getMaxWorkerThreads(), config.getMinDrivers());
     }
 
     public TaskExecutor(int runnerThreads, int minDrivers)
@@ -139,7 +139,7 @@ public class TaskExecutor
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
         this.runnerThreads = runnerThreads;
 
-        this.ticker = checkNotNull(ticker, "ticker is null");
+        this.ticker = requireNonNull(ticker, "ticker is null");
 
         this.minimumNumberOfDrivers = minDrivers;
         this.pendingSplits = new PriorityBlockingQueue<>(Runtime.getRuntime().availableProcessors() * 10);
@@ -185,7 +185,7 @@ public class TaskExecutor
 
     public synchronized TaskHandle addTask(TaskId taskId)
     {
-        TaskHandle taskHandle = new TaskHandle(checkNotNull(taskId, "taskId is null"));
+        TaskHandle taskHandle = new TaskHandle(requireNonNull(taskId, "taskId is null"));
         tasks.add(taskHandle);
         return taskHandle;
     }

@@ -22,7 +22,7 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class GroupByIdBlock
         implements Block
@@ -32,7 +32,7 @@ public class GroupByIdBlock
 
     public GroupByIdBlock(long groupCount, Block block)
     {
-        checkNotNull(block, "block is null");
+        requireNonNull(block, "block is null");
         this.groupCount = groupCount;
         this.block = block;
     }

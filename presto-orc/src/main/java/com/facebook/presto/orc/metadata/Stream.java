@@ -14,7 +14,7 @@
 package com.facebook.presto.orc.metadata;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class Stream
 {
@@ -40,7 +40,7 @@ public class Stream
     public Stream(int column, StreamKind streamKind, int length, boolean useVInts)
     {
         this.column = column;
-        this.streamKind = checkNotNull(streamKind, "streamKind is null");
+        this.streamKind = requireNonNull(streamKind, "streamKind is null");
         this.length = length;
         this.useVInts = useVInts;
     }

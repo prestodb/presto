@@ -43,10 +43,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.facebook.presto.hive.metastore.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.testing.FileUtils.deleteRecursively;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
+import static java.util.Objects.requireNonNull;
 
 public class InMemoryHiveMetastore
         implements HiveMetastore
@@ -63,14 +63,14 @@ public class InMemoryHiveMetastore
 
     public InMemoryHiveMetastore(File baseDirectory)
     {
-        this.baseDirectory = checkNotNull(baseDirectory, "baseDirectory is null");
+        this.baseDirectory = requireNonNull(baseDirectory, "baseDirectory is null");
         checkArgument(!baseDirectory.exists(), "Base directory already exists");
         checkArgument(baseDirectory.mkdirs(), "Could not create base directory");
     }
 
     public void createDatabase(Database database)
     {
-        checkNotNull(database, "database is null");
+        requireNonNull(database, "database is null");
 
         File directory = new File(URI.create(database.getLocationUri()));
         checkArgument(!directory.exists(), "Database directory already exists");
@@ -296,10 +296,10 @@ public class InMemoryHiveMetastore
 
         public PrincipalTableKey(String principalName, PrincipalType principalType, String table, String database)
         {
-            this.principalName = checkNotNull(principalName, "principalName is null");
-            this.principalType = checkNotNull(principalType, "principalType is null");
-            this.table = checkNotNull(table, "table is null");
-            this.database = checkNotNull(database, "database is null");
+            this.principalName = requireNonNull(principalName, "principalName is null");
+            this.principalType = requireNonNull(principalType, "principalType is null");
+            this.table = requireNonNull(table, "table is null");
+            this.database = requireNonNull(database, "database is null");
         }
 
         @Override

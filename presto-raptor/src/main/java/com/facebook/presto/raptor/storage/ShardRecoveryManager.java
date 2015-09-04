@@ -54,12 +54,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.Duration.nanosSince;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -106,11 +106,11 @@ public class ShardRecoveryManager
             Duration missingShardDiscoveryInterval,
             int recoveryThreads)
     {
-        this.storageService = checkNotNull(storageService, "storageService is null");
-        this.backupStore = checkNotNull(backupStore, "backupStore is null");
-        this.nodeIdentifier = checkNotNull(nodeManager, "nodeManager is null").getCurrentNode().getNodeIdentifier();
-        this.shardManager = checkNotNull(shardManager, "shardManager is null");
-        this.missingShardDiscoveryInterval = checkNotNull(missingShardDiscoveryInterval, "missingShardDiscoveryInterval is null");
+        this.storageService = requireNonNull(storageService, "storageService is null");
+        this.backupStore = requireNonNull(backupStore, "backupStore is null");
+        this.nodeIdentifier = requireNonNull(nodeManager, "nodeManager is null").getCurrentNode().getNodeIdentifier();
+        this.shardManager = requireNonNull(shardManager, "shardManager is null");
+        this.missingShardDiscoveryInterval = requireNonNull(missingShardDiscoveryInterval, "missingShardDiscoveryInterval is null");
         this.shardQueue = new MissingShardsQueue(new PrioritizedFifoExecutor<>(executorService, recoveryThreads, new MissingShardComparator()));
         this.stats = new ShardRecoveryStats();
     }
@@ -168,7 +168,7 @@ public class ShardRecoveryManager
     public Future<?> recoverShard(UUID shardUuid)
             throws ExecutionException
     {
-        checkNotNull(shardUuid, "shardUuid is null");
+        requireNonNull(shardUuid, "shardUuid is null");
         stats.incrementActiveShardRecovery();
         return shardQueue.submit(MissingShard.createActiveMissingShard(shardUuid));
     }
@@ -266,8 +266,8 @@ public class ShardRecoveryManager
 
         public MissingShardRecovery(UUID shardUuid, OptionalLong shardSize, boolean active)
         {
-            this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
-            this.shardSize = checkNotNull(shardSize, "shardSize is null");
+            this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
+            this.shardSize = requireNonNull(shardSize, "shardSize is null");
             this.active = active;
         }
 
@@ -292,8 +292,8 @@ public class ShardRecoveryManager
 
         private MissingShard(UUID shardUuid, OptionalLong shardSize, boolean active)
         {
-            this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
-            this.shardSize = checkNotNull(shardSize, "shardSize is null");
+            this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
+            this.shardSize = requireNonNull(shardSize, "shardSize is null");
             this.active = active;
         }
 
@@ -359,7 +359,7 @@ public class ShardRecoveryManager
 
         public MissingShardsQueue(PrioritizedFifoExecutor<MissingShardRunnable> shardRecoveryExecutor)
         {
-            checkNotNull(shardRecoveryExecutor, "shardRecoveryExecutor is null");
+            requireNonNull(shardRecoveryExecutor, "shardRecoveryExecutor is null");
             this.queuedMissingShards = CacheBuilder.newBuilder().build(new CacheLoader<MissingShard, Future<?>>()
             {
                 @Override

@@ -26,7 +26,7 @@ import com.facebook.presto.tpch.TpchSplitManager;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SampledTpchConnectorFactory
         implements ConnectorFactory
@@ -37,7 +37,7 @@ public class SampledTpchConnectorFactory
 
     public SampledTpchConnectorFactory(NodeManager nodeManager, int defaultSplitsPerNode, int sampleWeight)
     {
-        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.defaultSplitsPerNode = defaultSplitsPerNode;
         this.sampleWeight = sampleWeight;
     }
@@ -51,7 +51,7 @@ public class SampledTpchConnectorFactory
     @Override
     public Connector create(final String connectorId, Map<String, String> properties)
     {
-        checkNotNull(properties, "properties is null");
+        requireNonNull(properties, "properties is null");
         final int splitsPerNode = getSplitsPerNode(properties);
 
         return new Connector() {

@@ -55,10 +55,10 @@ import static com.facebook.presto.cassandra.util.CassandraCqlUtils.toCQLCompatib
 import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.EXTERNAL;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class CassandraSplitManager
@@ -81,9 +81,9 @@ public class CassandraSplitManager
             CassandraTokenSplitManager tokenSplitMgr,
             @ForCassandra ExecutorService executor)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
-        this.schemaProvider = checkNotNull(schemaProvider, "schemaProvider is null");
-        this.cassandraSession = checkNotNull(cassandraSession, "cassandraSession is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.schemaProvider = requireNonNull(schemaProvider, "schemaProvider is null");
+        this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
         this.partitionSizeForBatchSelect = cassandraClientConfig.getPartitionSizeForBatchSelect();
         this.tokenSplitMgr = tokenSplitMgr;
         this.executor = listeningDecorator(executor);
@@ -93,7 +93,7 @@ public class CassandraSplitManager
     public ConnectorPartitionResult getPartitions(ConnectorSession session, ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
         CassandraTableHandle cassandraTableHandle = checkType(tableHandle, CassandraTableHandle.class, "tableHandle");
-        checkNotNull(tupleDomain, "tupleDomain is null");
+        requireNonNull(tupleDomain, "tupleDomain is null");
         CassandraTable table = schemaProvider.getTable(cassandraTableHandle);
         List<CassandraColumnHandle> partitionKeys = table.getPartitionKeyColumns();
 
@@ -219,10 +219,10 @@ public class CassandraSplitManager
     @Override
     public ConnectorSplitSource getPartitionSplits(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorPartition> partitions)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
+        requireNonNull(tableHandle, "tableHandle is null");
         CassandraTableHandle cassandraTableHandle = checkType(tableHandle, CassandraTableHandle.class, "tableHandle");
 
-        checkNotNull(partitions, "partitions is null");
+        requireNonNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
             return new FixedSplitSource(connectorId, ImmutableList.<ConnectorSplit>of());
         }

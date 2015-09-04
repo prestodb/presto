@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class GenericAccumulatorFactoryBinder
         implements AccumulatorFactoryBinder
@@ -40,8 +40,8 @@ public class GenericAccumulatorFactoryBinder
             Class<? extends GroupedAccumulator> groupedAccumulatorClass,
             boolean approximationSupported)
     {
-        this.stateSerializer = checkNotNull(stateSerializer, "stateSerializer is null");
-        this.stateFactory = checkNotNull(stateFactory, "stateFactory is null");
+        this.stateSerializer = requireNonNull(stateSerializer, "stateSerializer is null");
+        this.stateFactory = requireNonNull(stateFactory, "stateFactory is null");
         this.approximationSupported = approximationSupported;
 
         try {

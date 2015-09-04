@@ -32,8 +32,8 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkElementIndex;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class TupleDescriptor
@@ -50,7 +50,7 @@ public class TupleDescriptor
 
     public TupleDescriptor(List<Field> fields)
     {
-        checkNotNull(fields, "fields is null");
+        requireNonNull(fields, "fields is null");
         this.allFields = ImmutableList.copyOf(fields);
         this.visibleFields = ImmutableList.copyOf(Iterables.filter(fields, not(Field::isHidden)));
 

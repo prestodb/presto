@@ -19,7 +19,6 @@ import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.google.common.base.Preconditions;
 import io.airlift.http.server.HttpServerInfo;
 
 import javax.inject.Inject;
@@ -50,7 +49,7 @@ public class HttpLocationFactory
     @Override
     public URI createQueryLocation(QueryId queryId)
     {
-        Preconditions.checkNotNull(queryId, "queryId is null");
+        requireNonNull(queryId, "queryId is null");
         return uriBuilderFrom(baseUri)
                 .appendPath("/v1/query")
                 .appendPath(queryId.toString())
@@ -60,7 +59,7 @@ public class HttpLocationFactory
     @Override
     public URI createStageLocation(StageId stageId)
     {
-        Preconditions.checkNotNull(stageId, "stageId is null");
+        requireNonNull(stageId, "stageId is null");
         return uriBuilderFrom(baseUri)
                 .appendPath("v1/stage")
                 .appendPath(stageId.toString())
@@ -76,8 +75,8 @@ public class HttpLocationFactory
     @Override
     public URI createTaskLocation(Node node, TaskId taskId)
     {
-        Preconditions.checkNotNull(node, "node is null");
-        Preconditions.checkNotNull(taskId, "taskId is null");
+        requireNonNull(node, "node is null");
+        requireNonNull(taskId, "taskId is null");
         return uriBuilderFrom(node.getHttpUri())
                 .appendPath("/v1/task")
                 .appendPath(taskId.toString())

@@ -21,7 +21,7 @@ import javax.annotation.concurrent.Immutable;
 import javax.validation.constraints.NotNull;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class StatementStats
@@ -56,7 +56,7 @@ public class StatementStats
             @JsonProperty("processedBytes") long processedBytes,
             @JsonProperty("rootStage") StageStats rootStage)
     {
-        this.state = checkNotNull(state, "state is null");
+        this.state = requireNonNull(state, "state is null");
         this.scheduled = scheduled;
         this.nodes = nodes;
         this.totalSplits = totalSplits;
@@ -196,7 +196,7 @@ public class StatementStats
 
         public Builder setState(String state)
         {
-            this.state = checkNotNull(state, "state is null");
+            this.state = requireNonNull(state, "state is null");
             return this;
         }
 

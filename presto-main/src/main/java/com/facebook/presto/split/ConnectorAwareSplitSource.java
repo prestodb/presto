@@ -20,7 +20,7 @@ import com.google.common.collect.Lists;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ConnectorAwareSplitSource
         implements SplitSource
@@ -30,8 +30,8 @@ public class ConnectorAwareSplitSource
 
     public ConnectorAwareSplitSource(String connectorId, ConnectorSplitSource source)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.source = checkNotNull(source, "source is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.source = requireNonNull(source, "source is null");
     }
 
     @Override

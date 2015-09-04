@@ -27,7 +27,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import static com.facebook.presto.execution.TaskState.TERMINAL_TASK_STATES;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class TaskStateMachine
@@ -42,7 +42,7 @@ public class TaskStateMachine
 
     public TaskStateMachine(TaskId taskId, Executor executor)
     {
-        this.taskId = checkNotNull(taskId, "taskId is null");
+        this.taskId = requireNonNull(taskId, "taskId is null");
         taskState = new StateMachine<>("task " + taskId, executor, TaskState.RUNNING, TERMINAL_TASK_STATES);
         taskState.addStateChangeListener(new StateChangeListener<TaskState>()
         {
@@ -71,7 +71,7 @@ public class TaskStateMachine
 
     public CompletableFuture<TaskState> getStateChange(TaskState currentState)
     {
-        checkNotNull(currentState, "currentState is null");
+        requireNonNull(currentState, "currentState is null");
         checkArgument(!currentState.isDone(), "Current state is already done");
 
         CompletableFuture<TaskState> future = taskState.getStateChange(currentState);
@@ -110,7 +110,7 @@ public class TaskStateMachine
 
     private void transitionToDoneState(TaskState doneState)
     {
-        checkNotNull(doneState, "doneState is null");
+        requireNonNull(doneState, "doneState is null");
         checkArgument(doneState.isDone(), "doneState %s is not a done state", doneState);
 
         taskState.setIf(doneState, currentState -> !currentState.isDone());

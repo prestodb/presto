@@ -25,8 +25,8 @@ import java.nio.file.Files;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class FileStorageService
         implements StorageService
@@ -42,7 +42,7 @@ public class FileStorageService
 
     public FileStorageService(File dataDirectory)
     {
-        File baseDataDir = checkNotNull(dataDirectory, "dataDirectory is null");
+        File baseDataDir = requireNonNull(dataDirectory, "dataDirectory is null");
         this.baseStorageDir = new File(baseDataDir, "storage");
         this.baseStagingDir = new File(baseDataDir, "staging");
     }

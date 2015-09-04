@@ -17,7 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_OFFLINE;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class PartitionOfflineException
         extends PrestoException
@@ -38,8 +38,8 @@ public class PartitionOfflineException
         if (tableName == null) {
             throw new NullPointerException("tableName is null");
         }
-        this.tableName = checkNotNull(tableName, "tableName is null");
-        this.partition = checkNotNull(partition, "partition is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.partition = requireNonNull(partition, "partition is null");
     }
 
     public SchemaTableName getTableName()

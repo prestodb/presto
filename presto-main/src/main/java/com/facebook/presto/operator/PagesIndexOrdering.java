@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class PagesIndexOrdering
 {
@@ -24,7 +24,7 @@ public class PagesIndexOrdering
 
     public PagesIndexOrdering(PagesIndexComparator comparator)
     {
-        this.comparator = checkNotNull(comparator, "comparator is null");
+        this.comparator = requireNonNull(comparator, "comparator is null");
     }
 
     public PagesIndexComparator getComparator()

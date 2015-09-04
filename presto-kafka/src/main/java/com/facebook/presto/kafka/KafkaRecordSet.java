@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Kafka specific record set. Returns a cursor for a topic which iterates over a Kafka partition segment.
@@ -74,21 +74,21 @@ public class KafkaRecordSet
             Map<KafkaColumnHandle, KafkaFieldDecoder<?>> keyFieldDecoders,
             Map<KafkaColumnHandle, KafkaFieldDecoder<?>> messageFieldDecoders)
     {
-        this.split = checkNotNull(split, "split is null");
+        this.split = requireNonNull(split, "split is null");
 
         this.globalInternalFieldValueProviders = ImmutableSet.of(
                 KafkaInternalFieldDescription.PARTITION_ID_FIELD.forLongValue(split.getPartitionId()),
                 KafkaInternalFieldDescription.SEGMENT_START_FIELD.forLongValue(split.getStart()),
                 KafkaInternalFieldDescription.SEGMENT_END_FIELD.forLongValue(split.getEnd()));
 
-        this.consumerManager = checkNotNull(consumerManager, "consumerManager is null");
+        this.consumerManager = requireNonNull(consumerManager, "consumerManager is null");
 
-        this.keyDecoder = checkNotNull(keyDecoder, "rowDecoder is null");
-        this.messageDecoder = checkNotNull(messageDecoder, "rowDecoder is null");
-        this.keyFieldDecoders = checkNotNull(keyFieldDecoders, "keyFieldDecoders is null");
-        this.messageFieldDecoders = checkNotNull(messageFieldDecoders, "messageFieldDecoders is null");
+        this.keyDecoder = requireNonNull(keyDecoder, "rowDecoder is null");
+        this.messageDecoder = requireNonNull(messageDecoder, "rowDecoder is null");
+        this.keyFieldDecoders = requireNonNull(keyFieldDecoders, "keyFieldDecoders is null");
+        this.messageFieldDecoders = requireNonNull(messageFieldDecoders, "messageFieldDecoders is null");
 
-        this.columnHandles = checkNotNull(columnHandles, "columnHandles is null");
+        this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
 
         ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
 

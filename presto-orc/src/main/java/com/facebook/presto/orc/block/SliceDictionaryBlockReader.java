@@ -40,7 +40,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTI
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SliceDictionaryBlockReader
         implements BlockReader
@@ -72,7 +72,7 @@ public class SliceDictionaryBlockReader
 
     public SliceDictionaryBlockReader(StreamDescriptor streamDescriptor)
     {
-        this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
+        this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
     }
 
     @Override

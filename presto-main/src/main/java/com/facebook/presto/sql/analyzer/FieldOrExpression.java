@@ -18,6 +18,8 @@ import com.google.common.base.Preconditions;
 
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * Represents an expression or a direct field reference. The latter is used, for
  * instance, when expanding "*" in SELECT * FROM ....
@@ -36,7 +38,7 @@ public class FieldOrExpression
 
     public FieldOrExpression(Expression expression)
     {
-        Preconditions.checkNotNull(expression, "expression is null");
+        requireNonNull(expression, "expression is null");
 
         this.fieldIndex = Optional.empty();
         this.expression = Optional.of(expression);

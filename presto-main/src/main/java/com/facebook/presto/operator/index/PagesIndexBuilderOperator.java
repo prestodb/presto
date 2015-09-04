@@ -25,8 +25,8 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class PagesIndexBuilderOperator
@@ -42,7 +42,7 @@ public class PagesIndexBuilderOperator
         public PagesIndexBuilderOperatorFactory(int operatorId, IndexSnapshotBuilder indexSnapshotBuilder)
         {
             this.operatorId = operatorId;
-            this.indexSnapshotBuilder = checkNotNull(indexSnapshotBuilder, "indexSnapshotBuilder is null");
+            this.indexSnapshotBuilder = requireNonNull(indexSnapshotBuilder, "indexSnapshotBuilder is null");
         }
 
         @Override
@@ -74,8 +74,8 @@ public class PagesIndexBuilderOperator
 
     public PagesIndexBuilderOperator(OperatorContext operatorContext, IndexSnapshotBuilder indexSnapshotBuilder)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.indexSnapshotBuilder = checkNotNull(indexSnapshotBuilder, "indexSnapshotBuilder is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.indexSnapshotBuilder = requireNonNull(indexSnapshotBuilder, "indexSnapshotBuilder is null");
     }
 
     @Override
@@ -111,7 +111,7 @@ public class PagesIndexBuilderOperator
     @Override
     public void addInput(Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(!isFinished(), "Operator is already finished");
 
         if (!indexSnapshotBuilder.tryAddPage(page)) {
