@@ -25,10 +25,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
+import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.type.TypeUtils.getHashBlock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -63,6 +66,29 @@ public class TestGroupByHash
                 }
             }
         }
+    }
+
+    @Test
+    public void testNullGroup()
+            throws Exception
+    {
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(BIGINT), new int[] {0}, Optional.<Integer>empty(), Optional.of(1), 100);
+
+        Block block = createLongsBlock((Long) null);
+        Block hashBlock = getHashBlock(ImmutableList.of(BIGINT), block);
+        Page page = new Page(block, hashBlock);
+        groupByHash.addPage(page);
+
+        // Add enough values to force a rehash
+        block = createLongSequenceBlock(1, 132748);
+        hashBlock = getHashBlock(ImmutableList.of(BIGINT), block);
+        page = new Page(block, hashBlock);
+        groupByHash.addPage(page);
+
+        block = createLongsBlock(0);
+        hashBlock = getHashBlock(ImmutableList.of(BIGINT), block);
+        page = new Page(block, hashBlock);
+        assertFalse(groupByHash.contains(0, page));
     }
 
     @Test

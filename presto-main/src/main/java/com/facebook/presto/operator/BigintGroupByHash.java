@@ -105,6 +105,7 @@ public class BigintGroupByHash
     @Override
     public void appendValuesTo(int groupId, PageBuilder pageBuilder, int outputChannelOffset)
     {
+        checkArgument(groupId >= 0, "groupId is negative");
         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset);
         if (groupId == nullGroupId) {
             blockBuilder.appendNull();
@@ -270,6 +271,9 @@ public class BigintGroupByHash
         newGroupIds.ensureCapacity(newSize);
 
         for (int groupId = 0; groupId < nextGroupId; groupId++) {
+            if (groupId == nullGroupId) {
+                continue;
+            }
             long value = valuesByGroupId.get(groupId);
 
             // find an empty slot for the address
