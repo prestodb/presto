@@ -28,9 +28,9 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.abs;
+import static java.util.Objects.requireNonNull;
 
 public class HashPartitionMaskOperator
         implements Operator
@@ -58,14 +58,14 @@ public class HashPartitionMaskOperator
             this.operatorId = operatorId;
             checkArgument(partitionCount > 1, "partition count must be greater than 1");
             this.partitionCount = partitionCount;
-            checkNotNull(maskChannels, "maskChannels is null");
+            requireNonNull(maskChannels, "maskChannels is null");
             this.maskChannels = Ints.toArray(maskChannels);
 
-            checkNotNull(partitionChannels, "partitionChannels is null");
+            requireNonNull(partitionChannels, "partitionChannels is null");
             checkArgument(!partitionChannels.isEmpty(), "partitionChannels is empty");
             this.partitionChannels = Ints.toArray(partitionChannels);
 
-            this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
+            this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
 
             this.types = ImmutableList.<Type>builder()
                     .addAll(sourceTypes)
@@ -121,11 +121,11 @@ public class HashPartitionMaskOperator
     {
         this.partition = partition;
         this.partitionCount = partitionCount;
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.maskChannels = maskChannels;
 
-        checkNotNull(hashChannel, "hashChannel is null");
+        requireNonNull(hashChannel, "hashChannel is null");
 
         ImmutableList.Builder<Type> distinctTypes = ImmutableList.builder();
         for (int channel : partitionChannels) {
@@ -181,7 +181,7 @@ public class HashPartitionMaskOperator
     @Override
     public void addInput(Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(!finishing, "Operator is finishing");
         checkState(outputPage == null, "Operator still has pending output");
 

@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class JoinUsing
         extends JoinCriteria
@@ -29,7 +29,7 @@ public class JoinUsing
 
     public JoinUsing(List<String> columns)
     {
-        checkNotNull(columns, "columns is null");
+        requireNonNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "columns is empty");
         this.columns = ImmutableList.copyOf(columns);
     }

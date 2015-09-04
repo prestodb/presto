@@ -24,7 +24,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HivePartition
 {
@@ -38,8 +38,8 @@ public class HivePartition
 
     public HivePartition(SchemaTableName tableName, TupleDomain<HiveColumnHandle> effectivePredicate)
     {
-        this.tableName = checkNotNull(tableName, "tableName is null");
-        this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.partitionId = UNPARTITIONED_ID;
         this.keys = ImmutableMap.of();
         this.bucket = Optional.empty();
@@ -56,11 +56,11 @@ public class HivePartition
             Map<ColumnHandle, SerializableNativeValue> keys,
             Optional<HiveBucket> bucket)
     {
-        this.tableName = checkNotNull(tableName, "tableName is null");
-        this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
-        this.partitionId = checkNotNull(partitionId, "partitionId is null");
-        this.keys = ImmutableMap.copyOf(checkNotNull(keys, "keys is null"));
-        this.bucket = checkNotNull(bucket, "bucket number is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
+        this.partitionId = requireNonNull(partitionId, "partitionId is null");
+        this.keys = ImmutableMap.copyOf(requireNonNull(keys, "keys is null"));
+        this.bucket = requireNonNull(bucket, "bucket number is null");
     }
 
     public SchemaTableName getTableName()

@@ -22,7 +22,7 @@ import java.util.Objects;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SystemTableHandle
         implements ConnectorTableHandle
@@ -39,7 +39,7 @@ public class SystemTableHandle
 
     public SystemTableHandle(SchemaTableName tableName)
     {
-        checkNotNull(tableName, "tableName is null");
+        requireNonNull(tableName, "tableName is null");
         this.schemaName = tableName.getSchemaName();
         this.tableName = tableName.getTableName();
     }

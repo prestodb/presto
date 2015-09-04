@@ -40,7 +40,7 @@ import java.util.Set;
 
 import static com.facebook.presto.example.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ExampleMetadata
         extends ReadOnlyConnectorMetadata
@@ -52,8 +52,8 @@ public class ExampleMetadata
     @Inject
     public ExampleMetadata(ExampleConnectorId connectorId, ExampleClient exampleClient)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
-        this.exampleClient = checkNotNull(exampleClient, "client is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.exampleClient = requireNonNull(exampleClient, "client is null");
     }
 
     @Override
@@ -162,7 +162,7 @@ public class ExampleMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        checkNotNull(prefix, "prefix is null");
+        requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, prefix)) {
             ConnectorTableMetadata tableMetadata = getTableMetadata(tableName);

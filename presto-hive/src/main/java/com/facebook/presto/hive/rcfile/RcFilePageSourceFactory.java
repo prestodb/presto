@@ -39,10 +39,10 @@ import java.util.Properties;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static com.facebook.presto.hive.HiveUtil.setReadColumns;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
+import static java.util.Objects.requireNonNull;
 
 public class RcFilePageSourceFactory
         implements HivePageSourceFactory
@@ -52,7 +52,7 @@ public class RcFilePageSourceFactory
     @Inject
     public RcFilePageSourceFactory(TypeManager typeManager)
     {
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override

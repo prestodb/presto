@@ -46,8 +46,8 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.DateTimeUtils.parseTime;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class KafkaLoader
         extends AbstractTestingPrestoClient<Void>
@@ -72,7 +72,7 @@ public class KafkaLoader
     @Override
     public ResultsSession<Void> getResultSession(Session session)
     {
-        checkNotNull(session, "session is null");
+        requireNonNull(session, "session is null");
         return new KafkaLoadingSession(session);
     }
 

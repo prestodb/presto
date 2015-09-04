@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class BenchmarkSuite
 {
@@ -104,7 +104,7 @@ public class BenchmarkSuite
     public BenchmarkSuite(LocalQueryRunner localQueryRunner, String outputDirectory)
     {
         this.localQueryRunner = localQueryRunner;
-        this.outputDirectory = checkNotNull(outputDirectory, "outputDirectory is null");
+        this.outputDirectory = requireNonNull(outputDirectory, "outputDirectory is null");
     }
 
     private static File createOutputFile(String fileName)
@@ -152,14 +152,14 @@ public class BenchmarkSuite
 
         private ForwardingBenchmarkResultWriter(List<BenchmarkResultHook> benchmarkResultHooks)
         {
-            checkNotNull(benchmarkResultHooks, "benchmarkResultWriters is null");
+            requireNonNull(benchmarkResultHooks, "benchmarkResultWriters is null");
             this.benchmarkResultHooks = ImmutableList.copyOf(benchmarkResultHooks);
         }
 
         @Override
         public BenchmarkResultHook addResults(Map<String, Long> results)
         {
-            checkNotNull(results, "results is null");
+            requireNonNull(results, "results is null");
             for (BenchmarkResultHook benchmarkResultHook : benchmarkResultHooks) {
                 benchmarkResultHook.addResults(results);
             }

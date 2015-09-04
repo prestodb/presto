@@ -35,7 +35,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ArrayElementAtFunction
         extends ParametricScalar
@@ -90,7 +90,7 @@ public class ArrayElementAtFunction
             checkArgument(!elementType.getJavaType().isPrimitive(), "Unsupported primitive type: " + elementType.getJavaType());
             methodHandle = OBJECT_METHOD_HANDLE;
         }
-        checkNotNull(methodHandle, "methodHandle is null");
+        requireNonNull(methodHandle, "methodHandle is null");
         methodHandle = methodHandle.bindTo(elementType);
         Signature signature = new Signature(FUNCTION_NAME, elementType.getTypeSignature(), parameterizedTypeName("array", elementType.getTypeSignature()), parseTypeSignature("bigint"));
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false, false));

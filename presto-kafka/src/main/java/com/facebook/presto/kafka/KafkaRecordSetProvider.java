@@ -28,7 +28,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Factory for Kafka specific {@link RecordSet} instances.
@@ -46,9 +46,9 @@ public class KafkaRecordSetProvider
             KafkaHandleResolver handleResolver,
             KafkaSimpleConsumerManager consumerManager)
     {
-        this.registry = checkNotNull(registry, "registry is null");
-        this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
-        this.consumerManager = checkNotNull(consumerManager, "consumerManager is null");
+        this.registry = requireNonNull(registry, "registry is null");
+        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
+        this.consumerManager = requireNonNull(consumerManager, "consumerManager is null");
     }
 
     @Override

@@ -20,7 +20,7 @@ import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ViewResult
 {
@@ -29,8 +29,8 @@ public class ViewResult
 
     public ViewResult(SchemaTableName name, String data)
     {
-        this.name = checkNotNull(name, "name is null");
-        this.data = checkNotNull(data, "data is null");
+        this.name = requireNonNull(name, "name is null");
+        this.data = requireNonNull(data, "data is null");
     }
 
     public SchemaTableName getName()

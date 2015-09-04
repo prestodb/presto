@@ -75,7 +75,7 @@ import java.util.Set;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Re-maps symbol references that are just aliases of each other (e.g., due to projections like {@code $0 := $1})
@@ -94,11 +94,11 @@ public class UnaliasSymbolReferences
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        checkNotNull(plan, "plan is null");
-        checkNotNull(session, "session is null");
-        checkNotNull(types, "types is null");
-        checkNotNull(symbolAllocator, "symbolAllocator is null");
-        checkNotNull(idAllocator, "idAllocator is null");
+        requireNonNull(plan, "plan is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(types, "types is null");
+        requireNonNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(idAllocator, "idAllocator is null");
 
         return PlanRewriter.rewriteWith(new Rewriter(), plan);
     }

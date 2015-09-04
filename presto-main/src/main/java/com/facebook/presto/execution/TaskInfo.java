@@ -28,7 +28,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class TaskInfo
@@ -73,15 +73,15 @@ public class TaskInfo
             @JsonProperty("stats") TaskStats stats,
             @JsonProperty("failures") List<ExecutionFailureInfo> failures)
     {
-        this.taskId = checkNotNull(taskId, "taskId is null");
-        this.nodeInstanceId = checkNotNull(nodeInstanceId, "nodeInstanceId is null");
+        this.taskId = requireNonNull(taskId, "taskId is null");
+        this.nodeInstanceId = requireNonNull(nodeInstanceId, "nodeInstanceId is null");
         this.version = version;
-        this.state = checkNotNull(state, "state is null");
-        this.self = checkNotNull(self, "self is null");
-        this.lastHeartbeat = checkNotNull(lastHeartbeat, "lastHeartbeat is null");
-        this.outputBuffers = checkNotNull(outputBuffers, "outputBuffers is null");
-        this.noMoreSplits = checkNotNull(noMoreSplits, "noMoreSplits is null");
-        this.stats = checkNotNull(stats, "stats is null");
+        this.state = requireNonNull(state, "state is null");
+        this.self = requireNonNull(self, "self is null");
+        this.lastHeartbeat = requireNonNull(lastHeartbeat, "lastHeartbeat is null");
+        this.outputBuffers = requireNonNull(outputBuffers, "outputBuffers is null");
+        this.noMoreSplits = requireNonNull(noMoreSplits, "noMoreSplits is null");
+        this.stats = requireNonNull(stats, "stats is null");
 
         if (failures != null) {
             this.failures = ImmutableList.copyOf(failures);

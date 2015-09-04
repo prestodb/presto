@@ -16,11 +16,12 @@ package com.facebook.presto.sql.relational;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 public final class CallExpression
         extends RowExpression
@@ -31,9 +32,9 @@ public final class CallExpression
 
     public CallExpression(Signature signature, Type returnType, List<RowExpression> arguments)
     {
-        Preconditions.checkNotNull(signature, "signature is null");
-        Preconditions.checkNotNull(arguments, "arguments is null");
-        Preconditions.checkNotNull(returnType, "returnType is null");
+        requireNonNull(signature, "signature is null");
+        requireNonNull(arguments, "arguments is null");
+        requireNonNull(returnType, "returnType is null");
 
         this.signature = signature;
         this.returnType = returnType;

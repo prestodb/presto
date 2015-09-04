@@ -120,8 +120,8 @@ import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Sets.newIdentityHashSet;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionAnalyzer
@@ -139,9 +139,9 @@ public class ExpressionAnalyzer
 
     public ExpressionAnalyzer(FunctionRegistry functionRegistry, TypeManager typeManager, Function<Node, StatementAnalyzer> statementAnalyzerFactory, Session session)
     {
-        this.functionRegistry = checkNotNull(functionRegistry, "functionRegistry is null");
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
-        this.statementAnalyzerFactory = checkNotNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
+        this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.session = requireNonNull(session, "session is null");
     }
 
@@ -219,7 +219,7 @@ public class ExpressionAnalyzer
 
         private Visitor(TupleDescriptor tupleDescriptor)
         {
-            this.tupleDescriptor = checkNotNull(tupleDescriptor, "tupleDescriptor is null");
+            this.tupleDescriptor = requireNonNull(tupleDescriptor, "tupleDescriptor is null");
         }
 
         @SuppressWarnings("SuspiciousMethodCalls")
@@ -436,7 +436,7 @@ public class ExpressionAnalyzer
 
             for (WhenClause whenClause : node.getWhenClauses()) {
                 Type whenClauseType = process(whenClause.getResult(), context);
-                checkNotNull(whenClauseType, "Expression types does not contain an entry for %s", whenClause);
+                requireNonNull(whenClauseType, format("Expression types does not contain an entry for %s", whenClause));
                 expressionTypes.put(whenClause, whenClauseType);
             }
 
@@ -457,7 +457,7 @@ public class ExpressionAnalyzer
 
             for (WhenClause whenClause : node.getWhenClauses()) {
                 Type whenClauseType = process(whenClause.getResult(), context);
-                checkNotNull(whenClauseType, "Expression types does not contain an entry for %s", whenClause);
+                requireNonNull(whenClauseType, format("Expression types does not contain an entry for %s", whenClause));
                 expressionTypes.put(whenClause, whenClauseType);
             }
 
@@ -691,7 +691,7 @@ public class ExpressionAnalyzer
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
                 Type type = typeManager.getType(function.getArgumentTypes().get(i));
-                checkNotNull(type, "Type %s not found", function.getArgumentTypes().get(i));
+                requireNonNull(type, format("Type %s not found", function.getArgumentTypes().get(i)));
                 if (node.isDistinct() && !type.isComparable()) {
                     throw new SemanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", type);
                 }

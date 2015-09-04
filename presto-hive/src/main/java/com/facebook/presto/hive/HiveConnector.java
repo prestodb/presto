@@ -30,7 +30,7 @@ import io.airlift.log.Logger;
 import java.util.List;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HiveConnector
         implements Connector
@@ -60,16 +60,16 @@ public class HiveConnector
             List<PropertyMetadata<?>> tableProperties,
             ConnectorAccessControl accessControl)
     {
-        this.lifeCycleManager = checkNotNull(lifeCycleManager, "lifeCycleManager is null");
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.splitManager = checkNotNull(splitManager, "splitManager is null");
-        this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceProvider is null");
-        this.recordSinkProvider = checkNotNull(recordSinkProvider, "recordSinkProvider is null");
-        this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
-        this.systemTables = ImmutableSet.copyOf(checkNotNull(systemTables, "systemTables is null"));
-        this.sessionProperties = ImmutableList.copyOf(checkNotNull(sessionProperties, "sessionProperties is null"));
-        this.tableProperties = ImmutableList.copyOf(checkNotNull(tableProperties, "tableProperties is null"));
-        this.accessControl = checkNotNull(accessControl, "accessControl is null");
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.recordSinkProvider = requireNonNull(recordSinkProvider, "recordSinkProvider is null");
+        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
+        this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
+        this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
+        this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override

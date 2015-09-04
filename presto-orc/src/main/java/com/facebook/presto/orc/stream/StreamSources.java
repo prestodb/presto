@@ -24,7 +24,7 @@ import java.util.Map;
 
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class StreamSources
 {
@@ -32,14 +32,14 @@ public class StreamSources
 
     public StreamSources(Map<StreamId, StreamSource<?>> streamSources)
     {
-        this.streamSources = ImmutableMap.copyOf(checkNotNull(streamSources, "streamSources is null"));
+        this.streamSources = ImmutableMap.copyOf(requireNonNull(streamSources, "streamSources is null"));
     }
 
     @Nonnull
     public <S extends ValueStream<?>> StreamSource<S> getStreamSource(StreamDescriptor streamDescriptor, StreamKind streamKind, Class<S> streamType)
     {
-        checkNotNull(streamDescriptor, "streamDescriptor is null");
-        checkNotNull(streamType, "streamType is null");
+        requireNonNull(streamDescriptor, "streamDescriptor is null");
+        requireNonNull(streamType, "streamType is null");
 
         StreamSource<?> streamSource = streamSources.get(new StreamId(streamDescriptor.getStreamId(), streamKind));
         if (streamSource == null) {

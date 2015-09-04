@@ -22,7 +22,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TeradataFunctionsPlugin
         implements Plugin
@@ -32,7 +32,7 @@ public class TeradataFunctionsPlugin
     @Inject
     public void setTypeManager(TypeManager typeManager)
     {
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override

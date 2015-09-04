@@ -24,9 +24,9 @@ import com.google.common.util.concurrent.SettableFuture;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.transform;
+import static java.util.Objects.requireNonNull;
 
 public final class SettableLookupSourceSupplier
         implements LookupSourceSupplier
@@ -37,7 +37,7 @@ public final class SettableLookupSourceSupplier
 
     public SettableLookupSourceSupplier(List<Type> types)
     {
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
     }
 
     @Override
@@ -54,7 +54,7 @@ public final class SettableLookupSourceSupplier
 
     public void setLookupSource(SharedLookupSource lookupSource)
     {
-        checkNotNull(lookupSource, "lookupSource is null");
+        requireNonNull(lookupSource, "lookupSource is null");
         boolean wasSet = lookupSourceFuture.set(lookupSource);
         checkState(wasSet, "Lookup source already set");
     }

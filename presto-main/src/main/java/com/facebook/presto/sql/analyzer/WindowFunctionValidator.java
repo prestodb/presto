@@ -18,7 +18,7 @@ import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.FunctionCall;
 
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class WindowFunctionValidator
         extends DefaultExpressionTraversalVisitor<Void, Analysis>
@@ -26,7 +26,7 @@ public class WindowFunctionValidator
     @Override
     protected Void visitFunctionCall(FunctionCall functionCall, Analysis analysis)
     {
-        checkNotNull(analysis, "analysis is null");
+        requireNonNull(analysis, "analysis is null");
 
         FunctionInfo functionInfo = analysis.getFunctionInfo(functionCall);
         if (functionInfo != null && functionInfo.isWindow() && !functionInfo.isAggregate() && !functionCall.getWindow().isPresent()) {

@@ -23,8 +23,8 @@ import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Method;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.Objects.requireNonNull;
 
 class InvokeDynamicByteCodeExpression
         extends ByteCodeExpression
@@ -45,12 +45,12 @@ class InvokeDynamicByteCodeExpression
             Iterable<ParameterizedType> parameterTypes)
     {
         super(returnType);
-        this.bootstrapMethod = checkNotNull(bootstrapMethod, "bootstrapMethod is null");
-        this.bootstrapArgs = ImmutableList.copyOf(checkNotNull(bootstrapArgs, "bootstrapArgs is null"));
-        this.methodName = checkNotNull(methodName, "methodName is null");
-        this.returnType = checkNotNull(returnType, "returnType is null");
-        this.parameters = ImmutableList.copyOf(checkNotNull(parameters, "parameters is null"));
-        this.parameterTypes = ImmutableList.copyOf(checkNotNull(parameterTypes, "parameterTypes is null"));
+        this.bootstrapMethod = requireNonNull(bootstrapMethod, "bootstrapMethod is null");
+        this.bootstrapArgs = ImmutableList.copyOf(requireNonNull(bootstrapArgs, "bootstrapArgs is null"));
+        this.methodName = requireNonNull(methodName, "methodName is null");
+        this.returnType = requireNonNull(returnType, "returnType is null");
+        this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
+        this.parameterTypes = ImmutableList.copyOf(requireNonNull(parameterTypes, "parameterTypes is null"));
     }
 
     @Override

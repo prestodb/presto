@@ -55,7 +55,6 @@ import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.UnknownType;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slices;
@@ -99,6 +98,7 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public final class SqlToRowExpressionTranslator
 {
@@ -114,7 +114,7 @@ public final class SqlToRowExpressionTranslator
     {
         RowExpression result = new Visitor(types, typeManager, session.getTimeZoneKey()).process(expression, null);
 
-        Preconditions.checkNotNull(result, "translated expression is null");
+        requireNonNull(result, "translated expression is null");
 
         if (optimize) {
             ExpressionOptimizer optimizer = new ExpressionOptimizer(functionRegistry, typeManager, session);

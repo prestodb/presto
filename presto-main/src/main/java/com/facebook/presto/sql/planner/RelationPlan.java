@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 class RelationPlan
 {
@@ -33,10 +33,10 @@ class RelationPlan
 
     public RelationPlan(PlanNode root, TupleDescriptor descriptor, List<Symbol> outputSymbols, Optional<Symbol> sampleWeight)
     {
-        checkNotNull(root, "root is null");
-        checkNotNull(outputSymbols, "outputSymbols is null");
-        checkNotNull(descriptor, "descriptor is null");
-        checkNotNull(descriptor, "sampleWeight is null");
+        requireNonNull(root, "root is null");
+        requireNonNull(outputSymbols, "outputSymbols is null");
+        requireNonNull(descriptor, "descriptor is null");
+        requireNonNull(descriptor, "sampleWeight is null");
 
         checkArgument(descriptor.getAllFieldCount() == outputSymbols.size(),
                 "Number of outputs (%s) doesn't match descriptor size (%s)", outputSymbols.size(), descriptor.getAllFieldCount());

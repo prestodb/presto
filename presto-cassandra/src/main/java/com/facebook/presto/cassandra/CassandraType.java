@@ -41,9 +41,9 @@ import java.util.Map;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.net.InetAddresses.toAddrString;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public enum CassandraType
         implements FullCassandraType
@@ -74,7 +74,7 @@ public enum CassandraType
 
     CassandraType(Type nativeType, Class<?> javaType)
     {
-        this.nativeType = checkNotNull(nativeType, "nativeType is null");
+        this.nativeType = requireNonNull(nativeType, "nativeType is null");
         this.javaType = javaType;
     }
 

@@ -18,7 +18,7 @@ import com.facebook.presto.spi.type.Type;
 import java.util.Map;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SpecializedFunctionKey
 {
@@ -28,8 +28,8 @@ public class SpecializedFunctionKey
 
     public SpecializedFunctionKey(ParametricFunction function, Map<String, Type> boundTypeParameters, int arity)
     {
-        this.function = checkNotNull(function, "function is null");
-        this.boundTypeParameters = checkNotNull(boundTypeParameters, "boundTypeParameters is null");
+        this.function = requireNonNull(function, "function is null");
+        this.boundTypeParameters = requireNonNull(boundTypeParameters, "boundTypeParameters is null");
         this.arity = arity;
     }
 

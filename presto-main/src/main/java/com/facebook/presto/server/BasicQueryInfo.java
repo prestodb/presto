@@ -34,7 +34,6 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -79,16 +78,16 @@ public class BasicQueryInfo
             @JsonProperty("totalDrivers") int totalDrivers)
 
     {
-        this.queryId = checkNotNull(queryId, "queryId is null");
-        this.session = checkNotNull(session, "session is null");
-        this.state = checkNotNull(state, "state is null");
+        this.queryId = requireNonNull(queryId, "queryId is null");
+        this.session = requireNonNull(session, "session is null");
+        this.state = requireNonNull(state, "state is null");
         this.errorType = errorType;
         this.errorCode = errorCode;
         this.scheduled = scheduled;
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
-        this.self = checkNotNull(self, "self is null");
-        this.query = checkNotNull(query, "query is null");
+        this.self = requireNonNull(self, "self is null");
+        this.query = requireNonNull(query, "query is null");
         this.elapsedTime = elapsedTime;
         this.endTime = endTime;
         this.createTime = createTime;

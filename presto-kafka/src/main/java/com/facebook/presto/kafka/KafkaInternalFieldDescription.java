@@ -27,8 +27,8 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Describes an internal (managed by the connector) field which is added to each table row. The definition itself makes the row
@@ -112,8 +112,8 @@ public class KafkaInternalFieldDescription
     {
         checkArgument(!isNullOrEmpty(name), "name is null or is empty");
         this.name = name;
-        this.type = checkNotNull(type, "type is null");
-        this.comment = checkNotNull(comment, "comment is null");
+        this.type = requireNonNull(type, "type is null");
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     public String getName()

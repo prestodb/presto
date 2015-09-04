@@ -43,7 +43,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
@@ -59,6 +58,7 @@ import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -85,10 +85,10 @@ public class StatementClient
 
     public StatementClient(HttpClient httpClient, JsonCodec<QueryResults> queryResultsCodec, ClientSession session, String query)
     {
-        checkNotNull(httpClient, "httpClient is null");
-        checkNotNull(queryResultsCodec, "queryResultsCodec is null");
-        checkNotNull(session, "session is null");
-        checkNotNull(query, "query is null");
+        requireNonNull(httpClient, "httpClient is null");
+        requireNonNull(queryResultsCodec, "queryResultsCodec is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(query, "query is null");
 
         this.httpClient = httpClient;
         this.responseHandler = createFullJsonResponseHandler(queryResultsCodec);

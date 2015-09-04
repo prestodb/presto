@@ -21,8 +21,8 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.concurrent.CompletableFuture;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 class UpdateRequest
@@ -33,7 +33,7 @@ class UpdateRequest
 
     public UpdateRequest(Block... blocks)
     {
-        this.blocks = checkNotNull(blocks, "blocks is null");
+        this.blocks = requireNonNull(blocks, "blocks is null");
         this.page = new Page(blocks);
     }
 
@@ -50,7 +50,7 @@ class UpdateRequest
 
     public void finished(IndexSnapshot indexSnapshot)
     {
-        checkNotNull(indexSnapshot, "indexSnapshot is null");
+        requireNonNull(indexSnapshot, "indexSnapshot is null");
         checkState(indexSnapshotFuture.complete(indexSnapshot), "Already finished!");
     }
 

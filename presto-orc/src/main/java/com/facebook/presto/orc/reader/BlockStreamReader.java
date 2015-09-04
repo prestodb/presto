@@ -38,7 +38,7 @@ import static com.facebook.presto.orc.block.BlockReaders.createBlockReader;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class BlockStreamReader
         implements StreamReader
@@ -68,7 +68,7 @@ public class BlockStreamReader
 
     public BlockStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
     {
-        this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
+        this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.blockReader = createBlockReader(streamDescriptor, false, hiveStorageTimeZone);
     }
 

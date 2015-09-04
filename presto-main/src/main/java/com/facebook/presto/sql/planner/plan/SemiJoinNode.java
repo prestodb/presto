@@ -23,7 +23,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class SemiJoinNode
@@ -48,13 +48,13 @@ public class SemiJoinNode
             @JsonProperty("filteringSourceHashSymbol") Optional<Symbol> filteringSourceHashSymbol)
     {
         super(id);
-        this.source = checkNotNull(source, "source is null");
-        this.filteringSource = checkNotNull(filteringSource, "filteringSource is null");
-        this.sourceJoinSymbol = checkNotNull(sourceJoinSymbol, "sourceJoinSymbol is null");
-        this.filteringSourceJoinSymbol = checkNotNull(filteringSourceJoinSymbol, "filteringSourceJoinSymbol is null");
-        this.semiJoinOutput = checkNotNull(semiJoinOutput, "semiJoinOutput is null");
-        this.sourceHashSymbol = checkNotNull(sourceHashSymbol, "sourceHashSymbol is null");
-        this.filteringSourceHashSymbol = checkNotNull(filteringSourceHashSymbol, "filteringSourceHashSymbol is null");
+        this.source = requireNonNull(source, "source is null");
+        this.filteringSource = requireNonNull(filteringSource, "filteringSource is null");
+        this.sourceJoinSymbol = requireNonNull(sourceJoinSymbol, "sourceJoinSymbol is null");
+        this.filteringSourceJoinSymbol = requireNonNull(filteringSourceJoinSymbol, "filteringSourceJoinSymbol is null");
+        this.semiJoinOutput = requireNonNull(semiJoinOutput, "semiJoinOutput is null");
+        this.sourceHashSymbol = requireNonNull(sourceHashSymbol, "sourceHashSymbol is null");
+        this.filteringSourceHashSymbol = requireNonNull(filteringSourceHashSymbol, "filteringSourceHashSymbol is null");
     }
 
     @JsonProperty("source")

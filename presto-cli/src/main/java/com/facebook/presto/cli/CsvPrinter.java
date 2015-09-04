@@ -20,7 +20,7 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class CsvPrinter
         implements OutputPrinter
@@ -32,8 +32,8 @@ public class CsvPrinter
 
     public CsvPrinter(List<String> fieldNames, Writer writer, boolean header)
     {
-        checkNotNull(fieldNames, "fieldNames is null");
-        checkNotNull(writer, "writer is null");
+        requireNonNull(fieldNames, "fieldNames is null");
+        requireNonNull(writer, "writer is null");
         this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.writer = new CSVWriter(writer);
         this.needHeader = header;

@@ -27,9 +27,9 @@ import java.util.List;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.FULL_OUTER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.LOOKUP_OUTER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static java.util.Objects.requireNonNull;
 
 public class LookupJoinOperator
         implements Operator, Closeable
@@ -62,12 +62,12 @@ public class LookupJoinOperator
             JoinType joinType,
             JoinProbeFactory joinProbeFactory)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
         // todo pass in desired projection
-        this.lookupSourceSupplier = checkNotNull(lookupSourceSupplier, "lookupSourceSupplier is null");
+        this.lookupSourceSupplier = requireNonNull(lookupSourceSupplier, "lookupSourceSupplier is null");
         lookupSourceSupplier.retain();
-        checkNotNull(probeTypes, "probeTypes is null");
+        requireNonNull(probeTypes, "probeTypes is null");
 
         this.lookupSourceFuture = lookupSourceSupplier.getLookupSource(operatorContext);
         this.joinProbeFactory = joinProbeFactory;
@@ -145,7 +145,7 @@ public class LookupJoinOperator
     @Override
     public void addInput(Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(!finishing, "Operator is finishing");
         checkState(lookupSource != null, "Lookup source has not been built yet");
         checkState(probe == null, "Current page has not been completely processed yet");

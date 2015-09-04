@@ -31,9 +31,9 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.cassandra.CassandraColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public class CassandraRecordSink
         implements RecordSink
@@ -52,8 +52,8 @@ public class CassandraRecordSink
     @Inject
     public CassandraRecordSink(CassandraOutputTableHandle handle, CassandraSession cassandraSession)
     {
-        this.fieldCount = checkNotNull(handle, "handle is null").getColumnNames().size();
-        this.cassandraSession = checkNotNull(cassandraSession, "cassandraSession is null");
+        this.fieldCount = requireNonNull(handle, "handle is null").getColumnNames().size();
+        this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
         this.sampled = handle.isSampled();
 
         schemaName = handle.getSchemaName();

@@ -17,7 +17,7 @@ import io.airlift.stats.CounterStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class SqlTaskIoStats
 {
@@ -33,10 +33,10 @@ public final class SqlTaskIoStats
 
     public SqlTaskIoStats(CounterStat inputDataSize, CounterStat inputPositions, CounterStat outputDataSize, CounterStat outputPositions)
     {
-        this.inputDataSize = checkNotNull(inputDataSize, "inputDataSize is null");
-        this.inputPositions = checkNotNull(inputPositions, "inputPositions is null");
-        this.outputDataSize = checkNotNull(outputDataSize, "outputDataSize is null");
-        this.outputPositions = checkNotNull(outputPositions, "outputPositions is null");
+        this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
+        this.inputPositions = requireNonNull(inputPositions, "inputPositions is null");
+        this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
+        this.outputPositions = requireNonNull(outputPositions, "outputPositions is null");
     }
 
     @Managed

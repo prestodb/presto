@@ -44,7 +44,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class Analysis
 {
@@ -380,8 +380,8 @@ public class Analysis
 
     public void registerNamedQuery(Table tableReference, Query query)
     {
-        checkNotNull(tableReference, "tableReference is null");
-        checkNotNull(query, "query is null");
+        requireNonNull(tableReference, "tableReference is null");
+        requireNonNull(query, "query is null");
 
         namedQueries.put(tableReference, query);
     }
@@ -404,8 +404,8 @@ public class Analysis
 
         public JoinInPredicates(Set<InPredicate> leftInPredicates, Set<InPredicate> rightInPredicates)
         {
-            this.leftInPredicates = ImmutableSet.copyOf(checkNotNull(leftInPredicates, "leftInPredicates is null"));
-            this.rightInPredicates = ImmutableSet.copyOf(checkNotNull(rightInPredicates, "rightInPredicates is null"));
+            this.leftInPredicates = ImmutableSet.copyOf(requireNonNull(leftInPredicates, "leftInPredicates is null"));
+            this.rightInPredicates = ImmutableSet.copyOf(requireNonNull(rightInPredicates, "rightInPredicates is null"));
         }
 
         public Set<InPredicate> getLeftInPredicates()

@@ -21,7 +21,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RunLengthBlockEncoding
         implements BlockEncoding
@@ -33,7 +33,7 @@ public class RunLengthBlockEncoding
 
     public RunLengthBlockEncoding(BlockEncoding valueBlockEncoding)
     {
-        this.valueBlockEncoding = checkNotNull(valueBlockEncoding, "valueBlockEncoding is null");
+        this.valueBlockEncoding = requireNonNull(valueBlockEncoding, "valueBlockEncoding is null");
     }
 
     @Override

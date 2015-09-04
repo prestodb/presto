@@ -55,7 +55,6 @@ import static com.facebook.presto.execution.SharedBuffer.BufferState.TERMINAL_BU
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
@@ -157,13 +156,13 @@ public class SharedBuffer
 
     public SharedBuffer(TaskId taskId, Executor executor, DataSize maxBufferSize, SystemMemoryUsageListener systemMemoryUsageListener)
     {
-        checkNotNull(taskId, "taskId is null");
-        checkNotNull(executor, "executor is null");
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(executor, "executor is null");
         state = new StateMachine<>(taskId + "-buffer", executor, OPEN, TERMINAL_BUFFER_STATES);
 
-        checkNotNull(maxBufferSize, "maxBufferSize is null");
+        requireNonNull(maxBufferSize, "maxBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
-        checkNotNull(systemMemoryUsageListener, "systemMemoryUsageListener is null");
+        requireNonNull(systemMemoryUsageListener, "systemMemoryUsageListener is null");
         this.memoryManager = new SharedBufferMemoryManager(maxBufferSize.toBytes(), systemMemoryUsageListener);
     }
 
@@ -204,7 +203,7 @@ public class SharedBuffer
 
     public synchronized void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
-        checkNotNull(newOutputBuffers, "newOutputBuffers is null");
+        requireNonNull(newOutputBuffers, "newOutputBuffers is null");
         // ignore buffers added after query finishes, which can happen when a query is canceled
         // also ignore old versions, which is normal
         if (state.get().isTerminal() || outputBuffers.getVersion() >= newOutputBuffers.getVersion()) {
@@ -262,7 +261,7 @@ public class SharedBuffer
 
     public synchronized ListenableFuture<?> enqueue(int partition, Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
 
         // ignore pages after no more pages is set
         // this can happen with a limit query
@@ -279,7 +278,7 @@ public class SharedBuffer
 
     public synchronized CompletableFuture<BufferResult> get(TaskId outputId, long startingSequenceId, DataSize maxSize)
     {
-        checkNotNull(outputId, "outputId is null");
+        requireNonNull(outputId, "outputId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
 
         // if no buffers can be added, and the requested buffer does not exist, return a closed empty result
@@ -298,7 +297,7 @@ public class SharedBuffer
 
     public synchronized void abort(TaskId outputId)
     {
-        checkNotNull(outputId, "outputId is null");
+        requireNonNull(outputId, "outputId is null");
 
         abortedBuffers.add(outputId);
 

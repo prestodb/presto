@@ -21,7 +21,7 @@ import javax.annotation.Nullable;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class TypeParameter
 {
@@ -37,7 +37,7 @@ public final class TypeParameter
             @JsonProperty("orderableRequired") boolean orderableRequired,
             @JsonProperty("variadicBound") @Nullable String variadicBound)
     {
-        this.name = checkNotNull(name, "name is null");
+        this.name = requireNonNull(name, "name is null");
         this.comparableRequired = comparableRequired;
         this.orderableRequired = orderableRequired;
         this.variadicBound = variadicBound;

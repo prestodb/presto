@@ -24,7 +24,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SimplePagesHashStrategy
         implements PagesHashStrategy
@@ -36,10 +36,10 @@ public class SimplePagesHashStrategy
 
     public SimplePagesHashStrategy(List<Type> types, List<List<Block>> channels, List<Integer> hashChannels, Optional<Integer> precomputedHashChannel)
     {
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.channels = ImmutableList.copyOf(checkNotNull(channels, "channels is null"));
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.channels = ImmutableList.copyOf(requireNonNull(channels, "channels is null"));
         checkArgument(types.size() == channels.size(), "Expected types and channels to be the same length");
-        this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
+        this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
         if (precomputedHashChannel.isPresent()) {
             this.precomputedHashChannel = channels.get(precomputedHashChannel.get());
         }

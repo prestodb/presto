@@ -24,9 +24,9 @@ import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimi
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
+import static java.util.Objects.requireNonNull;
 
 public class TypedSet
 {
@@ -46,7 +46,7 @@ public class TypedSet
     public TypedSet(Type elementType, int expectedSize)
     {
         checkArgument(expectedSize > 0, "expectedSize must be > 0");
-        this.elementType = checkNotNull(elementType, "elementType must not be null");
+        this.elementType = requireNonNull(elementType, "elementType must not be null");
         this.elementBlock = elementType.createBlockBuilder(new BlockBuilderStatus(), expectedSize);
 
         int hashSize = arraySize(expectedSize, FILL_RATIO);
@@ -68,7 +68,7 @@ public class TypedSet
 
     public boolean contains(Block block, int position)
     {
-        checkNotNull(block, "block must not be null");
+        requireNonNull(block, "block must not be null");
         checkArgument(position >= 0, "position must be >= 0");
 
         if (block.isNull(position)) {
@@ -81,7 +81,7 @@ public class TypedSet
 
     public void add(Block block, int position)
     {
-        checkNotNull(block, "block must not be null");
+        requireNonNull(block, "block must not be null");
         checkArgument(position >= 0, "position must be >= 0");
 
         if (block.isNull(position)) {

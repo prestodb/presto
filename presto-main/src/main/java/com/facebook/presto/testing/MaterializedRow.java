@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Materialize all values in a row
@@ -36,7 +36,7 @@ public class MaterializedRow
 
     public MaterializedRow(int precision, Object... values)
     {
-        this(precision, Arrays.asList(checkNotNull(values, "values is null")));
+        this(precision, Arrays.asList(requireNonNull(values, "values is null")));
     }
 
     public MaterializedRow(int precision, List<Object> values)

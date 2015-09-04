@@ -86,8 +86,8 @@ import java.util.stream.Stream;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.DomainUtils.simplifyDomain;
 import static com.facebook.presto.sql.planner.PlanFragment.NullPartitioning.REPLICATE;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class PlanPrinter
 {
@@ -101,9 +101,9 @@ public class PlanPrinter
 
     private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Session session, int indent)
     {
-        checkNotNull(plan, "plan is null");
-        checkNotNull(types, "types is null");
-        checkNotNull(metadata, "metadata is null");
+        requireNonNull(plan, "plan is null");
+        requireNonNull(types, "types is null");
+        requireNonNull(metadata, "metadata is null");
 
         this.metadata = metadata;
 

@@ -25,9 +25,9 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static java.util.Objects.requireNonNull;
 
 public class HashSemiJoinOperator
         implements Operator
@@ -89,11 +89,11 @@ public class HashSemiJoinOperator
 
     public HashSemiJoinOperator(OperatorContext operatorContext, SetSupplier channelSetFuture, List<Type> probeTypes, int probeJoinChannel)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
         // todo pass in desired projection
-        checkNotNull(channelSetFuture, "hashProvider is null");
-        checkNotNull(probeTypes, "probeTypes is null");
+        requireNonNull(channelSetFuture, "hashProvider is null");
+        requireNonNull(probeTypes, "probeTypes is null");
         checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
 
         this.channelSetFuture = channelSetFuture.getChannelSet();
@@ -151,7 +151,7 @@ public class HashSemiJoinOperator
     @Override
     public void addInput(Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(!finishing, "Operator is finishing");
         checkState(channelSet != null, "Set has not been built yet");
         checkState(outputPage == null, "Operator still has pending output");

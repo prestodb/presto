@@ -21,7 +21,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 
 import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class JdbcHandleResolver
         implements ConnectorHandleResolver
@@ -31,7 +31,7 @@ public class JdbcHandleResolver
     @Inject
     public JdbcHandleResolver(JdbcConnectorId clientId)
     {
-        this.connectorId = checkNotNull(clientId, "clientId is null").toString();
+        this.connectorId = requireNonNull(clientId, "clientId is null").toString();
     }
 
     @Override

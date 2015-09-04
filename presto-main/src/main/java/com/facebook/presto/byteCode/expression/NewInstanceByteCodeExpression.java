@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 class NewInstanceByteCodeExpression
         extends ByteCodeExpression
@@ -36,8 +36,8 @@ class NewInstanceByteCodeExpression
             Iterable<? extends ByteCodeExpression> parameters)
     {
         super(type);
-        this.parameterTypes = ImmutableList.copyOf(checkNotNull(parameterTypes, "parameterTypes is null"));
-        this.parameters = ImmutableList.copyOf(checkNotNull(parameters, "parameters is null"));
+        this.parameterTypes = ImmutableList.copyOf(requireNonNull(parameterTypes, "parameterTypes is null"));
+        this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
     }
 
     @Override

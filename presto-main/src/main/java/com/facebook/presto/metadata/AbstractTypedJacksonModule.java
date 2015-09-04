@@ -43,7 +43,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractTypedJacksonModule<T>
         extends SimpleModule
@@ -131,7 +131,7 @@ public abstract class AbstractTypedJacksonModule<T>
 
         InternalTypeResolver(JsonTypeIdResolver<Object> typeIdResolver)
         {
-            this.typeIdResolver = checkNotNull(typeIdResolver, "typeIdResolver is null");
+            this.typeIdResolver = requireNonNull(typeIdResolver, "typeIdResolver is null");
             simpleTypes = CacheBuilder.newBuilder().weakKeys().weakValues().build(new CacheLoader<Class<?>, SimpleType>()
             {
                 @Override
@@ -151,14 +151,14 @@ public abstract class AbstractTypedJacksonModule<T>
         @Override
         public String idFromValue(Object value)
         {
-            checkNotNull(value, "value is null");
+            requireNonNull(value, "value is null");
             return idFromValueAndType(value, value.getClass());
         }
 
         @Override
         public String idFromValueAndType(Object value, Class<?> suggestedType)
         {
-            checkNotNull(value, "value is null");
+            requireNonNull(value, "value is null");
             String type = typeIdResolver.getId(value);
             checkArgument(type != null, "Unknown class %s", suggestedType.getSimpleName());
             return type;
@@ -173,7 +173,7 @@ public abstract class AbstractTypedJacksonModule<T>
         @Override
         public JavaType typeFromId(String id)
         {
-            checkNotNull(id, "id is null");
+            requireNonNull(id, "id is null");
             Class<?> typeClass = typeIdResolver.getType(id);
             checkArgument(typeClass != null, "Unknown type id %s", id);
             return simpleTypes.getUnchecked(typeClass);

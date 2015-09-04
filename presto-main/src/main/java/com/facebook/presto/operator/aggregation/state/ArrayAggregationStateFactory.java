@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation.state;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.util.array.ObjectBigArray;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ArrayAggregationStateFactory
         implements AccumulatorStateFactory<ArrayAggregationState>
@@ -79,7 +79,7 @@ public class ArrayAggregationStateFactory
         @Override
         public void setBlockBuilder(BlockBuilder value)
         {
-            checkNotNull(value, "value is null");
+            requireNonNull(value, "value is null");
 
             BlockBuilder previous = getBlockBuilder();
             if (previous != null) {
@@ -115,7 +115,7 @@ public class ArrayAggregationStateFactory
         @Override
         public void setBlockBuilder(BlockBuilder value)
         {
-            checkNotNull(value, "value is null");
+            requireNonNull(value, "value is null");
             blockBuilder = value;
         }
 

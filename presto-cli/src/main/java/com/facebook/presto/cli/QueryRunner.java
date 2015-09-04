@@ -32,8 +32,8 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static java.util.Objects.requireNonNull;
 
 public class QueryRunner
         implements Closeable
@@ -53,8 +53,8 @@ public class QueryRunner
             boolean authenticationEnabled,
             KerberosConfig kerberosConfig)
     {
-        this.session = new AtomicReference<>(checkNotNull(session, "session is null"));
-        this.queryResultsCodec = checkNotNull(queryResultsCodec, "queryResultsCodec is null");
+        this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
+        this.queryResultsCodec = requireNonNull(queryResultsCodec, "queryResultsCodec is null");
         this.httpClient = new JettyHttpClient(
                 getHttpClientConfig(socksProxy, keystorePath, keystorePassword, kerberosPrincipal, kerberosRemoteServiceName, authenticationEnabled),
                 kerberosConfig,
@@ -69,7 +69,7 @@ public class QueryRunner
 
     public void setSession(ClientSession session)
     {
-        this.session.set(checkNotNull(session, "session is null"));
+        this.session.set(requireNonNull(session, "session is null"));
     }
 
     public Query startQuery(String query)

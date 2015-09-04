@@ -32,9 +32,9 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.fromProperties;
+import static java.util.Objects.requireNonNull;
 
 public class CatalogManager
 {
@@ -114,7 +114,7 @@ public class CatalogManager
     private static Map<String, String> loadProperties(File file)
             throws Exception
     {
-        checkNotNull(file, "file is null");
+        requireNonNull(file, "file is null");
 
         Properties properties = new Properties();
         try (FileInputStream in = new FileInputStream(file)) {

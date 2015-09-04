@@ -81,10 +81,10 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toCollection;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class RaptorMetadata
@@ -107,14 +107,14 @@ public class RaptorMetadata
             JsonCodec<ShardInfo> shardInfoCodec,
             JsonCodec<ShardDelta> shardDeltaCodec)
     {
-        checkNotNull(connectorId, "connectorId is null");
+        requireNonNull(connectorId, "connectorId is null");
 
         this.connectorId = connectorId.toString();
-        this.dbi = checkNotNull(dbi, "dbi is null");
+        this.dbi = requireNonNull(dbi, "dbi is null");
         this.dao = dbi.onDemand(MetadataDao.class);
-        this.shardManager = checkNotNull(shardManager, "shardManager is null");
-        this.shardInfoCodec = checkNotNull(shardInfoCodec, "shardInfoCodec is null");
-        this.shardDeltaCodec = checkNotNull(shardDeltaCodec, "shardDeltaCodec is null");
+        this.shardManager = requireNonNull(shardManager, "shardManager is null");
+        this.shardInfoCodec = requireNonNull(shardInfoCodec, "shardInfoCodec is null");
+        this.shardDeltaCodec = requireNonNull(shardDeltaCodec, "shardDeltaCodec is null");
 
         createMetadataTablesWithRetry(dao);
     }
@@ -133,7 +133,7 @@ public class RaptorMetadata
 
     private ConnectorTableHandle getTableHandle(SchemaTableName tableName)
     {
-        checkNotNull(tableName, "tableName is null");
+        requireNonNull(tableName, "tableName is null");
         Table table = dao.getTableInformation(tableName.getSchemaName(), tableName.getTableName());
         if (table == null) {
             return null;
@@ -232,7 +232,7 @@ public class RaptorMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        checkNotNull(prefix, "prefix is null");
+        requireNonNull(prefix, "prefix is null");
 
         ImmutableListMultimap.Builder<SchemaTableName, ColumnMetadata> columns = ImmutableListMultimap.builder();
         for (TableColumn tableColumn : dao.listTableColumns(prefix.getSchemaName(), prefix.getTableName())) {

@@ -56,9 +56,10 @@ import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class FunctionListBuilder
 {
@@ -74,7 +75,7 @@ public class FunctionListBuilder
 
     public FunctionListBuilder(TypeManager typeManager)
     {
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     public FunctionListBuilder window(String name, Type returnType, List<? extends Type> argumentTypes, Class<? extends WindowFunction> functionClass)
@@ -158,7 +159,7 @@ public class FunctionListBuilder
 
     public FunctionListBuilder function(ParametricFunction parametricFunction)
     {
-        checkNotNull(parametricFunction, "parametricFunction is null");
+        requireNonNull(parametricFunction, "parametricFunction is null");
         functions.add(parametricFunction);
         return this;
     }
@@ -195,7 +196,7 @@ public class FunctionListBuilder
     private static Type type(TypeManager typeManager, SqlType explicitType)
     {
         Type type = typeManager.getType(parseTypeSignature(explicitType.value()));
-        checkNotNull(type, "No type found for '%s'", explicitType.value());
+        requireNonNull(type, format("No type found for '%s'", explicitType.value()));
         return type;
     }
 
@@ -228,7 +229,7 @@ public class FunctionListBuilder
     private static void verifyMethodSignature(Method method, TypeSignature returnTypeName, List<TypeSignature> argumentTypeNames, TypeManager typeManager)
     {
         Type returnType = typeManager.getType(returnTypeName);
-        checkNotNull(returnType, "returnType is null");
+        requireNonNull(returnType, "returnType is null");
         List<Type> argumentTypes = resolveTypes(argumentTypeNames, typeManager);
         checkArgument(Primitives.unwrap(method.getReturnType()) == returnType.getJavaType(),
                 "Expected method %s return type to be %s (%s)",

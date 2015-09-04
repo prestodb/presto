@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ExchangeClientStatus
 {
@@ -42,7 +42,7 @@ public class ExchangeClientStatus
         this.averageBytesPerRequest = averageBytesPerRequest;
         this.bufferedPages = bufferedPages;
         this.noMoreLocations = noMoreLocations;
-        this.pageBufferClientStatuses = ImmutableList.copyOf(checkNotNull(pageBufferClientStatuses, "pageBufferClientStatuses is null"));
+        this.pageBufferClientStatuses = ImmutableList.copyOf(requireNonNull(pageBufferClientStatuses, "pageBufferClientStatuses is null"));
     }
 
     @JsonProperty

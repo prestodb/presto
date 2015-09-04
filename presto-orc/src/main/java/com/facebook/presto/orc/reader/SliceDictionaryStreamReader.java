@@ -44,7 +44,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTI
 import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SliceDictionaryStreamReader
         implements StreamReader
@@ -97,7 +97,7 @@ public class SliceDictionaryStreamReader
 
     public SliceDictionaryStreamReader(StreamDescriptor streamDescriptor)
     {
-        this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
+        this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
     }
 
     @Override

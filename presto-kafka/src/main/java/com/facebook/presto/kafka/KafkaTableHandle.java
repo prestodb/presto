@@ -21,7 +21,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Kafka specific {@link ConnectorTableHandle}.
@@ -62,12 +62,12 @@ public final class KafkaTableHandle
             @JsonProperty("keyDataFormat") String keyDataFormat,
             @JsonProperty("messageDataFormat") String messageDataFormat)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.schemaName = checkNotNull(schemaName, "schemaName is null");
-        this.tableName = checkNotNull(tableName, "tableName is null");
-        this.topicName = checkNotNull(topicName, "topicName is null");
-        this.keyDataFormat = checkNotNull(keyDataFormat, "keyDataFormat is null");
-        this.messageDataFormat = checkNotNull(messageDataFormat, "messageDataFormat is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.topicName = requireNonNull(topicName, "topicName is null");
+        this.keyDataFormat = requireNonNull(keyDataFormat, "keyDataFormat is null");
+        this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
     }
 
     @JsonProperty

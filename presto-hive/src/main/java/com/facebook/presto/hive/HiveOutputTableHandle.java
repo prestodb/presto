@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HiveOutputTableHandle
         implements ConnectorOutputTableHandle
@@ -49,16 +49,16 @@ public class HiveOutputTableHandle
             @JsonProperty("temporaryPath") String temporaryPath,
             @JsonProperty("hiveStorageFormat") HiveStorageFormat hiveStorageFormat)
     {
-        this.clientId = checkNotNull(clientId, "clientId is null");
-        this.schemaName = checkNotNull(schemaName, "schemaName is null");
-        this.tableName = checkNotNull(tableName, "tableName is null");
-        this.tableOwner = checkNotNull(tableOwner, "tableOwner is null");
-        this.targetPath = checkNotNull(targetPath, "targetPath is null");
-        this.temporaryPath = checkNotNull(temporaryPath, "temporaryPath is null");
-        this.hiveStorageFormat = checkNotNull(hiveStorageFormat, "hiveStorageFormat is null");
+        this.clientId = requireNonNull(clientId, "clientId is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.tableOwner = requireNonNull(tableOwner, "tableOwner is null");
+        this.targetPath = requireNonNull(targetPath, "targetPath is null");
+        this.temporaryPath = requireNonNull(temporaryPath, "temporaryPath is null");
+        this.hiveStorageFormat = requireNonNull(hiveStorageFormat, "hiveStorageFormat is null");
 
-        checkNotNull(columnNames, "columnNames is null");
-        checkNotNull(columnTypes, "columnTypes is null");
+        requireNonNull(columnNames, "columnNames is null");
+        requireNonNull(columnTypes, "columnTypes is null");
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.columnTypes = ImmutableList.copyOf(columnTypes);

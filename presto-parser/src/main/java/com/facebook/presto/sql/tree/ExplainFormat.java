@@ -16,7 +16,7 @@ package com.facebook.presto.sql.tree;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ExplainFormat
         extends ExplainOption
@@ -32,7 +32,7 @@ public class ExplainFormat
 
     public ExplainFormat(Type type)
     {
-        this.type = checkNotNull(type, "type is null");
+        this.type = requireNonNull(type, "type is null");
     }
 
     public Type getType()

@@ -23,8 +23,8 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 // Right now, splits are just the entire TPCH table
 public class TpchSplit
@@ -45,10 +45,10 @@ public class TpchSplit
         checkState(totalParts >= 1, "totalParts must be >= 1");
         checkState(totalParts > partNumber, "totalParts must be > partNumber");
 
-        this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
+        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.partNumber = partNumber;
         this.totalParts = totalParts;
-        this.addresses = ImmutableList.copyOf(checkNotNull(addresses, "addresses is null"));
+        this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
     }
 
     @JsonProperty

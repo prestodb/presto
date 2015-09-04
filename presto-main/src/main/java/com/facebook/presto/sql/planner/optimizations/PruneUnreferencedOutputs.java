@@ -66,9 +66,9 @@ import java.util.Set;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.Iterables.concat;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Removes all computation that does is not referenced transitively from the root of the plan
@@ -87,11 +87,11 @@ public class PruneUnreferencedOutputs
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        checkNotNull(plan, "plan is null");
-        checkNotNull(session, "session is null");
-        checkNotNull(types, "types is null");
-        checkNotNull(symbolAllocator, "symbolAllocator is null");
-        checkNotNull(idAllocator, "idAllocator is null");
+        requireNonNull(plan, "plan is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(types, "types is null");
+        requireNonNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(idAllocator, "idAllocator is null");
 
         return PlanRewriter.rewriteWith(new Rewriter(types), plan, ImmutableSet.<Symbol>of());
     }

@@ -27,11 +27,11 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.Objects.requireNonNull;
 
 public class QueryBuilder
 {
@@ -39,7 +39,7 @@ public class QueryBuilder
 
     public QueryBuilder(String quote)
     {
-        this.quote = checkNotNull(quote, "quote is null");
+        this.quote = requireNonNull(quote, "quote is null");
     }
 
     public String buildSql(String catalog, String schema, String table, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain)

@@ -33,7 +33,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -49,13 +49,13 @@ public abstract class AbstractTestIntegrationSmokeTest
 
     protected AbstractTestIntegrationSmokeTest(QueryRunner queryRunner, Session sampledSession)
     {
-        this(queryRunner, Optional.of(checkNotNull(sampledSession, "sampledSession is null")));
+        this(queryRunner, Optional.of(requireNonNull(sampledSession, "sampledSession is null")));
     }
 
     private AbstractTestIntegrationSmokeTest(QueryRunner queryRunner, Optional<Session> sampledSession)
     {
         super(queryRunner);
-        this.sampledSession = checkNotNull(sampledSession, "sampledSession is null");
+        this.sampledSession = requireNonNull(sampledSession, "sampledSession is null");
     }
 
     @Test

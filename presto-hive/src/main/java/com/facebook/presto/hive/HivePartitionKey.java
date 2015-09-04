@@ -19,7 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class HivePartitionKey
 {
@@ -34,9 +34,9 @@ public final class HivePartitionKey
             @JsonProperty("hiveType") HiveType hiveType,
             @JsonProperty("value") String value)
     {
-        checkNotNull(name, "name is null");
-        checkNotNull(hiveType, "hiveType is null");
-        checkNotNull(value, "value is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(hiveType, "hiveType is null");
+        requireNonNull(value, "value is null");
 
         this.name = name;
         this.hiveType = hiveType;

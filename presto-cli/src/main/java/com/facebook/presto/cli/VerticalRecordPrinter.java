@@ -23,9 +23,9 @@ import java.util.List;
 import static com.facebook.presto.cli.AlignedTablePrinter.formatValue;
 import static com.facebook.presto.cli.AlignedTablePrinter.consoleWidth;
 import static com.facebook.presto.cli.AlignedTablePrinter.maxLineLength;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.repeat;
 import static java.lang.Math.max;
+import static java.util.Objects.requireNonNull;
 
 public class VerticalRecordPrinter
         implements OutputPrinter
@@ -40,9 +40,9 @@ public class VerticalRecordPrinter
 
     public VerticalRecordPrinter(List<String> fieldNames, Writer writer)
     {
-        this.fieldNames = ImmutableList.copyOf(checkNotNull(fieldNames, "fieldNames is null"));
+        this.fieldNames = ImmutableList.copyOf(requireNonNull(fieldNames, "fieldNames is null"));
         this.namesWidth = maxWidth(fieldNames);
-        this.writer = checkNotNull(writer, "writer is null");
+        this.writer = requireNonNull(writer, "writer is null");
     }
 
     @Override

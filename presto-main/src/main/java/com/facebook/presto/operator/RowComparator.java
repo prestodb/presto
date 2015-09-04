@@ -22,7 +22,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RowComparator
         implements Comparator<Block[]>
@@ -33,9 +33,9 @@ public class RowComparator
 
     public RowComparator(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
-        this.sortTypes = ImmutableList.copyOf(checkNotNull(sortTypes, "sortTypes is null"));
-        this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
-        this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
+        this.sortTypes = ImmutableList.copyOf(requireNonNull(sortTypes, "sortTypes is null"));
+        this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
+        this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
         checkArgument(sortTypes.size() == sortChannels.size(), "sortTypes size (%s) doesn't match sortChannels size (%s)", sortTypes.size(), sortChannels.size());
         checkArgument(sortChannels.size() == sortOrders.size(), "sortFields size (%s) doesn't match sortOrders size (%s)", sortChannels.size(), sortOrders.size());
     }

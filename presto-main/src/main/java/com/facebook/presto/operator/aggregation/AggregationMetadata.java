@@ -42,7 +42,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class AggregationMetadata
 {
@@ -76,8 +76,8 @@ public class AggregationMetadata
             Type outputType,
             boolean approximate)
     {
-        this.outputType = checkNotNull(outputType);
-        this.inputMetadata = ImmutableList.copyOf(checkNotNull(inputMetadata, "inputMetadata is null"));
+        this.outputType = requireNonNull(outputType);
+        this.inputMetadata = ImmutableList.copyOf(requireNonNull(inputMetadata, "inputMetadata is null"));
         checkArgument((intermediateInputFunction == null) == (intermediateInputMetadata == null), "intermediate input parameters must be specified iff an intermediate function is provided");
         if (intermediateInputMetadata != null) {
             this.intermediateInputMetadata = ImmutableList.copyOf(intermediateInputMetadata);
@@ -85,15 +85,15 @@ public class AggregationMetadata
         else {
             this.intermediateInputMetadata = null;
         }
-        this.name = checkNotNull(name, "name is null");
-        this.inputFunction = checkNotNull(inputFunction, "inputFunction is null");
+        this.name = requireNonNull(name, "name is null");
+        this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
         checkArgument(combineFunction == null || intermediateInputFunction == null, "Aggregation cannot have both a combine and a intermediate input method");
         checkArgument(combineFunction != null || intermediateInputFunction != null, "Aggregation must have either a combine or a intermediate input method");
         this.intermediateInputFunction = intermediateInputFunction;
         this.combineFunction = combineFunction;
-        this.outputFunction = checkNotNull(outputFunction, "outputFunction is null");
-        this.stateSerializer = checkNotNull(stateSerializer, "stateSerializer is null");
-        this.stateFactory = checkNotNull(stateFactory, "stateFactory is null");
+        this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
+        this.stateSerializer = requireNonNull(stateSerializer, "stateSerializer is null");
+        this.stateFactory = requireNonNull(stateFactory, "stateFactory is null");
         this.approximate = approximate;
 
         verifyInputFunctionSignature(inputFunction, inputMetadata, stateInterface);
@@ -211,7 +211,7 @@ public class AggregationMetadata
 
     private static void verifyApproximateOutputFunction(MethodHandle method, Class<?> stateInterface)
     {
-        checkNotNull(method, "Approximate aggregations must specify an output function");
+        requireNonNull(method, "Approximate aggregations must specify an output function");
         Class<?>[] parameterTypes = method.type().parameterArray();
         checkArgument(parameterTypes.length == 3 && parameterTypes[0] == stateInterface && parameterTypes[1] == double.class && parameterTypes[2] == BlockBuilder.class, "Output function must have the signature (%s, double, BlockBuilder)", stateInterface.getSimpleName());
     }

@@ -32,7 +32,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.sql.QueryUtil.mangleFieldReference;
 import static com.facebook.presto.type.RowType.RowField;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class RowFieldReference
         extends ParametricScalar
@@ -64,7 +65,7 @@ public class RowFieldReference
             }
             index++;
         }
-        checkNotNull(returnType, "%s not found in row type %s", fieldName, type);
+        requireNonNull(returnType, format("%s not found in row type %s", fieldName, type));
         signature = new Signature(mangleFieldReference(fieldName), returnType.getTypeSignature(), type.getTypeSignature());
 
         String stackType = returnType.getJavaType().getSimpleName().toLowerCase();
@@ -105,7 +106,7 @@ public class RowFieldReference
     @Override
     public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        checkNotNull(methodHandle, "methodHandle is null");
+        requireNonNull(methodHandle, "methodHandle is null");
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false));
     }
 

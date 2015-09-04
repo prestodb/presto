@@ -19,7 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class AverageBenchmarkResults
         implements BenchmarkResultHook
@@ -30,7 +30,7 @@ public class AverageBenchmarkResults
     @Override
     public BenchmarkResultHook addResults(Map<String, Long> results)
     {
-        checkNotNull(results, "results is null");
+        requireNonNull(results, "results is null");
         for (Entry<String, Long> entry : results.entrySet()) {
             Long currentSum = resultsSum.get(entry.getKey());
             if (currentSum == null) {

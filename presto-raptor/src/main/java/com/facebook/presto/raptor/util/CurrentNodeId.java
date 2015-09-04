@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.util;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class CurrentNodeId
 {
@@ -21,7 +21,7 @@ public class CurrentNodeId
 
     public CurrentNodeId(String id)
     {
-        this.id = checkNotNull(id, "id is null");
+        this.id = requireNonNull(id, "id is null");
     }
 
     @Override

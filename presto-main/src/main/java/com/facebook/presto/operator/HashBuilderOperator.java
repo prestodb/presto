@@ -23,8 +23,8 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class HashBuilderOperator
@@ -49,11 +49,11 @@ public class HashBuilderOperator
                 int expectedPositions)
         {
             this.operatorId = operatorId;
-            this.lookupSourceSupplier = new SettableLookupSourceSupplier(checkNotNull(types, "types is null"));
+            this.lookupSourceSupplier = new SettableLookupSourceSupplier(requireNonNull(types, "types is null"));
 
             Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
-            this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
-            this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
+            this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
+            this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
 
             this.expectedPositions = expectedPositions;
         }
@@ -105,13 +105,13 @@ public class HashBuilderOperator
             Optional<Integer> hashChannel,
             int expectedPositions)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
-        this.lookupSourceSupplier = checkNotNull(lookupSourceSupplier, "hashSupplier is null");
+        this.lookupSourceSupplier = requireNonNull(lookupSourceSupplier, "hashSupplier is null");
 
         Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
-        this.hashChannels = ImmutableList.copyOf(checkNotNull(hashChannels, "hashChannels is null"));
-        this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
+        this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
+        this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
 
         this.pagesIndex = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions);
     }
@@ -156,7 +156,7 @@ public class HashBuilderOperator
     @Override
     public void addInput(Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(!isFinished(), "Operator is already finished");
 
         pagesIndex.addPage(page);

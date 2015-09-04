@@ -24,7 +24,7 @@ import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class JdbcConnector
         implements Connector
@@ -47,12 +47,12 @@ public class JdbcConnector
             JdbcHandleResolver jdbcHandleResolver,
             JdbcRecordSinkProvider jdbcRecordSinkProvider)
     {
-        this.lifeCycleManager = checkNotNull(lifeCycleManager, "lifeCycleManager is null");
-        this.jdbcMetadata = checkNotNull(jdbcMetadata, "jdbcMetadata is null");
-        this.jdbcSplitManager = checkNotNull(jdbcSplitManager, "jdbcSplitManager is null");
-        this.jdbcRecordSetProvider = checkNotNull(jdbcRecordSetProvider, "jdbcRecordSetProvider is null");
-        this.jdbcHandleResolver = checkNotNull(jdbcHandleResolver, "jdbcHandleResolver is null");
-        this.jdbcRecordSinkProvider = checkNotNull(jdbcRecordSinkProvider, "jdbcRecordSinkProvider is null");
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
+        this.jdbcMetadata = requireNonNull(jdbcMetadata, "jdbcMetadata is null");
+        this.jdbcSplitManager = requireNonNull(jdbcSplitManager, "jdbcSplitManager is null");
+        this.jdbcRecordSetProvider = requireNonNull(jdbcRecordSetProvider, "jdbcRecordSetProvider is null");
+        this.jdbcHandleResolver = requireNonNull(jdbcHandleResolver, "jdbcHandleResolver is null");
+        this.jdbcRecordSinkProvider = requireNonNull(jdbcRecordSinkProvider, "jdbcRecordSinkProvider is null");
     }
 
     @Override

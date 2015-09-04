@@ -14,7 +14,8 @@
 package com.facebook.presto.sql.tree;
 
 import com.facebook.presto.sql.parser.ParsingException;
-import com.google.common.base.Preconditions;
+
+import static java.util.Objects.requireNonNull;
 
 public class LongLiteral
         extends Literal
@@ -23,7 +24,7 @@ public class LongLiteral
 
     public LongLiteral(String value)
     {
-        Preconditions.checkNotNull(value, "value is null");
+        requireNonNull(value, "value is null");
         try {
             this.value = Long.parseLong(value);
         }

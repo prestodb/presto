@@ -25,7 +25,7 @@ import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 class PluginClassLoader
         extends URLClassLoader
@@ -56,7 +56,7 @@ class PluginClassLoader
             Iterable<String> parentFirstResources)
     {
         // child first requires a parent class loader
-        super(urls.toArray(new URL[urls.size()]), checkNotNull(parent, "parent is null"));
+        super(urls.toArray(new URL[urls.size()]), requireNonNull(parent, "parent is null"));
         this.hiddenClasses = ImmutableList.copyOf(hiddenClasses);
         this.parentFirstClasses = ImmutableList.copyOf(parentFirstClasses);
         this.hiddenResources = ImmutableList.copyOf(hiddenResources);

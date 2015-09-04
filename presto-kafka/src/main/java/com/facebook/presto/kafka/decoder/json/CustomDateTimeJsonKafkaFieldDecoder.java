@@ -24,7 +24,7 @@ import org.joda.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Custom date format decoder.
@@ -51,8 +51,8 @@ public class CustomDateTimeJsonKafkaFieldDecoder
     @Override
     public KafkaFieldValueProvider decode(JsonNode value, KafkaColumnHandle columnHandle)
     {
-        checkNotNull(columnHandle, "columnHandle is null");
-        checkNotNull(value, "value is null");
+        requireNonNull(columnHandle, "columnHandle is null");
+        requireNonNull(value, "value is null");
 
         return new CustomDateTimeJsonKafkaValueProvider(value, columnHandle);
     }
@@ -76,7 +76,7 @@ public class CustomDateTimeJsonKafkaFieldDecoder
                 return value.asLong();
             }
 
-            checkNotNull(columnHandle.getFormatHint(), "formatHint is null");
+            requireNonNull(columnHandle.getFormatHint(), "formatHint is null");
             String textValue = value.isValueNode() ? value.asText() : value.toString();
 
             DateTimeFormatter formatter = DateTimeFormat.forPattern(columnHandle.getFormatHint()).withLocale(Locale.ENGLISH).withZoneUTC();

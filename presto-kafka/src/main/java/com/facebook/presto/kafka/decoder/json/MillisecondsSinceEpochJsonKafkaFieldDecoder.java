@@ -25,9 +25,9 @@ import org.joda.time.format.ISODateTimeFormat;
 import java.util.Locale;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Milliseconds since the epoch date format decoder.
@@ -61,8 +61,8 @@ public class MillisecondsSinceEpochJsonKafkaFieldDecoder
     @Override
     public KafkaFieldValueProvider decode(JsonNode value, KafkaColumnHandle columnHandle)
     {
-        checkNotNull(columnHandle, "columnHandle is null");
-        checkNotNull(value, "value is null");
+        requireNonNull(columnHandle, "columnHandle is null");
+        requireNonNull(value, "value is null");
 
         return new MillisecondsSinceEpochJsonKafkaValueProvider(value, columnHandle);
     }

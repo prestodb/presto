@@ -22,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SampledSplitSource
         implements SplitSource
@@ -32,7 +32,7 @@ public class SampledSplitSource
 
     public SampledSplitSource(SplitSource splitSource, double sampleRatio)
     {
-        this.splitSource = checkNotNull(splitSource, "dataSource is null");
+        this.splitSource = requireNonNull(splitSource, "dataSource is null");
         this.sampleRatio = sampleRatio;
     }
 

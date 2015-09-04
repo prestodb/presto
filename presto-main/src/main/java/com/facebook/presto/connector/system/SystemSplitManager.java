@@ -32,8 +32,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static java.util.Objects.requireNonNull;
 
 public class SystemSplitManager
         implements ConnectorSplitManager
@@ -43,7 +43,7 @@ public class SystemSplitManager
 
     public SystemSplitManager(NodeManager nodeManager, Set<SystemTable> tables)
     {
-        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.tables = uniqueIndex(tables, table -> table.getTableMetadata().getTable());
     }
 

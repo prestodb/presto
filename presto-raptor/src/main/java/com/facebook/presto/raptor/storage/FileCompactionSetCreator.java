@@ -22,9 +22,9 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Verify.verify;
 import static java.util.Comparator.comparing;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 
 public final class FileCompactionSetCreator
@@ -35,7 +35,7 @@ public final class FileCompactionSetCreator
 
     public FileCompactionSetCreator(DataSize maxShardSize, long maxShardRows)
     {
-        this.maxShardSize = checkNotNull(maxShardSize, "maxShardSize is null");
+        this.maxShardSize = requireNonNull(maxShardSize, "maxShardSize is null");
         checkArgument(maxShardRows > 0, "maxShardRows must be > 0");
         this.maxShardRows = maxShardRows;
     }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ArithmeticUnaryExpression
         extends Expression
@@ -29,8 +29,8 @@ public class ArithmeticUnaryExpression
 
     public ArithmeticUnaryExpression(Sign sign, Expression value)
     {
-        checkNotNull(value, "value is null");
-        checkNotNull(sign, "sign is null");
+        requireNonNull(value, "value is null");
+        requireNonNull(sign, "sign is null");
 
         this.value = value;
         this.sign = sign;

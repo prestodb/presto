@@ -24,7 +24,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ExamplePlugin
         implements Plugin
@@ -35,7 +35,7 @@ public class ExamplePlugin
     @Override
     public synchronized void setOptionalConfig(Map<String, String> optionalConfig)
     {
-        this.optionalConfig = ImmutableMap.copyOf(checkNotNull(optionalConfig, "optionalConfig is null"));
+        this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
     }
 
     @Inject

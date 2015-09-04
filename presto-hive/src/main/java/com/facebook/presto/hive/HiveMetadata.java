@@ -83,12 +83,12 @@ import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
@@ -141,17 +141,17 @@ public class HiveMetadata
             boolean allowCorruptWritesForTesting,
             TypeManager typeManager)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
 
         this.allowDropTable = allowDropTable;
         this.allowRenameTable = allowRenameTable;
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
-        this.metastore = checkNotNull(metastore, "metastore is null");
-        this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.partitionManager = checkNotNull(patitionManager, "patitionManager is null");
-        this.timeZone = checkNotNull(timeZone, "timeZone is null");
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+        this.metastore = requireNonNull(metastore, "metastore is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.partitionManager = requireNonNull(patitionManager, "patitionManager is null");
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             log.warn("Hive writes are disabled. " +
@@ -180,7 +180,7 @@ public class HiveMetadata
     @Override
     public HiveTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        checkNotNull(tableName, "tableName is null");
+        requireNonNull(tableName, "tableName is null");
         if (!metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).isPresent()) {
             return null;
         }
@@ -190,7 +190,7 @@ public class HiveMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
+        requireNonNull(tableHandle, "tableHandle is null");
         SchemaTableName tableName = schemaTableName(tableHandle);
         return getTableMetadata(tableName);
     }
@@ -277,7 +277,7 @@ public class HiveMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        checkNotNull(prefix, "prefix is null");
+        requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, prefix)) {
             try {

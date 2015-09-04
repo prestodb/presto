@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class AllNodes
 {
@@ -27,8 +27,8 @@ public class AllNodes
 
     public AllNodes(Set<Node> activeNodes, Set<Node> inactiveNodes)
     {
-        this.activeNodes = ImmutableSet.copyOf(checkNotNull(activeNodes, "activeNodes is null"));
-        this.inactiveNodes = ImmutableSet.copyOf(checkNotNull(inactiveNodes, "inactiveNodes is null"));
+        this.activeNodes = ImmutableSet.copyOf(requireNonNull(activeNodes, "activeNodes is null"));
+        this.inactiveNodes = ImmutableSet.copyOf(requireNonNull(inactiveNodes, "inactiveNodes is null"));
     }
 
     public Set<Node> getActiveNodes()

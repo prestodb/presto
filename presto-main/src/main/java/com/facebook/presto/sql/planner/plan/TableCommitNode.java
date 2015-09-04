@@ -24,7 +24,7 @@ import java.util.List;
 
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class TableCommitNode
@@ -44,9 +44,9 @@ public class TableCommitNode
         super(id);
 
         checkArgument(target != null || source instanceof TableWriterNode);
-        this.source = checkNotNull(source, "source is null");
-        this.target = checkNotNull(target, "target is null");
-        this.outputs = ImmutableList.copyOf(checkNotNull(outputs, "outputs is null"));
+        this.source = requireNonNull(source, "source is null");
+        this.target = requireNonNull(target, "target is null");
+        this.outputs = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
     }
 
     @JsonProperty

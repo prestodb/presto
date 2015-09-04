@@ -28,8 +28,8 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class ExchangeOperator
         implements SourceOperator, Closeable
@@ -94,10 +94,10 @@ public class ExchangeOperator
             PlanNodeId sourceId,
             ExchangeClient exchangeClient)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.sourceId = checkNotNull(sourceId, "sourceId is null");
-        this.exchangeClient = checkNotNull(exchangeClient, "exchangeClient is null");
-        this.types = checkNotNull(types, "types is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.sourceId = requireNonNull(sourceId, "sourceId is null");
+        this.exchangeClient = requireNonNull(exchangeClient, "exchangeClient is null");
+        this.types = requireNonNull(types, "types is null");
 
         operatorContext.setInfoSupplier(exchangeClient::getStatus);
     }
@@ -111,7 +111,7 @@ public class ExchangeOperator
     @Override
     public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
-        checkNotNull(split, "split is null");
+        requireNonNull(split, "split is null");
         checkArgument(split.getConnectorId().equals("remote"), "split is not a remote split");
 
         URI location = ((RemoteSplit) split.getConnectorSplit()).getLocation();

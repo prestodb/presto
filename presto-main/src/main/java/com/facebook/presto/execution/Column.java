@@ -20,7 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class Column
 {
@@ -34,9 +34,9 @@ public final class Column
             @JsonProperty("type") String type,
             @JsonProperty("domain") Optional<SimpleDomain> domain)
     {
-        this.name = checkNotNull(name, "name is null");
-        this.type = checkNotNull(type, "type is null");
-        this.domain = checkNotNull(domain, "domain is null");
+        this.name = requireNonNull(name, "name is null");
+        this.type = requireNonNull(type, "type is null");
+        this.domain = requireNonNull(domain, "domain is null");
     }
 
     @JsonProperty

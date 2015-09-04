@@ -32,9 +32,9 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
 
 public class KafkaTableDescriptionSupplier
         implements Supplier<Map<SchemaTableName, KafkaTopicDescription>>
@@ -50,9 +50,9 @@ public class KafkaTableDescriptionSupplier
     KafkaTableDescriptionSupplier(KafkaConnectorConfig kafkaConnectorConfig,
             JsonCodec<KafkaTopicDescription> topicDescriptionCodec)
     {
-        this.topicDescriptionCodec = checkNotNull(topicDescriptionCodec, "topicDescriptionCodec is null");
+        this.topicDescriptionCodec = requireNonNull(topicDescriptionCodec, "topicDescriptionCodec is null");
 
-        checkNotNull(kafkaConnectorConfig, "kafkaConfig is null");
+        requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
         this.tableDescriptionDir = kafkaConnectorConfig.getTableDescriptionDir();
         this.defaultSchema = kafkaConnectorConfig.getDefaultSchema();
         this.tableNames = ImmutableSet.copyOf(kafkaConnectorConfig.getTableNames());

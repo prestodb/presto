@@ -35,10 +35,10 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
+import static java.util.Objects.requireNonNull;
 
 // This implementation assumes arrays used in the hash are always a power of 2
 public class MultiChannelGroupByHash
@@ -70,14 +70,14 @@ public class MultiChannelGroupByHash
 
     public MultiChannelGroupByHash(List<? extends Type> hashTypes, int[] hashChannels, Optional<Integer> maskChannel, Optional<Integer> inputHashChannel, int expectedSize)
     {
-        checkNotNull(hashTypes, "hashTypes is null");
+        requireNonNull(hashTypes, "hashTypes is null");
         checkArgument(hashTypes.size() == hashChannels.length, "hashTypes and hashChannels have different sizes");
-        checkNotNull(inputHashChannel, "inputHashChannel is null");
+        requireNonNull(inputHashChannel, "inputHashChannel is null");
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
         this.types = inputHashChannel.isPresent() ? ImmutableList.copyOf(Iterables.concat(hashTypes, ImmutableList.of(BIGINT))) : ImmutableList.copyOf(hashTypes);
-        this.channels = checkNotNull(hashChannels, "hashChannels is null").clone();
-        this.maskChannel = checkNotNull(maskChannel, "maskChannel is null").orElse(-1);
+        this.channels = requireNonNull(hashChannels, "hashChannels is null").clone();
+        this.maskChannel = requireNonNull(maskChannel, "maskChannel is null").orElse(-1);
         this.hashGenerator = inputHashChannel.isPresent() ? new PrecomputedHashGenerator(inputHashChannel.get()) : new InterpretedHashGenerator(ImmutableList.copyOf(hashTypes), hashChannels);
 
         // For each hashed channel, create an appendable list to hold the blocks (builders).  As we

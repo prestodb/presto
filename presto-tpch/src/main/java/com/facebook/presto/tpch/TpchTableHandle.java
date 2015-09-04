@@ -20,7 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TpchTableHandle
         implements ConnectorTableHandle
@@ -32,8 +32,8 @@ public class TpchTableHandle
     @JsonCreator
     public TpchTableHandle(@JsonProperty("connectorId") String connectorId, @JsonProperty("tableName") String tableName, @JsonProperty("scaleFactor") double scaleFactor)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.tableName = checkNotNull(tableName, "tableName is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
         checkArgument(scaleFactor > 0, "Scale factor must be larger than 0");
         this.scaleFactor = scaleFactor;
     }

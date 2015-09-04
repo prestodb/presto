@@ -38,7 +38,7 @@ import java.util.Map.Entry;
 
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaSplitManager
         implements ConnectorSplitManager
@@ -48,13 +48,13 @@ public class InformationSchemaSplitManager
     @Inject
     public InformationSchemaSplitManager(NodeManager nodeManager)
     {
-        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
     public ConnectorPartitionResult getPartitions(ConnectorSession session, ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain)
     {
-        checkNotNull(tupleDomain, "tupleDomain is null");
+        requireNonNull(tupleDomain, "tupleDomain is null");
         InformationSchemaTableHandle informationSchemaTableHandle = checkType(table, InformationSchemaTableHandle.class, "table");
 
         Map<ColumnHandle, SerializableNativeValue> bindings = tupleDomain.extractNullableFixedValues();
@@ -68,7 +68,7 @@ public class InformationSchemaSplitManager
     @Override
     public ConnectorSplitSource getPartitionSplits(ConnectorSession session, ConnectorTableHandle table, List<ConnectorPartition> partitions)
     {
-        checkNotNull(partitions, "partitions is null");
+        requireNonNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
             return new FixedSplitSource(null, ImmutableList.<ConnectorSplit>of());
         }
@@ -97,8 +97,8 @@ public class InformationSchemaSplitManager
 
         public InformationSchemaPartition(InformationSchemaTableHandle table, Map<ColumnHandle, SerializableNativeValue> filters)
         {
-            this.table = checkNotNull(table, "table is null");
-            this.filters = ImmutableMap.copyOf(checkNotNull(filters, "filters is null"));
+            this.table = requireNonNull(table, "table is null");
+            this.filters = ImmutableMap.copyOf(requireNonNull(filters, "filters is null"));
         }
 
         public InformationSchemaTableHandle getTable()

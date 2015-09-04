@@ -34,7 +34,7 @@ import java.util.Optional;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class PlanFragment
@@ -87,14 +87,14 @@ public class PlanFragment
             @JsonProperty("nullPartitionPolicy") Optional<NullPartitioning> nullPartitionPolicy,
             @JsonProperty("hash") Optional<Symbol> hash)
     {
-        this.id = checkNotNull(id, "id is null");
-        this.root = checkNotNull(root, "root is null");
-        this.symbols = checkNotNull(symbols, "symbols is null");
-        this.outputLayout = checkNotNull(outputLayout, "outputLayout is null");
-        this.distribution = checkNotNull(distribution, "distribution is null");
+        this.id = requireNonNull(id, "id is null");
+        this.root = requireNonNull(root, "root is null");
+        this.symbols = requireNonNull(symbols, "symbols is null");
+        this.outputLayout = requireNonNull(outputLayout, "outputLayout is null");
+        this.distribution = requireNonNull(distribution, "distribution is null");
         this.partitionedSource = partitionedSource;
-        this.partitionBy = checkNotNull(partitionBy, "partitionBy is null").map(ImmutableList::copyOf);
-        this.nullPartitionPolicy = checkNotNull(nullPartitionPolicy, "nullPartitioningPolicy is null");
+        this.partitionBy = requireNonNull(partitionBy, "partitionBy is null").map(ImmutableList::copyOf);
+        this.nullPartitionPolicy = requireNonNull(nullPartitionPolicy, "nullPartitioningPolicy is null");
         this.hash = hash;
 
         checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(outputLayout),
@@ -110,7 +110,7 @@ public class PlanFragment
         findRemoteSourceNodes(root, remoteSourceNodes);
         this.remoteSourceNodes = remoteSourceNodes.build();
 
-        this.outputPartitioning = checkNotNull(outputPartitioning, "outputPartitioning is null");
+        this.outputPartitioning = requireNonNull(outputPartitioning, "outputPartitioning is null");
     }
 
     @JsonProperty

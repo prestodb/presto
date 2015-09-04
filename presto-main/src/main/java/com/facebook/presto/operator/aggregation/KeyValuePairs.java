@@ -27,7 +27,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.type.TypeUtils.expectedValueSize;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class KeyValuePairs
 {
@@ -51,8 +51,8 @@ public class KeyValuePairs
 
     public KeyValuePairs(Type keyType, Type valueType, boolean isMultiValue)
     {
-        this.keyType = checkNotNull(keyType, "keyType is null");
-        this.valueType = checkNotNull(valueType, "valueType is null");
+        this.keyType = requireNonNull(keyType, "keyType is null");
+        this.valueType = requireNonNull(valueType, "valueType is null");
         this.keySet = new TypedSet(keyType, EXPECTED_ENTRIES);
         keyBlockBuilder = this.keyType.createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ENTRIES, expectedValueSize(keyType, EXPECTED_ENTRY_SIZE));
         valueBlockBuilder = this.valueType.createBlockBuilder(new BlockBuilderStatus(), EXPECTED_ENTRIES, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
@@ -63,7 +63,7 @@ public class KeyValuePairs
     public KeyValuePairs(Block serialized, Type keyType, Type valueType, boolean isMultiValue)
     {
         this(keyType, valueType, isMultiValue);
-        deserialize(checkNotNull(serialized, "serialized is null"));
+        deserialize(requireNonNull(serialized, "serialized is null"));
     }
 
     public Block getKeys()

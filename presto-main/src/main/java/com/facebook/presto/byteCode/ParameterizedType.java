@@ -22,14 +22,14 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class ParameterizedType
 {
     public static ParameterizedType typeFromJavaClassName(String className)
     {
-        checkNotNull(className, "type is null");
+        requireNonNull(className, "type is null");
         if (className.endsWith("/")) {
             checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
         }
@@ -38,7 +38,7 @@ public class ParameterizedType
 
     public static ParameterizedType typeFromPathName(String className)
     {
-        checkNotNull(className, "type is null");
+        requireNonNull(className, "type is null");
         if (className.indexOf(".") > 0) {
             checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
         }
@@ -47,25 +47,25 @@ public class ParameterizedType
 
     public static ParameterizedType type(Type type)
     {
-        checkNotNull(type, "type is null");
+        requireNonNull(type, "type is null");
         return new ParameterizedType(type.getInternalName());
     }
 
     public static ParameterizedType type(Class<?> type)
     {
-        checkNotNull(type, "type is null");
+        requireNonNull(type, "type is null");
         return new ParameterizedType(type);
     }
 
     public static ParameterizedType type(Class<?> type, Class<?>... parameters)
     {
-        checkNotNull(type, "type is null");
+        requireNonNull(type, "type is null");
         return new ParameterizedType(type, parameters);
     }
 
     public static ParameterizedType type(Class<?> type, ParameterizedType... parameters)
     {
-        checkNotNull(type, "type is null");
+        requireNonNull(type, "type is null");
         return new ParameterizedType(type, parameters);
     }
 
@@ -82,7 +82,7 @@ public class ParameterizedType
 
     public ParameterizedType(String className)
     {
-        checkNotNull(className, "className is null");
+        requireNonNull(className, "className is null");
         checkArgument(!className.contains("."), "Invalid class name %s", className);
         checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
 
@@ -98,7 +98,7 @@ public class ParameterizedType
 
     private ParameterizedType(Class<?> type)
     {
-        checkNotNull(type, "type is null");
+        requireNonNull(type, "type is null");
         this.type = toInternalIdentifier(type);
         this.className = getPathName(type);
         this.simpleName = type.getSimpleName();
@@ -111,7 +111,7 @@ public class ParameterizedType
 
     private ParameterizedType(Class<?> type, Class<?>... parameters)
     {
-        checkNotNull(type, "type is null");
+        requireNonNull(type, "type is null");
         this.type = toInternalIdentifier(type);
         this.className = getPathName(type);
         this.simpleName = type.getSimpleName();
@@ -129,7 +129,7 @@ public class ParameterizedType
 
     private ParameterizedType(Class<?> type, ParameterizedType... parameters)
     {
-        checkNotNull(type, "type is null");
+        requireNonNull(type, "type is null");
         this.type = toInternalIdentifier(type);
         this.className = getPathName(type);
         this.simpleName = type.getSimpleName();

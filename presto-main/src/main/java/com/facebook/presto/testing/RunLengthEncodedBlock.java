@@ -21,8 +21,8 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
+import static java.util.Objects.requireNonNull;
 
 public class RunLengthEncodedBlock
         implements Block
@@ -32,7 +32,7 @@ public class RunLengthEncodedBlock
 
     public RunLengthEncodedBlock(Block value, int positionCount)
     {
-        this.value = checkNotNull(value, "value is null");
+        this.value = requireNonNull(value, "value is null");
         checkArgument(value.getPositionCount() == 1, "Expected value to contain a single position but has %s positions", value.getPositionCount());
 
         // value can not be a RunLengthEncodedBlock because this could cause stack overflow in some of the methods

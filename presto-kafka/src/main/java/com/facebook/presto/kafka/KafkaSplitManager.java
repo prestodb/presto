@@ -50,8 +50,8 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Kafka specific implementation of {@link ConnectorSplitManager}.
@@ -73,11 +73,11 @@ public class KafkaSplitManager
             KafkaHandleResolver handleResolver,
             KafkaSimpleConsumerManager consumerManager)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
-        this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
-        this.consumerManager = checkNotNull(consumerManager, "consumerManager is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
+        this.consumerManager = requireNonNull(consumerManager, "consumerManager is null");
 
-        checkNotNull(kafkaConnectorConfig, "kafkaConfig is null");
+        requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
         this.nodes = ImmutableSet.copyOf(kafkaConnectorConfig.getNodes());
     }
 

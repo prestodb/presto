@@ -26,9 +26,9 @@ import java.util.TreeSet;
 
 import static com.google.common.base.CharMatcher.anyOf;
 import static com.google.common.base.Functions.forMap;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class BenchmarkResultsPrinter
@@ -58,7 +58,7 @@ public class BenchmarkResultsPrinter
 
     public BenchmarkResultsPrinter(List<String> tagNames)
     {
-        this.tagNames = checkNotNull(tagNames, "tagNames is null");
+        this.tagNames = requireNonNull(tagNames, "tagNames is null");
 
         // print header row
         printRow(ImmutableList.builder()

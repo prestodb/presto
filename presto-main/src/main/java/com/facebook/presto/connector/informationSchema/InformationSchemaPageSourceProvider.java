@@ -65,10 +65,10 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Sets.union;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaPageSourceProvider
         implements ConnectorPageSourceProvider
@@ -78,7 +78,7 @@ public class InformationSchemaPageSourceProvider
     @Inject
     public InformationSchemaPageSourceProvider(Metadata metadata)
     {
-        this.metadata = checkNotNull(metadata, "metadata is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
@@ -108,7 +108,7 @@ public class InformationSchemaPageSourceProvider
     {
         InformationSchemaSplit split = checkType(connectorSplit, InformationSchemaSplit.class, "split");
 
-        checkNotNull(columns, "columns is null");
+        requireNonNull(columns, "columns is null");
 
         InformationSchemaTableHandle handle = split.getTableHandle();
         Map<String, SerializableNativeValue> filters = split.getFilters();

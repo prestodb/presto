@@ -31,7 +31,7 @@ import java.util.List;
 
 import static com.facebook.presto.plugin.jdbc.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class JdbcSplitManager
         implements ConnectorSplitManager
@@ -42,8 +42,8 @@ public class JdbcSplitManager
     @Inject
     public JdbcSplitManager(JdbcConnectorId connectorId, JdbcClient jdbcClient)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
-        this.jdbcClient = checkNotNull(jdbcClient, "client is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.jdbcClient = requireNonNull(jdbcClient, "client is null");
     }
 
     @Override

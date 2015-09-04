@@ -23,7 +23,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class GenericAccumulatorFactory
         implements AccumulatorFactory
@@ -47,14 +47,14 @@ public class GenericAccumulatorFactory
             Optional<Integer> sampleWeightChannel,
             double confidence)
     {
-        this.stateSerializer = checkNotNull(stateSerializer, "stateSerializer is null");
-        this.stateFactory = checkNotNull(stateFactory, "stateFactory is null");
-        this.accumulatorConstructor = checkNotNull(accumulatorConstructor, "accumulatorConstructor is null");
-        this.groupedAccumulatorConstructor = checkNotNull(groupedAccumulatorConstructor, "groupedAccumulatorConstructor is null");
-        this.maskChannel = checkNotNull(maskChannel, "maskChannel is null");
-        this.sampleWeightChannel = checkNotNull(sampleWeightChannel, "sampleWeightChannel is null");
+        this.stateSerializer = requireNonNull(stateSerializer, "stateSerializer is null");
+        this.stateFactory = requireNonNull(stateFactory, "stateFactory is null");
+        this.accumulatorConstructor = requireNonNull(accumulatorConstructor, "accumulatorConstructor is null");
+        this.groupedAccumulatorConstructor = requireNonNull(groupedAccumulatorConstructor, "groupedAccumulatorConstructor is null");
+        this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
+        this.sampleWeightChannel = requireNonNull(sampleWeightChannel, "sampleWeightChannel is null");
         this.confidence = confidence;
-        this.inputChannels = ImmutableList.copyOf(checkNotNull(inputChannels, "inputChannels is null"));
+        this.inputChannels = ImmutableList.copyOf(requireNonNull(inputChannels, "inputChannels is null"));
     }
 
     @Override

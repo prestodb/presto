@@ -27,7 +27,7 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SliceBlockReader
         implements BlockReader
@@ -39,7 +39,7 @@ public class SliceBlockReader
 
     public SliceBlockReader(StreamDescriptor streamDescriptor)
     {
-        this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
+        this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         directReader = new SliceDirectBlockReader(streamDescriptor);
         dictionaryReader = new SliceDictionaryBlockReader(streamDescriptor);
     }

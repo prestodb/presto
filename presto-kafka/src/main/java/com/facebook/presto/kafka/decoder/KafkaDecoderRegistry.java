@@ -28,9 +28,9 @@ import java.util.Set;
 
 import static com.facebook.presto.kafka.decoder.KafkaFieldDecoder.DEFAULT_FIELD_DECODER_NAME;
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Manages Row and Field decoders for the various dataFormat values.
@@ -46,7 +46,7 @@ public class KafkaDecoderRegistry
     KafkaDecoderRegistry(Set<KafkaRowDecoder> rowDecoders,
             Set<KafkaFieldDecoder<?>> fieldDecoders)
     {
-        checkNotNull(rowDecoders, "rowDecoders is null");
+        requireNonNull(rowDecoders, "rowDecoders is null");
 
         ImmutableMap.Builder<String, KafkaRowDecoder> rowBuilder = ImmutableMap.builder();
         for (KafkaRowDecoder rowDecoder : rowDecoders) {
@@ -93,8 +93,8 @@ public class KafkaDecoderRegistry
      */
     public KafkaFieldDecoder<?> getFieldDecoder(String rowDataFormat, Class<?> fieldType, @Nullable String fieldDataFormat)
     {
-        checkNotNull(rowDataFormat, "rowDataFormat is null");
-        checkNotNull(fieldType, "fieldType is null");
+        requireNonNull(rowDataFormat, "rowDataFormat is null");
+        requireNonNull(fieldType, "fieldType is null");
 
         checkState(fieldDecoders.containsKey(rowDataFormat), "no field decoders for '%s' found", rowDataFormat);
         Set<KafkaFieldDecoder<?>> decoders = fieldDecoders.get(rowDataFormat).get(fieldType);

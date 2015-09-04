@@ -20,7 +20,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
@@ -60,7 +60,7 @@ public abstract class PlanNode
 
     protected PlanNode(PlanNodeId id)
     {
-        checkNotNull(id, "id is null");
+        requireNonNull(id, "id is null");
         this.id = id;
     }
 

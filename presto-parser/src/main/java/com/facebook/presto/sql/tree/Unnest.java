@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class Unnest
         extends Relation
@@ -29,7 +29,7 @@ public final class Unnest
 
     public Unnest(List<Expression> expressions, boolean withOrdinality)
     {
-        checkNotNull(expressions, "expressions is null");
+        requireNonNull(expressions, "expressions is null");
         this.expressions = ImmutableList.copyOf(expressions);
         this.withOrdinality = withOrdinality;
     }

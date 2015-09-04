@@ -26,7 +26,7 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class RegexTemplate
 {
@@ -48,7 +48,7 @@ public class RegexTemplate
 
     public RegexTemplate(String template)
     {
-        this.template = checkNotNull(template, "template is null");
+        this.template = requireNonNull(template, "template is null");
 
         try {
             this.pattern = Pattern.compile(template);
@@ -75,7 +75,7 @@ public class RegexTemplate
 
     public Optional<Map<String, String>> parse(String value)
     {
-        checkNotNull(value, "value is null");
+        requireNonNull(value, "value is null");
 
         Matcher matcher = pattern.matcher(value);
         if (!matcher.matches()) {

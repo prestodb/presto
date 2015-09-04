@@ -30,7 +30,7 @@ import java.io.IOException;
 import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class HiveBenchmarkQueryRunner
 {
@@ -41,7 +41,7 @@ public final class HiveBenchmarkQueryRunner
     public static void main(String[] args)
             throws IOException
     {
-        String outputDirectory = checkNotNull(System.getProperty("outputDirectory"), "Must specify -DoutputDirectory=...");
+        String outputDirectory = requireNonNull(System.getProperty("outputDirectory"), "Must specify -DoutputDirectory=...");
         File tempDir = Files.createTempDir();
         try (LocalQueryRunner localQueryRunner = createLocalQueryRunner(tempDir)) {
             new BenchmarkSuite(localQueryRunner, outputDirectory).runAllBenchmarks();

@@ -27,8 +27,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.concat;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class TopNRowNumberNode
@@ -57,14 +57,14 @@ public final class TopNRowNumberNode
     {
         super(id);
 
-        checkNotNull(source, "source is null");
-        checkNotNull(partitionBy, "partitionBy is null");
-        checkNotNull(orderBy, "orderBy is null");
-        checkNotNull(orderings, "orderings is null");
+        requireNonNull(source, "source is null");
+        requireNonNull(partitionBy, "partitionBy is null");
+        requireNonNull(orderBy, "orderBy is null");
+        requireNonNull(orderings, "orderings is null");
         checkArgument(orderings.size() == orderBy.size(), "orderBy and orderings sizes don't match");
-        checkNotNull(rowNumberSymbol, "rowNumberSymbol is null");
+        requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
         checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
-        checkNotNull(hashSymbol, "hashSymbol is null");
+        requireNonNull(hashSymbol, "hashSymbol is null");
 
         this.source = source;
         this.partitionBy = ImmutableList.copyOf(partitionBy);

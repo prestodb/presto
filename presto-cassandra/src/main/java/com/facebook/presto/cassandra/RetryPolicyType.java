@@ -18,7 +18,7 @@ import com.datastax.driver.core.policies.DowngradingConsistencyRetryPolicy;
 import com.datastax.driver.core.policies.FallthroughRetryPolicy;
 import com.datastax.driver.core.policies.RetryPolicy;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public enum RetryPolicyType
 {
@@ -31,7 +31,7 @@ public enum RetryPolicyType
 
     RetryPolicyType(RetryPolicy policy)
     {
-        this.policy = checkNotNull(policy, "policy is null");
+        this.policy = requireNonNull(policy, "policy is null");
     }
 
     public RetryPolicy getPolicy()

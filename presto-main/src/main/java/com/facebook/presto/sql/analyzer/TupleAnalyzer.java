@@ -129,8 +129,8 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class TupleAnalyzer
         extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
@@ -144,10 +144,10 @@ public class TupleAnalyzer
 
     public TupleAnalyzer(Analysis analysis, Session session, Metadata metadata, SqlParser sqlParser, AccessControl accessControl, boolean experimentalSyntaxEnabled)
     {
-        checkNotNull(analysis, "analysis is null");
-        checkNotNull(session, "session is null");
-        checkNotNull(metadata, "metadata is null");
-        checkNotNull(accessControl, "accessControl is null");
+        requireNonNull(analysis, "analysis is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(metadata, "metadata is null");
+        requireNonNull(accessControl, "accessControl is null");
 
         this.analysis = analysis;
         this.session = session;

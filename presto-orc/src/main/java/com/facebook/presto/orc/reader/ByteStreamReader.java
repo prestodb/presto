@@ -34,7 +34,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ByteStreamReader
         implements StreamReader
@@ -58,7 +58,7 @@ public class ByteStreamReader
 
     public ByteStreamReader(StreamDescriptor streamDescriptor)
     {
-        this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
+        this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
     }
 
     @Override

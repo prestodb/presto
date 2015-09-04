@@ -94,7 +94,6 @@ import static com.facebook.presto.util.Failures.WORKER_RESTARTED_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -106,6 +105,7 @@ import static io.airlift.http.client.StatusResponseHandler.createStatusResponseH
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.Objects.requireNonNull;
 
 public class HttpRemoteTask
         implements RemoteTask
@@ -164,16 +164,16 @@ public class HttpRemoteTask
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)
     {
-        checkNotNull(session, "session is null");
-        checkNotNull(taskId, "taskId is null");
-        checkNotNull(nodeId, "nodeId is null");
-        checkNotNull(location, "location is null");
-        checkNotNull(planFragment, "planFragment1 is null");
-        checkNotNull(outputBuffers, "outputBuffers is null");
-        checkNotNull(httpClient, "httpClient is null");
-        checkNotNull(executor, "executor is null");
-        checkNotNull(taskInfoCodec, "taskInfoCodec is null");
-        checkNotNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(nodeId, "nodeId is null");
+        requireNonNull(location, "location is null");
+        requireNonNull(planFragment, "planFragment1 is null");
+        requireNonNull(outputBuffers, "outputBuffers is null");
+        requireNonNull(httpClient, "httpClient is null");
+        requireNonNull(executor, "executor is null");
+        requireNonNull(taskInfoCodec, "taskInfoCodec is null");
+        requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
@@ -188,7 +188,7 @@ public class HttpRemoteTask
             this.updateErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, errorScheduledExecutor);
             this.getErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, errorScheduledExecutor);
 
-            for (Entry<PlanNodeId, Split> entry : checkNotNull(initialSplits, "initialSplits is null").entries()) {
+            for (Entry<PlanNodeId, Split> entry : requireNonNull(initialSplits, "initialSplits is null").entries()) {
                 ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getValue());
                 pendingSplits.put(entry.getKey(), scheduledSplit);
             }
@@ -253,8 +253,8 @@ public class HttpRemoteTask
     public synchronized void addSplits(PlanNodeId sourceId, Iterable<Split> splits)
     {
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            checkNotNull(sourceId, "sourceId is null");
-            checkNotNull(splits, "splits is null");
+            requireNonNull(sourceId, "sourceId is null");
+            requireNonNull(splits, "splits is null");
             checkState(!noMoreSplits.contains(sourceId), "noMoreSplits has already been set for %s", sourceId);
 
             // only add pending split if not done
@@ -578,7 +578,7 @@ public class HttpRemoteTask
 
         private UpdateResponseHandler(List<TaskSource> sources)
         {
-            this.sources = ImmutableList.copyOf(checkNotNull(sources, "sources is null"));
+            this.sources = ImmutableList.copyOf(requireNonNull(sources, "sources is null"));
         }
 
         @Override

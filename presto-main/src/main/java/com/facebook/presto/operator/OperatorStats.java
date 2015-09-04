@@ -25,8 +25,8 @@ import javax.annotation.concurrent.Immutable;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @Immutable
@@ -96,33 +96,33 @@ public class OperatorStats
     {
         checkArgument(operatorId >= 0, "operatorId is negative");
         this.operatorId = operatorId;
-        this.operatorType = checkNotNull(operatorType, "operatorType is null");
+        this.operatorType = requireNonNull(operatorType, "operatorType is null");
 
         this.addInputCalls = addInputCalls;
-        this.addInputWall = checkNotNull(addInputWall, "addInputWall is null");
-        this.addInputCpu = checkNotNull(addInputCpu, "addInputCpu is null");
-        this.addInputUser = checkNotNull(addInputUser, "addInputUser is null");
-        this.inputDataSize = checkNotNull(inputDataSize, "inputDataSize is null");
+        this.addInputWall = requireNonNull(addInputWall, "addInputWall is null");
+        this.addInputCpu = requireNonNull(addInputCpu, "addInputCpu is null");
+        this.addInputUser = requireNonNull(addInputUser, "addInputUser is null");
+        this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
         checkArgument(inputPositions >= 0, "inputPositions is negative");
         this.inputPositions = inputPositions;
 
         this.getOutputCalls = getOutputCalls;
-        this.getOutputWall = checkNotNull(getOutputWall, "getOutputWall is null");
-        this.getOutputCpu = checkNotNull(getOutputCpu, "getOutputCpu is null");
-        this.getOutputUser = checkNotNull(getOutputUser, "getOutputUser is null");
-        this.outputDataSize = checkNotNull(outputDataSize, "outputDataSize is null");
+        this.getOutputWall = requireNonNull(getOutputWall, "getOutputWall is null");
+        this.getOutputCpu = requireNonNull(getOutputCpu, "getOutputCpu is null");
+        this.getOutputUser = requireNonNull(getOutputUser, "getOutputUser is null");
+        this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
 
-        this.blockedWall = checkNotNull(blockedWall, "blockedWall is null");
+        this.blockedWall = requireNonNull(blockedWall, "blockedWall is null");
 
         this.finishCalls = finishCalls;
-        this.finishWall = checkNotNull(finishWall, "finishWall is null");
-        this.finishCpu = checkNotNull(finishCpu, "finishCpu is null");
-        this.finishUser = checkNotNull(finishUser, "finishUser is null");
+        this.finishWall = requireNonNull(finishWall, "finishWall is null");
+        this.finishCpu = requireNonNull(finishCpu, "finishCpu is null");
+        this.finishUser = requireNonNull(finishUser, "finishUser is null");
 
-        this.memoryReservation = checkNotNull(memoryReservation, "memoryReservation is null");
-        this.systemMemoryReservation = checkNotNull(systemMemoryReservation, "systemMemoryReservation is null");
+        this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
+        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
         this.blockedReason = blockedReason;
 
         this.info = info;

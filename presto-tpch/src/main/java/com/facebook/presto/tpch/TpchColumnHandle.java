@@ -20,7 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TpchColumnHandle
         implements ColumnHandle
@@ -33,8 +33,8 @@ public class TpchColumnHandle
             @JsonProperty("columnName") String columnName,
             @JsonProperty("type") Type type)
     {
-        this.columnName = checkNotNull(columnName, "columnName is null");
-        this.type = checkNotNull(type, "type is null");
+        this.columnName = requireNonNull(columnName, "columnName is null");
+        this.type = requireNonNull(type, "type is null");
     }
 
     @JsonProperty

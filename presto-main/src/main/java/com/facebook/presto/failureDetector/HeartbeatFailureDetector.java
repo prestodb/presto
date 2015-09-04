@@ -55,9 +55,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.Request.Builder.prepareHead;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class HeartbeatFailureDetector
@@ -89,10 +89,10 @@ public class HeartbeatFailureDetector
             FailureDetectorConfig config,
             NodeInfo nodeInfo)
     {
-        checkNotNull(selector, "selector is null");
-        checkNotNull(httpClient, "httpClient is null");
-        checkNotNull(nodeInfo, "nodeInfo is null");
-        checkNotNull(config, "config is null");
+        requireNonNull(selector, "selector is null");
+        requireNonNull(httpClient, "httpClient is null");
+        requireNonNull(nodeInfo, "nodeInfo is null");
+        requireNonNull(config, "config is null");
         checkArgument(config.getHeartbeatInterval().toMillis() >= 1, "heartbeat interval must be >= 1ms");
 
         this.selector = selector;

@@ -26,15 +26,15 @@ import java.util.List;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SqlTypeByteCodeExpression
         extends ByteCodeExpression
 {
     public static SqlTypeByteCodeExpression constantType(CallSiteBinder callSiteBinder, Type type)
     {
-        checkNotNull(callSiteBinder, "callSiteBinder is null");
-        checkNotNull(type, "type is null");
+        requireNonNull(callSiteBinder, "callSiteBinder is null");
+        requireNonNull(type, "type is null");
 
         Binding binding = callSiteBinder.bind(type, Type.class);
         return new SqlTypeByteCodeExpression(type, binding, BOOTSTRAP_METHOD);
@@ -48,9 +48,9 @@ public class SqlTypeByteCodeExpression
     {
         super(type(Type.class));
 
-        this.type = checkNotNull(type, "type is null");
-        this.binding = checkNotNull(binding, "binding is null");
-        this.bootstrapMethod = checkNotNull(bootstrapMethod, "bootstrapMethod is null");
+        this.type = requireNonNull(type, "type is null");
+        this.binding = requireNonNull(binding, "binding is null");
+        this.bootstrapMethod = requireNonNull(bootstrapMethod, "bootstrapMethod is null");
     }
 
     @Override

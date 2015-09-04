@@ -67,12 +67,12 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.primitives.Primitives.wrap;
 import static java.math.RoundingMode.CEILING;
 import static java.math.RoundingMode.FLOOR;
+import static java.util.Objects.requireNonNull;
 
 public final class DomainTranslator
 {
@@ -203,9 +203,9 @@ public final class DomainTranslator
 
         private Visitor(Metadata metadata, Session session, Map<Symbol, Type> types)
         {
-            this.metadata = checkNotNull(metadata, "metadata is null");
-            this.session = checkNotNull(session, "session is null").toConnectorSession();
-            this.types = ImmutableMap.copyOf(checkNotNull(types, "types is null"));
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.session = requireNonNull(session, "session is null").toConnectorSession();
+            this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
         }
 
         private Type checkedTypeLookup(Symbol symbol)
@@ -546,8 +546,8 @@ public final class DomainTranslator
 
         public ExtractionResult(TupleDomain<Symbol> tupleDomain, Expression remainingExpression)
         {
-            this.tupleDomain = checkNotNull(tupleDomain, "tupleDomain is null");
-            this.remainingExpression = checkNotNull(remainingExpression, "remainingExpression is null");
+            this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
+            this.remainingExpression = requireNonNull(remainingExpression, "remainingExpression is null");
         }
 
         public TupleDomain<Symbol> getTupleDomain()

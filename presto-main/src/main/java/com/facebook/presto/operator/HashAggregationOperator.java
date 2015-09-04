@@ -33,8 +33,8 @@ import java.util.Optional;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class HashAggregationOperator
         implements Operator
@@ -67,14 +67,14 @@ public class HashAggregationOperator
                 DataSize maxPartialMemory)
         {
             this.operatorId = operatorId;
-            this.maskChannel = checkNotNull(maskChannel, "maskChannel is null");
-            this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
+            this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
+            this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             this.groupByTypes = ImmutableList.copyOf(groupByTypes);
             this.groupByChannels = ImmutableList.copyOf(groupByChannels);
             this.step = step;
             this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
             this.expectedGroups = expectedGroups;
-            this.maxPartialMemory = checkNotNull(maxPartialMemory, "maxPartialMemory is null").toBytes();
+            this.maxPartialMemory = requireNonNull(maxPartialMemory, "maxPartialMemory is null").toBytes();
 
             this.types = toTypes(groupByTypes, step, accumulatorFactories, hashChannel);
         }
@@ -141,16 +141,16 @@ public class HashAggregationOperator
             Optional<Integer> hashChannel,
             int expectedGroups)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        checkNotNull(step, "step is null");
-        checkNotNull(accumulatorFactories, "accumulatorFactories is null");
-        checkNotNull(operatorContext, "operatorContext is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        requireNonNull(step, "step is null");
+        requireNonNull(accumulatorFactories, "accumulatorFactories is null");
+        requireNonNull(operatorContext, "operatorContext is null");
 
         this.groupByTypes = ImmutableList.copyOf(groupByTypes);
         this.groupByChannels = ImmutableList.copyOf(groupByChannels);
         this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
-        this.maskChannel = checkNotNull(maskChannel, "maskChannel is null");
-        this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
+        this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
+        this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
         this.step = step;
         this.expectedGroups = expectedGroups;
         this.types = toTypes(groupByTypes, step, accumulatorFactories, hashChannel);
@@ -190,7 +190,7 @@ public class HashAggregationOperator
     public void addInput(Page page)
     {
         checkState(!finishing, "Operator is already finishing");
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         if (aggregationBuilder == null) {
             aggregationBuilder = new GroupByHashAggregationBuilder(
                     accumulatorFactories,
@@ -276,7 +276,7 @@ public class HashAggregationOperator
 
             // wrapper each function with an aggregator
             ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
-            checkNotNull(accumulatorFactories, "accumulatorFactories is null");
+            requireNonNull(accumulatorFactories, "accumulatorFactories is null");
             for (int i = 0; i < accumulatorFactories.size(); i++) {
                 AccumulatorFactory accumulatorFactory = accumulatorFactories.get(i);
                 builder.add(new Aggregator(accumulatorFactory, step));

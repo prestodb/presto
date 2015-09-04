@@ -17,7 +17,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 // TODO merge this into MaterializedRow
 class MaterializedTuple
@@ -26,7 +26,7 @@ class MaterializedTuple
 
         public MaterializedTuple(List<Object> values)
         {
-            this.values = checkNotNull(values, "values is null");
+            this.values = requireNonNull(values, "values is null");
         }
 
         public static MaterializedTuple from(Object... values)

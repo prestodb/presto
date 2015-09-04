@@ -21,10 +21,10 @@ import io.airlift.slice.Slice;
 
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Default field decoder for the CSV format. Very simple string based conversion of field values. May
@@ -54,7 +54,7 @@ public class CsvKafkaFieldDecoder
     @Override
     public KafkaFieldValueProvider decode(final String value, final KafkaColumnHandle columnHandle)
     {
-        checkNotNull(columnHandle, "columnHandle is null");
+        requireNonNull(columnHandle, "columnHandle is null");
 
         return new KafkaFieldValueProvider()
         {

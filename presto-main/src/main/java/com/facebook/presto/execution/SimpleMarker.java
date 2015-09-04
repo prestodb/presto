@@ -25,7 +25,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class SimpleMarker
@@ -36,8 +36,8 @@ public final class SimpleMarker
 
     private SimpleMarker(boolean inclusive, Comparable<?> value, Class<?> type)
     {
-        checkNotNull(value, "value is null");
-        checkNotNull(type, "type is null");
+        requireNonNull(value, "value is null");
+        requireNonNull(type, "type is null");
         checkArgument(type.isInstance(value), String.format("value (%s) must be of specified type (%s)", value, type));
         this.inclusive = inclusive;
         this.value = value;

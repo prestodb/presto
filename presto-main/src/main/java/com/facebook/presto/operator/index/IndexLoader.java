@@ -47,11 +47,11 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class IndexLoader
@@ -89,16 +89,16 @@ public class IndexLoader
             DataSize maxIndexMemorySize,
             IndexJoinLookupStats stats)
     {
-        checkNotNull(lookupSourceInputChannels, "lookupSourceInputChannels is null");
+        requireNonNull(lookupSourceInputChannels, "lookupSourceInputChannels is null");
         checkArgument(!lookupSourceInputChannels.isEmpty(), "lookupSourceInputChannels must not be empty");
-        checkNotNull(keyOutputChannels, "keyOutputChannels is null");
+        requireNonNull(keyOutputChannels, "keyOutputChannels is null");
         checkArgument(!keyOutputChannels.isEmpty(), "keyOutputChannels must not be empty");
-        checkNotNull(keyOutputHashChannel, "keyOutputHashChannel is null");
+        requireNonNull(keyOutputHashChannel, "keyOutputHashChannel is null");
         checkArgument(lookupSourceInputChannels.size() <= keyOutputChannels.size(), "Lookup channels must supply a subset of the actual index columns");
-        checkNotNull(outputTypes, "outputTypes is null");
-        checkNotNull(indexBuildDriverFactoryProvider, "indexBuildDriverFactoryProvider is null");
-        checkNotNull(maxIndexMemorySize, "maxIndexMemorySize is null");
-        checkNotNull(stats, "stats is null");
+        requireNonNull(outputTypes, "outputTypes is null");
+        requireNonNull(indexBuildDriverFactoryProvider, "indexBuildDriverFactoryProvider is null");
+        requireNonNull(maxIndexMemorySize, "maxIndexMemorySize is null");
+        requireNonNull(stats, "stats is null");
 
         this.lookupSourceInputChannels = ImmutableSet.copyOf(lookupSourceInputChannels);
         this.keyOutputChannels = ImmutableList.copyOf(keyOutputChannels);

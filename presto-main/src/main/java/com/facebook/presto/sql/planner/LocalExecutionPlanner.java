@@ -172,10 +172,11 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
+import static java.lang.String.format;
 import static java.util.Collections.singleton;
+import static java.util.Objects.requireNonNull;
 
 public class LocalExecutionPlanner
 {
@@ -207,16 +208,16 @@ public class LocalExecutionPlanner
             CompilerConfig compilerConfig,
             TaskManagerConfig taskManagerConfig)
     {
-        checkNotNull(compilerConfig, "compilerConfig is null");
-        this.pageSourceProvider = checkNotNull(pageSourceProvider, "pageSourceProvider is null");
-        this.indexManager = checkNotNull(indexManager, "indexManager is null");
+        requireNonNull(compilerConfig, "compilerConfig is null");
+        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.indexManager = requireNonNull(indexManager, "indexManager is null");
         this.exchangeClientSupplier = exchangeClientSupplier;
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
-        this.pageSinkManager = checkNotNull(pageSinkManager, "pageSinkManager is null");
-        this.compiler = checkNotNull(compiler, "compiler is null");
-        this.indexJoinLookupStats = checkNotNull(indexJoinLookupStats, "indexJoinLookupStats is null");
-        this.maxIndexMemorySize = checkNotNull(taskManagerConfig, "taskManagerConfig is null").getMaxTaskIndexMemoryUsage();
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
+        this.compiler = requireNonNull(compiler, "compiler is null");
+        this.indexJoinLookupStats = requireNonNull(indexJoinLookupStats, "indexJoinLookupStats is null");
+        this.maxIndexMemorySize = requireNonNull(taskManagerConfig, "taskManagerConfig is null").getMaxTaskIndexMemoryUsage();
         this.maxPartialAggregationMemorySize = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
 
         interpreterEnabled = compilerConfig.isInterpreterEnabled();
@@ -303,7 +304,7 @@ public class LocalExecutionPlanner
 
         public void addDriverFactory(DriverFactory driverFactory)
         {
-            driverFactories.add(checkNotNull(driverFactory, "driverFactory is null"));
+            driverFactories.add(requireNonNull(driverFactory, "driverFactory is null"));
         }
 
         private List<DriverFactory> getDriverFactories()
@@ -375,7 +376,7 @@ public class LocalExecutionPlanner
 
         public IndexSourceContext(SetMultimap<Symbol, Integer> indexLookupToProbeInput)
         {
-            this.indexLookupToProbeInput = ImmutableSetMultimap.copyOf(checkNotNull(indexLookupToProbeInput, "indexLookupToProbeInput is null"));
+            this.indexLookupToProbeInput = ImmutableSetMultimap.copyOf(requireNonNull(indexLookupToProbeInput, "indexLookupToProbeInput is null"));
         }
 
         private SetMultimap<Symbol, Integer> getIndexLookupToProbeInput()
@@ -390,7 +391,7 @@ public class LocalExecutionPlanner
 
         public LocalExecutionPlan(List<DriverFactory> driverFactories)
         {
-            this.driverFactories = ImmutableList.copyOf(checkNotNull(driverFactories, "driverFactories is null"));
+            this.driverFactories = ImmutableList.copyOf(requireNonNull(driverFactories, "driverFactories is null"));
         }
 
         public List<DriverFactory> getDriverFactories()
@@ -824,7 +825,7 @@ public class LocalExecutionPlanner
                     Integer input = channel;
                     sourceLayout.put(symbol, input);
 
-                    Type type = checkNotNull(context.getTypes().get(symbol), "No type for symbol %s", symbol);
+                    Type type = requireNonNull(context.getTypes().get(symbol), format("No type for symbol %s", symbol));
                     sourceTypes.put(input, type);
 
                     channel++;
@@ -986,7 +987,7 @@ public class LocalExecutionPlanner
             List<Type> outputTypes = new ArrayList<>();
 
             for (Symbol symbol : node.getOutputSymbols()) {
-                Type type = checkNotNull(context.getTypes().get(symbol), "No type for symbol %s", symbol);
+                Type type = requireNonNull(context.getTypes().get(symbol), format("No type for symbol %s", symbol));
                 outputTypes.add(type);
             }
 
@@ -1776,8 +1777,8 @@ public class LocalExecutionPlanner
 
         public IdentityProjectionInfo(Map<Symbol, Integer> outputLayout, List<ProjectionFunction> projections)
         {
-            this.layout = checkNotNull(outputLayout, "outputLayout is null");
-            this.projections = checkNotNull(projections, "projections is null");
+            this.layout = requireNonNull(outputLayout, "outputLayout is null");
+            this.projections = requireNonNull(projections, "projections is null");
         }
 
         public Map<Symbol, Integer> getOutputLayout()
@@ -1810,8 +1811,8 @@ public class LocalExecutionPlanner
 
         public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout)
         {
-            checkNotNull(operatorFactory, "operatorFactory is null");
-            checkNotNull(layout, "layout is null");
+            requireNonNull(operatorFactory, "operatorFactory is null");
+            requireNonNull(layout, "layout is null");
 
             this.operatorFactories = ImmutableList.of(operatorFactory);
             this.layout = ImmutableMap.copyOf(layout);
@@ -1820,9 +1821,9 @@ public class LocalExecutionPlanner
 
         public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout, PhysicalOperation source)
         {
-            checkNotNull(operatorFactory, "operatorFactory is null");
-            checkNotNull(layout, "layout is null");
-            checkNotNull(source, "source is null");
+            requireNonNull(operatorFactory, "operatorFactory is null");
+            requireNonNull(layout, "layout is null");
+            requireNonNull(source, "source is null");
 
             this.operatorFactories = ImmutableList.<OperatorFactory>builder().addAll(source.getOperatorFactories()).add(operatorFactory).build();
             this.layout = ImmutableMap.copyOf(layout);

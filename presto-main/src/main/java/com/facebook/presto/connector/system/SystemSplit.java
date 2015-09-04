@@ -25,7 +25,7 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SystemSplit
         implements ConnectorSplit
@@ -36,7 +36,7 @@ public class SystemSplit
 
     public SystemSplit(SystemTableHandle tableHandle, HostAddress address, TupleDomain<ColumnHandle> constraint)
     {
-        this(tableHandle, ImmutableList.of(checkNotNull(address, "address is null")), constraint);
+        this(tableHandle, ImmutableList.of(requireNonNull(address, "address is null")), constraint);
     }
 
     @JsonCreator
@@ -45,12 +45,12 @@ public class SystemSplit
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
-        this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
+        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
 
-        checkNotNull(addresses, "hosts is null");
+        requireNonNull(addresses, "hosts is null");
         checkArgument(!addresses.isEmpty(), "hosts is empty");
         this.addresses = ImmutableList.copyOf(addresses);
-        this.constraint = checkNotNull(constraint, "constraint is null");
+        this.constraint = requireNonNull(constraint, "constraint is null");
     }
 
     @Override

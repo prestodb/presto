@@ -36,9 +36,9 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractTestingPrestoClient<T>
         implements Closeable
@@ -53,8 +53,8 @@ public abstract class AbstractTestingPrestoClient<T>
     protected AbstractTestingPrestoClient(TestingPrestoServer prestoServer,
             Session defaultSession)
     {
-        this.prestoServer = checkNotNull(prestoServer, "prestoServer is null");
-        this.defaultSession = checkNotNull(defaultSession, "defaultSession is null");
+        this.prestoServer = requireNonNull(prestoServer, "prestoServer is null");
+        this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");
 
         this.httpClient = new JettyHttpClient(
                 new HttpClientConfig()

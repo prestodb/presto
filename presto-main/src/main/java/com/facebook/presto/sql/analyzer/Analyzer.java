@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class Analyzer
 {
@@ -45,11 +45,11 @@ public class Analyzer
             Optional<QueryExplainer> queryExplainer,
             boolean experimentalSyntaxEnabled)
     {
-        this.session = checkNotNull(session, "session is null");
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
-        this.accessControl = checkNotNull(accessControl, "accessControl is null");
-        this.queryExplainer = checkNotNull(queryExplainer, "query explainer is null");
+        this.session = requireNonNull(session, "session is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.queryExplainer = requireNonNull(queryExplainer, "query explainer is null");
         this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
     }
 

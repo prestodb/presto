@@ -29,8 +29,8 @@ import javax.inject.Inject;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Manages connections to the Kafka nodes. A worker may connect to multiple Kafka nodes depending on the segments and partitions
@@ -53,10 +53,10 @@ public class KafkaSimpleConsumerManager
             KafkaConnectorConfig kafkaConnectorConfig,
             NodeManager nodeManager)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
-        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
 
-        checkNotNull(kafkaConnectorConfig, "kafkaConfig is null");
+        requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
         this.connectTimeoutMillis = Ints.checkedCast(kafkaConnectorConfig.getKafkaConnectTimeout().toMillis());
         this.bufferSizeBytes = Ints.checkedCast(kafkaConnectorConfig.getKafkaBufferSize().toBytes());
 
@@ -78,7 +78,7 @@ public class KafkaSimpleConsumerManager
 
     public SimpleConsumer getConsumer(HostAddress host)
     {
-        checkNotNull(host, "host is null");
+        requireNonNull(host, "host is null");
         try {
             return consumerCache.get(host);
         }

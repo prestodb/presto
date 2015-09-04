@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.execution;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+
+import static java.util.Objects.requireNonNull;
 
 public class FailedQueryException
         extends RuntimeException
@@ -26,9 +27,9 @@ public class FailedQueryException
 
     public FailedQueryException(Iterable<Throwable> causes)
     {
-        Preconditions.checkNotNull(causes, "causes is null");
+        requireNonNull(causes, "causes is null");
         for (Throwable cause : causes) {
-            Preconditions.checkNotNull(cause, "cause is null");
+            requireNonNull(cause, "cause is null");
             addSuppressed(cause);
         }
     }

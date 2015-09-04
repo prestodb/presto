@@ -23,8 +23,8 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.concat;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class RowNumberNode
@@ -47,11 +47,11 @@ public final class RowNumberNode
     {
         super(id);
 
-        checkNotNull(source, "source is null");
-        checkNotNull(partitionBy, "partitionBy is null");
-        checkNotNull(rowNumberSymbol, "rowNumberSymbol is null");
-        checkNotNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
-        checkNotNull(hashSymbol, "hashSymbol is null");
+        requireNonNull(source, "source is null");
+        requireNonNull(partitionBy, "partitionBy is null");
+        requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
+        requireNonNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
+        requireNonNull(hashSymbol, "hashSymbol is null");
 
         this.source = source;
         this.partitionBy = ImmutableList.copyOf(partitionBy);

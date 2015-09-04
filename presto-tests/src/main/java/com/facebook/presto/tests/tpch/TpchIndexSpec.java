@@ -18,7 +18,7 @@ import com.google.common.collect.SetMultimap;
 
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TpchIndexSpec
 {
@@ -28,7 +28,7 @@ public class TpchIndexSpec
 
     private TpchIndexSpec(SetMultimap<TpchScaledTable, Set<String>> spec)
     {
-        this.spec = ImmutableSetMultimap.copyOf(checkNotNull(spec, "spec is null"));
+        this.spec = ImmutableSetMultimap.copyOf(requireNonNull(spec, "spec is null"));
     }
 
     public Set<TpchScaledTable> listIndexedTables()

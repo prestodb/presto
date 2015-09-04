@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class StripeFooter
 {
@@ -26,8 +26,8 @@ public class StripeFooter
 
     public StripeFooter(List<Stream> streams, List<ColumnEncoding> columnEncodings)
     {
-        this.streams = ImmutableList.copyOf(checkNotNull(streams, "streams is null"));
-        this.columnEncodings = ImmutableList.copyOf(checkNotNull(columnEncodings, "columnEncodings is null"));
+        this.streams = ImmutableList.copyOf(requireNonNull(streams, "streams is null"));
+        this.columnEncodings = ImmutableList.copyOf(requireNonNull(columnEncodings, "columnEncodings is null"));
     }
 
     public List<ColumnEncoding> getColumnEncodings()

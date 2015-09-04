@@ -15,7 +15,7 @@ package com.facebook.presto.tests.tpch;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 class TpchScaledTable
 {
@@ -24,7 +24,7 @@ class TpchScaledTable
 
     public TpchScaledTable(String tableName, double scaleFactor)
     {
-        this.tableName = checkNotNull(tableName, "tableName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
         this.scaleFactor = scaleFactor;
     }
 

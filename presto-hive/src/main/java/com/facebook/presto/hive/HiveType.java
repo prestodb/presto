@@ -49,8 +49,8 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde.Constants.BIGINT_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.BINARY_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.BOOLEAN_TYPE_NAME;
@@ -96,7 +96,7 @@ public final class HiveType
 
     private HiveType(String hiveTypeName)
     {
-        this.hiveTypeName = checkNotNull(hiveTypeName, "hiveTypeName is null");
+        this.hiveTypeName = requireNonNull(hiveTypeName, "hiveTypeName is null");
         this.category = TypeInfoUtils.getTypeInfoFromTypeString(hiveTypeName).getCategory();
     }
 

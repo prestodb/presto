@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class Footer
 {
@@ -32,9 +32,9 @@ public class Footer
     {
         this.numberOfRows = numberOfRows;
         this.rowsInRowGroup = rowsInRowGroup;
-        this.stripes = ImmutableList.copyOf(checkNotNull(stripes, "stripes is null"));
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.fileStats = ImmutableList.copyOf(checkNotNull(fileStats, "columnStatistics is null"));
+        this.stripes = ImmutableList.copyOf(requireNonNull(stripes, "stripes is null"));
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.fileStats = ImmutableList.copyOf(requireNonNull(fileStats, "columnStatistics is null"));
     }
 
     public long getNumberOfRows()

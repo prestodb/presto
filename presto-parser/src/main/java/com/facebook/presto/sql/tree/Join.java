@@ -17,15 +17,15 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class Join
         extends Relation
 {
     public Join(Type type, Relation left, Relation right, Optional<JoinCriteria> criteria)
     {
-        checkNotNull(left, "left is null");
-        checkNotNull(right, "right is null");
+        requireNonNull(left, "left is null");
+        requireNonNull(right, "right is null");
         if (type.equals(Type.CROSS) || type.equals(Type.IMPLICIT)) {
             checkArgument(!criteria.isPresent(), "%s join cannot have join criteria", type);
         }

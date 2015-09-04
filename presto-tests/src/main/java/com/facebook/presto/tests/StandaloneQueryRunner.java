@@ -37,7 +37,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class StandaloneQueryRunner
@@ -52,7 +52,7 @@ public final class StandaloneQueryRunner
     public StandaloneQueryRunner(Session defaultSession)
             throws Exception
     {
-        checkNotNull(defaultSession, "defaultSession is null");
+        requireNonNull(defaultSession, "defaultSession is null");
 
         try {
             server = createTestingPrestoServer();

@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class ViewDefinition
 {
@@ -37,10 +37,10 @@ public final class ViewDefinition
             @JsonProperty("schema") String schema,
             @JsonProperty("columns") List<ViewColumn> columns)
     {
-        this.originalSql = checkNotNull(originalSql, "originalSql is null");
-        this.catalog = checkNotNull(catalog, "catalog is null");
-        this.schema = checkNotNull(schema, "schema is null");
-        this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
+        this.originalSql = requireNonNull(originalSql, "originalSql is null");
+        this.catalog = requireNonNull(catalog, "catalog is null");
+        this.schema = requireNonNull(schema, "schema is null");
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
     }
 
     @JsonProperty
@@ -88,8 +88,8 @@ public final class ViewDefinition
                 @JsonProperty("name") String name,
                 @JsonProperty("type") Type type)
         {
-            this.name = checkNotNull(name, "name is null");
-            this.type = checkNotNull(type, "type is null");
+            this.name = requireNonNull(name, "name is null");
+            this.type = requireNonNull(type, "type is null");
         }
 
         @JsonProperty

@@ -19,7 +19,7 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class OrcType
 {
@@ -57,13 +57,13 @@ public class OrcType
 
     public OrcType(OrcTypeKind orcTypeKind, List<Integer> fieldTypeIndexes, List<String> fieldNames)
     {
-        this.orcTypeKind = checkNotNull(orcTypeKind, "typeKind is null");
-        this.fieldTypeIndexes = ImmutableList.copyOf(checkNotNull(fieldTypeIndexes, "fieldTypeIndexes is null"));
+        this.orcTypeKind = requireNonNull(orcTypeKind, "typeKind is null");
+        this.fieldTypeIndexes = ImmutableList.copyOf(requireNonNull(fieldTypeIndexes, "fieldTypeIndexes is null"));
         if (fieldNames == null || (fieldNames.isEmpty() && !fieldTypeIndexes.isEmpty())) {
             this.fieldNames = null;
         }
         else {
-            this.fieldNames = ImmutableList.copyOf(checkNotNull(fieldNames, "fieldNames is null"));
+            this.fieldNames = ImmutableList.copyOf(requireNonNull(fieldNames, "fieldNames is null"));
             checkArgument(fieldNames.size() == fieldTypeIndexes.size(), "fieldNames and fieldTypeIndexes have different sizes");
         }
     }

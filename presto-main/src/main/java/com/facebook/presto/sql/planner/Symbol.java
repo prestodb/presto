@@ -19,6 +19,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.base.Preconditions;
 
+import static java.util.Objects.requireNonNull;
+
 public class Symbol
         implements Comparable<Symbol>
 {
@@ -27,7 +29,7 @@ public class Symbol
     @JsonCreator
     public Symbol(String name)
     {
-        Preconditions.checkNotNull(name, "name is null");
+        requireNonNull(name, "name is null");
         this.name = name;
     }
 

@@ -16,7 +16,7 @@ package com.facebook.presto.sql.tree;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class Insert
         extends Statement
@@ -26,8 +26,8 @@ public final class Insert
 
     public Insert(QualifiedName target, Query query)
     {
-        this.target = checkNotNull(target, "target is null");
-        this.query = checkNotNull(query, "query is null");
+        this.target = requireNonNull(target, "target is null");
+        this.query = requireNonNull(query, "query is null");
     }
 
     public QualifiedName getTarget()

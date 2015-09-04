@@ -37,10 +37,10 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.filter;
+import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaMetadata
         extends ReadOnlyConnectorMetadata
@@ -181,7 +181,7 @@ public class InformationSchemaMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        checkNotNull(prefix, "prefix is null");
+        requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> builder = ImmutableMap.builder();
         for (Entry<SchemaTableName, ConnectorTableMetadata> entry : TABLES.entrySet()) {
             if (prefix.matches(entry.getKey())) {

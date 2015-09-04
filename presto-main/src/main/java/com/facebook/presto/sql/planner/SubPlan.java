@@ -24,6 +24,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableMultiset;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class SubPlan
@@ -33,8 +34,8 @@ public class SubPlan
 
     public SubPlan(PlanFragment fragment, List<SubPlan> children)
     {
-        Preconditions.checkNotNull(fragment, "fragment is null");
-        Preconditions.checkNotNull(children, "children is null");
+        requireNonNull(fragment, "fragment is null");
+        requireNonNull(children, "children is null");
 
         this.fragment = fragment;
         this.children = ImmutableList.copyOf(children);

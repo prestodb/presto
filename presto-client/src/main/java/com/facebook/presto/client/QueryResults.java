@@ -49,9 +49,9 @@ import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.unmodifiableIterable;
 import static java.util.Collections.unmodifiableList;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class QueryResults
@@ -95,13 +95,13 @@ public class QueryResults
             String updateType,
             Long updateCount)
     {
-        this.id = checkNotNull(id, "id is null");
-        this.infoUri = checkNotNull(infoUri, "infoUri is null");
+        this.id = requireNonNull(id, "id is null");
+        this.infoUri = requireNonNull(infoUri, "infoUri is null");
         this.partialCancelUri = partialCancelUri;
         this.nextUri = nextUri;
         this.columns = (columns != null) ? ImmutableList.copyOf(columns) : null;
         this.data = (data != null) ? unmodifiableIterable(data) : null;
-        this.stats = checkNotNull(stats, "stats is null");
+        this.stats = requireNonNull(stats, "stats is null");
         this.error = error;
         this.updateType = updateType;
         this.updateCount = updateCount;
@@ -199,7 +199,7 @@ public class QueryResults
         if (data == null) {
             return null;
         }
-        checkNotNull(columns, "columns is null");
+        requireNonNull(columns, "columns is null");
         ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
         for (List<Object> row : data) {
             checkArgument(row.size() == columns.size(), "row/column size mismatch");

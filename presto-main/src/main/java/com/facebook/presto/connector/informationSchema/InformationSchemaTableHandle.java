@@ -20,7 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaTableHandle
         implements ConnectorTableHandle
@@ -35,9 +35,9 @@ public class InformationSchemaTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName)
     {
-        this.catalogName = checkNotNull(catalogName, "catalogName is null");
-        this.schemaName = checkNotNull(schemaName, "schemaName is null");
-        this.tableName = checkNotNull(tableName, "tableName is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
     }
 
     @JsonProperty

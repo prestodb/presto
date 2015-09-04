@@ -17,7 +17,7 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 
 public final class Types
 {
@@ -25,7 +25,9 @@ public final class Types
 
     public static <A, B extends A> B checkType(A value, Class<B> target, String name)
     {
-        checkNotNull(value, "%s is null", name);
+        if (value == null) {
+            throw new NullPointerException(format("%s is null", name));
+        }
         checkArgument(target.isInstance(value),
                 "%s must be of type %s, not %s",
                 name,
@@ -36,9 +38,11 @@ public final class Types
 
     public static <A, B extends A> B checkType(A value, Class<B> target, ErrorCodeSupplier errorCode, String name)
     {
-        checkNotNull(value, "%s is null", name);
+        if (value == null) {
+            throw new NullPointerException(format("%s is null", name));
+        }
         if (!target.isInstance(value)) {
-            throw new PrestoException(errorCode, String.format(
+            throw new PrestoException(errorCode, format(
                     "%s must be of type %s, not %s",
                     name,
                     target.getName(),

@@ -36,9 +36,9 @@ import javax.management.MBeanServer;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
+import static java.util.Objects.requireNonNull;
 
 public class RaptorConnectorFactory
         implements ConnectorFactory
@@ -64,13 +64,13 @@ public class RaptorConnectorFactory
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
-        this.metadataModule = checkNotNull(metadataModule, "metadataModule is null");
-        this.backupProviders = ImmutableMap.copyOf(checkNotNull(backupProviders, "backupProviders is null"));
-        this.optionalConfig = checkNotNull(optionalConfig, "optionalConfig is null");
-        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
-        this.pageSorter = checkNotNull(pageSorter, "pageSorter is null");
-        this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingSerde is null");
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+        this.metadataModule = requireNonNull(metadataModule, "metadataModule is null");
+        this.backupProviders = ImmutableMap.copyOf(requireNonNull(backupProviders, "backupProviders is null"));
+        this.optionalConfig = requireNonNull(optionalConfig, "optionalConfig is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
+        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override

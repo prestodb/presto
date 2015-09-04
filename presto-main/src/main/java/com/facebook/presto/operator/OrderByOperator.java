@@ -22,8 +22,8 @@ import com.google.common.primitives.Ints;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class OrderByOperator
         implements Operator
@@ -49,11 +49,11 @@ public class OrderByOperator
                 List<SortOrder> sortOrder)
         {
             this.operatorId = operatorId;
-            this.sourceTypes = ImmutableList.copyOf(checkNotNull(sourceTypes, "sourceTypes is null"));
-            this.outputChannels = checkNotNull(outputChannels, "outputChannels is null");
+            this.sourceTypes = ImmutableList.copyOf(requireNonNull(sourceTypes, "sourceTypes is null"));
+            this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
             this.expectedPositions = expectedPositions;
-            this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
-            this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder, "sortOrder is null"));
+            this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
+            this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
 
             this.types = toTypes(sourceTypes, outputChannels);
         }
@@ -114,11 +114,11 @@ public class OrderByOperator
             List<Integer> sortChannels,
             List<SortOrder> sortOrder)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.outputChannels = Ints.toArray(checkNotNull(outputChannels, "outputChannels is null"));
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.outputChannels = Ints.toArray(requireNonNull(outputChannels, "outputChannels is null"));
         this.types = toTypes(sourceTypes, outputChannels);
-        this.sortChannels = ImmutableList.copyOf(checkNotNull(sortChannels, "sortChannels is null"));
-        this.sortOrder = ImmutableList.copyOf(checkNotNull(sortOrder, "sortOrder is null"));
+        this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
+        this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
 
         this.pageIndex = new PagesIndex(sourceTypes, expectedPositions);
 
@@ -164,7 +164,7 @@ public class OrderByOperator
     public void addInput(Page page)
     {
         checkState(state == State.NEEDS_INPUT, "Operator is already finishing");
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
 
         pageIndex.addPage(page);
         operatorContext.setMemoryReservation(pageIndex.getEstimatedSize().toBytes());

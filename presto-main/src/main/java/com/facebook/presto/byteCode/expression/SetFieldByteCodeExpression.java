@@ -29,8 +29,8 @@ import java.util.List;
 import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 class SetFieldByteCodeExpression
         extends ByteCodeExpression
@@ -48,7 +48,7 @@ class SetFieldByteCodeExpression
 
     public SetFieldByteCodeExpression(@Nullable ByteCodeExpression instance, Field field, ByteCodeExpression value)
     {
-        this(instance, type(checkNotNull(field, "field is null").getDeclaringClass()), field.getName(), value, type(field.getType()));
+        this(instance, type(requireNonNull(field, "field is null").getDeclaringClass()), field.getName(), value, type(field.getType()));
 
         boolean isStatic = Modifier.isStatic(field.getModifiers());
         if (instance == null) {
@@ -61,7 +61,7 @@ class SetFieldByteCodeExpression
 
     public SetFieldByteCodeExpression(@Nullable ByteCodeExpression instance, FieldDefinition field, ByteCodeExpression value)
     {
-        this(instance, checkNotNull(field, "field is null").getDeclaringClass().getType(), field.getName(), value, field.getType());
+        this(instance, requireNonNull(field, "field is null").getDeclaringClass().getType(), field.getName(), value, field.getType());
         if (instance == null) {
             checkArgument(field.getAccess().contains(STATIC), "Field is not static: %s", field);
         }
@@ -86,10 +86,10 @@ class SetFieldByteCodeExpression
             checkArgument(!instance.getType().isPrimitive(), "Type %s does not have fields", instance.getType());
         }
         this.instance = instance;
-        this.declaringClass = checkNotNull(declaringClass, "declaringClass is null");
-        this.name = checkNotNull(name, "name is null");
-        this.fieldType = checkNotNull(fieldType, "fieldType is null");
-        this.value = checkNotNull(value, "value is null");
+        this.declaringClass = requireNonNull(declaringClass, "declaringClass is null");
+        this.name = requireNonNull(name, "name is null");
+        this.fieldType = requireNonNull(fieldType, "fieldType is null");
+        this.value = requireNonNull(value, "value is null");
     }
 
     @Override
@@ -131,8 +131,8 @@ class SetFieldByteCodeExpression
 
     private static Field getDeclaredField(Class<?> declaringClass, String name)
     {
-        checkNotNull(declaringClass, "declaringClass is null");
-        checkNotNull(name, "name is null");
+        requireNonNull(declaringClass, "declaringClass is null");
+        requireNonNull(name, "name is null");
 
         try {
             return declaringClass.getField(name);

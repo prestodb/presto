@@ -38,7 +38,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Converts Single Distinct Aggregation into GroupBy
@@ -68,7 +68,7 @@ public class SingleDistinctOptimizer
 
         private Optimizer(PlanNodeIdAllocator idAllocator)
         {
-            this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         }
 
         @Override

@@ -22,8 +22,8 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Json description to parse a single field from a Kafka topic message. See {@link com.facebook.presto.kafka.KafkaTopicDescription} for more details.
@@ -50,7 +50,7 @@ public final class KafkaTopicFieldDescription
     {
         checkArgument(!isNullOrEmpty(name), "name is null or is empty");
         this.name = name;
-        this.type = checkNotNull(type, "type is null");
+        this.type = requireNonNull(type, "type is null");
         this.mapping = mapping;
         this.comment = comment;
         this.dataFormat = dataFormat;

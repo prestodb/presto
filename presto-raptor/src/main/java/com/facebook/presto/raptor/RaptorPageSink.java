@@ -35,8 +35,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class RaptorPageSink
@@ -64,18 +64,18 @@ public class RaptorPageSink
             List<SortOrder> sortOrders,
             DataSize maxBufferSize)
     {
-        this.pageSorter = checkNotNull(pageSorter, "pageSorter is null");
-        this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
+        this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
+        this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
 
-        checkNotNull(storageManager, "storageManager is null");
+        requireNonNull(storageManager, "storageManager is null");
         this.storagePageSink = storageManager.createStoragePageSink(columnIds, columnTypes);
-        this.shardInfoCodec = checkNotNull(shardInfoCodec, "shardInfoCodec is null");
+        this.shardInfoCodec = requireNonNull(shardInfoCodec, "shardInfoCodec is null");
 
-        checkNotNull(sampleWeightColumnId, "sampleWeightColumnId is null");
+        requireNonNull(sampleWeightColumnId, "sampleWeightColumnId is null");
         this.sampleWeightField = columnIds.indexOf(sampleWeightColumnId.orElse(-1L));
 
         this.sortFields = ImmutableList.copyOf(sortColumnIds.stream().map(columnIds::indexOf).collect(toList()));
-        this.sortOrders = ImmutableList.copyOf(checkNotNull(sortOrders, "sortOrders is null"));
+        this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
 
         // allow only Integer.MAX_VALUE rows to be buffered as that is the max rows we can sort
         this.pageBuffer = new PageBuffer(maxBufferSize.toBytes(), Integer.MAX_VALUE);

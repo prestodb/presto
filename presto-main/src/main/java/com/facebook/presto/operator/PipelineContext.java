@@ -40,9 +40,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
@@ -84,8 +84,8 @@ public class PipelineContext
     {
         this.inputPipeline = inputPipeline;
         this.outputPipeline = outputPipeline;
-        this.taskContext = checkNotNull(taskContext, "taskContext is null");
-        this.executor = checkNotNull(executor, "executor is null");
+        this.taskContext = requireNonNull(taskContext, "taskContext is null");
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     public TaskContext getTaskContext()
@@ -127,7 +127,7 @@ public class PipelineContext
 
     public void driverFinished(DriverContext driverContext)
     {
-        checkNotNull(driverContext, "driverContext is null");
+        requireNonNull(driverContext, "driverContext is null");
 
         if (!drivers.remove(driverContext)) {
             throw new IllegalArgumentException("Unknown driver " + driverContext);

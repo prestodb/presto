@@ -28,10 +28,10 @@ import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TableNameCompleter
@@ -46,7 +46,7 @@ public class TableNameCompleter
 
     public TableNameCompleter(QueryRunner queryRunner)
     {
-        this.queryRunner = checkNotNull(queryRunner, "queryRunner session was null!");
+        this.queryRunner = requireNonNull(queryRunner, "queryRunner session was null!");
 
         tableCache = CacheBuilder.newBuilder()
                 .refreshAfterWrite(RELOAD_TIME_MINUTES, TimeUnit.MINUTES)

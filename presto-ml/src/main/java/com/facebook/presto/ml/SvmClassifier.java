@@ -25,7 +25,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 
 import static com.facebook.presto.ml.type.ClassifierType.BIGINT_CLASSIFIER;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SvmClassifier
         extends AbstractSvmModel
@@ -61,7 +61,7 @@ public class SvmClassifier
     @Override
     public Integer classify(FeatureVector features)
     {
-        checkNotNull(model, "model is null");
+        requireNonNull(model, "model is null");
         return (int) svm.svm_predict(model, toSvmNodes(features));
     }
 

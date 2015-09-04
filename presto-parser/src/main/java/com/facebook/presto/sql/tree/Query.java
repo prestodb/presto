@@ -18,7 +18,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class Query
         extends Statement
@@ -36,11 +36,11 @@ public class Query
             Optional<String> limit,
             Optional<Approximate> approximate)
     {
-        checkNotNull(with, "with is null");
-        checkNotNull(queryBody, "queryBody is null");
-        checkNotNull(orderBy, "orderBy is null");
-        checkNotNull(limit, "limit is null");
-        checkNotNull(approximate, "approximate is null");
+        requireNonNull(with, "with is null");
+        requireNonNull(queryBody, "queryBody is null");
+        requireNonNull(orderBy, "orderBy is null");
+        requireNonNull(limit, "limit is null");
+        requireNonNull(approximate, "approximate is null");
 
         this.with = with;
         this.queryBody = queryBody;

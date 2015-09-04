@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class Values
         extends QueryBody
@@ -28,7 +28,7 @@ public final class Values
 
     public Values(List<Expression> rows)
     {
-        checkNotNull(rows, "rows is null");
+        requireNonNull(rows, "rows is null");
         this.rows = ImmutableList.copyOf(rows);
     }
 

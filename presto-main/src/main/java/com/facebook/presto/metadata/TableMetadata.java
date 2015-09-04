@@ -16,9 +16,10 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import com.google.common.base.Preconditions;
 
 import java.util.List;
+
+import static java.util.Objects.requireNonNull;
 
 public class TableMetadata
 {
@@ -27,8 +28,8 @@ public class TableMetadata
 
     public TableMetadata(String connectorId, ConnectorTableMetadata metadata)
     {
-        Preconditions.checkNotNull(connectorId, "catalog is null");
-        Preconditions.checkNotNull(metadata, "metadata is null");
+        requireNonNull(connectorId, "catalog is null");
+        requireNonNull(metadata, "metadata is null");
 
         this.connectorId = connectorId;
         this.metadata = metadata;

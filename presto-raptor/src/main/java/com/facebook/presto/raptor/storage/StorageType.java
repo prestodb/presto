@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde.serdeConstants.BIGINT_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.BINARY_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.BOOLEAN_TYPE_NAME;
@@ -45,7 +45,7 @@ public final class StorageType
 
     private StorageType(String hiveTypeName)
     {
-        this.hiveTypeName = checkNotNull(hiveTypeName, "hiveTypeName is null");
+        this.hiveTypeName = requireNonNull(hiveTypeName, "hiveTypeName is null");
     }
 
     public String getHiveTypeName()

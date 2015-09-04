@@ -17,8 +17,8 @@ import com.facebook.presto.util.array.DoubleBigArray;
 import com.facebook.presto.util.array.ObjectBigArray;
 import io.airlift.stats.QuantileDigest;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static java.util.Objects.requireNonNull;
 
 public class DigestAndPercentileStateFactory
         implements AccumulatorStateFactory<DigestAndPercentileState>
@@ -71,7 +71,7 @@ public class DigestAndPercentileStateFactory
         @Override
         public void setDigest(QuantileDigest digest)
         {
-            checkNotNull(digest, "value is null");
+            requireNonNull(digest, "value is null");
             digests.set(getGroupId(), digest);
         }
 

@@ -45,8 +45,8 @@ import java.util.Map;
 
 import static com.facebook.presto.hive.ConditionalModule.installModuleIf;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.Objects.requireNonNull;
 
 public class HiveConnectorFactory
         implements ConnectorFactory
@@ -61,10 +61,10 @@ public class HiveConnectorFactory
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
-        this.optionalConfig = checkNotNull(optionalConfig, "optionalConfig is null");
-        this.classLoader = checkNotNull(classLoader, "classLoader is null");
+        this.optionalConfig = requireNonNull(optionalConfig, "optionalConfig is null");
+        this.classLoader = requireNonNull(classLoader, "classLoader is null");
         this.metastore = metastore;
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -76,7 +76,7 @@ public class HiveConnectorFactory
     @Override
     public Connector create(String connectorId, Map<String, String> config)
     {
-        checkNotNull(config, "config is null");
+        requireNonNull(config, "config is null");
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(

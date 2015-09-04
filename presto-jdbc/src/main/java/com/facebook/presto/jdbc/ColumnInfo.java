@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import java.sql.Types;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 class ColumnInfo
 {
@@ -69,19 +69,19 @@ class ColumnInfo
             String catalogName)
     {
         this.columnType = columnType;
-        this.columnParameterTypes = ImmutableList.copyOf(checkNotNull(columnParameterTypes, "columnParameterTypes is null"));
-        this.columnTypeSignature = checkNotNull(columnTypeSignature, "columnTypeName is null");
-        this.nullable = checkNotNull(nullable, "nullable is null");
+        this.columnParameterTypes = ImmutableList.copyOf(requireNonNull(columnParameterTypes, "columnParameterTypes is null"));
+        this.columnTypeSignature = requireNonNull(columnTypeSignature, "columnTypeName is null");
+        this.nullable = requireNonNull(nullable, "nullable is null");
         this.currency = currency;
         this.signed = signed;
         this.precision = precision;
         this.scale = scale;
         this.columnDisplaySize = columnDisplaySize;
-        this.columnLabel = checkNotNull(columnLabel, "columnLabel is null");
-        this.columnName = checkNotNull(columnName, "columnName is null");
-        this.tableName = checkNotNull(tableName, "tableName is null");
-        this.schemaName = checkNotNull(schemaName, "schemaName is null");
-        this.catalogName = checkNotNull(catalogName, "catalogName is null");
+        this.columnLabel = requireNonNull(columnLabel, "columnLabel is null");
+        this.columnName = requireNonNull(columnName, "columnName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
 
     public static void setTypeInfo(Builder builder, TypeSignature type)
@@ -289,7 +289,7 @@ class ColumnInfo
 
         public void setColumnParameterTypes(List<Integer> columnParameterTypes)
         {
-            this.columnParameterTypes = ImmutableList.copyOf(checkNotNull(columnParameterTypes, "columnParameterTypes is null"));
+            this.columnParameterTypes = ImmutableList.copyOf(requireNonNull(columnParameterTypes, "columnParameterTypes is null"));
         }
 
         public Builder setColumnTypeSignature(TypeSignature columnTypeSignature)

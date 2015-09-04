@@ -44,9 +44,9 @@ import static com.facebook.presto.raptor.util.UuidUtil.uuidStringToBytes;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 class ShardPredicate
 {
@@ -56,9 +56,9 @@ class ShardPredicate
 
     private ShardPredicate(String predicate, List<JDBCType> types, List<Object> values)
     {
-        this.predicate = checkNotNull(predicate, "predicate is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        this.values = ImmutableList.copyOf(checkNotNull(values, "values is null"));
+        this.predicate = requireNonNull(predicate, "predicate is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.values = ImmutableList.copyOf(requireNonNull(values, "values is null"));
         checkArgument(types.size() == values.size(), "types and values sizes do not match");
     }
 

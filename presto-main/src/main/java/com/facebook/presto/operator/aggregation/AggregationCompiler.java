@@ -43,8 +43,8 @@ import static com.facebook.presto.operator.aggregation.AggregationUtils.generate
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.invoke.MethodHandles.lookup;
+import static java.util.Objects.requireNonNull;
 
 public class AggregationCompiler
 {
@@ -57,7 +57,7 @@ public class AggregationCompiler
 
     public AggregationCompiler(TypeManager typeManager)
     {
-        this.typeManager = checkNotNull(typeManager, "typeManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     private static List<Method> findPublicStaticMethodsWithAnnotation(Class<?> clazz, Class<?> annotationClass)
@@ -83,8 +83,8 @@ public class AggregationCompiler
 
     public InternalAggregationFunction generateAggregationFunction(Class<?> clazz, Type returnType, List<Type> argumentTypes)
     {
-        checkNotNull(returnType, "returnType is null");
-        checkNotNull(argumentTypes, "argumentTypes is null");
+        requireNonNull(returnType, "returnType is null");
+        requireNonNull(argumentTypes, "argumentTypes is null");
         for (InternalAggregationFunction aggregation : generateAggregationFunctions(clazz)) {
             if (aggregation.getFinalType().equals(returnType) && aggregation.getParameterTypes().equals(argumentTypes)) {
                 return aggregation;
@@ -96,7 +96,7 @@ public class AggregationCompiler
     public List<InternalAggregationFunction> generateAggregationFunctions(Class<?> clazz)
     {
         AggregationFunction aggregationAnnotation = clazz.getAnnotation(AggregationFunction.class);
-        checkNotNull(aggregationAnnotation, "aggregationAnnotation is null");
+        requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
 
         DynamicClassLoader classLoader = new DynamicClassLoader(clazz.getClassLoader());
 

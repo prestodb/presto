@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.SqlQueryManager.addCompletionCallback;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class QueryQueue
 {
@@ -35,7 +35,7 @@ public class QueryQueue
 
     QueryQueue(Executor queryExecutor, int maxQueuedQueries, int maxConcurrentQueries)
     {
-        checkNotNull(queryExecutor, "queryExecutor is null");
+        requireNonNull(queryExecutor, "queryExecutor is null");
         checkArgument(maxQueuedQueries > 0, "maxQueuedQueries must be greater than zero");
         checkArgument(maxConcurrentQueries > 0, "maxConcurrentQueries must be greater than zero");
 
@@ -94,9 +94,9 @@ public class QueryQueue
 
         private QueueEntry(QueuedExecution queuedExecution, Runnable onDequeue)
         {
-            checkNotNull(queuedExecution, "queueableExecution is null");
+            requireNonNull(queuedExecution, "queueableExecution is null");
             this.queryExecution = new AtomicReference<>(queuedExecution);
-            this.onDequeue = checkNotNull(onDequeue, "onDequeue is null");
+            this.onDequeue = requireNonNull(onDequeue, "onDequeue is null");
         }
 
         public QueuedExecution dequeue()

@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static java.util.Objects.requireNonNull;
+
 public class CoalesceExpression
         extends Expression
 {
@@ -30,7 +32,7 @@ public class CoalesceExpression
 
     public CoalesceExpression(List<Expression> operands)
     {
-        Preconditions.checkNotNull(operands, "operands is null");
+        requireNonNull(operands, "operands is null");
         Preconditions.checkArgument(!operands.isEmpty(), "operands is empty");
 
         this.operands = ImmutableList.copyOf(operands);

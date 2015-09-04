@@ -20,7 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SampledRelation
         extends Relation
@@ -40,9 +40,9 @@ public class SampledRelation
 
     public SampledRelation(Relation relation, Type type, Expression samplePercentage, boolean rescaled, Optional<List<Expression>> columnsToStratifyOn)
     {
-        this.relation = checkNotNull(relation, "relation is null");
-        this.type = checkNotNull(type, "type is null");
-        this.samplePercentage = checkNotNull(samplePercentage, "samplePercentage is null");
+        this.relation = requireNonNull(relation, "relation is null");
+        this.type = requireNonNull(type, "type is null");
+        this.samplePercentage = requireNonNull(samplePercentage, "samplePercentage is null");
         this.rescaled = rescaled;
 
         if (columnsToStratifyOn.isPresent()) {

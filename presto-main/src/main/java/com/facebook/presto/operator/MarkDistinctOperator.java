@@ -25,8 +25,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class MarkDistinctOperator
         implements Operator
@@ -43,10 +43,10 @@ public class MarkDistinctOperator
         public MarkDistinctOperatorFactory(int operatorId, List<? extends Type> sourceTypes, Collection<Integer> markDistinctChannels, Optional<Integer> hashChannel)
         {
             this.operatorId = operatorId;
-            checkNotNull(markDistinctChannels, "markDistinctChannels is null");
+            requireNonNull(markDistinctChannels, "markDistinctChannels is null");
             checkArgument(!markDistinctChannels.isEmpty(), "markDistinctChannels is empty");
             this.markDistinctChannels = Ints.toArray(markDistinctChannels);
-            this.hashChannel = checkNotNull(hashChannel, "hashChannel is null");
+            this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             this.types = ImmutableList.<Type>builder()
                     .addAll(sourceTypes)
                     .add(BOOLEAN)
@@ -83,10 +83,10 @@ public class MarkDistinctOperator
 
     public MarkDistinctOperator(OperatorContext operatorContext, List<Type> types, int[] markDistinctChannels, Optional<Integer> hashChannel)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        checkNotNull(hashChannel, "hashChannel is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        requireNonNull(hashChannel, "hashChannel is null");
 
         ImmutableList.Builder<Type> distinctTypes = ImmutableList.builder();
         for (int channel : markDistinctChannels) {
@@ -132,7 +132,7 @@ public class MarkDistinctOperator
     @Override
     public void addInput(Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(!finishing, "Operator is finishing");
         checkState(outputPage == null, "Operator still has pending output");
         operatorContext.setMemoryReservation(markDistinctHash.getEstimatedSize());

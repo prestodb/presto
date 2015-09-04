@@ -18,7 +18,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class Window
         extends Node
@@ -29,9 +29,9 @@ public class Window
 
     public Window(List<Expression> partitionBy, List<SortItem> orderBy, Optional<WindowFrame> frame)
     {
-        this.partitionBy = checkNotNull(partitionBy, "partitionBy is null");
-        this.orderBy = checkNotNull(orderBy, "orderBy is null");
-        this.frame = checkNotNull(frame, "frame is null");
+        this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");
+        this.orderBy = requireNonNull(orderBy, "orderBy is null");
+        this.frame = requireNonNull(frame, "frame is null");
     }
 
     public List<Expression> getPartitionBy()

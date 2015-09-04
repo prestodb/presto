@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class StatementSplitter
 {
@@ -106,7 +106,7 @@ public class StatementSplitter
 
     private static TokenSource getLexer(String sql, Set<String> terminators)
     {
-        checkNotNull(sql, "sql is null");
+        requireNonNull(sql, "sql is null");
         CharStream stream = new CaseInsensitiveStream(new ANTLRInputStream(sql));
         return new DelimiterLexer(stream, terminators);
     }
@@ -118,8 +118,8 @@ public class StatementSplitter
 
         public Statement(String statement, String terminator)
         {
-            this.statement = checkNotNull(statement, "statement is null");
-            this.terminator = checkNotNull(terminator, "terminator is null");
+            this.statement = requireNonNull(statement, "statement is null");
+            this.terminator = requireNonNull(terminator, "terminator is null");
         }
 
         public String statement()

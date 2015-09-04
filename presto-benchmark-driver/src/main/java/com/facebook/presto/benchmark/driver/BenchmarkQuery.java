@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class BenchmarkQuery
 {
@@ -41,7 +41,7 @@ public final class BenchmarkQuery
     public BenchmarkQuery(File file)
             throws IOException
     {
-        checkNotNull(file, "file is null");
+        requireNonNull(file, "file is null");
 
         name = Files.getNameWithoutExtension(file.getName());
 

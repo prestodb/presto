@@ -26,7 +26,7 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class PrestoResultSetMetaData
         implements ResultSetMetaData
@@ -35,7 +35,7 @@ public class PrestoResultSetMetaData
 
     PrestoResultSetMetaData(List<ColumnInfo> columnInfo)
     {
-        this.columnInfo = ImmutableList.copyOf(checkNotNull(columnInfo, "columnInfo is null"));
+        this.columnInfo = ImmutableList.copyOf(requireNonNull(columnInfo, "columnInfo is null"));
     }
 
     @Override

@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+
+import static java.util.Objects.requireNonNull;
 
 public class ArrayConstructor
         extends Expression
@@ -26,7 +27,7 @@ public class ArrayConstructor
 
     public ArrayConstructor(List<Expression> values)
     {
-        Preconditions.checkNotNull(values, "values is null");
+        requireNonNull(values, "values is null");
         this.values = ImmutableList.copyOf(values);
     }
 

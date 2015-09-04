@@ -36,8 +36,8 @@ import java.util.function.Supplier;
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
@@ -89,9 +89,9 @@ public class OperatorContext
         checkArgument(operatorId >= 0, "operatorId is negative");
         this.operatorId = operatorId;
         this.maxMemoryReservation = maxMemoryReservation;
-        this.operatorType = checkNotNull(operatorType, "operatorType is null");
-        this.driverContext = checkNotNull(driverContext, "driverContext is null");
-        this.executor = checkNotNull(executor, "executor is null");
+        this.operatorType = requireNonNull(operatorType, "operatorType is null");
+        this.driverContext = requireNonNull(driverContext, "driverContext is null");
+        this.executor = requireNonNull(executor, "executor is null");
         SettableFuture<Object> future = SettableFuture.create();
         future.set(null);
         this.memoryFuture.set(future);
@@ -182,7 +182,7 @@ public class OperatorContext
 
     public void recordBlocked(ListenableFuture<?> blocked)
     {
-        checkNotNull(blocked, "blocked is null");
+        requireNonNull(blocked, "blocked is null");
 
         BlockedMonitor monitor = new BlockedMonitor();
 
@@ -327,7 +327,7 @@ public class OperatorContext
 
     public void setInfoSupplier(Supplier<Object> infoSupplier)
     {
-        checkNotNull(infoSupplier, "infoProvider is null");
+        requireNonNull(infoSupplier, "infoProvider is null");
         this.infoSupplier.set(infoSupplier);
     }
 

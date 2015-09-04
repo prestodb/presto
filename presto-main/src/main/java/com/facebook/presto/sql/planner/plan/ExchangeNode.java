@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class ExchangeNode
@@ -60,12 +60,12 @@ public class ExchangeNode
     {
         super(id);
 
-        checkNotNull(type, "type is null");
-        checkNotNull(sources, "sources is null");
-        checkNotNull(partitionKeys, "partitionKeys is null");
-        checkNotNull(hashSymbol, "hashSymbol is null");
-        checkNotNull(outputs, "outputs is null");
-        checkNotNull(inputs, "inputs is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(sources, "sources is null");
+        requireNonNull(partitionKeys, "partitionKeys is null");
+        requireNonNull(hashSymbol, "hashSymbol is null");
+        requireNonNull(outputs, "outputs is null");
+        requireNonNull(inputs, "inputs is null");
         partitionKeys.ifPresent(list -> checkArgument(outputs.containsAll(list), "outputs must contain all partitionKeys"));
         checkArgument(!hashSymbol.isPresent() || outputs.contains(hashSymbol.get()), "outputs must contain hashSymbol");
         checkArgument(inputs.stream().allMatch(inputSymbols -> inputSymbols.size() == outputs.size()), "Input symbols do not match output symbols");

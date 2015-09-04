@@ -28,7 +28,7 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class LongBlockReader
         implements BlockReader
@@ -42,7 +42,7 @@ public class LongBlockReader
 
     public LongBlockReader(StreamDescriptor streamDescriptor)
     {
-        this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
+        this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         directReader = new LongDirectBlockReader(streamDescriptor);
         dictionaryReader = new LongDictionaryBlockReader(streamDescriptor);
     }

@@ -58,7 +58,6 @@ import static com.facebook.presto.cli.ClientOptions.parseServer;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
@@ -71,6 +70,7 @@ import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerat
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 @Command(name = "presto", description = "Presto interactive console")
@@ -172,7 +172,7 @@ public class PerfTest
         {
             checkArgument(parallelism >= 0, "parallelism is negative");
             checkArgument(parallelism <= runners.size(), "parallelism is greater than maxParallelism");
-            checkNotNull(queries, "queries is null");
+            requireNonNull(queries, "queries is null");
 
             CountDownLatch remainingQueries = new CountDownLatch(queries.size());
             BlockingQueue<String> queue = new ArrayBlockingQueue<>(queries.size(), false, queries);

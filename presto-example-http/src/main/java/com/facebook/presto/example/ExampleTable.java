@@ -22,8 +22,8 @@ import java.net.URI;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.Objects.requireNonNull;
 
 public class ExampleTable
 {
@@ -39,9 +39,9 @@ public class ExampleTable
             @JsonProperty("sources") List<URI> sources)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or is empty");
-        this.name = checkNotNull(name, "name is null");
-        this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
-        this.sources = ImmutableList.copyOf(checkNotNull(sources, "sources is null"));
+        this.name = requireNonNull(name, "name is null");
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.sources = ImmutableList.copyOf(requireNonNull(sources, "sources is null"));
 
         ImmutableList.Builder<ColumnMetadata> columnsMetadata = ImmutableList.builder();
         for (ExampleColumn column : this.columns) {

@@ -16,7 +16,7 @@ package com.facebook.presto.hive;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HiveConnectorId
 {
@@ -24,7 +24,7 @@ public class HiveConnectorId
 
     public HiveConnectorId(String connectorId)
     {
-        checkNotNull(connectorId, "connectorId is null");
+        requireNonNull(connectorId, "connectorId is null");
         checkArgument(!connectorId.isEmpty(), "connectorId is empty");
         this.connectorId = connectorId;
     }

@@ -85,7 +85,6 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -157,19 +156,19 @@ public class OrcStorageManager
             long maxShardRows,
             DataSize maxShardSize)
     {
-        this.nodeId = checkNotNull(nodeId, "nodeId is null");
-        this.storageService = checkNotNull(storageService, "storageService is null");
-        this.backupStore = checkNotNull(backupStore, "backupStore is null");
-        this.shardDeltaCodec = checkNotNull(shardDeltaCodec, "shardDeltaCodec is null");
-        this.defaultReaderAttributes = checkNotNull(readerAttributes, "readerAttributes is null");
+        this.nodeId = requireNonNull(nodeId, "nodeId is null");
+        this.storageService = requireNonNull(storageService, "storageService is null");
+        this.backupStore = requireNonNull(backupStore, "backupStore is null");
+        this.shardDeltaCodec = requireNonNull(shardDeltaCodec, "shardDeltaCodec is null");
+        this.defaultReaderAttributes = requireNonNull(readerAttributes, "readerAttributes is null");
 
         backupManager = requireNonNull(backgroundBackupManager, "backgroundBackupManager is null");
-        this.recoveryManager = checkNotNull(recoveryManager, "recoveryManager is null");
-        this.recoveryTimeout = checkNotNull(shardRecoveryTimeout, "shardRecoveryTimeout is null");
+        this.recoveryManager = requireNonNull(recoveryManager, "recoveryManager is null");
+        this.recoveryTimeout = requireNonNull(shardRecoveryTimeout, "shardRecoveryTimeout is null");
 
         checkArgument(maxShardRows > 0, "maxShardRows must be > 0");
         this.maxShardRows = min(maxShardRows, MAX_ROWS);
-        this.maxShardSize = checkNotNull(maxShardSize, "maxShardSize is null");
+        this.maxShardSize = requireNonNull(maxShardSize, "maxShardSize is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.deletionExecutor = newFixedThreadPool(deletionThreads, daemonThreadsNamed("raptor-delete-" + connectorId + "-%s"));
     }
@@ -456,8 +455,8 @@ public class OrcStorageManager
 
         public OrcStoragePageSink(List<Long> columnIds, List<Type> columnTypes)
         {
-            this.columnIds = ImmutableList.copyOf(checkNotNull(columnIds, "columnIds is null"));
-            this.columnTypes = ImmutableList.copyOf(checkNotNull(columnTypes, "columnTypes is null"));
+            this.columnIds = ImmutableList.copyOf(requireNonNull(columnIds, "columnIds is null"));
+            this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         }
 
         @Override

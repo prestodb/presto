@@ -16,7 +16,7 @@ package com.facebook.presto.tests.tpch;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.tpch.TpchHandleResolver;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TpchIndexHandleResolver
         extends TpchHandleResolver
@@ -26,7 +26,7 @@ public class TpchIndexHandleResolver
     public TpchIndexHandleResolver(String connectorId)
     {
         super(connectorId);
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
     }
 
     @Override

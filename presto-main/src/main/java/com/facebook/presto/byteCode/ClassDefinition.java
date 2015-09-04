@@ -14,7 +14,6 @@
 package com.facebook.presto.byteCode;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.objectweb.asm.ClassVisitor;
@@ -31,6 +30,7 @@ import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.Access.toAccessModifier;
 import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.concat;
+import static java.util.Objects.requireNonNull;
 import static org.objectweb.asm.Opcodes.ACC_SUPER;
 import static org.objectweb.asm.Opcodes.V1_7;
 
@@ -63,10 +63,10 @@ public class ClassDefinition
             ParameterizedType superClass,
             ParameterizedType... interfaces)
     {
-        Preconditions.checkNotNull(access, "access is null");
-        Preconditions.checkNotNull(access, "access is null");
-        Preconditions.checkNotNull(superClass, "superClass is null");
-        Preconditions.checkNotNull(interfaces, "interfaces is null");
+        requireNonNull(access, "access is null");
+        requireNonNull(access, "access is null");
+        requireNonNull(superClass, "superClass is null");
+        requireNonNull(interfaces, "interfaces is null");
 
         this.access = access;
         this.type = type;

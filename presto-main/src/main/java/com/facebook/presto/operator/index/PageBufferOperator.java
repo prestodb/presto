@@ -24,8 +24,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class PageBufferOperator
         implements Operator
@@ -39,7 +39,7 @@ public class PageBufferOperator
         public PageBufferOperatorFactory(int operatorId, PageBuffer pageBuffer)
         {
             this.operatorId = operatorId;
-            this.pageBuffer = checkNotNull(pageBuffer, "pageBuffer is null");
+            this.pageBuffer = requireNonNull(pageBuffer, "pageBuffer is null");
         }
 
         @Override
@@ -68,8 +68,8 @@ public class PageBufferOperator
 
     public PageBufferOperator(OperatorContext operatorContext, PageBuffer pageBuffer)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.pageBuffer = checkNotNull(pageBuffer, "pageBuffer is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.pageBuffer = requireNonNull(pageBuffer, "pageBuffer is null");
     }
 
     @Override
@@ -121,7 +121,7 @@ public class PageBufferOperator
     @Override
     public void addInput(Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(blocked == NOT_BLOCKED, "output is already blocked");
         ListenableFuture<?> future = pageBuffer.add(page);
         if (!future.isDone()) {

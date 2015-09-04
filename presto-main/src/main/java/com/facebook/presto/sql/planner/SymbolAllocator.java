@@ -19,13 +19,13 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class SymbolAllocator
 {
@@ -44,7 +44,7 @@ public class SymbolAllocator
 
     public Symbol newSymbol(String nameHint, Type type, String suffix)
     {
-        Preconditions.checkNotNull(nameHint, "name is null");
+        requireNonNull(nameHint, "name is null");
 
         // TODO: workaround for the fact that QualifiedName lowercases parts
         nameHint = nameHint.toLowerCase(ENGLISH);

@@ -27,10 +27,10 @@ import javax.inject.Inject;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Guice module for the Apache Kafka connector.
@@ -79,7 +79,7 @@ public class KafkaConnectorModule
         public TypeDeserializer(TypeManager typeManager)
         {
             super(Type.class);
-            this.typeManager = checkNotNull(typeManager, "typeManager is null");
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
         }
 
         @Override

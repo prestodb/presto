@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class InternalTable
 {
@@ -35,8 +35,8 @@ public class InternalTable
 
     public InternalTable(Map<String, Integer> columnIndexes, Iterable<Page> pages)
     {
-        this.columnIndexes = ImmutableMap.copyOf(checkNotNull(columnIndexes, "columnIndexes is null"));
-        this.pages = ImmutableList.copyOf(checkNotNull(pages, "pages is null"));
+        this.columnIndexes = ImmutableMap.copyOf(requireNonNull(columnIndexes, "columnIndexes is null"));
+        this.pages = ImmutableList.copyOf(requireNonNull(pages, "pages is null"));
     }
 
     public int getColumnIndex(String columnName)
@@ -76,7 +76,7 @@ public class InternalTable
 
         public Builder(List<String> columnNames, List<Type> types)
         {
-            checkNotNull(columnNames, "columnNames is null");
+            requireNonNull(columnNames, "columnNames is null");
 
             ImmutableMap.Builder<String, Integer> columnIndexes = ImmutableMap.builder();
             int columnIndex = 0;
@@ -85,7 +85,7 @@ public class InternalTable
             }
             this.columnIndexes = columnIndexes.build();
 
-            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             checkArgument(columnNames.size() == types.size(),
                     "Column name count does not match type count: columnNames=%s, types=%s", columnNames, types.size());
 

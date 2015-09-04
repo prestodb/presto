@@ -61,13 +61,13 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 class ColumnarTextHiveRecordCursor<K>
         extends HiveRecordCursor
@@ -110,12 +110,12 @@ class ColumnarTextHiveRecordCursor<K>
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
     {
-        checkNotNull(recordReader, "recordReader is null");
+        requireNonNull(recordReader, "recordReader is null");
         checkArgument(totalBytes >= 0, "totalBytes is negative");
-        checkNotNull(splitSchema, "splitSchema is null");
-        checkNotNull(partitionKeys, "partitionKeys is null");
-        checkNotNull(columns, "columns is null");
-        checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
+        requireNonNull(splitSchema, "splitSchema is null");
+        requireNonNull(partitionKeys, "partitionKeys is null");
+        requireNonNull(columns, "columns is null");
+        requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
 
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;

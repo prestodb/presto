@@ -43,9 +43,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 class TpchIndexedData
 {
@@ -53,8 +53,8 @@ class TpchIndexedData
 
     public TpchIndexedData(String connectorId, TpchIndexSpec tpchIndexSpec)
     {
-        checkNotNull(connectorId, "connectorId is null");
-        checkNotNull(tpchIndexSpec, "tpchIndexSpec is null");
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(tpchIndexSpec, "tpchIndexSpec is null");
 
         TpchMetadata tpchMetadata = new TpchMetadata(connectorId);
         TpchRecordSetProvider tpchRecordSetProvider = new TpchRecordSetProvider();
@@ -176,11 +176,11 @@ class TpchIndexedData
 
         private IndexedTable(List<String> keyColumnNames, List<Type> keyTypes, List<String> outputColumnNames, List<Type> outputTypes, ListMultimap<MaterializedTuple, MaterializedTuple> keyToValues)
         {
-            this.keyColumnNames = ImmutableList.copyOf(checkNotNull(keyColumnNames, "keyColumnNames is null"));
-            this.keyTypes = ImmutableList.copyOf(checkNotNull(keyTypes, "keyTypes is null"));
-            this.outputColumnNames = ImmutableList.copyOf(checkNotNull(outputColumnNames, "outputColumnNames is null"));
-            this.outputTypes = ImmutableList.copyOf(checkNotNull(outputTypes, "outputTypes is null"));
-            this.keyToValues = ImmutableListMultimap.copyOf(checkNotNull(keyToValues, "keyToValues is null"));
+            this.keyColumnNames = ImmutableList.copyOf(requireNonNull(keyColumnNames, "keyColumnNames is null"));
+            this.keyTypes = ImmutableList.copyOf(requireNonNull(keyTypes, "keyTypes is null"));
+            this.outputColumnNames = ImmutableList.copyOf(requireNonNull(outputColumnNames, "outputColumnNames is null"));
+            this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes, "outputTypes is null"));
+            this.keyToValues = ImmutableListMultimap.copyOf(requireNonNull(keyToValues, "keyToValues is null"));
         }
 
         public List<String> getKeyColumns()
@@ -251,8 +251,8 @@ class TpchIndexedData
 
         private TpchScaledColumn(TpchScaledTable table, String columnName)
         {
-            this.table = checkNotNull(table, "table is null");
-            this.columnName = checkNotNull(columnName, "columnName is null");
+            this.table = requireNonNull(table, "table is null");
+            this.columnName = requireNonNull(columnName, "columnName is null");
         }
 
         public static Function<String, TpchScaledColumn> columnFunction(final TpchScaledTable table)

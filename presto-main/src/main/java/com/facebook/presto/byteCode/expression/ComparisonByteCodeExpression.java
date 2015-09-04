@@ -44,7 +44,7 @@ import static com.facebook.presto.byteCode.OpCode.IF_ICMPNE;
 import static com.facebook.presto.byteCode.OpCode.LCMP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 class ComparisonByteCodeExpression
         extends ByteCodeExpression
@@ -172,8 +172,8 @@ class ComparisonByteCodeExpression
 
     static ByteCodeExpression equal(ByteCodeExpression left, ByteCodeExpression right)
     {
-        checkNotNull(left, "left is null");
-        checkNotNull(right, "right is null");
+        requireNonNull(left, "left is null");
+        requireNonNull(right, "right is null");
         checkArgument(left.getType().equals(right.getType()), "left and right must be the same type");
 
         OpCode comparisonInstruction;
@@ -208,8 +208,8 @@ class ComparisonByteCodeExpression
 
     static ByteCodeExpression notEqual(ByteCodeExpression left, ByteCodeExpression right)
     {
-        checkNotNull(left, "left is null");
-        checkNotNull(right, "right is null");
+        requireNonNull(left, "left is null");
+        requireNonNull(right, "right is null");
         checkArgument(left.getType().equals(right.getType()), "left and right must be the same type");
 
         OpCode comparisonInstruction;
@@ -251,7 +251,7 @@ class ComparisonByteCodeExpression
 
     private static Class<?> getPrimitiveType(ByteCodeExpression expression, String name)
     {
-        checkNotNull(expression, name + " is null");
+        requireNonNull(expression, name + " is null");
         Class<?> leftType = expression.getType().getPrimitiveType();
         checkArgument(leftType != null, name + " is not a primitive");
         checkArgument(leftType != void.class, name + " is void");

@@ -16,7 +16,7 @@ package com.facebook.presto.raptor.metadata;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.spi.type.Type;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ColumnInfo
 {
@@ -26,7 +26,7 @@ public class ColumnInfo
     public ColumnInfo(long columnId, Type type)
     {
         this.columnId = columnId;
-        this.type = checkNotNull(type, "type is null");
+        this.type = requireNonNull(type, "type is null");
     }
 
     public long getColumnId()

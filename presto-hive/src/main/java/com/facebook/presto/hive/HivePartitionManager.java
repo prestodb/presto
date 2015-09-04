@@ -47,10 +47,10 @@ import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 
 public class HivePartitionManager
@@ -82,8 +82,8 @@ public class HivePartitionManager
             boolean assumeCanonicalPartitionKeys,
             int domainCompactionThreshold)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
-        this.timeZone = checkNotNull(timeZone, "timeZone is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
         checkArgument(maxOutstandingSplits >= 1, "maxOutstandingSplits must be at least 1");
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
@@ -93,7 +93,7 @@ public class HivePartitionManager
     public HivePartitionResult getPartitions(ConnectorSession session, HiveMetastore metastore, ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> effectivePredicate)
     {
         HiveTableHandle hiveTableHandle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
-        checkNotNull(effectivePredicate, "effectivePredicate is null");
+        requireNonNull(effectivePredicate, "effectivePredicate is null");
 
         if (effectivePredicate.isNone()) {
             return new HivePartitionResult(ImmutableList.of(), TupleDomain.none());

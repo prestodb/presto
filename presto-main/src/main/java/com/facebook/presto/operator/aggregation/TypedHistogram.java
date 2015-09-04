@@ -28,10 +28,10 @@ import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimi
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.type.TypeUtils.expectedValueSize;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
+import static java.util.Objects.requireNonNull;
 
 public class TypedHistogram
 {
@@ -67,7 +67,7 @@ public class TypedHistogram
     public TypedHistogram(Block block, Type type, int expectedSize)
     {
         this(type, expectedSize);
-        checkNotNull(block, "block is null");
+        requireNonNull(block, "block is null");
         for (int i = 0; i < block.getPositionCount(); i += 2) {
             add(i, block, BIGINT.getLong(block, i + 1));
         }

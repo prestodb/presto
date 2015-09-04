@@ -22,7 +22,7 @@ import java.util.Objects;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class RaptorColumnHandle
         implements ColumnHandle
@@ -49,10 +49,10 @@ public final class RaptorColumnHandle
             @JsonProperty("columnId") long columnId,
             @JsonProperty("columnType") Type columnType)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.columnName = checkNotNull(columnName, "columnName is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.columnName = requireNonNull(columnName, "columnName is null");
         this.columnId = columnId;
-        this.columnType = checkNotNull(columnType, "columnType is null");
+        this.columnType = requireNonNull(columnType, "columnType is null");
     }
 
     @JsonProperty

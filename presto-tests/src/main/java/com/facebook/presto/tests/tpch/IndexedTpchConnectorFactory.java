@@ -31,7 +31,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class IndexedTpchConnectorFactory
         implements ConnectorFactory
@@ -42,8 +42,8 @@ public class IndexedTpchConnectorFactory
 
     public IndexedTpchConnectorFactory(NodeManager nodeManager, TpchIndexSpec indexSpec, int defaultSplitsPerNode)
     {
-        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
-        this.indexSpec = checkNotNull(indexSpec, "indexSpec is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.indexSpec = requireNonNull(indexSpec, "indexSpec is null");
         this.defaultSplitsPerNode = defaultSplitsPerNode;
     }
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
+import static java.util.Objects.requireNonNull;
 
 public class ExistsPredicate
         extends Expression
@@ -22,7 +22,7 @@ public class ExistsPredicate
 
     public ExistsPredicate(Query subquery)
     {
-        Preconditions.checkNotNull(subquery, "subquery is null");
+        requireNonNull(subquery, "subquery is null");
         this.subquery = subquery;
     }
 

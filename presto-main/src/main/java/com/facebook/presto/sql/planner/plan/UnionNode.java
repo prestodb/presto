@@ -35,7 +35,7 @@ import java.util.Map;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class UnionNode
@@ -51,9 +51,9 @@ public class UnionNode
     {
         super(id);
 
-        checkNotNull(sources, "sources is null");
+        requireNonNull(sources, "sources is null");
         checkArgument(!sources.isEmpty(), "Must have at least one source");
-        checkNotNull(symbolMapping, "symbolMapping is null");
+        requireNonNull(symbolMapping, "symbolMapping is null");
 
         this.sources = ImmutableList.copyOf(sources);
         this.symbolMapping = ImmutableListMultimap.copyOf(symbolMapping);

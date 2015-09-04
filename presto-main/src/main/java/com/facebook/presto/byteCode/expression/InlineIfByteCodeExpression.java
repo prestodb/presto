@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 class InlineIfByteCodeExpression
         extends ByteCodeExpression
@@ -35,8 +35,8 @@ class InlineIfByteCodeExpression
     {
         super(ifTrue.getType());
         this.condition = condition;
-        this.ifTrue = checkNotNull(ifTrue, "ifTrue is null");
-        this.ifFalse = checkNotNull(ifFalse, "ifFalse is null");
+        this.ifTrue = requireNonNull(ifTrue, "ifTrue is null");
+        this.ifFalse = requireNonNull(ifFalse, "ifFalse is null");
 
         checkArgument(condition.getType().getPrimitiveType() == boolean.class, "Expected condition to be type boolean but is %s", condition.getType());
         checkArgument(ifTrue.getType().equals(ifFalse.getType()), "Expected ifTrue and ifFalse to be the same type");

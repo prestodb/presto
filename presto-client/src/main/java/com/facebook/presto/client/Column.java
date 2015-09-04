@@ -18,7 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class Column
@@ -33,8 +33,8 @@ public class Column
             @JsonProperty("type") String type,
             @JsonProperty("typeSignature") ClientTypeSignature typeSignature)
     {
-        this.name = checkNotNull(name, "name is null");
-        this.type = checkNotNull(type, "type is null");
+        this.name = requireNonNull(name, "name is null");
+        this.type = requireNonNull(type, "type is null");
         this.typeSignature = typeSignature;
     }
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class CurrentTime
         extends Expression
@@ -49,7 +49,7 @@ public class CurrentTime
 
     public CurrentTime(Type type, Integer precision)
     {
-        checkNotNull(type, "type is null");
+        requireNonNull(type, "type is null");
         this.type = type;
         this.precision = precision;
     }

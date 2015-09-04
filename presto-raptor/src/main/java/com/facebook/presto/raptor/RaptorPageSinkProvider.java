@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.raptor.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class RaptorPageSinkProvider
@@ -45,9 +45,9 @@ public class RaptorPageSinkProvider
     @Inject
     public RaptorPageSinkProvider(StorageManager storageManager, PageSorter pageSorter, JsonCodec<ShardInfo> shardInfoCodec, StorageManagerConfig config)
     {
-        this.storageManager = checkNotNull(storageManager, "storageManager is null");
-        this.pageSorter = checkNotNull(pageSorter, "pageSorter is null");
-        this.shardInfoCodec = checkNotNull(shardInfoCodec, "shardInfoCodec is null");
+        this.storageManager = requireNonNull(storageManager, "storageManager is null");
+        this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
+        this.shardInfoCodec = requireNonNull(shardInfoCodec, "shardInfoCodec is null");
         this.maxBufferSize = config.getMaxBufferSize();
     }
 

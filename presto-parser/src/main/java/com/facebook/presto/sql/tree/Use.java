@@ -17,7 +17,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class Use
         extends Statement
@@ -27,8 +27,8 @@ public final class Use
 
     public Use(Optional<String> catalog, String schema)
     {
-        checkNotNull(catalog, "catalog is null");
-        checkNotNull(schema, "schema is null");
+        requireNonNull(catalog, "catalog is null");
+        requireNonNull(schema, "schema is null");
         this.catalog = catalog;
         this.schema = schema;
     }

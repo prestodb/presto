@@ -23,7 +23,7 @@ import java.util.List;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 class OrByteCodeExpression
         extends ByteCodeExpression
@@ -34,9 +34,9 @@ class OrByteCodeExpression
     OrByteCodeExpression(ByteCodeExpression left, ByteCodeExpression right)
     {
         super(type(boolean.class));
-        this.left = checkNotNull(left, "left is null");
+        this.left = requireNonNull(left, "left is null");
         checkArgument(left.getType().getPrimitiveType() == boolean.class, "Expected left to be type boolean but is %s", left.getType());
-        this.right = checkNotNull(right, "right is null");
+        this.right = requireNonNull(right, "right is null");
         checkArgument(right.getType().getPrimitiveType() == boolean.class, "Expected right to be type boolean but is %s", right.getType());
     }
 

@@ -55,7 +55,7 @@ import java.util.ServiceLoader;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class PluginManager
@@ -100,11 +100,11 @@ public class PluginManager
             BlockEncodingManager blockEncodingManager,
             TypeRegistry typeRegistry)
     {
-        checkNotNull(injector, "injector is null");
-        checkNotNull(nodeInfo, "nodeInfo is null");
-        checkNotNull(httpServerInfo, "httpServerInfo is null");
-        checkNotNull(config, "config is null");
-        checkNotNull(configurationFactory, "configurationFactory is null");
+        requireNonNull(injector, "injector is null");
+        requireNonNull(nodeInfo, "nodeInfo is null");
+        requireNonNull(httpServerInfo, "httpServerInfo is null");
+        requireNonNull(config, "config is null");
+        requireNonNull(configurationFactory, "configurationFactory is null");
 
         this.injector = injector;
         installedPluginsDir = config.getInstalledPluginsDir();
@@ -122,11 +122,11 @@ public class PluginManager
         optionalConfig.put("http-server.http.port", Integer.toString(httpServerInfo.getHttpUri().getPort()));
         this.optionalConfig = ImmutableMap.copyOf(optionalConfig);
 
-        this.connectorManager = checkNotNull(connectorManager, "connectorManager is null");
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.accessControlManager = checkNotNull(accessControlManager, "accessControlManager is null");
-        this.blockEncodingManager = checkNotNull(blockEncodingManager, "blockEncodingManager is null");
-        this.typeRegistry = checkNotNull(typeRegistry, "typeRegistry is null");
+        this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
+        this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
+        this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
     }
 
     public boolean arePluginsLoaded()

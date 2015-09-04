@@ -19,12 +19,12 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class TaskUpdateRequest
 {
@@ -40,10 +40,10 @@ public class TaskUpdateRequest
             @JsonProperty("sources") List<TaskSource> sources,
             @JsonProperty("outputIds") OutputBuffers outputIds)
     {
-        Preconditions.checkNotNull(session, "session is null");
-        Preconditions.checkNotNull(fragment, "fragment is null");
-        Preconditions.checkNotNull(sources, "sources is null");
-        Preconditions.checkNotNull(outputIds, "outputIds is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(fragment, "fragment is null");
+        requireNonNull(sources, "sources is null");
+        requireNonNull(outputIds, "outputIds is null");
 
         this.session = session;
         this.fragment = fragment;

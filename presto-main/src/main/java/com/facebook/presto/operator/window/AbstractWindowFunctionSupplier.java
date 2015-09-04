@@ -18,7 +18,7 @@ import com.facebook.presto.metadata.Signature;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractWindowFunctionSupplier
         implements WindowFunctionSupplier
@@ -28,7 +28,7 @@ public abstract class AbstractWindowFunctionSupplier
 
     protected AbstractWindowFunctionSupplier(Signature signature, String description)
     {
-        this.signature = checkNotNull(signature, "signature is null");
+        this.signature = requireNonNull(signature, "signature is null");
         this.description = description;
     }
 
@@ -47,7 +47,7 @@ public abstract class AbstractWindowFunctionSupplier
     @Override
     public final WindowFunction createWindowFunction(List<Integer> argumentChannels)
     {
-        checkNotNull(argumentChannels, "inputs is null");
+        requireNonNull(argumentChannels, "inputs is null");
         checkArgument(argumentChannels.size() == signature.getArgumentTypes().size(),
                 "Expected %s arguments for function %s, but got %s",
                 signature.getArgumentTypes().size(),

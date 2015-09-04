@@ -23,7 +23,7 @@ import javax.annotation.Nullable;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class JdbcTableHandle
         implements ConnectorTableHandle
@@ -42,11 +42,11 @@ public final class JdbcTableHandle
             @JsonProperty("schemaName") @Nullable String schemaName,
             @JsonProperty("tableName") String tableName)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.schemaTableName = checkNotNull(schemaTableName, "schemaTableName is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.catalogName = catalogName;
         this.schemaName = schemaName;
-        this.tableName = checkNotNull(tableName, "tableName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
     }
 
     @JsonProperty

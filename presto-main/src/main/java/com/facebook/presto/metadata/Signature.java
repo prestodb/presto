@@ -37,8 +37,8 @@ import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public final class Signature
 {
@@ -58,13 +58,13 @@ public final class Signature
             @JsonProperty("variableArity") boolean variableArity,
             @JsonProperty("internal") boolean internal)
     {
-        checkNotNull(name, "name is null");
-        checkNotNull(typeParameters, "typeParameters is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(typeParameters, "typeParameters is null");
 
         this.name = name;
         this.typeParameters = ImmutableList.copyOf(typeParameters);
-        this.returnType = checkNotNull(returnType, "returnType is null");
-        this.argumentTypes = ImmutableList.copyOf(checkNotNull(argumentTypes, "argumentTypes is null"));
+        this.returnType = requireNonNull(returnType, "returnType is null");
+        this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         this.variableArity = variableArity;
         this.internal = internal;
     }

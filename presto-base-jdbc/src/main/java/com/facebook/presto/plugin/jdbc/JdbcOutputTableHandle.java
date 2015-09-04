@@ -27,8 +27,8 @@ import java.util.Map;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class JdbcOutputTableHandle
         implements ConnectorOutputTableHandle
@@ -57,17 +57,17 @@ public class JdbcOutputTableHandle
             @JsonProperty("connectionUrl") String connectionUrl,
             @JsonProperty("connectionProperties") Map<String, String> connectionProperties)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.catalogName = catalogName;
         this.schemaName = schemaName;
-        this.tableName = checkNotNull(tableName, "tableName is null");
-        this.tableOwner = checkNotNull(tableOwner, "tableOwner is null");
-        this.temporaryTableName = checkNotNull(temporaryTableName, "temporaryTableName is null");
-        this.connectionUrl = checkNotNull(connectionUrl, "connectionUrl is null");
-        this.connectionProperties = ImmutableMap.copyOf(checkNotNull(connectionProperties, "connectionProperties is null"));
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.tableOwner = requireNonNull(tableOwner, "tableOwner is null");
+        this.temporaryTableName = requireNonNull(temporaryTableName, "temporaryTableName is null");
+        this.connectionUrl = requireNonNull(connectionUrl, "connectionUrl is null");
+        this.connectionProperties = ImmutableMap.copyOf(requireNonNull(connectionProperties, "connectionProperties is null"));
 
-        checkNotNull(columnNames, "columnNames is null");
-        checkNotNull(columnTypes, "columnTypes is null");
+        requireNonNull(columnNames, "columnNames is null");
+        requireNonNull(columnTypes, "columnTypes is null");
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.columnTypes = ImmutableList.copyOf(columnTypes);

@@ -41,10 +41,10 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public class Query
         implements Closeable
@@ -58,7 +58,7 @@ public class Query
 
     public Query(StatementClient client)
     {
-        this.client = checkNotNull(client, "client is null");
+        this.client = requireNonNull(client, "client is null");
     }
 
     public Map<String, String> getSetSessionProperties()

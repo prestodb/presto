@@ -25,7 +25,7 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static com.facebook.presto.plugin.jdbc.Types.checkType;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordSetProvider
         implements ConnectorRecordSetProvider
@@ -35,7 +35,7 @@ public class JdbcRecordSetProvider
     @Inject
     public JdbcRecordSetProvider(JdbcClient jdbcClient)
     {
-        this.jdbcClient = checkNotNull(jdbcClient, "jdbcClient is null");
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
     }
 
     @Override

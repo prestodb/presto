@@ -17,8 +17,8 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
 
 public class JdbcModule
         implements Module
@@ -27,7 +27,7 @@ public class JdbcModule
 
     public JdbcModule(String connectorId)
     {
-        this.connectorId = checkNotNull(connectorId, "connector id is null");
+        this.connectorId = requireNonNull(connectorId, "connector id is null");
     }
 
     @Override

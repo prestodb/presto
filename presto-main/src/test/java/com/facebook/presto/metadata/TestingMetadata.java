@@ -41,7 +41,7 @@ import java.util.concurrent.ConcurrentMap;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TestingMetadata
         implements ConnectorMetadata
@@ -64,7 +64,7 @@ public class TestingMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        checkNotNull(tableName, "tableName is null");
+        requireNonNull(tableName, "tableName is null");
         if (!tables.containsKey(tableName)) {
             return null;
         }
@@ -74,7 +74,7 @@ public class TestingMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
+        requireNonNull(tableHandle, "tableHandle is null");
         SchemaTableName tableName = getTableName(tableHandle);
         ConnectorTableMetadata tableMetadata = tables.get(tableName);
         checkArgument(tableMetadata != null, "Table %s does not exist", tableName);
@@ -108,7 +108,7 @@ public class TestingMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        checkNotNull(prefix, "prefix is null");
+        requireNonNull(prefix, "prefix is null");
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, prefix.getSchemaName())) {
@@ -234,7 +234,7 @@ public class TestingMetadata
 
     private static SchemaTableName getTableName(ConnectorTableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
+        requireNonNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof InMemoryTableHandle, "tableHandle is not an instance of InMemoryTableHandle");
         InMemoryTableHandle inMemoryTableHandle = (InMemoryTableHandle) tableHandle;
         return inMemoryTableHandle.getTableName();

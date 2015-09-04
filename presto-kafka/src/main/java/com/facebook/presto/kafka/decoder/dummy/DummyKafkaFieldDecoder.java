@@ -23,8 +23,8 @@ import io.airlift.slice.Slice;
 import java.util.Set;
 
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_CONVERSION_NOT_SUPPORTED;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Default 'decoder' for the dummy format. Can not decode anything. This is intentional.
@@ -53,7 +53,7 @@ public class DummyKafkaFieldDecoder
     @Override
     public KafkaFieldValueProvider decode(Void value, KafkaColumnHandle columnHandle)
     {
-        checkNotNull(columnHandle, "columnHandle is null");
+        requireNonNull(columnHandle, "columnHandle is null");
 
         return new KafkaFieldValueProvider()
         {

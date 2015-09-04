@@ -23,8 +23,8 @@ import io.airlift.slice.SliceOutput;
 
 import java.util.Iterator;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
 
 // layout is:
 //   - position count (int)
@@ -66,13 +66,13 @@ public final class PagesSerde
 
         private PagesWriter(BlockEncodingSerde serde, SliceOutput output)
         {
-            this.serde = checkNotNull(serde, "serde is null");
-            this.output = checkNotNull(output, "output is null");
+            this.serde = requireNonNull(serde, "serde is null");
+            this.output = requireNonNull(output, "output is null");
         }
 
         public PagesWriter append(Page page)
         {
-            checkNotNull(page, "page is null");
+            requireNonNull(page, "page is null");
 
             Block[] blocks = page.getBlocks();
 
@@ -96,8 +96,8 @@ public final class PagesSerde
 
         public PagesReader(BlockEncodingSerde serde, SliceInput input)
         {
-            this.serde = checkNotNull(serde, "serde is null");
-            this.input = checkNotNull(input, "input is null");
+            this.serde = requireNonNull(serde, "serde is null");
+            this.input = requireNonNull(input, "input is null");
         }
 
         @Override

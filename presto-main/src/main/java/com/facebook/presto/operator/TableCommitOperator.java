@@ -25,8 +25,8 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class TableCommitOperator
         implements Operator
@@ -43,7 +43,7 @@ public class TableCommitOperator
         public TableCommitOperatorFactory(int operatorId, TableCommitter tableCommitter)
         {
             this.operatorId = operatorId;
-            this.tableCommitter = checkNotNull(tableCommitter, "tableCommitter is null");
+            this.tableCommitter = requireNonNull(tableCommitter, "tableCommitter is null");
         }
 
         @Override
@@ -83,8 +83,8 @@ public class TableCommitOperator
 
     public TableCommitOperator(OperatorContext operatorContext, TableCommitter tableCommitter)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.tableCommitter = checkNotNull(tableCommitter, "tableCommitter is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.tableCommitter = requireNonNull(tableCommitter, "tableCommitter is null");
     }
 
     @Override
@@ -122,7 +122,7 @@ public class TableCommitOperator
     @Override
     public void addInput(Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(state == State.RUNNING, "Operator is %s", state);
 
         Block rowCountBlock = page.getBlock(0);

@@ -23,7 +23,6 @@ import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.collect.Iterables.partition;
@@ -32,6 +31,7 @@ import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static jline.console.WCWidth.wcwidth;
+import static java.util.Objects.requireNonNull;
 
 public class AlignedTablePrinter
         implements OutputPrinter
@@ -49,8 +49,8 @@ public class AlignedTablePrinter
 
     public AlignedTablePrinter(List<String> fieldNames, Writer writer)
     {
-        this.fieldNames = ImmutableList.copyOf(checkNotNull(fieldNames, "fieldNames is null"));
-        this.writer = checkNotNull(writer, "writer is null");
+        this.fieldNames = ImmutableList.copyOf(requireNonNull(fieldNames, "fieldNames is null"));
+        this.writer = requireNonNull(writer, "writer is null");
     }
 
     @Override

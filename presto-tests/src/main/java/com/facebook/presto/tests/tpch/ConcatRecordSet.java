@@ -22,10 +22,10 @@ import com.google.common.collect.ImmutableList;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.Objects.requireNonNull;
 
 class ConcatRecordSet
         implements RecordSet
@@ -35,11 +35,11 @@ class ConcatRecordSet
 
     public ConcatRecordSet(Iterable<RecordSet> recordSets, List<Type> types)
     {
-        this.recordSets = checkNotNull(recordSets, "recordSets is null");
+        this.recordSets = requireNonNull(recordSets, "recordSets is null");
         for (RecordSet recordSet : recordSets) {
             checkState(recordSet.getColumnTypes().equals(types), "RecordSet types do not match declared types");
         }
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
     }
 
     @Override
@@ -79,8 +79,8 @@ class ConcatRecordSet
             // NOTE: this cursor implementation relies on the fact that the
             // cursor creation in the Iterable is lazy so DO NOT materialize this into
             // an ImmutableList
-            this.iterator = checkNotNull(iterator, "iterator is null");
-            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+            this.iterator = requireNonNull(iterator, "iterator is null");
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         }
 
         @Override

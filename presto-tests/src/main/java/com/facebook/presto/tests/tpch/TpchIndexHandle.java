@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TpchIndexHandle
         implements ConnectorIndexHandle
@@ -41,11 +41,11 @@ public class TpchIndexHandle
             @JsonProperty("indexColumnNames") Set<String> indexColumnNames,
             @JsonProperty("fixedValues") TupleDomain<ColumnHandle> fixedValues)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.tableName = checkNotNull(tableName, "tableName is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
         this.scaleFactor = scaleFactor;
-        this.indexColumnNames = ImmutableSet.copyOf(checkNotNull(indexColumnNames, "indexColumnNames is null"));
-        this.fixedValues = checkNotNull(fixedValues, "fixedValues is null");
+        this.indexColumnNames = ImmutableSet.copyOf(requireNonNull(indexColumnNames, "indexColumnNames is null"));
+        this.fixedValues = requireNonNull(fixedValues, "fixedValues is null");
     }
 
     @JsonProperty

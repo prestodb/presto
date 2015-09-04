@@ -108,11 +108,11 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.elementsEqual;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 class StatementAnalyzer
@@ -134,13 +134,13 @@ class StatementAnalyzer
             boolean experimentalSyntaxEnabled,
             Optional<QueryExplainer> queryExplainer)
     {
-        this.analysis = checkNotNull(analysis, "analysis is null");
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.sqlParser = checkNotNull(sqlParser, "sqlParser is null");
-        this.accessControl = checkNotNull(accessControl, "accessControl is null");
-        this.session = checkNotNull(session, "session is null");
+        this.analysis = requireNonNull(analysis, "analysis is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.session = requireNonNull(session, "session is null");
         this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
-        this.queryExplainer = checkNotNull(queryExplainer, "queryExplainer is null");
+        this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
     }
 
     @Override

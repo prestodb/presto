@@ -38,7 +38,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
 import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TimestampStreamReader
         implements StreamReader
@@ -72,8 +72,8 @@ public class TimestampStreamReader
 
     public TimestampStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
     {
-        this.streamDescriptor = checkNotNull(streamDescriptor, "stream is null");
-        this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, checkNotNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / MILLIS_PER_SECOND;
+        this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / MILLIS_PER_SECOND;
     }
 
     @Override

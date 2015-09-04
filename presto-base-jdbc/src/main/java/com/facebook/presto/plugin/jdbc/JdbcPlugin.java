@@ -24,8 +24,8 @@ import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.Objects.requireNonNull;
 
 public class JdbcPlugin
         implements Plugin
@@ -38,13 +38,13 @@ public class JdbcPlugin
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
-        this.module = checkNotNull(module, "module is null");
+        this.module = requireNonNull(module, "module is null");
     }
 
     @Override
     public void setOptionalConfig(Map<String, String> optionalConfig)
     {
-        this.optionalConfig = ImmutableMap.copyOf(checkNotNull(optionalConfig, "optionalConfig is null"));
+        this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
     }
 
     @Override

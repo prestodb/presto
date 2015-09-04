@@ -92,10 +92,10 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class MetadataManager
         implements Metadata
@@ -134,12 +134,12 @@ public class MetadataManager
             TablePropertyManager tablePropertyManager)
     {
         functions = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig.isExperimentalSyntaxEnabled());
-        this.typeManager = checkNotNull(typeManager, "types is null");
-        this.viewCodec = checkNotNull(viewCodec, "viewCodec is null");
-        this.splitManager = checkNotNull(splitManager, "splitManager is null");
-        this.blockEncodingSerde = checkNotNull(blockEncodingSerde, "blockEncodingSerde is null");
-        this.sessionPropertyManager = checkNotNull(sessionPropertyManager, "sessionPropertyManager is null");
-        this.tablePropertyManager = checkNotNull(tablePropertyManager, "tablePropertyManager is null");
+        this.typeManager = requireNonNull(typeManager, "types is null");
+        this.viewCodec = requireNonNull(viewCodec, "viewCodec is null");
+        this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
 
         verifyComparableOrderableContract();
     }
@@ -186,9 +186,9 @@ public class MetadataManager
 
     private void checkMetadataArguments(String connectorId, String catalogName, ConnectorMetadata metadata)
     {
-        checkNotNull(connectorId, "connectorId is null");
-        checkNotNull(catalogName, "catalogName is null");
-        checkNotNull(metadata, "metadata is null");
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(metadata, "metadata is null");
         checkArgument(!connectorsById.containsKey(connectorId), "Connector '%s' is already registered", connectorId);
     }
 
@@ -295,7 +295,7 @@ public class MetadataManager
     @Override
     public Optional<TableHandle> getTableHandle(Session session, QualifiedTableName table)
     {
-        checkNotNull(table, "table is null");
+        requireNonNull(table, "table is null");
 
         ConnectorMetadataEntry entry = getConnectorFor(table);
         if (entry != null) {
@@ -394,8 +394,8 @@ public class MetadataManager
     @Override
     public ColumnMetadata getColumnMetadata(Session session, TableHandle tableHandle, ColumnHandle columnHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkNotNull(columnHandle, "columnHandle is null");
+        requireNonNull(tableHandle, "tableHandle is null");
+        requireNonNull(columnHandle, "columnHandle is null");
 
         ConnectorMetadataEntry entry = lookupConnectorFor(tableHandle);
         return entry.getMetadata().getColumnMetadata(session.toConnectorSession(entry.getCatalog()), tableHandle.getConnectorHandle(), columnHandle);
@@ -404,7 +404,7 @@ public class MetadataManager
     @Override
     public List<QualifiedTableName> listTables(Session session, QualifiedTablePrefix prefix)
     {
-        checkNotNull(prefix, "prefix is null");
+        requireNonNull(prefix, "prefix is null");
 
         String schemaNameOrNull = prefix.getSchemaName().orElse(null);
         Set<QualifiedTableName> tables = new LinkedHashSet<>();
@@ -420,7 +420,7 @@ public class MetadataManager
     @Override
     public Optional<ColumnHandle> getSampleWeightColumnHandle(Session session, TableHandle tableHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
+        requireNonNull(tableHandle, "tableHandle is null");
         ConnectorMetadataEntry entry = lookupConnectorFor(tableHandle);
         ColumnHandle handle = entry.getMetadata().getSampleWeightColumnHandle(session.toConnectorSession(entry.getCatalog()), tableHandle.getConnectorHandle());
 
@@ -438,7 +438,7 @@ public class MetadataManager
     @Override
     public Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix)
     {
-        checkNotNull(prefix, "prefix is null");
+        requireNonNull(prefix, "prefix is null");
         SchemaTablePrefix tablePrefix = prefix.asSchemaTablePrefix();
 
         Map<QualifiedTableName, List<ColumnMetadata>> tableColumns = new HashMap<>();
@@ -599,7 +599,7 @@ public class MetadataManager
     @Override
     public List<QualifiedTableName> listViews(Session session, QualifiedTablePrefix prefix)
     {
-        checkNotNull(prefix, "prefix is null");
+        requireNonNull(prefix, "prefix is null");
 
         String schemaNameOrNull = prefix.getSchemaName().orElse(null);
         Set<QualifiedTableName> views = new LinkedHashSet<>();
@@ -615,7 +615,7 @@ public class MetadataManager
     @Override
     public Map<QualifiedTableName, ViewDefinition> getViews(Session session, QualifiedTablePrefix prefix)
     {
-        checkNotNull(prefix, "prefix is null");
+        requireNonNull(prefix, "prefix is null");
         SchemaTablePrefix tablePrefix = prefix.asSchemaTablePrefix();
 
         Map<QualifiedTableName, ViewDefinition> views = new LinkedHashMap<>();
@@ -772,9 +772,9 @@ public class MetadataManager
 
         private ConnectorMetadataEntry(String connectorId, String catalog, ConnectorMetadata metadata)
         {
-            this.connectorId = checkNotNull(connectorId, "connectorId is null");
-            this.catalog = checkNotNull(catalog, "catalog is null");
-            this.metadata = checkNotNull(metadata, "metadata is null");
+            this.connectorId = requireNonNull(connectorId, "connectorId is null");
+            this.catalog = requireNonNull(catalog, "catalog is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
         }
 
         private String getConnectorId()

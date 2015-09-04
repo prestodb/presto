@@ -31,8 +31,8 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
+import static java.util.Objects.requireNonNull;
 
 public class Suite
 {
@@ -43,10 +43,10 @@ public class Suite
 
     public Suite(String name, Map<String, String> sessionProperties, Iterable<RegexTemplate> schemaNameTemplates, Iterable<Pattern> queryNamePatterns)
     {
-        this.name = checkNotNull(name, "name is null");
+        this.name = requireNonNull(name, "name is null");
         this.sessionProperties = sessionProperties == null ? ImmutableMap.<String, String>of() : ImmutableMap.copyOf(sessionProperties);
-        this.schemaNameTemplates = ImmutableList.copyOf(checkNotNull(schemaNameTemplates, "schemaNameTemplates is null"));
-        this.queryNamePatterns = ImmutableList.copyOf(checkNotNull(queryNamePatterns, "queryNamePatterns is null"));
+        this.schemaNameTemplates = ImmutableList.copyOf(requireNonNull(schemaNameTemplates, "schemaNameTemplates is null"));
+        this.queryNamePatterns = ImmutableList.copyOf(requireNonNull(queryNamePatterns, "queryNamePatterns is null"));
     }
 
     public String getName()
@@ -113,7 +113,7 @@ public class Suite
     public static List<Suite> readSuites(File file)
             throws IOException
     {
-        checkNotNull(file, "file is null");
+        requireNonNull(file, "file is null");
         checkArgument(file.canRead(), "Can not read file: %s" + file);
         byte[] json = Files.readAllBytes(file.toPath());
         Map<String, OptionsJson> options = mapJsonCodec(String.class, OptionsJson.class).fromJson(json);
@@ -136,9 +136,9 @@ public class Suite
                 @JsonProperty("session") Map<String, String> session,
                 @JsonProperty("query") List<String> query)
         {
-            this.schema = checkNotNull(ImmutableList.copyOf(schema), "schema is null");
-            this.session = checkNotNull(ImmutableMap.copyOf(session), "session is null");
-            this.query = checkNotNull(query, "query is null");
+            this.schema = requireNonNull(ImmutableList.copyOf(schema), "schema is null");
+            this.session = requireNonNull(ImmutableMap.copyOf(session), "session is null");
+            this.query = requireNonNull(query, "query is null");
         }
 
         public Suite toSuite(String name)

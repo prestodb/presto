@@ -64,6 +64,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.instanceOf;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Checks whether an expression is constant with respect to the group
@@ -80,9 +81,9 @@ public class AggregationAnalyzer
 
     public AggregationAnalyzer(List<FieldOrExpression> groupByExpressions, Metadata metadata, TupleDescriptor tupleDescriptor)
     {
-        Preconditions.checkNotNull(groupByExpressions, "groupByExpressions is null");
-        Preconditions.checkNotNull(metadata, "metadata is null");
-        Preconditions.checkNotNull(tupleDescriptor, "tupleDescriptor is null");
+        requireNonNull(groupByExpressions, "groupByExpressions is null");
+        requireNonNull(metadata, "metadata is null");
+        requireNonNull(tupleDescriptor, "tupleDescriptor is null");
 
         this.tupleDescriptor = tupleDescriptor;
         this.metadata = metadata;

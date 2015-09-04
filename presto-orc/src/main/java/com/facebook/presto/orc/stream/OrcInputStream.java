@@ -35,8 +35,8 @@ import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 public final class OrcInputStream
@@ -55,11 +55,11 @@ public final class OrcInputStream
 
     public OrcInputStream(String source, FixedLengthSliceInput sliceInput, CompressionKind compressionKind, int bufferSize)
     {
-        this.source = checkNotNull(source, "source is null");
+        this.source = requireNonNull(source, "source is null");
 
-        checkNotNull(sliceInput, "sliceInput is null");
+        requireNonNull(sliceInput, "sliceInput is null");
 
-        this.compressionKind = checkNotNull(compressionKind, "compressionKind is null");
+        this.compressionKind = requireNonNull(compressionKind, "compressionKind is null");
         this.maxBufferSize = bufferSize;
 
         if (compressionKind == UNCOMPRESSED) {
@@ -68,7 +68,7 @@ public final class OrcInputStream
         }
         else {
             checkArgument(compressionKind == SNAPPY || compressionKind == ZLIB, "%s compression not supported", compressionKind);
-            this.compressedSliceInput = checkNotNull(sliceInput, "compressedSliceInput is null");
+            this.compressedSliceInput = requireNonNull(sliceInput, "compressedSliceInput is null");
             this.current = EMPTY_SLICE.getInput();
         }
     }

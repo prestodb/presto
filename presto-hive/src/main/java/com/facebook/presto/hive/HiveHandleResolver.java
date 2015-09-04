@@ -22,7 +22,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HiveHandleResolver
         implements ConnectorHandleResolver
@@ -32,7 +32,7 @@ public class HiveHandleResolver
     @Inject
     public HiveHandleResolver(HiveConnectorId connectorId)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
     }
 
     @Override

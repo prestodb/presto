@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 class PopByteCodeExpression
         extends ByteCodeExpression
@@ -31,7 +31,7 @@ class PopByteCodeExpression
     PopByteCodeExpression(ByteCodeExpression instance)
     {
         super(type(void.class));
-        this.instance = checkNotNull(instance, "instance is null");
+        this.instance = requireNonNull(instance, "instance is null");
     }
 
     @Override

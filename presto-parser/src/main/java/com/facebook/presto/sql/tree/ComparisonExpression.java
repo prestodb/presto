@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
+import static java.util.Objects.requireNonNull;
 
 public class ComparisonExpression
         extends Expression
@@ -47,9 +47,9 @@ public class ComparisonExpression
 
     public ComparisonExpression(Type type, Expression left, Expression right)
     {
-        Preconditions.checkNotNull(type, "type is null");
-        Preconditions.checkNotNull(left, "left is null");
-        Preconditions.checkNotNull(right, "right is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(left, "left is null");
+        requireNonNull(right, "right is null");
 
         this.type = type;
         this.left = left;

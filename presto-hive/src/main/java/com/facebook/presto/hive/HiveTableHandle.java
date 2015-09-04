@@ -20,7 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HiveTableHandle
         implements ConnectorTableHandle
@@ -35,9 +35,9 @@ public class HiveTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName)
     {
-        this.clientId = checkNotNull(clientId, "clientId is null");
-        this.schemaName = checkNotNull(schemaName, "schemaName is null");
-        this.tableName = checkNotNull(tableName, "tableName is null");
+        this.clientId = requireNonNull(clientId, "clientId is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
     }
 
     @JsonProperty

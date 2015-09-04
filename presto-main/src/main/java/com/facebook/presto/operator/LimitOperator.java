@@ -21,8 +21,8 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class LimitOperator
         implements Operator
@@ -70,8 +70,8 @@ public class LimitOperator
 
     public LimitOperator(OperatorContext operatorContext, List<Type> types, long limit)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.types = checkNotNull(types, "types is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.types = requireNonNull(types, "types is null");
 
         checkArgument(limit >= 0, "limit must be at least zero");
         this.remainingLimit = limit;

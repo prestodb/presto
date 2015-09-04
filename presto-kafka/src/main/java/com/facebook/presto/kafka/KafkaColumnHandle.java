@@ -22,7 +22,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Kafka specific connector column handle.
@@ -87,10 +87,10 @@ public final class KafkaColumnHandle
             @JsonProperty("internal") boolean internal)
 
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.ordinalPosition = ordinalPosition;
-        this.name = checkNotNull(name, "name is null");
-        this.type = checkNotNull(type, "type is null");
+        this.name = requireNonNull(name, "name is null");
+        this.type = requireNonNull(type, "type is null");
         this.mapping = mapping;
         this.dataFormat = dataFormat;
         this.formatHint = formatHint;

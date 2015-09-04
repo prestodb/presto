@@ -47,9 +47,9 @@ import static com.facebook.presto.spi.Marker.Bound.BELOW;
 import static com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
 import static com.facebook.presto.sql.planner.DomainTranslator.fromPredicate;
 import static com.facebook.presto.sql.planner.DomainTranslator.toPredicate;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
 public class WindowFilterPushDown
@@ -61,17 +61,17 @@ public class WindowFilterPushDown
 
     public WindowFilterPushDown(Metadata metadata)
     {
-        this.metadata = checkNotNull(metadata, "metadata is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        checkNotNull(plan, "plan is null");
-        checkNotNull(session, "session is null");
-        checkNotNull(types, "types is null");
-        checkNotNull(symbolAllocator, "symbolAllocator is null");
-        checkNotNull(idAllocator, "idAllocator is null");
+        requireNonNull(plan, "plan is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(types, "types is null");
+        requireNonNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(idAllocator, "idAllocator is null");
 
         return PlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata, session, types), plan, null);
     }
@@ -86,10 +86,10 @@ public class WindowFilterPushDown
 
         private Rewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, Session session, Map<Symbol, Type> types)
         {
-            this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
-            this.metadata = checkNotNull(metadata, "metadata is null");
-            this.session = checkNotNull(session, "session is null");
-            this.types = ImmutableMap.copyOf(checkNotNull(types, "types is null"));
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.session = requireNonNull(session, "session is null");
+            this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
         }
 
         @Override

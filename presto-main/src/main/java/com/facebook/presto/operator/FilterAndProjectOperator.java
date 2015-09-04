@@ -20,8 +20,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class FilterAndProjectOperator
         implements Operator
@@ -37,9 +37,9 @@ public class FilterAndProjectOperator
 
     public FilterAndProjectOperator(OperatorContext operatorContext, Iterable<? extends Type> types, PageProcessor processor)
     {
-        this.processor = checkNotNull(processor, "processor is null");
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.processor = requireNonNull(processor, "processor is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.pageBuilder = new PageBuilder(getTypes());
     }
 
@@ -77,7 +77,7 @@ public class FilterAndProjectOperator
     public final void addInput(Page page)
     {
         checkState(!finishing, "Operator is already finishing");
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(!pageBuilder.isFull(), "Page buffer is full");
 
         currentPage = page;

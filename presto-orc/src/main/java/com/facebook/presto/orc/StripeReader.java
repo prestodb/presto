@@ -61,7 +61,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
 import static com.facebook.presto.orc.stream.CheckpointStreamSource.createCheckpointStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class StripeReader
 {
@@ -83,14 +83,14 @@ public class StripeReader
             OrcPredicate predicate,
             MetadataReader metadataReader)
     {
-        this.orcDataSource = checkNotNull(orcDataSource, "orcDataSource is null");
-        this.compressionKind = checkNotNull(compressionKind, "compressionKind is null");
-        this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
+        this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
+        this.compressionKind = requireNonNull(compressionKind, "compressionKind is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.bufferSize = bufferSize;
-        this.includedOrcColumns = getIncludedOrcColumns(types, checkNotNull(includedColumns, "includedColumns is null"));
+        this.includedOrcColumns = getIncludedOrcColumns(types, requireNonNull(includedColumns, "includedColumns is null"));
         this.rowsInRowGroup = rowsInRowGroup;
-        this.predicate = checkNotNull(predicate, "predicate is null");
-        this.metadataReader = checkNotNull(metadataReader, "metadataReader is null");
+        this.predicate = requireNonNull(predicate, "predicate is null");
+        this.metadataReader = requireNonNull(metadataReader, "metadataReader is null");
     }
 
     public Stripe readStripe(StripeInformation stripe)
@@ -356,9 +356,9 @@ public class StripeReader
 
     private static Map<Integer, ColumnStatistics> getRowGroupStatistics(OrcType rootStructType, Map<Integer, List<RowGroupIndex>> columnIndexes, int rowGroup)
     {
-        checkNotNull(rootStructType, "rootStructType is null");
+        requireNonNull(rootStructType, "rootStructType is null");
         checkArgument(rootStructType.getOrcTypeKind() == OrcTypeKind.STRUCT);
-        checkNotNull(columnIndexes, "columnIndexes is null");
+        requireNonNull(columnIndexes, "columnIndexes is null");
         checkArgument(rowGroup >= 0, "rowGroup is negative");
 
         ImmutableMap.Builder<Integer, ColumnStatistics> statistics = ImmutableMap.builder();

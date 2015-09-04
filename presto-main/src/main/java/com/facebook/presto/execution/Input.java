@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class Input
@@ -40,10 +40,10 @@ public final class Input
             @JsonProperty("table") String table,
             @JsonProperty("columns") List<Column> columns)
     {
-        checkNotNull(connectorId, "connectorId is null");
-        checkNotNull(schema, "schema is null");
-        checkNotNull(table, "table is null");
-        checkNotNull(columns, "columns is null");
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(schema, "schema is null");
+        requireNonNull(table, "table is null");
+        requireNonNull(columns, "columns is null");
 
         this.connectorId = connectorId;
         this.schema = schema;

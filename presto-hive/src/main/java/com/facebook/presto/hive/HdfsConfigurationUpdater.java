@@ -30,8 +30,8 @@ import java.io.File;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class HdfsConfigurationUpdater
 {
@@ -59,7 +59,7 @@ public class HdfsConfigurationUpdater
     @Inject
     public HdfsConfigurationUpdater(HiveClientConfig hiveClientConfig)
     {
-        checkNotNull(hiveClientConfig, "hiveClientConfig is null");
+        requireNonNull(hiveClientConfig, "hiveClientConfig is null");
         checkArgument(hiveClientConfig.getDfsTimeout().toMillis() >= 1, "dfsTimeout must be at least 1 ms");
 
         this.socksProxy = hiveClientConfig.getMetastoreSocksProxy();

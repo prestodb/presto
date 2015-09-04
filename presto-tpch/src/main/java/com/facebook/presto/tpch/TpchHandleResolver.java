@@ -19,7 +19,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TpchHandleResolver
         implements ConnectorHandleResolver
@@ -28,7 +28,7 @@ public class TpchHandleResolver
 
     public TpchHandleResolver(String connectorId)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
     }
 
     @Override

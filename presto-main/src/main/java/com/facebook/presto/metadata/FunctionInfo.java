@@ -32,8 +32,8 @@ import java.util.Objects;
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public final class FunctionInfo
         implements ParametricFunction
@@ -71,7 +71,7 @@ public final class FunctionInfo
         this.methodHandle = null;
 
         this.isWindow = true;
-        this.windowFunctionSupplier = checkNotNull(windowFunctionSupplier, "windowFunction is null");
+        this.windowFunctionSupplier = requireNonNull(windowFunctionSupplier, "windowFunction is null");
     }
 
     public FunctionInfo(Signature signature, String description, InternalAggregationFunction function)
@@ -98,7 +98,7 @@ public final class FunctionInfo
         this.hidden = hidden;
         this.deterministic = deterministic;
         this.nullable = nullableResult;
-        this.nullableArguments = ImmutableList.copyOf(checkNotNull(nullableArguments, "nullableArguments is null"));
+        this.nullableArguments = ImmutableList.copyOf(requireNonNull(nullableArguments, "nullableArguments is null"));
         checkArgument(nullableArguments.size() == signature.getArgumentTypes().size(), String.format("nullableArguments size (%d) does not match signature %s", nullableArguments.size(), signature));
 
         this.isAggregate = false;
@@ -108,7 +108,7 @@ public final class FunctionInfo
 
         this.isWindow = false;
         this.windowFunctionSupplier = null;
-        this.methodHandle = checkNotNull(function, "function is null");
+        this.methodHandle = requireNonNull(function, "function is null");
     }
 
     @Override

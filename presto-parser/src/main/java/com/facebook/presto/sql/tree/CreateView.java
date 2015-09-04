@@ -16,7 +16,7 @@ package com.facebook.presto.sql.tree;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class CreateView
         extends Statement
@@ -27,8 +27,8 @@ public class CreateView
 
     public CreateView(QualifiedName name, Query query, boolean replace)
     {
-        this.name = checkNotNull(name, "name is null");
-        this.query = checkNotNull(query, "query is null");
+        this.name = requireNonNull(name, "name is null");
+        this.query = requireNonNull(query, "query is null");
         this.replace = replace;
     }
 

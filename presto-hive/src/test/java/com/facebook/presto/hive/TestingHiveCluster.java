@@ -18,7 +18,7 @@ import org.apache.thrift.transport.TTransportException;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TestingHiveCluster
         implements HiveCluster
@@ -29,8 +29,8 @@ public class TestingHiveCluster
 
     public TestingHiveCluster(HiveClientConfig config, String host, int port)
     {
-        this.config = checkNotNull(config, "config is null");
-        this.host = checkNotNull(host, "host is null");
+        this.config = requireNonNull(config, "config is null");
+        this.host = requireNonNull(host, "host is null");
         this.port = port;
     }
 

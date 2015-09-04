@@ -27,7 +27,6 @@ import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Objects.requireNonNull;
 
 public class ShardMetadata
@@ -56,7 +55,7 @@ public class ShardMetadata
 
         this.tableId = tableId;
         this.shardId = shardId;
-        this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
+        this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
         this.rowCount = rowCount;
         this.compressedSize = compressedSize;
         this.uncompressedSize = uncompressedSize;

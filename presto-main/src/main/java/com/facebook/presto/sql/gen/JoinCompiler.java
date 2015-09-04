@@ -64,7 +64,7 @@ import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.notEqu
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class JoinCompiler
 {
@@ -101,8 +101,8 @@ public class JoinCompiler
 
     public PagesHashStrategyFactory compilePagesHashStrategyFactory(List<Type> types, List<Integer> joinChannels)
     {
-        checkNotNull(types, "types is null");
-        checkNotNull(joinChannels, "joinChannels is null");
+        requireNonNull(types, "types is null");
+        requireNonNull(joinChannels, "joinChannels is null");
 
         try {
             return new PagesHashStrategyFactory(hashStrategies.get(new CacheKey(types, joinChannels)));
@@ -618,8 +618,8 @@ public class JoinCompiler
 
         private CacheKey(List<? extends Type> types, List<Integer> joinChannels)
         {
-            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-            this.joinChannels = ImmutableList.copyOf(checkNotNull(joinChannels, "joinChannels is null"));
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.joinChannels = ImmutableList.copyOf(requireNonNull(joinChannels, "joinChannels is null"));
         }
 
         private List<Type> getTypes()

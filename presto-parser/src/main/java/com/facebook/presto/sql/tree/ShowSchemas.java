@@ -16,7 +16,7 @@ package com.facebook.presto.sql.tree;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ShowSchemas
         extends Statement
@@ -25,7 +25,7 @@ public class ShowSchemas
 
     public ShowSchemas(Optional<String> catalog)
     {
-        this.catalog = checkNotNull(catalog, "catalog is null");
+        this.catalog = requireNonNull(catalog, "catalog is null");
     }
 
     public Optional<String> getCatalog()

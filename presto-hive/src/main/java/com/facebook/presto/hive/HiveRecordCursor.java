@@ -15,7 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.RecordCursor;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public abstract class HiveRecordCursor
         implements RecordCursor
@@ -36,7 +36,7 @@ public abstract class HiveRecordCursor
 
     protected void closeWithSuppression(Throwable throwable)
     {
-        checkNotNull(throwable, "throwable is null");
+        requireNonNull(throwable, "throwable is null");
         try {
             close();
         }

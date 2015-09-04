@@ -26,7 +26,7 @@ import java.util.Objects;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class QualifiedTableName
@@ -34,7 +34,7 @@ public class QualifiedTableName
     @JsonCreator
     public static QualifiedTableName valueOf(String tableName)
     {
-        checkNotNull(tableName, "tableName is null");
+        requireNonNull(tableName, "tableName is null");
 
         ImmutableList<String> ids = ImmutableList.copyOf(Splitter.on('.').split(tableName));
         checkArgument(ids.size() == 3, "Invalid tableName %s", tableName);

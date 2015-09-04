@@ -27,7 +27,7 @@ import java.util.List;
 
 import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class CassandraRecordSetProvider
@@ -41,8 +41,8 @@ public class CassandraRecordSetProvider
     @Inject
     public CassandraRecordSetProvider(CassandraConnectorId connectorId, CassandraSession cassandraSession)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
-        this.cassandraSession = checkNotNull(cassandraSession, "cassandraSession is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
     }
 
     @Override

@@ -16,11 +16,11 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
 
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class TestingColumnHandle
         implements ColumnHandle
@@ -30,7 +30,7 @@ public class TestingColumnHandle
     @JsonCreator
     public TestingColumnHandle(@JsonProperty("name") String name)
     {
-        this.name = Preconditions.checkNotNull(name, "name is null");
+        this.name = requireNonNull(name, "name is null");
     }
 
     @JsonProperty

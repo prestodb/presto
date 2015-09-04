@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
-
 import java.util.Objects;
 import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class SingleColumn
         extends SelectItem
@@ -26,8 +26,8 @@ public class SingleColumn
 
     public SingleColumn(Expression expression, Optional<String> alias)
     {
-        Preconditions.checkNotNull(expression, "expression is null");
-        Preconditions.checkNotNull(alias, "alias is null");
+        requireNonNull(expression, "expression is null");
+        requireNonNull(alias, "alias is null");
 
         this.expression = expression;
         this.alias = alias;

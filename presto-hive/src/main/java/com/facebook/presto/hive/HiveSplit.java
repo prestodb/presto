@@ -26,7 +26,7 @@ import java.util.Properties;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HiveSplit
         implements ConnectorSplit
@@ -59,17 +59,17 @@ public class HiveSplit
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
             @JsonProperty("effectivePredicate") TupleDomain<HiveColumnHandle> effectivePredicate)
     {
-        checkNotNull(clientId, "clientId is null");
+        requireNonNull(clientId, "clientId is null");
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
-        checkNotNull(database, "database is null");
-        checkNotNull(table, "table is null");
-        checkNotNull(partitionName, "partitionName is null");
-        checkNotNull(path, "path is null");
-        checkNotNull(schema, "schema is null");
-        checkNotNull(partitionKeys, "partitionKeys is null");
-        checkNotNull(addresses, "addresses is null");
-        checkNotNull(effectivePredicate, "tupleDomain is null");
+        requireNonNull(database, "database is null");
+        requireNonNull(table, "table is null");
+        requireNonNull(partitionName, "partitionName is null");
+        requireNonNull(path, "path is null");
+        requireNonNull(schema, "schema is null");
+        requireNonNull(partitionKeys, "partitionKeys is null");
+        requireNonNull(addresses, "addresses is null");
+        requireNonNull(effectivePredicate, "tupleDomain is null");
 
         this.clientId = clientId;
         this.database = database;

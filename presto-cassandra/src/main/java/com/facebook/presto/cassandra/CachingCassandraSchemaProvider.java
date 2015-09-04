@@ -39,9 +39,9 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.cassandra.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -80,22 +80,22 @@ public class CachingCassandraSchemaProvider
             @ForCassandra ExecutorService executor,
             CassandraClientConfig cassandraClientConfig)
     {
-        this(checkNotNull(connectorId, "connectorId is null").toString(),
+        this(requireNonNull(connectorId, "connectorId is null").toString(),
                 session,
                 executor,
-                checkNotNull(cassandraClientConfig, "cassandraClientConfig is null").getSchemaCacheTtl(),
+                requireNonNull(cassandraClientConfig, "cassandraClientConfig is null").getSchemaCacheTtl(),
                 cassandraClientConfig.getSchemaRefreshInterval());
     }
 
     public CachingCassandraSchemaProvider(String connectorId, CassandraSession session, ExecutorService executor, Duration cacheTtl, Duration refreshInterval)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.session = checkNotNull(session, "cassandraSession is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.session = requireNonNull(session, "cassandraSession is null");
 
-        checkNotNull(executor, "executor is null");
+        requireNonNull(executor, "executor is null");
 
-        long expiresAfterWriteMillis = checkNotNull(cacheTtl, "cacheTtl is null").toMillis();
-        long refreshMills = checkNotNull(refreshInterval, "refreshInterval is null").toMillis();
+        long expiresAfterWriteMillis = requireNonNull(cacheTtl, "cacheTtl is null").toMillis();
+        long refreshMills = requireNonNull(refreshInterval, "refreshInterval is null").toMillis();
 
         schemaNamesCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
@@ -212,7 +212,7 @@ public class CachingCassandraSchemaProvider
 
     public CassandraTableHandle getTableHandle(SchemaTableName schemaTableName)
     {
-        checkNotNull(schemaTableName, "schemaTableName is null");
+        requireNonNull(schemaTableName, "schemaTableName is null");
         String schemaName = getCaseSensitiveSchemaName(schemaTableName.getSchemaName());
         String tableName = getCaseSensitiveTableName(schemaTableName);
         CassandraTableHandle tableHandle = new CassandraTableHandle(connectorId, schemaName, tableName);
@@ -274,8 +274,8 @@ public class CachingCassandraSchemaProvider
 
     public List<CassandraPartition> getPartitions(CassandraTable table, List<Comparable<?>> partitionKeys)
     {
-        checkNotNull(table, "table is null");
-        checkNotNull(partitionKeys, "partitionKeys is null");
+        requireNonNull(table, "table is null");
+        requireNonNull(partitionKeys, "partitionKeys is null");
         checkArgument(partitionKeys.size() == table.getPartitionKeyColumns().size());
 
         PartitionListKey key = new PartitionListKey(table, partitionKeys);

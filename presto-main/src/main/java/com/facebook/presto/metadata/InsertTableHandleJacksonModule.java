@@ -17,7 +17,7 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 
 import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class InsertTableHandleJacksonModule
         extends AbstractTypedJacksonModule<ConnectorInsertTableHandle>
@@ -35,7 +35,7 @@ public class InsertTableHandleJacksonModule
 
         private InsertTableHandleJsonTypeIdResolver(HandleResolver handleResolver)
         {
-            this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
+            this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         }
 
         @Override
