@@ -31,6 +31,10 @@
         <property name="format" value="\n\n\Z"/>
         <property name="message" value="Blank line before end of file"/>
     </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="Preconditions\.checkNotNull"/>
+        <property name="message" value="Use of checkNotNull"/>
+    </module>
 
     <module name="TreeWalker">
         <module name="EmptyBlock">
