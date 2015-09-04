@@ -96,7 +96,7 @@ public class TestExchangeClient
         assertTrue(exchangeClient.getStatus().getBufferedBytes() == 0);
 
         // client should have sent only 2 requests: one to get all pages and once to get the done signal
-        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "closed", 3, 2, 2, "not scheduled");
+        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "closed", 3, 3, 3, "not scheduled");
     }
 
     @Test(timeOut = 10000)
@@ -151,8 +151,8 @@ public class TestExchangeClient
         }
 
         ImmutableMap<URI, PageBufferClientStatus> statuses = uniqueIndex(exchangeClient.getStatus().getPageBufferClientStatuses(), PageBufferClientStatus::getUri);
-        assertStatus(statuses.get(location1), location1, "closed", 3, 2, 2, "not scheduled");
-        assertStatus(statuses.get(location2), location2, "closed", 3, 2, 2, "not scheduled");
+        assertStatus(statuses.get(location1), location1, "closed", 3, 3, 3, "not scheduled");
+        assertStatus(statuses.get(location2), location2, "closed", 3, 3, 3, "not scheduled");
     }
 
     @Test
@@ -228,7 +228,7 @@ public class TestExchangeClient
         assertEquals(exchangeClient.getStatus().getBufferedPages(), 0);
         assertTrue(exchangeClient.getStatus().getBufferedBytes() == 0);
         assertEquals(exchangeClient.isClosed(), true);
-        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "closed", 3, 4, 4, "not scheduled");
+        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "closed", 3, 5, 5, "not scheduled");
     }
 
     @Test

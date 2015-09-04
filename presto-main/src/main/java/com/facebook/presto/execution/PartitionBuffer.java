@@ -81,6 +81,9 @@ public class PartitionBuffer
         updateMemoryUsage(bytesAdded);
     }
 
+    /**
+     * @return at least one page if we have pages in buffer, empty list otherwise
+     */
     public synchronized List<Page> getPages(DataSize maxSize, long sequenceId)
     {
         long maxBytes = maxSize.toBytes();

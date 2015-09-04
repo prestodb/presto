@@ -150,11 +150,21 @@ public class TestHttpPageBufferClient
         client.scheduleRequest();
         requestComplete.await(10, TimeUnit.SECONDS);
 
+        // get the buffer complete signal
+        assertEquals(callback.getPages().size(), 0);
+        assertEquals(callback.getCompletedRequests(), 1);
+
+        // schedule the delete call to the buffer
+        callback.resetStats();
+        client.scheduleRequest();
+        requestComplete.await(10, TimeUnit.SECONDS);
+        assertEquals(callback.getFinishedBuffers(), 1);
+
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 0);
-        assertEquals(callback.getFinishedBuffers(), 1);
         assertEquals(callback.getFailedBuffers(), 0);
-        assertStatus(client, location, "closed", 3, 4, 4, 0, "not scheduled");
+
+        assertStatus(client, location, "closed", 3, 5, 5, 0, "not scheduled");
     }
 
     @Test

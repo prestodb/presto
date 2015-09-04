@@ -41,6 +41,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.google.common.base.Preconditions.checkState;
@@ -103,9 +104,6 @@ public class MockExchangeRequestProcessor
             bytes = sliceOutput.slice().getBytes();
             status = HttpStatus.OK;
         }
-        else if (result.isBufferClosed()) {
-            status = HttpStatus.GONE;
-        }
         else {
             status = HttpStatus.NO_CONTENT;
         }
@@ -115,7 +113,8 @@ public class MockExchangeRequestProcessor
                 ImmutableListMultimap.of(
                         CONTENT_TYPE, PRESTO_PAGES,
                         PRESTO_PAGE_TOKEN, String.valueOf(result.getToken()),
-                        PRESTO_PAGE_NEXT_TOKEN, String.valueOf(result.getNextToken())
+                        PRESTO_PAGE_NEXT_TOKEN, String.valueOf(result.getNextToken()),
+                        PRESTO_BUFFER_COMPLETE, String.valueOf(result.isBufferComplete())
                 ),
                 bytes);
     }

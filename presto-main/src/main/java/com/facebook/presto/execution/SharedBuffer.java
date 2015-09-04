@@ -357,7 +357,7 @@ public class SharedBuffer
 
         if (state.get() == FLUSHING) {
             for (NamedBuffer namedBuffer : namedBuffers.values()) {
-                if (!namedBuffer.checkCompletion()) {
+                if (!namedBuffer.isFinished()) {
                     return;
                 }
             }
@@ -396,11 +396,6 @@ public class SharedBuffer
                 }
                 // this might have freed up space in the buffers, try to dequeue pages
                 partitionBuffers.values().forEach(PartitionBuffer::dequeuePages);
-            }
-
-            // remove any completed buffers
-            if (!state.canAddPages()) {
-                namedBuffers.values().forEach(SharedBuffer.NamedBuffer::checkCompletion);
             }
         }
         finally {
@@ -484,11 +479,17 @@ public class SharedBuffer
                 sequenceId = startingSequenceId;
             }
 
-            if (checkCompletion()) {
+            if (isFinished()) {
                 return emptyResults(startingSequenceId, true);
             }
 
             List<Page> pages = partitionBuffer.getPages(maxSize, sequenceId);
+
+            // if we can't have any more pages, indicate that the buffer is complete
+            if (pages.isEmpty() && !state.get().canAddPages()) {
+                return emptyResults(startingSequenceId, true);
+            }
+
             return new BufferResult(startingSequenceId, startingSequenceId + pages.size(), false, pages);
         }
 
@@ -497,24 +498,12 @@ public class SharedBuffer
             checkHoldsLock();
 
             finished.set(true);
+            checkFlushComplete();
         }
 
-        public boolean checkCompletion()
+        public boolean isFinished()
         {
             checkHoldsLock();
-            // WARNING: finish must short circuit this call, or the call to checkFlushComplete below will cause an infinite recursion
-            if (finished.get()) {
-                return true;
-            }
-
-            long pagesAdded = partitionBuffer.getPageCount();
-            if (!state.get().canAddPages() && sequenceId.get() >= pagesAdded) {
-                // WARNING: finish must set before the call to checkFlushComplete of the short circuit above will not trigger and the code enter an infinite recursion
-                finished.set(true);
-
-                // check if master buffer is finished
-                checkFlushComplete();
-            }
             return finished.get();
         }
 
@@ -592,7 +581,7 @@ public class SharedBuffer
                 checkFlushComplete();
 
                 // if we got an empty result, wait for more pages
-                if (bufferResult.isEmpty() && !bufferResult.isBufferClosed()) {
+                if (bufferResult.isEmpty() && !bufferResult.isBufferComplete()) {
                     return false;
                 }
 

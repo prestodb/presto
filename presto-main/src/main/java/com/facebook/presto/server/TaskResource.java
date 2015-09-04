@@ -52,6 +52,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
@@ -202,21 +203,19 @@ public class TaskResource
 
             GenericEntity<?> entity = null;
             Status status;
-            if (!pages.isEmpty()) {
-                entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
-                status = Status.OK;
-            }
-            else if (result.isBufferClosed()) {
-                status = Status.GONE;
+            if (pages.isEmpty()) {
+                status = Status.NO_CONTENT;
             }
             else {
-                status = Status.NO_CONTENT;
+                entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
+                status = Status.OK;
             }
 
             return Response.status(status)
                     .entity(entity)
                     .header(PRESTO_PAGE_TOKEN, result.getToken())
                     .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
+                    .header(PRESTO_BUFFER_COMPLETE, result.isBufferComplete())
                     .build();
         });
 
@@ -227,6 +226,7 @@ public class TaskResource
                         Response.status(Status.NO_CONTENT)
                                 .header(PRESTO_PAGE_TOKEN, token)
                                 .header(PRESTO_PAGE_NEXT_TOKEN, token)
+                                .header(PRESTO_BUFFER_COMPLETE, false)
                                 .build());
     }
 
