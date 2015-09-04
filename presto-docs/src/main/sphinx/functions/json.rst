@@ -32,6 +32,20 @@ JSON Functions
         SELECT json_extract_scalar('[1, 2, 3]', '$[2]');
         SELECT json_extract_scalar(json, '$.store.book[0].author');
 
+.. function:: json_format(json) -> varchar
+
+    Returns ``json`` as a string::
+
+        SELECT json_format(JSON '[1, 2, 3]'); => '[1,2,3]'
+        SELECT json_format(JSON '"a"'); => '"a"'
+
+.. function:: json_parse(string) -> json
+
+    Parse ``string`` as a json::
+
+        SELECT json_parse('[1, 2, 3]'); => JSON '[1,2,3]'
+        SELECT json_parse('"a"'); => JSON '"a"'
+
 .. function:: json_array_get(json_array, index) -> varchar
 
    Returns the element at the specified index into the ``json_array``.
