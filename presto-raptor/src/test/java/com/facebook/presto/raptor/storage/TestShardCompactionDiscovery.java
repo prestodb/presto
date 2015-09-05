@@ -120,7 +120,7 @@ public class TestShardCompactionDiscovery
                 10,
                 true);
 
-        Set<ShardMetadata> shardMetadata = shardManager.getNodeTableShards("node1", 1);
+        Set<ShardMetadata> shardMetadata = shardManager.getNodeShards("node1");
         Set<ShardMetadata> temporalMetadata = shardCompactionManager.filterShardsWithTemporalMetadata(shardMetadata, 1, 1);
         assertEquals(temporalMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet()), timeRangeShards.stream().map(ShardInfo::getShardUuid).collect(toSet()));
     }

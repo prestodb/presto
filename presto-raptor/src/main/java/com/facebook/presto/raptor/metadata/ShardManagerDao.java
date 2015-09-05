@@ -101,21 +101,13 @@ public interface ShardManagerDao
     @SqlQuery("SELECT shard_uuid FROM shards WHERE table_id = :tableId")
     List<UUID> getShards(@Bind("tableId") long tableId);
 
-    @SqlQuery("SELECT s.shard_uuid\n" +
+    @SqlQuery("SELECT s.table_id, s.shard_id, s.shard_uuid, s.row_count, s.compressed_size, s.uncompressed_size\n" +
             "FROM shards s\n" +
             "JOIN shard_nodes sn ON (s.shard_id = sn.shard_id)\n" +
             "JOIN nodes n ON (sn.node_id = n.node_id)\n" +
             "WHERE n.node_identifier = :nodeIdentifier")
-    Set<UUID> getNodeShards(@Bind("nodeIdentifier") String nodeIdentifier);
-
-    @SqlQuery("SELECT s.shard_id, s.shard_uuid, s.row_count, s.compressed_size, s.uncompressed_size\n" +
-            "FROM shards s\n" +
-            "JOIN shard_nodes sn ON (s.shard_id = sn.shard_id)\n" +
-            "JOIN nodes n ON (sn.node_id = n.node_id)\n" +
-            "WHERE s.table_id = :tableId\n" +
-            "  AND n.node_identifier = :nodeIdentifier")
     @Mapper(ShardMetadata.Mapper.class)
-    Set<ShardMetadata> getNodeTableShards(@Bind("nodeIdentifier") String nodeIdentifier, @Bind("tableId") long tableId);
+    Set<ShardMetadata> getNodeShards(@Bind("nodeIdentifier") String nodeIdentifier);
 
     @SqlQuery("SELECT s.shard_uuid, n.node_identifier\n" +
             "FROM shards s\n" +

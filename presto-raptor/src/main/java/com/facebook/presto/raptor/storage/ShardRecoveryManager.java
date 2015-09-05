@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.metadata.ShardManager;
+import com.facebook.presto.raptor.metadata.ShardMetadata;
 import com.facebook.presto.raptor.util.PrioritizedFifoExecutor;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
@@ -154,6 +155,7 @@ public class ShardRecoveryManager
     private Set<UUID> getMissingShards()
     {
         return shardManager.getNodeShards(nodeIdentifier).stream()
+                .map(ShardMetadata::getShardUuid)
                 .filter(this::shardNeedsRecovery)
                 .collect(toSet());
     }

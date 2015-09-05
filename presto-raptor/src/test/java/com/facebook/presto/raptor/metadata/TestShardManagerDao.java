@@ -163,10 +163,10 @@ public class TestShardManagerDao
 
         long tableId = 1;
 
-        long shardId1 = dao.insertShard(shardUuid1, tableId, 0, 0, 0);
-        long shardId2 = dao.insertShard(shardUuid2, tableId, 0, 0, 0);
-        long shardId3 = dao.insertShard(shardUuid3, tableId, 0, 0, 0);
-        long shardId4 = dao.insertShard(shardUuid4, tableId, 0, 0, 0);
+        long shardId1 = dao.insertShard(shardUuid1, tableId, 1, 11, 111);
+        long shardId2 = dao.insertShard(shardUuid2, tableId, 2, 22, 222);
+        long shardId3 = dao.insertShard(shardUuid3, tableId, 3, 33, 333);
+        long shardId4 = dao.insertShard(shardUuid4, tableId, 4, 44, 444);
 
         assertEquals(dao.getShards(tableId), ImmutableList.of(shardUuid1, shardUuid2, shardUuid3, shardUuid4));
 
@@ -180,8 +180,13 @@ public class TestShardManagerDao
         dao.insertShardNode(shardId1, nodeId2);
         dao.insertShardNode(shardId4, nodeId2);
 
-        assertEquals(dao.getNodeShards(nodeName1), ImmutableList.of(shardUuid1, shardUuid2, shardUuid3, shardUuid4));
-        assertEquals(dao.getNodeShards(nodeName2), ImmutableList.of(shardUuid1, shardUuid4));
+        ShardMetadata shard1 = new ShardMetadata(tableId, shardId1, shardUuid1, 1, 11, 111);
+        ShardMetadata shard2 = new ShardMetadata(tableId, shardId2, shardUuid2, 2, 22, 222);
+        ShardMetadata shard3 = new ShardMetadata(tableId, shardId3, shardUuid3, 3, 33, 333);
+        ShardMetadata shard4 = new ShardMetadata(tableId, shardId4, shardUuid4, 4, 44, 444);
+
+        assertEquals(dao.getNodeShards(nodeName1), ImmutableSet.of(shard1, shard2, shard3, shard4));
+        assertEquals(dao.getNodeShards(nodeName2), ImmutableSet.of(shard1, shard4));
 
         dao.dropShardNodes(tableId);
 

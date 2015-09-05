@@ -150,7 +150,7 @@ public class TestDatabaseShardManager
         shardManager.commitShards(tableId, columns, inputShards.build(), Optional.empty());
 
         for (String node : nodes) {
-            Set<ShardMetadata> shardMetadata = shardManager.getNodeTableShards(node, tableId);
+            Set<ShardMetadata> shardMetadata = shardManager.getNodeShards(node);
             Set<UUID> expectedUuids = ImmutableSet.copyOf(nodeShardMap.get(node));
             Set<UUID> actualUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
             assertEquals(actualUuids, expectedUuids);
@@ -181,13 +181,13 @@ public class TestDatabaseShardManager
                 .add(shardInfo(expectedUuids.get(1), nodes.get(0)))
                 .build();
 
-        Set<ShardMetadata> shardMetadata = shardManager.getNodeTableShards(nodes.get(0), tableId);
+        Set<ShardMetadata> shardMetadata = shardManager.getNodeShards(nodes.get(0));
         Set<Long> shardIds = shardMetadata.stream().map(ShardMetadata::getShardId).collect(toSet());
         Set<UUID> replacedUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
 
         shardManager.replaceShardIds(tableId, columns, shardIds, newShards);
 
-        shardMetadata = shardManager.getNodeTableShards(nodes.get(0), tableId);
+        shardMetadata = shardManager.getNodeShards(nodes.get(0));
         Set<UUID> actualUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
         assertEquals(actualUuids, ImmutableSet.copyOf(expectedUuids));
 
@@ -236,12 +236,12 @@ public class TestDatabaseShardManager
                 .add(shardInfo(expectedUuids.get(1), nodes.get(0)))
                 .build();
 
-        Set<ShardMetadata> shardMetadata = shardManager.getNodeTableShards(nodes.get(0), tableId);
+        Set<ShardMetadata> shardMetadata = shardManager.getNodeShards(nodes.get(0));
         Set<UUID> replacedUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
 
         shardManager.replaceShardUuids(tableId, columns, replacedUuids, newShards);
 
-        shardMetadata = shardManager.getNodeTableShards(nodes.get(0), tableId);
+        shardMetadata = shardManager.getNodeShards(nodes.get(0));
         Set<UUID> actualUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
         assertEquals(actualUuids, ImmutableSet.copyOf(expectedUuids));
 

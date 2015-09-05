@@ -46,19 +46,14 @@ public interface ShardManager
     void replaceShardUuids(long tableId, List<ColumnInfo> columns, Set<UUID> oldShardUuids, Collection<ShardInfo> newShards);
 
     /**
-     * Get shard metadata for table shards on a given node.
+     * Get shard metadata for shards on a given node.
      */
-    Set<ShardMetadata> getNodeTableShards(String nodeIdentifier, long tableId);
+    Set<ShardMetadata> getNodeShards(String nodeIdentifier);
 
     /**
      * Return the shard nodes a given table.
      */
     CloseableIterator<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate);
-
-    /**
-     * Return the shards for a given node
-     */
-    Set<UUID> getNodeShards(String nodeIdentifier);
 
     /**
      * Assign a shard to a node.

@@ -269,21 +269,15 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Set<ShardMetadata> getNodeTableShards(String nodeIdentifier, long tableId)
+    public Set<ShardMetadata> getNodeShards(String nodeIdentifier)
     {
-        return dao.getNodeTableShards(nodeIdentifier, tableId);
+        return dao.getNodeShards(nodeIdentifier);
     }
 
     @Override
     public CloseableIterator<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate)
     {
         return new ShardIterator(tableId, effectivePredicate, dbi);
-    }
-
-    @Override
-    public Set<UUID> getNodeShards(String nodeIdentifier)
-    {
-        return dao.getNodeShards(nodeIdentifier);
     }
 
     @Override

@@ -27,8 +27,9 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimaps;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
@@ -48,6 +49,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
@@ -65,6 +67,7 @@ import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardInde
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.partition;
+import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
@@ -75,7 +78,6 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 
 public class ShardCompactionManager
@@ -211,8 +213,13 @@ public class ShardCompactionManager
             return;
         }
 
-        for (long tableId : metadataDao.listTableIds()) {
-            Set<ShardMetadata> shardMetadata = shardManager.getNodeTableShards(currentNodeIdentifier, tableId);
+        Set<ShardMetadata> allShards = shardManager.getNodeShards(currentNodeIdentifier);
+        ListMultimap<Long, ShardMetadata> tableShards = Multimaps.index(allShards, ShardMetadata::getTableId);
+
+        for (Entry<Long, List<ShardMetadata>> entry : Multimaps.asMap(tableShards).entrySet()) {
+            long tableId = entry.getKey();
+            List<ShardMetadata> shardMetadata = entry.getValue();
+
             Set<ShardMetadata> shards = shardMetadata.stream()
                     .filter(this::needsCompaction)
                     .filter(shard -> !shardsInProgress.contains(shard.getShardId()))
@@ -240,17 +247,16 @@ public class ShardCompactionManager
      * @return shards that have temporal information
      */
     @VisibleForTesting
-    Set<ShardMetadata> filterShardsWithTemporalMetadata(Set<ShardMetadata> shardMetadata, long tableId, long temporalColumnId)
+    Set<ShardMetadata> filterShardsWithTemporalMetadata(Iterable<ShardMetadata> allShards, long tableId, long temporalColumnId)
     {
-        List<ShardMetadata> shardMetadatas = ImmutableList.copyOf(shardMetadata);
-        Map<Long, ShardMetadata> shardsById = shardMetadatas.stream().collect(toMap(ShardMetadata::getShardId, shard -> shard));
+        Map<Long, ShardMetadata> shardsById = uniqueIndex(allShards, ShardMetadata::getShardId);
 
         String minColumn = minColumn(temporalColumnId);
         String maxColumn = maxColumn(temporalColumnId);
 
         ImmutableSet.Builder<ShardMetadata> temporalShards = ImmutableSet.builder();
         try (Connection connection = dbi.open().getConnection()) {
-            for (List<ShardMetadata> shards : partition(shardMetadatas, 1000)) {
+            for (List<ShardMetadata> shards : partition(allShards, 1000)) {
                 String args = Joiner.on(",").join(nCopies(shards.size(), "?"));
                 String sql = format("SELECT shard_id, %s, %s FROM %s WHERE shard_id IN (%s)",
                         minColumn, maxColumn, shardIndexTable(tableId), args);
