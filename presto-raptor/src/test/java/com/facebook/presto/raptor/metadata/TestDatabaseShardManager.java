@@ -22,6 +22,7 @@ import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.io.Files;
@@ -126,11 +127,51 @@ public class TestDatabaseShardManager
 
         shardManager.assignShard(tableId, shard, "node2");
 
+        // assign shard to another node
         actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
         assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1", "node2")));
 
         // assigning a shard should be idempotent
         shardManager.assignShard(tableId, shard, "node2");
+
+        // remove assignment from first node
+        shardManager.unassignShard(tableId, shard, "node1");
+
+        actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
+        assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node2")));
+
+        // removing an assignment should be idempotent
+        shardManager.unassignShard(tableId, shard, "node1");
+    }
+
+    @Test
+    public void testGetNodeBytes()
+    {
+        long tableId = 1;
+
+        UUID shard1 = UUID.randomUUID();
+        UUID shard2 = UUID.randomUUID();
+        List<ShardInfo> shardNodes = ImmutableList.of(
+                new ShardInfo(shard1, ImmutableSet.of("node1"), ImmutableList.of(), 3, 33, 333),
+                new ShardInfo(shard2, ImmutableSet.of("node1"), ImmutableList.of(), 5, 55, 555));
+        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
+
+        shardManager.createTable(tableId, columns);
+        shardManager.commitShards(tableId, columns, shardNodes, Optional.empty());
+
+        assertEquals(getShardNodes(tableId, TupleDomain.all()), ImmutableSet.of(
+                new ShardNodes(shard1, ImmutableSet.of("node1")),
+                new ShardNodes(shard2, ImmutableSet.of("node1"))));
+
+        assertEquals(shardManager.getNodeBytes(), ImmutableMap.of("node1", 88L));
+
+        shardManager.assignShard(tableId, shard1, "node2");
+
+        assertEquals(getShardNodes(tableId, TupleDomain.all()), ImmutableSet.of(
+                new ShardNodes(shard1, ImmutableSet.of("node1", "node2")),
+                new ShardNodes(shard2, ImmutableSet.of("node1"))));
+
+        assertEquals(shardManager.getNodeBytes(), ImmutableMap.of("node1", 88L, "node2", 33L));
     }
 
     @Test

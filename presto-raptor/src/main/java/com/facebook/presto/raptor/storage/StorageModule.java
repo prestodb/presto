@@ -46,11 +46,13 @@ public class StorageModule
         binder.bind(BackupManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardCompactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardCompactor.class).in(Scopes.SINGLETON);
+        binder.bind(ShardEjector.class).in(Scopes.SINGLETON);
 
         newExporter(binder).export(ShardRecoveryManager.class).as(generatedNameOf(ShardRecoveryManager.class, connectorId));
         newExporter(binder).export(BackupManager.class).as(generatedNameOf(BackupManager.class, connectorId));
         newExporter(binder).export(StorageManager.class).as(generatedNameOf(OrcStorageManager.class, connectorId));
         newExporter(binder).export(ShardCompactionManager.class).as(generatedNameOf(ShardCompactionManager.class, connectorId));
         newExporter(binder).export(ShardCompactor.class).as(generatedNameOf(ShardCompactor.class, connectorId));
+        newExporter(binder).export(ShardEjector.class).as(generatedNameOf(ShardEjector.class, connectorId));
     }
 }

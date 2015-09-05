@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
+import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
@@ -40,6 +41,7 @@ public class StorageManagerConfig
     private Duration missingShardDiscoveryInterval = new Duration(5, TimeUnit.MINUTES);
     private boolean compactionEnabled = true;
     private Duration compactionInterval = new Duration(1, TimeUnit.HOURS);
+    private Duration shardEjectorInterval = new Duration(4, TimeUnit.HOURS);
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxReadSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
@@ -154,6 +156,20 @@ public class StorageManagerConfig
     public StorageManagerConfig setCompactionInterval(Duration compactionInterval)
     {
         this.compactionInterval = compactionInterval;
+        return this;
+    }
+
+    @MinDuration("5m")
+    public Duration getShardEjectorInterval()
+    {
+        return shardEjectorInterval;
+    }
+
+    @Config("storage.ejector-interval")
+    @ConfigDescription("How often to check for local shards that need ejection to balance capacity")
+    public StorageManagerConfig setShardEjectorInterval(Duration shardEjectorInterval)
+    {
+        this.shardEjectorInterval = shardEjectorInterval;
         return this;
     }
 
