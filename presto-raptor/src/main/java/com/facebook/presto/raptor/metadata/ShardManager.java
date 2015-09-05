@@ -19,6 +19,7 @@ import com.facebook.presto.spi.TupleDomain;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -59,4 +60,14 @@ public interface ShardManager
      * Assign a shard to a node.
      */
     void assignShard(long tableId, UUID shardUuid, String nodeIdentifier);
+
+    /**
+     * Remove shard assignment from a node.
+     */
+    void unassignShard(long tableId, UUID shardUuid, String nodeIdentifier);
+
+    /**
+     * Get the number of bytes used by assigned shards per node.
+     */
+    Map<String, Long> getNodeBytes();
 }

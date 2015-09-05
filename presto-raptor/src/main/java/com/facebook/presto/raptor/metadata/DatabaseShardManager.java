@@ -25,6 +25,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ExecutionError;
@@ -297,6 +298,47 @@ public class DatabaseShardManager
 
             return null;
         });
+    }
+
+    @Override
+    public void unassignShard(long tableId, UUID shardUuid, String nodeIdentifier)
+    {
+        int nodeId = getOrCreateNodeId(nodeIdentifier);
+
+        runTransaction((handle, status) -> {
+            ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+
+            Set<Integer> nodes = new HashSet<>(fetchLockedNodeIds(handle, tableId, shardUuid));
+            if (nodes.remove(nodeId)) {
+                updateNodeIds(handle, tableId, shardUuid, nodes);
+                dao.deleteShardNode(shardUuid, nodeId);
+            }
+
+            return null;
+        });
+    }
+
+    @Override
+    public Map<String, Long> getNodeBytes()
+    {
+        String sql = "" +
+                "SELECT n.node_identifier, x.size\n" +
+                "FROM (\n" +
+                "  SELECT node_id, sum(compressed_size) size\n" +
+                "  FROM shards s\n" +
+                "  JOIN shard_nodes sn ON (s.shard_id = sn.shard_id)\n" +
+                "  GROUP BY node_id\n" +
+                ") x\n" +
+                "JOIN nodes n ON (x.node_id = n.node_id)";
+
+        try (Handle handle = dbi.open()) {
+            return handle.createQuery(sql)
+                    .fold(ImmutableMap.<String, Long>builder(), (map, rs, ctx) -> {
+                        map.put(rs.getString("node_identifier"), rs.getLong("size"));
+                        return map;
+                    })
+                    .build();
+        }
     }
 
     private <T> T runTransaction(TransactionCallback<T> callback)
