@@ -56,9 +56,6 @@ public interface MetadataDao
             ")")
     void createTableViews();
 
-    @SqlQuery("SELECT table_id FROM tables")
-    List<Long> listTableIds();
-
     @SqlQuery("SELECT table_id FROM tables\n" +
             "WHERE schema_name = :schemaName\n" +
             "  AND table_name = :tableName")

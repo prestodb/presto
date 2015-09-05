@@ -159,6 +159,7 @@ public class TestCompactionSetCreator
     {
         return new ShardMetadata(
                 1,
+                1,
                 UUID.randomUUID(),
                 10,
                 10,
@@ -170,6 +171,7 @@ public class TestCompactionSetCreator
     private static ShardMetadata shardWithRange(long uncompressedSize, long rangeStart, long rangeEnd)
     {
         return new ShardMetadata(
+                1,
                 ThreadLocalRandom.current().nextInt(1, 10),
                 UUID.randomUUID(),
                 10,
