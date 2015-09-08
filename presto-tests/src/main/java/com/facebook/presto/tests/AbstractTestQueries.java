@@ -3874,6 +3874,26 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCrossJoinEmptyProbePage()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT a.custkey, b.orderkey " +
+                "FROM (SELECT * FROM orders WHERE orderkey < 0) a " +
+                "CROSS JOIN (SELECT * FROM lineitem WHERE orderkey < 100) b");
+    }
+
+    @Test
+    public void testCrossJoinEmptyBuildPage()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT a.custkey, b.orderkey " +
+                "FROM (SELECT * FROM orders WHERE orderkey < 100) a " +
+                "CROSS JOIN (SELECT * FROM lineitem WHERE orderkey < 0) b");
+    }
+
+    @Test
     public void testSimpleCrossJoins()
             throws Exception
     {
@@ -3881,9 +3901,48 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCrossJoinsWithWhereClause()
+            throws Exception
+    {
+        assertQuery("" +
+                        "SELECT a, b, c, d " +
+                        "FROM (VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')) t1 (a, b) " +
+                        "CROSS JOIN (VALUES (1, 1.1), (3, 3.3), (5, 5.5)) t2 (c, d) " +
+                        "WHERE t1.a > t2.c",
+                "SELECT * FROM (VALUES  (2, 'b', 1, 1.1), (3, 'c', 1, 1.1), (4, 'd', 1, 1.1), (4, 'd', 3, 3.3))");
+    }
+
+    @Test
+    public void testCrossJoinsDifferentDataTypes()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT * " +
+                "FROM (SELECT 'AAA' a1, 11 b1, 33.3 c1, true as d1, 21 e1) x " +
+                "CROSS JOIN (SELECT 4444.4 a2, false as b2, 'BBB' c2, 22 d2) y");
+    }
+
+    @Test
+    public void testCrossJoinWithNulls() throws Exception
+    {
+        assertQuery("SELECT a, b FROM (VALUES (1), (2)) t (a) CROSS JOIN (VALUES (1), (3)) u (b)",
+                "SELECT * FROM (VALUES  (1, 1), (1, 3), (2, 1), (2, 3))");
+        assertQuery("SELECT a, b FROM (VALUES (1), (2), (null)) t (a), (VALUES (11), (null), (13)) u (b)",
+                "SELECT * FROM (VALUES (1, 11), (1, null), (1, 13), (2, 11), (2, null), (2, 13), (null, 11), (null, null), (null, 13))");
+        assertQuery("SELECT a, b FROM (VALUES ('AA'), ('BB'), (null)) t (a), (VALUES ('111'), (null), ('333')) u (b)",
+                "SELECT * FROM (VALUES ('AA', '111'), ('AA', null), ('AA', '333'), ('BB', '111'), ('BB', null), ('BB', '333'), (null, '111'), (null, null), (null, '333'))");
+    }
+
+    @Test
     public void testImplicitCrossJoin()
             throws Exception
     {
+        assertQuery("" +
+                "SELECT * FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 3) a, " +
+                "(SELECT * FROM orders ORDER BY orderkey LIMIT 4) b");
+        assertQuery("" +
+                "SELECT * FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 5) a, " +
+                "(SELECT * FROM orders ORDER BY orderkey LIMIT 2) b");
         assertQuery("" +
                 "SELECT * FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 5) a, " +
                 "(SELECT * FROM orders ORDER BY orderkey LIMIT 5) b, " +
