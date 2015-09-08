@@ -13,13 +13,9 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.google.common.base.Throwables;
 import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
 
 import java.sql.SQLException;
-import java.util.concurrent.Callable;
-
-import static java.util.concurrent.Executors.callable;
 
 public final class SqlUtils
 {
@@ -32,41 +28,13 @@ public final class SqlUtils
     public static void runIgnoringConstraintViolation(Runnable task)
     {
         try {
-            runIgnoringConstraintViolation(callable(task), null);
-        }
-        catch (Exception e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw Throwables.propagate(e);
-        }
-    }
-
-    /**
-     * Run a SQL query as ignoring any constraint violations.
-     * This allows idempotent inserts (equivalent to INSERT IGNORE).
-     */
-    public static <T> T runIgnoringConstraintViolation(Callable<T> task)
-            throws Exception
-    {
-        return runIgnoringConstraintViolation(task, null);
-    }
-
-    /**
-     * Run a SQL query as ignoring any constraint violations.
-     * This allows idempotent inserts (equivalent to INSERT IGNORE).
-     */
-    public static <T> T runIgnoringConstraintViolation(Callable<T> task, T defaultValue)
-            throws Exception
-    {
-        try {
-            return task.call();
+            task.run();
         }
         catch (UnableToExecuteStatementException e) {
             if (e.getCause() instanceof SQLException) {
                 String state = ((SQLException) e.getCause()).getSQLState();
                 if (state.startsWith("23")) {
-                    return defaultValue;
+                    return;
                 }
             }
             throw e;
