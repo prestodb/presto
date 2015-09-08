@@ -1,0 +1,116 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>2.2. Tuning Presto &mdash; Presto 0.116 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.116',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.116 Documentation" href="../index.html" />
+    <link rel="up" title="2. Installation" href="../installation.html" />
+    <link rel="next" title="2.3. Command Line Interface" href="cli.html" />
+    <link rel="prev" title="2.1. Deploying Presto" href="deployment.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.116 Documentation</span></a></h1>
+    <h2 class="heading"><span>2.2. Tuning Presto</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="deployment.html">2.1. Deploying Presto</a>
+    </span>
+    <span class="right">
+        <a href="cli.html">2.3. Command Line Interface</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="tuning-presto">
+<h1>2.2. Tuning Presto</h1>
+<p>The default Presto settings should work well for most workloads. The following
+information may help you if your cluster is facing a specific performance problem.</p>
+<div class="section" id="config-properties">
+<h2>Config Properties</h2>
+<p>These configuration options may require tuning in specific situations:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">task.info-refresh-max-wait</span></tt>:
+Controls staleness of task information, which is used in scheduling. Increasing
+this value can reduce coordinator CPU load, but may result in suboptimal
+split scheduling.</li>
+<li><tt class="docutils literal"><span class="pre">task.max-worker-threads</span></tt>:
+Sets the number of threads used by workers to process splits. Increasing this number
+can improve throughput, if worker CPU utilization is low, but will cause increased
+heap space usage.</li>
+<li><tt class="docutils literal"><span class="pre">distributed-joins-enabled</span></tt>:
+Use hash distributed joins instead of broadcast joins. Distributed joins
+require redistributing both tables using a hash of the join key. This can
+be slower (sometimes substantially) than broadcast joins, but allows much
+larger joins. Broadcast joins require that the tables on the right side of
+the join fit in memory on each machine, whereas distributed joins only
+need to fit in distributed memory across all machines. This can also be
+specified on a per-query basis using the <tt class="docutils literal"><span class="pre">distributed_join</span></tt> session property.</li>
+</ul>
+</div>
+<div class="section" id="jvm-settings">
+<h2>JVM Settings</h2>
+<p>The following can be helpful for diagnosing GC issues:</p>
+<div class="highlight-none"><div class="highlight"><pre>-XX:+PrintGCApplicationConcurrentTime
+-XX:+PrintGCApplicationStoppedTime
+-XX:+PrintGCCause
+-XX:+PrintGCDateStamps
+-XX:+PrintGCTimeStamps
+-XX:+PrintGCDetails
+-XX:+PrintClassHistogramAfterFullGC
+-XX:+PrintClassHistogramBeforeFullGC
+-XX:PrintFLSStatistics=2
+-XX:+PrintAdaptiveSizePolicy
+-XX:+PrintSafepointStatistics
+-XX:PrintSafepointStatisticsCount=1
+</pre></div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="deployment.html">2.1. Deploying Presto</a>
+    </span>
+    <span class="right">
+        <a href="cli.html">2.3. Command Line Interface</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
