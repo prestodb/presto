@@ -46,6 +46,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -285,19 +286,17 @@ public class DatabaseShardManager
     {
         int nodeId = getOrCreateNodeId(nodeIdentifier);
 
-        // assigning a shard is idempotent
-        dbi.inTransaction((handle, status) -> runIgnoringConstraintViolation(() -> {
+        runTransaction((handle, status) -> {
             ShardManagerDao dao = handle.attach(ShardManagerDao.class);
-            dao.insertShardNode(shardUuid, nodeId);
 
-            Set<Integer> nodeIds = ImmutableSet.<Integer>builder()
-                    .addAll(fetchLockedNodeIds(handle, tableId, shardUuid))
-                    .add(nodeId)
-                    .build();
-            updateNodeIds(handle, tableId, shardUuid, nodeIds);
+            Set<Integer> nodes = new HashSet<>(fetchLockedNodeIds(handle, tableId, shardUuid));
+            if (nodes.add(nodeId)) {
+                updateNodeIds(handle, tableId, shardUuid, nodes);
+                dao.insertShardNode(shardUuid, nodeId);
+            }
 
             return null;
-        }));
+        });
     }
 
     private <T> T runTransaction(TransactionCallback<T> callback)

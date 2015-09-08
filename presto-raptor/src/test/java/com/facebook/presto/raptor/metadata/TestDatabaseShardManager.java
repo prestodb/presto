@@ -128,6 +128,9 @@ public class TestDatabaseShardManager
 
         actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
         assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1", "node2")));
+
+        // assigning a shard should be idempotent
+        shardManager.assignShard(tableId, shard, "node2");
     }
 
     @Test
