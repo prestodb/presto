@@ -131,6 +131,12 @@ public class TestDriver
                     assertEquals(rs.getObject("_boolean"), true);
                     assertEquals(rs.getBoolean(4), true);
                     assertEquals(rs.getBoolean("_boolean"), true);
+                    assertEquals(rs.getByte("_boolean"), 1);
+                    assertEquals(rs.getShort("_boolean"), 1);
+                    assertEquals(rs.getInt("_boolean"), 1);
+                    assertEquals(rs.getLong("_boolean"), 1L);
+                    assertEquals(rs.getFloat("_boolean"), 1.0f);
+                    assertEquals(rs.getDouble("_boolean"), 1.0);
 
                     assertEquals(rs.getObject(5), "hello".getBytes(UTF_8));
                     assertEquals(rs.getObject("_varbinary"), "hello".getBytes(UTF_8));
