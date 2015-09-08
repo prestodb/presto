@@ -46,7 +46,6 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Preconditions;
@@ -256,8 +255,6 @@ public class PredicatePushDown
         {
             Expression inheritedPredicate = context.get();
 
-            boolean isCrossJoin = (node.getType() == JoinNode.Type.CROSS);
-
             // See if we can rewrite outer joins in terms of a plain inner join
             node = tryNormalizeToInnerJoin(node, inheritedPredicate);
 
@@ -305,6 +302,7 @@ public class PredicatePushDown
                     newJoinPredicate = joinPredicate; // Use the same as the original
                     break;
                 case FULL:
+                case CROSS:
                     leftPredicate = BooleanLiteral.TRUE_LITERAL;
                     rightPredicate = BooleanLiteral.TRUE_LITERAL;
                     postJoinPredicate = inheritedPredicate;
@@ -318,12 +316,12 @@ public class PredicatePushDown
             PlanNode rightSource = context.rewrite(node.getRight(), rightPredicate);
 
             PlanNode output = node;
-            if (leftSource != node.getLeft() || rightSource != node.getRight() || !newJoinPredicate.equals(joinPredicate) || isCrossJoin) {
+            if (leftSource != node.getLeft() || rightSource != node.getRight() || !newJoinPredicate.equals(joinPredicate)) {
                 List<JoinNode.EquiJoinClause> criteria = node.getCriteria();
 
                 // Rewrite criteria and add projections if there is a new join predicate
-
-                if (!newJoinPredicate.equals(joinPredicate) || isCrossJoin) {
+                boolean rewriteToCrossJoin = false;
+                if (!newJoinPredicate.equals(joinPredicate)) {
                     // Create identity projections for all existing symbols
                     ImmutableMap.Builder<Symbol, Expression> leftProjections = ImmutableMap.builder();
 
@@ -336,12 +334,10 @@ public class PredicatePushDown
                             .getOutputSymbols().stream()
                             .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
 
-                    // HACK! we don't support cross joins right now, so put in a simple fake join predicate instead if all of the join clauses got simplified out
-                    // TODO: remove this code when cross join support is added
                     Iterable<Expression> simplifiedJoinConjuncts = transform(extractConjuncts(newJoinPredicate), this::simplifyExpression);
                     simplifiedJoinConjuncts = filter(simplifiedJoinConjuncts, not(Predicates.<Expression>equalTo(BooleanLiteral.TRUE_LITERAL)));
                     if (Iterables.isEmpty(simplifiedJoinConjuncts)) {
-                        simplifiedJoinConjuncts = ImmutableList.<Expression>of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new LongLiteral("0"), new LongLiteral("0")));
+                        rewriteToCrossJoin = true;
                     }
 
                     // Create new projections for the new join clauses
@@ -367,7 +363,7 @@ public class PredicatePushDown
                     rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
                     criteria = builder.build();
                 }
-                output = new JoinNode(node.getId(), node.getType(), leftSource, rightSource, criteria, node.getLeftHashSymbol(), node.getRightHashSymbol());
+                output = new JoinNode(node.getId(), rewriteToCrossJoin ? CROSS : node.getType(), leftSource, rightSource, criteria, node.getLeftHashSymbol(), node.getRightHashSymbol());
             }
             if (!postJoinPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
                 output = new FilterNode(idAllocator.getNextId(), output, postJoinPredicate);
@@ -617,8 +613,8 @@ public class PredicatePushDown
         {
             Preconditions.checkArgument(EnumSet.of(INNER, RIGHT, LEFT, FULL, CROSS).contains(node.getType()), "Unsupported join type: %s", node.getType());
 
-            if (node.getType() == JoinNode.Type.CROSS) {
-                return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getLeftHashSymbol(), node.getRightHashSymbol());
+            if (node.getType() == JoinNode.Type.CROSS || node.getType() == JoinNode.Type.INNER) {
+                return node;
             }
 
             if (node.getType() == JoinNode.Type.FULL) {
@@ -636,8 +632,7 @@ public class PredicatePushDown
                 }
             }
 
-            if (node.getType() == JoinNode.Type.INNER ||
-                    node.getType() == JoinNode.Type.LEFT && !canConvertOuterToInner(node.getRight().getOutputSymbols(), inheritedPredicate) ||
+            if (node.getType() == JoinNode.Type.LEFT && !canConvertOuterToInner(node.getRight().getOutputSymbols(), inheritedPredicate) ||
                     node.getType() == JoinNode.Type.RIGHT && !canConvertOuterToInner(node.getLeft().getOutputSymbols(), inheritedPredicate)) {
                 return node;
             }

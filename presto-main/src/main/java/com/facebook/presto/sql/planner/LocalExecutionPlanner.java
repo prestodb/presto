@@ -39,6 +39,7 @@ import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.LookupSourceSupplier;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
+import com.facebook.presto.operator.NestedLoopJoinPagesSupplier;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
@@ -156,6 +157,8 @@ import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static com.facebook.presto.operator.InMemoryExchangeSourceOperator.InMemoryExchangeSourceOperatorFactory.createBroadcastDistribution;
 import static com.facebook.presto.operator.InMemoryExchangeSourceOperator.InMemoryExchangeSourceOperatorFactory.createRandomDistribution;
+import static com.facebook.presto.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
+import static com.facebook.presto.operator.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
 import static com.facebook.presto.operator.TableCommitOperator.TableCommitOperatorFactory;
 import static com.facebook.presto.operator.TableCommitOperator.TableCommitter;
 import static com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
@@ -1253,17 +1256,56 @@ public class LocalExecutionPlanner
             List<Symbol> rightSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getRight);
 
             switch (node.getType()) {
+                case CROSS:
+                    return createNestedLoopJoin(node.getLeft(), node.getRight(), context);
                 case INNER:
                 case LEFT:
                 case RIGHT:
                 case FULL:
-                    return createJoinOperator(node, node.getLeft(), leftSymbols, node.getLeftHashSymbol(), node.getRight(), rightSymbols, node.getRightHashSymbol(), context);
+                    return createLookupJoin(node, node.getLeft(), leftSymbols, node.getLeftHashSymbol(), node.getRight(), rightSymbols, node.getRightHashSymbol(), context);
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
         }
 
-        private PhysicalOperation createJoinOperator(JoinNode node,
+        private PhysicalOperation createNestedLoopJoin(
+                PlanNode probeNode,
+                PlanNode buildNode,
+                LocalExecutionPlanContext context)
+        {
+            PhysicalOperation probeSource = probeNode.accept(this, context);
+
+            LocalExecutionPlanContext buildContext = context.createSubContext();
+            PhysicalOperation buildSource = buildNode.accept(this, buildContext);
+            NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(
+                    buildContext.getNextOperatorId(),
+                    buildSource.getTypes());
+
+            context.addDriverFactory(new DriverFactory(
+                    buildContext.isInputDriver(),
+                    false,
+                    ImmutableList.<OperatorFactory>builder()
+                            .addAll(buildSource.getOperatorFactories())
+                            .add(nestedLoopBuildOperatorFactory)
+                            .build()));
+
+            NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier = nestedLoopBuildOperatorFactory.getNestedLoopJoinPagesSupplier();
+            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
+            outputMappings.putAll(probeSource.getLayout());
+
+            // inputs from build side of the join are laid out following the input from the probe side,
+            // so adjust the channel ids but keep the field layouts intact
+            int offset = probeSource.getTypes().size();
+            for (Map.Entry<Symbol, Integer> entry : buildSource.getLayout().entrySet()) {
+                outputMappings.put(entry.getKey(), offset + entry.getValue());
+            }
+
+            OperatorFactory operatorFactory = new NestedLoopJoinOperatorFactory(context.getNextOperatorId(), nestedLoopJoinPagesSupplier, probeSource.getTypes());
+            PhysicalOperation operation = new PhysicalOperation(operatorFactory, outputMappings.build(), probeSource);
+            return operation;
+        }
+
+        private PhysicalOperation createLookupJoin(JoinNode node,
                 PlanNode probeNode,
                 List<Symbol> probeSymbols,
                 Optional<Symbol> probeHashSymbol,
@@ -1354,7 +1396,7 @@ public class LocalExecutionPlanner
                 outputMappings.put(entry.getKey(), offset + input);
             }
 
-            OperatorFactory operator = createJoinOperator(node.getType(), lookupSourceSupplier, probeSource.getTypes(), probeChannels, probeHashChannel, context);
+            OperatorFactory operator = createLookupJoin(node.getType(), lookupSourceSupplier, probeSource.getTypes(), probeChannels, probeHashChannel, context);
             PhysicalOperation operation = new PhysicalOperation(operator, outputMappings.build(), probeSource);
 
             // merge parallel joiners back into a single stream
@@ -1370,7 +1412,7 @@ public class LocalExecutionPlanner
             return node.getType() == RIGHT || node.getType() == FULL;
         }
 
-        private OperatorFactory createJoinOperator(
+        private OperatorFactory createLookupJoin(
                 JoinNode.Type type,
                 LookupSourceSupplier lookupSourceSupplier,
                 List<Type> probeTypes,

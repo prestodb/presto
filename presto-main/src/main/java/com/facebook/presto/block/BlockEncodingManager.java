@@ -24,6 +24,7 @@ import com.facebook.presto.spi.block.LazySliceArrayBlockEncoding;
 import com.facebook.presto.spi.block.SliceArrayBlockEncoding;
 import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.testing.RunLengthBlockEncoding;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -64,6 +65,7 @@ public final class BlockEncodingManager
         addBlockEncodingFactory(DictionaryBlockEncoding.FACTORY);
         addBlockEncodingFactory(ArrayBlockEncoding.FACTORY);
         addBlockEncodingFactory(InterleavedBlockEncoding.FACTORY);
+        addBlockEncodingFactory(RunLengthBlockEncoding.FACTORY);
 
         for (BlockEncodingFactory<?> factory : requireNonNull(blockEncodingFactories, "blockEncodingFactories is null")) {
             addBlockEncodingFactory(factory);

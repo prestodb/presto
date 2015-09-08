@@ -279,7 +279,9 @@ class RelationPlanner
                 Symbol leftSymbol = leftPlanBuilder.translate(leftExpressions.get(i));
                 Symbol rightSymbol = rightPlanBuilder.translate(rightExpressions.get(i));
 
-                equiClauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
+                if (comparisonTypes.get(i) == ComparisonExpression.Type.EQUAL) {
+                    equiClauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
+                }
 
                 Expression leftExpression = leftPlanBuilder.rewrite(leftExpressions.get(i));
                 Expression rightExpression = rightPlanBuilder.rewrite(rightExpressions.get(i));
@@ -288,26 +290,18 @@ class RelationPlanner
             postInnerJoinCriteria = ExpressionUtils.and(postInnerJoinComparisons);
         }
 
-        PlanNode root;
+        PlanNode root = new JoinNode(idAllocator.getNextId(),
+                JoinNode.Type.typeConvert(node.getType()),
+                leftPlanBuilder.getRoot(),
+                rightPlanBuilder.getRoot(),
+                equiClauses.build(),
+                Optional.empty(),
+                Optional.empty());
+
         if (node.getType() == INNER) {
-            root = new JoinNode(idAllocator.getNextId(),
-                    JoinNode.Type.CROSS,
-                    leftPlanBuilder.getRoot(),
-                    rightPlanBuilder.getRoot(),
-                    ImmutableList.<JoinNode.EquiJoinClause>of(),
-                    Optional.empty(),
-                    Optional.empty());
             root = new FilterNode(idAllocator.getNextId(), root, postInnerJoinCriteria);
         }
-        else {
-            root = new JoinNode(idAllocator.getNextId(),
-                    JoinNode.Type.typeConvert(node.getType()),
-                    leftPlanBuilder.getRoot(),
-                    rightPlanBuilder.getRoot(),
-                    equiClauses.build(),
-                    Optional.empty(),
-                    Optional.empty());
-        }
+
         Optional<Symbol> sampleWeight = Optional.empty();
         if (leftPlanBuilder.getSampleWeight().isPresent() || rightPlanBuilder.getSampleWeight().isPresent()) {
             Expression expression = new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.MULTIPLY,

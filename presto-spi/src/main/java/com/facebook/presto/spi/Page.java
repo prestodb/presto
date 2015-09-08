@@ -99,6 +99,28 @@ public class Page
         return new Page(length, slicedBlocks);
     }
 
+    public void compact()
+    {
+        if (getRetainedSizeInBytes() <= getSizeInBytes()) {
+            return;
+        }
+
+        for (int i = 0; i < blocks.length; i++) {
+            Block block = blocks[i];
+            if (block.getSizeInBytes() < block.getRetainedSizeInBytes()) {
+                // Copy the block to compact its size
+                Block compactedBlock = block.copyRegion(0, block.getPositionCount());
+                blocks[i] = compactedBlock;
+            }
+        }
+
+        long retainedSize = 0;
+        for (Block block : blocks) {
+            retainedSize += block.getRetainedSizeInBytes();
+        }
+        retainedSizeInBytes.set(retainedSize);
+    }
+
     /**
      * Assures that all data for the block is in memory.
      *
