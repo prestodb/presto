@@ -65,7 +65,30 @@ public class ArrayType
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        return compareTo(leftBlock, leftPosition, rightBlock, rightPosition) == 0;
+        if (isOrderable()) {
+            return compareTo(leftBlock, leftPosition, rightBlock, rightPosition) == 0;
+        }
+
+        Block leftArray = leftBlock.getObject(leftPosition, Block.class);
+        Block rightArray = rightBlock.getObject(rightPosition, Block.class);
+
+        if (leftArray.getPositionCount() != rightArray.getPositionCount()) {
+            return false;
+        }
+
+        int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
+        int index = 0;
+        while (index < len) {
+            checkElementNotNull(leftArray.isNull(index), ARRAY_NULL_ELEMENT_MSG);
+            checkElementNotNull(rightArray.isNull(index), ARRAY_NULL_ELEMENT_MSG);
+            boolean isEqual = elementType.equalTo(leftArray, index, rightArray, index);
+            if (!isEqual) {
+                return false;
+            }
+            index++;
+        }
+
+        return true;
     }
 
     @Override
