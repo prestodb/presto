@@ -220,8 +220,20 @@ public class Validator
             }
         }
 
-        // query is deterministic and result don't match
-        return false;
+        // Re-run the test query to confirm that the results don't match, in case there was caching on the test tier,
+        // but require that it matches 3 times in a row to rule out a non-deterministic correctness bug.
+        for (int i = 0; i < 3; i++) {
+            testResult = executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testTimeout, sessionProperties);
+            if (testResult.getState() != State.SUCCESS) {
+                return false;
+            }
+            if (!resultsMatch(controlResult, testResult)) {
+                return false;
+            }
+        }
+
+        // test result agrees with control result 3 times in a row although the first test result didn't agree
+        return resultsMatch(controlResult, testResult);
     }
 
     public QueryPair getQueryPair()
