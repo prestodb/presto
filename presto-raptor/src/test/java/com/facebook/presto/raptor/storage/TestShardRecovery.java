@@ -30,6 +30,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 
 import static com.google.common.io.Files.createTempDir;
@@ -38,6 +39,7 @@ import static java.io.File.createTempFile;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -90,10 +92,13 @@ public class TestShardRecovery
         Files.write("test data", tempFile, UTF_8);
 
         backupStore.backupShard(shardUuid, tempFile);
-        assertTrue(backupStore.getBackupFile(shardUuid).exists());
-        assertEquals(backupStore.shardSize(shardUuid).getAsLong(), tempFile.length());
+        assertTrue(backupStore.shardExists(shardUuid));
+        File backupFile = backupStore.getBackupFile(shardUuid);
+        assertTrue(backupFile.exists());
+        assertEquals(backupFile.length(), tempFile.length());
 
-        recoveryManager.restoreFromBackup(shardUuid);
+        assertFalse(file.exists());
+        recoveryManager.restoreFromBackup(shardUuid, OptionalLong.empty());
         assertTrue(file.exists());
         assertEquals(file.length(), tempFile.length());
     }
@@ -113,13 +118,15 @@ public class TestShardRecovery
 
         backupStore.backupShard(shardUuid, tempFile);
 
-        long backupSize = backupStore.shardSize(shardUuid).getAsLong();
-        assertEquals(backupSize, tempFile.length());
+        long backupSize = tempFile.length();
+
+        assertTrue(backupStore.shardExists(shardUuid));
+        assertEquals(backupStore.getBackupFile(shardUuid).length(), backupSize);
 
         assertTrue(file.exists());
         assertNotEquals(file.length(), backupSize);
 
-        recoveryManager.restoreFromBackup(shardUuid);
+        recoveryManager.restoreFromBackup(shardUuid, OptionalLong.of(backupSize));
 
         assertTrue(file.exists());
         assertEquals(file.length(), backupSize);
@@ -129,7 +136,7 @@ public class TestShardRecovery
     public void testNoBackupException()
             throws Exception
     {
-        recoveryManager.restoreFromBackup(UUID.randomUUID());
+        recoveryManager.restoreFromBackup(UUID.randomUUID(), OptionalLong.empty());
     }
 
     public static ShardRecoveryManager createShardRecoveryManager(

@@ -288,7 +288,7 @@ public class OrcStorageManager
 
     private boolean backupExists(UUID shardUuid)
     {
-        return backupStore.isPresent() && backupStore.get().shardSize(shardUuid).isPresent();
+        return backupStore.isPresent() && backupStore.get().shardExists(shardUuid);
     }
 
     private ShardInfo createShardInfo(UUID shardUuid, File file, Set<String> nodes, long rowCount, long uncompressedSize)
