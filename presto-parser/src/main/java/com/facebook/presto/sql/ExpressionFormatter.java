@@ -146,7 +146,7 @@ public final class ExpressionFormatter
         {
             ImmutableList.Builder<String> valueStrings = ImmutableList.builder();
             for (Expression value : node.getValues()) {
-                valueStrings.add(formatSql(value));
+                valueStrings.add(formatSql(value, unmangleNames));
             }
             return "ARRAY[" + Joiner.on(",").join(valueStrings.build()) + "]";
         }
@@ -154,7 +154,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitSubscriptExpression(SubscriptExpression node, Boolean unmangleNames)
         {
-            return formatSql(node.getBase()) + "[" + formatSql(node.getIndex()) + "]";
+            return formatSql(node.getBase(), unmangleNames) + "[" + formatSql(node.getIndex(), unmangleNames) + "]";
         }
 
         @Override
@@ -212,13 +212,13 @@ public final class ExpressionFormatter
         @Override
         protected String visitSubqueryExpression(SubqueryExpression node, Boolean unmangleNames)
         {
-            return "(" + formatSql(node.getQuery()) + ")";
+            return "(" + formatSql(node.getQuery(), unmangleNames) + ")";
         }
 
         @Override
         protected String visitExists(ExistsPredicate node, Boolean unmangleNames)
         {
-            return "EXISTS (" + formatSql(node.getSubquery()) + ")";
+            return "EXISTS (" + formatSql(node.getSubquery(), unmangleNames) + ")";
         }
 
         @Override
