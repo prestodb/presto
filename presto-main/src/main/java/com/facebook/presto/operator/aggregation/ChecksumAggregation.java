@@ -71,7 +71,7 @@ public class ChecksumAggregation
     public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type valueType = types.get("T");
-        Signature signature = new Signature(NAME, valueType.getTypeSignature(), valueType.getTypeSignature());
+        Signature signature = new Signature(NAME, VARBINARY.getTypeSignature(), valueType.getTypeSignature());
         InternalAggregationFunction aggregation = generateAggregation(valueType);
         return new FunctionInfo(signature, getDescription(), aggregation);
     }
