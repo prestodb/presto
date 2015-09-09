@@ -2048,6 +2048,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testChecksum()
+            throws Exception
+    {
+        assertQuery("SELECT to_hex(checksum(0))", "select '0000000000000000'");
+    }
+
+    @Test
     public void testMaxBy()
             throws Exception
     {
