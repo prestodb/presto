@@ -724,6 +724,24 @@ public class TestDriver
     }
 
     @Test
+    public void testExecuteWithQuotedIdentifier()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                String identifierQuote = connection.getMetaData().getIdentifierQuoteString();
+                assertTrue(statement.execute(format("SELECT 123 %sSELECT%s", identifierQuote, identifierQuote)));
+                ResultSet rs = statement.getResultSet();
+                assertTrue(rs.next());
+                assertEquals(rs.getLong(1), 123);
+                assertFalse(rs.wasNull());
+                assertEquals(rs.getLong("SELECT"), 123);
+                assertFalse(rs.wasNull());
+            }
+        }
+    }
+
+    @Test
     public void testGetUpdateCount()
             throws Exception
     {
