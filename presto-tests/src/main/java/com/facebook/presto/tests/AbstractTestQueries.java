@@ -3385,7 +3385,7 @@ public abstract class AbstractTestQueries
             fail("Showing tables in an unknown schema should fail");
         }
         catch (SemanticException e) {
-            assertTrue(e.getCode() == MISSING_SCHEMA);
+            assertEquals(e.getCode(), MISSING_SCHEMA);
         }
         catch (RuntimeException e) {
             assertEquals(e.getMessage(), "Schema 'unknown' does not exist");
