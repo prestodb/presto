@@ -57,10 +57,12 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -237,22 +239,7 @@ public class TestHiveFileFormats
     public void testParquet()
             throws Exception
     {
-        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, new Predicate<TestColumn>()
-        {
-            @Override
-            public boolean apply(TestColumn testColumn)
-            {
-                // Write of complex hive data to Parquet is broken
-                // TODO: empty arrays or maps with null keys don't seem to work
-                if (ImmutableSet.of("t_complex", "t_array_empty", "t_map_null_key").contains(testColumn.getName())) {
-                    return false;
-                }
-
-                // Parquet does not support DATE, TIMESTAMP, or BINARY
-                ObjectInspector objectInspector = testColumn.getObjectInspector();
-                return !hasType(objectInspector, PrimitiveCategory.DATE, PrimitiveCategory.TIMESTAMP, PrimitiveCategory.BINARY);
-            }
-        }));
+        List<TestColumn> testColumns = getTestColumnsSupportedByParquet();
 
         HiveOutputFormat<?, ?> outputFormat = new MapredParquetOutputFormat();
         InputFormat<?, ?> inputFormat = new MapredParquetInputFormat();
@@ -269,6 +256,47 @@ public class TestHiveFileFormats
             //noinspection ResultOfMethodCallIgnored
             file.delete();
         }
+    }
+
+    @Test
+    public void testParquetUseColumnNames()
+            throws Exception
+    {
+        List<TestColumn> testColumns = getTestColumnsSupportedByParquet();
+
+        HiveOutputFormat<?, ?> outputFormat = new MapredParquetOutputFormat();
+        InputFormat<?, ?> inputFormat = new MapredParquetInputFormat();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new ParquetHiveSerDe();
+        File file = File.createTempFile("presto_test", "parquet");
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns, NUM_ROWS);
+            // Reverse the order of the columns to test access by name, not by index
+            Collections.reverse(testColumns);
+            HiveRecordCursorProvider cursorProvider = new ParquetRecordCursorProvider(true);
+            testCursorProvider(cursorProvider, split, inputFormat, serde, testColumns, NUM_ROWS);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    private List<TestColumn> getTestColumnsSupportedByParquet()
+    {
+        // Write of complex hive data to Parquet is broken
+        // TODO: empty arrays or maps with null keys don't seem to work
+        // Parquet does not support DATE, TIMESTAMP or BINARY
+        return TEST_COLUMNS.stream()
+                .filter(column -> !ImmutableSet.of("t_complex", "t_array_empty", "t_map_null_key")
+                        .contains(column.getName()))
+                .filter(column -> !hasType(
+                        column.getObjectInspector(),
+                        PrimitiveCategory.BINARY,
+                        PrimitiveCategory.DATE,
+                        PrimitiveCategory.TIMESTAMP))
+                .collect(Collectors.toList());
     }
 
     @Test
@@ -334,7 +362,6 @@ public class TestHiveFileFormats
                 ObjectInspector objectInspector = testColumn.getObjectInspector();
                 return !hasType(objectInspector, PrimitiveCategory.DATE);
             }
-
         }));
 
         HiveOutputFormat<?, ?> outputFormat = new com.facebook.hive.orc.OrcOutputFormat();
