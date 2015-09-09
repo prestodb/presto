@@ -23,7 +23,7 @@ import java.util.UUID;
 
 public interface StorageManager
 {
-    ConnectorPageSource getPageSource(UUID shardUuid, List<Long> columnIds, List<Type> columnTypes, TupleDomain<RaptorColumnHandle> effectivePredicate);
+    ConnectorPageSource getPageSource(UUID shardUuid, List<Long> columnIds, List<Type> columnTypes, TupleDomain<RaptorColumnHandle> effectivePredicate, ReaderAttributes readerAttributes);
 
     StoragePageSink createStoragePageSink(List<Long> columnIds, List<Type> columnTypes);
 }

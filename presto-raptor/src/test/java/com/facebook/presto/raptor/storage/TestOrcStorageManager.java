@@ -103,15 +103,13 @@ public class TestOrcStorageManager
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(UTC);
     private static final DateTime EPOCH = new DateTime(0, UTC_CHRONOLOGY);
     private static final String CURRENT_NODE = "node";
-    private static final DataSize ORC_MAX_MERGE_DISTANCE = new DataSize(1, MEGABYTE);
-    private static final DataSize ORC_MAX_READ_SIZE = new DataSize(1, MEGABYTE);
-    private static final DataSize ORC_STREAM_BUFFER_SIZE = new DataSize(1, MEGABYTE);
     private static final String CONNECTOR_ID = "test";
     private static final int DELETION_THREADS = 2;
     private static final Duration SHARD_RECOVERY_TIMEOUT = new Duration(30, TimeUnit.SECONDS);
     private static final int MAX_SHARD_ROWS = 100;
     private static final DataSize MAX_FILE_SIZE = new DataSize(1, MEGABYTE);
     private static final Duration MISSING_SHARD_DISCOVERY = new Duration(5, TimeUnit.MINUTES);
+    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
 
     private final NodeManager nodeManager = new InMemoryNodeManager();
     private Handle dummyHandle;
@@ -211,7 +209,7 @@ public class TestOrcStorageManager
 
         recoveryManager.restoreFromBackup(shardUuid, OptionalLong.empty());
 
-        try (OrcDataSource dataSource = manager.openShard(shardUuid)) {
+        try (OrcDataSource dataSource = manager.openShard(shardUuid, READER_ATTRIBUTES)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
             assertEquals(reader.nextBatch(), 2);
@@ -279,7 +277,7 @@ public class TestOrcStorageManager
         // no tuple domain (all)
         TupleDomain<RaptorColumnHandle> tupleDomain = TupleDomain.all();
 
-        try (ConnectorPageSource pageSource = manager.getPageSource(uuid, columnIds, columnTypes, tupleDomain)) {
+        try (ConnectorPageSource pageSource = manager.getPageSource(uuid, columnIds, columnTypes, tupleDomain, READER_ATTRIBUTES)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
             assertEquals(result.getRowCount(), expected.getRowCount());
             assertEquals(result, expected);
@@ -290,7 +288,7 @@ public class TestOrcStorageManager
                 .put(new RaptorColumnHandle("test", "c1", 2, BIGINT), 124L)
                 .build());
 
-        try (ConnectorPageSource pageSource = manager.getPageSource(uuid, columnIds, columnTypes, tupleDomain)) {
+        try (ConnectorPageSource pageSource = manager.getPageSource(uuid, columnIds, columnTypes, tupleDomain, READER_ATTRIBUTES)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
             assertEquals(result.getRowCount(), expected.getRowCount());
         }
@@ -300,7 +298,7 @@ public class TestOrcStorageManager
                 .put(new RaptorColumnHandle("test", "c1", 2, BIGINT), 122L)
                 .build());
 
-        try (ConnectorPageSource pageSource = manager.getPageSource(uuid, columnIds, columnTypes, tupleDomain)) {
+        try (ConnectorPageSource pageSource = manager.getPageSource(uuid, columnIds, columnTypes, tupleDomain, READER_ATTRIBUTES)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
             assertEquals(result.getRowCount(), 0);
         }
@@ -531,9 +529,7 @@ public class TestOrcStorageManager
                 storageService,
                 backupStore,
                 SHARD_DELTA_CODEC,
-                ORC_MAX_MERGE_DISTANCE,
-                ORC_MAX_READ_SIZE,
-                ORC_STREAM_BUFFER_SIZE,
+                READER_ATTRIBUTES,
                 new BackupManager(backupStore, 1),
                 recoveryManager,
                 new TypeRegistry(),

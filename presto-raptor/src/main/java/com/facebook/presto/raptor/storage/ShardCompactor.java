@@ -51,11 +51,13 @@ public final class ShardCompactor
     private final DistributionStat outputShardsPerCompaction = new DistributionStat();
     private final DistributionStat compactionLatencyMillis = new DistributionStat();
     private final DistributionStat sortedCompactionLatencyMillis = new DistributionStat();
+    private final ReaderAttributes readerAttributes;
 
     @Inject
-    public ShardCompactor(StorageManager storageManager)
+    public ShardCompactor(StorageManager storageManager, ReaderAttributes readerAttributes)
     {
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
+        this.readerAttributes = checkNotNull(readerAttributes, "readerAttributes is null");
     }
 
     public List<ShardInfo> compact(Set<UUID> uuids, List<ColumnInfo> columns)
@@ -67,7 +69,7 @@ public final class ShardCompactor
 
         StoragePageSink storagePageSink = storageManager.createStoragePageSink(columnIds, columnTypes);
         for (UUID uuid : uuids) {
-            try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, columnIds, columnTypes, TupleDomain.all())) {
+            try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, columnIds, columnTypes, TupleDomain.all(), readerAttributes)) {
                 while (!pageSource.isFinished()) {
                     Page page = pageSource.getNextPage();
                     if (isNullOrEmptyPage(page)) {
@@ -105,7 +107,7 @@ public final class ShardCompactor
         StoragePageSink outputPageSink = storageManager.createStoragePageSink(columnIds, columnTypes);
         try {
             for (UUID uuid : uuids) {
-                ConnectorPageSource pageSource = storageManager.getPageSource(uuid, columnIds, columnTypes, TupleDomain.all());
+                ConnectorPageSource pageSource = storageManager.getPageSource(uuid, columnIds, columnTypes, TupleDomain.all(), readerAttributes);
                 SortedRowSource rowSource = new SortedRowSource(pageSource, columnTypes, sortIndexes, sortOrders);
                 rowSources.add(rowSource);
             }
