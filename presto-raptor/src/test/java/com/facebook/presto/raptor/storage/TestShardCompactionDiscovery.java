@@ -45,12 +45,15 @@ import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shard
 import static com.facebook.presto.raptor.storage.TestOrcStorageManager.createOrcStorageManager;
 import static com.facebook.presto.raptor.storage.TestShardRecovery.createShardRecoveryManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestShardCompactionDiscovery
 {
+    private static final ReaderAttributes readerAttributes = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+
     private IDBI dbi;
     private Handle dummyHandle;
     private File dataDir;
@@ -113,7 +116,7 @@ public class TestShardCompactionDiscovery
                 dbi,
                 "node1",
                 shardManager,
-                new ShardCompactor(storageManager),
+                new ShardCompactor(storageManager, readerAttributes),
                 new Duration(1, TimeUnit.HOURS),
                 new DataSize(1, DataSize.Unit.MEGABYTE),
                 100,

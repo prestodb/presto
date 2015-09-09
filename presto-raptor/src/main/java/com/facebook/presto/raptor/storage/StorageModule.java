@@ -47,6 +47,7 @@ public class StorageModule
         binder.bind(ShardCompactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardCompactor.class).in(Scopes.SINGLETON);
         binder.bind(ShardEjector.class).in(Scopes.SINGLETON);
+        binder.bind(ReaderAttributes.class).in(Scopes.SINGLETON);
 
         newExporter(binder).export(ShardRecoveryManager.class).as(generatedNameOf(ShardRecoveryManager.class, connectorId));
         newExporter(binder).export(BackupManager.class).as(generatedNameOf(BackupManager.class, connectorId));

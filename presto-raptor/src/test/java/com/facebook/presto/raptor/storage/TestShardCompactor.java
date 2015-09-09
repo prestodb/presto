@@ -26,6 +26,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -51,6 +52,7 @@ import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.testing.FileUtils.deleteRecursively;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -59,6 +61,7 @@ import static org.testng.Assert.assertEquals;
 public class TestShardCompactor
 {
     private static final PagesIndexPageSorter PAGE_SORTER = new PagesIndexPageSorter();
+    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
 
     private OrcStorageManager storageManager;
     private File temporary;
@@ -88,7 +91,7 @@ public class TestShardCompactor
     public void testShardCompactor()
             throws Exception
     {
-        ShardCompactor compactor = new ShardCompactor(storageManager);
+        ShardCompactor compactor = new ShardCompactor(storageManager, READER_ATTRIBUTES);
 
         List<Long> columnIds = ImmutableList.of(3L, 7L, 2L, 1L, 5L);
         List<Type> columnTypes = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, DATE, TIMESTAMP);
@@ -109,7 +112,7 @@ public class TestShardCompactor
     public void testShardCompactorSorted()
             throws Exception
     {
-        ShardCompactor compactor = new ShardCompactor(storageManager);
+        ShardCompactor compactor = new ShardCompactor(storageManager, READER_ATTRIBUTES);
 
         List<Long> columnIds = ImmutableList.of(3L, 7L, 2L, 1L, 5L);
         List<Type> columnTypes = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, DATE, TIMESTAMP);
@@ -181,7 +184,7 @@ public class TestShardCompactor
     {
         ImmutableList.Builder<Page> builder = ImmutableList.builder();
         for (UUID uuid : uuids) {
-            try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, columnIds, columnTypes, TupleDomain.all())) {
+            try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, columnIds, columnTypes, TupleDomain.all(), READER_ATTRIBUTES)) {
                 while (!pageSource.isFinished()) {
                     Page outputPage = pageSource.getNextPage();
                     if (outputPage == null) {
@@ -200,7 +203,7 @@ public class TestShardCompactor
     {
         MaterializedResult.Builder builder = MaterializedResult.resultBuilder(SESSION, columnTypes);
         for (UUID uuid : uuids) {
-            try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, columnIds, columnTypes, TupleDomain.all())) {
+            try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, columnIds, columnTypes, TupleDomain.all(), READER_ATTRIBUTES)) {
                 MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
                 builder.rows(result.getMaterializedRows());
             }

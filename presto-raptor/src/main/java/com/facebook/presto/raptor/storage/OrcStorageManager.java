@@ -56,6 +56,7 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -102,9 +103,7 @@ public class OrcStorageManager
     private final StorageService storageService;
     private final Optional<BackupStore> backupStore;
     private final JsonCodec<ShardDelta> shardDeltaCodec;
-    private final DataSize orcMaxMergeDistance;
-    private final DataSize orcMaxReadSize;
-    private final DataSize orcStreamBufferSize;
+    private final ReaderAttributes defaultReaderAttributes;
     private final BackupManager backupManager;
     private final ShardRecoveryManager recoveryManager;
     private final Duration recoveryTimeout;
@@ -119,6 +118,7 @@ public class OrcStorageManager
             StorageService storageService,
             Optional<BackupStore> backupStore,
             JsonCodec<ShardDelta> shardDeltaCodec,
+            ReaderAttributes readerAttributes,
             StorageManagerConfig config,
             RaptorConnectorId connectorId,
             BackupManager backgroundBackupManager,
@@ -129,9 +129,7 @@ public class OrcStorageManager
                 storageService,
                 backupStore,
                 shardDeltaCodec,
-                config.getOrcMaxMergeDistance(),
-                config.getOrcMaxReadSize(),
-                config.getOrcStreamBufferSize(),
+                readerAttributes,
                 backgroundBackupManager,
                 recoveryManager,
                 typeManager,
@@ -147,9 +145,7 @@ public class OrcStorageManager
             StorageService storageService,
             Optional<BackupStore> backupStore,
             JsonCodec<ShardDelta> shardDeltaCodec,
-            DataSize orcMaxMergeDistance,
-            DataSize orcMaxReadSize,
-            DataSize orcStreamBufferSize,
+            ReaderAttributes readerAttributes,
             BackupManager backgroundBackupManager,
             ShardRecoveryManager recoveryManager,
             TypeManager typeManager,
@@ -163,9 +159,7 @@ public class OrcStorageManager
         this.storageService = checkNotNull(storageService, "storageService is null");
         this.backupStore = checkNotNull(backupStore, "backupStore is null");
         this.shardDeltaCodec = checkNotNull(shardDeltaCodec, "shardDeltaCodec is null");
-        this.orcMaxMergeDistance = checkNotNull(orcMaxMergeDistance, "orcMaxMergeDistance is null");
-        this.orcMaxReadSize = checkNotNull(orcMaxReadSize, "orcMaxReadSize is null");
-        this.orcStreamBufferSize = checkNotNull(orcStreamBufferSize, "orcStreamBufferSize is null");
+        this.defaultReaderAttributes = checkNotNull(readerAttributes, "readerAttributes is null");
 
         backupManager = requireNonNull(backgroundBackupManager, "backgroundBackupManager is null");
         this.recoveryManager = checkNotNull(recoveryManager, "recoveryManager is null");
@@ -185,9 +179,14 @@ public class OrcStorageManager
     }
 
     @Override
-    public ConnectorPageSource getPageSource(UUID shardUuid, List<Long> columnIds, List<Type> columnTypes, TupleDomain<RaptorColumnHandle> effectivePredicate)
+    public ConnectorPageSource getPageSource(
+            UUID shardUuid,
+            List<Long> columnIds,
+            List<Type> columnTypes,
+            TupleDomain<RaptorColumnHandle> effectivePredicate,
+            ReaderAttributes readerAttributes)
     {
-        OrcDataSource dataSource = openShard(shardUuid);
+        OrcDataSource dataSource = openShard(shardUuid, readerAttributes);
 
         try {
             OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader());
@@ -257,7 +256,7 @@ public class OrcStorageManager
     }
 
     @VisibleForTesting
-    OrcDataSource openShard(UUID shardUuid)
+    OrcDataSource openShard(UUID shardUuid, ReaderAttributes readerAttributes)
     {
         File file = storageService.getStorageFile(shardUuid).getAbsoluteFile();
 
@@ -279,11 +278,17 @@ public class OrcStorageManager
         }
 
         try {
-            return new FileOrcDataSource(file, orcMaxMergeDistance, orcMaxMergeDistance, orcMaxMergeDistance);
+            return fileOrcDataSource(readerAttributes, file);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to open shard file: " + file, e);
         }
+    }
+
+    private static FileOrcDataSource fileOrcDataSource(ReaderAttributes readerAttributes, File file)
+            throws FileNotFoundException
+    {
+        return new FileOrcDataSource(file, readerAttributes.getMaxMergeDistance(), readerAttributes.getMaxReadSize(), readerAttributes.getStreamBufferSize());
     }
 
     private boolean backupExists(UUID shardUuid)
@@ -298,7 +303,7 @@ public class OrcStorageManager
 
     private List<ColumnStats> computeShardStats(File file)
     {
-        try (OrcDataSource dataSource = new FileOrcDataSource(file, orcMaxMergeDistance, orcMaxReadSize, orcStreamBufferSize)) {
+        try (OrcDataSource dataSource = fileOrcDataSource(defaultReaderAttributes, file)) {
             OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader());
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
