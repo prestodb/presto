@@ -72,16 +72,12 @@ public class ArrayType
             return false;
         }
 
-        int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
-        int index = 0;
-        while (index < len) {
-            checkElementNotNull(leftArray.isNull(index), ARRAY_NULL_ELEMENT_MSG);
-            checkElementNotNull(rightArray.isNull(index), ARRAY_NULL_ELEMENT_MSG);
-            boolean isEqual = elementType.equalTo(leftArray, index, rightArray, index);
-            if (!isEqual) {
+        for (int i = 0; i < leftArray.getPositionCount(); i++) {
+            checkElementNotNull(leftArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
+            checkElementNotNull(rightArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
+            if (!elementType.equalTo(leftArray, i, rightArray, i)) {
                 return false;
             }
-            index++;
         }
 
         return true;
