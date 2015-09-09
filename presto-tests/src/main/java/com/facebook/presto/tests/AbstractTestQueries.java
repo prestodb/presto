@@ -3672,6 +3672,15 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testUnionWithFilterNotInSelect()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey, orderdate FROM orders WHERE custkey < 1000 UNION ALL SELECT orderkey, shipdate FROM lineitem WHERE linenumber < 2000");
+        assertQuery("SELECT orderkey, orderdate FROM orders UNION ALL SELECT orderkey, shipdate FROM lineitem WHERE linenumber < 2000");
+        assertQuery("SELECT orderkey, orderdate FROM orders WHERE custkey < 1000 UNION ALL SELECT orderkey, shipdate FROM lineitem");
+    }
+
+    @Test
     public void testSelectOnlyUnion()
             throws Exception
     {
