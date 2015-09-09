@@ -65,10 +65,6 @@ public class ArrayType
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        if (isOrderable()) {
-            return compareTo(leftBlock, leftPosition, rightBlock, rightPosition) == 0;
-        }
-
         Block leftArray = leftBlock.getObject(leftPosition, Block.class);
         Block rightArray = rightBlock.getObject(rightPosition, Block.class);
 
