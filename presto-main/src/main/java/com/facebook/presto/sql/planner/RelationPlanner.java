@@ -89,6 +89,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 
 class RelationPlanner
         extends DefaultTraversalVisitor<RelationPlan, Void>
@@ -488,9 +489,9 @@ class RelationPlanner
             return plan;
         }
 
-        List<Symbol> oldSymbols = plan.getRoot().getOutputSymbols();
+        List<Symbol> oldSymbols = plan.getOutputSymbols();
         TupleDescriptor oldDescriptor = plan.getDescriptor().withOnlyVisibleFields();
-        checkArgument(coerceToTypes.length == oldSymbols.size());
+        verify(coerceToTypes.length == oldSymbols.size());
         ImmutableList.Builder<Symbol> newSymbols = new ImmutableList.Builder<>();
         Field[] newFields = new Field[coerceToTypes.length];
         ImmutableMap.Builder<Symbol, Expression> assignments = new ImmutableMap.Builder<>();
