@@ -85,7 +85,14 @@ public final class SqlFormatter
     public static String formatSql(Node root)
     {
         StringBuilder builder = new StringBuilder();
-        new Formatter(builder).process(root, 0);
+        new Formatter(builder, true).process(root, 0);
+        return builder.toString();
+    }
+
+    public static String formatSql(Node root, boolean unmangleNames)
+    {
+        StringBuilder builder = new StringBuilder();
+        new Formatter(builder, unmangleNames).process(root, 0);
         return builder.toString();
     }
 
@@ -93,10 +100,12 @@ public final class SqlFormatter
             extends AstVisitor<Void, Integer>
     {
         private final StringBuilder builder;
+        private final boolean unmangledNames;
 
-        public Formatter(StringBuilder builder)
+        public Formatter(StringBuilder builder, boolean unmangleNames)
         {
             this.builder = builder;
+            this.unmangledNames = unmangleNames;
         }
 
         @Override
@@ -109,7 +118,7 @@ public final class SqlFormatter
         protected Void visitExpression(Expression node, Integer indent)
         {
             checkArgument(indent == 0, "visitExpression should only be called at root");
-            builder.append(formatExpression(node));
+            builder.append(formatExpression(node, unmangledNames));
             return null;
         }
 
