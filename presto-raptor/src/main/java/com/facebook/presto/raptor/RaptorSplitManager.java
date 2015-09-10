@@ -34,6 +34,7 @@ import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.PreDestroy;
+import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.util.Collection;
@@ -51,6 +52,7 @@ import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -140,6 +142,7 @@ public class RaptorSplitManager
         private final TupleDomain<RaptorColumnHandle> effectivePredicate;
         private final CloseableIterator<ShardNodes> iterator;
 
+        @GuardedBy("this")
         private CompletableFuture<List<ConnectorSplit>> future;
 
         public RaptorSplitSource(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate)
@@ -156,14 +159,15 @@ public class RaptorSplitManager
         }
 
         @Override
-        public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize)
+        public synchronized CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize)
         {
+            checkState((future == null) || future.isDone(), "previous batch not completed");
             future = supplyAsync(batchSupplier(maxSize), executor);
             return future;
         }
 
         @Override
-        public void close()
+        public synchronized void close()
         {
             if (future != null) {
                 future.cancel(true);
