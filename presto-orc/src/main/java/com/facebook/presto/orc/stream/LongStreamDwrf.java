@@ -56,11 +56,11 @@ public class LongStreamDwrf
     }
 
     @Override
-    public void skip(int items)
+    public void skip(long items)
             throws IOException
     {
         // there is no fast way to skip values
-        for (int i = 0; i < items; i++) {
+        for (long i = 0; i < items; i++) {
             next();
         }
     }

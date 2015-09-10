@@ -77,7 +77,7 @@ public class BooleanStream
     }
 
     @Override
-    public void skip(int items)
+    public void skip(long items)
             throws IOException
     {
         if (bitsInData >= items) {
