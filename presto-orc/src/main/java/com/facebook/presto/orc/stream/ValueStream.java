@@ -24,6 +24,6 @@ public interface ValueStream<C extends StreamCheckpoint>
     void seekToCheckpoint(C checkpoint)
             throws IOException;
 
-    void skip(int items)
+    void skip(long items)
                     throws IOException;
 }

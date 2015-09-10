@@ -124,7 +124,7 @@ public class LongStreamV1
     }
 
     @Override
-    public void skip(int items)
+    public void skip(long items)
             throws IOException
     {
         while (items > 0) {

@@ -51,7 +51,7 @@ public class FloatStream
     }
 
     @Override
-    public void skip(int items)
+    public void skip(long items)
             throws IOException
     {
         long length = items * SIZE_OF_FLOAT;

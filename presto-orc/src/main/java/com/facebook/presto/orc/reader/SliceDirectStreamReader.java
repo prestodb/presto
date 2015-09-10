@@ -24,7 +24,6 @@ import com.facebook.presto.orc.stream.StreamSources;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SliceArrayBlock;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -106,7 +105,7 @@ public class SliceDirectStreamReader
                     if (dataStream == null) {
                         throw new OrcCorruptionException("Value is not null but data stream is not present");
                     }
-                    dataStream.skip(Ints.checkedCast(dataSkipSize));
+                    dataStream.skip(dataSkipSize);
                 }
             }
         }

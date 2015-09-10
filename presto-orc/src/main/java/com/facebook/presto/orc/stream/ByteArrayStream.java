@@ -59,7 +59,7 @@ public class ByteArrayStream
     }
 
     @Override
-    public void skip(int skipSize)
+    public void skip(long skipSize)
             throws IOException
     {
         skipFully(inputStream, skipSize);
