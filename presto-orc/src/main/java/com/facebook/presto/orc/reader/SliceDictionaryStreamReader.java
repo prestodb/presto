@@ -184,7 +184,7 @@ public class SliceDictionaryStreamReader
         else {
             int[] ids = Arrays.copyOfRange(dataVector, 0, nextBatchSize);
             boolean[] isNullVector = Arrays.copyOfRange(this.isNullVector, 0, nextBatchSize);
-            Slice[] values = Arrays.copyOf(dictionary, dictionary.length);
+            Slice[] values = dictionary;
             sliceVector.setDictionary(values, ids, isNullVector);
         }
 
@@ -197,11 +197,9 @@ public class SliceDictionaryStreamReader
     {
         // read the dictionary
         if (!dictionaryOpen && dictionarySize > 0) {
-            // resize the dictionary array if necessary
-            if (dictionary.length < dictionarySize) {
-                dictionary = new Slice[dictionarySize];
-                dictionaryLength = new int[dictionarySize];
-            }
+            // create a new dictionary array
+            dictionary = new Slice[dictionarySize];
+            dictionaryLength = new int[dictionarySize];
 
             // read the lengths
             LongStream lengthStream = dictionaryLengthStreamSource.openStream();
