@@ -26,6 +26,8 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.RaptorColumnHandle.isShardRowIdColumn;
+import static com.facebook.presto.raptor.RaptorColumnHandle.isShardUuidColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
@@ -63,9 +65,12 @@ class IndexInserter
                 continue;
             }
 
-            columnBuilder.add(column);
             long columnId = column.getColumnId();
+            if (isShardUuidColumn(columnId) || isShardRowIdColumn(columnId)) {
+                continue;
+            }
 
+            columnBuilder.add(column);
             nameJoiner.add(minColumn(columnId));
             nameJoiner.add(maxColumn(columnId));
             valueJoiner.add("?").add("?");

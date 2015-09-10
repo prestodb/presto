@@ -39,6 +39,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.raptor.RaptorTableProperties.ORDERING_PROPERTY;
@@ -377,7 +378,10 @@ public class TestRaptorMetadata
     {
         assertEquals(actual.getTable(), expected.getTable());
 
-        List<ColumnMetadata> actualColumns = actual.getColumns();
+        List<ColumnMetadata> actualColumns = actual.getColumns().stream()
+                .filter(columnMetadata -> !columnMetadata.isHidden())
+                .collect(Collectors.toList());
+
         List<ColumnMetadata> expectedColumns = expected.getColumns();
         assertEquals(actualColumns.size(), expectedColumns.size());
         for (int i = 0; i < actualColumns.size(); i++) {

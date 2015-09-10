@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.raptor.util;
 
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.skife.jdbi.v2.ResultSetMapperFactory;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.Argument;
@@ -125,5 +127,16 @@ public final class UuidUtil
                 .putLong(uuid.getMostSignificantBits())
                 .putLong(uuid.getLeastSignificantBits())
                 .array();
+    }
+
+    /**
+     * @param uuidSlice textual representation of UUID
+     * @return byte representation of UUID
+     */
+    public static Slice uuidStringToBytes(Slice uuidSlice)
+    {
+        UUID uuid = UUID.fromString(uuidSlice.toStringUtf8());
+        byte[] bytes = uuidToBytes(uuid);
+        return Slices.wrappedBuffer(bytes);
     }
 }

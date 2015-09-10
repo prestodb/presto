@@ -74,6 +74,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static com.facebook.presto.raptor.RaptorColumnHandle.isShardRowIdColumn;
+import static com.facebook.presto.raptor.RaptorColumnHandle.isShardUuidColumn;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
 import static com.facebook.presto.raptor.storage.ShardStats.computeColumnStats;
@@ -196,8 +198,12 @@ public class OrcStorageManager
             ImmutableList.Builder<Integer> columnIndexes = ImmutableList.builder();
             for (int i = 0; i < columnIds.size(); i++) {
                 long columnId = columnIds.get(i);
-                if (RaptorColumnHandle.isShardRowIdColumn(columnId)) {
+                if (isShardRowIdColumn(columnId)) {
                     columnIndexes.add(OrcPageSource.ROWID_COLUMN);
+                    continue;
+                }
+                if (isShardUuidColumn(columnId)) {
+                    columnIndexes.add(OrcPageSource.SHARD_UUID_COLUMN);
                     continue;
                 }
 
@@ -217,7 +223,7 @@ public class OrcStorageManager
 
             ShardRewriter shardRewriter = rowsToDelete -> supplyAsync(() -> rewriteShard(shardUuid, rowsToDelete), deletionExecutor);
 
-            return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build());
+            return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build(), shardUuid);
         }
         catch (IOException | RuntimeException e) {
             try {

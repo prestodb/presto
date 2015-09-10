@@ -26,20 +26,24 @@ import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.LazyArrayBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.LazyFixedWidthBlock;
 import com.facebook.presto.spi.block.LazySliceArrayBlock;
+import com.facebook.presto.spi.block.SliceArrayBlock;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.orc.Vector.MAX_VECTOR_LENGTH;
@@ -71,6 +75,7 @@ public class OrcPageSource
     public static final int NULL_SIZE = 0;
     public static final int NULL_COLUMN = -1;
     public static final int ROWID_COLUMN = -2;
+    public static final int SHARD_UUID_COLUMN = -3;
 
     private final ShardRewriter shardRewriter;
 
@@ -96,7 +101,8 @@ public class OrcPageSource
             OrcDataSource orcDataSource,
             List<Long> columnIds,
             List<Type> columnTypes,
-            List<Integer> columnIndexes)
+            List<Integer> columnIndexes,
+            UUID shardUuid)
     {
         this.shardRewriter = checkNotNull(shardRewriter, "shardRewriter is null");
         this.recordReader = checkNotNull(recordReader, "recordReader is null");
@@ -114,10 +120,15 @@ public class OrcPageSource
         this.constantBlocks = new Block[size];
         this.columnIndexes = new int[size];
 
+        checkNotNull(shardUuid, "shardUuid is null");
+
         for (int i = 0; i < size; i++) {
             this.columnIndexes[i] = columnIndexes.get(i);
             if (this.columnIndexes[i] == NULL_COLUMN) {
                 constantBlocks[i] = buildNullBlock(columnTypes.get(i));
+            }
+            else if (this.columnIndexes[i] == SHARD_UUID_COLUMN) {
+                constantBlocks[i] = buildSingleValueBlock(Slices.utf8Slice(shardUuid.toString()));
             }
         }
     }
@@ -166,6 +177,9 @@ public class OrcPageSource
                 }
                 else if (columnIndexes[fieldId] == ROWID_COLUMN) {
                     blocks[fieldId] = buildSequenceBlock(filePosition, batchSize);
+                }
+                else if (columnIndexes[fieldId] == SHARD_UUID_COLUMN) {
+                    blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
                 }
                 else if (BOOLEAN.equals(type)) {
                     blocks[fieldId] = new LazyFixedWidthBlock(BOOLEAN.getFixedSize(), batchSize, new LazyBooleanBlockLoader(columnIndexes[fieldId], batchSize));
@@ -271,6 +285,12 @@ public class OrcPageSource
             blockBuilder.appendNull();
         }
         return blockBuilder.build();
+    }
+
+    private static Block buildSingleValueBlock(Slice value)
+    {
+        SliceArrayBlock dictionary = new SliceArrayBlock(1, new Slice[] { value });
+        return new DictionaryBlock(MAX_VECTOR_LENGTH, dictionary, wrappedIntArray(new int[MAX_VECTOR_LENGTH]));
     }
 
     private final class LazyBooleanBlockLoader

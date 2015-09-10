@@ -53,6 +53,7 @@ import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -61,7 +62,9 @@ import java.util.UUID;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.raptor.RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
+import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_NAME;
 import static com.facebook.presto.raptor.RaptorColumnHandle.shardRowIdHandle;
+import static com.facebook.presto.raptor.RaptorColumnHandle.shardUuidColumnHandle;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorSessionProperties.getExternalBatchId;
 import static com.facebook.presto.raptor.RaptorTableProperties.getSortColumns;
@@ -76,10 +79,12 @@ import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 
 public class RaptorMetadata
@@ -163,10 +168,12 @@ public class RaptorMetadata
         List<ColumnMetadata> columns = dao.getTableColumns(handle.getTableId()).stream()
                 .map(TableColumn::toColumnMetadata)
                 .filter(isSampleWeightColumn().negate())
-                .collect(toList());
+                .collect(toCollection(ArrayList::new));
         if (columns.isEmpty()) {
             throw new PrestoException(RAPTOR_ERROR, "Table does not have any columns: " + tableName);
         }
+
+        columns.add(hiddenColumn(SHARD_UUID_COLUMN_NAME, VARCHAR));
         return new ConnectorTableMetadata(tableName, columns);
     }
 
@@ -187,6 +194,8 @@ public class RaptorMetadata
             }
             builder.put(tableColumn.getColumnName(), getRaptorColumnHandle(tableColumn));
         }
+        RaptorColumnHandle uuidColumn = shardUuidColumnHandle(connectorId);
+        builder.put(uuidColumn.getColumnName(), uuidColumn);
         return builder.build();
     }
 
@@ -208,8 +217,8 @@ public class RaptorMetadata
         long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
         RaptorColumnHandle column = checkType(columnHandle, RaptorColumnHandle.class, "columnHandle");
 
-        if (column.isShardRowId()) {
-            return new ColumnMetadata(column.getColumnName(), column.getColumnType(), false, null, true);
+        if (column.isShardRowId() || column.isShardUuid()) {
+            return hiddenColumn(column.getColumnName(), column.getColumnType());
         }
 
         long columnId = column.getColumnId();
@@ -541,5 +550,10 @@ public class RaptorMetadata
     private static Predicate<ColumnMetadata> isSampleWeightColumn()
     {
         return input -> input.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME);
+    }
+
+    private static ColumnMetadata hiddenColumn(String name, Type type)
+    {
+        return new ColumnMetadata(name, type, false, null, true);
     }
 }
