@@ -314,7 +314,7 @@ public class TestDriver
 
         List<List<String>> test = new ArrayList<>();
         test.add(list(TEST_CATALOG, "information_schema"));
-        for (String schema : TpchMetadata.SCHEMA_NAMES) {
+        for (String schema : TpchMetadata.listSchemaNames()) {
             test.add(list(TEST_CATALOG, schema));
         }
 
