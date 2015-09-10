@@ -13,12 +13,23 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
+
+import java.util.List;
+import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createSampledSession;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.tpch.TpchTable.getTables;
+import static org.testng.Assert.assertEquals;
 
 public class TestRaptorDistributedQueries
         extends AbstractTestDistributedQueries
@@ -46,5 +57,21 @@ public class TestRaptorDistributedQueries
         assertQuery("SELECT c[1] FROM map_test", "SELECT 'hi'");
         assertQuery("SELECT c[3] FROM map_test", "SELECT NULL");
         assertQueryTrue("DROP TABLE map_test");
+    }
+
+    @Test
+    public void testShardUuidHiddenColumn()
+            throws Exception
+    {
+        assertQuery("CREATE TABLE test_shard_uuid AS " + "SELECT orderdate, orderkey FROM orders", "SELECT count(*) FROM orders");
+        MaterializedResult actualResults = computeActual("SELECT *, \"$shard_uuid\" FROM test_shard_uuid");
+        assertEquals(actualResults.getTypes(), ImmutableList.of(DATE, BIGINT, VARCHAR));
+        List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
+        for (MaterializedRow row : actualRows) {
+            Object uuid = row.getField(2);
+            assertInstanceOf(uuid, String.class);
+            // check that the string can be parsed into a UUID
+            UUID.fromString((String) uuid);
+        }
     }
 }

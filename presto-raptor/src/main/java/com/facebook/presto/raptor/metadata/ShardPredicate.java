@@ -39,6 +39,8 @@ import java.util.StringJoiner;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
 import static com.facebook.presto.raptor.storage.ShardStats.truncateIndexValue;
+import static com.facebook.presto.raptor.util.Types.checkType;
+import static com.facebook.presto.raptor.util.UuidUtil.uuidStringToBytes;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -99,6 +101,17 @@ class ShardPredicate
 
             JDBCType jdbcType = jdbcType(type);
             if (jdbcType == null) {
+                continue;
+            }
+
+            if (handle.isShardUuid()) {
+                // TODO: support multiple shard UUIDs
+                if (domain.isSingleValue()) {
+                    predicate.add("shard_uuid = ?");
+                    types.add(jdbcType(type));
+                    Slice uuidSlice = checkType(entry.getValue().getSingleValue(), Slice.class, "value");
+                    values.add(uuidStringToBytes(uuidSlice));
+                }
                 continue;
             }
 
