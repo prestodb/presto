@@ -69,8 +69,6 @@ public class SliceDictionaryStreamReader
 
     @Nonnull
     private StreamSource<LongStream> dictionaryLengthStreamSource = missingStreamSource(LongStream.class);
-    @Nonnull
-    private int[] dictionaryLength = new int[0];
 
     @Nonnull
     private StreamSource<BooleanStream> inDictionaryStreamSource = missingStreamSource(BooleanStream.class);
@@ -184,8 +182,7 @@ public class SliceDictionaryStreamReader
         else {
             int[] ids = Arrays.copyOfRange(dataVector, 0, nextBatchSize);
             boolean[] isNullVector = Arrays.copyOfRange(this.isNullVector, 0, nextBatchSize);
-            Slice[] values = Arrays.copyOf(dictionary, dictionary.length);
-            sliceVector.setDictionary(values, ids, isNullVector);
+            sliceVector.setDictionary(dictionary, ids, isNullVector);
         }
 
         readOffset = 0;
@@ -197,11 +194,8 @@ public class SliceDictionaryStreamReader
     {
         // read the dictionary
         if (!dictionaryOpen && dictionarySize > 0) {
-            // resize the dictionary array if necessary
-            if (dictionary.length < dictionarySize) {
-                dictionary = new Slice[dictionarySize];
-                dictionaryLength = new int[dictionarySize];
-            }
+            int[] dictionaryLength = new int[dictionarySize];
+            dictionary = new Slice[dictionarySize];
 
             // read the lengths
             LongStream lengthStream = dictionaryLengthStreamSource.openStream();
