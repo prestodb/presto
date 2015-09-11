@@ -284,7 +284,7 @@ public class Console
             }
         }
         catch (RuntimeException e) {
-            System.out.println("Error running command: " + e.getMessage());
+            System.err.println("Error running command: " + e.getMessage());
             if (queryRunner.getSession().isDebug()) {
                 e.printStackTrace();
             }
