@@ -65,7 +65,22 @@ public class ArrayType
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        return compareTo(leftBlock, leftPosition, rightBlock, rightPosition) == 0;
+        Block leftArray = leftBlock.getObject(leftPosition, Block.class);
+        Block rightArray = rightBlock.getObject(rightPosition, Block.class);
+
+        if (leftArray.getPositionCount() != rightArray.getPositionCount()) {
+            return false;
+        }
+
+        for (int i = 0; i < leftArray.getPositionCount(); i++) {
+            checkElementNotNull(leftArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
+            checkElementNotNull(rightArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
+            if (!elementType.equalTo(leftArray, i, rightArray, i)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     @Override
@@ -83,6 +98,10 @@ public class ArrayType
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
+        if (!elementType.isOrderable()) {
+            throw new UnsupportedOperationException(getTypeSignature() + " type is not orderable");
+        }
+
         Block leftArray = leftBlock.getObject(leftPosition, Block.class);
         Block rightArray = rightBlock.getObject(rightPosition, Block.class);
 
