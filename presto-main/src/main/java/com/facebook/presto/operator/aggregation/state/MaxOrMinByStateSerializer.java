@@ -15,116 +15,62 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
+import com.facebook.presto.type.RowType;
+import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkState;
 
 public class MaxOrMinByStateSerializer
         implements AccumulatorStateSerializer<MaxOrMinByState>
 {
     private final Type valueType;
     private final Type keyType;
+    private final Type serializedType;
 
     public MaxOrMinByStateSerializer(Type valueType, Type keyType)
     {
         this.valueType = valueType;
         this.keyType = keyType;
+        this.serializedType = new RowType(ImmutableList.of(keyType, valueType), Optional.empty());
     }
 
     @Override
     public Type getSerializedType()
     {
-        return VARCHAR;
+        return serializedType;
     }
 
     @Override
     public void serialize(MaxOrMinByState state, BlockBuilder out)
     {
-        SliceOutput sliceOutput = new DynamicSliceOutput((int) state.getEstimatedSize());
+        Block keyState = state.getKey();
+        Block valueState = state.getValue();
 
-        int keyLength = 0;
-        if (state.getKey() != null && !state.getKey().isNull(0)) {
-            keyLength = state.getKey().getLength(0);
+        checkState((keyState == null) == (valueState == null), "(keyState == null) != (valueState == null)");
+        if (keyState == null) {
+            out.appendNull();
+            return;
         }
-        sliceOutput.writeInt(keyLength);
 
-        int valueLength = 0;
-        if (state.getValue() != null && !state.getValue().isNull(0)) {
-            valueLength = state.getValue().getLength(0);
-        }
-        sliceOutput.writeInt(valueLength);
-
-        if (state.getKey() != null && !state.getKey().isNull(0)) {
-            appendTo(keyType, sliceOutput, state.getKey());
-        }
-        if (state.getValue() != null && !state.getValue().isNull(0)) {
-            appendTo(valueType, sliceOutput, state.getValue());
-        }
-        Slice slice = sliceOutput.slice();
-        out.writeBytes(slice, 0, slice.length());
+        BlockBuilder blockBuilder = out.beginBlockEntry();
+        keyType.appendTo(keyState, 0, blockBuilder);
+        valueType.appendTo(valueState, 0, blockBuilder);
         out.closeEntry();
-    }
-
-    private static void appendTo(Type type, SliceOutput output, Block block)
-    {
-        if (type.getJavaType() == long.class) {
-            output.appendLong(type.getLong(block, 0));
-        }
-        else if (type.getJavaType() == double.class) {
-            output.appendDouble(type.getDouble(block, 0));
-        }
-        else if (type.getJavaType() == Slice.class) {
-            output.appendBytes(type.getSlice(block, 0));
-        }
-        else if (type.getJavaType() == boolean.class) {
-            output.appendByte(type.getBoolean(block, 0) ? 1 : 0);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported type: " + type.getJavaType().getSimpleName());
-        }
     }
 
     @Override
     public void deserialize(Block block, int index, MaxOrMinByState state)
     {
-        SliceInput input = block.getSlice(index, 0, block.getLength(index)).getInput();
-
-        int keyLength = input.readInt();
-        int valueLength = input.readInt();
-        state.setKey(null);
-        state.setValue(null);
-        if (keyLength > 0) {
-            state.setKey(toBlock(keyType, input, keyLength));
+        if (block.isNull(index)) {
+            state.setKey(null);
+            state.setValue(null);
+            return;
         }
-        if (valueLength > 0) {
-            state.setValue(toBlock(valueType, input, valueLength));
-        }
-    }
-
-    private static Block toBlock(Type type, SliceInput input, int length)
-    {
-        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), 1, length);
-        if (type.getJavaType() == long.class) {
-            type.writeLong(builder, input.readLong());
-        }
-        else if (type.getJavaType() == double.class) {
-            type.writeDouble(builder, input.readDouble());
-        }
-        else if (type.getJavaType() == Slice.class) {
-            type.writeSlice(builder, input.readSlice(length));
-        }
-        else if (type.getJavaType() == boolean.class) {
-            type.writeBoolean(builder, input.readByte() != 0);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported type: " + type.getJavaType().getSimpleName());
-        }
-
-        return builder.build();
+        Block rowBlock = block.getObject(index, Block.class);
+        state.setKey(rowBlock.getSingleValueBlock(0));
+        state.setValue(rowBlock.getSingleValueBlock(1));
     }
 }

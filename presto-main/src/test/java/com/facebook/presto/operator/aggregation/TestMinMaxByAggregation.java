@@ -22,18 +22,22 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.AbstractFixedWidthType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.RowType;
 import com.facebook.presto.type.TypeRegistry;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
+import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -41,6 +45,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -172,6 +177,44 @@ public class TestMinMaxByAggregation
     }
 
     @Test
+    public void testMinLongLongArray()
+    {
+        InternalAggregationFunction function = METADATA.getExactFunction(new Signature("min_by", "array<bigint>", "array<bigint>", StandardTypes.BIGINT)).getAggregationFunction();
+        assertAggregation(
+                function,
+                1.0,
+                ImmutableList.of(8L, 9L),
+                createArrayBigintBlock(ImmutableList.of(ImmutableList.of(8L, 9L), ImmutableList.of(1L, 2L), ImmutableList.of(6L, 7L), ImmutableList.of(2L, 3L))),
+                createLongsBlock(1L, 2L, 2L, 3L));
+
+        assertAggregation(
+                function,
+                1.0,
+                ImmutableList.of(2L),
+                createArrayBigintBlock(ImmutableList.of(ImmutableList.of(8L, 9L), ImmutableList.of(6L, 7L), ImmutableList.of(2L, 3L), ImmutableList.of(2L))),
+                createLongsBlock(0L, 1L, 2L, -1L));
+    }
+
+    @Test
+    public void testMaxLongLongArray()
+    {
+        InternalAggregationFunction function = METADATA.getExactFunction(new Signature("max_by", "array<bigint>", "array<bigint>", StandardTypes.BIGINT)).getAggregationFunction();
+        assertAggregation(
+                function,
+                1.0,
+                ImmutableList.of(1L, 2L),
+                createArrayBigintBlock(asList(asList(3L, 4L), asList(1L, 2L), null)),
+                createLongsBlock(1L, 2L, null));
+
+        assertAggregation(
+                function,
+                1.0,
+                ImmutableList.of(2L, 3L),
+                createArrayBigintBlock(asList(asList(3L, 4L), asList(2L, 3L), null, asList(1L, 2L))),
+                createLongsBlock(0L, 1L, null, -1L));
+    }
+
+    @Test
     public void testStateDeserializer()
             throws Exception
     {
@@ -179,7 +222,7 @@ public class TestMinMaxByAggregation
         double[] values = {3.14, 2.71};
 
         MaxOrMinByStateSerializer serializer = new MaxOrMinByStateSerializer(DOUBLE, VARCHAR);
-        BlockBuilder builder = new VariableWidthBlockBuilder(new BlockBuilderStatus());
+        BlockBuilder builder = new RowType(ImmutableList.of(VARCHAR, DOUBLE), Optional.empty()).createBlockBuilder(new BlockBuilderStatus(), 2);
 
         for (int i = 0; i < keys.length; i++) {
             serializer.serialize(makeState(keys[i], values[i]), builder);
