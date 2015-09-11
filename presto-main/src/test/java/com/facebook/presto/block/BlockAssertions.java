@@ -107,6 +107,23 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    public static Block createStringArraysBlock(Iterable<? extends Iterable<String>> values)
+    {
+        ArrayType arrayType = new ArrayType(VARCHAR);
+        BlockBuilder builder = arrayType.createBlockBuilder(new BlockBuilderStatus(), 100);
+
+        for (Iterable<String> value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                arrayType.writeObject(builder, createStringsBlock(value));
+            }
+        }
+
+        return builder.build();
+    }
+
     public static Block createBooleansBlock(Boolean... values)
     {
         requireNonNull(values, "varargs 'values' is null");

@@ -15,8 +15,8 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TimeZoneKey;
@@ -34,6 +34,7 @@ import java.util.Optional;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
+import static com.facebook.presto.block.BlockAssertions.createStringArraysBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.aggregation.Histogram.NAME;
@@ -46,7 +47,6 @@ import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
-import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
 
 public class TestHistogram
@@ -65,7 +65,7 @@ public class TestHistogram
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of("a", 1L, "b", 1L, "c", 1L),
-                new Page(createStringsBlock("a", "b", "c")));
+                createStringsBlock("a", "b", "c"));
 
         mapType = new MapType(BIGINT, BIGINT);
         aggregationFunction = metadata.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), StandardTypes.BIGINT)).getAggregationFunction();
@@ -73,7 +73,7 @@ public class TestHistogram
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of(100L, 1L, 200L, 1L, 300L, 1L),
-                new Page(createLongsBlock(100L, 200L, 300L)));
+                createLongsBlock(100L, 200L, 300L));
 
         mapType = new MapType(DOUBLE, BIGINT);
         aggregationFunction = metadata.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE)).getAggregationFunction();
@@ -81,7 +81,7 @@ public class TestHistogram
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of(0.1, 1L, 0.3, 1L, 0.2, 1L),
-                new Page(createDoublesBlock(0.1, 0.3, 0.2)));
+                createDoublesBlock(0.1, 0.3, 0.2));
 
         mapType = new MapType(BOOLEAN, BIGINT);
         aggregationFunction = metadata.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), StandardTypes.BOOLEAN)).getAggregationFunction();
@@ -89,7 +89,7 @@ public class TestHistogram
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of(true, 1L, false, 1L),
-                new Page(createBooleansBlock(true, false)));
+                createBooleansBlock(true, false));
     }
 
     @Test
@@ -102,7 +102,7 @@ public class TestHistogram
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of("a", 2L, "b", 1L),
-                new Page(createStringsBlock("a", "b", "a")));
+                createStringsBlock("a", "b", "a"));
 
         mapType = new MapType(TIMESTAMP_WITH_TIME_ZONE, BIGINT);
         aggregationFunction = metadata.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE)).getAggregationFunction();
@@ -112,7 +112,7 @@ public class TestHistogram
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of(new SqlTimestampWithTimeZone(timestampWithTimeZone1), 2L, new SqlTimestampWithTimeZone(timestampWithTimeZone2), 1L),
-                new Page(createLongsBlock(timestampWithTimeZone1, timestampWithTimeZone1, timestampWithTimeZone2)));
+                createLongsBlock(timestampWithTimeZone1, timestampWithTimeZone1, timestampWithTimeZone2));
     }
 
     @Test
@@ -125,7 +125,7 @@ public class TestHistogram
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of(1L, 1L, 2L, 1L),
-                new Page(createLongsBlock(2L, null, 1L)));
+                createLongsBlock(2L, null, 1L));
 
         mapType = new MapType(BIGINT, BIGINT);
         aggregationFunction = metadata.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), StandardTypes.BIGINT)).getAggregationFunction();
@@ -133,7 +133,7 @@ public class TestHistogram
                 aggregationFunction,
                 1.0,
                 null,
-                new Page(createLongsBlock((Long) null)));
+                createLongsBlock((Long) null));
     }
 
     @Test
@@ -144,22 +144,11 @@ public class TestHistogram
         MapType mapType = new MapType(arrayType, BIGINT);
         InternalAggregationFunction aggregationFunction = metadata.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), arrayType.getTypeSignature().toString())).getAggregationFunction();
 
-        PageBuilder builder = new PageBuilder(ImmutableList.of(arrayType));
-
-        builder.declarePosition();
-        arrayType.writeObject(builder.getBlockBuilder(0), arrayBlockOf(VARCHAR, "a", "b", "c"));
-
-        builder.declarePosition();
-        arrayType.writeObject(builder.getBlockBuilder(0), arrayBlockOf(VARCHAR, "d", "e", "f"));
-
-        builder.declarePosition();
-        arrayType.writeObject(builder.getBlockBuilder(0), arrayBlockOf(VARCHAR, "c", "b", "a"));
-
         assertAggregation(
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of(ImmutableList.of("a", "b", "c"), 1L, ImmutableList.of("d", "e", "f"), 1L, ImmutableList.of("c", "b", "a"), 1L),
-                builder.build());
+                createStringArraysBlock(ImmutableList.of(ImmutableList.of("a", "b", "c"), ImmutableList.of("d", "e", "f"), ImmutableList.of("c", "b", "a"))));
     }
 
     @Test
@@ -170,16 +159,10 @@ public class TestHistogram
         MapType mapType = new MapType(innerMapType, BIGINT);
         InternalAggregationFunction aggregationFunction = metadata.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), innerMapType.getTypeSignature().toString())).getAggregationFunction();
 
-        PageBuilder builder = new PageBuilder(ImmutableList.of(innerMapType));
-
-        builder.declarePosition();
-        innerMapType.writeObject(builder.getBlockBuilder(0), mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
-
-        builder.declarePosition();
-        innerMapType.writeObject(builder.getBlockBuilder(0), mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("c", "d")));
-
-        builder.declarePosition();
-        innerMapType.writeObject(builder.getBlockBuilder(0), mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("e", "f")));
+        BlockBuilder builder = innerMapType.createBlockBuilder(new BlockBuilderStatus(), 3);
+        innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
+        innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("c", "d")));
+        innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("e", "f")));
 
         assertAggregation(
                 aggregationFunction,
@@ -196,16 +179,10 @@ public class TestHistogram
         MapType mapType = new MapType(innerRowType, BIGINT);
         InternalAggregationFunction aggregationFunction = metadata.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), innerRowType.getTypeSignature().toString())).getAggregationFunction();
 
-        PageBuilder builder = new PageBuilder(ImmutableList.of(innerRowType));
-
-        builder.declarePosition();
-        innerRowType.writeObject(builder.getBlockBuilder(0), testRowBigintBigint(1L, 1.0));
-
-        builder.declarePosition();
-        innerRowType.writeObject(builder.getBlockBuilder(0), testRowBigintBigint(2L, 2.0));
-
-        builder.declarePosition();
-        innerRowType.writeObject(builder.getBlockBuilder(0), testRowBigintBigint(3L, 3.0));
+        BlockBuilder builder = innerRowType.createBlockBuilder(new BlockBuilderStatus(), 3);
+        innerRowType.writeObject(builder, testRowBigintBigint(1L, 1.0));
+        innerRowType.writeObject(builder, testRowBigintBigint(2L, 2.0));
+        innerRowType.writeObject(builder, testRowBigintBigint(3L, 3.0));
 
         assertAggregation(
                 aggregationFunction,
@@ -224,6 +201,6 @@ public class TestHistogram
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of("a", 25L, "b", 10L, "c", 12L, "d", 1L, "e", 2L),
-                new Page(createStringsBlock("a", "b", "c", "d", "e", "e", "c", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c")));
+                createStringsBlock("a", "b", "c", "d", "e", "e", "c", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c"));
     }
 }

@@ -41,10 +41,14 @@ public final class AggregationTestUtils
     {
     }
 
-    public static void assertAggregation(InternalAggregationFunction function, double confidence, Object expectedValue, int positions, Block... blocks)
+    public static void assertAggregation(InternalAggregationFunction function, double confidence, Object expectedValue, Block... blocks)
     {
+        int positions = blocks[0].getPositionCount();
+        for (int i = 1; i < blocks.length; i++) {
+            assertEquals(positions, blocks[i].getPositionCount(), "input blocks provided are not equal in position count");
+        }
         if (positions == 0) {
-            assertAggregation(function, confidence, expectedValue);
+            assertAggregation(function, confidence, expectedValue, new Page[]{});
         }
         else if (positions == 1) {
             assertAggregation(function, confidence, expectedValue, new Page(positions, blocks));
@@ -159,8 +163,10 @@ public final class AggregationTestUtils
         return Math.abs(expected - actual) <= error && !Double.isInfinite(error);
     }
 
-    public static void assertAggregation(InternalAggregationFunction function, double confidence, Object expectedValue, Page... pages)
+    private static void assertAggregation(InternalAggregationFunction function, double confidence, Object expectedValue, Page... pages)
     {
+        // This assertAggregation does not try to split up the page to test the correctness of combine function.
+        // Do not use this directly. Always use the other assertAggregation.
         assertEquals(aggregation(function, confidence, pages), expectedValue);
         assertEquals(partialAggregation(function, confidence, pages), expectedValue);
         if (pages.length > 0) {

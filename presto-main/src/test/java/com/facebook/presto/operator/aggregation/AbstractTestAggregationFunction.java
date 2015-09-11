@@ -146,6 +146,6 @@ public abstract class AbstractTestAggregationFunction
 
     protected void testAggregation(Object expectedValue, Block... blocks)
     {
-        assertAggregation(getFunction(), getConfidence(), expectedValue, blocks[0].getPositionCount(), blocks);
+        assertAggregation(getFunction(), getConfidence(), expectedValue, blocks);
     }
 }

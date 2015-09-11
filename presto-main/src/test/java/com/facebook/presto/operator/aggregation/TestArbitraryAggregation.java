@@ -15,7 +15,6 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -56,8 +55,7 @@ public class TestArbitraryAggregation
                 booleanAgg,
                 1.0,
                 null,
-                createPage(
-                        new Boolean[] {null}));
+                createBooleansBlock((Boolean) null));
     }
 
     @Test
@@ -69,8 +67,7 @@ public class TestArbitraryAggregation
                 booleanAgg,
                 1.0,
                 true,
-                createPage(
-                        new Boolean[] {true, true}));
+                createBooleansBlock(true, true));
     }
 
     @Test
@@ -82,8 +79,7 @@ public class TestArbitraryAggregation
                 longAgg,
                 1.0,
                 null,
-                createPage(
-                        new Long[] {null, null}));
+                createLongsBlock(null, null));
     }
 
     @Test
@@ -95,8 +91,7 @@ public class TestArbitraryAggregation
                 longAgg,
                 1.0,
                 1L,
-                createPage(
-                        new Long[] {1L , null}));
+                createLongsBlock(1L , null));
     }
 
     @Test
@@ -108,8 +103,7 @@ public class TestArbitraryAggregation
                 doubleAgg,
                 1.0,
                 null,
-                createPage(
-                        new Double[] {null, null}));
+                createDoublesBlock(null, null));
     }
 
     @Test
@@ -121,8 +115,7 @@ public class TestArbitraryAggregation
                 doubleAgg,
                 1.0,
                 2.0,
-                createPage(
-                        new Double[] {null, 2.0}));
+                createDoublesBlock(null, 2.0));
     }
 
     @Test
@@ -134,8 +127,7 @@ public class TestArbitraryAggregation
                 stringAgg,
                 1.0,
                 null,
-                createPage(
-                        new String[] {null, null}));
+                createStringsBlock(null, null));
     }
 
     @Test
@@ -147,8 +139,7 @@ public class TestArbitraryAggregation
                 stringAgg,
                 1.0,
                 "a",
-                createPage(
-                        new String[] {"a", "a"}));
+                createStringsBlock("a", "a"));
     }
 
     @Test
@@ -160,8 +151,7 @@ public class TestArbitraryAggregation
                 arrayAgg,
                 1.0,
                 null,
-                createPage(
-                        Arrays.asList(null, null, null, null)));
+                createArrayBigintBlock(Arrays.asList(null, null, null, null)));
     }
 
     @Test
@@ -173,32 +163,6 @@ public class TestArbitraryAggregation
                 arrayAgg,
                 1.0,
                 ImmutableList.of(23L, 45L),
-                createPage(
-                        ImmutableList.of(ImmutableList.of(23L, 45L), ImmutableList.of(23L, 45L), ImmutableList.of(23L, 45L), ImmutableList.of(23L, 45L))));
-    }
-
-    private static Page createPage(Boolean[] values)
-    {
-        return new Page(createBooleansBlock(values));
-    }
-
-    private static Page createPage(Long[] values)
-    {
-        return new Page(createLongsBlock(values));
-    }
-
-    private static Page createPage(Double[] values)
-    {
-        return new Page(createDoublesBlock(values));
-    }
-
-    private static Page createPage(String[] values)
-    {
-        return new Page(createStringsBlock(values));
-    }
-
-    private static Page createPage(Iterable<? extends Iterable<Long>> values)
-    {
-        return new Page(createArrayBigintBlock(values));
+                createArrayBigintBlock(ImmutableList.of(ImmutableList.of(23L, 45L), ImmutableList.of(23L, 45L), ImmutableList.of(23L, 45L), ImmutableList.of(23L, 45L))));
     }
 }
