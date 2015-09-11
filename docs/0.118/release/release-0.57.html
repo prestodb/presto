@@ -1,0 +1,120 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.62. Release 0.57 &mdash; Presto 0.118 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.118',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.118 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.63. Release 0.56" href="release-0.56.html" />
+    <link rel="prev" title="10.61. Release 0.58" href="release-0.58.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.118 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.62. Release 0.57</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.58.html">10.61. Release 0.58</a>
+    </span>
+    <span class="right">
+        <a href="release-0.56.html">10.63. Release 0.56</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-57">
+<h1>10.62. Release 0.57</h1>
+<div class="section" id="distinct-aggregations">
+<h2>Distinct Aggregations</h2>
+<p>The <tt class="docutils literal"><span class="pre">DISTINCT</span></tt> argument qualifier for aggregation functions is now
+fully supported. For example:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">country</span><span class="p">,</span> <span class="k">count</span><span class="p">(</span><span class="k">DISTINCT</span> <span class="n">city</span><span class="p">),</span> <span class="k">count</span><span class="p">(</span><span class="k">DISTINCT</span> <span class="n">age</span><span class="p">)</span>
+<span class="k">FROM</span> <span class="n">users</span>
+<span class="k">GROUP</span> <span class="k">BY</span> <span class="n">country</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last"><a class="reference internal" href="../functions/aggregate.html#approx_distinct" title="approx_distinct"><tt class="xref py py-func docutils literal"><span class="pre">approx_distinct()</span></tt></a> should be used in preference to this
+whenever an approximate answer is allowable as it is substantially
+faster and does not have any limits on the number of distinct items it
+can process. <tt class="docutils literal"><span class="pre">COUNT(DISTINCT</span> <span class="pre">...)</span></tt> must transfer every item over the
+network and keep each distinct item in memory.</p>
+</div>
+</div>
+<div class="section" id="hadoop-2-x">
+<h2>Hadoop 2.x</h2>
+<p>Use the <tt class="docutils literal"><span class="pre">hive-hadoop2</span></tt> connector to read Hive data from Hadoop 2.x.
+See <a class="reference internal" href="../installation/deployment.html"><em>Deploying Presto</em></a> for details.</p>
+</div>
+<div class="section" id="amazon-s3">
+<h2>Amazon S3</h2>
+<p>All Hive connectors support reading data from
+<a class="reference external" href="http://aws.amazon.com/s3/">Amazon S3</a>.
+This requires two additional catalog properties for the Hive connector
+to specify your AWS Access Key ID and Secret Access Key:</p>
+<div class="highlight-none"><div class="highlight"><pre>hive.s3.aws-access-key=AKIAIOSFODNN7EXAMPLE
+hive.s3.aws-secret-key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+</pre></div>
+</div>
+</div>
+<div class="section" id="miscellaneous">
+<h2>Miscellaneous</h2>
+<ul class="simple">
+<li>Allow specifying catalog and schema in the <a class="reference internal" href="../installation/jdbc.html"><em>JDBC Driver</em></a> URL.</li>
+<li>Implement more functionality in the JDBC driver.</li>
+<li>Allow certain custom <tt class="docutils literal"><span class="pre">InputFormat</span></tt>s to work by propagating
+Hive serialization properties to the <tt class="docutils literal"><span class="pre">RecordReader</span></tt>.</li>
+<li>Many execution engine performance improvements.</li>
+<li>Fix optimizer performance regression.</li>
+<li>Fix weird <tt class="docutils literal"><span class="pre">MethodHandle</span></tt> exception.</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.58.html">10.61. Release 0.58</a>
+    </span>
+    <span class="right">
+        <a href="release-0.56.html">10.63. Release 0.56</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
