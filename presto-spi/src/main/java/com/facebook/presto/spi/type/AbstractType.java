@@ -84,7 +84,7 @@ public abstract class AbstractType
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        throw new UnsupportedOperationException(getTypeSignature() + " type is not ordered");
+        throw new UnsupportedOperationException(getTypeSignature() + " type is not orderable");
     }
 
     @Override
