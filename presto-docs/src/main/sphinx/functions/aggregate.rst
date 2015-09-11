@@ -137,19 +137,34 @@ Approximate Aggregate Functions
     for any specific input set. The current implementation of this function
     requires that ``e`` be in the range: [0.01150, 0.26000].
 
-.. function:: approx_percentile(x, p) -> [same as input]
+.. function:: approx_percentile(x, percentage) -> [same as x]
 
     Returns the approximate percentile for all input values of ``x`` at the
-    percentage ``p``. The value of ``p`` must be between zero and one and
-    must be constant for all input rows.
+    given ''percentage''. The value of ``percentage`` must be between zero and
+    one and must be constant for all input rows.
 
-.. function:: approx_percentile(x, w, p) -> [same as input]
+.. function:: approx_percentile(x, percentages) -> array<[same as x]>
+
+    Returns the approximate percentile for all input values of ``x`` at each of
+    the percentages specified in the array. Each element of the array must be 
+    between zero and one, and the array must be constant for all input rows.
+
+.. function:: approx_percentile(x, w, percentage) -> [same as x]
 
     Returns the approximate weighed percentile for all input values of ``x``
     using the per-item weight ``w`` at the percentage ``p``. The weight must be
     an integer value of at least one. It is effectively a replication count for
     the value ``x`` in the percentile set. The value of ``p`` must be between
     zero and one and must be constant for all input rows.
+
+.. function:: approx_percentile(x, w, percentages) -> array<[same as x]>
+
+    Returns the approximate weighed percentile for all input values of ``x``
+    using the per-item weight ``w`` at each of the given percentages specified
+    in the array. The weight must be an integer value of at least one. It is
+    effectively a replication count for the value ``x`` in the percentile set.
+    Each element of the array must be between zero and one, and the array must
+    be constant for all input rows.
 
 .. function:: numeric_histogram(buckets, value, weight) -> map<double, double>
 
