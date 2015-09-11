@@ -15,7 +15,6 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
@@ -26,8 +25,6 @@ import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.ArrayType;
 import org.testng.annotations.Test;
-
-import java.util.List;
 
 import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
@@ -41,7 +38,6 @@ import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.VARBINARY;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static java.util.Arrays.asList;
 
@@ -54,7 +50,7 @@ public class TestChecksumAggregation
             throws Exception
     {
         InternalAggregationFunction booleanAgg = metadata.getExactFunction(new Signature("checksum", VARBINARY, BOOLEAN)).getAggregationFunction();
-        assertAggregation(booleanAgg, 1.0, null, createPage(new Boolean[] {}));
+        assertAggregation(booleanAgg, 1.0, null, createBooleansBlock());
     }
 
     @Test
@@ -62,8 +58,8 @@ public class TestChecksumAggregation
         throws Exception
     {
         InternalAggregationFunction booleanAgg = metadata.getExactFunction(new Signature("checksum", VARBINARY, BOOLEAN)).getAggregationFunction();
-        Page page = createPage(new Boolean[] {null, null, true, false, false});
-        assertAggregation(booleanAgg, 1.0, expectedChecksum(BooleanType.BOOLEAN, page), page);
+        Block block = createBooleansBlock(null, null, true, false, false);
+        assertAggregation(booleanAgg, 1.0, expectedChecksum(BooleanType.BOOLEAN, block), block);
     }
 
     @Test
@@ -71,8 +67,8 @@ public class TestChecksumAggregation
             throws Exception
     {
         InternalAggregationFunction longAgg = metadata.getExactFunction(new Signature("checksum", VARBINARY, BIGINT)).getAggregationFunction();
-        Page page = createPage(new Long[] {null, 1L, 2L, 100L, null, Long.MAX_VALUE, Long.MIN_VALUE});
-        assertAggregation(longAgg, 1.0, expectedChecksum(BigintType.BIGINT, page), page);
+        Block block = createLongsBlock(null, 1L, 2L, 100L, null, Long.MAX_VALUE, Long.MIN_VALUE);
+        assertAggregation(longAgg, 1.0, expectedChecksum(BigintType.BIGINT, block), block);
     }
 
     @Test
@@ -80,8 +76,8 @@ public class TestChecksumAggregation
             throws Exception
     {
         InternalAggregationFunction doubleAgg = metadata.getExactFunction(new Signature("checksum", VARBINARY, DOUBLE)).getAggregationFunction();
-        Page page = createPage(new Double[] {null, 2.0, null, 3.0, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, Double.NaN});
-        assertAggregation(doubleAgg, 1.0, expectedChecksum(DoubleType.DOUBLE, page), page);
+        Block block = createDoublesBlock(null, 2.0, null, 3.0, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, Double.NaN);
+        assertAggregation(doubleAgg, 1.0, expectedChecksum(DoubleType.DOUBLE, block), block);
     }
 
     @Test
@@ -89,8 +85,8 @@ public class TestChecksumAggregation
             throws Exception
     {
         InternalAggregationFunction stringAgg = metadata.getExactFunction(new Signature("checksum", VARBINARY, VARCHAR)).getAggregationFunction();
-        Page page = createPage(new String[] {"a", "a", null, "b", "c"});
-        assertAggregation(stringAgg, 1.0, expectedChecksum(VarcharType.VARCHAR, page), page);
+        Block block = createStringsBlock("a", "a", null, "b", "c");
+        assertAggregation(stringAgg, 1.0, expectedChecksum(VarcharType.VARCHAR, block), block);
     }
 
     @Test
@@ -99,15 +95,13 @@ public class TestChecksumAggregation
     {
         ArrayType arrayType = new ArrayType(BigintType.BIGINT);
         InternalAggregationFunction stringAgg = metadata.getExactFunction(new Signature("checksum", VarbinaryType.VARBINARY.getTypeSignature(), arrayType.getTypeSignature())).getAggregationFunction();
-        Page page = createPage(asList(null, asList(1L, 2L), asList(3L, 4L), asList(5L, 6L)));
-        assertAggregation(stringAgg, 1.0, expectedChecksum(arrayType, page), page);
+        Block block = createArrayBigintBlock(asList(null, asList(1L, 2L), asList(3L, 4L), asList(5L, 6L)));
+        assertAggregation(stringAgg, 1.0, expectedChecksum(arrayType, block), block);
     }
 
-    private static SqlVarbinary expectedChecksum(Type type, Page page)
+    private static SqlVarbinary expectedChecksum(Type type, Block block)
     {
-        checkArgument(page.getChannelCount() == 1);
         long result = 0;
-        Block block = page.getBlock(0);
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (block.isNull(i)) {
                 result += PRIME64;
@@ -117,30 +111,5 @@ public class TestChecksumAggregation
             }
         }
         return new SqlVarbinary(wrappedLongArray(result).getBytes());
-    }
-
-    private static Page createPage(List<List<Long>> values)
-    {
-        return new Page(createArrayBigintBlock(values));
-    }
-
-    private static Page createPage(Boolean[] values)
-    {
-        return new Page(createBooleansBlock(values));
-    }
-
-    private static Page createPage(Long[] values)
-    {
-        return new Page(createLongsBlock(values));
-    }
-
-    private static Page createPage(Double[] values)
-    {
-        return new Page(createDoublesBlock(values));
-    }
-
-    private static Page createPage(String[] values)
-    {
-        return new Page(createStringsBlock(values));
     }
 }

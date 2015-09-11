@@ -19,7 +19,6 @@ import com.facebook.presto.operator.aggregation.state.MaxOrMinByState;
 import com.facebook.presto.operator.aggregation.state.MaxOrMinByStateFactory;
 import com.facebook.presto.operator.aggregation.state.MaxOrMinByStateSerializer;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -79,9 +78,8 @@ public class TestMinMaxByAggregation
                 function,
                 1.0,
                 1.0,
-                createPage(
-                        new Double[] {1.0, null},
-                        new Double[] {1.0, 2.0}));
+                createDoublesBlock(1.0, null),
+                createDoublesBlock(1.0, 2.0));
     }
 
     @Test
@@ -92,9 +90,8 @@ public class TestMinMaxByAggregation
                 function,
                 1.0,
                 null,
-                createPage(
-                        new Double[] {1.0, null},
-                        new Double[] {1.0, 2.0}));
+                createDoublesBlock(1.0, null),
+                createDoublesBlock(1.0, 2.0));
     }
 
     @Test
@@ -106,23 +103,15 @@ public class TestMinMaxByAggregation
                 function,
                 1.0,
                 null,
-                createPage(
-                        new Double[] {null},
-                        new Double[] {null}),
-                createPage(
-                        new Double[] {null},
-                        new Double[] {null}));
+                createDoublesBlock(null, null),
+                createDoublesBlock(null, null));
 
         assertAggregation(
                 function,
                 1.0,
                 3.0,
-                createPage(
-                        new Double[] {3.0, 2.0},
-                        new Double[] {1.0, 1.5}),
-                createPage(
-                        new Double[] {5.0, 3.0},
-                        new Double[] {2.0, 4.0}));
+                createDoublesBlock(3.0, 2.0, 5.0, 3.0),
+                createDoublesBlock(1.0, 1.5, 2.0, 4.0));
     }
 
     @Test
@@ -133,23 +122,15 @@ public class TestMinMaxByAggregation
                 function,
                 1.0,
                 null,
-                createPage(
-                        new Double[] {null},
-                        new Double[] {null}),
-                createPage(
-                        new Double[] {null},
-                        new Double[] {null}));
+                createDoublesBlock(null, null),
+                createDoublesBlock(null, null));
 
         assertAggregation(
                 function,
                 1.0,
                 2.0,
-                createPage(
-                        new Double[] {3.0, 2.0},
-                        new Double[] {1.0, 1.5}),
-                createPage(
-                        new Double[] {null},
-                        new Double[] {null}));
+                createDoublesBlock(3.0, 2.0, null),
+                createDoublesBlock(1.0, 1.5, null));
     }
 
     @Test
@@ -160,23 +141,15 @@ public class TestMinMaxByAggregation
                 function,
                 1.0,
                 "z",
-                createPage(
-                        new String[] {"z", "a"},
-                        new Double[] {1.0, 2.0}),
-                createPage(
-                        new String[] {"x", "b"},
-                        new Double[] {2.0, 3.0}));
+                createStringsBlock("z", "a", "x", "b"),
+                createDoublesBlock(1.0, 2.0, 2.0, 3.0));
 
         assertAggregation(
                 function,
                 1.0,
                 "a",
-                createPage(
-                        new String[] {"zz", "hi"},
-                        new Double[] {0.0, 1.0}),
-                createPage(
-                        new String[] {"bb", "a"},
-                        new Double[] {2.0, -1.0}));
+                createStringsBlock("zz", "hi", "bb", "a"),
+                createDoublesBlock(0.0, 1.0, 2.0, -1.0));
     }
 
     @Test
@@ -187,23 +160,15 @@ public class TestMinMaxByAggregation
                 function,
                 1.0,
                 "a",
-                createPage(
-                        new String[] {"z", "a"},
-                        new Double[] {1.0, 2.0}),
-                createPage(
-                        new String[] {null},
-                        new Double[] {null}));
+                createStringsBlock("z", "a", null),
+                createDoublesBlock(1.0, 2.0, null));
 
         assertAggregation(
                 function,
                 1.0,
                 "hi",
-                createPage(
-                        new String[] {"zz", "hi"},
-                        new Double[] {0.0, 1.0}),
-                createPage(
-                        new String[] {null, "a"},
-                        new Double[] {null, -1.0}));
+                createStringsBlock("zz", "hi", null, "a"),
+                createDoublesBlock(0.0, 1.0, null, -1.0));
     }
 
     @Test
@@ -236,16 +201,6 @@ public class TestMinMaxByAggregation
         result.setKey(createStringsBlock(key));
         result.setValue(createDoublesBlock(value));
         return result;
-    }
-
-    private static Page createPage(Double[] values, Double[] keys)
-    {
-        return new Page(createDoublesBlock(values), createDoublesBlock(keys));
-    }
-
-    private static Page createPage(String[] values, Double[] keys)
-    {
-        return new Page(createStringsBlock(values), createDoublesBlock(keys));
     }
 
     private static class CustomDoubleType

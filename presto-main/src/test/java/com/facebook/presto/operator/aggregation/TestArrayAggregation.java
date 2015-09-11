@@ -15,22 +15,17 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.SqlDate;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.ArrayType;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 
+import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestArrayAggregation
 {
@@ -45,7 +40,7 @@ public class TestArrayAggregation
                 bigIntAgg,
                 1.0,
                 null,
-                new Page(createLongsBlock(new Long[] {})));
+                createLongsBlock(new Long[] {}));
     }
 
     @Test
@@ -57,7 +52,7 @@ public class TestArrayAggregation
                 bigIntAgg,
                 1.0,
                 null,
-                new Page(createLongsBlock(new Long[] {null, null, null})));
+                createLongsBlock(new Long[] {null, null, null}));
     }
 
     @Test
@@ -69,7 +64,7 @@ public class TestArrayAggregation
                 bigIntAgg,
                 1.0,
                 Arrays.asList(2L, 3L),
-                new Page(createLongsBlock(new Long[] {null, 2L, null, 3L, null})));
+                createLongsBlock(new Long[] {null, 2L, null, 3L, null}));
     }
 
     @Test
@@ -81,7 +76,7 @@ public class TestArrayAggregation
                 booleanAgg,
                 1.0,
                 Arrays.asList(true, false),
-                new Page(createBooleansBlock(new Boolean[] {true, false})));
+                createBooleansBlock(new Boolean[] {true, false}));
     }
 
     @Test
@@ -93,7 +88,7 @@ public class TestArrayAggregation
                 bigIntAgg,
                 1.0,
                 Arrays.asList(2L, 1L, 2L),
-                new Page(createLongsBlock(new Long[] {2L, 1L, 2L})));
+                createLongsBlock(new Long[] {2L, 1L, 2L}));
     }
 
     @Test
@@ -105,7 +100,7 @@ public class TestArrayAggregation
                 varcharAgg,
                 1.0,
                 Arrays.asList("hello", "world"),
-                new Page(createStringsBlock(new String[] {"hello", "world"})));
+                createStringsBlock(new String[] {"hello", "world"}));
     }
 
     @Test
@@ -117,7 +112,7 @@ public class TestArrayAggregation
                 varcharAgg,
                 1.0,
                 Arrays.asList(new SqlDate(1), new SqlDate(2), new SqlDate(4)),
-                new Page(createLongsBlock(new Long[] {1L, 2L, 4L})));
+                createLongsBlock(new Long[] {1L, 2L, 4L}));
     }
 
     @Test
@@ -126,28 +121,10 @@ public class TestArrayAggregation
     {
         InternalAggregationFunction varcharAgg = metadata.getExactFunction(new Signature("array_agg", "array<array<bigint>>", "array<bigint>")).getAggregationFunction();
 
-        Type arrayType = new ArrayType(BIGINT);
-        BlockBuilder builder = arrayType.createBlockBuilder(new BlockBuilderStatus(), 100);
-
-        BlockBuilder variableWidthBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 100);
-        BIGINT.writeLong(variableWidthBlockBuilder, 1);
-        arrayType.writeObject(builder, variableWidthBlockBuilder);
-
-        variableWidthBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 100);
-        BIGINT.writeLong(variableWidthBlockBuilder, 1);
-        BIGINT.writeLong(variableWidthBlockBuilder, 2);
-        arrayType.writeObject(builder, variableWidthBlockBuilder);
-
-        variableWidthBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 100);
-        BIGINT.writeLong(variableWidthBlockBuilder, 1);
-        BIGINT.writeLong(variableWidthBlockBuilder, 2);
-        BIGINT.writeLong(variableWidthBlockBuilder, 3);
-        arrayType.writeObject(builder, variableWidthBlockBuilder);
-
         assertAggregation(
                 varcharAgg,
                 1.0,
                 Arrays.asList(Arrays.asList(1L), Arrays.asList(1L, 2L), Arrays.asList(1L, 2L, 3L)),
-                new Page(builder.build()));
+                createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(1L, 2L), ImmutableList.of(1L, 2L, 3L))));
     }
 }
