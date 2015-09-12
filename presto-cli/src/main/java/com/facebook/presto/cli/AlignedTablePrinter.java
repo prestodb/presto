@@ -31,6 +31,7 @@ import static com.google.common.collect.Iterables.transform;
 import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Math.max;
 import static java.lang.String.format;
+import static jline.console.WCWidth.wcwidth;
 
 public class AlignedTablePrinter
         implements OutputPrinter
@@ -70,7 +71,7 @@ public class AlignedTablePrinter
 
         int[] maxWidth = new int[columns];
         for (int i = 0; i < columns; i++) {
-            maxWidth[i] = max(1, fieldNames.get(i).length());
+            maxWidth[i] = max(1, consoleWidth(fieldNames.get(i)));
         }
         for (List<?> row : rows) {
             for (int i = 0; i < row.size(); i++) {
@@ -164,19 +165,18 @@ public class AlignedTablePrinter
 
     private static String center(String s, int maxWidth, int padding)
     {
-        AnsiString ansiString = new AnsiString(s);
-
-        checkState(ansiString.length() <= maxWidth, "string length is greater than max width");
-        int left = (maxWidth - ansiString.length()) / 2;
-        int right = maxWidth - (left + ansiString.length());
+        int width = consoleWidth(s);
+        checkState(width <= maxWidth, "string width is greater than max width");
+        int left = (maxWidth - width) / 2;
+        int right = maxWidth - (left + width);
         return repeat(" ", left + padding) + s + repeat(" ", right + padding);
     }
 
     private static String align(String s, int maxWidth, int padding, boolean right)
     {
-        AnsiString ansiString = new AnsiString(s);
-        checkState(ansiString.length() <= maxWidth, "string length is greater than max width");
-        String large = repeat(" ", (maxWidth - ansiString.length()) + padding);
+        int width = consoleWidth(s);
+        checkState(width <= maxWidth, "string width is greater than max width");
+        String large = repeat(" ", (maxWidth - width) + padding);
         String small = repeat(" ", padding);
         return right ? (large + s + small) : (small + s + large);
     }
@@ -185,7 +185,22 @@ public class AlignedTablePrinter
     {
         int n = 0;
         for (String line : LINE_SPLITTER.split(s)) {
-            n = max(n, new AnsiString(line).length());
+            n = max(n, consoleWidth(line));
+        }
+        return n;
+    }
+
+    static int consoleWidth(String s)
+    {
+        return consoleWidth(new AnsiString(s));
+    }
+
+    private static int consoleWidth(AnsiString s)
+    {
+        CharSequence plain = s.getPlain();
+        int n = 0;
+        for (int i = 0; i < plain.length(); i++) {
+            n += max(wcwidth(plain.charAt(i)), 0);
         }
         return n;
     }
