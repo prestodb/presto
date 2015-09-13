@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc.stream;
 
-import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamDwrfCheckpoint;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
@@ -89,7 +88,6 @@ public class LongStreamDwrf
             throws IOException
     {
         checkPositionIndex(items, vector.length);
-        checkPositionIndex(items, OrcReader.MAX_BATCH_SIZE);
 
         for (int i = 0; i < items; i++) {
             vector[i] = Ints.checkedCast(next());

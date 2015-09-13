@@ -14,7 +14,6 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
@@ -53,7 +52,7 @@ public class LongDictionaryStreamReader
     private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
     @Nullable
     private BooleanStream presentStream;
-    private final boolean[] nullVector = new boolean[OrcReader.MAX_BATCH_SIZE];
+    private boolean[] nullVector = new boolean[0];
 
     @Nonnull
     private StreamSource<LongStream> dictionaryDataStreamSource = missingStreamSource(LongStream.class);
@@ -65,13 +64,13 @@ public class LongDictionaryStreamReader
     private StreamSource<BooleanStream> inDictionaryStreamSource = missingStreamSource(BooleanStream.class);
     @Nullable
     private BooleanStream inDictionaryStream;
-    private final boolean[] inDictionary = new boolean[OrcReader.MAX_BATCH_SIZE];
+    private boolean[] inDictionary = new boolean[0];
 
     @Nonnull
     private StreamSource<LongStream> dataStreamSource;
     @Nullable
     private LongStream dataStream;
-    private final long[] dataVector = new long[OrcReader.MAX_BATCH_SIZE];
+    private long[] dataVector = new long[0];
 
     private boolean dictionaryOpen;
     private boolean rowGroupOpen;
@@ -115,6 +114,12 @@ public class LongDictionaryStreamReader
             }
         }
 
+        if (nullVector.length < nextBatchSize) {
+            nullVector = new boolean[nextBatchSize];
+        }
+        if (dataVector.length < nextBatchSize) {
+            dataVector = new long[nextBatchSize];
+        }
         if (presentStream == null) {
             if (dataStream == null) {
                 throw new OrcCorruptionException("Value is not null but data stream is not present");
@@ -132,6 +137,9 @@ public class LongDictionaryStreamReader
             }
         }
 
+        if (inDictionary.length < nextBatchSize) {
+            inDictionary = new boolean[nextBatchSize];
+        }
         if (inDictionaryStream == null) {
             Arrays.fill(inDictionary, true);
         }

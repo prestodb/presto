@@ -17,13 +17,16 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
-import com.facebook.presto.orc.stream.ByteStream;
+import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.primitives.Ints;
+import io.airlift.slice.Slices;
+import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -31,16 +34,19 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
+import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class ByteStreamReader
+public class ListStreamReader
         implements StreamReader
 {
     private final StreamDescriptor streamDescriptor;
+
+    private final StreamReader elementStreamReader;
 
     private int readOffset;
     private int nextBatchSize;
@@ -49,18 +55,18 @@ public class ByteStreamReader
     private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
     @Nullable
     private BooleanStream presentStream;
-    private boolean[] nullVector = new boolean[0];
 
     @Nonnull
-    private StreamSource<ByteStream> dataStreamSource = missingStreamSource(ByteStream.class);
+    private StreamSource<LongStream> lengthStreamSource = missingStreamSource(LongStream.class);
     @Nullable
-    private ByteStream dataStream;
+    private LongStream lengthStream;
 
     private boolean rowGroupOpen;
 
-    public ByteStreamReader(StreamDescriptor streamDescriptor)
+    public ListStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.elementStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone);
     }
 
     @Override
@@ -85,49 +91,59 @@ public class ByteStreamReader
                 readOffset = presentStream.countBitsSet(readOffset);
             }
             if (readOffset > 0) {
-                if (dataStream == null) {
+                if (lengthStream == null) {
                     throw new OrcCorruptionException("Value is not null but data stream is not present");
                 }
-                dataStream.skip(readOffset);
+                long elementSkipSize = lengthStream.sum(readOffset);
+                elementStreamReader.prepareNextRead(Ints.checkedCast(elementSkipSize));
             }
         }
 
-        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
+        int[] offsets = new int[nextBatchSize];
+        boolean[] nullVector = new boolean[nextBatchSize];
         if (presentStream == null) {
-            if (dataStream == null) {
+            if (lengthStream == null) {
                 throw new OrcCorruptionException("Value is not null but data stream is not present");
             }
-            dataStream.nextVector(type, nextBatchSize, builder);
+            lengthStream.nextIntVector(nextBatchSize, offsets);
         }
         else {
-            if (nullVector.length < nextBatchSize) {
-                nullVector = new boolean[nextBatchSize];
-            }
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
-                if (dataStream == null) {
+                if (lengthStream == null) {
                     throw new OrcCorruptionException("Value is not null but data stream is not present");
                 }
-                dataStream.nextVector(type, nextBatchSize, builder, nullVector);
-            }
-            else {
-                for (int i = 0; i < nextBatchSize; i++) {
-                    builder.appendNull();
-                }
+                lengthStream.nextIntVector(nextBatchSize, offsets, nullVector);
             }
         }
+        for (int i = 1; i < offsets.length; i++) {
+            offsets[i] += offsets[i - 1];
+        }
+
+        Type elementType = type.getTypeParameters().get(0);
+        int elementCount = offsets[offsets.length - 1];
+
+        Block elements;
+        if (elementCount > 0) {
+            elementStreamReader.prepareNextRead(elementCount);
+            elements = elementStreamReader.readBlock(elementType);
+        }
+        else {
+            elements = elementType.createBlockBuilder(new BlockBuilderStatus(), 0).build();
+        }
+        ArrayBlock arrayBlock = new ArrayBlock(elements, Slices.wrappedIntArray(offsets), 0, Slices.wrappedBooleanArray(nullVector));
 
         readOffset = 0;
         nextBatchSize = 0;
 
-        return builder.build();
+        return arrayBlock;
     }
 
     private void openRowGroup()
             throws IOException
     {
         presentStream = presentStreamSource.openStream();
-        dataStream = dataStreamSource.openStream();
+        lengthStream = lengthStreamSource.openStream();
 
         rowGroupOpen = true;
     }
@@ -137,15 +153,17 @@ public class ByteStreamReader
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanStream.class);
-        dataStreamSource = missingStreamSource(ByteStream.class);
+        lengthStreamSource = missingStreamSource(LongStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
 
         presentStream = null;
-        dataStream = null;
+        lengthStream = null;
 
         rowGroupOpen = false;
+
+        elementStreamReader.startStripe(dictionaryStreamSources, encoding);
     }
 
     @Override
@@ -153,15 +171,17 @@ public class ByteStreamReader
             throws IOException
     {
         presentStreamSource = dataStreamSources.getStreamSource(streamDescriptor, PRESENT, BooleanStream.class);
-        dataStreamSource = dataStreamSources.getStreamSource(streamDescriptor, DATA, ByteStream.class);
+        lengthStreamSource = dataStreamSources.getStreamSource(streamDescriptor, LENGTH, LongStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
 
         presentStream = null;
-        dataStream = null;
+        lengthStream = null;
 
         rowGroupOpen = false;
+
+        elementStreamReader.startRowGroup(dataStreamSources);
     }
 
     @Override
