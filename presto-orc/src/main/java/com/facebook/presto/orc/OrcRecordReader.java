@@ -24,6 +24,7 @@ import com.facebook.presto.orc.metadata.StripeStatistics;
 import com.facebook.presto.orc.reader.StreamReader;
 import com.facebook.presto.orc.reader.StreamReaders;
 import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -273,16 +274,10 @@ public class OrcRecordReader
         return currentBatchSize;
     }
 
-    public void readVector(int columnIndex, Object vector)
+    public Block readBlock(Type type, int columnIndex)
             throws IOException
     {
-        streamReaders[columnIndex].readBatch(vector);
-    }
-
-    public void readVector(Type type, int columnIndex, Object vector)
-            throws IOException
-    {
-        streamReaders[columnIndex].readBatch(type, vector);
+        return streamReaders[columnIndex].readBlock(type);
     }
 
     public StreamReader getStreamReader(int index)

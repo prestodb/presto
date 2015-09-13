@@ -17,10 +17,7 @@ import com.facebook.hive.orc.OrcConf;
 import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.AbstractVariableWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -34,7 +31,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
-import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.fs.Path;
@@ -78,12 +74,10 @@ import static com.facebook.presto.orc.OrcTester.Compression.ZLIB;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
-import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Functions.constant;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Iterators.advance;
@@ -354,8 +348,6 @@ public class OrcTester
         assertEquals(recordReader.getReaderPosition(), 0);
         assertEquals(recordReader.getFilePosition(), 0);
 
-        Object resultObject = createResultsVector(objectInspector);
-
         boolean isFirst = true;
         int rowsProcessed = 0;
         Iterator<?> iterator = expectedValues.iterator();
@@ -368,39 +360,14 @@ public class OrcTester
                 isFirst = false;
             }
             else {
-                recordReader.readVector(type, 0, resultObject);
+                Block block = recordReader.readBlock(type, 0);
+                for (int i = 0; i < batchSize; i++) {
+                    assertTrue(iterator.hasNext());
+                    Object expected = iterator.next();
 
-                if (objectInspector instanceof PrimitiveObjectInspector) {
-                    Vector vector = (Vector) resultObject;
-                    ObjectVector objectVector = vector.toObjectVector(batchSize);
-                    for (int i = 0; i < batchSize; i++) {
-                        assertTrue(iterator.hasNext());
-                        Object expected = iterator.next();
+                    Object actual = decodeObject(type, block, i);
 
-                        Object actual = objectVector.vector[i];
-                        if (actual instanceof Slice) {
-                            actual = decodeObject(type, actual);
-                        }
-
-                        assertEquals(actual, expected);
-                    }
-                }
-                else {
-                    Block block = (Block) ((SingleObjectVector) resultObject).object;
-                    for (int i = 0; i < batchSize; i++) {
-                        assertTrue(iterator.hasNext());
-                        Object expected = iterator.next();
-
-                        Object actual;
-                        if (block.isNull(i)) {
-                            actual = null;
-                        }
-                        else {
-                            actual = decodeObject(type, type.getObject(block, i));
-                        }
-
-                        assertEquals(actual, expected);
-                    }
+                    assertEquals(actual, expected);
                 }
             }
             assertEquals(recordReader.getReaderPosition(), rowsProcessed);
@@ -412,36 +379,6 @@ public class OrcTester
         assertEquals(recordReader.getReaderPosition(), rowsProcessed);
         assertEquals(recordReader.getFilePosition(), rowsProcessed);
         recordReader.close();
-    }
-
-    private static Vector createResultsVector(ObjectInspector objectInspector)
-    {
-        if (!(objectInspector instanceof PrimitiveObjectInspector)) {
-            return new SingleObjectVector();
-        }
-
-        PrimitiveObjectInspector primitiveObjectInspector = (PrimitiveObjectInspector) objectInspector;
-        PrimitiveCategory primitiveCategory = primitiveObjectInspector.getPrimitiveCategory();
-
-        switch (primitiveCategory) {
-            case BOOLEAN:
-                return new BooleanVector(MAX_BATCH_SIZE);
-            case BYTE:
-            case SHORT:
-            case INT:
-            case LONG:
-            case DATE:
-            case TIMESTAMP:
-                return new LongVector(MAX_BATCH_SIZE);
-            case FLOAT:
-            case DOUBLE:
-                return new DoubleVector(MAX_BATCH_SIZE);
-            case BINARY:
-            case STRING:
-                return new SliceVector(MAX_BATCH_SIZE);
-            default:
-                throw new IllegalArgumentException("Unsupported types " + primitiveCategory);
-        }
     }
 
     static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, MetadataReader metadataReader, OrcPredicate predicate, Type type)
@@ -675,77 +612,56 @@ public class OrcTester
         return asList(input, input, input, input);
     }
 
-    private static Object decodeObject(Type type, Object object)
+    private static Object decodeObject(Type type, Block block, int position)
     {
+        if (block.isNull(position)) {
+            return null;
+        }
+
         String base = type.getTypeSignature().getBase();
         if (base.equals(ARRAY)) {
-            Block block = (Block) object;
+            Block arrayBlock = (Block) type.getObject(block, position);
 
             Type elementType = type.getTypeParameters().get(0);
 
             List<Object> array = new ArrayList<>();
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                array.add(getBlockValue(block, position, elementType));
+            for (int entry = 0; entry < arrayBlock.getPositionCount(); entry++) {
+                array.add(decodeObject(elementType, arrayBlock, entry));
             }
             return array;
         }
-        else if (base.equals(ROW)) {
-            Block block = (Block) object;
+        if (base.equals(ROW)) {
+            Block rowBlock = (Block) type.getObject(block, position);
 
             List<Type> fieldTypes = type.getTypeParameters();
 
             List<Object> row = new ArrayList<>();
-            for (int field = 0; field < block.getPositionCount(); field++) {
-                row.add(getBlockValue(block, field, fieldTypes.get(field)));
+            for (int field = 0; field < fieldTypes.size(); field++) {
+                row.add(decodeObject(fieldTypes.get(field), rowBlock, field));
             }
             return row;
         }
-        else if (base.equals(MAP)) {
-            Block block = (Block) object;
+        if (base.equals(MAP)) {
+            Block mapBlock = (Block) type.getObject(block, position);
 
             Type keyType = type.getTypeParameters().get(0);
             Type valueType = type.getTypeParameters().get(1);
 
             Map<Object, Object> map = new LinkedHashMap<>();
-            int entryCount = block.getPositionCount() / 2;
+            int entryCount = mapBlock.getPositionCount() / 2;
             for (int entry = 0; entry < entryCount; entry++) {
                 int blockPosition = entry * 2;
-                Object key = getBlockValue(block, blockPosition, keyType);
+                Object key = decodeObject(keyType, mapBlock, blockPosition);
                 // null keys are not allowed
                 if (key != null) {
-                    Object value = getBlockValue(block, blockPosition + 1, valueType);
+                    Object value = decodeObject(valueType, mapBlock, blockPosition + 1);
                     map.put(key, value);
                 }
             }
             return map;
         }
-        if (type.equals(VARCHAR) || type.equals(VARBINARY)) {
-            Slice slice = (Slice) object;
-            return slice.toStringUtf8();
-        }
 
-        throw new IllegalArgumentException("Unsupported type: " + type);
-    }
-
-    private static Object getBlockValue(Block block, int position, Type type)
-    {
-        if (block.isNull(position)) {
-            return null;
-        }
-        Class<?> javaType = type.getJavaType();
-        if (javaType == boolean.class) {
-            return type.getBoolean(block, position);
-        }
-        if (javaType == long.class) {
-            return type.getLong(block, position);
-        }
-        if (javaType == double.class) {
-            return type.getDouble(block, position);
-        }
-        if (javaType == Slice.class) {
-            return decodeObject(type, type.getSlice(block, position));
-        }
-        return decodeObject(type, type.getObject(block, position));
+        return type.getObjectValue(SESSION, block, position);
     }
 
     private static boolean hasType(ObjectInspector objectInspector, PrimitiveCategory... types)
@@ -794,47 +710,5 @@ public class OrcTester
     {
         TypeSignature[] typeSignatures = Arrays.stream(fieldTypes).map(Type::getTypeSignature).toArray(TypeSignature[]::new);
         return TYPE_MANAGER.getParameterizedType(ROW, ImmutableList.copyOf(typeSignatures), ImmutableList.of());
-    }
-
-    private static class MockStructuralType
-            extends AbstractVariableWidthType
-    {
-        private final List<Type> types;
-
-        public MockStructuralType(String base, List<Type> types)
-        {
-            super(new TypeSignature(base, ImmutableList.copyOf(transform(types, Type::getTypeSignature)), ImmutableList.of()), Slice.class);
-            this.types = types;
-        }
-
-        @Override
-        public Object getObjectValue(ConnectorSession session, Block block, int position)
-        {
-            return null;
-        }
-
-        @Override
-        public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public List<Type> getTypeParameters()
-        {
-            return ImmutableList.copyOf(types);
-        }
-
-        @Override
-        public Slice getSlice(Block block, int position)
-        {
-            return block.getSlice(position, 0, block.getLength(position));
-        }
-
-        @Override
-        public void writeSlice(BlockBuilder blockBuilder, Slice value)
-        {
-            blockBuilder.writeBytes(value, 0, value.length()).closeEntry();
-        }
     }
 }

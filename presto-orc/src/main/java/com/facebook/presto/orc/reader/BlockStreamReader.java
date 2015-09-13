@@ -14,7 +14,6 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.OrcReader;
-import com.facebook.presto.orc.SingleObjectVector;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.block.BlockReader;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -80,14 +79,7 @@ public class BlockStreamReader
     }
 
     @Override
-    public void readBatch(Object vector)
-            throws IOException
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void readBatch(Type type, Object vector)
+    public Block readBlock(Type type)
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -122,8 +114,7 @@ public class BlockStreamReader
         readOffset = 0;
         nextBatchSize = 0;
 
-        Block result = blockBuilder.build();
-        OrcReaderUtils.castOrcVector(vector, SingleObjectVector.class).object = result;
+        return blockBuilder.build();
     }
 
     private void openRowGroup()

@@ -17,6 +17,8 @@ import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamDwrfCheckpoint;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
 
 import java.io.IOException;
@@ -123,6 +125,29 @@ public class LongStreamDwrf
         for (int i = 0; i < items; i++) {
             if (!isNull[i]) {
                 vector[i] = next();
+            }
+        }
+    }
+
+    @Override
+    public void nextLongVector(Type type, int items, BlockBuilder builder)
+            throws IOException
+    {
+        for (int i = 0; i < items; i++) {
+            type.writeLong(builder, next());
+        }
+    }
+
+    @Override
+    public void nextLongVector(Type type, int items, BlockBuilder builder, boolean[] isNull)
+            throws IOException
+    {
+        for (int i = 0; i < items; i++) {
+            if (isNull[i]) {
+                builder.appendNull();
+            }
+            else {
+                type.writeLong(builder, next());
             }
         }
     }

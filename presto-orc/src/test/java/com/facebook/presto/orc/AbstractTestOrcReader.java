@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.SqlVarbinary;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ContiguousSet;
@@ -37,7 +39,10 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Functions.compose;
@@ -153,16 +158,13 @@ public abstract class AbstractTestOrcReader
 
         tester.testRoundTrip(javaTimestampObjectInspector,
                 transform(writeValues, AbstractTestOrcReader::intToTimestamp),
-                AbstractTestOrcReader::timestampToLong,
-                BIGINT);
+                transform(writeValues, AbstractTestOrcReader::intToSqlTimestamp),
+                TIMESTAMP);
 
-        // date has three representations
-        // normal format: DAYS since 1970
-        // json stack: is milliseconds UTC since 1970
         tester.testRoundTrip(javaDateObjectInspector,
                 transform(writeValues, AbstractTestOrcReader::intToDate),
-                transform(writeValues, AbstractTestOrcReader::intToDays),
-                DateType.DATE);
+                transform(writeValues, AbstractTestOrcReader::intToSqlDate),
+                DATE);
     }
 
     @Test
@@ -235,7 +237,7 @@ public abstract class AbstractTestOrcReader
         Iterable<byte[]> writeValues = transform(intsBetween(0, 30_000), compose(AbstractTestOrcReader::stringToByteArray, Object::toString));
         tester.testRoundTrip(javaByteArrayObjectInspector,
                 writeValues,
-                transform(writeValues, AbstractTestOrcReader::byteArrayToString),
+                transform(writeValues, AbstractTestOrcReader::byteArrayToVarbinary),
                 VARBINARY);
     }
 
@@ -246,7 +248,7 @@ public abstract class AbstractTestOrcReader
         Iterable<byte[]> writeValues = limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), compose(AbstractTestOrcReader::stringToByteArray, Object::toString))), 30_000);
         tester.testRoundTrip(javaByteArrayObjectInspector,
                 writeValues,
-                transform(writeValues, AbstractTestOrcReader::byteArrayToString),
+                transform(writeValues, AbstractTestOrcReader::byteArrayToVarbinary),
                 VARBINARY);
     }
 
@@ -254,7 +256,7 @@ public abstract class AbstractTestOrcReader
     public void testEmptyBinarySequence()
             throws Exception
     {
-        tester.testRoundTrip(javaByteArrayObjectInspector, limit(cycle(new byte[0]), 30_000), AbstractTestOrcReader::byteArrayToString, VARBINARY);
+        tester.testRoundTrip(javaByteArrayObjectInspector, limit(cycle(new byte[0]), 30_000), AbstractTestOrcReader::byteArrayToVarbinary, VARBINARY);
     }
 
     @Test
@@ -268,7 +270,7 @@ public abstract class AbstractTestOrcReader
                         Collections.nCopies(1_000_000, null))),
                 200_000);
 
-        tester.assertRoundTrip(javaIntObjectInspector, values, transform(values, value -> value == null ? null : (long) value), VARCHAR);
+        tester.assertRoundTrip(javaIntObjectInspector, values, transform(values, value -> value == null ? null : (long) value), BIGINT);
 
         Iterable<String> stringValue = transform(values, value -> value == null ? null : String.valueOf(value));
         tester.assertRoundTrip(javaStringObjectInspector, stringValue, stringValue, VARCHAR);
@@ -425,7 +427,7 @@ public abstract class AbstractTestOrcReader
         int nanos = ((input % 1000) * 1_000_000);
 
         // add some junk nanos to the timestamp, which will be truncated
-        nanos += 888_8888;
+        nanos += 888_888;
 
         if (nanos < 0) {
             nanos += 1_000_000_000;
@@ -435,17 +437,17 @@ public abstract class AbstractTestOrcReader
             nanos -= 1_000_000_000;
             seconds += 1;
         }
-        timestamp.setTime(seconds);
+        timestamp.setTime(seconds * 1000);
         timestamp.setNanos(nanos);
         return timestamp;
     }
 
-    private static Long timestampToLong(Timestamp input)
+    private static SqlTimestamp intToSqlTimestamp(Integer input)
     {
         if (input == null) {
             return null;
         }
-        return input.getTime();
+        return new SqlTimestamp(input, UTC_KEY);
     }
 
     private static Date intToDate(Integer input)
@@ -458,12 +460,12 @@ public abstract class AbstractTestOrcReader
         return date;
     }
 
-    private static Long intToDays(Integer input)
+    private static SqlDate intToSqlDate(Integer input)
     {
         if (input == null) {
             return null;
         }
-        return (long) input;
+        return new SqlDate(input);
     }
 
     private static byte[] stringToByteArray(String input)
@@ -471,11 +473,11 @@ public abstract class AbstractTestOrcReader
         return input.getBytes(UTF_8);
     }
 
-    private static String byteArrayToString(byte[] input)
+    private static SqlVarbinary byteArrayToVarbinary(byte[] input)
     {
         if (input == null) {
             return null;
         }
-        return new String(input, UTF_8);
+        return new SqlVarbinary(input);
     }
 }

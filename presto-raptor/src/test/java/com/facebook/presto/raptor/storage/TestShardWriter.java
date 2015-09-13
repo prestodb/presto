@@ -14,13 +14,8 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.orc.BooleanVector;
-import com.facebook.presto.orc.DoubleVector;
-import com.facebook.presto.orc.LongVector;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
-import com.facebook.presto.orc.SingleObjectVector;
-import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.type.Type;
@@ -107,69 +102,58 @@ public class TestShardWriter
             assertEquals(reader.getReaderPosition(), 0);
             assertEquals(reader.getFilePosition(), reader.getFilePosition());
 
-            LongVector longVector = new LongVector(3);
-            reader.readVector(0, longVector);
-            assertEquals(longVector.isNull[0], false);
-            assertEquals(longVector.isNull[1], true);
-            assertEquals(longVector.isNull[2], false);
-            assertEquals(longVector.vector[0], 123L);
-            assertEquals(longVector.vector[2], 456L);
+            Block column0 = reader.readBlock(BIGINT, 0);
+            assertEquals(column0.isNull(0), false);
+            assertEquals(column0.isNull(1), true);
+            assertEquals(column0.isNull(2), false);
+            assertEquals(BIGINT.getLong(column0, 0), 123L);
+            assertEquals(BIGINT.getLong(column0, 2), 456L);
 
-            SliceVector stringVector = new SliceVector(3);
-            reader.readVector(1, stringVector);
-            assertEquals(stringVector.vector[0], utf8Slice("hello"));
-            assertEquals(stringVector.vector[1], utf8Slice("world"));
-            assertEquals(stringVector.vector[2], utf8Slice("bye \u2603"));
+            Block column1 = reader.readBlock(VARCHAR, 1);
+            assertEquals(VARCHAR.getSlice(column1, 0), utf8Slice("hello"));
+            assertEquals(VARCHAR.getSlice(column1, 1), utf8Slice("world"));
+            assertEquals(VARCHAR.getSlice(column1, 2), utf8Slice("bye \u2603"));
 
-            SliceVector sliceVector = new SliceVector(3);
-            reader.readVector(2, sliceVector);
-            assertEquals(sliceVector.vector[0], wrappedBuffer(bytes1));
-            assertEquals(sliceVector.vector[1], null);
-            assertEquals(sliceVector.vector[2], wrappedBuffer(bytes3));
+            Block column2 = reader.readBlock(VARBINARY, 2);
+            assertEquals(VARBINARY.getSlice(column2, 0), wrappedBuffer(bytes1));
+            assertEquals(column2.isNull(1), true);
+            assertEquals(VARBINARY.getSlice(column2, 2), wrappedBuffer(bytes3));
 
-            DoubleVector doubleVector = new DoubleVector(3);
-            reader.readVector(3, doubleVector);
-            assertEquals(doubleVector.isNull[0], false);
-            assertEquals(doubleVector.isNull[1], false);
-            assertEquals(doubleVector.isNull[2], false);
-            assertEquals(doubleVector.vector[0], 123.456);
-            assertEquals(doubleVector.vector[1], Double.POSITIVE_INFINITY);
-            assertEquals(doubleVector.vector[2], Double.NaN);
+            Block column3 = reader.readBlock(DOUBLE, 3);
+            assertEquals(column3.isNull(0), false);
+            assertEquals(column3.isNull(1), false);
+            assertEquals(column3.isNull(2), false);
+            assertEquals(DOUBLE.getDouble(column3, 0), 123.456);
+            assertEquals(DOUBLE.getDouble(column3, 1), Double.POSITIVE_INFINITY);
+            assertEquals(DOUBLE.getDouble(column3, 2), Double.NaN);
 
-            BooleanVector booleanVector = new BooleanVector(3);
-            reader.readVector(4, booleanVector);
-            assertEquals(booleanVector.isNull[0], false);
-            assertEquals(booleanVector.isNull[1], true);
-            assertEquals(booleanVector.isNull[2], false);
-            assertEquals(booleanVector.vector[0], true);
-            assertEquals(booleanVector.vector[2], false);
+            Block column4 = reader.readBlock(BOOLEAN, 4);
+            assertEquals(column4.isNull(0), false);
+            assertEquals(column4.isNull(1), true);
+            assertEquals(column4.isNull(2), false);
+            assertEquals(BOOLEAN.getBoolean(column4, 0), true);
+            assertEquals(BOOLEAN.getBoolean(column4, 2), false);
 
-            SingleObjectVector arrayVector = new SingleObjectVector();
-            reader.readVector(arrayType, 5, arrayVector);
-            Block block = (Block) arrayVector.object;
-            assertEquals(block.getPositionCount(), 3);
+            Block column5 = reader.readBlock(arrayType, 5);
+            assertEquals(column5.getPositionCount(), 3);
 
-            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(block, 0), arrayBlockOf(BIGINT, 1, 2)));
-            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(block, 1), arrayBlockOf(BIGINT, 3, null)));
-            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(block, 2), arrayBlockOf(BIGINT)));
+            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column5, 0), arrayBlockOf(BIGINT, 1, 2)));
+            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column5, 1), arrayBlockOf(BIGINT, 3, null)));
+            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column5, 2), arrayBlockOf(BIGINT)));
 
-            SingleObjectVector mapVector = new SingleObjectVector();
-            reader.readVector(mapType, 6, mapVector);
-            block = (Block) mapVector.object;
-            assertEquals(block.getPositionCount(), 3);
+            Block column6 = reader.readBlock(mapType, 6);
+            assertEquals(column6.getPositionCount(), 3);
 
-            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(block, 0), mapBlockOf(VARCHAR, BOOLEAN, "k1", true)));
-            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(block, 1), mapBlockOf(VARCHAR, BOOLEAN, "k2", null)));
-            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(block, 2), mapBlockOf(VARCHAR, BOOLEAN, "k3", false)));
+            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(column6, 0), mapBlockOf(VARCHAR, BOOLEAN, "k1", true)));
+            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(column6, 1), mapBlockOf(VARCHAR, BOOLEAN, "k2", null)));
+            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(column6, 2), mapBlockOf(VARCHAR, BOOLEAN, "k3", false)));
 
-            SingleObjectVector arrayOfArrayVector = new SingleObjectVector();
-            reader.readVector(arrayOfArrayType, 7, arrayOfArrayVector);
-            block = (Block) arrayOfArrayVector.object;
-            assertEquals(block.getPositionCount(), 3);
+            Block column7 = reader.readBlock(arrayOfArrayType, 7);
+            assertEquals(column7.getPositionCount(), 3);
 
-            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(block, 0), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5))));
-            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(block, 1), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 6, 7))));
-            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(block, 2), arrayBlockOf(arrayType, arrayBlockOf(BIGINT))));
+            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column7, 0), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5))));
+            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column7, 1), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 6, 7))));
+            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column7, 2), arrayBlockOf(arrayType, arrayBlockOf(BIGINT))));
 
             assertEquals(reader.nextBatch(), -1);
             assertEquals(reader.getReaderPosition(), 3);

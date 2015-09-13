@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.orc.LongVector;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.StreamDescriptor;
@@ -22,6 +21,10 @@ import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
@@ -29,13 +32,11 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
-import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -55,6 +56,7 @@ public class TimestampStreamReader
     private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
     @Nullable
     private BooleanStream presentStream;
+    private final boolean[] nullVector = new boolean[OrcReader.MAX_BATCH_SIZE];
 
     @Nonnull
     private StreamSource<LongStream> secondsStreamSource = missingStreamSource(LongStream.class);
@@ -66,6 +68,7 @@ public class TimestampStreamReader
     @Nullable
     private LongStream nanosStream;
 
+    private final long[] secondsVector = new long[OrcReader.MAX_BATCH_SIZE];
     private final long[] nanosVector = new long[OrcReader.MAX_BATCH_SIZE];
 
     private boolean rowGroupOpen;
@@ -84,7 +87,7 @@ public class TimestampStreamReader
     }
 
     @Override
-    public void readBatch(Object vector)
+    public Block readBlock(Type type)
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -110,7 +113,7 @@ public class TimestampStreamReader
             }
         }
 
-        LongVector longVector = castOrcVector(vector, LongVector.class);
+        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
         if (presentStream == null) {
             if (secondsStream == null) {
                 throw new OrcCorruptionException("Value is not null but seconds stream is not present");
@@ -119,12 +122,16 @@ public class TimestampStreamReader
                 throw new OrcCorruptionException("Value is not null but nanos stream is not present");
             }
 
-            Arrays.fill(longVector.isNull, false);
-            secondsStream.nextLongVector(nextBatchSize, longVector.vector);
+            secondsStream.nextLongVector(nextBatchSize, secondsVector);
             nanosStream.nextLongVector(nextBatchSize, nanosVector);
+
+            // merge seconds and nanos together
+            for (int i = 0; i < nextBatchSize; i++) {
+                type.writeLong(builder, decodeTimestamp(secondsVector[i], nanosVector[i], baseTimestampInSeconds));
+            }
         }
         else {
-            int nullValues = presentStream.getUnsetBits(nextBatchSize, longVector.isNull);
+            int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
                 if (secondsStream == null) {
                     throw new OrcCorruptionException("Value is not null but seconds stream is not present");
@@ -133,18 +140,29 @@ public class TimestampStreamReader
                     throw new OrcCorruptionException("Value is not null but nanos stream is not present");
                 }
 
-                secondsStream.nextLongVector(nextBatchSize, longVector.vector, longVector.isNull);
-                nanosStream.nextLongVector(nextBatchSize, nanosVector, longVector.isNull);
-            }
-        }
+                secondsStream.nextLongVector(nextBatchSize, secondsVector, nullVector);
+                nanosStream.nextLongVector(nextBatchSize, nanosVector, nullVector);
 
-        // merge seconds and nanos together
-        for (int i = 0; i < nextBatchSize; i++) {
-            longVector.vector[i] = decodeTimestamp(longVector.vector[i], nanosVector[i], baseTimestampInSeconds);
+                // merge seconds and nanos together
+                for (int i = 0; i < nextBatchSize; i++) {
+                    if (nullVector[i]) {
+                        builder.appendNull();
+                    }
+                    else {
+                        type.writeLong(builder, decodeTimestamp(secondsVector[i], nanosVector[i], baseTimestampInSeconds));
+                    }
+                }
+            }
+            else {
+                for (int i = 0; i < nextBatchSize; i++) {
+                    builder.appendNull();
+                }
+            }
         }
 
         readOffset = 0;
         nextBatchSize = 0;
+        return builder.build();
     }
 
     private void openRowGroup()
