@@ -14,7 +14,6 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
@@ -62,7 +61,7 @@ public class SliceDictionaryStreamReader
     private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
     @Nullable
     private BooleanStream presentStream;
-    private final boolean[] isNullVector = new boolean[OrcReader.MAX_BATCH_SIZE];
+    private boolean[] isNullVector = new boolean[0];
 
     @Nonnull
     private StreamSource<ByteArrayStream> dictionaryDataStreamSource = missingStreamSource(ByteArrayStream.class);
@@ -78,7 +77,7 @@ public class SliceDictionaryStreamReader
     private StreamSource<BooleanStream> inDictionaryStreamSource = missingStreamSource(BooleanStream.class);
     @Nullable
     private BooleanStream inDictionaryStream;
-    private final boolean[] inDictionary = new boolean[OrcReader.MAX_BATCH_SIZE];
+    private boolean[] inDictionary = new boolean[0];
 
     @Nonnull
     private StreamSource<ByteArrayStream> rowGroupDictionaryDataStreamSource = missingStreamSource(ByteArrayStream.class);
@@ -95,7 +94,7 @@ public class SliceDictionaryStreamReader
     @Nullable
     private LongStream dataStream;
     @Nonnull
-    private final int[] dataVector = new int[OrcReader.MAX_BATCH_SIZE];
+    private int[] dataVector = new int[0];
 
     private boolean rowGroupOpen;
 
@@ -136,6 +135,12 @@ public class SliceDictionaryStreamReader
             }
         }
 
+        if (isNullVector.length < nextBatchSize) {
+            isNullVector = new boolean[nextBatchSize];
+        }
+        if (dataVector.length < nextBatchSize) {
+            dataVector = new int[nextBatchSize];
+        }
         if (presentStream == null) {
             if (dataStream == null) {
                 throw new OrcCorruptionException("Value is not null but data stream is not present");
@@ -153,6 +158,9 @@ public class SliceDictionaryStreamReader
             }
         }
 
+        if (inDictionary.length < nextBatchSize) {
+            inDictionary = new boolean[nextBatchSize];
+        }
         if (inDictionaryStream == null) {
             Arrays.fill(inDictionary, true);
         }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc.stream;
 
-import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.checkpoint.FloatStreamCheckpoint;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -24,14 +23,13 @@ import java.io.IOException;
 
 import static com.facebook.presto.orc.stream.OrcStreamUtils.readFully;
 import static com.facebook.presto.orc.stream.OrcStreamUtils.skipFully;
-import static com.google.common.base.Preconditions.checkPositionIndex;
 import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
 
 public class FloatStream
         implements ValueStream<FloatStreamCheckpoint>
 {
     private final OrcInputStream input;
-    private final byte[] buffer = new byte[OrcReader.MAX_BATCH_SIZE * SIZE_OF_FLOAT];
+    private final byte[] buffer = new byte[SIZE_OF_FLOAT];
     private final Slice slice = Slices.wrappedBuffer(buffer);
 
     public FloatStream(OrcInputStream input)
@@ -70,43 +68,20 @@ public class FloatStream
     public void nextVector(Type type, int items, BlockBuilder builder)
             throws IOException
     {
-        checkPositionIndex(items, OrcReader.MAX_BATCH_SIZE);
-
-        // buffer that number of values
-        readFully(input, buffer, 0, items * SIZE_OF_FLOAT);
-
-        // load them into the buffer one at a time since we are reading
-        // floats into a double vector
-        int elementIndex = 0;
         for (int i = 0; i < items; i++) {
-            type.writeDouble(builder, slice.getFloat(elementIndex));
-            elementIndex += SIZE_OF_FLOAT;
+            type.writeDouble(builder, next());
         }
     }
 
     public void nextVector(Type type, long items, BlockBuilder builder, boolean[] isNull)
             throws IOException
     {
-        // count the number of non nulls
-        int notNullCount = 0;
-        for (int i = 0; i < items; i++) {
-            if (!isNull[i]) {
-                notNullCount++;
-            }
-        }
-
-        // buffer that umber of values
-        readFully(input, buffer, 0, notNullCount * SIZE_OF_FLOAT);
-
-        // load them into the buffer
-        int elementIndex = 0;
         for (int i = 0; i < items; i++) {
             if (isNull[i]) {
                 builder.appendNull();
             }
             else {
-                type.writeDouble(builder, slice.getFloat(elementIndex));
-                elementIndex += SIZE_OF_FLOAT;
+                type.writeDouble(builder, next());
             }
         }
     }

@@ -14,7 +14,6 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
@@ -56,7 +55,7 @@ public class TimestampStreamReader
     private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
     @Nullable
     private BooleanStream presentStream;
-    private final boolean[] nullVector = new boolean[OrcReader.MAX_BATCH_SIZE];
+    private boolean[] nullVector = new boolean[0];
 
     @Nonnull
     private StreamSource<LongStream> secondsStreamSource = missingStreamSource(LongStream.class);
@@ -68,8 +67,8 @@ public class TimestampStreamReader
     @Nullable
     private LongStream nanosStream;
 
-    private final long[] secondsVector = new long[OrcReader.MAX_BATCH_SIZE];
-    private final long[] nanosVector = new long[OrcReader.MAX_BATCH_SIZE];
+    private long[] secondsVector = new long[0];
+    private long[] nanosVector = new long[0];
 
     private boolean rowGroupOpen;
 
@@ -113,6 +112,13 @@ public class TimestampStreamReader
             }
         }
 
+        if (secondsVector.length < nextBatchSize) {
+            secondsVector = new long[nextBatchSize];
+        }
+        if (nanosVector.length < nextBatchSize) {
+            nanosVector = new long[nextBatchSize];
+        }
+
         BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
         if (presentStream == null) {
             if (secondsStream == null) {
@@ -131,6 +137,9 @@ public class TimestampStreamReader
             }
         }
         else {
+            if (nullVector.length < nextBatchSize) {
+                nullVector = new boolean[nextBatchSize];
+            }
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
                 if (secondsStream == null) {

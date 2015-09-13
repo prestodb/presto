@@ -14,7 +14,6 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
@@ -57,13 +56,13 @@ public class SliceDirectStreamReader
     private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
     @Nullable
     private BooleanStream presentStream;
-    private final boolean[] isNullVector = new boolean[OrcReader.MAX_BATCH_SIZE];
+    private boolean[] isNullVector = new boolean[0];
 
     @Nonnull
     private StreamSource<LongStream> lengthStreamSource = missingStreamSource(LongStream.class);
     @Nullable
     private LongStream lengthStream;
-    private final int[] lengthVector = new int[OrcReader.MAX_BATCH_SIZE];
+    private int[] lengthVector = new int[0];
 
     @Nonnull
     private StreamSource<ByteArrayStream> dataByteSource = missingStreamSource(ByteArrayStream.class);
@@ -112,10 +111,17 @@ public class SliceDirectStreamReader
             }
         }
 
+        if (isNullVector.length < nextBatchSize) {
+            isNullVector = new boolean[nextBatchSize];
+        }
+        if (lengthVector.length < nextBatchSize) {
+            lengthVector = new int[nextBatchSize];
+        }
         if (presentStream == null) {
             if (lengthStream == null) {
                 throw new OrcCorruptionException("Value is not null but length stream is not present");
             }
+            Arrays.fill(isNullVector, false);
             lengthStream.nextIntVector(nextBatchSize, lengthVector);
         }
         else {

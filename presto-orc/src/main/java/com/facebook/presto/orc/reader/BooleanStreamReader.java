@@ -14,7 +14,6 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
@@ -49,7 +48,7 @@ public class BooleanStreamReader
     private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
     @Nullable
     private BooleanStream presentStream;
-    private final boolean[] nullVector = new boolean[OrcReader.MAX_BATCH_SIZE];
+    private boolean[] nullVector = new boolean[0];
 
     @Nonnull
     private StreamSource<BooleanStream> dataStreamSource = missingStreamSource(BooleanStream.class);
@@ -100,6 +99,9 @@ public class BooleanStreamReader
             dataStream.getSetBits(type, nextBatchSize, builder);
         }
         else {
+            if (nullVector.length < nextBatchSize) {
+                nullVector = new boolean[nextBatchSize];
+            }
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
                 if (dataStream == null) {
