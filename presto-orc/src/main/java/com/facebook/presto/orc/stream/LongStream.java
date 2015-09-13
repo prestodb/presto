@@ -14,6 +14,8 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
 
 import java.io.IOException;
 
@@ -33,6 +35,12 @@ public interface LongStream
             throws IOException;
 
     void nextLongVector(int items, long[] vector, boolean[] isNull)
+            throws IOException;
+
+    void nextLongVector(Type type, int items, BlockBuilder builder)
+            throws IOException;
+
+    void nextLongVector(Type type, int items, BlockBuilder builder, boolean[] isNull)
             throws IOException;
 
     long sum(int items)

@@ -15,6 +15,8 @@ package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.checkpoint.FloatStreamCheckpoint;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -65,10 +67,9 @@ public class FloatStream
         return slice.getFloat(0);
     }
 
-    public void nextVector(int items, double[] vector)
+    public void nextVector(Type type, int items, BlockBuilder builder)
             throws IOException
     {
-        checkPositionIndex(items, vector.length);
         checkPositionIndex(items, OrcReader.MAX_BATCH_SIZE);
 
         // buffer that number of values
@@ -78,12 +79,12 @@ public class FloatStream
         // floats into a double vector
         int elementIndex = 0;
         for (int i = 0; i < items; i++) {
-            vector[i] = slice.getFloat(elementIndex);
+            type.writeDouble(builder, slice.getFloat(elementIndex));
             elementIndex += SIZE_OF_FLOAT;
         }
     }
 
-    public void nextVector(long items, double[] vector, boolean[] isNull)
+    public void nextVector(Type type, long items, BlockBuilder builder, boolean[] isNull)
             throws IOException
     {
         // count the number of non nulls
@@ -100,8 +101,11 @@ public class FloatStream
         // load them into the buffer
         int elementIndex = 0;
         for (int i = 0; i < items; i++) {
-            if (!isNull[i]) {
-                vector[i] = slice.getFloat(elementIndex);
+            if (isNull[i]) {
+                builder.appendNull();
+            }
+            else {
+                type.writeDouble(builder, slice.getFloat(elementIndex));
                 elementIndex += SIZE_OF_FLOAT;
             }
         }

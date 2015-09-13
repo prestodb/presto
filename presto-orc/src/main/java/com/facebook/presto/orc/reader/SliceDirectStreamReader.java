@@ -15,7 +15,6 @@ package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcReader;
-import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
@@ -23,7 +22,11 @@ import com.facebook.presto.orc.stream.ByteArrayStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.SliceArrayBlock;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import javax.annotation.Nonnull;
@@ -36,7 +39,6 @@ import java.util.List;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -83,7 +85,7 @@ public class SliceDirectStreamReader
     }
 
     @Override
-    public void readBatch(Object vector)
+    public Block readBlock(Type type)
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -141,23 +143,21 @@ public class SliceDirectStreamReader
             data = dataStream.next(totalLength);
         }
 
-        SliceVector sliceVector = castOrcVector(vector, SliceVector.class);
-        sliceVector.initialize(nextBatchSize);
+        Slice[] sliceVector = new Slice[nextBatchSize];
 
         int offset = 0;
         for (int i = 0; i < nextBatchSize; i++) {
             if (!isNullVector[i]) {
                 int length = lengthVector[i];
-                sliceVector.vector[i] = Slices.wrappedBuffer(data, offset, length);
+                sliceVector[i] = Slices.wrappedBuffer(data, offset, length);
                 offset += length;
-            }
-            else {
-                sliceVector.vector[i] = null;
             }
         }
 
         readOffset = 0;
         nextBatchSize = 0;
+
+        return new SliceArrayBlock(sliceVector.length, sliceVector);
     }
 
     private void openRowGroup()

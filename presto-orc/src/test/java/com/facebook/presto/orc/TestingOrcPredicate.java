@@ -14,6 +14,8 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.metadata.ColumnStatistics;
+import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlTimestamp;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import io.airlift.slice.Slice;
@@ -60,10 +62,11 @@ public final class TestingOrcPredicate
             case SHORT:
             case INT:
             case LONG:
-            case TIMESTAMP:
                 return new LongOrcPredicate(expectedValues);
+            case TIMESTAMP:
+                return new LongOrcPredicate(Iterables.transform(expectedValues, value -> value == null ? null : ((SqlTimestamp) value).getMillisUtc()));
             case DATE:
-                return new DateOrcPredicate(expectedValues);
+                return new DateOrcPredicate(Iterables.transform(expectedValues, value -> value == null ? null : (long) ((SqlDate) value).getDays()));
             case FLOAT:
             case DOUBLE:
                 return new DoubleOrcPredicate(expectedValues);

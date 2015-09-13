@@ -104,7 +104,7 @@ public class InterleavedBlock
     {
         StringBuilder sb = new StringBuilder("InterleavedBlock{");
         sb.append("columns=").append(getBlockCount());
-        sb.append(", positionCount=").append(getPositionCount());
+        sb.append(", positionCount=").append(getPositionCount() / getBlockCount());
         sb.append('}');
         return sb.toString();
     }

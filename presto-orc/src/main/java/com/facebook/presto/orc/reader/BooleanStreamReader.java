@@ -13,24 +13,26 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.orc.BooleanVector;
 import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -47,6 +49,7 @@ public class BooleanStreamReader
     private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
     @Nullable
     private BooleanStream presentStream;
+    private final boolean[] nullVector = new boolean[OrcReader.MAX_BATCH_SIZE];
 
     @Nonnull
     private StreamSource<BooleanStream> dataStreamSource = missingStreamSource(BooleanStream.class);
@@ -68,7 +71,7 @@ public class BooleanStreamReader
     }
 
     @Override
-    public void readBatch(Object vector)
+    public Block readBlock(Type type)
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -89,26 +92,32 @@ public class BooleanStreamReader
             }
         }
 
-        BooleanVector booleanVector = castOrcVector(vector, BooleanVector.class);
+        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
         if (presentStream == null) {
             if (dataStream == null) {
                 throw new OrcCorruptionException("Value is not null but data stream is not present");
             }
-            Arrays.fill(booleanVector.isNull, false);
-            dataStream.getSetBits(nextBatchSize, booleanVector.vector);
+            dataStream.getSetBits(type, nextBatchSize, builder);
         }
         else {
-            int nullValues = presentStream.getUnsetBits(nextBatchSize, booleanVector.isNull);
+            int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
                 if (dataStream == null) {
                     throw new OrcCorruptionException("Value is not null but data stream is not present");
                 }
-                dataStream.getSetBits(nextBatchSize, booleanVector.vector, booleanVector.isNull);
+                dataStream.getSetBits(type, nextBatchSize, builder, nullVector);
+            }
+            else {
+                for (int i = 0; i < nextBatchSize; i++) {
+                    builder.appendNull();
+                }
             }
         }
 
         readOffset = 0;
         nextBatchSize = 0;
+
+        return builder.build();
     }
 
     private void openRowGroup()

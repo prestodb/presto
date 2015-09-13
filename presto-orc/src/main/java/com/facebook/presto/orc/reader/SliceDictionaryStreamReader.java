@@ -15,7 +15,6 @@ package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcReader;
-import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
@@ -24,6 +23,12 @@ import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.RowGroupDictionaryLengthStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.spi.block.SliceArrayBlock;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -41,7 +46,6 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
-import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -65,7 +69,7 @@ public class SliceDictionaryStreamReader
     private boolean dictionaryOpen;
     private int dictionarySize;
     @Nonnull
-    private Slice[] dictionary = new Slice[0];
+    private Slice[] dictionary = new Slice[1];
 
     @Nonnull
     private StreamSource<LongStream> dictionaryLengthStreamSource = missingStreamSource(LongStream.class);
@@ -108,7 +112,7 @@ public class SliceDictionaryStreamReader
     }
 
     @Override
-    public void readBatch(Object vector)
+    public Block readBlock(Type type)
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -156,8 +160,6 @@ public class SliceDictionaryStreamReader
             inDictionaryStream.getSetBits(nextBatchSize, inDictionary, isNullVector);
         }
 
-        SliceVector sliceVector = castOrcVector(vector, SliceVector.class);
-
         boolean rowGroupDictionaryReferenced = false;
         for (int i = 0; i < nextBatchSize; i++) {
             if (!isNullVector[i] && !inDictionary[i]) {
@@ -165,28 +167,38 @@ public class SliceDictionaryStreamReader
                 break;
             }
         }
+
+        Block block;
         if (rowGroupDictionaryReferenced) {
-            sliceVector.initialize(nextBatchSize);
+            BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
             for (int i = 0; i < nextBatchSize; i++) {
                 if (isNullVector[i]) {
-                    sliceVector.vector[i] = null;
+                    builder.appendNull();
                 }
                 else if (inDictionary[i]) {
-                    sliceVector.vector[i] = dictionary[dataVector[i]];
+                    type.writeSlice(builder, dictionary[dataVector[i]]);
                 }
                 else {
-                    sliceVector.vector[i] = rowGroupDictionary[dataVector[i]];
+                    type.writeSlice(builder, rowGroupDictionary[dataVector[i]]);
                 }
             }
+            block = builder.build();
         }
         else {
-            int[] ids = Arrays.copyOfRange(dataVector, 0, nextBatchSize);
-            boolean[] isNullVector = Arrays.copyOfRange(this.isNullVector, 0, nextBatchSize);
-            sliceVector.setDictionary(dictionary, ids, isNullVector);
+            for (int i = 0; i < dataVector.length; i++) {
+                if (isNullVector[i]) {
+                    // null is the last entry in the dictionary
+                    dataVector[i] = dictionarySize;
+                }
+            }
+            // copy ids into a private array for this block since data vector is reused
+            Slice ids = Slices.wrappedIntArray(Arrays.copyOfRange(dataVector, 0, nextBatchSize));
+            block = new DictionaryBlock(nextBatchSize, new SliceArrayBlock(dictionarySize + 1, dictionary), ids);
         }
 
         readOffset = 0;
         nextBatchSize = 0;
+        return block;
     }
 
     private void openRowGroup()
@@ -195,7 +207,7 @@ public class SliceDictionaryStreamReader
         // read the dictionary
         if (!dictionaryOpen && dictionarySize > 0) {
             int[] dictionaryLength = new int[dictionarySize];
-            dictionary = new Slice[dictionarySize];
+            dictionary = new Slice[dictionarySize + 1];
 
             // read the lengths
             LongStream lengthStream = dictionaryLengthStreamSource.openStream();

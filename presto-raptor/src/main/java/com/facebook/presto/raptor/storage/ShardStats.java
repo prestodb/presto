@@ -13,15 +13,12 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.orc.BooleanVector;
-import com.facebook.presto.orc.DoubleVector;
-import com.facebook.presto.orc.LongVector;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
-import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.raptor.metadata.ColumnStats;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
@@ -71,18 +68,18 @@ public final class ShardStats
         OrcRecordReader reader = orcReader.createRecordReader(ImmutableMap.of(columnIndex, type), OrcPredicate.TRUE, UTC);
 
         if (type.equals(BooleanType.BOOLEAN)) {
-            return indexBoolean(reader, columnIndex, columnId);
+            return indexBoolean(type, reader, columnIndex, columnId);
         }
         if (type.equals(BigintType.BIGINT) ||
                 type.equals(DateType.DATE) ||
                 type.equals(TimestampType.TIMESTAMP)) {
-            return indexLong(reader, columnIndex, columnId);
+            return indexLong(type, reader, columnIndex, columnId);
         }
         if (type.equals(DoubleType.DOUBLE)) {
-            return indexDouble(reader, columnIndex, columnId);
+            return indexDouble(type, reader, columnIndex, columnId);
         }
         if (type.equals(VarcharType.VARCHAR)) {
-            return indexString(reader, columnIndex, columnId);
+            return indexString(type, reader, columnIndex, columnId);
         }
         return null;
     }
@@ -96,7 +93,7 @@ public final class ShardStats
         return index;
     }
 
-    private static ColumnStats indexBoolean(OrcRecordReader reader, int columnIndex, long columnId)
+    private static ColumnStats indexBoolean(Type type, OrcRecordReader reader, int columnIndex, long columnId)
             throws IOException
     {
         boolean minSet = false;
@@ -109,20 +106,20 @@ public final class ShardStats
             if (batchSize <= 0) {
                 break;
             }
-            BooleanVector vector = new BooleanVector(batchSize);
-            reader.readVector(columnIndex, vector);
+            Block block = reader.readBlock(type, columnIndex);
 
             for (int i = 0; i < batchSize; i++) {
-                if (vector.isNull[i]) {
+                if (block.isNull(i)) {
                     continue;
                 }
-                if (!minSet || Boolean.compare(vector.vector[i], min) < 0) {
+                boolean value = type.getBoolean(block, i);
+                if (!minSet || Boolean.compare(value, min) < 0) {
                     minSet = true;
-                    min = vector.vector[i];
+                    min = value;
                 }
-                if (!maxSet || Boolean.compare(vector.vector[i], max) > 0) {
+                if (!maxSet || Boolean.compare(value, max) > 0) {
                     maxSet = true;
-                    max = vector.vector[i];
+                    max = value;
                 }
             }
         }
@@ -132,7 +129,7 @@ public final class ShardStats
                 maxSet ? max : null);
     }
 
-    private static ColumnStats indexLong(OrcRecordReader reader, int columnIndex, long columnId)
+    private static ColumnStats indexLong(Type type, OrcRecordReader reader, int columnIndex, long columnId)
             throws IOException
     {
         boolean minSet = false;
@@ -145,20 +142,20 @@ public final class ShardStats
             if (batchSize <= 0) {
                 break;
             }
-            LongVector vector = new LongVector(batchSize);
-            reader.readVector(columnIndex, vector);
+            Block block = reader.readBlock(type, columnIndex);
 
             for (int i = 0; i < batchSize; i++) {
-                if (vector.isNull[i]) {
+                if (block.isNull(i)) {
                     continue;
                 }
-                if (!minSet || (vector.vector[i] < min)) {
+                long value = type.getLong(block, i);
+                if (!minSet || (value < min)) {
                     minSet = true;
-                    min = vector.vector[i];
+                    min = value;
                 }
-                if (!maxSet || (vector.vector[i] > max)) {
+                if (!maxSet || (value > max)) {
                     maxSet = true;
-                    max = vector.vector[i];
+                    max = value;
                 }
             }
         }
@@ -168,7 +165,7 @@ public final class ShardStats
                 maxSet ? max : null);
     }
 
-    private static ColumnStats indexDouble(OrcRecordReader reader, int columnIndex, long columnId)
+    private static ColumnStats indexDouble(Type type, OrcRecordReader reader, int columnIndex, long columnId)
             throws IOException
     {
         boolean minSet = false;
@@ -181,14 +178,13 @@ public final class ShardStats
             if (batchSize <= 0) {
                 break;
             }
-            DoubleVector vector = new DoubleVector(batchSize);
-            reader.readVector(columnIndex, vector);
+            Block block = reader.readBlock(type, columnIndex);
 
             for (int i = 0; i < batchSize; i++) {
-                if (vector.isNull[i]) {
+                if (block.isNull(i)) {
                     continue;
                 }
-                double value = vector.vector[i];
+                double value = type.getDouble(block, i);
                 if (isNaN(value)) {
                     continue;
                 }
@@ -218,7 +214,7 @@ public final class ShardStats
                 maxSet ? max : null);
     }
 
-    private static ColumnStats indexString(OrcRecordReader reader, int columnIndex, long columnId)
+    private static ColumnStats indexString(Type type, OrcRecordReader reader, int columnIndex, long columnId)
             throws IOException
     {
         boolean minSet = false;
@@ -231,14 +227,13 @@ public final class ShardStats
             if (batchSize <= 0) {
                 break;
             }
-            SliceVector vector = new SliceVector(batchSize);
-            reader.readVector(columnIndex, vector);
+            Block block = reader.readBlock(type, columnIndex);
 
             for (int i = 0; i < batchSize; i++) {
-                Slice slice = vector.getSliceAtPosition(i);
-                if (slice == null) {
+                if (block.isNull(i)) {
                     continue;
                 }
+                Slice slice = type.getSlice(block, i);
                 slice = truncateIndexValue(slice);
                 if (!minSet || (slice.compareTo(min) < 0)) {
                     minSet = true;

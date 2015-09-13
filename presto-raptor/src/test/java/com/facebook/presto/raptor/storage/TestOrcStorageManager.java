@@ -14,10 +14,8 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.orc.LongVector;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
-import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.backup.BackupStore;
@@ -31,6 +29,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
@@ -214,17 +213,15 @@ public class TestOrcStorageManager
 
             assertEquals(reader.nextBatch(), 2);
 
-            LongVector longVector = new LongVector(2);
-            reader.readVector(0, longVector);
-            assertEquals(longVector.isNull[0], false);
-            assertEquals(longVector.isNull[1], false);
-            assertEquals(longVector.vector[0], 123L);
-            assertEquals(longVector.vector[1], 456L);
+            Block column0 = reader.readBlock(BIGINT, 0);
+            assertEquals(column0.isNull(0), false);
+            assertEquals(column0.isNull(1), false);
+            assertEquals(BIGINT.getLong(column0, 0), 123L);
+            assertEquals(BIGINT.getLong(column0, 1), 456L);
 
-            SliceVector stringVector = new SliceVector(2);
-            reader.readVector(1, stringVector);
-            assertEquals(stringVector.vector[0], utf8Slice("hello"));
-            assertEquals(stringVector.vector[1], utf8Slice("bye"));
+            Block column1 = reader.readBlock(VARCHAR, 1);
+            assertEquals(VARCHAR.getSlice(column1, 0), utf8Slice("hello"));
+            assertEquals(VARCHAR.getSlice(column1, 1), utf8Slice("bye"));
 
             assertEquals(reader.nextBatch(), -1);
         }

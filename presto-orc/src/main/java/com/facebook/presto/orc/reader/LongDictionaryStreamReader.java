@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.orc.LongVector;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.StreamDescriptor;
@@ -22,6 +21,10 @@ import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -34,7 +37,6 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.reader.OrcReaderUtils.castOrcVector;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -51,6 +53,7 @@ public class LongDictionaryStreamReader
     private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
     @Nullable
     private BooleanStream presentStream;
+    private final boolean[] nullVector = new boolean[OrcReader.MAX_BATCH_SIZE];
 
     @Nonnull
     private StreamSource<LongStream> dictionaryDataStreamSource = missingStreamSource(LongStream.class);
@@ -68,6 +71,7 @@ public class LongDictionaryStreamReader
     private StreamSource<LongStream> dataStreamSource;
     @Nullable
     private LongStream dataStream;
+    private final long[] dataVector = new long[OrcReader.MAX_BATCH_SIZE];
 
     private boolean dictionaryOpen;
     private boolean rowGroupOpen;
@@ -85,7 +89,7 @@ public class LongDictionaryStreamReader
     }
 
     @Override
-    public void readBatch(Object vector)
+    public Block readBlock(Type type)
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -111,22 +115,20 @@ public class LongDictionaryStreamReader
             }
         }
 
-        LongVector longVector = castOrcVector(vector, LongVector.class);
-
         if (presentStream == null) {
             if (dataStream == null) {
                 throw new OrcCorruptionException("Value is not null but data stream is not present");
             }
-            Arrays.fill(longVector.isNull, false);
-            dataStream.nextLongVector(nextBatchSize, longVector.vector);
+            Arrays.fill(nullVector, false);
+            dataStream.nextLongVector(nextBatchSize, dataVector);
         }
         else {
-            int nullValues = presentStream.getUnsetBits(nextBatchSize, longVector.isNull);
+            int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
                 if (dataStream == null) {
                     throw new OrcCorruptionException("Value is not null but data stream is not present");
                 }
-                dataStream.nextLongVector(nextBatchSize, longVector.vector, longVector.isNull);
+                dataStream.nextLongVector(nextBatchSize, dataVector, nullVector);
             }
         }
 
@@ -134,19 +136,26 @@ public class LongDictionaryStreamReader
             Arrays.fill(inDictionary, true);
         }
         else {
-            inDictionaryStream.getSetBits(nextBatchSize, inDictionary, longVector.isNull);
+            inDictionaryStream.getSetBits(nextBatchSize, inDictionary, nullVector);
         }
 
+        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
         for (int i = 0; i < nextBatchSize; i++) {
-            if (!longVector.isNull[i]) {
-                if (inDictionary[i]) {
-                    longVector.vector[i] = dictionary[((int) longVector.vector[i])];
-                }
+            if (nullVector[i]) {
+                builder.appendNull();
+            }
+            else if (inDictionary[i]) {
+                type.writeLong(builder, dictionary[((int) dataVector[i])]);
+            }
+            else {
+                type.writeLong(builder, dataVector[i]);
             }
         }
 
         readOffset = 0;
         nextBatchSize = 0;
+
+        return builder.build();
     }
 
     private void openRowGroup()

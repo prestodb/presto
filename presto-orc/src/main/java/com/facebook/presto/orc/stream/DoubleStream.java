@@ -15,6 +15,8 @@ package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.checkpoint.DoubleStreamCheckpoint;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -65,20 +67,23 @@ public class DoubleStream
         return slice.getDouble(0);
     }
 
-    public void nextVector(int items, double[] vector)
+    public void nextVector(Type type, int items, BlockBuilder builder)
             throws IOException
     {
-        checkPositionIndex(items, vector.length);
         checkPositionIndex(items, OrcReader.MAX_BATCH_SIZE);
 
         // buffer that number of values
         readFully(input, buffer, 0, items * SIZE_OF_DOUBLE);
 
-        // copy values directly into vector
-        Slices.wrappedDoubleArray(vector).setBytes(0, slice, 0, items * SIZE_OF_DOUBLE);
+        // load them into the buffer one at a time since we are reading
+        int elementIndex = 0;
+        for (int i = 0; i < items; i++) {
+            type.writeDouble(builder, slice.getDouble(elementIndex));
+            elementIndex += SIZE_OF_DOUBLE;
+        }
     }
 
-    public void nextVector(long items, double[] vector, boolean[] isNull)
+    public void nextVector(Type type, long items, BlockBuilder builder, boolean[] isNull)
             throws IOException
     {
         // count the number of non nulls
@@ -95,8 +100,11 @@ public class DoubleStream
         // load them into the buffer
         int elementIndex = 0;
         for (int i = 0; i < items; i++) {
-            if (!isNull[i]) {
-                vector[i] = slice.getDouble(elementIndex);
+            if (isNull[i]) {
+                builder.appendNull();
+            }
+            else {
+                type.writeDouble(builder, slice.getDouble(elementIndex));
                 elementIndex += SIZE_OF_DOUBLE;
             }
         }

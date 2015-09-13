@@ -16,6 +16,8 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamV1Checkpoint;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
 
 import java.io.IOException;
@@ -144,6 +146,29 @@ public class LongStreamV1
             sum += next();
         }
         return sum;
+    }
+
+    @Override
+    public void nextLongVector(Type type, int items, BlockBuilder builder)
+            throws IOException
+    {
+        for (int i = 0; i < items; i++) {
+            type.writeLong(builder, next());
+        }
+    }
+
+    @Override
+    public void nextLongVector(Type type, int items, BlockBuilder builder, boolean[] isNull)
+            throws IOException
+    {
+        for (int i = 0; i < items; i++) {
+            if (isNull[i]) {
+                builder.appendNull();
+            }
+            else {
+                type.writeLong(builder, next());
+            }
+        }
     }
 
     @Override

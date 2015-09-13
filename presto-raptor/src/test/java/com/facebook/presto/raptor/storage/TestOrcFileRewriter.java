@@ -13,11 +13,8 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.orc.LongVector;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
-import com.facebook.presto.orc.SingleObjectVector;
-import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.raptor.storage.OrcFileRewriter.OrcFileInfo;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -104,57 +101,60 @@ public class TestOrcFileRewriter
 
             assertEquals(reader.nextBatch(), 5);
 
-            LongVector longVector = new LongVector(5);
-            reader.readVector(0, longVector);
+            Block column0 = reader.readBlock(BIGINT, 0);
+            assertEquals(column0.getPositionCount(), 5);
             for (int i = 0; i < 5; i++) {
-                assertEquals(longVector.isNull[i], false);
+                assertEquals(column0.isNull(i), false);
             }
-            assertEquals(longVector.vector[0], 123L);
-            assertEquals(longVector.vector[1], 777L);
-            assertEquals(longVector.vector[2], 456L);
-            assertEquals(longVector.vector[3], 888L);
-            assertEquals(longVector.vector[4], 999L);
+            assertEquals(BIGINT.getLong(column0, 0), 123L);
+            assertEquals(BIGINT.getLong(column0, 1), 777L);
+            assertEquals(BIGINT.getLong(column0, 2), 456L);
+            assertEquals(BIGINT.getLong(column0, 3), 888L);
+            assertEquals(BIGINT.getLong(column0, 4), 999L);
 
-            SliceVector stringVector = new SliceVector(5);
-            reader.readVector(1, stringVector);
-            assertEquals(stringVector.vector[0], utf8Slice("hello"));
-            assertEquals(stringVector.vector[1], utf8Slice("sky"));
-            assertEquals(stringVector.vector[2], utf8Slice("bye"));
-            assertEquals(stringVector.vector[3], utf8Slice("world"));
-            assertEquals(stringVector.vector[4], utf8Slice("done"));
+            Block column1 = reader.readBlock(VARCHAR, 1);
+            assertEquals(column1.getPositionCount(), 5);
+            for (int i = 0; i < 5; i++) {
+                assertEquals(column1.isNull(i), false);
+            }
+            assertEquals(VARCHAR.getSlice(column1, 0), utf8Slice("hello"));
+            assertEquals(VARCHAR.getSlice(column1, 1), utf8Slice("sky"));
+            assertEquals(VARCHAR.getSlice(column1, 2), utf8Slice("bye"));
+            assertEquals(VARCHAR.getSlice(column1, 3), utf8Slice("world"));
+            assertEquals(VARCHAR.getSlice(column1, 4), utf8Slice("done"));
 
-            SingleObjectVector arrayVector = new SingleObjectVector();
-            reader.readVector(arrayType, 2, arrayVector);
-            Block block = (Block) arrayVector.object;
-            assertEquals(block.getPositionCount(), 5);
+            Block column2 = reader.readBlock(arrayType, 2);
+            assertEquals(column2.getPositionCount(), 5);
+            for (int i = 0; i < 5; i++) {
+                assertEquals(column2.isNull(i), false);
+            }
+            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 0), arrayBlockOf(BIGINT, 1, 2)));
+            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 1), arrayBlockOf(BIGINT, 3, 4)));
+            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 2), arrayBlockOf(BIGINT, 5, 6)));
+            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 3), arrayBlockOf(BIGINT, 7, 8)));
+            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 4), arrayBlockOf(BIGINT, 9, 10)));
 
-            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(block, 0), arrayBlockOf(BIGINT, 1, 2)));
-            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(block, 1), arrayBlockOf(BIGINT, 3, 4)));
-            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(block, 2), arrayBlockOf(BIGINT, 5, 6)));
-            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(block, 3), arrayBlockOf(BIGINT, 7, 8)));
-            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(block, 4), arrayBlockOf(BIGINT, 9, 10)));
+            Block column3 = reader.readBlock(mapType, 3);
+            assertEquals(column3.getPositionCount(), 5);
+            for (int i = 0; i < 5; i++) {
+                assertEquals(column3.isNull(i), false);
+            }
+            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(column3, 0), mapBlockOf(VARCHAR, BOOLEAN, "k1", true)));
+            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(column3, 1), mapBlockOf(VARCHAR, BOOLEAN, "k2", false)));
+            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(column3, 2), mapBlockOf(VARCHAR, BOOLEAN, "k3", true)));
+            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(column3, 3), mapBlockOf(VARCHAR, BOOLEAN, "k4", true)));
+            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(column3, 4), mapBlockOf(VARCHAR, BOOLEAN, "k5", true)));
 
-            SingleObjectVector mapVector = new SingleObjectVector();
-            reader.readVector(mapType, 3, mapVector);
-            block = (Block) mapVector.object;
-            assertEquals(block.getPositionCount(), 5);
-
-            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(block, 0), mapBlockOf(VARCHAR, BOOLEAN, "k1", true)));
-            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(block, 1), mapBlockOf(VARCHAR, BOOLEAN, "k2", false)));
-            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(block, 2), mapBlockOf(VARCHAR, BOOLEAN, "k3", true)));
-            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(block, 3), mapBlockOf(VARCHAR, BOOLEAN, "k4", true)));
-            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(block, 4), mapBlockOf(VARCHAR, BOOLEAN, "k5", true)));
-
-            SingleObjectVector arrayOfArrayVector = new SingleObjectVector();
-            reader.readVector(arrayOfArrayType, 4, arrayOfArrayVector);
-            block = (Block) arrayOfArrayVector.object;
-            assertEquals(block.getPositionCount(), 5);
-
-            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(block, 0), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5))));
-            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(block, 1), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 6))));
-            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(block, 2), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7))));
-            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(block, 3), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 8), null)));
-            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(block, 4), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 9, 10))));
+            Block column4 = reader.readBlock(arrayOfArrayType, 4);
+            assertEquals(column4.getPositionCount(), 5);
+            for (int i = 0; i < 5; i++) {
+                assertEquals(column4.isNull(i), false);
+            }
+            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 0), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5))));
+            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 1), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 6))));
+            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 2), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7))));
+            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 3), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 8), null)));
+            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 4), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 9, 10))));
 
             assertEquals(reader.nextBatch(), -1);
         }
@@ -178,42 +178,45 @@ public class TestOrcFileRewriter
 
             assertEquals(reader.nextBatch(), 2);
 
-            LongVector longVector = new LongVector(2);
-            reader.readVector(0, longVector);
+            Block column0 = reader.readBlock(BIGINT, 0);
+            assertEquals(column0.getPositionCount(), 2);
             for (int i = 0; i < 2; i++) {
-                assertEquals(longVector.isNull[i], false);
+                assertEquals(column0.isNull(i), false);
             }
-            assertEquals(longVector.vector[0], 123L);
-            assertEquals(longVector.vector[1], 456L);
+            assertEquals(BIGINT.getLong(column0, 0), 123L);
+            assertEquals(BIGINT.getLong(column0, 1), 456L);
 
-            SliceVector stringVector = new SliceVector(2);
-            reader.readVector(1, stringVector);
-            assertEquals(stringVector.vector[0], utf8Slice("hello"));
-            assertEquals(stringVector.vector[1], utf8Slice("bye"));
+            Block column1 = reader.readBlock(VARCHAR, 1);
+            assertEquals(column1.getPositionCount(), 2);
+            for (int i = 0; i < 2; i++) {
+                assertEquals(column1.isNull(i), false);
+            }
+            assertEquals(VARCHAR.getSlice(column1, 0), utf8Slice("hello"));
+            assertEquals(VARCHAR.getSlice(column1, 1), utf8Slice("bye"));
 
-            SingleObjectVector arrayVector = new SingleObjectVector();
-            reader.readVector(arrayType, 2, arrayVector);
-            Block block = (Block) arrayVector.object;
-            assertEquals(block.getPositionCount(), 2);
+            Block column2 = reader.readBlock(arrayType, 2);
+            assertEquals(column2.getPositionCount(), 2);
+            for (int i = 0; i < 2; i++) {
+                assertEquals(column2.isNull(i), false);
+            }
+            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 0), arrayBlockOf(BIGINT, 1, 2)));
+            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 1), arrayBlockOf(BIGINT, 5, 6)));
 
-            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(block, 0), arrayBlockOf(BIGINT, 1, 2)));
-            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(block, 1), arrayBlockOf(BIGINT, 5, 6)));
+            Block column3 = reader.readBlock(mapType, 3);
+            assertEquals(column3.getPositionCount(), 2);
+            for (int i = 0; i < 2; i++) {
+                assertEquals(column3.isNull(i), false);
+            }
+            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(column3, 0), mapBlockOf(VARCHAR, BOOLEAN, "k1", true)));
+            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(column3, 1), mapBlockOf(VARCHAR, BOOLEAN, "k3", true)));
 
-            SingleObjectVector mapVector = new SingleObjectVector();
-            reader.readVector(mapType, 3, mapVector);
-            block = (Block) mapVector.object;
-            assertEquals(block.getPositionCount(), 2);
-
-            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(block, 0), mapBlockOf(VARCHAR, BOOLEAN, "k1", true)));
-            assertTrue(mapBlocksEqual(VARCHAR, BOOLEAN, arrayType.getObject(block, 1), mapBlockOf(VARCHAR, BOOLEAN, "k3", true)));
-
-            SingleObjectVector arrayOfArrayVector = new SingleObjectVector();
-            reader.readVector(arrayOfArrayType, 4, arrayOfArrayVector);
-            block = (Block) arrayOfArrayVector.object;
-            assertEquals(block.getPositionCount(), 2);
-
-            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(block, 0), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5))));
-            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(block, 1), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7))));
+            Block column4 = reader.readBlock(arrayOfArrayType, 4);
+            assertEquals(column4.getPositionCount(), 2);
+            for (int i = 0; i < 2; i++) {
+                assertEquals(column4.isNull(i), false);
+            }
+            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 0), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5))));
+            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 1), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7))));
 
             assertEquals(reader.nextBatch(), -1);
         }
