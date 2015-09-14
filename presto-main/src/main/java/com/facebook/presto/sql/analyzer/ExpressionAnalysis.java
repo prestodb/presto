@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.IdentityHashMap;
 import java.util.Set;
@@ -27,15 +28,18 @@ public class ExpressionAnalysis
     private final IdentityHashMap<Expression, Type> expressionTypes;
     private final IdentityHashMap<Expression, Type> expressionCoercions;
     private final Set<InPredicate> subqueryInPredicates;
+    private final Set<Expression> columnReferences;
 
     public ExpressionAnalysis(
             IdentityHashMap<Expression, Type> expressionTypes,
             IdentityHashMap<Expression, Type> expressionCoercions,
-            Set<InPredicate> subqueryInPredicates)
+            Set<InPredicate> subqueryInPredicates,
+            Set<Expression> columnReferences)
     {
         this.expressionTypes = requireNonNull(expressionTypes, "expressionTypes is null");
         this.expressionCoercions = requireNonNull(expressionCoercions, "expressionCoercions is null");
         this.subqueryInPredicates = requireNonNull(subqueryInPredicates, "subqueryInPredicates is null");
+        this.columnReferences = ImmutableSet.copyOf(requireNonNull(columnReferences, "columnReferences is null"));
     }
 
     public Type getType(Expression expression)
@@ -56,5 +60,10 @@ public class ExpressionAnalysis
     public Set<InPredicate> getSubqueryInPredicates()
     {
         return subqueryInPredicates;
+    }
+
+    public Set<Expression> getColumnReferences()
+    {
+        return columnReferences;
     }
 }

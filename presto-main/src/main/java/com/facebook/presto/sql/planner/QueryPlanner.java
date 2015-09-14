@@ -361,6 +361,8 @@ class QueryPlanner
 
         // 2.a. Rewrite aggregates in terms of pre-projected inputs
         TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);
+        // Copy the TranslationMap to keep the expressionMappings we have so far
+        translations.copyMappingsFrom(subPlan.getTranslations());
         boolean needPostProjectionCoercion = false;
         for (FunctionCall aggregate : analysis.getAggregates(node)) {
             Expression rewritten = subPlan.rewrite(aggregate);

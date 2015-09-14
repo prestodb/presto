@@ -162,10 +162,145 @@ public abstract class AbstractTestQueries
     public void testRowFieldAccessor()
             throws Exception
     {
+        //Dereference only
         assertQuery("SELECT a.col0 FROM (VALUES ROW (test_row(1, 2))) AS t (a)", "SELECT 1");
         assertQuery("SELECT a.col0 FROM (VALUES ROW (test_row(1.0, 2.0))) AS t (a)", "SELECT 1.0");
         assertQuery("SELECT a.col0 FROM (VALUES ROW (test_row(TRUE, FALSE))) AS t (a)", "SELECT TRUE");
         assertQuery("SELECT a.col1 FROM (VALUES ROW (test_row(1.0, 'kittens'))) AS t (a)", "SELECT 'kittens'");
+        assertQuery("SELECT a.col2.col1 FROM (VALUES ROW(test_row(1.0, ARRAY[2], test_row(3, 4.0)))) t(a)", "SELECT 4.0");
+
+        // Subscript + Dereference
+        assertQuery("SELECT a.col1[2] FROM (VALUES ROW(test_row(1.0, ARRAY[22, 33, 44, 55], test_row(3, 4.0)))) t(a)", "SELECT 33");
+        assertQuery("SELECT a.col1[2].col0, a.col1[2].col1 FROM (VALUES ROW(test_row(1.0, ARRAY[test_row(31, 4.1), test_row(32, 4.2)], test_row(3, 4.0)))) t(a)", "SELECT 32, 4.2");
+
+        assertQuery("SELECT test_row(11, 12).col0", "SELECT 11");
+    }
+
+    @Test
+    public void testRowFieldAccessorInAggregate()
+            throws Exception
+    {
+        assertQuery("SELECT a.col0, SUM(a.col1[2]), SUM(a.col2.col0), SUM(a.col2.col1) FROM " +
+                        "(VALUES " +
+                        "(ROW(test_row(1.0, ARRAY[2, 13, 4], test_row(11, 4.1)))), " +
+                        "(ROW(test_row(2.0, ARRAY[2, 23, 4], test_row(12, 14.0)))), " +
+                        "(ROW(test_row(1.0, ARRAY[22, 33, 44], test_row(13, 5.0))))) t(a) " +
+                        "GROUP BY a.col0",
+                "SELECT * FROM VALUES (1.0, 46, 24, 9.1), (2.0, 23, 12, 14.0)");
+
+        assertQuery("SELECT a.col2.col0, SUM(a.col0), SUM(a.col1[2]), SUM(a.col2.col1) FROM " +
+                        "(VALUES " +
+                        "(ROW(test_row(1.0, ARRAY[2, 13, 4], test_row(11, 4.1)))), " +
+                        "(ROW(test_row(2.0, ARRAY[2, 23, 4], test_row(11, 14.0)))), " +
+                        "(ROW(test_row(7.0, ARRAY[22, 33, 44], test_row(13, 5.0))))) t(a) " +
+                        "GROUP BY a.col2.col0",
+                "SELECT * FROM VALUES (11, 3.0, 36, 18.1), (13, 7.0, 33, 5.0)");
+
+        assertQuery("SELECT a.col1[1].col0, SUM(a.col0), SUM(a.col1[1].col1), SUM(a.col1[2].col0), SUM(a.col2.col1) FROM " +
+                        "(VALUES " +
+                        "(ROW(test_row(1.0, ARRAY[test_row(31, 4.5), test_row(12, 4.2)], test_row(3, 4.0)))), " +
+                        "(ROW(test_row(3.1, ARRAY[test_row(41, 3.1), test_row(32, 4.2)], test_row(6, 6.0)))), " +
+                        "(ROW(test_row(2.2, ARRAY[test_row(31, 4.2), test_row(22, 4.2)], test_row(5, 4.0))))) t(a) " +
+                        "GROUP BY a.col1[1].col0",
+                "SELECT * FROM VALUES (31, 3.2, 8.7, 34, 8.0), (41, 3.1, 3.1, 32, 6.0)");
+
+        assertQuery("SELECT a.col1[1].col0, SUM(a.col0), SUM(a.col1[1].col1), SUM(a.col1[2].col0), SUM(a.col2.col1) FROM " +
+                        "(VALUES " +
+                        "(ROW(test_row(2.2, ARRAY[test_row(31, 4.2), test_row(22, 4.2)], test_row(5, 4.0)))), " +
+                        "(ROW(test_row(1.0, ARRAY[test_row(31, 4.5), test_row(12, 4.2)], test_row(3, 4.1)))), " +
+                        "(ROW(test_row(3.1, ARRAY[test_row(41, 3.1), test_row(32, 4.2)], test_row(6, 6.0)))), " +
+                        "(ROW(test_row(3.3, ARRAY[test_row(41, 3.1), test_row(32, 4.2)], test_row(6, 6.0)))) " +
+                        ") t(a) " +
+                        "GROUP BY a.col1[1]",
+                "SELECT * FROM VALUES (31, 2.2, 4.2, 22, 4.0), (31, 1.0, 4.5, 12, 4.1), (41, 6.4, 6.2, 64, 12.0)");
+
+        assertQuery("SELECT a.col1[2], SUM(a.col0), SUM(a.col1[1]), SUM(a.col2.col1) FROM " +
+                        "(VALUES " +
+                        "(ROW(test_row(1.0, ARRAY[2, 13, 4], test_row(11, 4.1)))), " +
+                        "(ROW(test_row(2.0, ARRAY[2, 13, 4], test_row(12, 14.0)))), " +
+                        "(ROW(test_row(7.0, ARRAY[22, 33, 44], test_row(13, 5.0))))) t(a) " +
+                        "GROUP BY a.col1[2]",
+                "SELECT * FROM VALUES (13, 3.0, 4, 18.1), (33, 7.0, 22, 5.0)");
+
+        assertQuery("SELECT a.col2.col0, SUM(a.col2.col1) FROM " +
+                        "(VALUES " +
+                        "(ROW(test_row(2.2, ARRAY[test_row(31, 4.2), test_row(22, 4.2)], test_row(5, 4.0)))), " +
+                        "(ROW(test_row(1.0, ARRAY[test_row(31, 4.5), test_row(12, 4.2)], test_row(3, 4.1)))), " +
+                        "(ROW(test_row(3.1, ARRAY[test_row(41, 3.1), test_row(32, 4.2)], test_row(6, 6.0)))), " +
+                        "(ROW(test_row(3.3, ARRAY[test_row(41, 3.1), test_row(32, 4.2)], test_row(6, 6.0)))) " +
+                        ") t(a) " +
+                        "GROUP BY a.col2",
+                "SELECT * FROM VALUES (5, 4.0), (3, 4.1), (6, 12.0)");
+
+        assertQuery("SELECT a.col2.col0, a.col0, SUM(a.col2.col1) FROM " +
+                        "(VALUES " +
+                        "(ROW(test_row(1.0, ARRAY[2, 13, 4], test_row(11, 4.1)))), " +
+                        "(ROW(test_row(2.0, ARRAY[2, 23, 4], test_row(11, 14.0)))), " +
+                        "(ROW(test_row(1.5, ARRAY[2, 13, 4], test_row(11, 4.1)))), " +
+                        "(ROW(test_row(1.5, ARRAY[2, 13, 4], test_row(11, 4.1)))), " +
+                        "(ROW(test_row(7.0, ARRAY[22, 33, 44], test_row(13, 5.0))))) t(a) " +
+                        "GROUP BY 1, 2 ORDER BY 1",
+                "SELECT * FROM VALUES (11, 1.0, 4.1), (11, 1.5, 8.2), (11, 2.0, 14.0), (13, 7.0, 5.0)");
+    }
+
+    @Test
+    public void testRowFieldAccessorInWindowFunction()
+            throws Exception
+    {
+        assertQuery("SELECT a.col0, " +
+                        "SUM(a.col1[1].col1) OVER(PARTITION BY a.col2.col0), " +
+                        "SUM(a.col2.col1) OVER(PARTITION BY a.col2.col0) FROM " +
+                        "(VALUES " +
+                        "(ROW(test_row(1.0, ARRAY[test_row(31, 14.5), test_row(12, 4.2)], test_row(3, 4.0)))), " +
+                        "(ROW(test_row(2.2, ARRAY[test_row(41, 13.1), test_row(32, 4.2)], test_row(6, 6.0)))), " +
+                        "(ROW(test_row(2.2, ARRAY[test_row(41, 17.1), test_row(45, 4.2)], test_row(7, 16.0)))), " +
+                        "(ROW(test_row(2.2, ARRAY[test_row(41, 13.1), test_row(32, 4.2)], test_row(6, 6.0)))), " +
+                        "(ROW(test_row(3.1, ARRAY[test_row(41, 13.1), test_row(32, 4.2)], test_row(6, 6.0))))) t(a) ",
+                "SELECT * FROM VALUES (1.0, 14.5, 4.0), (2.2, 39.3, 18.0), (2.2, 39.3, 18.0), (2.2, 17.1, 16.0), (3.1, 39.3, 18.0)");
+
+        assertQuery("SELECT a.col1[1].col0, " +
+                        "SUM(a.col0) OVER(PARTITION BY a.col1[1].col0), " +
+                        "SUM(a.col1[1].col1) OVER(PARTITION BY a.col1[1].col0), " +
+                        "SUM(a.col2.col1) OVER(PARTITION BY a.col1[1].col0) FROM " +
+                        "(VALUES " +
+                        "(ROW(test_row(1.0, ARRAY[test_row(31, 14.5), test_row(12, 4.2)], test_row(3, 4.0)))), " +
+                        "(ROW(test_row(3.1, ARRAY[test_row(41, 13.1), test_row(32, 4.2)], test_row(6, 6.0)))), " +
+                        "(ROW(test_row(2.2, ARRAY[test_row(31, 14.2), test_row(22, 4.2)], test_row(5, 4.0))))) t(a) ",
+                "SELECT * FROM VALUES (31, 3.2, 28.7, 8.0), (31, 3.2, 28.7, 8.0), (41, 3.1, 13.1, 6.0)");
+    }
+
+    @Test
+    public void testRowFieldAccessorInJoin()
+            throws Exception
+    {
+        assertQuery("" +
+                        "SELECT t.a.col1, custkey, orderkey  FROM " +
+                        "(VALUES " +
+                        "(ROW(test_row(1, 11))), " +
+                        "(ROW(test_row(2, 22))), " +
+                        "(ROW(test_row(3, 33)))) t(a) " +
+                        "INNER JOIN orders " +
+                        "ON t.a.col0 = orders.orderkey",
+                "SELECT * FROM VALUES (11, 370, 1), (22, 781, 2), (33, 1234, 3)");
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "'\"a\".\"col0\"' must be an aggregate expression or appear in GROUP BY clause")
+    public void testMissingRowFieldInGroupBy()
+            throws Exception
+    {
+        assertQuery("SELECT a.col0, count(*) FROM (VALUES ROW(test_row(1, 1))) t(a)");
+    }
+
+    @Test
+    public void testWhereWithRowField()
+            throws Exception
+    {
+        assertQuery("SELECT a.col0 FROM (VALUES ROW (test_row(1, 2))) AS t (a) WHERE a.col0 > 0", "SELECT 1");
+        assertQuery("SELECT SUM(a.col0) FROM (VALUES ROW (test_row(1, 2))) AS t (a) WHERE a.col0 <= 0", "SELECT null");
+
+        assertQuery("SELECT a.col0 FROM (VALUES ROW (test_row(1, 2))) AS t (a) WHERE a.col0 < a.col1", "SELECT 1");
+        assertQuery("SELECT SUM(a.col0) FROM (VALUES ROW (test_row(1, 2))) AS t (a) WHERE a.col0 < a.col1", "SELECT 1");
+        assertQuery("SELECT SUM(a.col0) FROM (VALUES ROW (test_row(1, 2))) AS t (a) WHERE a.col0 > a.col1", "SELECT null");
     }
 
     @Test

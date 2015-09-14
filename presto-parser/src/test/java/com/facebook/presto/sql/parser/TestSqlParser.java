@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.Delete;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -78,6 +79,7 @@ import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -689,6 +691,67 @@ public class TestSqlParser
                         Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
                         ImmutableList.of(new SortItem(new QualifiedNameReference(QualifiedName.of("y")), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
                         Optional.of("ALL")));
+    }
+
+    @Test
+    public void testSelectWithRowType()
+            throws Exception
+    {
+        assertStatement("SELECT col1.f1, col2, col3.f1.f2.f3 FROM table1",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(
+                                        new DereferenceExpression(new QualifiedNameReference(QualifiedName.of("col1")), "f1"),
+                                        new QualifiedNameReference(QualifiedName.of("col2")),
+                                        new DereferenceExpression(
+                                                new DereferenceExpression(new DereferenceExpression(new QualifiedNameReference(QualifiedName.of("col3")), "f1"), "f2"), "f3")),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty()),
+                        ImmutableList.<SortItem>of(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT col1.f1[0], col2, col3[2].f2.f3, col4[4] FROM table1",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(
+                                        new SubscriptExpression(new DereferenceExpression(new QualifiedNameReference(QualifiedName.of("col1")), "f1"), new LongLiteral("0")),
+                                        new QualifiedNameReference(QualifiedName.of("col2")),
+                                        new DereferenceExpression(new DereferenceExpression(new SubscriptExpression(new QualifiedNameReference(QualifiedName.of("col3")), new LongLiteral("2")), "f2"), "f3"),
+                                        new SubscriptExpression(new QualifiedNameReference(QualifiedName.of("col4")), new LongLiteral("4"))
+                                ),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty()),
+                        ImmutableList.<SortItem>of(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT test_row(11, 12).col0",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(
+                                        new DereferenceExpression(new FunctionCall(QualifiedName.of("test_row"), Lists.newArrayList(new LongLiteral("11"), new LongLiteral("12"))), "col0")
+                                ),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty()),
+                        ImmutableList.<SortItem>of(),
+                        Optional.empty(),
+                        Optional.empty()));
     }
 
     @Test

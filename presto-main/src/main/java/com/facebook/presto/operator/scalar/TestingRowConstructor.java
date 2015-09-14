@@ -152,6 +152,20 @@ public final class TestingRowConstructor
     }
 
     @ScalarFunction("test_row")
+    @SqlType("row<double,array<row<bigint,double>('col0','col1')>,row<bigint,double>('col0','col1')>('col0','col1','col2')")
+    public static Block testNestedRowWithArray(
+            @Nullable @SqlType(StandardTypes.DOUBLE) Double arg1,
+            @Nullable @SqlType("array<row<bigint,double>('col0','col1')>") Block arg2,
+            @Nullable @SqlType("row<bigint,double>('col0','col1')") Block arg3)
+    {
+        List<Type> parameterTypes = ImmutableList.of(
+                DOUBLE,
+                new ArrayType(new RowType(ImmutableList.of(BIGINT, DOUBLE), Optional.of(ImmutableList.of("col0", "col1")))),
+                new RowType(ImmutableList.of(BIGINT, DOUBLE), Optional.of(ImmutableList.of("col0", "col1"))));
+        return toStackRepresentation(parameterTypes, arg1, arg2, arg3);
+    }
+
+    @ScalarFunction("test_row")
     @SqlType("row<timestamp>('col0')")
     public static Block testRowBigintBigint(@Nullable @SqlType(StandardTypes.TIMESTAMP) Long arg1)
     {

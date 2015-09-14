@@ -17,6 +17,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.sql.QueryUtil.mangleFieldReference;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Keeps track of fields and expressions and their mapping to symbols in the current plan
@@ -111,7 +113,7 @@ class TranslationMap
         if (fieldOrExpression.isFieldReference()) {
             int fieldIndex = fieldOrExpression.getFieldIndex();
             Symbol symbol = fieldSymbols[fieldIndex];
-            Preconditions.checkState(symbol != null, "No mapping for field '%s'", fieldIndex);
+            checkState(symbol != null, "No mapping for field '%s'", fieldIndex);
 
             return new QualifiedNameReference(symbol.toQualifiedName());
         }
@@ -127,7 +129,7 @@ class TranslationMap
 
         // also update the field mappings if this expression is a simple field reference
         if (expression instanceof QualifiedNameReference) {
-            int fieldIndex = analysis.getResolvedNames(expression).get(((QualifiedNameReference) expression).getName());
+            int fieldIndex = analysis.getResolvedNames(expression).get(expression);
             fieldSymbols[fieldIndex] = symbol;
         }
     }
@@ -166,7 +168,7 @@ class TranslationMap
 
     private Expression translateNamesToSymbols(Expression expression)
     {
-        final Map<QualifiedName, Integer> resolvedNames = analysis.getResolvedNames(expression);
+        final Map<Expression, Integer> resolvedNames = analysis.getResolvedNames(expression);
         Preconditions.checkArgument(resolvedNames != null, "No resolved names for expression %s", expression);
 
         return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
@@ -188,20 +190,37 @@ class TranslationMap
             @Override
             public Expression rewriteQualifiedNameReference(QualifiedNameReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                QualifiedName name = node.getName();
+                return rewriteExpressionWithResolvedName(node);
+            }
 
-                Integer fieldIndex = resolvedNames.get(name);
-                Preconditions.checkState(fieldIndex != null, "No field mapping for name '%s'", name);
+            private Expression rewriteExpressionWithResolvedName(Expression node)
+            {
+                Integer fieldIndex = resolvedNames.get(node);
+                checkState(fieldIndex != null, "No field mapping for node '%s'", node);
 
                 Symbol symbol = rewriteBase.getSymbol(fieldIndex);
-                Preconditions.checkState(symbol != null, "No symbol mapping for name '%s' (%s)", name, fieldIndex);
-
+                checkState(symbol != null, "No symbol mapping for node '%s' (%s)", node, fieldIndex);
                 Expression rewrittenExpression = new QualifiedNameReference(symbol.toQualifiedName());
 
-                if (analysis.isRowFieldReference(node)) {
-                    QualifiedName mangledName = QualifiedName.of(mangleFieldReference(node.getName().getSuffix()));
-                    rewrittenExpression = new FunctionCall(mangledName, ImmutableList.of(rewrittenExpression));
+                // cast expression if coercion is registered
+                Type coercion = analysis.getCoercion(node);
+                if (coercion != null) {
+                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getTypeSignature().toString());
                 }
+                return rewrittenExpression;
+            }
+
+            @Override
+            public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                if (analysis.getColumnReferences().contains(node)) {
+                    return rewriteExpressionWithResolvedName(node);
+                }
+
+                // Rewrite all row field reference to function call.
+                Expression rewrittenBaseExpression = rewrite(node.getBase());
+                QualifiedName mangledName = QualifiedName.of(mangleFieldReference(node.getFieldName()));
+                Expression rewrittenExpression = new FunctionCall(mangledName, ImmutableList.of(rewrittenBaseExpression));
 
                 // cast expression if coercion is registered
                 Type coercion = analysis.getCoercion(node);

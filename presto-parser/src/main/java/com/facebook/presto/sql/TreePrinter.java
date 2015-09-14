@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -51,10 +52,10 @@ public class TreePrinter
 {
     private static final String INDENT = "   ";
 
-    private final IdentityHashMap<QualifiedNameReference, QualifiedName> resolvedNameReferences;
+    private final IdentityHashMap<Expression, QualifiedName> resolvedNameReferences;
     private final PrintStream out;
 
-    public TreePrinter(IdentityHashMap<QualifiedNameReference, QualifiedName> resolvedNameReferences, PrintStream out)
+    public TreePrinter(IdentityHashMap<Expression, QualifiedName> resolvedNameReferences, PrintStream out)
     {
         this.resolvedNameReferences = new IdentityHashMap<>(resolvedNameReferences);
         this.out = out;
@@ -248,6 +249,18 @@ public class TreePrinter
                     resolvedName = "=>" + resolved.toString();
                 }
                 print(indentLevel, "QualifiedName[" + node.getName() + resolvedName + "]");
+                return null;
+            }
+
+            @Override
+            protected Void visitDereferenceExpression(DereferenceExpression node, Integer indentLevel)
+            {
+                QualifiedName resolved = resolvedNameReferences.get(node);
+                String resolvedName = "";
+                if (resolved != null) {
+                    resolvedName = "=>" + resolved.toString();
+                }
+                print(indentLevel, "DereferenceExpression[" + node + resolvedName + "]");
                 return null;
             }
 

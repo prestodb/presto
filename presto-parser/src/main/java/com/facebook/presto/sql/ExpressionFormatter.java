@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
@@ -225,6 +226,13 @@ public final class ExpressionFormatter
         protected String visitQualifiedNameReference(QualifiedNameReference node, Boolean unmangleNames)
         {
             return formatQualifiedName(node.getName());
+        }
+
+        @Override
+        protected String visitDereferenceExpression(DereferenceExpression node, Boolean unmangleNames)
+        {
+            String baseString = process(node.getBase(), unmangleNames);
+            return baseString + "." + formatIdentifier(node.getFieldName());
         }
 
         private static String formatQualifiedName(QualifiedName name)
