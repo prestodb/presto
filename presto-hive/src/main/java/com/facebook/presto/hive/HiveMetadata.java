@@ -35,6 +35,7 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -71,13 +72,16 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
+import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
@@ -102,9 +106,11 @@ import static com.facebook.presto.hive.HiveWriteUtils.pathExists;
 import static com.facebook.presto.hive.HiveWriteUtils.renameDirectory;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -1190,13 +1196,76 @@ public class HiveMetadata
     }
 
     @Override
+    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException("This connector only supports delete where one or more partitions are deleted entirely");
+    }
+
+    @Override
+    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return updateRowIdHandle(connectorId);
+    }
+
+    @Override
+    public OptionalLong metadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
+    {
+        HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
+        HiveTableLayoutHandle layoutHandle = checkType(tableLayoutHandle, HiveTableLayoutHandle.class, "tableLayoutHandle");
+
+        //for (HivePartition hivePartition : layoutHandle.getOrComputePartitions(this, session, tableHandle)) {
+        for (HivePartition hivePartition : getOrComputePartitions(layoutHandle, session, tableHandle)) {
+            metastore.dropPartitionByName(handle.getSchemaName(), handle.getTableName(), hivePartition.getPartitionId());
+        }
+        // it is too expensive to determine the exact number of deleted rows
+        return OptionalLong.empty();
+    }
+
+    private List<HivePartition> getOrComputePartitions(HiveTableLayoutHandle layoutHandle, ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        if (layoutHandle.getPartitions().isPresent()) {
+            return layoutHandle.getPartitions().get();
+        }
+        else {
+            TupleDomain<ColumnHandle> promisedPredicate = layoutHandle.getPromisedPredicate();
+            Predicate<Map<ColumnHandle, ?>> predicate = convertToPredicate(promisedPredicate);
+            List<ConnectorTableLayoutResult> tableLayoutResults = getTableLayouts(session, tableHandle, new Constraint<>(promisedPredicate, predicate), Optional.empty());
+            return checkType(Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle(), HiveTableLayoutHandle.class, "tableLayoutHandle").getPartitions().get();
+        }
+    }
+
+    @VisibleForTesting
+    static Predicate<Map<ColumnHandle, ?>> convertToPredicate(TupleDomain<ColumnHandle> tupleDomain)
+    {
+        return map -> {
+            ImmutableMap.Builder<ColumnHandle, Comparable<?>> mapBuilder = new ImmutableMap.Builder<>();
+            for (Map.Entry<ColumnHandle, ?> entry : map.entrySet()) {
+                HiveColumnHandle hiveColumnHandle = checkType(entry.getKey(), HiveColumnHandle.class, "map.key");
+                // Temporarily, only VARCHAR partition key is supported for delete
+                if (!VARCHAR.getTypeSignature().equals(hiveColumnHandle.getTypeSignature())) {
+                    throw new PrestoException(NOT_SUPPORTED, "The type of partition key is not VARCHAR");
+                }
+                mapBuilder.put(hiveColumnHandle, (Slice) entry.getValue());
+            }
+            return tupleDomain.contains(TupleDomain.withFixedValues(mapBuilder.build()));
+        };
+    }
+
+    @Override
+    public boolean supportsMetadataDelete(ConnectorSession session)
+    {
+        return true;
+    }
+
+    @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
 
         HivePartitionResult hivePartitionResult = partitionManager.getPartitions(session, metastore, tableHandle, constraint.getSummary());
+
         return ImmutableList.of(new ConnectorTableLayoutResult(
-                getTableLayout(session, new HiveTableLayoutHandle(handle.getClientId(), hivePartitionResult.getPartitions())),
+                getTableLayout(session, new HiveTableLayoutHandle(handle.getClientId(), hivePartitionResult.getPartitions(), hivePartitionResult.getEnforcedConstraint())),
                 hivePartitionResult.getUnenforcedConstraint()));
     }
 
@@ -1204,7 +1273,7 @@ public class HiveMetadata
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
     {
         HiveTableLayoutHandle hiveLayoutHandle = checkType(layoutHandle, HiveTableLayoutHandle.class, "layoutHandle");
-        List<TupleDomain<ColumnHandle>> partitionDomains = hiveLayoutHandle.getPartitions().stream()
+        List<TupleDomain<ColumnHandle>> partitionDomains = hiveLayoutHandle.getPartitions().get().stream()
                 .map(HivePartition::getTupleDomain)
                 .collect(toList());
 
