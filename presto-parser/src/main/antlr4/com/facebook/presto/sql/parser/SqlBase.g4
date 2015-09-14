@@ -227,7 +227,6 @@ primaryExpression
     | STRING                                                                         #stringLiteral
     | '(' expression (',' expression)+ ')'                                           #rowConstructor
     | ROW '(' expression (',' expression)* ')'                                       #rowConstructor
-    | qualifiedName                                                                  #columnReference
     | qualifiedName '(' ASTERISK ')' over?                                           #functionCall
     | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' over?     #functionCall
     | '(' query ')'                                                                  #subqueryExpression
@@ -237,7 +236,8 @@ primaryExpression
     | TRY_CAST '(' expression AS type ')'                                            #cast
     | ARRAY '[' (expression (',' expression)*)? ']'                                  #arrayConstructor
     | value=primaryExpression '[' index=valueExpression ']'                          #subscript
-    | value=primaryExpression '.' fieldName=identifier                               #fieldReference
+    | identifier                                                                     #columnReference
+    | base=primaryExpression '.' fieldName=identifier                                #dereference
     | name=CURRENT_DATE                                                              #specialDateTimeFunction
     | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?                           #specialDateTimeFunction
     | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                      #specialDateTimeFunction

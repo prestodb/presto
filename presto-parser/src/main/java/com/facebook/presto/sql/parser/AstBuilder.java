@@ -32,6 +32,7 @@ import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.Delete;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -122,8 +123,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
-import static com.facebook.presto.sql.QueryUtil.mangleFieldReference;
 
 class AstBuilder
         extends SqlBaseBaseVisitor<Node>
@@ -834,22 +833,21 @@ class AstBuilder
     }
 
     @Override
-    public Node visitFieldReference(SqlBaseParser.FieldReferenceContext context)
-    {
-        // TODO: This should be done during the conversion to RowExpression
-        return new FunctionCall(new QualifiedName(mangleFieldReference(context.fieldName.getText())), ImmutableList.of((Expression) visit(context.value)));
-    }
-
-    @Override
     public Node visitSubqueryExpression(SqlBaseParser.SubqueryExpressionContext context)
     {
         return new SubqueryExpression((Query) visit(context.query()));
     }
 
     @Override
+    public Node visitDereference(SqlBaseParser.DereferenceContext context)
+    {
+        return new DereferenceExpression((Expression) visit(context.base), context.fieldName.getText());
+    }
+
+    @Override
     public Node visitColumnReference(SqlBaseParser.ColumnReferenceContext context)
     {
-        return new QualifiedNameReference(getQualifiedName(context.qualifiedName()));
+        return new QualifiedNameReference(new QualifiedName(context.getText()));
     }
 
     @Override

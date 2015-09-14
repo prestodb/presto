@@ -43,6 +43,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -137,8 +138,10 @@ public class ExpressionInterpreter
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, true);
     }
 
-    public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session)
+    public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session, Set<Expression> columnReferences)
     {
+        requireNonNull(columnReferences, "columnReferences is null");
+
         ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session);
         analyzer.analyze(expression, new TupleDescriptor(), new AnalysisContext());
 
@@ -152,14 +155,27 @@ public class ExpressionInterpreter
         IdentityHashMap<Expression, Type> coercions = new IdentityHashMap<>();
         coercions.putAll(analyzer.getExpressionCoercions());
         coercions.put(expression, expectedType);
-        return evaluateConstantExpression(expression, coercions, metadata, session);
+        return evaluateConstantExpression(expression, coercions, metadata, session, columnReferences);
     }
 
-    public static Object evaluateConstantExpression(Expression expression, IdentityHashMap<Expression, Type> coercions, Metadata metadata, Session session)
+    public static Object evaluateConstantExpression(Expression expression, IdentityHashMap<Expression, Type> coercions, Metadata metadata, Session session, Set<Expression> columnReferences)
     {
+        requireNonNull(columnReferences, "columnReferences is null");
+
         // verify expression is constant
         expression.accept(new DefaultTraversalVisitor<Void, Void>()
         {
+            @Override
+            protected Void visitDereferenceExpression(DereferenceExpression node, Void context)
+            {
+                if (columnReferences.contains(node)) {
+                    throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
+                }
+
+                process(node.getBase(), context);
+                return null;
+            }
+
             @Override
             protected Void visitQualifiedNameReference(QualifiedNameReference node, Void context)
             {
@@ -295,6 +311,13 @@ public class ExpressionInterpreter
                 }
             }
             throw new UnsupportedOperationException("Inputs or cursor myst be set");
+        }
+
+        @Override
+        protected Object visitDereferenceExpression(DereferenceExpression node, Object context)
+        {
+            // Dereference is never a Symbol
+            return node;
         }
 
         @Override

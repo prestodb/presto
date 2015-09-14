@@ -297,7 +297,7 @@ public class TupleAnalyzer
             throw new SemanticException(NOT_SUPPORTED, relation, "STRATIFY ON is not yet implemented");
         }
 
-        if (!DependencyExtractor.extractNames(relation.getSamplePercentage()).isEmpty()) {
+        if (!DependencyExtractor.extractNames(relation.getSamplePercentage(), analysis.getColumnReferences()).isEmpty()) {
             throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
         }
 
@@ -366,7 +366,7 @@ public class TupleAnalyzer
         List<FieldOrExpression> orderByExpressions = analyzeOrderBy(node, tupleDescriptor, context, outputExpressions);
         analyzeHaving(node, tupleDescriptor, context);
 
-        analyzeAggregations(node, tupleDescriptor, groupByExpressions, outputExpressions, orderByExpressions, context);
+        analyzeAggregations(node, tupleDescriptor, groupByExpressions, outputExpressions, orderByExpressions, context, analysis.getColumnReferences());
         analyzeWindowFunctions(node, outputExpressions, orderByExpressions);
 
         TupleDescriptor descriptor = computeOutputDescriptor(node, tupleDescriptor);
@@ -536,8 +536,8 @@ public class TupleAnalyzer
                 }
 
                 ComparisonExpression comparison = (ComparisonExpression) conjunct;
-                Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(comparison.getLeft());
-                Set<QualifiedName> secondDependencies = DependencyExtractor.extractNames(comparison.getRight());
+                Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(comparison.getLeft(), analyzer.getColumnReferences());
+                Set<QualifiedName> secondDependencies = DependencyExtractor.extractNames(comparison.getRight(), analyzer.getColumnReferences());
 
                 Expression leftExpression;
                 Expression rightExpression;
@@ -1004,7 +1004,8 @@ public class TupleAnalyzer
             List<FieldOrExpression> groupByExpressions,
             List<FieldOrExpression> outputExpressions,
             List<FieldOrExpression> orderByExpressions,
-            AnalysisContext context)
+            AnalysisContext context,
+            Set<Expression> columnReferences)
     {
         List<FunctionCall> aggregates = extractAggregates(node);
 
@@ -1022,11 +1023,11 @@ public class TupleAnalyzer
             //     SELECT f(a + 1) GROUP BY a + 1
             //     SELECT a + sum(b) GROUP BY a
             for (FieldOrExpression fieldOrExpression : Iterables.concat(outputExpressions, orderByExpressions)) {
-                verifyAggregations(node, groupByExpressions, tupleDescriptor, fieldOrExpression);
+                verifyAggregations(node, groupByExpressions, tupleDescriptor, fieldOrExpression, columnReferences);
             }
 
             if (node.getHaving().isPresent()) {
-                verifyAggregations(node, groupByExpressions, tupleDescriptor, new FieldOrExpression(node.getHaving().get()));
+                verifyAggregations(node, groupByExpressions, tupleDescriptor, new FieldOrExpression(node.getHaving().get()), columnReferences);
             }
         }
     }
@@ -1054,9 +1055,14 @@ public class TupleAnalyzer
         return aggregates;
     }
 
-    private void verifyAggregations(QuerySpecification node, List<FieldOrExpression> groupByExpressions, TupleDescriptor tupleDescriptor, FieldOrExpression fieldOrExpression)
+    private void verifyAggregations(
+            QuerySpecification node,
+            List<FieldOrExpression> groupByExpressions,
+            TupleDescriptor tupleDescriptor,
+            FieldOrExpression fieldOrExpression,
+            Set<Expression> columnReferences)
     {
-        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, metadata, tupleDescriptor);
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, metadata, tupleDescriptor, columnReferences);
 
         if (fieldOrExpression.isExpression()) {
             analyzer.analyze(fieldOrExpression.getExpression());

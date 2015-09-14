@@ -257,6 +257,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitDereferenceExpression(DereferenceExpression node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitNullIfExpression(NullIfExpression node, C context)
     {
         return visitExpression(node, context);

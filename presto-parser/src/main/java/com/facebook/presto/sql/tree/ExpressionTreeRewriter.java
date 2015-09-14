@@ -613,6 +613,24 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        public Expression visitDereferenceExpression(DereferenceExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteDereferenceExpression(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression base = rewrite(node.getBase(), context.get());
+            if (base != node.getBase()) {
+                return new DereferenceExpression(base, node.getFieldName());
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitExtract(Extract node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

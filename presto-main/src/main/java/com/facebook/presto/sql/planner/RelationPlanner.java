@@ -239,8 +239,8 @@ class RelationPlanner
                 if (comparison.getType() != EQUAL && node.getType() != INNER) {
                     throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins only supported for inner join: %s", conjunct);
                 }
-                Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(comparison.getLeft());
-                Set<QualifiedName> secondDependencies = DependencyExtractor.extractNames(comparison.getRight());
+                Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(comparison.getLeft(), analysis.getColumnReferences());
+                Set<QualifiedName> secondDependencies = DependencyExtractor.extractNames(comparison.getRight(), analysis.getColumnReferences());
 
                 Expression leftExpression;
                 Expression rightExpression;
@@ -418,12 +418,12 @@ class RelationPlanner
                 List<Expression> items = ((Row) row).getItems();
                 for (int i = 0; i < items.size(); i++) {
                     Expression expression = items.get(i);
-                    Object constantValue = evaluateConstantExpression(expression, analysis.getCoercions(), metadata, session);
+                    Object constantValue = evaluateConstantExpression(expression, analysis.getCoercions(), metadata, session, analysis.getColumnReferences());
                     values.add(LiteralInterpreter.toExpression(constantValue, descriptor.getFieldByIndex(i).getType()));
                 }
             }
             else {
-                Object constantValue = evaluateConstantExpression(row, analysis.getCoercions(), metadata, session);
+                Object constantValue = evaluateConstantExpression(row, analysis.getCoercions(), metadata, session, analysis.getColumnReferences());
                 values.add(LiteralInterpreter.toExpression(constantValue, descriptor.getFieldByIndex(0).getType()));
             }
 
@@ -451,7 +451,7 @@ class RelationPlanner
         ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
         Iterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
         for (Expression expression : node.getExpressions()) {
-            Object constantValue = evaluateConstantExpression(expression, analysis.getCoercions(), metadata, session);
+            Object constantValue = evaluateConstantExpression(expression, analysis.getCoercions(), metadata, session, analysis.getColumnReferences());
             Type type = analysis.getType(expression);
             values.add(LiteralInterpreter.toExpression(constantValue, type));
             Symbol inputSymbol = symbolAllocator.newSymbol(expression, type);

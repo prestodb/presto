@@ -166,6 +166,13 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitDereferenceExpression(DereferenceExpression node, C context)
+    {
+        process(node.getBase(), context);
+        return null;
+    }
+
+    @Override
     public R visitWindow(Window node, C context)
     {
         for (Expression expression : node.getPartitionBy()) {
