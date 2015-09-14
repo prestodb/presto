@@ -13,26 +13,42 @@
  */
 package com.facebook.presto.hive;
 
+import com.google.common.base.Splitter;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 
 import javax.validation.constraints.NotNull;
 
 import java.net.URI;
+import java.util.List;
+
+import static java.util.stream.Collectors.toList;
 
 public class StaticMetastoreConfig
 {
-    private URI metastoreUri;
+    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
+    private List<URI> metastoreUris;
 
     @NotNull
-    public URI getMetastoreUri()
+    public List<URI> getMetastoreUris()
     {
-        return metastoreUri;
+        return metastoreUris;
     }
 
     @Config("hive.metastore.uri")
-    public StaticMetastoreConfig setMetastoreUri(URI metastoreUri)
+    @ConfigDescription("Hive metastore URIs (comma separated)")
+    public StaticMetastoreConfig setMetastoreUris(String metastoreUris)
     {
-        this.metastoreUri = metastoreUri;
+        if (metastoreUris == null) {
+            this.metastoreUris = null;
+            return this;
+        }
+
+        this.metastoreUris = SPLITTER.splitToList(metastoreUris).stream()
+                .map(URI::create)
+                .collect(toList());
+
         return this;
     }
 }
