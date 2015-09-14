@@ -36,6 +36,7 @@ import static com.facebook.presto.cli.FormatUtils.pluralize;
 import static com.facebook.presto.cli.KeyReader.readKey;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.Duration.nanosSince;
+import static java.lang.Character.toUpperCase;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -52,11 +53,14 @@ public class StatusPrinter
     private final PrintStream out;
     private final ConsolePrinter console;
 
+    private boolean debug;
+
     public StatusPrinter(StatementClient client, PrintStream out)
     {
         this.client = client;
         this.out = out;
         this.console = new ConsolePrinter(out);
+        this.debug = client.isDebug();
     }
 
 /*
@@ -87,14 +91,22 @@ Parallelism: 2.5
                         return;
                     }
 
+                    // check if time to update screen
+                    boolean update = nanosSince(lastPrint).getValue(SECONDS) >= 0.5;
+
                     // check for keyboard input
                     int key = readKey();
                     if (key == CTRL_P) {
                         partialCancel();
                     }
+                    else if (toUpperCase(key) == 'D') {
+                        debug = !debug;
+                        console.resetScreen();
+                        update = true;
+                    }
 
-                    // update screen if enough time has passed
-                    if (nanosSince(lastPrint).getValue(SECONDS) >= 0.5) {
+                    // update screen
+                    if (update) {
                         console.repositionCursor();
                         printQueryInfo(client.current());
                         lastPrint = System.nanoTime();
@@ -136,7 +148,7 @@ Parallelism: 2.5
                 pluralize("node", nodes));
         out.println(querySummary);
 
-        if (client.isDebug()) {
+        if (debug) {
             out.println(results.getInfoUri() + "?pretty");
         }
 
@@ -147,7 +159,7 @@ Parallelism: 2.5
                 percentage(stats.getCompletedSplits(), stats.getTotalSplits()));
         out.println(splitsSummary);
 
-        if (client.isDebug()) {
+        if (debug) {
             // CPU Time: 565.2s total,   26K rows/s, 3.85MB/s
             Duration cpuTime = millis(stats.getCpuTimeMillis());
             String cpuTimeSummary = String.format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
@@ -219,7 +231,7 @@ Parallelism: 2.5
             reprintLine(querySummary);
 
             String url = results.getInfoUri() + "?pretty";
-            if (client.isDebug() && (url.length() < terminalWidth)) {
+            if (debug && (url.length() < terminalWidth)) {
                 reprintLine(url);
             }
 
@@ -227,7 +239,7 @@ Parallelism: 2.5
                 return;
             }
 
-            if (client.isDebug()) {
+            if (debug) {
                 // Splits:   620 queued, 34 running, 124 done
                 String splitsSummary = String.format("Splits:   %,d queued, %,d running, %,d done",
                         stats.getQueuedSplits(),
