@@ -63,6 +63,10 @@ public final class HiveTestUtils
             .add(new GenericHiveRecordCursorProvider())
             .build();
 
+    public static final ImmutableSet<String> SUPPORTED_STORAGE_FORMAT_NAMES = ImmutableSet.of(
+            "ORC", "DWRF", "PARQUET", "RCBINARY", "RCTEXT", "SEQUENCEFILE", "TEXTFILE", TestHiveStorageHandler.class.getName()
+    );
+
     public static List<Type> getTypes(List<? extends ColumnHandle> columnHandles)
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();

@@ -589,15 +589,32 @@ public class HiveMetadata
         if (serdeInfo == null) {
             throw new PrestoException(HIVE_INVALID_METADATA, "Table storage descriptor is missing SerDe info");
         }
-        String outputFormat = descriptor.getOutputFormat();
-        String serializationLib = serdeInfo.getSerializationLib();
 
-        for (HiveStorageFormat format : HiveStorageFormat.values()) {
+        String serializationLib = serdeInfo.getSerializationLib();
+        String inputFormat = descriptor.getInputFormat();
+        String outputFormat = descriptor.getOutputFormat();
+
+        for (HiveStorageFormat format : HiveStorageFormat.predefinedFormats()) {
             if (format.getOutputFormat().equals(outputFormat) && format.getSerDe().equals(serializationLib)) {
                 return format;
             }
         }
-        throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Output format %s with SerDe %s is not supported", outputFormat, serializationLib));
+
+        return tryLoadCustomStorageFormat(serializationLib, inputFormat, outputFormat);
+    }
+
+    private static HiveStorageFormat tryLoadCustomStorageFormat(String serializationLib, String inputFormat, String outputFormat)
+    {
+        try {
+            return new HiveStorageFormat(
+                    Class.forName(serializationLib).getName(),
+                    Class.forName(inputFormat).getName(),
+                    Class.forName(outputFormat).getName()
+            );
+        }
+        catch (ClassNotFoundException e) {
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Output format %s with SerDe %s is not supported", outputFormat, serializationLib));
+        }
     }
 
     private boolean pathExists(Path path)

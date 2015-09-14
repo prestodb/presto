@@ -35,6 +35,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveQueryRunner.createSampledSession;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static com.facebook.presto.hive.HiveTestUtils.SUPPORTED_STORAGE_FORMAT_NAMES;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.joda.time.DateTimeZone.UTC;
@@ -122,12 +123,12 @@ public class TestHiveIntegrationSmokeTest
     public void createTableAs()
             throws Exception
     {
-        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+        for (String storageFormat : SUPPORTED_STORAGE_FORMAT_NAMES) {
             createTableAs(storageFormat);
         }
     }
 
-    public void createTableAs(HiveStorageFormat storageFormat)
+    public void createTableAs(String storageFormat)
             throws Exception
     {
         String select = "SELECT" +
@@ -141,7 +142,7 @@ public class TestHiveIntegrationSmokeTest
         assertQuery(createTableAs, "SELECT 1");
 
         TableMetadata tableMetadata = getTableMetadata("test_format_table");
-        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), HiveStorageFormat.valueOf(storageFormat));
 
         assertQuery("SELECT * from test_format_table", select);
 

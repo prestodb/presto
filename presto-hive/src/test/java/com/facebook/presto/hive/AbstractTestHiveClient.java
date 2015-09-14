@@ -144,7 +144,10 @@ public abstract class AbstractTestHiveClient
     protected static final String INVALID_TABLE = "totally_invalid_table_name";
     protected static final String INVALID_COLUMN = "totally_invalid_column_name";
 
-    protected Set<HiveStorageFormat> createTableFormats = ImmutableSet.copyOf(HiveStorageFormat.values());
+    protected Set<HiveStorageFormat> createTableFormats = ImmutableSet.<HiveStorageFormat>builder()
+            .addAll(HiveStorageFormat.predefinedFormats())
+            .add(HiveStorageFormat.valueOf(TestHiveStorageHandler.class.getName()))
+            .build();
 
     protected String clientId;
     protected String database;
@@ -1799,41 +1802,43 @@ public abstract class AbstractTestHiveClient
     protected static void assertPageSourceType(ConnectorPageSource pageSource, HiveStorageFormat hiveStorageFormat)
     {
         if (pageSource instanceof RecordPageSource) {
-            assertInstanceOf(((RecordPageSource) pageSource).getCursor(), recordCursorType(hiveStorageFormat), hiveStorageFormat.name());
+            assertInstanceOf(((RecordPageSource) pageSource).getCursor(), recordCursorType(hiveStorageFormat), hiveStorageFormat.toString());
         }
         else {
-            assertInstanceOf(pageSource, pageSourceType(hiveStorageFormat), hiveStorageFormat.name());
+            assertInstanceOf(pageSource, pageSourceType(hiveStorageFormat), hiveStorageFormat.toString());
         }
     }
 
     private static Class<? extends HiveRecordCursor> recordCursorType(HiveStorageFormat hiveStorageFormat)
     {
-        switch (hiveStorageFormat) {
-            case RCTEXT:
-                return ColumnarTextHiveRecordCursor.class;
-            case RCBINARY:
-                return ColumnarBinaryHiveRecordCursor.class;
-            case ORC:
-                return OrcHiveRecordCursor.class;
-            case PARQUET:
-                return ParquetHiveRecordCursor.class;
-            case DWRF:
-                return DwrfHiveRecordCursor.class;
+        if (HiveStorageFormat.RCTEXT.equals(hiveStorageFormat)) {
+            return ColumnarTextHiveRecordCursor.class;
+        }
+        else if (HiveStorageFormat.RCBINARY.equals(hiveStorageFormat)) {
+            return ColumnarBinaryHiveRecordCursor.class;
+        }
+        else if (HiveStorageFormat.ORC.equals(hiveStorageFormat)) {
+            return OrcHiveRecordCursor.class;
+        }
+        else if (HiveStorageFormat.PARQUET.equals(hiveStorageFormat)) {
+            return ParquetHiveRecordCursor.class;
+        }
+        else if (HiveStorageFormat.DWRF.equals(hiveStorageFormat)) {
+            return DwrfHiveRecordCursor.class;
         }
         return GenericHiveRecordCursor.class;
     }
 
     private static Class<? extends ConnectorPageSource> pageSourceType(HiveStorageFormat hiveStorageFormat)
     {
-        switch (hiveStorageFormat) {
-            case RCTEXT:
-            case RCBINARY:
-                return RcFilePageSource.class;
-            case ORC:
-            case DWRF:
-                return OrcPageSource.class;
-            default:
-                throw new AssertionError("Filed type " + hiveStorageFormat + " does not use a page source");
+        if (HiveStorageFormat.RCTEXT.equals(hiveStorageFormat) || HiveStorageFormat.RCBINARY.equals(hiveStorageFormat)) {
+            return RcFilePageSource.class;
+        }
+        else if (HiveStorageFormat.ORC.equals(hiveStorageFormat) || HiveStorageFormat.DWRF.equals(hiveStorageFormat)) {
+            return OrcPageSource.class;
+        }
+        else {
+            throw new AssertionError("Filed type " + hiveStorageFormat + " does not use a page source");
         }
     }
 
