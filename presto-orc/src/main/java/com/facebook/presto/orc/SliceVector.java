@@ -33,7 +33,7 @@ public class SliceVector
 
     public SliceVector(int length)
     {
-        if (length > MAX_VECTOR_LENGTH) {
+        if (length > OrcReader.MAX_BATCH_SIZE) {
             throw new IllegalArgumentException("length greater than max vector length");
         }
         this.vector = new Slice[length];
@@ -42,7 +42,7 @@ public class SliceVector
 
     public void initialize(int length)
     {
-        if (length > MAX_VECTOR_LENGTH) {
+        if (length > OrcReader.MAX_BATCH_SIZE) {
             throw new IllegalArgumentException("length greater than max vector length");
         }
         this.vector = new Slice[length];

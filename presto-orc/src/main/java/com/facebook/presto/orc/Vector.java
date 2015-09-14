@@ -17,8 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 
 public interface Vector
 {
-    int MAX_VECTOR_LENGTH = 1024;
-
     @VisibleForTesting
     ObjectVector toObjectVector(int size);
 }

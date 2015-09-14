@@ -14,9 +14,9 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.orc.StreamDescriptor;
-import com.facebook.presto.orc.Vector;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.ByteArrayStream;
@@ -55,13 +55,13 @@ public class SliceDirectStreamReader
     private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
     @Nullable
     private BooleanStream presentStream;
-    private final boolean[] isNullVector = new boolean[Vector.MAX_VECTOR_LENGTH];
+    private final boolean[] isNullVector = new boolean[OrcReader.MAX_BATCH_SIZE];
 
     @Nonnull
     private StreamSource<LongStream> lengthStreamSource = missingStreamSource(LongStream.class);
     @Nullable
     private LongStream lengthStream;
-    private final int[] lengthVector = new int[Vector.MAX_VECTOR_LENGTH];
+    private final int[] lengthVector = new int[OrcReader.MAX_BATCH_SIZE];
 
     @Nonnull
     private StreamSource<ByteArrayStream> dataByteSource = missingStreamSource(ByteArrayStream.class);

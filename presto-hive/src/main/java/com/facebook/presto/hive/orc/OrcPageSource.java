@@ -54,7 +54,7 @@ import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
-import static com.facebook.presto.orc.Vector.MAX_VECTOR_LENGTH;
+import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -143,50 +143,50 @@ public class OrcPageSource
 
                 BlockBuilder blockBuilder;
                 if (type instanceof FixedWidthType) {
-                    blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_VECTOR_LENGTH);
+                    blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_BATCH_SIZE);
                 }
                 else {
-                    blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_VECTOR_LENGTH, bytes.length);
+                    blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_BATCH_SIZE, bytes.length);
                 }
 
                 if (HiveUtil.isHiveNull(bytes)) {
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
+                    for (int i = 0; i < MAX_BATCH_SIZE; i++) {
                         blockBuilder.appendNull();
                     }
                 }
                 else if (type.equals(BOOLEAN)) {
                     boolean value = booleanPartitionKey(partitionKey.getValue(), name);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
+                    for (int i = 0; i < MAX_BATCH_SIZE; i++) {
                         BOOLEAN.writeBoolean(blockBuilder, value);
                     }
                 }
                 else if (type.equals(BIGINT)) {
                     long value = bigintPartitionKey(partitionKey.getValue(), name);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
+                    for (int i = 0; i < MAX_BATCH_SIZE; i++) {
                         BIGINT.writeLong(blockBuilder, value);
                     }
                 }
                 else if (type.equals(DOUBLE)) {
                     double value = doublePartitionKey(partitionKey.getValue(), name);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
+                    for (int i = 0; i < MAX_BATCH_SIZE; i++) {
                         DOUBLE.writeDouble(blockBuilder, value);
                     }
                 }
                 else if (type.equals(VARCHAR)) {
                     Slice value = Slices.wrappedBuffer(bytes);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
+                    for (int i = 0; i < MAX_BATCH_SIZE; i++) {
                         VARCHAR.writeSlice(blockBuilder, value);
                     }
                 }
                 else if (type.equals(DATE)) {
                     long value = datePartitionKey(partitionKey.getValue(), name);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
+                    for (int i = 0; i < MAX_BATCH_SIZE; i++) {
                         DATE.writeLong(blockBuilder, value);
                     }
                 }
                 else if (type.equals(TIMESTAMP)) {
                     long value = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, name);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
+                    for (int i = 0; i < MAX_BATCH_SIZE; i++) {
                         TIMESTAMP.writeLong(blockBuilder, value);
                     }
                 }
@@ -197,8 +197,8 @@ public class OrcPageSource
                 constantBlocks[columnIndex] = blockBuilder.build();
             }
             else if (!recordReader.isColumnPresent(column.getHiveColumnIndex())) {
-                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_VECTOR_LENGTH, NULL_ENTRY_SIZE);
-                for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
+                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_BATCH_SIZE, NULL_ENTRY_SIZE);
+                for (int i = 0; i < MAX_BATCH_SIZE; i++) {
                     blockBuilder.appendNull();
                 }
                 constantBlocks[columnIndex] = blockBuilder.build();

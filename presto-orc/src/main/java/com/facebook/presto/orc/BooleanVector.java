@@ -23,7 +23,7 @@ public class BooleanVector
 
     public BooleanVector(int length)
     {
-        if (length > MAX_VECTOR_LENGTH) {
+        if (length > OrcReader.MAX_BATCH_SIZE) {
             throw new IllegalArgumentException("length greater than max vector length");
         }
         isNull = new boolean[length];

@@ -262,7 +262,7 @@ public class OrcRecordReader
             }
         }
 
-        currentBatchSize = Ints.checkedCast(Math.min(Vector.MAX_VECTOR_LENGTH, currentGroupRowCount - nextRowInGroup));
+        currentBatchSize = Ints.checkedCast(Math.min(OrcReader.MAX_BATCH_SIZE, currentGroupRowCount - nextRowInGroup));
 
         for (StreamReader column : streamReaders) {
             if (column != null) {

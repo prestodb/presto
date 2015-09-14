@@ -78,7 +78,7 @@ import static com.facebook.presto.orc.OrcTester.Compression.ZLIB;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
-import static com.facebook.presto.orc.Vector.MAX_VECTOR_LENGTH;
+import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
@@ -425,20 +425,20 @@ public class OrcTester
 
         switch (primitiveCategory) {
             case BOOLEAN:
-                return new BooleanVector(MAX_VECTOR_LENGTH);
+                return new BooleanVector(MAX_BATCH_SIZE);
             case BYTE:
             case SHORT:
             case INT:
             case LONG:
             case DATE:
             case TIMESTAMP:
-                return new LongVector(MAX_VECTOR_LENGTH);
+                return new LongVector(MAX_BATCH_SIZE);
             case FLOAT:
             case DOUBLE:
-                return new DoubleVector(MAX_VECTOR_LENGTH);
+                return new DoubleVector(MAX_BATCH_SIZE);
             case BINARY:
             case STRING:
-                return new SliceVector(MAX_VECTOR_LENGTH);
+                return new SliceVector(MAX_BATCH_SIZE);
             default:
                 throw new IllegalArgumentException("Unsupported types " + primitiveCategory);
         }

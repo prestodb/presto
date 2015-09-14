@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.stream;
 
-import com.facebook.presto.orc.Vector;
+import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.checkpoint.FloatStreamCheckpoint;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -29,7 +29,7 @@ public class FloatStream
         implements ValueStream<FloatStreamCheckpoint>
 {
     private final OrcInputStream input;
-    private final byte[] buffer = new byte[Vector.MAX_VECTOR_LENGTH * SIZE_OF_FLOAT];
+    private final byte[] buffer = new byte[OrcReader.MAX_BATCH_SIZE * SIZE_OF_FLOAT];
     private final Slice slice = Slices.wrappedBuffer(buffer);
 
     public FloatStream(OrcInputStream input)
@@ -69,7 +69,7 @@ public class FloatStream
             throws IOException
     {
         checkPositionIndex(items, vector.length);
-        checkPositionIndex(items, Vector.MAX_VECTOR_LENGTH);
+        checkPositionIndex(items, OrcReader.MAX_BATCH_SIZE);
 
         // buffer that number of values
         readFully(input, buffer, 0, items * SIZE_OF_FLOAT);

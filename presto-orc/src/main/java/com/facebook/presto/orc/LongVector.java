@@ -23,7 +23,7 @@ public class LongVector
 
     public LongVector(int length)
     {
-        if (length > MAX_VECTOR_LENGTH) {
+        if (length > OrcReader.MAX_BATCH_SIZE) {
             throw new IllegalArgumentException("length greater than max vector length");
         }
         vector = new long[length];

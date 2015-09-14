@@ -38,6 +38,8 @@ import static java.util.Objects.requireNonNull;
 
 public class OrcReader
 {
+    public static final int MAX_BATCH_SIZE = 1024;
+
     private static final Logger log = Logger.get(OrcReader.class);
 
     private static final Slice MAGIC = Slices.utf8Slice("ORC");

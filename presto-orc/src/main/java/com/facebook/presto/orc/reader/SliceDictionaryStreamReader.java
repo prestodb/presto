@@ -14,9 +14,9 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.SliceVector;
 import com.facebook.presto.orc.StreamDescriptor;
-import com.facebook.presto.orc.Vector;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.ByteArrayStream;
@@ -58,7 +58,7 @@ public class SliceDictionaryStreamReader
     private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
     @Nullable
     private BooleanStream presentStream;
-    private final boolean[] isNullVector = new boolean[Vector.MAX_VECTOR_LENGTH];
+    private final boolean[] isNullVector = new boolean[OrcReader.MAX_BATCH_SIZE];
 
     @Nonnull
     private StreamSource<ByteArrayStream> dictionaryDataStreamSource = missingStreamSource(ByteArrayStream.class);
@@ -74,7 +74,7 @@ public class SliceDictionaryStreamReader
     private StreamSource<BooleanStream> inDictionaryStreamSource = missingStreamSource(BooleanStream.class);
     @Nullable
     private BooleanStream inDictionaryStream;
-    private final boolean[] inDictionary = new boolean[Vector.MAX_VECTOR_LENGTH];
+    private final boolean[] inDictionary = new boolean[OrcReader.MAX_BATCH_SIZE];
 
     @Nonnull
     private StreamSource<ByteArrayStream> rowGroupDictionaryDataStreamSource = missingStreamSource(ByteArrayStream.class);
@@ -91,7 +91,7 @@ public class SliceDictionaryStreamReader
     @Nullable
     private LongStream dataStream;
     @Nonnull
-    private final int[] dataVector = new int[Vector.MAX_VECTOR_LENGTH];
+    private final int[] dataVector = new int[OrcReader.MAX_BATCH_SIZE];
 
     private boolean rowGroupOpen;
 
