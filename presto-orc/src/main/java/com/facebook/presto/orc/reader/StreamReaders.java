@@ -48,7 +48,7 @@ public final class StreamReaders
             case STRUCT:
                 return new StructStreamReader(streamDescriptor, hiveStorageTimeZone);
             case MAP:
-                return new BlockStreamReader(streamDescriptor, hiveStorageTimeZone);
+                return new MapStreamReader(streamDescriptor, hiveStorageTimeZone);
             case UNION:
             case DECIMAL:
             case VARCHAR:
