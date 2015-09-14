@@ -2,10 +2,10 @@
 Release 0.119
 =============
 
-General Changes
----------------
+CLI Changes
+-----------
 
-* Fix handling of full width characters in CLI.
-* Support partial cancel in CLI using ``ctrl-P``.
-* Skip printing query URL in CLI if terminal is too narrow.
-* Allow toggling debug mode in CLI using ``D``.
+* Fix handling of full width characters.
+* Skip printing query URL if terminal is too narrow.
+* Allow performing a partial query cancel using ``ctrl-P``.
+* Allow toggling debug mode during query by pressing ``D``.
