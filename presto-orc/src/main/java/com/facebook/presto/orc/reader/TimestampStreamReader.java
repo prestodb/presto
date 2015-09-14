@@ -15,8 +15,8 @@ package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.LongVector;
 import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.StreamDescriptor;
-import com.facebook.presto.orc.Vector;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
 import com.facebook.presto.orc.stream.LongStream;
@@ -66,7 +66,7 @@ public class TimestampStreamReader
     @Nullable
     private LongStream nanosStream;
 
-    private final long[] nanosVector = new long[Vector.MAX_VECTOR_LENGTH];
+    private final long[] nanosVector = new long[OrcReader.MAX_BATCH_SIZE];
 
     private boolean rowGroupOpen;
 

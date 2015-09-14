@@ -46,7 +46,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.facebook.presto.orc.Vector.MAX_VECTOR_LENGTH;
+import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.util.Types.isArrayType;
 import static com.facebook.presto.raptor.util.Types.isMapType;
@@ -280,8 +280,8 @@ public class OrcPageSource
 
     private static Block buildNullBlock(Type type)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_VECTOR_LENGTH, NULL_SIZE);
-        for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_BATCH_SIZE, NULL_SIZE);
+        for (int i = 0; i < MAX_BATCH_SIZE; i++) {
             blockBuilder.appendNull();
         }
         return blockBuilder.build();
@@ -290,7 +290,7 @@ public class OrcPageSource
     private static Block buildSingleValueBlock(Slice value)
     {
         SliceArrayBlock dictionary = new SliceArrayBlock(1, new Slice[] { value });
-        return new DictionaryBlock(MAX_VECTOR_LENGTH, dictionary, wrappedIntArray(new int[MAX_VECTOR_LENGTH]));
+        return new DictionaryBlock(MAX_BATCH_SIZE, dictionary, wrappedIntArray(new int[MAX_BATCH_SIZE]));
     }
 
     private final class LazyBooleanBlockLoader

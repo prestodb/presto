@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.SingleObjectVector;
 import com.facebook.presto.orc.StreamDescriptor;
-import com.facebook.presto.orc.Vector;
 import com.facebook.presto.orc.block.BlockReader;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
@@ -54,7 +54,7 @@ public class BlockStreamReader
     @Nullable
     private BooleanStream presentStream;
 
-    private final boolean[] isNullVector = new boolean[Vector.MAX_VECTOR_LENGTH];
+    private final boolean[] isNullVector = new boolean[OrcReader.MAX_BATCH_SIZE];
 
     private int readOffset;
     private int nextBatchSize;
