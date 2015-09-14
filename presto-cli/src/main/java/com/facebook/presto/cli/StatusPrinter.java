@@ -33,6 +33,7 @@ import static com.facebook.presto.cli.FormatUtils.formatDataSize;
 import static com.facebook.presto.cli.FormatUtils.formatProgressBar;
 import static com.facebook.presto.cli.FormatUtils.formatTime;
 import static com.facebook.presto.cli.FormatUtils.pluralize;
+import static com.facebook.presto.cli.KeyReader.readKey;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -42,6 +43,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class StatusPrinter
 {
     private static final Logger log = Logger.get(StatusPrinter.class);
+
+    private static final int CTRL_P = 16;
 
     private final long start = System.nanoTime();
     private final StatementClient client;
@@ -81,6 +84,12 @@ Parallelism: 2.5
                     // exit status loop if there is there is pending output
                     if (client.current().getData() != null) {
                         return;
+                    }
+
+                    // check for keyboard input
+                    int key = readKey();
+                    if (key == CTRL_P) {
+                        partialCancel();
                     }
 
                     // update screen if enough time has passed
@@ -365,6 +374,16 @@ Parallelism: 2.5
 
         for (StageStats subStage : stage.getSubStages()) {
             printStageTree(subStage, indent + "  ", stageNumberCounter);
+        }
+    }
+
+    private void partialCancel()
+    {
+        try {
+            client.cancelLeafStage(new Duration(1, SECONDS));
+        }
+        catch (RuntimeException e) {
+            log.debug(e, "error canceling leaf stage");
         }
     }
 
