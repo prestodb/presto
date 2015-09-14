@@ -46,6 +46,7 @@ public final class StreamReaders
             case LIST:
                 return new ListStreamReader(streamDescriptor, hiveStorageTimeZone);
             case STRUCT:
+                return new StructStreamReader(streamDescriptor, hiveStorageTimeZone);
             case MAP:
                 return new BlockStreamReader(streamDescriptor, hiveStorageTimeZone);
             case UNION:
