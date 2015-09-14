@@ -32,6 +32,7 @@ public class CachingHiveMetastoreStats
     private final HiveMetastoreApiStats alterTable = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats addPartitions = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats dropPartition = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats dropPartitionByName = new HiveMetastoreApiStats();
 
     @Managed
     @Nested
@@ -129,5 +130,12 @@ public class CachingHiveMetastoreStats
     public HiveMetastoreApiStats getDropPartition()
     {
         return dropPartition;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getDropPartitionByName()
+    {
+        return dropPartitionByName;
     }
 }

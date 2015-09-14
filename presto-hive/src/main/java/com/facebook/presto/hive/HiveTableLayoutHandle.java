@@ -13,15 +13,17 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveTableLayoutHandle
@@ -29,18 +31,21 @@ public final class HiveTableLayoutHandle
 {
     private final String clientId;
     private final List<HivePartition> partitions;
+    private final TupleDomain<ColumnHandle> promisedPredicate;
 
     @JsonCreator
-    public HiveTableLayoutHandle(@JsonProperty("clientId") String clientId)
+    public HiveTableLayoutHandle(@JsonProperty("clientId") String clientId, @JsonProperty("promisedPredicate") TupleDomain<ColumnHandle> promisedPredicate)
     {
         this.clientId = requireNonNull(clientId, "clientId is null");
         this.partitions = null;
+        this.promisedPredicate = requireNonNull(promisedPredicate, "promisedPredicate is null");
     }
 
-    public HiveTableLayoutHandle(String clientId, List<HivePartition> partitions)
+    public HiveTableLayoutHandle(String clientId, List<HivePartition> partitions, TupleDomain<ColumnHandle> promisedPredicate)
     {
         this.clientId = requireNonNull(clientId, "clientId is null");
         this.partitions = requireNonNull(partitions, "partitions is null");
+        this.promisedPredicate = requireNonNull(promisedPredicate, "promisedPredicate is null");
     }
 
     @JsonProperty
@@ -49,11 +54,21 @@ public final class HiveTableLayoutHandle
         return clientId;
     }
 
+    /**
+     * Partitions are dropped when HiveTableLayoutHandle is serialized.
+     *
+     * @return list of partitions if avaiable, Optional.empty() if dropped
+     */
     @JsonIgnore
-    public List<HivePartition> getPartitions()
+    public Optional<List<HivePartition>> getPartitions()
     {
-        checkState(partitions != null, "Partitions dropped by serialization");
-        return partitions;
+        return Optional.ofNullable(partitions);
+    }
+
+    @JsonProperty
+    public TupleDomain<ColumnHandle> getPromisedPredicate()
+    {
+        return promisedPredicate;
     }
 
     @Override

@@ -96,7 +96,7 @@ public class HivePartitionManager
         requireNonNull(effectivePredicate, "effectivePredicate is null");
 
         if (effectivePredicate.isNone()) {
-            return new HivePartitionResult(ImmutableList.of(), TupleDomain.none());
+            return new HivePartitionResult(ImmutableList.of(), TupleDomain.none(), TupleDomain.none());
         }
 
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
@@ -106,7 +106,7 @@ public class HivePartitionManager
         TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate, domainCompactionThreshold);
 
         if (table.getPartitionKeys().isEmpty()) {
-            return new HivePartitionResult(ImmutableList.of(new HivePartition(tableName, compactEffectivePredicate, bucket)), effectivePredicate);
+            return new HivePartitionResult(ImmutableList.of(new HivePartition(tableName, compactEffectivePredicate, bucket)), effectivePredicate, TupleDomain.none());
         }
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(connectorId, table);
@@ -123,8 +123,9 @@ public class HivePartitionManager
         }
 
         // All partition key domains will be fully evaluated, so we don't need to include those
-        TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains(), not(Predicates.<ColumnHandle>in(partitionColumns))));
-        return new HivePartitionResult(partitions.build(), remainingTupleDomain);
+        TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains(), not(Predicates.in(partitionColumns))));
+        TupleDomain<ColumnHandle> enforcedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains(), Predicates.in(partitionColumns)));
+        return new HivePartitionResult(partitions.build(), remainingTupleDomain, enforcedTupleDomain);
     }
 
     private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate, int threshold)

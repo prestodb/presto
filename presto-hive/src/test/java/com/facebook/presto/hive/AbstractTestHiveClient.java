@@ -68,9 +68,11 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.Ints;
 import io.airlift.json.JsonCodec;
@@ -101,9 +103,12 @@ import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static com.facebook.presto.hive.HiveMetadata.convertToPredicate;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
@@ -224,6 +229,7 @@ public abstract class AbstractTestHiveClient
     protected SchemaTableName temporaryCreateEmptyTable;
     protected SchemaTableName temporaryInsertTable;
     protected SchemaTableName temporaryInsertPartitionedTable;
+    protected SchemaTableName temporaryMetadataDeleteTable;
     protected SchemaTableName temporaryRenameTableOld;
     protected SchemaTableName temporaryRenameTableNew;
     protected SchemaTableName temporaryCreateView;
@@ -238,6 +244,7 @@ public abstract class AbstractTestHiveClient
     protected ColumnHandle invalidColumnHandle;
 
     protected int partitionCount;
+    protected TupleDomain<ColumnHandle> tupleDomain;
     protected ConnectorTableLayout tableLayout;
     protected ConnectorTableLayout unpartitionedTableLayout;
     protected ConnectorTableLayoutHandle invalidTableLayoutHandle;
@@ -295,6 +302,7 @@ public abstract class AbstractTestHiveClient
         temporaryCreateEmptyTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         temporaryInsertTable = new SchemaTableName(database, "tmp_presto_test_insert_" + randomName());
         temporaryInsertPartitionedTable = new SchemaTableName(database, "tmp_presto_test_insert_partitioned_" + randomName());
+        temporaryMetadataDeleteTable = new SchemaTableName(database, "tmp_presto_test_metadata_delete_" + randomName());
         temporaryRenameTableOld = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
         temporaryRenameTableNew = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
         temporaryCreateView = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
@@ -302,8 +310,9 @@ public abstract class AbstractTestHiveClient
         invalidClientId = "hive";
         invalidTableHandle = new HiveTableHandle(invalidClientId, database, INVALID_TABLE);
         invalidTableLayoutHandle = new HiveTableLayoutHandle(invalidClientId,
-                ImmutableList.of(new HivePartition(invalidTable, TupleDomain.<HiveColumnHandle>all(), "unknown", ImmutableMap.of(), Optional.empty())));
-        emptyTableLayoutHandle = new HiveTableLayoutHandle(invalidClientId, ImmutableList.of());
+                ImmutableList.of(new HivePartition(invalidTable, TupleDomain.all(), "unknown", ImmutableMap.of(), Optional.empty())),
+                TupleDomain.all());
+        emptyTableLayoutHandle = new HiveTableLayoutHandle(invalidClientId, ImmutableList.of(), TupleDomain.none());
 
         dsColumn = new HiveColumnHandle(connectorId, "ds", HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);
         fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);
@@ -353,8 +362,9 @@ public abstract class AbstractTestHiveClient
                         Optional.empty()))
                 .build();
         partitionCount = partitions.size();
+        tupleDomain = TupleDomain.withFixedValues(ImmutableMap.of(dsColumn, "2012-12-29"));
         tableLayout = new ConnectorTableLayout(
-                new HiveTableLayoutHandle(clientId, partitions),
+                new HiveTableLayoutHandle(clientId, partitions, tupleDomain),
                 Optional.empty(),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         dsColumn, Domain.create(SortedRangeSet.of(Range.equal(utf8Slice("2012-12-29"))), false),
@@ -382,7 +392,7 @@ public abstract class AbstractTestHiveClient
                 ImmutableList.of());
         List<HivePartition> unpartitionedPartitions = ImmutableList.of(new HivePartition(tableUnpartitioned, TupleDomain.<HiveColumnHandle>all()));
         unpartitionedTableLayout = new ConnectorTableLayout(
-                new HiveTableLayoutHandle(clientId, unpartitionedPartitions),
+                new HiveTableLayoutHandle(clientId, unpartitionedPartitions, TupleDomain.all()),
                 Optional.empty(),
                 TupleDomain.all(),
                 Optional.empty(),
@@ -551,7 +561,7 @@ public abstract class AbstractTestHiveClient
         HiveTableLayoutHandle actual = (HiveTableLayoutHandle) actualTableLayoutHandle;
         HiveTableLayoutHandle expected = (HiveTableLayoutHandle) expectedTableLayoutHandle;
         assertEquals(actual.getClientId(), expected.getClientId());
-        assertExpectedPartitions(actual.getPartitions(), expected.getPartitions());
+        assertExpectedPartitions(actual.getPartitions().get(), expected.getPartitions().get());
     }
 
     protected void assertExpectedPartitions(List<?> actualPartitions, Iterable<?> expectedPartitions)
@@ -1294,6 +1304,20 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testMetadataDelete()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : createTableFormats) {
+            try {
+                doMetadataDelete(storageFormat, temporaryMetadataDeleteTable);
+            }
+            finally {
+                dropTable(temporaryMetadataDeleteTable);
+            }
+        }
+    }
+
+    @Test
     public void testSampledTableCreation()
             throws Exception
     {
@@ -1758,6 +1782,75 @@ public abstract class AbstractTestHiveClient
         metadata.commitInsert(session, insertTableHandle, fragments);
     }
 
+    private void doMetadataDelete(HiveStorageFormat storageFormat, SchemaTableName tableName)
+            throws Exception
+    {
+        // creating the table
+        doCreateEmptyTable(tableName, storageFormat, CREATE_TABLE_COLUMNS_PARTITIONED);
+
+        // verify table directory is empty
+        Set<String> initialFiles = listAllDataFiles(tableName.getSchemaName(), tableName.getTableName());
+        assertTrue(initialFiles.isEmpty());
+
+        MaterializedResult.Builder expectedResultBuilder = MaterializedResult.resultBuilder(SESSION, CREATE_TABLE_PARTITIONED_DATA.getTypes());
+        ConnectorTableHandle tableHandle = getTableHandle(tableName);
+        for (int i = 0; i < 3; i++) {
+            insertData(tableHandle, CREATE_TABLE_PARTITIONED_DATA, SESSION);
+            expectedResultBuilder.rows(CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows());
+        }
+
+        // verify partitions were created
+        List<String> partitionNames = getMetastoreClient(tableName.getSchemaName()).getPartitionNames(tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new PrestoException(HIVE_METASTORE_ERROR, "Partition metadata not available"));
+        assertEqualsIgnoreOrder(partitionNames, CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows().stream()
+                .map(row -> "ds=" + row.getField(CREATE_TABLE_PARTITIONED_DATA.getTypes().size() - 1))
+                .collect(toList()));
+
+        // verify table directory is not empty
+        Set<String> filesAfterInsert = listAllDataFiles(tableName.getSchemaName(), tableName.getTableName());
+        assertFalse(filesAfterInsert.isEmpty());
+
+        // verify the data
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
+        MaterializedResult result = readTable(tableHandle, columnHandles, SESSION, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat));
+        assertEqualsIgnoreOrder(result.getMaterializedRows(), expectedResultBuilder.build().getMaterializedRows());
+
+        // get ds column handle
+        Map<String, HiveColumnHandle> columnHandleMap = columnHandles.stream()
+                .map(columnHandle -> (HiveColumnHandle) columnHandle)
+                .collect(Collectors.toMap(HiveColumnHandle::getName, Function.identity()));
+        HiveColumnHandle dsColumnHandle = columnHandleMap.get("ds");
+        int dsColumnOrdinalPosition = columnHandles.indexOf(dsColumnHandle);
+
+        // delete ds=2015-07-03
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withFixedValues(ImmutableMap.of(dsColumnHandle, utf8Slice("2015-07-03")));
+        Constraint<ColumnHandle> constraint = new Constraint<>(tupleDomain, convertToPredicate(tupleDomain));
+        List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(SESSION, tableHandle, constraint, Optional.empty());
+        ConnectorTableLayoutHandle tableLayoutHandle = Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
+        metadata.metadataDelete(SESSION, tableHandle, tableLayoutHandle);
+        // verify the data
+        ImmutableList<MaterializedRow> expectedRows = expectedResultBuilder.build().getMaterializedRows().stream()
+                .filter(row -> !"2015-07-03".equals(row.getField(dsColumnOrdinalPosition)))
+                .collect(ImmutableCollectors.toImmutableList());
+        MaterializedResult actualAfterDelete = readTable(tableHandle, columnHandles, SESSION, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat));
+        assertEqualsIgnoreOrder(actualAfterDelete.getMaterializedRows(), expectedRows);
+
+        // delete ds=2015-07-01 and 2015-07-02
+        TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(dsColumnHandle, Domain.create(SortedRangeSet.of(Range.range(utf8Slice("2015-07-01"), true, utf8Slice("2015-07-02"), true)), false)));
+        Constraint<ColumnHandle> constraint2 = new Constraint<>(tupleDomain2, convertToPredicate(tupleDomain2));
+        List<ConnectorTableLayoutResult> tableLayoutResults2 = metadata.getTableLayouts(SESSION, tableHandle, constraint2, Optional.empty());
+        ConnectorTableLayoutHandle tableLayoutHandle2 = Iterables.getOnlyElement(tableLayoutResults2).getTableLayout().getHandle();
+        metadata.metadataDelete(SESSION, tableHandle, tableLayoutHandle2);
+        // verify the data
+        MaterializedResult actualAfterDelete2 = readTable(tableHandle, columnHandles, SESSION, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat));
+        assertEqualsIgnoreOrder(actualAfterDelete2.getMaterializedRows(), ImmutableList.of());
+
+        // verify table directory is empty
+        Set<String> filesAfterDelete = listAllDataFiles(tableName.getSchemaName(), tableName.getTableName());
+        assertTrue(filesAfterDelete.isEmpty());
+    }
+
     protected void assertGetRecordsOptional(String tableName, HiveStorageFormat hiveStorageFormat)
             throws Exception
     {
@@ -2070,7 +2163,7 @@ public abstract class AbstractTestHiveClient
 
     protected List<?> getAllPartitions(ConnectorTableLayoutHandle layoutHandle)
     {
-        return ((HiveTableLayoutHandle) layoutHandle).getPartitions();
+        return ((HiveTableLayoutHandle) layoutHandle).getPartitions().get();
     }
 
     protected String getPartitionId(Object partition)

@@ -32,11 +32,13 @@ public class HivePartitionResult
 {
     private final List<HivePartition> partitions;
     private final TupleDomain<ColumnHandle> unenforcedConstraint;
+    private final TupleDomain<ColumnHandle> enforcedConstraint;
 
-    public HivePartitionResult(List<HivePartition> partitions, TupleDomain<ColumnHandle> unenforcedConstraint)
+    public HivePartitionResult(List<HivePartition> partitions, TupleDomain<ColumnHandle> unenforcedConstraint, TupleDomain<ColumnHandle> enforcedConstraint)
     {
         this.partitions = requireNonNull(partitions, "partitions is null");
         this.unenforcedConstraint = requireNonNull(unenforcedConstraint, "unenforcedConstraint is null");
+        this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
     }
 
     public List<HivePartition> getPartitions()
@@ -47,5 +49,10 @@ public class HivePartitionResult
     public TupleDomain<ColumnHandle> getUnenforcedConstraint()
     {
         return unenforcedConstraint;
+    }
+
+    public TupleDomain<ColumnHandle> getEnforcedConstraint()
+    {
+        return enforcedConstraint;
     }
 }

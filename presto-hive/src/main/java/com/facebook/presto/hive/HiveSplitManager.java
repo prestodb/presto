@@ -145,7 +145,7 @@ public class HiveSplitManager
     {
         HiveTableLayoutHandle layout = checkType(layoutHandle, HiveTableLayoutHandle.class, "layoutHandle");
 
-        List<HivePartition> partitions = Lists.transform(layout.getPartitions(), partition -> checkType(partition, HivePartition.class, "partition"));
+        List<HivePartition> partitions = Lists.transform(layout.getPartitions().get(), partition -> checkType(partition, HivePartition.class, "partition"));
 
         HivePartition partition = Iterables.getFirst(partitions, null);
         if (partition == null) {
