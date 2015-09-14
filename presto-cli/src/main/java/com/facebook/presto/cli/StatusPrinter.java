@@ -217,8 +217,9 @@ Parallelism: 2.5
                     stats.getTotalSplits());
             reprintLine(querySummary);
 
-            if (client.isDebug()) {
-                reprintLine(results.getInfoUri() + "?pretty");
+            String url = results.getInfoUri() + "?pretty";
+            if (client.isDebug() && (url.length() < terminalWidth)) {
+                reprintLine(url);
             }
 
             if ((nodes == 0) || (stats.getTotalSplits() == 0)) {
