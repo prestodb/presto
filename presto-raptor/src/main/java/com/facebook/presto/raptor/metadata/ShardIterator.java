@@ -96,9 +96,9 @@ final class ShardIterator
     public void close()
     {
         // use try-with-resources to close everything properly
-        try (ResultSet resultSet = this.resultSet;
+        try (Connection connection = this.connection;
                 Statement statement = this.statement;
-                Connection connection = this.connection) {
+                ResultSet resultSet = this.resultSet) {
             // do nothing
         }
         catch (SQLException ignored) {
