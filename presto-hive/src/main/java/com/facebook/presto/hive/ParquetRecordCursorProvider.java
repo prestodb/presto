@@ -90,6 +90,7 @@ public class ParquetRecordCursorProvider
                 partitionKeys,
                 columns,
                 useParquetColumnNames,
+                hiveStorageTimeZone,
                 typeManager));
     }
 
@@ -97,8 +98,7 @@ public class ParquetRecordCursorProvider
     {
         return columnHandle -> {
             HiveType hiveType = columnHandle.getHiveType();
-            return !hiveType.equals(HiveType.HIVE_TIMESTAMP) &&
-                    !hiveType.equals(HiveType.HIVE_DATE) &&
+            return !hiveType.equals(HiveType.HIVE_DATE) &&
                     !hiveType.equals(HiveType.HIVE_BINARY);
         };
     }
